@@ -76,3 +76,9 @@ func (s *TestSuite) TestRestTime(c *C) {
 	}
 	c.Assert(time, NotNil)
 }
+
+func (s *TestSuite) TestRestPublish(c *C) {
+	channel := s.client.Channel("test")
+	err := channel.Publish(&Message{Name: "foo", Data: "woop!"})
+	c.Assert(err, IsNil)
+}

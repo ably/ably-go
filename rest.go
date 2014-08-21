@@ -16,11 +16,17 @@ type Params struct {
 }
 
 func RestClient(params Params) *Client {
-	return &Client{Params: params}
+	return &Client{
+		Params:   params,
+		channels: make(map[string]*Channel),
+	}
 }
 
 type Client struct {
 	Params
+
+	channels map[string]*Channel
+	chanMtx  sync.Mutex
 }
 
 func (c *Client) Time() (*time.Time, error) {
@@ -34,6 +40,19 @@ func (c *Client) Time() (*time.Time, error) {
 	}
 	t := time.Unix(times[0]/1000, times[0]%1000)
 	return &t, nil
+}
+
+func (c *Client) Channel(name string) *Channel {
+	c.chanMtx.Lock()
+	defer c.chanMtx.Unlock()
+
+	if ch, ok := c.channels[name]; ok {
+		return ch
+	}
+
+	ch := &Channel{Name: name, client: c}
+	c.channels[name] = ch
+	return ch
 }
 
 func (c *Client) Get(path string, data interface{}) (*http.Response, error) {
