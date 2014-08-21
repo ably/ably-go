@@ -112,3 +112,44 @@ func (s *TestSuite) TestRestHistory(c *C) {
 		}
 	}
 }
+
+func (s *TestSuite) TestRestStats(c *C) {
+	// Wait until the start of the next minute according to the service
+	// time because stats are created in 1 minute intervals
+	serviceTime, err := s.client.Time()
+	if err != nil {
+		c.Fatal(err)
+	}
+	since := serviceTime.Add(time.Minute - time.Duration(serviceTime.Second())*time.Second)
+	sleep := since.Sub(*serviceTime) + time.Second
+	log.Printf("TestRestStats: service time is %s, sleeping %ds for clean stats", serviceTime.Format("15:04:05"), int(sleep.Seconds()))
+	time.Sleep(sleep)
+
+	channels := 3
+	msgsPerChan := 10
+
+	for i := 0; i < channels; i++ {
+		channel := s.client.Channel(fmt.Sprintf("stats-%d", i))
+
+		for j := 0; j < msgsPerChan; j++ {
+			if err := channel.Publish(&Message{
+				Name: fmt.Sprintf("name-%d", j),
+				Data: fmt.Sprintf("data-%d", j),
+			}); err != nil {
+				c.Fatalf("Failed to publish message: %s", err)
+			}
+		}
+	}
+
+	time.Sleep(10 * time.Second)
+
+	stats, err := s.client.Stats(since)
+	if err != nil {
+		c.Fatal(err)
+	}
+	c.Assert(stats, HasLen, 1)
+	c.Assert(stats[0].All["all"]["count"], Equals, channels*msgsPerChan)
+	c.Assert(stats[0].Inbound["all"]["all"]["count"], Equals, channels*msgsPerChan)
+	c.Assert(stats[0].Inbound["rest"]["all"]["count"], Equals, channels*msgsPerChan)
+	c.Assert(stats[0].Channels["opened"], Equals, float32(channels))
+}

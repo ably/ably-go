@@ -55,6 +55,28 @@ func (c *Client) Channel(name string) *Channel {
 	return ch
 }
 
+type Stat struct {
+	All           map[string]map[string]int
+	Inbound       map[string]map[string]map[string]int
+	Outbound      map[string]map[string]map[string]int
+	Persisted     map[string]map[string]int
+	Connections   map[string]map[string]int
+	Channels      map[string]float32
+	ApiRequests   map[string]int
+	TokenRequests map[string]int
+	Count         int
+	IntervalId    string
+}
+
+func (c *Client) Stats(since time.Time) ([]*Stat, error) {
+	stats := []*Stat{}
+	_, err := c.Get(fmt.Sprintf("/stats?start=%d", since.Unix()), &stats)
+	if err != nil {
+		return nil, err
+	}
+	return stats, nil
+}
+
 func (c *Client) Get(path string, data interface{}) (*http.Response, error) {
 	req, err := http.NewRequest("GET", c.Endpoint+path, nil)
 	if err != nil {
