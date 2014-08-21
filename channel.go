@@ -21,3 +21,12 @@ func (c *Channel) Publish(msg *Message) error {
 	}
 	return nil
 }
+
+func (c *Channel) History() ([]*Message, error) {
+	msgs := []*Message{}
+	_, err := c.client.Get("/channels/"+c.Name+"/history", &msgs)
+	if err != nil {
+		return nil, err
+	}
+	return msgs, nil
+}

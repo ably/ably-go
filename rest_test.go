@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	. "gopkg.in/check.v1"
 )
@@ -81,4 +82,33 @@ func (s *TestSuite) TestRestPublish(c *C) {
 	channel := s.client.Channel("test")
 	err := channel.Publish(&Message{Name: "foo", Data: "woop!"})
 	c.Assert(err, IsNil)
+}
+
+func (s *TestSuite) TestRestHistory(c *C) {
+	channel := s.client.Channel("persisted")
+	msgs := map[string]string{
+		"Test1": "foo",
+		"Test2": "bar",
+		"Test3": "baz",
+	}
+
+	for name, data := range msgs {
+		if err := channel.Publish(&Message{Name: name, Data: data}); err != nil {
+			c.Fatalf("Failed to publish %s message: %s", name, err)
+		}
+	}
+
+	time.Sleep(10 * time.Second)
+
+	history, err := channel.History()
+	c.Assert(err, IsNil)
+	for _, msg := range history {
+		data, ok := msgs[msg.Name]
+		if !ok {
+			c.Fatalf("Unexpected message %v", msg)
+		}
+		if data != msg.Data {
+			c.Fatalf("Expected message %s to have value %s, got %s", msg.Name, data, msg.Data)
+		}
+	}
 }
