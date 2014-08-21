@@ -54,9 +54,7 @@ var _ = Suite(&TestSuite{
 func (s *TestSuite) SetUpSuite(c *C) {
 	log.Println("Creating test app via", s.client.Endpoint)
 	_, err := s.client.Post("/apps", s.testApp, s.testApp)
-	if err != nil {
-		c.Fatal(err)
-	}
+	c.Assert(err, IsNil)
 	log.Println("Got test app with ID", s.testApp.ID)
 	s.client.AppID = s.testApp.AppID()
 	s.client.AppSecret = s.testApp.AppSecret()
@@ -72,9 +70,7 @@ func (s *TestSuite) TearDownSuite(c *C) {
 
 func (s *TestSuite) TestRestTime(c *C) {
 	time, err := s.client.Time()
-	if err != nil {
-		c.Fatal(err)
-	}
+	c.Assert(err, IsNil)
 	c.Assert(time, NotNil)
 }
 
@@ -117,9 +113,7 @@ func (s *TestSuite) TestRestStats(c *C) {
 	// Wait until the start of the next minute according to the service
 	// time because stats are created in 1 minute intervals
 	serviceTime, err := s.client.Time()
-	if err != nil {
-		c.Fatal(err)
-	}
+	c.Assert(err, IsNil)
 	since := serviceTime.Add(time.Minute - time.Duration(serviceTime.Second())*time.Second)
 	sleep := since.Sub(*serviceTime) + time.Second
 	log.Printf("TestRestStats: service time is %s, sleeping %ds for clean stats", serviceTime.Format("15:04:05"), int(sleep.Seconds()))
