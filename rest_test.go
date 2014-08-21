@@ -144,12 +144,20 @@ func (s *TestSuite) TestRestStats(c *C) {
 	time.Sleep(10 * time.Second)
 
 	stats, err := s.client.Stats(since)
-	if err != nil {
-		c.Fatal(err)
-	}
+	c.Assert(err, IsNil)
 	c.Assert(stats, HasLen, 1)
 	c.Assert(stats[0].All["all"]["count"], Equals, channels*msgsPerChan)
 	c.Assert(stats[0].Inbound["all"]["all"]["count"], Equals, channels*msgsPerChan)
 	c.Assert(stats[0].Inbound["rest"]["all"]["count"], Equals, channels*msgsPerChan)
 	c.Assert(stats[0].Channels["opened"], Equals, float32(channels))
+}
+
+func (s *TestSuite) TestRestToken(c *C) {
+	ttl := 60 * 60
+	capability := &Capability{"foo": []string{"publish"}}
+	token, err := s.client.RequestToken(ttl, capability)
+	c.Assert(err, IsNil)
+	c.Assert(token.ID, Matches, s.testApp.ID+"\\..*")
+	c.Assert(token.Key, Equals, s.testApp.AppID())
+	c.Assert(token.Capability, DeepEquals, capability)
 }

@@ -2,17 +2,25 @@ package ably
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/flynn/flynn/pkg/random"
 )
 
 type Params struct {
 	Endpoint  string
 	AppID     string
 	AppSecret string
+	ClientID  string
 }
 
 func RestClient(params Params) *Client {
@@ -75,6 +83,62 @@ func (c *Client) Stats(since time.Time) ([]*Stat, error) {
 		return nil, err
 	}
 	return stats, nil
+}
+
+type Token struct {
+	ID         string      `json:"id"`
+	Key        string      `json:"key"`
+	Capability *Capability `json:"capability"`
+}
+
+type tokenRequest struct {
+	ID         string `json:"id"`
+	TTL        int    `json:"ttl"`
+	Capability string `json:"capability"`
+	ClientID   string `json:"client_id"`
+	Timestamp  int64  `json:"timestamp"`
+	Nonce      string `json:"nonce"`
+	Mac        string `json:"mac"`
+}
+
+func (t *tokenRequest) Sign(secret string) {
+	params := []string{
+		t.ID,
+		strconv.Itoa(t.TTL),
+		t.Capability,
+		t.ClientID,
+		strconv.Itoa(int(t.Timestamp)),
+		t.Nonce,
+	}
+	s := strings.Join(params, "\n") + "\n"
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(s))
+
+	t.Mac = base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
+type tokenResponse struct {
+	AccessToken *Token `json:"access_token"`
+}
+
+func (c *Client) RequestToken(ttl int, cap *Capability) (*Token, error) {
+	req := &tokenRequest{
+		ID:         c.AppID,
+		TTL:        ttl,
+		Capability: cap.String(),
+		ClientID:   c.ClientID,
+		Timestamp:  time.Now().Unix(),
+		Nonce:      random.String(32),
+	}
+	req.Sign(c.AppSecret)
+
+	res := &tokenResponse{}
+	_, err := c.Post("/keys/"+c.AppID+"/requestToken", req, res)
+	if err != nil {
+		return nil, err
+	}
+	return res.AccessToken, nil
 }
 
 func (c *Client) Get(path string, data interface{}) (*http.Response, error) {
