@@ -1,4 +1,4 @@
-package ably
+package rest
 
 import (
 	"bytes"
@@ -13,17 +13,12 @@ import (
 	"sync"
 	"time"
 
+	"bitbucket.org/ably/ably-go"
+
 	"github.com/flynn/flynn/pkg/random"
 )
 
-type Params struct {
-	Endpoint  string
-	AppID     string
-	AppSecret string
-	ClientID  string
-}
-
-func RestClient(params Params) *Client {
+func NewClient(params ably.Params) *Client {
 	return &Client{
 		Params:   params,
 		channels: make(map[string]*Channel),
@@ -31,7 +26,7 @@ func RestClient(params Params) *Client {
 }
 
 type Client struct {
-	Params
+	ably.Params
 
 	channels map[string]*Channel
 	chanMtx  sync.Mutex
@@ -86,9 +81,9 @@ func (c *Client) Stats(since time.Time) ([]*Stat, error) {
 }
 
 type Token struct {
-	ID         string      `json:"id"`
-	Key        string      `json:"key"`
-	Capability *Capability `json:"capability"`
+	ID         string           `json:"id"`
+	Key        string           `json:"key"`
+	Capability *ably.Capability `json:"capability"`
 }
 
 type tokenRequest struct {
@@ -122,7 +117,7 @@ type tokenResponse struct {
 	AccessToken *Token `json:"access_token"`
 }
 
-func (c *Client) RequestToken(ttl int, cap *Capability) (*Token, error) {
+func (c *Client) RequestToken(ttl int, cap *ably.Capability) (*Token, error) {
 	req := &tokenRequest{
 		ID:         c.AppID,
 		TTL:        ttl,
@@ -142,7 +137,7 @@ func (c *Client) RequestToken(ttl int, cap *Capability) (*Token, error) {
 }
 
 func (c *Client) Get(path string, data interface{}) (*http.Response, error) {
-	req, err := http.NewRequest("GET", c.Endpoint+path, nil)
+	req, err := http.NewRequest("GET", c.RestEndpoint+path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +156,7 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", c.Endpoint+path, bytes.NewBuffer(buf))
+	req, err := http.NewRequest("POST", c.RestEndpoint+path, bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +178,7 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 }
 
 func (c *Client) Delete(path string) (*http.Response, error) {
-	req, err := http.NewRequest("DELETE", c.Endpoint+path, nil)
+	req, err := http.NewRequest("DELETE", c.RestEndpoint+path, nil)
 	if err != nil {
 		return nil, err
 	}

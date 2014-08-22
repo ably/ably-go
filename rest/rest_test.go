@@ -1,10 +1,12 @@
-package ably
+package rest
 
 import (
 	"fmt"
 	"log"
 	"testing"
 	"time"
+
+	"bitbucket.org/ably/ably-go"
 
 	. "gopkg.in/check.v1"
 )
@@ -48,11 +50,11 @@ var _ = Suite(&TestSuite{
 			{ID: "persisted", Persisted: true},
 		},
 	},
-	client: RestClient(Params{Endpoint: "https://sandbox-rest.ably.io"}),
+	client: NewClient(ably.Params{RestEndpoint: "https://sandbox-rest.ably.io"}),
 })
 
 func (s *TestSuite) SetUpSuite(c *C) {
-	log.Println("Creating test app via", s.client.Endpoint)
+	log.Println("Creating test app via", s.client.RestEndpoint)
 	_, err := s.client.Post("/apps", s.testApp, s.testApp)
 	c.Assert(err, IsNil)
 	log.Println("Got test app with ID", s.testApp.ID)
@@ -65,7 +67,7 @@ func (s *TestSuite) TearDownSuite(c *C) {
 		return
 	}
 	log.Println("Deleting test app with ID", s.testApp.ID)
-	s.client.Delete("/apps/" + s.testApp.ID)
+	// s.client.Delete("/apps/" + s.testApp.ID)
 }
 
 func (s *TestSuite) TestRestTime(c *C) {
@@ -76,7 +78,7 @@ func (s *TestSuite) TestRestTime(c *C) {
 
 func (s *TestSuite) TestRestPublish(c *C) {
 	channel := s.client.Channel("test")
-	err := channel.Publish(&Message{Name: "foo", Data: "woop!"})
+	err := channel.Publish("foo", "woop!")
 	c.Assert(err, IsNil)
 }
 
@@ -89,7 +91,7 @@ func (s *TestSuite) TestRestHistory(c *C) {
 	}
 
 	for name, data := range msgs {
-		if err := channel.Publish(&Message{Name: name, Data: data}); err != nil {
+		if err := channel.Publish(name, data); err != nil {
 			c.Fatalf("Failed to publish %s message: %s", name, err)
 		}
 	}
@@ -126,10 +128,10 @@ func (s *TestSuite) TestRestStats(c *C) {
 		channel := s.client.Channel(fmt.Sprintf("stats-%d", i))
 
 		for j := 0; j < msgsPerChan; j++ {
-			if err := channel.Publish(&Message{
-				Name: fmt.Sprintf("name-%d", j),
-				Data: fmt.Sprintf("data-%d", j),
-			}); err != nil {
+			if err := channel.Publish(
+				fmt.Sprintf("name-%d", j),
+				fmt.Sprintf("data-%d", j),
+			); err != nil {
 				c.Fatalf("Failed to publish message: %s", err)
 			}
 		}
@@ -148,7 +150,7 @@ func (s *TestSuite) TestRestStats(c *C) {
 
 func (s *TestSuite) TestRestToken(c *C) {
 	ttl := 60 * 60
-	capability := &Capability{"foo": []string{"publish"}}
+	capability := &ably.Capability{"foo": []string{"publish"}}
 	token, err := s.client.RequestToken(ttl, capability)
 	c.Assert(err, IsNil)
 	c.Assert(token.ID, Matches, s.testApp.ID+"\\..*")

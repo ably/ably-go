@@ -2,9 +2,12 @@ package ably
 
 import "encoding/json"
 
-type Message struct {
-	Name string `json:"name"`
-	Data string `json:"data"`
+type Params struct {
+	RestEndpoint     string
+	RealtimeEndpoint string
+	AppID            string
+	AppSecret        string
+	ClientID         string
 }
 
 type Capability map[string][]string

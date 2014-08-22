@@ -1,8 +1,10 @@
-package ably
+package rest
 
 import (
 	"fmt"
 	"net/http"
+
+	"bitbucket.org/ably/ably-go/protocol"
 )
 
 type Channel struct {
@@ -11,7 +13,8 @@ type Channel struct {
 	client *Client
 }
 
-func (c *Channel) Publish(msg *Message) error {
+func (c *Channel) Publish(name string, data interface{}) error {
+	msg := &protocol.Message{Name: name, Data: data}
 	res, err := c.client.Post("/channels/"+c.Name+"/messages", msg, nil)
 	if err != nil {
 		return err
@@ -22,8 +25,8 @@ func (c *Channel) Publish(msg *Message) error {
 	return nil
 }
 
-func (c *Channel) History() ([]*Message, error) {
-	msgs := []*Message{}
+func (c *Channel) History() ([]*protocol.Message, error) {
+	msgs := []*protocol.Message{}
 	_, err := c.client.Get("/channels/"+c.Name+"/history", &msgs)
 	if err != nil {
 		return nil, err
