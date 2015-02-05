@@ -40,13 +40,28 @@ var _ = Describe("Channel", func() {
 	})
 
 	Describe("#Publish", func() {
-		It("publishes messages properly", func() {
+		It("publishes a message", func() {
 			err := channel.Publish(event, message)
 			Expect(err).NotTo(HaveOccurred())
 
-			//messages, err := channel.History()
-			//Expect(err).NotTo(HaveOccurred())
-			//Expect(messages[0]).To(Equal())
+			messages, err := channel.History()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(messages[0].Name).To(Equal(event))
+			Expect(messages[0].Data).To(Equal(message))
+		})
+	})
+
+	Describe("#History", func() {
+		BeforeEach(func() {
+			err := channel.Publish(event, message)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("reads messages from history", func() {
+			messages, err := channel.History()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(messages[0].Name).To(Equal(event))
+			Expect(messages[0].Data).To(Equal(message))
 		})
 	})
 })
