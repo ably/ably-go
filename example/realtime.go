@@ -1,3 +1,5 @@
+// +build main2
+
 package main
 
 import (
@@ -6,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"bitbucket.org/ably/ably-go"
-	"bitbucket.org/ably/ably-go/realtime"
+	"github.com/ably/ably-go"
+	"github.com/ably/ably-go/realtime"
 )
 
 func main() {

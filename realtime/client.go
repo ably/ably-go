@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/ably/ably-go"
-	"bitbucket.org/ably/ably-go/protocol"
-	"bitbucket.org/ably/ably-go/rest"
+	"github.com/ably/ably-go"
+	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/rest"
 )
 
 func NewClient(params ably.Params) *Client {

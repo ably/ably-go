@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"sync"
 
-	"bitbucket.org/ably/ably-go/protocol"
+	"github.com/ably/ably-go/protocol"
 
 	"code.google.com/p/go.net/websocket"
 )

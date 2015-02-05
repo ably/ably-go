@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/ably/ably-go"
+	"github.com/ably/ably-go"
 
 	"github.com/flynn/flynn/pkg/random"
 )

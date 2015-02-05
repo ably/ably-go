@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"bitbucket.org/ably/ably-go/protocol"
+	"github.com/ably/ably-go/protocol"
 )
 
 func NewChannel(name string, client *Client) *Channel {

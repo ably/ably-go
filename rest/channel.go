@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"bitbucket.org/ably/ably-go/protocol"
+	"github.com/ably/ably-go/protocol"
 )
 
 type Channel struct {
