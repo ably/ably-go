@@ -1,15 +1,8 @@
 package rest_test
 
 import (
-	"github.com/ably/ably-go/rest"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-)
-
-var (
-	client  *rest.Client
-	channel *rest.Channel
 )
 
 var _ = Describe("Channel", func() {

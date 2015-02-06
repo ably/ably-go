@@ -17,6 +17,11 @@ func TestRest(t *testing.T) {
 	RunSpecs(t, "Rest Suite")
 }
 
+var (
+	client  *rest.Client
+	channel *rest.Channel
+)
+
 var _ = BeforeSuite(func() {
 	_, err := TestAppInstance.Create()
 	Expect(err).NotTo(HaveOccurred())
