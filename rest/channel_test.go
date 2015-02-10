@@ -6,35 +6,18 @@ import (
 )
 
 var _ = Describe("Channel", func() {
-	var (
-		event   string
-		message string
+	const (
+		event   = "sendMessage"
+		message = "A message in a bottle"
 	)
 
-	BeforeEach(func() {
-		event = "sendMessage"
-		message = "A message in a bottle"
-	})
-
-	Describe("#Publish", func() {
-		It("publishes a message", func() {
-			err := channel.Publish(event, message)
-			Expect(err).NotTo(HaveOccurred())
-
-			messages, err := channel.History()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(messages[0].Name).To(Equal(event))
-			Expect(messages[0].Data).To(Equal(message))
-		})
-	})
-
-	Describe("#History", func() {
-		BeforeEach(func() {
+	Describe("publishing a message", func() {
+		It("does not raise an error", func() {
 			err := channel.Publish(event, message)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("reads messages from history", func() {
+		It("is available in the history", func() {
 			messages, err := channel.History()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(messages[0].Name).To(Equal(event))
