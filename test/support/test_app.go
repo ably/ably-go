@@ -55,13 +55,7 @@ func (t *TestApp) ok(status int) bool {
 }
 
 func (t *TestApp) populate(res *http.Response) error {
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(body, &t.Config)
-	if err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&t.Config); err != nil {
 		return err
 	}
 
