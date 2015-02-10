@@ -17,8 +17,8 @@ var _ = Describe("Client", func() {
 			token, err := client.RequestToken(ttl, capability)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(token.ID).To(ContainSubstring(TestAppInstance.Config.AppID))
-			Expect(token.Key).To(Equal(TestAppInstance.AppKeyId()))
+			Expect(token.ID).To(ContainSubstring(testApp.Config.AppID))
+			Expect(token.Key).To(Equal(testApp.AppKeyId()))
 			Expect(token.Capability).To(Equal(capability))
 		})
 	})

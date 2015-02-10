@@ -4,7 +4,7 @@ import (
 	_ "crypto/sha512"
 
 	"github.com/ably/ably-go/rest"
-	. "github.com/ably/ably-go/test/support"
+	"github.com/ably/ably-go/test/support"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -18,19 +18,21 @@ func TestRest(t *testing.T) {
 }
 
 var (
+	testApp *support.TestApp
 	client  *rest.Client
 	channel *rest.Channel
 )
 
 var _ = BeforeSuite(func() {
-	_, err := TestAppInstance.Create()
+	testApp = support.NewTestApp()
+	_, err := testApp.Create()
 	Expect(err).NotTo(HaveOccurred())
 
-	client = rest.NewClient(TestAppInstance.Params)
+	client = rest.NewClient(testApp.Params)
 	channel = client.Channel("test")
 })
 
 var _ = AfterSuite(func() {
-	_, err := TestAppInstance.Delete()
+	_, err := testApp.Delete()
 	Expect(err).NotTo(HaveOccurred())
 })
