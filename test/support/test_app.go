@@ -39,24 +39,24 @@ type testAppConfig struct {
 	Channels   []testAppChannels  `json:"channels"`
 }
 
-type testApp struct {
+type TestApp struct {
 	Params ably.Params
 	Config testAppConfig
 }
 
-func (t *testApp) AppKeyValue() string {
+func (t *TestApp) AppKeyValue() string {
 	return t.Config.Keys[0].Value
 }
 
-func (t *testApp) AppKeyId() string {
+func (t *TestApp) AppKeyId() string {
 	return fmt.Sprintf("%s.%s", t.Config.AppID, t.Config.Keys[0].ID)
 }
 
-func (t *testApp) ok(status int) bool {
+func (t *TestApp) ok(status int) bool {
 	return status == http.StatusOK || status == http.StatusCreated || status == http.StatusNoContent
 }
 
-func (t *testApp) populate(res *http.Response) error {
+func (t *TestApp) populate(res *http.Response) error {
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func (t *testApp) populate(res *http.Response) error {
 	return nil
 }
 
-func (t *testApp) Create() (*http.Response, error) {
+func (t *TestApp) Create() (*http.Response, error) {
 	buf, err := json.Marshal(t.Config)
 	if err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func (t *testApp) Create() (*http.Response, error) {
 	return res, nil
 }
 
-func (t *testApp) Delete() (*http.Response, error) {
+func (t *TestApp) Delete() (*http.Response, error) {
 	req, err := http.NewRequest("DELETE", t.Params.RestEndpoint+"/apps/"+t.Config.AppID, nil)
 	if err != nil {
 		return nil, err
@@ -136,28 +136,30 @@ func (t *testApp) Delete() (*http.Response, error) {
 	return res, nil
 }
 
-var TestAppInstance = &testApp{
-	Params: ably.Params{
-		RealtimeEndpoint: "wss://sandbox-realtime.ably.io:443",
-		RestEndpoint:     "https://sandbox-rest.ably.io",
-	},
-	Config: testAppConfig{
-		Keys: []testAppKey{
-			{},
+func NewTestApp() *TestApp {
+	return &TestApp{
+		Params: ably.Params{
+			RealtimeEndpoint: "wss://sandbox-realtime.ably.io:443",
+			RestEndpoint:     "https://sandbox-rest.ably.io",
 		},
-		Namespaces: []testAppNamespace{
-			{ID: "persisted", Persisted: true},
-		},
-		Channels: []testAppChannels{
-			{
-				Name: "persisted:presence_fixtures",
-				Presence: []testAppPresenceConfig{
-					{ClientID: "client_bool", ClientData: "true"},
-					{ClientID: "client_int", ClientData: "true"},
-					{ClientID: "client_string", ClientData: "true"},
-					{ClientID: "client_json", ClientData: "{ \"test\" => 'This is a JSONObject clientData payload'}"},
+		Config: testAppConfig{
+			Keys: []testAppKey{
+				{},
+			},
+			Namespaces: []testAppNamespace{
+				{ID: "persisted", Persisted: true},
+			},
+			Channels: []testAppChannels{
+				{
+					Name: "persisted:presence_fixtures",
+					Presence: []testAppPresenceConfig{
+						{ClientID: "client_bool", ClientData: "true"},
+						{ClientID: "client_int", ClientData: "true"},
+						{ClientID: "client_string", ClientData: "true"},
+						{ClientID: "client_json", ClientData: "{ \"test\" => 'This is a JSONObject clientData payload'}"},
+					},
 				},
 			},
 		},
-	},
+	}
 }
