@@ -1,3 +1,5 @@
+// +build main2
+
 package main
 
 import (
@@ -7,8 +9,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"bitbucket.org/ably/ably-go"
-	"bitbucket.org/ably/ably-go/rest"
+	"github.com/ably/ably-go"
+	"github.com/ably/ably-go/rest"
 )
 
 func main() {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	_ "crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -13,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/ably/ably-go"
+	"github.com/ably/ably-go"
 
 	"github.com/flynn/flynn/pkg/random"
 )
@@ -171,20 +172,6 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 		defer res.Body.Close()
 		return res, json.NewDecoder(res.Body).Decode(out)
 	}
-	if !c.ok(res.StatusCode) {
-		return res, fmt.Errorf("Unexpected status code %d", res.StatusCode)
-	}
-	return res, nil
-}
-
-func (c *Client) Delete(path string) (*http.Response, error) {
-	req, err := http.NewRequest("DELETE", c.RestEndpoint+path, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.SetBasicAuth(c.AppID, c.AppSecret)
-	res, err := http.DefaultClient.Do(req)
-	defer res.Body.Close()
 	if !c.ok(res.StatusCode) {
 		return res, fmt.Errorf("Unexpected status code %d", res.StatusCode)
 	}
