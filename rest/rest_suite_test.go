@@ -1,8 +1,6 @@
 package rest_test
 
 import (
-	_ "crypto/sha512"
-
 	"github.com/ably/ably-go/rest"
 	"github.com/ably/ably-go/test/support"
 

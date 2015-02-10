@@ -7,8 +7,6 @@ import (
 	"github.com/ably/ably-go"
 	"io/ioutil"
 	"net/http"
-
-	_ "crypto/sha512"
 )
 
 type testAppNamespace struct {

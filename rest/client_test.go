@@ -3,8 +3,6 @@ package rest_test
 import (
 	"github.com/ably/ably-go"
 
-	. "github.com/ably/ably-go/test/support"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
