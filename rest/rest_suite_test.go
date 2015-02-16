@@ -25,7 +25,9 @@ var _ = BeforeSuite(func() {
 	testApp = support.NewTestApp()
 	_, err := testApp.Create()
 	Expect(err).NotTo(HaveOccurred())
+})
 
+var _ = BeforeEach(func() {
 	client = rest.NewClient(testApp.Params)
 	channel = client.Channel("test")
 })

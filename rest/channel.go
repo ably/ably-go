@@ -20,7 +20,10 @@ func (c *Channel) Publish(name string, data interface{}) error {
 		return err
 	}
 	if res.StatusCode != http.StatusCreated {
-		return fmt.Errorf("Expected status %d, got %d", http.StatusCreated, res.StatusCode)
+		return &RestHttpError{
+			Msg:      fmt.Sprintf("Expected status %d, got %d", http.StatusCreated, res.StatusCode),
+			Response: res,
+		}
 	}
 	return nil
 }
