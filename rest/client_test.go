@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/ably/ably-go"
 	"github.com/ably/ably-go/rest"
@@ -83,6 +84,15 @@ var _ = Describe("Client", func() {
 			Expect(token.ID).To(ContainSubstring(testApp.Config.AppID))
 			Expect(token.Key).To(Equal(testApp.AppKeyId()))
 			Expect(token.Capability).To(Equal(capability))
+		})
+	})
+
+	Describe("Time", func() {
+		It("returns server time", func() {
+			t, err := client.Time()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(t.Unix()).To(BeNumerically("<=", time.Now().Unix()))
+			Expect(t.Unix()).To(BeNumerically(">=", time.Now().Add(-2*time.Second).Unix()))
 		})
 	})
 })
