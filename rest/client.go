@@ -149,10 +149,7 @@ func (c *Client) Get(path string, data interface{}) (*http.Response, error) {
 	req.SetBasicAuth(c.AppID, c.AppSecret)
 	res, err := c.HttpClient.Do(req)
 	if !c.ok(res.StatusCode) {
-		return res, &RestHttpError{
-			Msg:      fmt.Sprintf("Unexpected status code %d", res.StatusCode),
-			Response: res,
-		}
+		return res, NewRestHttpError(res, fmt.Sprintf("Unexpected status code %d", res.StatusCode))
 	}
 	defer res.Body.Close()
 	return res, json.NewDecoder(res.Body).Decode(data)
@@ -175,10 +172,7 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 		return nil, err
 	}
 	if !c.ok(res.StatusCode) {
-		return res, &RestHttpError{
-			Msg:      fmt.Sprintf("Unexpected status code %d", res.StatusCode),
-			Response: res,
-		}
+		return res, NewRestHttpError(res, fmt.Sprintf("Unexpected status code %d", res.StatusCode))
 	}
 	if out != nil && c.ok(res.StatusCode) {
 		defer res.Body.Close()

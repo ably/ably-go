@@ -1,11 +1,6 @@
 package rest
 
-import (
-	"fmt"
-	"net/http"
-
-	"github.com/ably/ably-go/protocol"
-)
+import "github.com/ably/ably-go/protocol"
 
 type Channel struct {
 	Name string
@@ -15,15 +10,9 @@ type Channel struct {
 
 func (c *Channel) Publish(name string, data interface{}) error {
 	msg := &protocol.Message{Name: name, Data: data}
-	res, err := c.client.Post("/channels/"+c.Name+"/messages", msg, nil)
+	_, err := c.client.Post("/channels/"+c.Name+"/messages", msg, nil)
 	if err != nil {
 		return err
-	}
-	if res.StatusCode != http.StatusCreated {
-		return &RestHttpError{
-			Msg:      fmt.Sprintf("Expected status %d, got %d", http.StatusCreated, res.StatusCode),
-			Response: res,
-		}
 	}
 	return nil
 }

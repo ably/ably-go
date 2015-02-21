@@ -9,22 +9,26 @@ type RestHttpError struct {
 	Msg      string
 	Response *http.Response
 
-	responseBody string
+	ResponseBody string
+}
+
+func NewRestHttpError(response *http.Response, message string) *RestHttpError {
+	err := &RestHttpError{Response: response, Msg: message}
+	err.readBody()
+	return err
 }
 
 func (e *RestHttpError) Error() string {
 	return e.Msg
 }
 
-func (e *RestHttpError) ResponseBody() string {
+func (e *RestHttpError) readBody() {
 	if e.Response == nil {
-		return ""
+		return
 	}
 
 	if body, err := ioutil.ReadAll(e.Response.Body); err == nil {
 		defer e.Response.Body.Close()
-		e.responseBody = string(body)
+		e.ResponseBody = string(body)
 	}
-
-	return e.responseBody
 }
