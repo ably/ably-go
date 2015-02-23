@@ -21,13 +21,16 @@ import (
 
 func NewClient(params ably.Params) *Client {
 	return &Client{
-		Params:   params,
-		channels: make(map[string]*Channel),
+		HttpClient: http.DefaultClient,
+		Params:     params,
+		channels:   make(map[string]*Channel),
 	}
 }
 
 type Client struct {
 	ably.Params
+
+	HttpClient *http.Client
 
 	channels map[string]*Channel
 	chanMtx  sync.Mutex
@@ -144,11 +147,11 @@ func (c *Client) Get(path string, data interface{}) (*http.Response, error) {
 	}
 	req.Header.Set("Accept", "application/json")
 	req.SetBasicAuth(c.AppID, c.AppSecret)
-	res, err := http.DefaultClient.Do(req)
-	defer res.Body.Close()
+	res, err := c.HttpClient.Do(req)
 	if !c.ok(res.StatusCode) {
-		return res, fmt.Errorf("Unexpected status code %d", res.StatusCode)
+		return res, NewRestHttpError(res, fmt.Sprintf("Unexpected status code %d", res.StatusCode))
 	}
+	defer res.Body.Close()
 	return res, json.NewDecoder(res.Body).Decode(data)
 }
 
@@ -164,16 +167,16 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.SetBasicAuth(c.AppID, c.AppSecret)
-	res, err := http.DefaultClient.Do(req)
+	res, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if !c.ok(res.StatusCode) {
+		return res, NewRestHttpError(res, fmt.Sprintf("Unexpected status code %d", res.StatusCode))
 	}
 	if out != nil && c.ok(res.StatusCode) {
 		defer res.Body.Close()
 		return res, json.NewDecoder(res.Body).Decode(out)
-	}
-	if !c.ok(res.StatusCode) {
-		return res, fmt.Errorf("Unexpected status code %d", res.StatusCode)
 	}
 	return res, nil
 }
