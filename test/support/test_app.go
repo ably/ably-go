@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/ably/ably-go"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/ably/ably-go/config"
 )
 
 type testAppNamespace struct {
@@ -38,7 +39,7 @@ type testAppConfig struct {
 }
 
 type TestApp struct {
-	Params ably.Params
+	Params config.Params
 	Config testAppConfig
 }
 
@@ -130,7 +131,7 @@ func (t *TestApp) Delete() (*http.Response, error) {
 
 func NewTestApp() *TestApp {
 	return &TestApp{
-		Params: ably.Params{
+		Params: config.Params{
 			RealtimeEndpoint: "wss://sandbox-realtime.ably.io:443",
 			RestEndpoint:     "https://sandbox-rest.ably.io",
 		},

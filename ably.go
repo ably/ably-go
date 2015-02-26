@@ -1,21 +1,27 @@
 package ably
 
-import "encoding/json"
+import (
+	"github.com/ably/ably-go/config"
+	"github.com/ably/ably-go/realtime"
+	"github.com/ably/ably-go/rest"
+)
 
-type Params struct {
-	RestEndpoint     string
-	RealtimeEndpoint string
-	AppID            string
-	AppSecret        string
-	ClientID         string
+// Wrapper around config.Params
+//
+// This is only a convenience structure to be able to call ably.ClientOptions
+// instead of importing Params from the config package.
+type ClientOptions struct {
+	config.Params
 }
 
-type Capability map[string][]string
+func (c *ClientOptions) ToParams() config.Params {
+	return c.Params
+}
 
-func (c *Capability) String() string {
-	b, err := json.Marshal(c)
-	if err != nil {
-		panic(err)
-	}
-	return string(b)
+func NewRestClient(clientOptions *ClientOptions) *rest.Client {
+	return rest.NewClient(clientOptions.ToParams())
+}
+
+func NewRealtimeClient(clientOptions *ClientOptions) *realtime.Client {
+	return realtime.NewClient(clientOptions.ToParams())
 }

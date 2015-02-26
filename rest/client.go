@@ -2,33 +2,32 @@ package rest
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
 	_ "crypto/sha512"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/ably/ably-go"
-
-	"github.com/flynn/flynn/pkg/random"
+	"github.com/ably/ably-go/config"
 )
 
-func NewClient(params ably.Params) *Client {
-	return &Client{
-		HttpClient: http.DefaultClient,
-		Params:     params,
-		channels:   make(map[string]*Channel),
+func NewClient(params config.Params) *Client {
+	client := &Client{
+		RestEndpoint: params.RestEndpoint,
+		HttpClient:   http.DefaultClient,
+		channels:     make(map[string]*Channel),
 	}
+
+	client.Auth = NewAuth(params, client)
+
+	return client
 }
 
 type Client struct {
-	ably.Params
+	Auth *Auth
+
+	RestEndpoint string
 
 	HttpClient *http.Client
 
@@ -84,73 +83,23 @@ func (c *Client) Stats(since time.Time) ([]*Stat, error) {
 	return stats, nil
 }
 
-type Token struct {
-	ID         string           `json:"id"`
-	Key        string           `json:"key"`
-	Capability *ably.Capability `json:"capability"`
-}
-
-type tokenRequest struct {
-	ID         string `json:"id"`
-	TTL        int    `json:"ttl"`
-	Capability string `json:"capability"`
-	ClientID   string `json:"client_id"`
-	Timestamp  int64  `json:"timestamp"`
-	Nonce      string `json:"nonce"`
-	Mac        string `json:"mac"`
-}
-
-func (t *tokenRequest) Sign(secret string) {
-	params := []string{
-		t.ID,
-		strconv.Itoa(t.TTL),
-		t.Capability,
-		t.ClientID,
-		strconv.Itoa(int(t.Timestamp)),
-		t.Nonce,
-	}
-	s := strings.Join(params, "\n") + "\n"
-
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(s))
-
-	t.Mac = base64.StdEncoding.EncodeToString(mac.Sum(nil))
-}
-
-type tokenResponse struct {
-	AccessToken *Token `json:"access_token"`
-}
-
-func (c *Client) RequestToken(ttl int, cap *ably.Capability) (*Token, error) {
-	req := &tokenRequest{
-		ID:         c.AppID,
-		TTL:        ttl,
-		Capability: cap.String(),
-		ClientID:   c.ClientID,
-		Timestamp:  time.Now().Unix(),
-		Nonce:      random.String(32),
-	}
-	req.Sign(c.AppSecret)
-
-	res := &tokenResponse{}
-	_, err := c.Post("/keys/"+c.AppID+"/requestToken", req, res)
-	if err != nil {
-		return nil, err
-	}
-	return res.AccessToken, nil
-}
-
 func (c *Client) Get(path string, data interface{}) (*http.Response, error) {
 	req, err := http.NewRequest("GET", c.RestEndpoint+path, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.SetBasicAuth(c.AppID, c.AppSecret)
+	req.SetBasicAuth(c.Auth.AppID, c.Auth.AppSecret)
 	res, err := c.HttpClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+
 	if !c.ok(res.StatusCode) {
 		return res, NewRestHttpError(res, fmt.Sprintf("Unexpected status code %d", res.StatusCode))
 	}
+
 	defer res.Body.Close()
 	return res, json.NewDecoder(res.Body).Decode(data)
 }
@@ -166,7 +115,7 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.SetBasicAuth(c.AppID, c.AppSecret)
+	req.SetBasicAuth(c.Auth.AppID, c.Auth.AppSecret)
 	res, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
