@@ -6,4 +6,6 @@ type Params struct {
 	AppID            string
 	AppSecret        string
 	ClientID         string
+
+	AblyLogger *AblyLogger
 }

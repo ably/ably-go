@@ -10,17 +10,11 @@ import (
 )
 
 var _ = Describe("ably package", func() {
-	var clientOptions *ably.ClientOptions
-
-	BeforeEach(func() {
-		clientOptions = &ably.ClientOptions{}
-	})
-
 	It("can create a Rest client from the main package", func() {
-		Expect(ably.NewRestClient(clientOptions)).To(BeAssignableToTypeOf(&rest.Client{}))
+		Expect(ably.NewRestClient(&ably.ClientOptions{})).To(BeAssignableToTypeOf(&rest.Client{}))
 	})
 
 	It("can create a Realtime client from the main package", func() {
-		Expect(ably.NewRealtimeClient(clientOptions)).To(BeAssignableToTypeOf(&realtime.Client{}))
+		Expect(ably.NewRealtimeClient(&ably.ClientOptions{})).To(BeAssignableToTypeOf(&realtime.Client{}))
 	})
 })
