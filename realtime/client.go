@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ably/ably-go"
+	"github.com/ably/ably-go/config"
 	"github.com/ably/ably-go/protocol"
 	"github.com/ably/ably-go/rest"
 )
 
-func NewClient(params ably.Params) *Client {
+func NewClient(params config.Params) *Client {
 	c := &Client{
 		Params:   params,
 		Err:      make(chan error),
@@ -25,8 +25,7 @@ func NewClient(params ably.Params) *Client {
 }
 
 type Client struct {
-	ably.Params
-
+	config.Params
 	Err chan error
 
 	rest *rest.Client
@@ -67,7 +66,8 @@ func (c *Client) getConn() *Conn {
 
 func (c *Client) connect() {
 	log.Println("requesting token")
-	token, err := c.rest.RequestToken(60*60, &ably.Capability{"*": []string{"*"}})
+	restClient := rest.NewClient(c.Params)
+	token, err := restClient.Auth.RequestToken(60*60, &rest.Capability{"*": []string{"*"}})
 	if err != nil {
 		c.Err <- fmt.Errorf("Error fetching token: %s", err)
 		return
