@@ -10,10 +10,14 @@ type Channel struct {
 
 func (c *Channel) Publish(name string, data interface{}) error {
 	msg := &protocol.Message{Name: name, Data: data}
-	_, err := c.client.Post("/channels/"+c.Name+"/messages", msg, nil)
+	res, err := c.client.Post("/channels/"+c.Name+"/messages", msg, nil)
+
 	if err != nil {
 		return err
 	}
+
+	defer res.Body.Close()
+
 	return nil
 }
 
