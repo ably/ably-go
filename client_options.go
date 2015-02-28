@@ -15,9 +15,10 @@ import (
 type ClientOptions struct {
 	config.Params
 
-	ApiKey       string
-	RestEndpoint string
-	Logger       *log.Logger
+	ApiKey           string
+	RealtimeEndpoint string
+	RestEndpoint     string
+	Logger           *log.Logger
 }
 
 func (c *ClientOptions) ToParams() config.Params {
@@ -26,6 +27,9 @@ func (c *ClientOptions) ToParams() config.Params {
 	if c.ApiKey != "" {
 		c.parseApiKey()
 	}
+
+	c.Params.RestEndpoint = c.RestEndpoint
+	c.Params.RealtimeEndpoint = c.RealtimeEndpoint
 
 	return c.Params
 }

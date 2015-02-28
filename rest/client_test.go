@@ -48,8 +48,7 @@ var _ = Describe("Client", func() {
 		Describe("Get", func() {
 			var data interface{}
 			It("fails with a meaningful error", func() {
-				resp, err := client.Get("/any_path", data)
-				Expect(resp).NotTo(BeNil())
+				_, err := client.Get("/any_path", data)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Unexpected status code 404"))
 
@@ -61,8 +60,7 @@ var _ = Describe("Client", func() {
 
 		Describe("Post", func() {
 			It("fails with a meaningful error", func() {
-				resp, err := client.Post("/any_path", request, nil)
-				Expect(resp).NotTo(BeNil())
+				_, err := client.Post("/any_path", request, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Unexpected status code 404"))
 

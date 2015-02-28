@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/ably/ably-go/config"
+	"github.com/ably/ably-go"
 )
 
 type testAppNamespace struct {
@@ -39,8 +39,8 @@ type testAppConfig struct {
 }
 
 type TestApp struct {
-	Params config.Params
-	Config testAppConfig
+	ClientOptions *ably.ClientOptions
+	Config        testAppConfig
 }
 
 func (t *TestApp) AppKeyValue() string {
@@ -60,8 +60,7 @@ func (t *TestApp) populate(res *http.Response) error {
 		return err
 	}
 
-	t.Params.AppID = t.AppKeyId()
-	t.Params.AppSecret = t.AppKeyValue()
+	t.ClientOptions.ApiKey = t.AppKeyId() + ":" + t.AppKeyValue()
 
 	return nil
 }
@@ -72,7 +71,7 @@ func (t *TestApp) Create() (*http.Response, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", t.Params.RestEndpoint+"/apps", bytes.NewBuffer(buf))
+	req, err := http.NewRequest("POST", t.ClientOptions.RestEndpoint+"/apps", bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +103,7 @@ func (t *TestApp) Create() (*http.Response, error) {
 }
 
 func (t *TestApp) Delete() (*http.Response, error) {
-	req, err := http.NewRequest("DELETE", t.Params.RestEndpoint+"/apps/"+t.Config.AppID, nil)
+	req, err := http.NewRequest("DELETE", t.ClientOptions.RestEndpoint+"/apps/"+t.Config.AppID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +130,7 @@ func (t *TestApp) Delete() (*http.Response, error) {
 
 func NewTestApp() *TestApp {
 	return &TestApp{
-		Params: config.Params{
+		ClientOptions: &ably.ClientOptions{
 			RealtimeEndpoint: "wss://sandbox-realtime.ably.io:443",
 			RestEndpoint:     "https://sandbox-rest.ably.io",
 		},

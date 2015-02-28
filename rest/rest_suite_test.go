@@ -1,6 +1,7 @@
 package rest_test
 
 import (
+	"github.com/ably/ably-go"
 	"github.com/ably/ably-go/rest"
 	"github.com/ably/ably-go/test/support"
 
@@ -28,7 +29,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	client = rest.NewClient(testApp.Params)
+	client = ably.NewRestClient(testApp.ClientOptions)
 	channel = client.Channel("test")
 })
 
