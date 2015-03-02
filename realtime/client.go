@@ -14,10 +14,11 @@ import (
 
 func NewClient(params config.Params) *Client {
 	c := &Client{
-		Params:   params,
-		Err:      make(chan error),
-		rest:     rest.NewClient(params),
-		channels: make(map[string]*Channel),
+		Params:     params,
+		Err:        make(chan error),
+		rest:       rest.NewClient(params),
+		channels:   make(map[string]*Channel),
+		Connection: &Conn{},
 	}
 	c.connCond = sync.NewCond(&c.connMtx)
 	go c.connect()
@@ -30,9 +31,9 @@ type Client struct {
 
 	rest *rest.Client
 
-	conn     *Conn
-	connCond *sync.Cond
-	connMtx  sync.Mutex
+	Connection *Conn
+	connCond   *sync.Cond
+	connMtx    sync.Mutex
 
 	channels map[string]*Channel
 	chanMtx  sync.RWMutex
@@ -58,10 +59,10 @@ func (c *Client) Channel(name string) *Channel {
 func (c *Client) getConn() *Conn {
 	c.connMtx.Lock()
 	defer c.connMtx.Unlock()
-	if c.conn == nil {
+	if c.Connection == nil {
 		c.connCond.Wait()
 	}
-	return c.conn
+	return c.Connection
 }
 
 func (c *Client) connect() {
@@ -74,7 +75,7 @@ func (c *Client) connect() {
 	}
 
 	c.connMtx.Lock()
-	c.conn, err = Dial(c.RealtimeEndpoint + "?access_token=" + token.ID + "&binary=false&timestamp=" + strconv.Itoa(int(time.Now().Unix())))
+	err = c.Connection.Dial(c.RealtimeEndpoint + "?access_token=" + token.ID + "&binary=false&timestamp=" + strconv.Itoa(int(time.Now().Unix())))
 	c.connCond.Broadcast()
 	c.connMtx.Unlock()
 	if err != nil {
@@ -84,9 +85,9 @@ func (c *Client) connect() {
 
 	for {
 		select {
-		case msg := <-c.conn.Ch:
+		case msg := <-c.Connection.Ch:
 			c.Channel(msg.Channel).notify(msg)
-		case err := <-c.conn.Err:
+		case err := <-c.Connection.Err:
 			c.Close()
 			c.Err <- err
 			return

@@ -41,7 +41,7 @@ type Channel struct {
 	listenMtx sync.RWMutex
 }
 
-func (c *Channel) Subscribe(event string) chan *protocol.Message {
+func (c *Channel) SubscribeTo(event string) chan *protocol.Message {
 	ch := make(chan *protocol.Message)
 	c.listenMtx.Lock()
 	if _, ok := c.listeners[event]; !ok {
@@ -49,7 +49,7 @@ func (c *Channel) Subscribe(event string) chan *protocol.Message {
 	}
 	c.listeners[event][ch] = struct{}{}
 	c.listenMtx.Unlock()
-	go c.attach()
+	go c.Attach()
 	return ch
 }
 
@@ -64,7 +64,7 @@ func (c *Channel) Unsubscribe(event string, ch chan *protocol.Message) {
 }
 
 func (c *Channel) Publish(name string, data interface{}) error {
-	c.attach()
+	c.Attach()
 	msg := &protocol.ProtocolMessage{
 		Action:  protocol.ActionMessage,
 		Channel: c.Name,
@@ -106,7 +106,7 @@ func (c *Channel) notify(msg *protocol.ProtocolMessage) {
 	}
 }
 
-func (c *Channel) attach() {
+func (c *Channel) Attach() {
 	c.stateMtx.Lock()
 	defer c.stateMtx.Unlock()
 	if c.State == ChanStateAttaching || c.State == ChanStateAttached {

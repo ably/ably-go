@@ -11,24 +11,6 @@ import (
 	"github.com/ably/ably-go/Godeps/_workspace/src/code.google.com/p/go.net/websocket"
 )
 
-func Dial(w string) (*Conn, error) {
-	u, err := url.Parse(w)
-	if err != nil {
-		return nil, err
-	}
-	ws, err := websocket.Dial(w, "", "https://"+u.Host)
-	if err != nil {
-		return nil, err
-	}
-	c := &Conn{
-		ws:  ws,
-		Ch:  make(chan *protocol.ProtocolMessage),
-		Err: make(chan error),
-	}
-	go c.read()
-	return c, nil
-}
-
 type ConnState int
 
 const (
@@ -73,6 +55,24 @@ func (c *Conn) close() {
 	c.ID = ""
 	c.mtx.Unlock()
 	c.ws.Close()
+}
+
+func (c *Conn) Dial(w string) error {
+	u, err := url.Parse(w)
+	if err != nil {
+		return err
+	}
+	ws, err := websocket.Dial(w, "", "https://"+u.Host)
+	if err != nil {
+		return err
+	}
+
+	c.Ch = make(chan *protocol.ProtocolMessage)
+	c.Err = make(chan error)
+	c.ws = ws
+
+	go c.read()
+	return nil
 }
 
 func (c *Conn) read() {
