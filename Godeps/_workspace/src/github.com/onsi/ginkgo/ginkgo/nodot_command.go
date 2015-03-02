@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
-	"github.com/onsi/ginkgo/ginkgo/nodot"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/ginkgo/nodot"
 	"io/ioutil"
 	"os"
 	"path/filepath"

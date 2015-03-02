@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"regexp"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/ghttp"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/ghttp"
 )
 
 var _ = Describe("TestServer", func() {

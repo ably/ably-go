@@ -11,8 +11,8 @@ import (
 	"sync"
 	"syscall"
 
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/gbytes"
 )
 
 const INVALID_EXIT_CODE = 254

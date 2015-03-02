@@ -3,10 +3,9 @@ package gexec_test
 import (
 	"bytes"
 
-	. "github.com/onsi/gomega/gexec"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/gexec"
 )
 
 var _ = Describe("PrefixedWriter", func() {

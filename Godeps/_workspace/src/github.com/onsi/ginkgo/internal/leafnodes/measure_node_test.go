@@ -1,14 +1,13 @@
 package leafnodes_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/internal/leafnodes"
-	. "github.com/onsi/gomega"
-
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/codelocation"
+	Failer "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/failer"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/leafnodes"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/types"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 	"time"
-	"github.com/onsi/ginkgo/internal/codelocation"
-	Failer "github.com/onsi/ginkgo/internal/failer"
-	"github.com/onsi/ginkgo/types"
 )
 
 var _ = Describe("Measure Nodes", func() {

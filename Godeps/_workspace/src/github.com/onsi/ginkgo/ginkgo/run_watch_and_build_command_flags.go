@@ -4,7 +4,7 @@ import (
 	"flag"
 	"runtime"
 
-	"github.com/onsi/ginkgo/config"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/config"
 )
 
 type RunWatchAndBuildCommandFlags struct {

@@ -5,10 +5,10 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
-	"github.com/onsi/gomega/gexec"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/gbytes"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/gexec"
 )
 
 var _ = Describe("ginkgo build", func() {

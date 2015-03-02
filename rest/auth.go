@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/flynn/flynn/pkg/random"
 	"github.com/ably/ably-go/config"
-	"github.com/flynn/flynn/pkg/random"
 )
 
 type Capability map[string][]string

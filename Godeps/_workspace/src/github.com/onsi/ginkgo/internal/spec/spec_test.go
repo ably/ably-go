@@ -3,17 +3,15 @@ package spec_test
 import (
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
-
-	. "github.com/onsi/ginkgo/internal/spec"
-
-	"github.com/onsi/ginkgo/internal/codelocation"
-	"github.com/onsi/ginkgo/internal/containernode"
-	Failer "github.com/onsi/ginkgo/internal/failer"
-	"github.com/onsi/ginkgo/internal/leafnodes"
-	"github.com/onsi/ginkgo/types"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/codelocation"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/containernode"
+	Failer "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/failer"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/leafnodes"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/spec"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/types"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/gbytes"
 )
 
 var noneFlag = types.FlagTypeNone

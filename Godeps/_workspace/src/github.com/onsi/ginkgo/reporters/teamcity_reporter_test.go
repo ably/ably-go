@@ -3,12 +3,12 @@ package reporters_test
 import (
 	"bytes"
 	"fmt"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/internal/codelocation"
-	"github.com/onsi/ginkgo/reporters"
-	"github.com/onsi/ginkgo/types"
-	. "github.com/onsi/gomega"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/config"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/codelocation"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/reporters"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/types"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 	"time"
 )
 

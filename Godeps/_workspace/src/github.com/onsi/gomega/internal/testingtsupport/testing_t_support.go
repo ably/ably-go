@@ -5,7 +5,7 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/onsi/gomega/types"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/types"
 )
 
 type gomegaTestingT interface {

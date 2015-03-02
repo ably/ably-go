@@ -1,11 +1,10 @@
 package gbytes_test
 
 import (
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/gbytes"
 	"time"
-	. "github.com/onsi/gomega/gbytes"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
 type speaker struct {

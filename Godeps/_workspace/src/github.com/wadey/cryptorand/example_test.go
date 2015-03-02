@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/wadey/cryptorand"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/wadey/cryptorand"
 )
 
 func Example() {
