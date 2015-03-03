@@ -2,7 +2,6 @@ package realtime
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"sync"
 
@@ -23,13 +22,19 @@ const (
 	ConnStateFailed
 )
 
+type ConnListener func()
+
 type Conn struct {
-	ID    string
-	State ConnState
-	Ch    chan *protocol.ProtocolMessage
-	Err   chan error
-	ws    *websocket.Conn
-	mtx   sync.RWMutex
+	ID        string
+	State     ConnState
+	stateChan chan ConnState
+	Ch        chan *protocol.ProtocolMessage
+	Err       chan error
+	ws        *websocket.Conn
+	mtx       sync.RWMutex
+
+	listeners map[ConnState][]ConnListener
+	lmtx      sync.RWMutex
 }
 
 func (c *Conn) isActive() bool {
@@ -85,14 +90,41 @@ func (c *Conn) read() {
 			return
 		}
 		c.handle(msg)
+		go c.watchConnectionState()
 	}
+}
+
+func (c *Conn) watchConnectionState() {
+	for {
+		connState := <-c.stateChan
+		c.trigger(connState)
+	}
+}
+
+func (c *Conn) trigger(connState ConnState) {
+	for i := range c.listeners[connState] {
+		go c.listeners[connState][i]()
+	}
+}
+
+func (c *Conn) On(connState ConnState, listener ConnListener) {
+	c.lmtx.Lock()
+	defer c.lmtx.Unlock()
+
+	if c.listeners == nil {
+		c.listeners = make(map[ConnState][]ConnListener)
+	}
+
+	if c.listeners[connState] == nil {
+		c.listeners[connState] = []ConnListener{}
+	}
+
+	c.listeners[connState] = append(c.listeners[connState], listener)
 }
 
 func (c *Conn) handle(msg *protocol.ProtocolMessage) {
 	switch msg.Action {
-	case protocol.ActionHeartbeat,
-		protocol.ActionAck,
-		protocol.ActionNack:
+	case protocol.ActionHeartbeat, protocol.ActionAck, protocol.ActionNack:
 		return
 	case protocol.ActionError:
 		if msg.Channel != "" {
@@ -103,16 +135,17 @@ func (c *Conn) handle(msg *protocol.ProtocolMessage) {
 		c.Err <- msg.Error
 		return
 	case protocol.ActionConnected:
-		log.Println("connected!")
 		c.mtx.Lock()
 		c.ID = msg.ConnectionId
 		c.State = ConnStateConnected
+		c.stateChan <- ConnStateConnected
 		c.mtx.Unlock()
 		return
 	case protocol.ActionDisconnected:
 		c.mtx.Lock()
 		c.ID = ""
 		c.State = ConnStateDisconnected
+		c.stateChan <- ConnStateDisconnected
 		c.mtx.Unlock()
 		return
 	default:

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"time"
 
 	"github.com/ably/ably-go"
 )
@@ -41,6 +43,7 @@ type testAppConfig struct {
 type TestApp struct {
 	ClientOptions *ably.ClientOptions
 	Config        testAppConfig
+	HttpClient    *http.Client
 }
 
 func (t *TestApp) AppKeyValue() string {
@@ -78,7 +81,7 @@ func (t *TestApp) Create() (*http.Response, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := t.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +112,7 @@ func (t *TestApp) Delete() (*http.Response, error) {
 	}
 
 	req.SetBasicAuth(t.AppKeyId(), t.AppKeyValue())
-	res, err := http.DefaultClient.Do(req)
+	res, err := t.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -128,8 +131,21 @@ func (t *TestApp) Delete() (*http.Response, error) {
 	return res, nil
 }
 
+func dialTimeout(network, addr string) (net.Conn, error) {
+	return net.DialTimeout(network, addr, time.Duration(10*time.Second))
+}
+
 func NewTestApp() *TestApp {
+	transport := http.Transport{
+		Dial: dialTimeout,
+	}
+
+	client := http.Client{
+		Transport: &transport,
+	}
+
 	return &TestApp{
+		HttpClient: &client,
 		ClientOptions: &ably.ClientOptions{
 			RealtimeEndpoint: "wss://sandbox-realtime.ably.io:443",
 			RestEndpoint:     "https://sandbox-rest.ably.io",

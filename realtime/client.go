@@ -2,7 +2,6 @@ package realtime
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"sync"
 	"time"
@@ -66,7 +65,6 @@ func (c *Client) getConn() *Conn {
 }
 
 func (c *Client) connect() {
-	log.Println("requesting token")
 	restClient := rest.NewClient(c.Params)
 	token, err := restClient.Auth.RequestToken(60*60, &rest.Capability{"*": []string{"*"}})
 	if err != nil {
