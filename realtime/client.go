@@ -2,9 +2,7 @@ package realtime
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
-	"time"
 
 	"github.com/ably/ably-go/config"
 	"github.com/ably/ably-go/protocol"
@@ -17,9 +15,8 @@ func NewClient(params config.Params) *Client {
 		Err:        make(chan error),
 		rest:       rest.NewClient(params),
 		channels:   make(map[string]*Channel),
-		Connection: &Conn{},
+		Connection: NewConn(params),
 	}
-	c.connCond = sync.NewCond(&c.connMtx)
 	go c.connect()
 	return c
 }
@@ -31,15 +28,13 @@ type Client struct {
 	rest *rest.Client
 
 	Connection *Conn
-	connCond   *sync.Cond
-	connMtx    sync.Mutex
 
 	channels map[string]*Channel
 	chanMtx  sync.RWMutex
 }
 
 func (c *Client) Close() {
-	c.getConn().close()
+	c.Connection.Close()
 }
 
 func (c *Client) Channel(name string) *Channel {
@@ -55,29 +50,11 @@ func (c *Client) Channel(name string) *Channel {
 	return ch
 }
 
-func (c *Client) getConn() *Conn {
-	c.connMtx.Lock()
-	defer c.connMtx.Unlock()
-	if c.Connection == nil {
-		c.connCond.Wait()
-	}
-	return c.Connection
-}
-
 func (c *Client) connect() {
-	restClient := rest.NewClient(c.Params)
-	token, err := restClient.Auth.RequestToken(60*60, &rest.Capability{"*": []string{"*"}})
-	if err != nil {
-		c.Err <- fmt.Errorf("Error fetching token: %s", err)
-		return
-	}
+	err := c.Connection.Connect()
 
-	c.connMtx.Lock()
-	err = c.Connection.Dial(c.RealtimeEndpoint + "?access_token=" + token.ID + "&binary=false&timestamp=" + strconv.Itoa(int(time.Now().Unix())))
-	c.connCond.Broadcast()
-	c.connMtx.Unlock()
 	if err != nil {
-		c.Err <- fmt.Errorf("Websocket dial error: %s", err)
+		c.Err <- fmt.Errorf("Connection error : %s", err)
 		return
 	}
 
@@ -94,9 +71,9 @@ func (c *Client) connect() {
 }
 
 func (c *Client) send(msg *protocol.ProtocolMessage) error {
-	return c.getConn().send(msg)
+	return c.Connection.send(msg)
 }
 
 func (c *Client) isActive() bool {
-	return c.getConn().isActive()
+	return c.Connection.isActive()
 }

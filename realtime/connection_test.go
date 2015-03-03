@@ -16,6 +16,11 @@ var _ = Describe("Connection", func() {
 		}, "2s").Should(Equal(realtime.ConnStateConnected))
 	})
 
+	It("accepts calls to Connect", func() {
+		err := client.Connection.Connect()
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	Context("with normal connection workflow", func() {
 		var (
 			phases          []realtime.ConnState
