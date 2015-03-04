@@ -5,8 +5,8 @@ import (
 
 	"github.com/ably/ably-go/realtime"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 )
 
 var _ = Describe("Connection", func() {
