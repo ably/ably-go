@@ -38,27 +38,31 @@ type Conn struct {
 	Err       chan error
 	ws        *websocket.Conn
 	mtx       sync.RWMutex
+	stateMtx  sync.RWMutex
 
-	listeners map[ConnState][]ConnListener
-	lmtx      sync.RWMutex
+	listeners   map[ConnState][]ConnListener
+	listenerMtx sync.RWMutex
 }
 
 func NewConn(params config.Params) *Conn {
 	c := &Conn{
-		Params: params,
+		Params:    params,
+		State:     ConnStateInitialized,
+		stateChan: make(chan ConnState),
+		Ch:        make(chan *protocol.ProtocolMessage),
+		Err:       make(chan error),
 	}
+	go c.watchConnectionState()
 	return c
 }
 
 func (c *Conn) isActive() bool {
-	c.mtx.RLock()
-	defer c.mtx.RUnlock()
+	c.stateMtx.RLock()
+	defer c.stateMtx.RUnlock()
 
 	switch c.State {
-	case ConnStateInitialized,
-		ConnStateConnecting,
-		ConnStateConnected,
-		ConnStateDisconnected:
+	case ConnStateConnecting,
+		ConnStateConnected:
 		return true
 	default:
 		return false
@@ -71,8 +75,10 @@ func (c *Conn) send(msg *protocol.ProtocolMessage) error {
 
 func (c *Conn) Close() {
 	c.mtx.Lock()
-	c.ID = ""
-	c.mtx.Unlock()
+	defer c.mtx.Unlock()
+
+	c.setState(ConnStateFailed)
+	c.setConnectionID("")
 	c.ws.Close()
 }
 
@@ -85,12 +91,14 @@ func (c *Conn) websocketUrl(token *rest.Token) (*url.URL, error) {
 }
 
 func (c *Conn) Connect() error {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
 	if c.isActive() {
 		return nil
 	}
 
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
+	c.setState(ConnStateConnecting)
 
 	restClient := rest.NewClient(c.Params)
 	token, err := restClient.Auth.RequestToken(60*60, &rest.Capability{"*": []string{"*"}})
@@ -117,7 +125,6 @@ func (c *Conn) dial(u *url.URL) error {
 	c.ws = ws
 
 	go c.read()
-	go c.watchConnectionState()
 
 	return nil
 }
@@ -137,8 +144,10 @@ func (c *Conn) read() {
 
 func (c *Conn) watchConnectionState() {
 	for {
-		connState := <-c.stateChan
-		c.trigger(connState)
+		select {
+		case connState := <-c.stateChan:
+			c.trigger(connState)
+		}
 	}
 }
 
@@ -149,8 +158,8 @@ func (c *Conn) trigger(connState ConnState) {
 }
 
 func (c *Conn) On(connState ConnState, listener ConnListener) {
-	c.lmtx.Lock()
-	defer c.lmtx.Unlock()
+	c.listenerMtx.Lock()
+	defer c.listenerMtx.Unlock()
 
 	if c.listeners == nil {
 		c.listeners = make(map[ConnState][]ConnListener)
@@ -161,6 +170,21 @@ func (c *Conn) On(connState ConnState, listener ConnListener) {
 	}
 
 	c.listeners[connState] = append(c.listeners[connState], listener)
+}
+
+func (c *Conn) setState(state ConnState) {
+	c.stateMtx.Lock()
+	defer c.stateMtx.Unlock()
+
+	c.State = state
+	c.stateChan <- state
+}
+
+func (c *Conn) setConnectionID(id string) {
+	c.stateMtx.Lock()
+	defer c.stateMtx.Unlock()
+
+	c.ID = id
 }
 
 func (c *Conn) handle(msg *protocol.ProtocolMessage) {
@@ -176,18 +200,12 @@ func (c *Conn) handle(msg *protocol.ProtocolMessage) {
 		c.Err <- msg.Error
 		return
 	case protocol.ActionConnected:
-		c.mtx.Lock()
-		c.ID = msg.ConnectionId
-		c.State = ConnStateConnected
-		c.stateChan <- ConnStateConnected
-		c.mtx.Unlock()
+		c.setState(ConnStateConnected)
+		c.setConnectionID(msg.ConnectionId)
 		return
 	case protocol.ActionDisconnected:
-		c.mtx.Lock()
-		c.ID = ""
-		c.State = ConnStateDisconnected
-		c.stateChan <- ConnStateDisconnected
-		c.mtx.Unlock()
+		c.setState(ConnStateDisconnected)
+		c.setConnectionID("")
 		return
 	default:
 		c.Ch <- msg
