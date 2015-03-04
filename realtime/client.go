@@ -2,10 +2,7 @@ package realtime
 
 import (
 	"fmt"
-	"log"
-	"strconv"
 	"sync"
-	"time"
 
 	"github.com/ably/ably-go/config"
 	"github.com/ably/ably-go/protocol"
@@ -14,12 +11,12 @@ import (
 
 func NewClient(params config.Params) *Client {
 	c := &Client{
-		Params:   params,
-		Err:      make(chan error),
-		rest:     rest.NewClient(params),
-		channels: make(map[string]*Channel),
+		Params:     params,
+		Err:        make(chan error),
+		rest:       rest.NewClient(params),
+		channels:   make(map[string]*Channel),
+		Connection: NewConn(params),
 	}
-	c.connCond = sync.NewCond(&c.connMtx)
 	go c.connect()
 	return c
 }
@@ -30,16 +27,14 @@ type Client struct {
 
 	rest *rest.Client
 
-	conn     *Conn
-	connCond *sync.Cond
-	connMtx  sync.Mutex
+	Connection *Conn
 
 	channels map[string]*Channel
 	chanMtx  sync.RWMutex
 }
 
 func (c *Client) Close() {
-	c.getConn().close()
+	c.Connection.Close()
 }
 
 func (c *Client) Channel(name string) *Channel {
@@ -55,38 +50,19 @@ func (c *Client) Channel(name string) *Channel {
 	return ch
 }
 
-func (c *Client) getConn() *Conn {
-	c.connMtx.Lock()
-	defer c.connMtx.Unlock()
-	if c.conn == nil {
-		c.connCond.Wait()
-	}
-	return c.conn
-}
-
 func (c *Client) connect() {
-	log.Println("requesting token")
-	restClient := rest.NewClient(c.Params)
-	token, err := restClient.Auth.RequestToken(60*60, &rest.Capability{"*": []string{"*"}})
-	if err != nil {
-		c.Err <- fmt.Errorf("Error fetching token: %s", err)
-		return
-	}
+	err := c.Connection.Connect()
 
-	c.connMtx.Lock()
-	c.conn, err = Dial(c.RealtimeEndpoint + "?access_token=" + token.ID + "&binary=false&timestamp=" + strconv.Itoa(int(time.Now().Unix())))
-	c.connCond.Broadcast()
-	c.connMtx.Unlock()
 	if err != nil {
-		c.Err <- fmt.Errorf("Websocket dial error: %s", err)
+		c.Err <- fmt.Errorf("Connection error : %s", err)
 		return
 	}
 
 	for {
 		select {
-		case msg := <-c.conn.Ch:
+		case msg := <-c.Connection.Ch:
 			c.Channel(msg.Channel).notify(msg)
-		case err := <-c.conn.Err:
+		case err := <-c.Connection.Err:
 			c.Close()
 			c.Err <- err
 			return
@@ -95,9 +71,9 @@ func (c *Client) connect() {
 }
 
 func (c *Client) send(msg *protocol.ProtocolMessage) error {
-	return c.getConn().send(msg)
+	return c.Connection.send(msg)
 }
 
 func (c *Client) isActive() bool {
-	return c.getConn().isActive()
+	return c.Connection.isActive()
 }
