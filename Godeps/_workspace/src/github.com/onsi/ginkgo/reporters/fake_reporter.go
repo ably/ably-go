@@ -1,8 +1,8 @@
 package reporters
 
 import (
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/types"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/config"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/types"
 )
 
 //FakeReporter is useful for testing purposes

@@ -8,7 +8,7 @@ import (
 	mathrand "math/rand"
 	"strings"
 
-	"github.com/wadey/cryptorand"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/wadey/cryptorand"
 )
 
 var Math = mathrand.New(cryptorand.Source)

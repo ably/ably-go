@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/types"
 )
 
 //CombineHandler takes variadic list of handlers and produces one handler

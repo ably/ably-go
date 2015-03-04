@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/onsi/gomega/format"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/format"
 	"reflect"
 )
 

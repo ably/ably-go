@@ -1,15 +1,13 @@
 package containernode_test
 
 import (
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/codelocation"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/containernode"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/leafnodes"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/types"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 	"math/rand"
-	"github.com/onsi/ginkgo/internal/leafnodes"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"github.com/onsi/ginkgo/internal/codelocation"
-	. "github.com/onsi/ginkgo/internal/containernode"
-	"github.com/onsi/ginkgo/types"
 )
 
 var _ = Describe("Container Node", func() {

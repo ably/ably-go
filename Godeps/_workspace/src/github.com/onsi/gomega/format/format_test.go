@@ -2,11 +2,11 @@ package format_test
 
 import (
 	"fmt"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/format"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/types"
 	"strings"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/format"
-	"github.com/onsi/gomega/types"
 )
 
 //recursive struct

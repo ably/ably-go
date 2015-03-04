@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/onsi/gomega/types"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/types"
 )
 
 type AsyncAssertionType uint

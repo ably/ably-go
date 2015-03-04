@@ -1,16 +1,14 @@
 package remote_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/internal/remote"
-	. "github.com/onsi/gomega"
-
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
-	"github.com/onsi/ginkgo/types"
-
 	"bytes"
 	"encoding/json"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/config"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/internal/remote"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/reporters"
+	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo/types"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 	"net/http"
 )
 
