@@ -56,7 +56,7 @@ func (c *Client) Channel(name string) *Channel {
 		return ch
 	}
 
-	ch := &Channel{Name: name, client: c}
+	ch := newChannel(name, c)
 	c.channels[name] = ch
 	return ch
 }
