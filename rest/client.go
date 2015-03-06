@@ -133,3 +133,21 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 func (c *Client) ok(status int) bool {
 	return status == http.StatusOK || status == http.StatusCreated
 }
+
+func (c *Client) buildPaginatedURL(url string, params *config.PaginateParams) (string, error) {
+	if params == nil {
+		return url, nil
+	}
+
+	values, err := params.Values()
+	if err != nil {
+		return "", err
+	}
+
+	queryString := values.Encode()
+	if len(queryString) > 0 {
+		url = url + "?" + queryString
+	}
+
+	return url, nil
+}
