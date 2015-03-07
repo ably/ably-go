@@ -12,8 +12,8 @@ type Presence struct {
 
 type PaginatedPresenceMessages struct {
 	paginatedResource *protocol.PaginatedResource
+	client            *Client
 
-	client  *Client
 	Current []*protocol.PresenceMessage
 }
 

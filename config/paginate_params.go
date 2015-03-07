@@ -10,6 +10,8 @@ import (
 type PaginateParams struct {
 	Limit     int    `url:"limit"`
 	Direction string `url:"direction"`
+
+	ScopeParams
 }
 
 func (p *PaginateParams) Values() (url.Values, error) {

@@ -29,6 +29,18 @@ var _ = Describe("PaginationParams", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		Context("with a value for ScopeParams", func() {
+			BeforeEach(func() {
+				params.Start = 123
+			})
+
+			It("creates a valid url", func() {
+				values, err := params.Values()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(values.Get("start")).To(Equal("123"))
+			})
+		})
+
 		Context("with invalid value for direction", func() {
 			BeforeEach(func() {
 				params.Direction = "unknown"

@@ -1,6 +1,8 @@
 package rest_test
 
 import (
+	"time"
+
 	"github.com/ably/ably-go/config"
 	"github.com/ably/ably-go/protocol"
 	"github.com/ably/ably-go/rest"
@@ -48,11 +50,30 @@ var _ = Describe("Presence", func() {
 		Describe("History", func() {
 			It("returns a list of presence messages", func() {
 				paginatedMessages, err := presence.History(nil)
-				messages := paginatedMessages.Current
 				Expect(err).NotTo(HaveOccurred())
+
+				messages := paginatedMessages.Current
 				Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
 				Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
 			})
+
+			Context("with start and end time", func() {
+				It("can return older items from a certain date given a start / end timestamp", func() {
+					params := &config.PaginateParams{
+						ScopeParams: config.ScopeParams{
+							Start: config.NewTimestamp(time.Now().Add(-24 * time.Hour)),
+							End:   config.NewTimestamp(time.Now()),
+						},
+					}
+					paginatedMessages, err := presence.History(params)
+					Expect(err).NotTo(HaveOccurred())
+
+					messages := paginatedMessages.Current
+					Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
+					Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
+				})
+			})
+
 		})
 	})
 })
