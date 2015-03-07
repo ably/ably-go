@@ -20,27 +20,38 @@ var _ = Describe("Presence", func() {
 
 		Describe("Get", func() {
 			It("returns current members on the channel", func() {
-				members, err := presence.Get(nil)
+				paginatedMessages, err := presence.Get(nil)
+				messages := paginatedMessages.Current
 				Expect(err).NotTo(HaveOccurred())
-				Expect(members).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
-				Expect(len(members)).To(Equal(len(testApp.Config.Channels[0].Presence)))
+				Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
+				Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
 			})
 
 			Context("with a limit option", func() {
 				It("returns a paginated response", func() {
-					members, err := presence.Get(&config.PaginateParams{Limit: 2})
+					paginatedMessages, err := presence.Get(&config.PaginateParams{Limit: 2})
+					messagesSet1 := paginatedMessages.Current
 					Expect(err).NotTo(HaveOccurred())
-					Expect(len(members)).To(Equal(2))
+					Expect(len(messagesSet1)).To(Equal(2))
+
+					messagesSet2, err := paginatedMessages.NextPage()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(messagesSet2)).To(Equal(2))
+					Expect(messagesSet1).NotTo(Equal(messagesSet2))
+
+					_, err = paginatedMessages.NextPage()
+					Expect(err).To(HaveOccurred())
 				})
 			})
 		})
 
 		Describe("History", func() {
 			It("returns a list of presence messages", func() {
-				presenceMessages, err := presence.History(nil)
+				paginatedMessages, err := presence.History(nil)
+				messages := paginatedMessages.Current
 				Expect(err).NotTo(HaveOccurred())
-				Expect(presenceMessages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
-				Expect(len(presenceMessages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
+				Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
+				Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
 			})
 		})
 	})

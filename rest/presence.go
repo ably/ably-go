@@ -10,15 +10,43 @@ type Presence struct {
 	channel *Channel
 }
 
-func (p *Presence) Get(params *config.PaginateParams) ([]*protocol.PresenceMessage, error) {
+type PaginatedPresenceMessages struct {
+	paginatedResource *protocol.PaginatedResource
+
+	client  *Client
+	Current []*protocol.PresenceMessage
+}
+
+func (pm *PaginatedPresenceMessages) NextPage() ([]*protocol.PresenceMessage, error) {
+	path, err := pm.paginatedResource.NextPage()
+	if err != nil {
+		return nil, err
+	}
+
+	pm.Current = []*protocol.PresenceMessage{}
+
+	resp, err := pm.client.Get(path, &pm.Current)
+	if err != nil {
+		return nil, err
+	}
+
+	pm.paginatedResource = &protocol.PaginatedResource{
+		Response: resp,
+		Path:     path,
+	}
+
+	return pm.Current, nil
+}
+
+func (p *Presence) Get(params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
 	return p.clientGet("/channels/"+p.channel.Name+"/presence", params)
 }
 
-func (p *Presence) History(params *config.PaginateParams) ([]*protocol.PresenceMessage, error) {
+func (p *Presence) History(params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
 	return p.clientGet("/channels/"+p.channel.Name+"/presence/history", params)
 }
 
-func (p *Presence) clientGet(url string, params *config.PaginateParams) ([]*protocol.PresenceMessage, error) {
+func (p *Presence) clientGet(url string, params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
 	msgs := []*protocol.PresenceMessage{}
 
 	builtURL, err := p.client.buildPaginatedURL(url, params)
@@ -26,9 +54,19 @@ func (p *Presence) clientGet(url string, params *config.PaginateParams) ([]*prot
 		return nil, err
 	}
 
-	_, err = p.client.Get(builtURL, &msgs)
+	resp, err := p.client.Get(builtURL, &msgs)
 	if err != nil {
 		return nil, err
 	}
-	return msgs, nil
+
+	paginatedMessages := &PaginatedPresenceMessages{
+		paginatedResource: &protocol.PaginatedResource{
+			Response: resp,
+			Path:     builtURL,
+		},
+		client:  p.client,
+		Current: msgs,
+	}
+
+	return paginatedMessages, nil
 }
