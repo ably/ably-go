@@ -96,13 +96,13 @@ channel.History()
 ### Presence on a channel
 
 ```ruby
-channel.Presence.Get(nil) # => PaginatedResource
+channel.Presence.Get(nil) # => rest.PaginatedPresenceMessages
 ```
 
 ### Querying the Presence History
 
 ```ruby
-channel.Presence.History(nil) # => PaginatedResource
+channel.Presence.History(nil) # => rest.PaginatedPresenceMessages
 ```
 
 ### Generate Token and Token Request
