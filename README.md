@@ -90,7 +90,7 @@ channel.Publish("myEvent", "Hello!") #=> true
 ### Querying the History
 
 ```ruby
-channel.History()
+channel.History(nil)
 ```
 
 ### Presence on a channel

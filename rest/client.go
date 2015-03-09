@@ -83,7 +83,7 @@ func (c *Client) Stats(since time.Time) ([]*Stat, error) {
 	return stats, nil
 }
 
-func (c *Client) Get(path string, data interface{}) (*http.Response, error) {
+func (c *Client) Get(path string, out interface{}) (*http.Response, error) {
 	req, err := http.NewRequest("GET", c.RestEndpoint+path, nil)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (c *Client) Get(path string, data interface{}) (*http.Response, error) {
 	}
 
 	defer res.Body.Close()
-	return res, json.NewDecoder(res.Body).Decode(data)
+	return res, json.NewDecoder(res.Body).Decode(out)
 }
 
 func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) {
@@ -134,9 +134,9 @@ func (c *Client) ok(status int) bool {
 	return status == http.StatusOK || status == http.StatusCreated
 }
 
-func (c *Client) buildPaginatedURL(url string, params *config.PaginateParams) (string, error) {
+func (c *Client) buildPaginatedPath(path string, params *config.PaginateParams) (string, error) {
 	if params == nil {
-		return url, nil
+		return path, nil
 	}
 
 	values, err := params.Values()
@@ -146,8 +146,8 @@ func (c *Client) buildPaginatedURL(url string, params *config.PaginateParams) (s
 
 	queryString := values.Encode()
 	if len(queryString) > 0 {
-		url = url + "?" + queryString
+		path = path + "?" + queryString
 	}
 
-	return url, nil
+	return path, nil
 }

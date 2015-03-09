@@ -18,8 +18,10 @@ var _ = Describe("Channel", func() {
 		})
 
 		It("is available in the history", func() {
-			messages, err := channel.History()
+			paginatedMessages, err := channel.History(nil)
 			Expect(err).NotTo(HaveOccurred())
+
+			messages := paginatedMessages.Current
 			Expect(messages[0].Name).To(Equal(event))
 			Expect(messages[0].Data).To(Equal(message))
 		})
