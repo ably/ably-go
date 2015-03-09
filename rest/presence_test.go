@@ -22,8 +22,8 @@ var _ = Describe("Presence", func() {
 
 		Describe("Get", func() {
 			It("returns current members on the channel", func() {
-				paginatedMessages, err := presence.Get(nil)
-				messages := paginatedMessages.Current
+				members, err := presence.Get(nil)
+				messages := members.Current
 				Expect(err).NotTo(HaveOccurred())
 				Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
 				Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
@@ -31,17 +31,19 @@ var _ = Describe("Presence", func() {
 
 			Context("with a limit option", func() {
 				It("returns a paginated response", func() {
-					paginatedMessages, err := presence.Get(&config.PaginateParams{Limit: 2})
-					messagesSet1 := paginatedMessages.Current
+					members1, err := presence.Get(&config.PaginateParams{Limit: 2})
+					messagesSet1 := members1.Current
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(messagesSet1)).To(Equal(2))
 
-					messagesSet2, err := paginatedMessages.NextPage()
+					members2, err := members1.NextPage()
 					Expect(err).NotTo(HaveOccurred())
+
+					messagesSet2 := members2.Current
 					Expect(len(messagesSet2)).To(Equal(2))
 					Expect(messagesSet1).NotTo(Equal(messagesSet2))
 
-					_, err = paginatedMessages.NextPage()
+					_, err = members2.NextPage()
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -49,10 +51,10 @@ var _ = Describe("Presence", func() {
 
 		Describe("History", func() {
 			It("returns a list of presence messages", func() {
-				paginatedMessages, err := presence.History(nil)
+				members, err := presence.History(nil)
 				Expect(err).NotTo(HaveOccurred())
 
-				messages := paginatedMessages.Current
+				messages := members.Current
 				Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
 				Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
 			})
@@ -65,10 +67,10 @@ var _ = Describe("Presence", func() {
 							End:   config.NewTimestamp(time.Now()),
 						},
 					}
-					paginatedMessages, err := presence.History(params)
+					members, err := presence.History(params)
 					Expect(err).NotTo(HaveOccurred())
 
-					messages := paginatedMessages.Current
+					messages := members.Current
 					Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
 					Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
 				})

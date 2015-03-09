@@ -12,30 +12,18 @@ type Presence struct {
 
 type PaginatedPresenceMessages struct {
 	paginatedResource *protocol.PaginatedResource
-	client            *Client
+	presence          *Presence
 
 	Current []*protocol.PresenceMessage
 }
 
-func (pm *PaginatedPresenceMessages) NextPage() ([]*protocol.PresenceMessage, error) {
+func (pm *PaginatedPresenceMessages) NextPage() (*PaginatedPresenceMessages, error) {
 	path, err := pm.paginatedResource.NextPage()
 	if err != nil {
 		return nil, err
 	}
 
-	pm.Current = []*protocol.PresenceMessage{}
-
-	resp, err := pm.client.Get(path, &pm.Current)
-	if err != nil {
-		return nil, err
-	}
-
-	pm.paginatedResource = &protocol.PaginatedResource{
-		Response: resp,
-		Path:     path,
-	}
-
-	return pm.Current, nil
+	return pm.presence.clientGet(path, nil)
 }
 
 func (p *Presence) Get(params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
@@ -64,8 +52,8 @@ func (p *Presence) clientGet(url string, params *config.PaginateParams) (*Pagina
 			Response: resp,
 			Path:     builtURL,
 		},
-		client:  p.client,
-		Current: msgs,
+		presence: p,
+		Current:  msgs,
 	}
 
 	return paginatedMessages, nil
