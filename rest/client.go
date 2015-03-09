@@ -56,7 +56,7 @@ func (c *Client) Channel(name string) *Channel {
 		return ch
 	}
 
-	ch := &Channel{Name: name, client: c}
+	ch := newChannel(name, c)
 	c.channels[name] = ch
 	return ch
 }
@@ -132,4 +132,22 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 
 func (c *Client) ok(status int) bool {
 	return status == http.StatusOK || status == http.StatusCreated
+}
+
+func (c *Client) buildPaginatedURL(url string, params *config.PaginateParams) (string, error) {
+	if params == nil {
+		return url, nil
+	}
+
+	values, err := params.Values()
+	if err != nil {
+		return "", err
+	}
+
+	queryString := values.Encode()
+	if len(queryString) > 0 {
+		url = url + "?" + queryString
+	}
+
+	return url, nil
 }

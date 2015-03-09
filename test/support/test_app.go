@@ -24,8 +24,8 @@ type testAppKey struct {
 }
 
 type testAppPresenceConfig struct {
-	ClientID   string `json:"clientId"`
-	ClientData string `json:"clientData"`
+	ClientID string `json:"clientId"`
+	Data     string `json:"data"`
 }
 
 type testAppChannels struct {
@@ -161,10 +161,10 @@ func NewTestApp() *TestApp {
 				{
 					Name: "persisted:presence_fixtures",
 					Presence: []testAppPresenceConfig{
-						{ClientID: "client_bool", ClientData: "true"},
-						{ClientID: "client_int", ClientData: "true"},
-						{ClientID: "client_string", ClientData: "true"},
-						{ClientID: "client_json", ClientData: "{ \"test\" => 'This is a JSONObject clientData payload'}"},
+						{ClientID: "client_bool", Data: "true"},
+						{ClientID: "client_int", Data: "true"},
+						{ClientID: "client_string", Data: "true"},
+						{ClientID: "client_json", Data: "{ \"test\" => 'This is a JSONObject clientData payload'}"},
 					},
 				},
 			},

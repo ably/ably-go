@@ -3,9 +3,24 @@ package rest
 import "github.com/ably/ably-go/protocol"
 
 type Channel struct {
-	Name string
+	Name     string
+	Presence *Presence
 
 	client *Client
+}
+
+func newChannel(name string, client *Client) *Channel {
+	c := &Channel{
+		Name:   name,
+		client: client,
+	}
+
+	c.Presence = &Presence{
+		client:  client,
+		channel: c,
+	}
+
+	return c
 }
 
 func (c *Channel) Publish(name string, data interface{}) error {
