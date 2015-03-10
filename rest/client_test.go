@@ -2,6 +2,7 @@ package rest_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ably/ably-go/config"
 	"github.com/ably/ably-go/rest"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
@@ -77,6 +79,59 @@ var _ = Describe("Client", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(t.Unix()).To(BeNumerically("<=", time.Now().Unix()))
 			Expect(t.Unix()).To(BeNumerically(">=", time.Now().Add(-2*time.Second).Unix()))
+		})
+	})
+
+	Describe("Stats", func() {
+		var lastInterval = time.Now().Add(-365 * 24 * time.Hour)
+		var stats []*rest.Stat
+
+		var jsonStats = `
+			[
+				{
+					"inbound":{"realtime":{"messages":{"count":50,"data":5000}}},
+					"outbound":{"realtime":{"messages":{"count":20,"data":2000}}}
+				},
+				{
+					"inbound":{"realtime":{"messages":{"count":60,"data":6000}}},
+					"outbound":{"realtime":{"messages":{"count":10,"data":1000}}}
+				},
+				{
+					"inbound":{"realtime":{"messages":{"count":70,"data":7000}}},
+					"outbound":{"realtime":{"messages":{"count":40,"data":4000}}},
+					"persisted":{"presence":{"count":20,"data":2000}},
+					"connections":{"tls":{"peak":20,"opened":10}},
+					"channels":{"peak":50,"opened":30},
+					"apiRequests":{"succeeded":50,"failed":10},
+					"tokenRequests":{"succeeded":60,"failed":20}
+				}
+			]
+		`
+
+		BeforeEach(func() {
+			err := json.NewDecoder(strings.NewReader(jsonStats)).Decode(&stats)
+			Expect(err).NotTo(HaveOccurred())
+
+			stats[0].IntervalId = rest.IntervalFormatFor(lastInterval.Add(-120*time.Minute), rest.StatGranularityMinute)
+			stats[1].IntervalId = rest.IntervalFormatFor(lastInterval.Add(-60*time.Minute), rest.StatGranularityMinute)
+			stats[2].IntervalId = rest.IntervalFormatFor(lastInterval.Add(-1*time.Minute), rest.StatGranularityMinute)
+
+			res, err := client.Post("/stats", &stats, nil)
+			Expect(err).NotTo(HaveOccurred())
+			res.Body.Close()
+		})
+
+		It("returns a paginated result of stats", func() {
+			longAgo := lastInterval.Add(-120 * time.Minute)
+			result, err := client.Stats(&config.PaginateParams{
+				Limit: 100,
+				ScopeParams: config.ScopeParams{
+					Start: config.NewTimestamp(longAgo),
+					Unit:  rest.StatGranularityMinute,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result[0].IntervalId).To(MatchRegexp("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+"))
 		})
 	})
 })

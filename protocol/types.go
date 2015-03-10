@@ -72,12 +72,6 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("%d: %d %s", e.StatusCode, e.Code, e.Message)
 }
 
-type Message struct {
-	Name     string      `json:"name"`
-	Data     interface{} `json:"data"`
-	Encoding string      `json:"encoding,omitempty"`
-}
-
 type Type int64
 
 const (

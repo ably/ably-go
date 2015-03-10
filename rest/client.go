@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -61,22 +62,14 @@ func (c *Client) Channel(name string) *Channel {
 	return ch
 }
 
-type Stat struct {
-	All           map[string]map[string]int
-	Inbound       map[string]map[string]map[string]int
-	Outbound      map[string]map[string]map[string]int
-	Persisted     map[string]map[string]int
-	Connections   map[string]map[string]int
-	Channels      map[string]float32
-	ApiRequests   map[string]int
-	TokenRequests map[string]int
-	Count         int
-	IntervalId    string
-}
+func (c *Client) Stats(params *config.PaginateParams) ([]*Stat, error) {
+	path, err := c.BuildPaginatedPath("/stats", params)
+	if err != nil {
+		return nil, err
+	}
 
-func (c *Client) Stats(since time.Time) ([]*Stat, error) {
 	stats := []*Stat{}
-	_, err := c.Get(fmt.Sprintf("/stats?start=%d", since.Unix()), &stats)
+	_, err = c.Get(path, &stats)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +93,12 @@ func (c *Client) Get(path string, out interface{}) (*http.Response, error) {
 		return res, NewRestHttpError(res, fmt.Sprintf("Unexpected status code %d", res.StatusCode))
 	}
 
-	defer res.Body.Close()
-	return res, json.NewDecoder(res.Body).Decode(out)
+	if out != nil {
+		defer res.Body.Close()
+		return res, json.NewDecoder(res.Body).Decode(out)
+	}
+
+	return res, nil
 }
 
 func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) {
@@ -134,12 +131,13 @@ func (c *Client) ok(status int) bool {
 	return status == http.StatusOK || status == http.StatusCreated
 }
 
-func (c *Client) buildPaginatedPath(path string, params *config.PaginateParams) (string, error) {
+func (c *Client) BuildPaginatedPath(path string, params *config.PaginateParams) (string, error) {
 	if params == nil {
 		return path, nil
 	}
 
-	values, err := params.Values()
+	values := &url.Values{}
+	err := params.EncodeValues(values)
 	if err != nil {
 		return "", err
 	}

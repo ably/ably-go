@@ -3,31 +3,34 @@ package config
 import (
 	"fmt"
 	"net/url"
-
-	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/google/go-querystring/query"
+	"strconv"
 )
 
 type PaginateParams struct {
-	Limit     int    `url:"limit"`
-	Direction string `url:"direction"`
+	Limit     int
+	Direction string
 
 	ScopeParams
 }
 
-func (p *PaginateParams) Values() (url.Values, error) {
-	if p.Limit < 1 {
-		p.Limit = 100
+func (p *PaginateParams) EncodeValues(out *url.Values) error {
+	if p.Limit < 0 {
+		out.Set("limit", strconv.Itoa(100))
+	} else if p.Limit != 0 {
+		out.Set("limit", strconv.Itoa(p.Limit))
 	}
 
 	switch p.Direction {
 	case "":
-		p.Direction = "backwards"
 		break
 	case "backwards", "forwards":
+		out.Set("direction", p.Direction)
 		break
 	default:
-		return url.Values{}, fmt.Errorf("Invalid value for direction: %s", p.Direction)
+		return fmt.Errorf("Invalid value for direction: %s", p.Direction)
 	}
 
-	return query.Values(p)
+	p.ScopeParams.EncodeValues(out)
+
+	return nil
 }

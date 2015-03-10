@@ -12,13 +12,6 @@ type Channel struct {
 	client *Client
 }
 
-type PaginatedMessages struct {
-	paginatedResource *protocol.PaginatedResource
-	channel           *Channel
-
-	Current []*protocol.Message
-}
-
 func newChannel(name string, client *Client) *Channel {
 	c := &Channel{
 		Name:   name,
@@ -53,7 +46,7 @@ func (c *Channel) History(params *config.PaginateParams) (*PaginatedMessages, er
 func (c *Channel) paginatedGet(path string, params *config.PaginateParams) (*PaginatedMessages, error) {
 	msgs := []*protocol.Message{}
 
-	builtPath, err := c.client.buildPaginatedPath(path, params)
+	builtPath, err := c.client.BuildPaginatedPath(path, params)
 	if err != nil {
 		return nil, err
 	}
