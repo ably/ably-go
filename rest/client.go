@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
@@ -62,18 +61,8 @@ func (c *Client) Channel(name string) *Channel {
 	return ch
 }
 
-func (c *Client) Stats(params *config.PaginateParams) ([]*Stat, error) {
-	path, err := c.BuildPaginatedPath("/stats", params)
-	if err != nil {
-		return nil, err
-	}
-
-	stats := []*Stat{}
-	_, err = c.Get(path, &stats)
-	if err != nil {
-		return nil, err
-	}
-	return stats, nil
+func (c *Client) Stats(params *config.PaginateParams) (*PaginatedStats, error) {
+	return c.paginateResults("/stats", params)
 }
 
 func (c *Client) Get(path string, out interface{}) (*http.Response, error) {
@@ -131,21 +120,6 @@ func (c *Client) ok(status int) bool {
 	return status == http.StatusOK || status == http.StatusCreated
 }
 
-func (c *Client) BuildPaginatedPath(path string, params *config.PaginateParams) (string, error) {
-	if params == nil {
-		return path, nil
-	}
-
-	values := &url.Values{}
-	err := params.EncodeValues(values)
-	if err != nil {
-		return "", err
-	}
-
-	queryString := values.Encode()
-	if len(queryString) > 0 {
-		path = path + "?" + queryString
-	}
-
-	return path, nil
+func (c *Client) paginateResults(path string, params *config.PaginateParams) (*PaginatedStats, error) {
+	return NewPaginatedStats(c, path, params)
 }

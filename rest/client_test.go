@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/config"
+	"github.com/ably/ably-go/protocol"
 	"github.com/ably/ably-go/rest"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
@@ -84,7 +85,7 @@ var _ = Describe("Client", func() {
 
 	Describe("Stats", func() {
 		var lastInterval = time.Now().Add(-365 * 24 * time.Hour)
-		var stats []*rest.Stat
+		var stats []*protocol.Stat
 
 		var jsonStats = `
 			[
@@ -112,9 +113,9 @@ var _ = Describe("Client", func() {
 			err := json.NewDecoder(strings.NewReader(jsonStats)).Decode(&stats)
 			Expect(err).NotTo(HaveOccurred())
 
-			stats[0].IntervalId = rest.IntervalFormatFor(lastInterval.Add(-120*time.Minute), rest.StatGranularityMinute)
-			stats[1].IntervalId = rest.IntervalFormatFor(lastInterval.Add(-60*time.Minute), rest.StatGranularityMinute)
-			stats[2].IntervalId = rest.IntervalFormatFor(lastInterval.Add(-1*time.Minute), rest.StatGranularityMinute)
+			stats[0].IntervalId = protocol.IntervalFormatFor(lastInterval.Add(-120*time.Minute), protocol.StatGranularityMinute)
+			stats[1].IntervalId = protocol.IntervalFormatFor(lastInterval.Add(-60*time.Minute), protocol.StatGranularityMinute)
+			stats[2].IntervalId = protocol.IntervalFormatFor(lastInterval.Add(-1*time.Minute), protocol.StatGranularityMinute)
 
 			res, err := client.Post("/stats", &stats, nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -123,15 +124,15 @@ var _ = Describe("Client", func() {
 
 		It("parses stats from the rest api", func() {
 			longAgo := lastInterval.Add(-120 * time.Minute)
-			result, err := client.Stats(&config.PaginateParams{
+			paginatedStats, err := client.Stats(&config.PaginateParams{
 				Limit: 1,
 				ScopeParams: config.ScopeParams{
 					Start: config.NewTimestamp(longAgo),
-					Unit:  rest.StatGranularityMinute,
+					Unit:  protocol.StatGranularityMinute,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result[0].IntervalId).To(MatchRegexp("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+"))
+			Expect(paginatedStats.Current[0].IntervalId).To(MatchRegexp("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+"))
 		})
 	})
 })

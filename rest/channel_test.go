@@ -40,7 +40,7 @@ var _ = Describe("Channel", func() {
 			}
 		})
 
-		FIt("returns a paginated result", func() {
+		It("returns a paginated result", func() {
 			messages1, err := historyChannel.History(&config.PaginateParams{Limit: 1})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(messages1).To(BeAssignableToTypeOf(&rest.PaginatedMessages{}))

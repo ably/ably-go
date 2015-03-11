@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -35,7 +37,7 @@ type PaginatedResource struct {
 
 // NewPaginatedResource returns a new instance of PaginatedResource
 // It needs to be a struct implementing ResourceReader which in our case is rest.Client.
-func NewPaginatedResource(rr ResourceReader, path string, params *config.PaginateParams) (*PaginatedResource, error) {
+func NewPaginatedResource(rr ResourceReader, path string, params *config.PaginateParams, out interface{}) (*PaginatedResource, error) {
 	p := &PaginatedResource{
 		ResourceReader: rr,
 	}
@@ -60,7 +62,8 @@ func NewPaginatedResource(rr ResourceReader, path string, params *config.Paginat
 	p.Path = builtPath
 	p.Body = body
 
-	return p, nil
+	reader := bytes.NewReader(p.Body)
+	return p, json.NewDecoder(reader).Decode(out)
 }
 
 func (c *PaginatedResource) BuildPaginatedPath(path string, params *config.PaginateParams) (string, error) {

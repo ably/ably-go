@@ -43,27 +43,6 @@ func (c *Channel) History(params *config.PaginateParams) (*PaginatedMessages, er
 	return c.paginateResults("/channels/"+c.Name+"/history", params)
 }
 
-func (c *Channel) paginateResults(path string, params *config.PaginateParams) (*PaginatedMessages, error) {
-	msgs := []*protocol.Message{}
-
-	builtPath, err := c.client.BuildPaginatedPath(path, params)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.client.Get(builtPath, &msgs)
-	if err != nil {
-		return nil, err
-	}
-
-	paginatedMessages := &PaginatedMessages{
-		paginatedResource: &protocol.PaginatedResource{
-			Response: resp,
-			Path:     builtPath,
-		},
-		channel: c,
-		Current: msgs,
-	}
-
-	return paginatedMessages, nil
+func (p *Channel) paginateResults(path string, params *config.PaginateParams) (*PaginatedMessages, error) {
+	return NewPaginatedMessages(p.client, path, params)
 }
