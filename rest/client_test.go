@@ -78,7 +78,7 @@ var _ = Describe("Client", func() {
 		It("returns server time", func() {
 			t, err := client.Time()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(t.Unix()).To(BeNumerically("<=", time.Now().Unix()))
+			Expect(t.Unix()).To(BeNumerically("<=", time.Now().Add(2*time.Second).Unix()))
 			Expect(t.Unix()).To(BeNumerically(">=", time.Now().Add(-2*time.Second).Unix()))
 		})
 	})
