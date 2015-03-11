@@ -76,15 +76,15 @@ Unlike the Realtime API, all calls are synchronous and are not run within an [Ev
 
 All examples assume a client and/or channel has been created as follows:
 
-```ruby
-client = ably.NewRestClient(api_key: "xxxxx")
+```go
+client = ably.NewRestClient(ably.ClientOptions{ApiKey: "xxxx"})
 channel = client.Channel('test')
 ```
 
 ### Publishing a message to a channel
 
-```ruby
-channel.Publish("myEvent", "Hello!") #=> true
+```go
+channel.Publish("myEvent", "Hello!") # => returns an error if any
 ```
 
 ### Querying the History
