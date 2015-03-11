@@ -27,8 +27,14 @@ func newChannel(name string, client *Client) *Channel {
 }
 
 func (c *Channel) Publish(name string, data interface{}) error {
-	msg := &protocol.Message{Name: name, Data: data}
-	res, err := c.client.Post("/channels/"+c.Name+"/messages", msg, nil)
+	messages := []*protocol.Message{
+		&protocol.Message{Name: name, Data: data},
+	}
+	return c.PublishAll(messages)
+}
+
+func (c *Channel) PublishAll(messages []*protocol.Message) error {
+	res, err := c.client.Post("/channels/"+c.Name+"/messages", messages, nil)
 
 	if err != nil {
 		return err
