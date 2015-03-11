@@ -11,25 +11,35 @@ import (
 	"github.com/ably/ably-go/config"
 )
 
+// relLink is the regexp that matches our pagination format
 const relLink = `<(?P<url>[^>]+)>; rel="(?P<rel>[^"]+)"`
 
 var relLinkRegexp = regexp.MustCompile(relLink)
 
+// ResourceReader wraps around
 type ResourceReader interface {
 	Get(path string, out interface{}) (*http.Response, error)
 }
 
 // PaginatedResource represents a single page coming back from the REST API.
+// This resource never changes (even if technically it has mutable fields). Any
+// call to create a new page will generate a new instance.
 type PaginatedResource struct {
-	Response          *http.Response
-	Path              string
-	paginationHeaders map[string]string
-
+	Response       *http.Response
+	Path           string
 	ResourceReader ResourceReader
 	Body           []byte
+
+	paginationHeaders map[string]string
 }
 
-func (p *PaginatedResource) PaginatedGet(path string, params *config.PaginateParams) (*PaginatedResource, error) {
+// NewPaginatedResource returns a new instance of PaginatedResource
+// It needs to be a struct implementing ResourceReader which in our case is rest.Client.
+func NewPaginatedResource(rr ResourceReader, path string, params *config.PaginateParams) (*PaginatedResource, error) {
+	p := &PaginatedResource{
+		ResourceReader: rr,
+	}
+
 	builtPath, err := p.BuildPaginatedPath(path, params)
 	if err != nil {
 		return nil, err
@@ -46,14 +56,11 @@ func (p *PaginatedResource) PaginatedGet(path string, params *config.PaginatePar
 		return nil, err
 	}
 
-	paginatedResource := &PaginatedResource{
-		Response:       resp,
-		Path:           builtPath,
-		ResourceReader: p.ResourceReader,
-		Body:           body,
-	}
+	p.Response = resp
+	p.Path = builtPath
+	p.Body = body
 
-	return paginatedResource, nil
+	return p, nil
 }
 
 func (c *PaginatedResource) BuildPaginatedPath(path string, params *config.PaginateParams) (string, error) {

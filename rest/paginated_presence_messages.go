@@ -13,20 +13,20 @@ type PaginatedPresenceMessages struct {
 	Current           []*protocol.PresenceMessage
 }
 
-func (p *PaginatedPresenceMessages) GetPage(path string, params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
-	newPaginatedResource, err := p.paginatedResource.PaginatedGet(path, params)
+func (p *PaginatedPresenceMessages) decode() error {
+	p.Current = make([]*protocol.PresenceMessage, 0)
+	reader := bytes.NewReader(p.paginatedResource.Body)
+	return json.NewDecoder(reader).Decode(&p.Current)
+}
+
+func NewPaginatedPresenceMessages(client protocol.ResourceReader, path string, params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
+	newPaginatedResource, err := protocol.NewPaginatedResource(client, path, params)
 	if err != nil {
 		return nil, err
 	}
 
-	paginatedPresenceMessages := &PaginatedPresenceMessages{
-		paginatedResource: newPaginatedResource,
-		Current:           make([]*protocol.PresenceMessage, 0),
-	}
-	reader := bytes.NewReader(paginatedPresenceMessages.paginatedResource.Body)
-	err = json.NewDecoder(reader).Decode(&paginatedPresenceMessages.Current)
-
-	return paginatedPresenceMessages, err
+	paginatedPresenceMessages := &PaginatedPresenceMessages{paginatedResource: newPaginatedResource}
+	return paginatedPresenceMessages, paginatedPresenceMessages.decode()
 }
 
 func (p *PaginatedPresenceMessages) NextPage() (*PaginatedPresenceMessages, error) {
@@ -35,5 +35,5 @@ func (p *PaginatedPresenceMessages) NextPage() (*PaginatedPresenceMessages, erro
 		return nil, err
 	}
 
-	return p.GetPage(path, nil)
+	return NewPaginatedPresenceMessages(p.paginatedResource.ResourceReader, path, nil)
 }
