@@ -8,13 +8,13 @@ type Presence struct {
 }
 
 func (p *Presence) Get(params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
-	return p.paginateResult("/channels/"+p.channel.Name+"/presence", params)
+	return p.paginateResults("/channels/"+p.channel.Name+"/presence", params)
 }
 
 func (p *Presence) History(params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
-	return p.paginateResult("/channels/"+p.channel.Name+"/presence/history", params)
+	return p.paginateResults("/channels/"+p.channel.Name+"/presence/history", params)
 }
 
-func (p *Presence) paginateResult(path string, params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
+func (p *Presence) paginateResults(path string, params *config.PaginateParams) (*PaginatedPresenceMessages, error) {
 	return NewPaginatedPresenceMessages(p.client, path, params)
 }

@@ -40,10 +40,10 @@ func (c *Channel) Publish(name string, data interface{}) error {
 }
 
 func (c *Channel) History(params *config.PaginateParams) (*PaginatedMessages, error) {
-	return c.paginatedGet("/channels/"+c.Name+"/history", params)
+	return c.paginateResults("/channels/"+c.Name+"/history", params)
 }
 
-func (c *Channel) paginatedGet(path string, params *config.PaginateParams) (*PaginatedMessages, error) {
+func (c *Channel) paginateResults(path string, params *config.PaginateParams) (*PaginatedMessages, error) {
 	msgs := []*protocol.Message{}
 
 	builtPath, err := c.client.BuildPaginatedPath(path, params)

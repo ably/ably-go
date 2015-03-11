@@ -82,15 +82,15 @@ func (c *PaginatedResource) BuildPaginatedPath(path string, params *config.Pagin
 	return path, nil
 }
 
-// NextPage returns the path to the next page.
-// This path is contained in the response headers from the REST API as a
-// relative link (Link: <./path>; rel="next")
-func (p *PaginatedResource) NextPage() (string, error) {
-	if p.GetPaginationHeaders()["next"] == "" {
+// NextPagePath returns the path to the next page as found in the response headers.
+// The response headers from the REST API contains a relative link to the next resource
+// (Link: <./path>; rel="next").
+func (p *PaginatedResource) NextPagePath() (string, error) {
+	if p.getPaginationHeaders()["next"] == "" {
 		return "", fmt.Errorf("No next page after %v", p.Path)
 	}
 
-	nextPage, err := p.BuildPath(p.Path, p.GetPaginationHeaders()["next"])
+	nextPage, err := p.BuildPath(p.Path, p.getPaginationHeaders()["next"])
 	if err != nil {
 		return "", err
 	}
@@ -114,7 +114,7 @@ func (p *PaginatedResource) BuildPath(path string, newRelativePath string) (stri
 	return newPath, nil
 }
 
-func (p *PaginatedResource) GetPaginationHeaders() map[string]string {
+func (p *PaginatedResource) getPaginationHeaders() map[string]string {
 	if len(p.paginationHeaders) > 0 {
 		return p.paginationHeaders
 	}

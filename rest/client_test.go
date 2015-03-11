@@ -121,10 +121,10 @@ var _ = Describe("Client", func() {
 			res.Body.Close()
 		})
 
-		It("returns a paginated result of stats", func() {
+		It("parses stats from the rest api", func() {
 			longAgo := lastInterval.Add(-120 * time.Minute)
 			result, err := client.Stats(&config.PaginateParams{
-				Limit: 100,
+				Limit: 1,
 				ScopeParams: config.ScopeParams{
 					Start: config.NewTimestamp(longAgo),
 					Unit:  rest.StatGranularityMinute,

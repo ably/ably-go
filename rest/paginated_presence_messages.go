@@ -30,7 +30,7 @@ func NewPaginatedPresenceMessages(client protocol.ResourceReader, path string, p
 }
 
 func (p *PaginatedPresenceMessages) NextPage() (*PaginatedPresenceMessages, error) {
-	path, err := p.paginatedResource.NextPage()
+	path, err := p.paginatedResource.NextPagePath()
 	if err != nil {
 		return nil, err
 	}
