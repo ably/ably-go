@@ -5,9 +5,10 @@ import (
 	"github.com/ably/ably-go/rest"
 	"github.com/ably/ably-go/test/support"
 
+	"testing"
+
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
-	"testing"
 )
 
 func TestRest(t *testing.T) {
@@ -28,7 +29,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	client = ably.NewRestClient(testApp.ClientOptions)
+	client = ably.NewRestClient(testApp.Params)
 	channel = client.Channel("test")
 })
 

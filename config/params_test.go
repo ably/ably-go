@@ -1,42 +1,45 @@
-package ably_test
+package config_test
 
 import (
 	"log"
 
-	"github.com/ably/ably-go"
-
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/gbytes"
+	"github.com/ably/ably-go/config"
 )
 
-var _ = Describe("ClientOptions", func() {
+var _ = Describe("Params", func() {
 	var (
-		clientOptions *ably.ClientOptions
-		buffer        *gbytes.Buffer
+		params *config.Params
+		buffer *gbytes.Buffer
 	)
 
 	BeforeEach(func() {
 		buffer = gbytes.NewBuffer()
 
-		clientOptions = &ably.ClientOptions{
+		params = &config.Params{
 			ApiKey: "id:secret",
 		}
+
+		params.Prepare()
 	})
 
 	It("parses ApiKey into a set of known parameters", func() {
-		Expect(clientOptions.ToParams().AppID).To(Equal("id"))
-		Expect(clientOptions.ToParams().AppSecret).To(Equal("secret"))
+		Expect(params.AppID).To(Equal("id"))
+		Expect(params.AppSecret).To(Equal("secret"))
 	})
 
 	Context("when ApiKey is invalid", func() {
 		BeforeEach(func() {
-			clientOptions = &ably.ClientOptions{
+			params = &config.Params{
 				ApiKey: "invalid",
-				Logger: log.New(buffer, "", log.Lmicroseconds|log.Llongfile),
+				AblyLogger: &config.AblyLogger{
+					Logger: log.New(buffer, "", log.Lmicroseconds|log.Llongfile),
+				},
 			}
 
-			clientOptions.ToParams()
+			params.Prepare()
 		})
 
 		It("prints an error", func() {

@@ -2,6 +2,7 @@ package ably_test
 
 import (
 	"github.com/ably/ably-go"
+	"github.com/ably/ably-go/config"
 	"github.com/ably/ably-go/realtime"
 	"github.com/ably/ably-go/rest"
 
@@ -11,10 +12,10 @@ import (
 
 var _ = Describe("ably package", func() {
 	It("can create a Rest client from the main package", func() {
-		Expect(ably.NewRestClient(&ably.ClientOptions{})).To(BeAssignableToTypeOf(&rest.Client{}))
+		Expect(ably.NewRestClient(config.Params{})).To(BeAssignableToTypeOf(&rest.Client{}))
 	})
 
 	It("can create a Realtime client from the main package", func() {
-		Expect(ably.NewRealtimeClient(&ably.ClientOptions{})).To(BeAssignableToTypeOf(&realtime.Client{}))
+		Expect(ably.NewRealtimeClient(config.Params{})).To(BeAssignableToTypeOf(&realtime.Client{}))
 	})
 })
