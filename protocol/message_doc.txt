@@ -1,0 +1,85 @@
+README
+======
+
+This is the output of generate-test-data.js. Tests are based on the following output.
+
+Generating key:
+00000000: b325 0600 5c9d 0027 817d df81 f37f aaa7  3%..\..'.}_.s.*'
+(16 bytes)
+
+
+Generating iv:
+00000000: 88c2 93d8 819d 6453 753e b966 ab02 2993  .B.X..dSu>9f+.).
+(16 bytes)
+
+
+*******************************************************************
+Generating test data for: { string: 'utf-8™' }
+
+
+Unencoded message:
+{ name: 'example', data: { string: 'utf-8™' } }
+
+
+Encoded message:
+{ name: 'example',
+  data: '{"string":"utf-8™"}',
+  encoding: 'json' }
+
+
+Unencrypted JSON message format:
+{"name":"example","data":"{\"string\":\"utf-8™\"}","encoding":"json"}
+
+
+Unencrypted msgpack message format:
+00000000: 83a4 6e61 6d65 a765 7861 6d70 6c65 a464  .$name'example$d
+00000010: 6174 61b5 7b22 7374 7269 6e67 223a 2275  ata5{"string":"u
+00000020: 7466 2d38 e284 a222 7da8 656e 636f 6469  tf-8b.""}(encodi
+00000030: 6e67 a46a 736f 6e                        ng$json
+(55 bytes)
+
+
+Plaintext before encryption (without padding):
+00000000: 7b22 7374 7269 6e67 223a 2275 7466 2d38  {"string":"utf-8
+00000010: e284 a222 7d                             b.""}
+(21 bytes)
+
+
+Plaintext before encryption (including padding):
+00000000: 7b22 7374 7269 6e67 223a 2275 7466 2d38  {"string":"utf-8
+00000010: e284 a222 7d0b 0b0b 0b0b 0b0b 0b0b 0b0b  b.""}...........
+(32 bytes)
+
+
+Raw cipher output:
+00000000: cd5c bad4 a9ba 2b87 3da1 3622 b462 44f6  M\:T):+.=!6"4bDv
+00000010: e83b e528 22bf dc01 8d22 df3d 2850 eb36  h;e("?\.."_=(Pk6
+(32 bytes)
+
+
+Encrypted value, iv + cipher output:
+00000000: 88c2 93d8 819d 6453 753e b966 ab02 2993  .B.X..dSu>9f+.).
+00000010: cd5c bad4 a9ba 2b87 3da1 3622 b462 44f6  M\:T):+.=!6"4bDv
+00000020: e83b e528 22bf dc01 8d22 df3d 2850 eb36  h;e("?\.."_=(Pk6
+(48 bytes)
+
+
+Encrypted message format:
+{ name: 'example',
+  data: <Buffer 88 c2 93 d8 81 9d 64 53 75 3e b9 66 ab 02 29 93 cd 5c ba d4 a9 ba 2b 87 3d a1 36 22 b4 62 44 f6 e8 3b e5 28 22 bf dc 01 8d 22 df 3d 28 50 eb 36>,
+  encoding: 'json/utf-8/cipher+aes-128-cbc' }
+
+
+Encrypted JSON message format:
+{"name":"example","data":"iMKT2IGdZFN1PrlmqwIpk81cutSpuiuHPaE2IrRiRPboO+UoIr/cAY0i3z0oUOs2","encoding":"json/utf-8/cipher+aes-128-cbc/base64"}
+
+
+Encrypted msgpack message format:
+00000000: 83a4 6e61 6d65 a765 7861 6d70 6c65 a464  .$name'example$d
+00000010: 6174 61c4 3088 c293 d881 9d64 5375 3eb9  ataD0.B.X..dSu>9
+00000020: 66ab 0229 93cd 5cba d4a9 ba2b 873d a136  f+.).M\:T):+.=!6
+00000030: 22b4 6244 f6e8 3be5 2822 bfdc 018d 22df  "4bDvh;e("?\.."_
+00000040: 3d28 50eb 36a8 656e 636f 6469 6e67 bd6a  =(Pk6(encoding=j
+00000050: 736f 6e2f 7574 662d 382f 6369 7068 6572  son/utf-8/cipher
+00000060: 2b61 6573 2d31 3238 2d63 6263            +aes-128-cbc
+(108 bytes)

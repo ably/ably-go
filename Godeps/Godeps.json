@@ -28,6 +28,11 @@
 		{
 			"ImportPath": "github.com/wadey/cryptorand",
 			"Rev": "f71da62b90e6a6df720e69d4607dcfd10443c75a"
+		},
+		{
+			"ImportPath": "gopkg.in/vmihailenco/msgpack.v2",
+			"Comment": "v2.1.4",
+			"Rev": "2f3337bc4c9ded23745439860363115f8a8e99e2"
 		}
 	]
 }

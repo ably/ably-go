@@ -9,9 +9,9 @@ const (
 )
 
 type PresenceMessage struct {
-	State        PresenceState `json:"action"`
-	ClientId     string        `json:"clientId"`
-	Data         string        `json:"data"`
-	ConnectionId string        `json:"connectionId"`
-	Timestamp    int64         `json:"timestamp"`
+	State        PresenceState `json:"action" msgpack:"action"`
+	ClientId     string        `json:"clientId" msgpack:"clientId"`
+	Data         string        `json:"data" msgpack:"data"`
+	ConnectionId string        `json:"connectionId" msgpack:"connectionId"`
+	Timestamp    int64         `json:"timestamp" msgpack:"timestamp"`
 }
