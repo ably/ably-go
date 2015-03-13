@@ -7,12 +7,16 @@ import (
 	"time"
 )
 
-type TimestampMillisecond struct {
-	time.Time
+// This needs to use a timestamp in millisecond
+// Use the previous function to generate them from a time.Time struct.
+type ScopeParams struct {
+	Start int64
+	End   int64
+	Unit  string
 }
 
-func (t *TimestampMillisecond) ToInt() int64 {
-	return int64(time.Nanosecond * time.Duration(t.UnixNano()) / time.Millisecond)
+type TimestampMillisecond struct {
+	time.Time
 }
 
 // Get a timestamp in millisecond
@@ -21,12 +25,8 @@ func NewTimestamp(t time.Time) int64 {
 	return tm.ToInt()
 }
 
-// This needs to use a timestamp in millisecond
-// Use the previous function to generate them from a time.Time struct.
-type ScopeParams struct {
-	Start int64
-	End   int64
-	Unit  string
+func (t *TimestampMillisecond) ToInt() int64 {
+	return int64(time.Nanosecond * time.Duration(t.UnixNano()) / time.Millisecond)
 }
 
 func (s *ScopeParams) EncodeValues(out *url.Values) error {

@@ -9,8 +9,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 	"github.com/ably/ably-go/config"
 )
+
+type Client struct {
+	Auth *Auth
+
+	RestEndpoint string
+	Protocol     config.ProtocolType
+
+	HttpClient *http.Client
+
+	channels map[string]*Channel
+	chanMtx  sync.Mutex
+}
 
 func NewClient(params config.Params) *Client {
 	client := &Client{
@@ -20,19 +33,9 @@ func NewClient(params config.Params) *Client {
 	}
 
 	client.Auth = NewAuth(params, client)
+	client.Protocol = params.Protocol
 
 	return client
-}
-
-type Client struct {
-	Auth *Auth
-
-	RestEndpoint string
-
-	HttpClient *http.Client
-
-	channels map[string]*Channel
-	chanMtx  sync.Mutex
 }
 
 func (c *Client) Time() (*time.Time, error) {
@@ -91,10 +94,11 @@ func (c *Client) Get(path string, out interface{}) (*http.Response, error) {
 }
 
 func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) {
-	buf, err := json.Marshal(in)
+	buf, err := c.marshalMessages(in)
 	if err != nil {
 		return nil, err
 	}
+
 	req, err := http.NewRequest("POST", c.RestEndpoint+path, bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
@@ -122,4 +126,16 @@ func (c *Client) ok(status int) bool {
 
 func (c *Client) paginateResults(path string, params *config.PaginateParams) (*PaginatedStats, error) {
 	return NewPaginatedStats(c, path, params)
+}
+
+func (c *Client) marshalMessages(in interface{}) ([]byte, error) {
+	switch c.Protocol {
+	case config.ProtocolJSON:
+		return json.Marshal(in)
+	case config.ProtocolMsgPack:
+		return msgpack.Marshal(in)
+	default:
+		// TODO log fallback to default encoding
+		return json.Marshal(in)
+	}
 }

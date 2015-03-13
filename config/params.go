@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+type ProtocolType string
+
+const (
+	ProtocolJSON    = "json"
+	ProtocolMsgPack = "msgpack"
+)
+
 type Params struct {
 	RealtimeEndpoint string
 	RestEndpoint     string
@@ -16,9 +23,8 @@ type Params struct {
 	AppSecret    string
 	UseTokenAuth bool
 
-	Protocol  string
-	UseBinary bool
-	Tls       bool
+	Protocol ProtocolType
+	Tls      bool
 
 	AblyLogger *AblyLogger
 	LogLevel   string

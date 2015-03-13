@@ -1,6 +1,8 @@
 package rest_test
 
 import (
+	"fmt"
+
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 	"github.com/ably/ably-go/config"
@@ -25,6 +27,7 @@ var _ = Describe("Channel", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			messages := paginatedMessages.Current
+			fmt.Println(messages)
 			Expect(messages[0].Name).To(Equal(event))
 			Expect(messages[0].Data).To(Equal(message))
 		})

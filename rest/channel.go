@@ -26,13 +26,16 @@ func newChannel(name string, client *Client) *Channel {
 	return c
 }
 
-func (c *Channel) Publish(name string, data interface{}) error {
+func (c *Channel) Publish(name string, data string) error {
 	messages := []*protocol.Message{
-		&protocol.Message{Name: name, Data: data},
+		&protocol.Message{Name: name, Data: data, Encoding: "utf8"},
 	}
 	return c.PublishAll(messages)
 }
 
+// PublishAll sends multiple messages in the same http call.
+// This is the more efficient way of transmitting a batch of messages
+// using the Rest API.
 func (c *Channel) PublishAll(messages []*protocol.Message) error {
 	res, err := c.client.Post("/channels/"+c.Name+"/messages", messages, nil)
 

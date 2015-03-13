@@ -11,7 +11,7 @@ import (
 
 type Message struct {
 	Name     string `json:"name" msgpack:"name"`
-	Data     []byte `json:"data" msgpack:"data"`
+	Data     string `json:"data" msgpack:"data"`
 	Encoding string `json:"encoding,omitempty" msgpack:"encoding,omitempty"`
 }
 
@@ -20,12 +20,12 @@ func (m *Message) DecodeData(keys map[string]string) error {
 	for i := len(encodings) - 1; i >= 0; i-- {
 		switch encodings[i] {
 		case "base64":
-			data, err := base64.StdEncoding.DecodeString(string(m.Data))
+			data, err := base64.StdEncoding.DecodeString(m.Data)
 			if err != nil {
 				return err
 			}
 
-			m.Data = data
+			m.Data = string(data)
 			continue
 
 		case "json", "utf-8":
@@ -80,10 +80,12 @@ func (m *Message) Decrypt(cipherStr string, keys map[string]string) error {
 		iv := m.Data[:aes.BlockSize]
 		m.Data = m.Data[aes.BlockSize:]
 
-		blockMode := cipher.NewCBCDecrypter(block, iv)
-		blockMode.CryptBlocks(m.Data, m.Data)
+		out := make([]byte, len(m.Data))
 
-		m.Data = []byte(strings.TrimRight(string(m.Data), "\x0b"))
+		blockMode := cipher.NewCBCDecrypter(block, []byte(iv))
+		blockMode.CryptBlocks(out, []byte(m.Data))
+
+		m.Data = strings.TrimRight(string(out), "\x0b")
 	default:
 		// TODO log wrong keylen
 		// Golang supports only these previous specified keys

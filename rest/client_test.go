@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/ably/ably-go"
+	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 	"github.com/ably/ably-go/config"
 	"github.com/ably/ably-go/protocol"
 	"github.com/ably/ably-go/rest"
@@ -19,6 +22,20 @@ import (
 )
 
 var _ = Describe("Client", func() {
+	var (
+		server *httptest.Server
+
+		createMockedClient = func(server *httptest.Server) *http.Client {
+			return &http.Client{
+				Transport: &http.Transport{
+					Proxy: func(req *http.Request) (*url.URL, error) {
+						return url.Parse(server.URL)
+					},
+				},
+			}
+		}
+	)
+
 	Context("with a failing request", func() {
 		var (
 			statusCode int
@@ -27,21 +44,14 @@ var _ = Describe("Client", func() {
 
 		BeforeEach(func() {
 			statusCode = 404
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(statusCode)
 				w.Header().Set("Content-Type", "application/json")
 				fmt.Fprintf(w, `{"error":"Not Found"}`)
 			}))
 
 			client.RestEndpoint = strings.Replace(client.RestEndpoint, "https", "http", 1)
-
-			client.HttpClient = &http.Client{
-				Transport: &http.Transport{
-					Proxy: func(req *http.Request) (*url.URL, error) {
-						return url.Parse(server.URL)
-					},
-				},
-			}
+			client.HttpClient = createMockedClient(server)
 
 			var err error
 			request, err = http.NewRequest("POST", client.RestEndpoint+"/any_path", bytes.NewBuffer([]byte{}))
@@ -50,6 +60,7 @@ var _ = Describe("Client", func() {
 
 		Describe("Get", func() {
 			var data interface{}
+
 			It("fails with a meaningful error", func() {
 				_, err := client.Get("/any_path", data)
 				Expect(err).To(HaveOccurred())
@@ -70,6 +81,67 @@ var _ = Describe("Client", func() {
 				httpError, ok := err.(*rest.RestHttpError)
 				Expect(ok).To(BeTrue())
 				Expect(httpError.ResponseBody).To(Equal(`{"error":"Not Found"}`))
+			})
+		})
+	})
+
+	Describe("encoding messages", func() {
+		var (
+			buffer []byte
+			server *httptest.Server
+		)
+
+		BeforeEach(func() {
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var err error
+				buffer, err = ioutil.ReadAll(r.Body)
+				Expect(err).NotTo(HaveOccurred())
+
+				w.WriteHeader(200)
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprintf(w, `{}`)
+			}))
+		})
+
+		Context("with JSON encoding set up", func() {
+			BeforeEach(func() {
+				testParamsCopy := testApp.Params
+				testParamsCopy.Protocol = config.ProtocolJSON
+				client = ably.NewRestClient(testParamsCopy)
+
+				client.RestEndpoint = strings.Replace(client.RestEndpoint, "https", "http", 1)
+				client.HttpClient = createMockedClient(server)
+
+				err := client.Channel("test").Publish("ping", "pong")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("encode the body of the message in JSON", func() {
+				var anyJson []map[string]interface{}
+				err := json.Unmarshal(buffer, &anyJson)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("with msgpack encoding set up", func() {
+			BeforeEach(func() {
+				testParamsCopy := testApp.Params
+				testParamsCopy.Protocol = config.ProtocolMsgPack
+				client = ably.NewRestClient(testParamsCopy)
+
+				client.RestEndpoint = strings.Replace(client.RestEndpoint, "https", "http", 1)
+				client.HttpClient = createMockedClient(server)
+
+				err := client.Channel("test").Publish("ping", "pong")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("encode the body of the message using msgpack", func() {
+				var anyMsgPack []map[string]interface{}
+				err := msgpack.Unmarshal(buffer, &anyMsgPack)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(anyMsgPack[0]["name"]).To(Equal("ping"))
+				Expect(anyMsgPack[0]["data"]).To(Equal("pong"))
 			})
 		})
 	})

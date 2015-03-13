@@ -1,8 +1,6 @@
 package protocol_test
 
 import (
-	"fmt"
-
 	"github.com/ably/ably-go/protocol"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
@@ -25,40 +23,39 @@ var _ = Describe("Message", func() {
 	Describe("DecodeData", func() {
 		Context("with a json/utf-8 encoding", func() {
 			BeforeEach(func() {
-				message = &protocol.Message{Data: []byte(`{ "string": "utf-8™" }`), Encoding: "json/utf-8"}
+				message = &protocol.Message{Data: `{ "string": "utf-8™" }`, Encoding: "json/utf-8"}
 			})
 
 			It("returns a same string", func() {
 				message.DecodeData(aes128Config)
-				Expect(string(message.Data)).To(Equal(`{ "string": "utf-8™" }`))
+				Expect(message.Data).To(Equal(`{ "string": "utf-8™" }`))
 			})
 		})
 
 		Context("with base64", func() {
 			BeforeEach(func() {
-				message = &protocol.Message{Data: []byte("dXRmLTjihKIK"), Encoding: "base64"}
+				message = &protocol.Message{Data: "dXRmLTjihKIK", Encoding: "base64"}
 			})
 
 			It("decodes it into a byte array", func() {
 				err := message.DecodeData(aes128Config)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(message.Data).To(Equal([]byte("utf-8™\n")))
+				Expect(message.Data).To(Equal("utf-8™\n"))
 			})
 		})
 
 		Context("with json/utf-8/cipher+aes-128-cbc/base64", func() {
 			BeforeEach(func() {
 				message = &protocol.Message{
-					Data:     []byte("iMKT2IGdZFN1PrlmqwIpk81cutSpuiuHPaE2IrRiRPboO+UoIr/cAY0i3z0oUOs2"),
+					Data:     "iMKT2IGdZFN1PrlmqwIpk81cutSpuiuHPaE2IrRiRPboO+UoIr/cAY0i3z0oUOs2",
 					Encoding: "json/utf-8/cipher+aes-128-cbc/base64",
 				}
 			})
 
 			It("decodes it into a byte array", func() {
 				err := message.DecodeData(aes128Config)
-				fmt.Printf("% x\n", message.Data)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(message.Data).To(Equal([]byte(`{"string":"utf-8™"}`)))
+				Expect(message.Data).To(Equal(`{"string":"utf-8™"}`))
 			})
 		})
 	})

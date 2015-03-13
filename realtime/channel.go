@@ -63,7 +63,7 @@ func (c *Channel) Unsubscribe(event string, ch chan *protocol.Message) {
 	close(ch)
 }
 
-func (c *Channel) Publish(name string, data interface{}) error {
+func (c *Channel) Publish(name string, data string) error {
 	c.Attach()
 	msg := &protocol.ProtocolMessage{
 		Action:  protocol.ActionMessage,
