@@ -34,7 +34,7 @@ type tokenResponse struct {
 	AccessToken *Token `json:"access_token"`
 }
 
-type tokenRequest struct {
+type TokenRequest struct {
 	ID         string `json:"id"`
 	TTL        int    `json:"ttl"`
 	Capability string `json:"capability"`
@@ -44,7 +44,7 @@ type tokenRequest struct {
 	Mac        string `json:"mac"`
 }
 
-func (t *tokenRequest) Sign(secret string) {
+func (t *TokenRequest) Sign(secret string) {
 	params := []string{
 		t.ID,
 		strconv.Itoa(t.TTL),
@@ -72,8 +72,8 @@ func NewAuth(params config.Params, client *Client) *Auth {
 	return auth
 }
 
-func (a *Auth) RequestToken(ttl int, capability *Capability) (*Token, error) {
-	req := &tokenRequest{
+func (a *Auth) CreateTokenRequest(ttl int, capability *Capability) *TokenRequest {
+	req := &TokenRequest{
 		ID:         a.AppID,
 		TTL:        ttl,
 		Capability: capability.String(),
@@ -83,6 +83,12 @@ func (a *Auth) RequestToken(ttl int, capability *Capability) (*Token, error) {
 	}
 
 	req.Sign(a.AppSecret)
+
+	return req
+}
+
+func (a *Auth) RequestToken(ttl int, capability *Capability) (*Token, error) {
+	req := a.CreateTokenRequest(ttl, capability)
 
 	res := &tokenResponse{}
 	_, err := a.client.Post("/keys/"+a.AppID+"/requestToken", req, res)

@@ -20,4 +20,15 @@ var _ = Describe("Auth", func() {
 			Expect(token.Capability).To(Equal(capability))
 		})
 	})
+
+	Describe("CreateTokenRequest", func() {
+		It("gets a token from the API", func() {
+			ttl := 60 * 60
+			capability := &rest.Capability{"foo": []string{"publish"}}
+			tokenRequest := client.Auth.CreateTokenRequest(ttl, capability)
+
+			Expect(tokenRequest.ID).To(ContainSubstring(testApp.Config.AppID))
+			Expect(tokenRequest.Mac).NotTo(BeNil())
+		})
+	})
 })
