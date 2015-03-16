@@ -14,65 +14,19 @@ go get github.com/ably/ably-go
 
 ### Subscribing to a channel
 
-Given:
-
-```go
-client := ably.NewRealtimeClient(ably.ClientOptions{
-  ApiKey: "xxxx"
-})
-
-channel := client.Channel('test')
-```
-
-Subscribe to all events:
-
-```go
-listener := ably.NewMessageListener(func(message protocol.Message) {
-  message.Data
-  message.Name
-})
-
-channel.Subscribe(listener)
-```
-
-Only certain events:
-
-```go
-listener := ably.NewMessageListener(func(message protocol.Message) {
-  message.Data
-  message.Name
-})
-
-channel.SubscribeTo("myEvent", listener)
-```
+TODO
 
 ### Publishing to a channel
 
-```go
-client := ably.NewRealtimeClient(ably.ClientOptions{ApiKey: "xxxx"})
-channel := client.Channel("test")
-channel.Publish("greeting", "Hello World!")
-```
+TODO
 
 ### Presence on a channel
 
-```go
-client := ably.NewRealtimeClient(ably.ClientOptions{ApiKey: "xxxx"})
-channel := client.Channel("test")
-
-message := PresenceMessage{ClientData: "john.doe"}
-listener := ably.NewPresenceListener(func(presence *ably.PresenceMessage) {
-  presence.Get() // => []realtime.Member
-})
-
-channel.Presence.Enter(message, listener)
-```
+TODO
 
 ## Using the REST API
 
 ### Introduction
-
-Unlike the Realtime API, all calls are synchronous and are not run within an [EventMachine](https://github.com/eventmachine/eventmachine) [reactor](https://github.com/eventmachine/eventmachine/wiki/General-Introduction).
 
 All examples assume a client and/or channel has been created as follows:
 
@@ -89,25 +43,25 @@ channel.Publish("myEvent", "Hello!") # => returns an error if any
 
 ### Querying the History
 
-```ruby
-channel.History(nil)
+```go
+channel.History(nil) # => rest.PaginatedMessages
 ```
 
 ### Presence on a channel
 
-```ruby
+```go
 channel.Presence.Get(nil) # => rest.PaginatedPresenceMessages
 ```
 
 ### Querying the Presence History
 
-```ruby
+```go
 channel.Presence.History(nil) # => rest.PaginatedPresenceMessages
 ```
 
 ### Generate Token and Token Request
 
-```ruby
+```go
 client.Auth.RequestToken()
 client.Auth.CreateTokenRequest()
 ```
