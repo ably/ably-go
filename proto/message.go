@@ -21,6 +21,14 @@ const (
 	PaddingStr = "\x0b"
 )
 
+// DecodeData reads the current Encoding field and decode Data following it.
+// The Encoding field contains slash (/) separated values and will be read from right to left
+// to decode data.
+// For example, if Encodind is currently set to "json/base64" it will first try to decode data
+// using base64 decoding and then json. In this example JSON is not a real type used in the Go
+// library so the string is left untouched.
+// To be able to decode aes encoded string, the keys parameter must be present. Otherwise, DecodeData
+// will return an error.
 func (m *Message) DecodeData(keys map[string]string) error {
 	encodings := strings.Split(m.Encoding, "/")
 	for i := len(encodings) - 1; i >= 0; i-- {
@@ -47,6 +55,12 @@ func (m *Message) DecodeData(keys map[string]string) error {
 	return nil
 }
 
+// EncodeData resets the current Encoding field to an empty string and starts
+// encoding data following the given `encoding` parameter.
+// `encoding` contains slash (/) separated values that EncodeData will read
+// from left to right to encode the current Data string.
+// To encode data using aes, the keys parameter must be present. Otherwise,
+// EncodeData will return an error.
 func (m *Message) EncodeData(encoding string, keys map[string]string) error {
 	m.Encoding = ""
 	encodings := strings.Split(encoding, "/")
@@ -168,8 +182,8 @@ func (m *Message) Encrypt(cipherStr string, keys map[string]string) error {
 	return nil
 }
 
-// addPadding increases the size of our message data
-// This is creating a valid byte array that can be encrypted using CBC
+// addPadding expands the message Data string to a suitable CBC valid length.
+// CBC encryption requires specific block size to work.
 func (m *Message) addPadding() {
 	paddingBytes := []byte(PaddingStr)
 	paddingLength := aes.BlockSize - (len(m.Data) % aes.BlockSize)
