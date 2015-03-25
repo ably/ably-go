@@ -12,8 +12,8 @@ import (
 )
 
 type Message struct {
-	Name     string `json:"name" msgpack:"name"`
-	Data     string `json:"data" msgpack:"data"`
+	Name     string `json:"name,omitempty" msgpack:"name,omitempty"`
+	Data     string `json:"data,omitempty" msgpack:"data,omitempty"`
 	Encoding string `json:"encoding,omitempty" msgpack:"encoding,omitempty"`
 }
 
