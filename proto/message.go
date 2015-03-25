@@ -17,6 +17,10 @@ type Message struct {
 	Encoding string `json:"encoding,omitempty" msgpack:"encoding,omitempty"`
 }
 
+const (
+	PaddingStr = "\x0b"
+)
+
 func (m *Message) DecodeData(keys map[string]string) error {
 	encodings := strings.Split(m.Encoding, "/")
 	for i := len(encodings) - 1; i >= 0; i-- {
@@ -119,7 +123,7 @@ func (m *Message) Decrypt(cipherStr string, keys map[string]string) error {
 		blockMode := cipher.NewCBCDecrypter(block, []byte(iv))
 		blockMode.CryptBlocks(out, []byte(m.Data))
 
-		m.Data = strings.TrimRight(string(out), "\x0b")
+		m.Data = strings.TrimRight(string(out), PaddingStr)
 	default:
 		// TODO log wrong keylen
 		// Golang supports only these previous specified keys
@@ -164,12 +168,19 @@ func (m *Message) Encrypt(cipherStr string, keys map[string]string) error {
 	return nil
 }
 
+// addPadding increases the size of our message data
+// This is creating a valid byte array that can be encrypted using CBC
 func (m *Message) addPadding() {
+	paddingBytes := []byte(PaddingStr)
 	paddingLength := aes.BlockSize - (len(m.Data) % aes.BlockSize)
-	paddingChar := "\x0b"
-	for i := 0; i < paddingLength; i++ {
-		m.Data = m.Data + paddingChar
+	newData := make([]byte, len(m.Data)+paddingLength)
+
+	copy(newData, m.Data)
+	for i := len(m.Data); i < len(newData); i += len(paddingBytes) {
+		copy(newData[i:], paddingBytes)
 	}
+
+	m.Data = string(newData)
 }
 
 func (m *Message) mergeEncoding(encoding string) {
