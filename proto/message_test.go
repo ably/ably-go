@@ -16,8 +16,12 @@ var _ = Describe("Message", func() {
 	)
 
 	BeforeEach(func() {
+		key, err := base64.StdEncoding.DecodeString("WUP6u0K7MXI5Zeo0VppPwg==")
+		Expect(err).NotTo(HaveOccurred())
+
 		aes128Config = map[string]string{
-			"key": "\xb3\x25\x06\x00\x5c\x9d\x00\x27\x81\x7d\xdf\x81\xf3\x7f\xaa\xa7",
+			"key": string(key),
+			"iv":  "",
 		}
 	})
 
@@ -59,9 +63,16 @@ var _ = Describe("Message", func() {
 		})
 
 		Context("with json/utf-8/cipher+aes-128-cbc/base64", func() {
+			var (
+				encodedData string
+				decodedData string
+			)
+
 			BeforeEach(func() {
+				encodedData = "HO4cYSP8LybPYBPZPHQOtvmStzmExkdjvrn51J6cmaTZrGl+EsJ61sgxmZ6j6jcA"
+				decodedData = "[\"example\",\"json\",\"array\"]"
 				message = &proto.Message{
-					Data:     "iMKT2IGdZFN1PrlmqwIpk81cutSpuiuHPaE2IrRiRPboO+UoIr/cAY0i3z0oUOs2",
+					Data:     encodedData,
 					Encoding: "json/utf-8/cipher+aes-128-cbc/base64",
 				}
 			})
@@ -69,7 +80,7 @@ var _ = Describe("Message", func() {
 			It("decodes it into a byte array", func() {
 				err := message.DecodeData(aes128Config)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(message.Data).To(Equal(`{"string":"utf-8™"}`))
+				Expect(message.Data).To(Equal(decodedData))
 			})
 
 			It("fails to decode data without an aes config", func() {
@@ -126,14 +137,23 @@ var _ = Describe("Message", func() {
 		})
 
 		Context("with json/utf-8/cipher+aes-128-cbc/base64", func() {
-			var str string
+			var (
+				str         string
+				encodedData string
+			)
 
 			BeforeEach(func() {
-				str = `{"string":"utf-8™"}`
-				encodeInto = "json/utf-8/cipher+aes-128-cbc/base64"
+				str = `The quick brown fox jumped over the lazy dog`
+				encodedData = "HO4cYSP8LybPYBPZPHQOtmHItcxYdSvcNUC6kXVpMn0VFL+9z2/5tJ6WFbR0SBT1xhFRuJ+MeBGTU3yOY9P5ow=="
+				encodeInto = "utf-8/cipher+aes-128-cbc/base64"
+
+				iv, err := base64.StdEncoding.DecodeString("HO4cYSP8LybPYBPZPHQOtg==")
+				Expect(err).NotTo(HaveOccurred())
+
+				aes128Config["iv"] = string(iv)
 
 				message = &proto.Message{Data: str}
-				err := message.EncodeData(encodeInto, aes128Config)
+				err = message.EncodeData(encodeInto, aes128Config)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -145,6 +165,10 @@ var _ = Describe("Message", func() {
 				err := message.DecodeData(aes128Config)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(message.Data).To(Equal(str))
+			})
+
+			It("has the expected encoded value", func() {
+				Expect(message.Data).To(Equal(encodedData))
 			})
 		})
 	})

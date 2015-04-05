@@ -1,6 +1,7 @@
 package proto
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -16,10 +17,6 @@ type Message struct {
 	Data     string `json:"data,omitempty" msgpack:"data,omitempty"`
 	Encoding string `json:"encoding,omitempty" msgpack:"encoding,omitempty"`
 }
-
-const (
-	PaddingStr = "\x0b"
-)
 
 // DecodeData reads the current Encoding field and decode Data following it.
 // The Encoding field contains slash (/) separated values and will be read from right to left
@@ -113,86 +110,76 @@ func (m *Message) getKeyLen(cipherStr string) int64 {
 }
 
 func (m *Message) Decrypt(cipherStr string, keys map[string]string) error {
-	keylen := m.getKeyLen(cipherStr)
-	if keylen == 0 {
-		return fmt.Errorf("unrecognized key length")
+	block, err := aes.NewCipher([]byte(keys["key"]))
+	if err != nil {
+		return err
 	}
 
-	switch keylen {
-	case 128, 192, 256:
-		block, err := aes.NewCipher([]byte(keys["key"]))
-		if err != nil {
-			return err
-		}
-
-		if len(m.Data)%aes.BlockSize != 0 {
-			return fmt.Errorf("ciphertext is not a multiple of the block size")
-		}
-
-		iv := m.Data[:aes.BlockSize]
-		m.Data = m.Data[aes.BlockSize:]
-
-		out := make([]byte, len(m.Data))
-
-		blockMode := cipher.NewCBCDecrypter(block, []byte(iv))
-		blockMode.CryptBlocks(out, []byte(m.Data))
-
-		m.Data = strings.TrimRight(string(out), PaddingStr)
-	default:
-		// TODO log wrong keylen
-		// Golang supports only these previous specified keys
+	if len(m.Data)%aes.BlockSize != 0 {
+		return fmt.Errorf("ciphertext is not a multiple of the block size")
 	}
 
+	iv := m.Data[:aes.BlockSize]
+	m.Data = m.Data[aes.BlockSize:]
+
+	out := make([]byte, len(m.Data))
+
+	blockMode := cipher.NewCBCDecrypter(block, []byte(iv))
+	blockMode.CryptBlocks(out, []byte(m.Data))
+
+	newData, err := pkcs7Unpad(out, aes.BlockSize)
+	if err != nil {
+		return err
+	}
+
+	m.Data = string(newData)
 	return nil
 }
 
 func (m *Message) Encrypt(cipherStr string, keys map[string]string) error {
-	keylen := m.getKeyLen(cipherStr)
-	if keylen == 0 {
-		return fmt.Errorf("unrecognized key length")
+	block, err := aes.NewCipher([]byte(keys["key"]))
+	if err != nil {
+		return err
 	}
 
-	switch keylen {
-	case 128, 192, 256:
-		block, err := aes.NewCipher([]byte(keys["key"]))
+	if len(m.Data)%aes.BlockSize != 0 {
+		newData, err := pkcs7Pad([]byte(m.Data), aes.BlockSize)
 		if err != nil {
 			return err
 		}
 
-		if len(m.Data)%aes.BlockSize != 0 {
-			m.addPadding()
-		}
+		m.Data = string(newData)
+	}
 
-		out := make([]byte, aes.BlockSize+len(m.Data))
-		iv := out[:aes.BlockSize]
+	out := make([]byte, aes.BlockSize+len(m.Data))
+	iv := out[:aes.BlockSize]
+
+	if keys["iv"] == "" {
 		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
 			return err
 		}
-
-		blockMode := cipher.NewCBCEncrypter(block, iv)
-		blockMode.CryptBlocks(out[aes.BlockSize:], []byte(m.Data))
-
-		m.Data = string(out)
-		m.mergeEncoding(cipherStr)
-	default:
-		// TODO log wrong keylen
-		// Golang supports only these previous specified keys
+	} else {
+		copy(iv, keys["iv"])
 	}
 
+	blockMode := cipher.NewCBCEncrypter(block, iv)
+	blockMode.CryptBlocks(out[aes.BlockSize:], []byte(m.Data))
+
+	m.Data = string(out)
+	m.mergeEncoding(cipherStr)
 	return nil
 }
 
 // addPadding expands the message Data string to a suitable CBC valid length.
 // CBC encryption requires specific block size to work.
 func (m *Message) addPadding() {
-	paddingBytes := []byte(PaddingStr)
 	paddingLength := aes.BlockSize - (len(m.Data) % aes.BlockSize)
+	paddingByte := byte(paddingLength)
 	newData := make([]byte, len(m.Data)+paddingLength)
 
+	padding := bytes.Repeat([]byte{paddingByte}, paddingLength)
 	copy(newData, m.Data)
-	for i := len(m.Data); i < len(newData); i += len(paddingBytes) {
-		copy(newData[i:], paddingBytes)
-	}
+	copy(newData[len(m.Data)-1:], padding)
 
 	m.Data = string(newData)
 }
@@ -203,4 +190,42 @@ func (m *Message) mergeEncoding(encoding string) {
 	} else {
 		m.Encoding = strings.Join([]string{m.Encoding, encoding}, "/")
 	}
+}
+
+// Appends padding.
+func pkcs7Pad(data []byte, blocklen int) ([]byte, error) {
+	if blocklen <= 0 {
+		return nil, fmt.Errorf("invalid blocklen %d", blocklen)
+	}
+	padlen := 1
+	for ((len(data) + padlen) % blocklen) != 0 {
+		padlen = padlen + 1
+	}
+
+	pad := bytes.Repeat([]byte{byte(padlen)}, padlen)
+	return append(data, pad...), nil
+}
+
+// Returns slice of the original data without padding.
+func pkcs7Unpad(data []byte, blocklen int) ([]byte, error) {
+	if blocklen <= 0 {
+		return nil, fmt.Errorf("invalid blocklen %d", blocklen)
+	}
+	if len(data)%blocklen != 0 || len(data) == 0 {
+		return nil, fmt.Errorf("invalid data len %d", len(data))
+	}
+	padlen := int(data[len(data)-1])
+	if padlen > blocklen || padlen == 0 {
+		// no padding found.
+		return data, nil
+	}
+	// check padding
+	pad := data[len(data)-padlen:]
+	for i := 0; i < padlen; i++ {
+		if pad[i] != byte(padlen) {
+			return nil, fmt.Errorf("invalid padding character")
+		}
+	}
+
+	return data[:len(data)-padlen], nil
 }
