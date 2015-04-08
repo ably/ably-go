@@ -158,9 +158,11 @@ func (c *Conn) watchConnectionState() {
 }
 
 func (c *Conn) trigger(connState ConnState) {
-	for i := range c.listeners[connState] {
-		go c.listeners[connState][i]()
+	c.listenerMtx.RLock()
+	for _, fn := range c.listeners[connState] {
+		go fn()
 	}
+	c.listenerMtx.RUnlock()
 }
 
 func (c *Conn) On(connState ConnState, listener ConnListener) {
