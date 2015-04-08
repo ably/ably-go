@@ -2,11 +2,13 @@ package support
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/ably/ably-go/config"
@@ -41,9 +43,8 @@ type testAppConfig struct {
 }
 
 type TestApp struct {
-	Params     config.Params
-	Config     testAppConfig
-	HttpClient *http.Client
+	Params config.Params
+	Config testAppConfig
 }
 
 func (t *TestApp) AppKeyValue() string {
@@ -81,7 +82,7 @@ func (t *TestApp) Create() (*http.Response, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	res, err := t.HttpClient.Do(req)
+	res, err := t.Params.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +113,7 @@ func (t *TestApp) Delete() (*http.Response, error) {
 	}
 
 	req.SetBasicAuth(t.AppKeyId(), t.AppKeyValue())
-	res, err := t.HttpClient.Do(req)
+	res, err := t.Params.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -131,24 +132,31 @@ func (t *TestApp) Delete() (*http.Response, error) {
 	return res, nil
 }
 
-func dialTimeout(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, time.Duration(10*time.Second))
-}
+var timeout = 10 * time.Second
 
 func NewTestApp() *TestApp {
-	transport := http.Transport{
-		Dial: dialTimeout,
+	client := &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout:   timeout,
+				KeepAlive: timeout,
+			}).Dial,
+			TLSHandshakeTimeout: timeout,
+		},
 	}
 
-	client := http.Client{
-		Transport: &transport,
+	// Don't verify hostname - for use with proxies for testing purposes.
+	if os.Getenv("HTTP_PROXY") != "" {
+		client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
 	return &TestApp{
-		HttpClient: &client,
 		Params: config.Params{
 			RealtimeEndpoint: "wss://sandbox-realtime.ably.io:443",
 			RestEndpoint:     "https://sandbox-rest.ably.io",
+			HTTPClient:       client,
 		},
 		Config: testAppConfig{
 			Keys: []testAppKey{

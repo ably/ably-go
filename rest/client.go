@@ -19,7 +19,7 @@ type Client struct {
 	RestEndpoint string
 	Protocol     config.ProtocolType
 
-	HttpClient *http.Client
+	HTTPClient *http.Client
 
 	channels map[string]*Channel
 	chanMtx  sync.Mutex
@@ -28,7 +28,7 @@ type Client struct {
 func NewClient(params config.Params) *Client {
 	client := &Client{
 		RestEndpoint: params.RestEndpoint,
-		HttpClient:   http.DefaultClient,
+		HTTPClient:   params.HTTPClient,
 		channels:     make(map[string]*Channel),
 	}
 
@@ -36,6 +36,13 @@ func NewClient(params config.Params) *Client {
 	client.Protocol = params.Protocol
 
 	return client
+}
+
+func (c *Client) httpclient() *http.Client {
+	if c.HTTPClient != nil {
+		return c.HTTPClient
+	}
+	return http.DefaultClient
 }
 
 func (c *Client) Time() (*time.Time, error) {
@@ -75,7 +82,7 @@ func (c *Client) Get(path string, out interface{}) (*http.Response, error) {
 	}
 	req.Header.Set("Accept", "application/json")
 	req.SetBasicAuth(c.Auth.AppID, c.Auth.AppSecret)
-	res, err := c.HttpClient.Do(req)
+	res, err := c.httpclient().Do(req)
 
 	if err != nil {
 		return nil, err
@@ -106,7 +113,7 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.SetBasicAuth(c.Auth.AppID, c.Auth.AppSecret)
-	res, err := c.HttpClient.Do(req)
+	res, err := c.httpclient().Do(req)
 	if err != nil {
 		return nil, err
 	}

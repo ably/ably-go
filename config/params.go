@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -25,6 +26,8 @@ type Params struct {
 
 	Protocol ProtocolType
 	Tls      bool
+
+	HTTPClient *http.Client
 
 	AblyLogger *AblyLogger
 	LogLevel   string
