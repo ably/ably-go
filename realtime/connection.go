@@ -125,13 +125,8 @@ func (c *Conn) dial(u *url.URL) error {
 	if err != nil {
 		return err
 	}
-
-	c.Ch = make(chan *protocol.ProtocolMessage)
-	c.Err = make(chan error)
 	c.ws = ws
-
 	go c.read()
-
 	return nil
 }
 
