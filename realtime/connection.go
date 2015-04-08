@@ -101,7 +101,7 @@ func (c *Conn) Connect() error {
 	c.setState(ConnStateConnecting)
 
 	restClient := rest.NewClient(c.Params)
-	token, err := restClient.Auth.RequestToken(60*60, &rest.Capability{"*": []string{"*"}})
+	token, err := restClient.Auth.RequestToken(60*60, rest.Capability{"*": []string{"*"}})
 	if err != nil {
 		return fmt.Errorf("Error fetching token: %s", err)
 	}

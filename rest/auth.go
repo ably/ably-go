@@ -16,7 +16,7 @@ import (
 
 type Capability map[string][]string
 
-func (c *Capability) String() string {
+func (c Capability) String() string {
 	b, err := json.Marshal(c)
 	if err != nil {
 		panic(err)
@@ -25,9 +25,9 @@ func (c *Capability) String() string {
 }
 
 type Token struct {
-	ID         string      `json:"id"`
-	Key        string      `json:"key"`
-	Capability *Capability `json:"capability"`
+	ID         string `json:"id"`
+	Key        string `json:"key"`
+	Capability string `json:"capability"`
 }
 
 type tokenResponse struct {
@@ -72,7 +72,7 @@ func NewAuth(params config.Params, client *Client) *Auth {
 	return auth
 }
 
-func (a *Auth) CreateTokenRequest(ttl int, capability *Capability) *TokenRequest {
+func (a *Auth) CreateTokenRequest(ttl int, capability Capability) *TokenRequest {
 	req := &TokenRequest{
 		ID:         a.AppID,
 		TTL:        ttl,
@@ -87,7 +87,7 @@ func (a *Auth) CreateTokenRequest(ttl int, capability *Capability) *TokenRequest
 	return req
 }
 
-func (a *Auth) RequestToken(ttl int, capability *Capability) (*Token, error) {
+func (a *Auth) RequestToken(ttl int, capability Capability) (*Token, error) {
 	req := a.CreateTokenRequest(ttl, capability)
 
 	res := &tokenResponse{}
