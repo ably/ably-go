@@ -17,7 +17,7 @@ var _ = Describe("Auth", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(token.ID).To(ContainSubstring(testApp.Config.AppID))
 			Expect(token.Key).To(Equal(testApp.AppKeyId()))
-			Expect(token.Capability).To(Equal(capability.String()))
+			Expect(token.Capability).To(Equal(capability))
 		})
 	})
 
