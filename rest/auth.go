@@ -1,14 +1,13 @@
 package rest
 
 import (
+	"fmt"
 	"time"
 
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"strconv"
-	"strings"
 
 	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/flynn/flynn/pkg/random"
 	"github.com/ably/ably-go/config"
@@ -45,19 +44,13 @@ type TokenRequest struct {
 }
 
 func (t *TokenRequest) Sign(secret string) {
-	params := []string{
-		t.ID,
-		strconv.Itoa(t.TTL),
-		t.Capability,
-		t.ClientID,
-		strconv.Itoa(int(t.Timestamp)),
-		t.Nonce,
-	}
-	s := strings.Join(params, "\n") + "\n"
-
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(s))
-
+	fmt.Fprintln(mac, t.ID)
+	fmt.Fprintln(mac, t.TTL)
+	fmt.Fprintln(mac, t.Capability)
+	fmt.Fprintln(mac, t.ClientID)
+	fmt.Fprintln(mac, t.Timestamp)
+	fmt.Fprintln(mac, t.Nonce)
 	t.Mac = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
@@ -67,9 +60,10 @@ type Auth struct {
 }
 
 func NewAuth(params config.Params, client *Client) *Auth {
-	auth := &Auth{Params: params}
-	auth.client = client
-	return auth
+	return &Auth{
+		Params: params,
+		client: client,
+	}
 }
 
 func (a *Auth) CreateTokenRequest(ttl int, capability Capability) *TokenRequest {
