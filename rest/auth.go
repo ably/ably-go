@@ -1,14 +1,14 @@
 package rest
 
 import (
+	"fmt"
+	"strconv"
 	"time"
 
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"strconv"
-	"strings"
 
 	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/flynn/flynn/pkg/random"
 	"github.com/ably/ably-go/config"
@@ -16,18 +16,34 @@ import (
 
 type Capability map[string][]string
 
-func (c *Capability) String() string {
-	b, err := json.Marshal(c)
+func (c Capability) MarshalJSON() ([]byte, error) {
+	p, err := json.Marshal((map[string][]string)(c))
+	if err != nil {
+		return nil, err
+	}
+	return []byte(strconv.Quote(string(p))), nil
+}
+
+func (c *Capability) UnmarshalJSON(p []byte) error {
+	s, err := strconv.Unquote(string(p))
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(s), (*map[string][]string)(c))
+}
+
+func (c Capability) String() string {
+	p, err := json.Marshal((map[string][]string)(c))
 	if err != nil {
 		panic(err)
 	}
-	return string(b)
+	return string(p)
 }
 
 type Token struct {
-	ID         string      `json:"id"`
-	Key        string      `json:"key"`
-	Capability *Capability `json:"capability"`
+	ID         string     `json:"id"`
+	Key        string     `json:"key"`
+	Capability Capability `json:"capability"`
 }
 
 type tokenResponse struct {
@@ -35,29 +51,23 @@ type tokenResponse struct {
 }
 
 type TokenRequest struct {
-	ID         string `json:"id"`
-	TTL        int    `json:"ttl"`
-	Capability string `json:"capability"`
-	ClientID   string `json:"client_id"`
-	Timestamp  int64  `json:"timestamp"`
-	Nonce      string `json:"nonce"`
-	Mac        string `json:"mac"`
+	ID         string     `json:"id"`
+	TTL        int        `json:"ttl"`
+	Capability Capability `json:"capability"`
+	ClientID   string     `json:"client_id"`
+	Timestamp  int64      `json:"timestamp"`
+	Nonce      string     `json:"nonce"`
+	Mac        string     `json:"mac"`
 }
 
 func (t *TokenRequest) Sign(secret string) {
-	params := []string{
-		t.ID,
-		strconv.Itoa(t.TTL),
-		t.Capability,
-		t.ClientID,
-		strconv.Itoa(int(t.Timestamp)),
-		t.Nonce,
-	}
-	s := strings.Join(params, "\n") + "\n"
-
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(s))
-
+	fmt.Fprintln(mac, t.ID)
+	fmt.Fprintln(mac, t.TTL)
+	fmt.Fprintln(mac, t.Capability.String())
+	fmt.Fprintln(mac, t.ClientID)
+	fmt.Fprintln(mac, t.Timestamp)
+	fmt.Fprintln(mac, t.Nonce)
 	t.Mac = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
@@ -67,16 +77,17 @@ type Auth struct {
 }
 
 func NewAuth(params config.Params, client *Client) *Auth {
-	auth := &Auth{Params: params}
-	auth.client = client
-	return auth
+	return &Auth{
+		Params: params,
+		client: client,
+	}
 }
 
-func (a *Auth) CreateTokenRequest(ttl int, capability *Capability) *TokenRequest {
+func (a *Auth) CreateTokenRequest(ttl int, capability Capability) *TokenRequest {
 	req := &TokenRequest{
 		ID:         a.AppID,
 		TTL:        ttl,
-		Capability: capability.String(),
+		Capability: capability,
 		ClientID:   a.ClientID,
 		Timestamp:  time.Now().Unix(),
 		Nonce:      random.String(32),
@@ -87,7 +98,7 @@ func (a *Auth) CreateTokenRequest(ttl int, capability *Capability) *TokenRequest
 	return req
 }
 
-func (a *Auth) RequestToken(ttl int, capability *Capability) (*Token, error) {
+func (a *Auth) RequestToken(ttl int, capability Capability) (*Token, error) {
 	req := a.CreateTokenRequest(ttl, capability)
 
 	res := &tokenResponse{}
