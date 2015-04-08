@@ -51,7 +51,7 @@ var _ = Describe("Client", func() {
 			}))
 
 			client.RestEndpoint = strings.Replace(client.RestEndpoint, "https", "http", 1)
-			client.HttpClient = createMockedClient(server)
+			client.HTTPClient = createMockedClient(server)
 
 			var err error
 			request, err = http.NewRequest("POST", client.RestEndpoint+"/any_path", bytes.NewBuffer([]byte{}))
@@ -110,7 +110,7 @@ var _ = Describe("Client", func() {
 				client = ably.NewRestClient(testParamsCopy)
 
 				client.RestEndpoint = strings.Replace(client.RestEndpoint, "https", "http", 1)
-				client.HttpClient = createMockedClient(server)
+				client.HTTPClient = createMockedClient(server)
 
 				err := client.Channel("test").Publish("ping", "pong")
 				Expect(err).NotTo(HaveOccurred())
@@ -130,7 +130,7 @@ var _ = Describe("Client", func() {
 				client = ably.NewRestClient(testParamsCopy)
 
 				client.RestEndpoint = strings.Replace(client.RestEndpoint, "https", "http", 1)
-				client.HttpClient = createMockedClient(server)
+				client.HTTPClient = createMockedClient(server)
 
 				err := client.Channel("test").Publish("ping", "pong")
 				Expect(err).NotTo(HaveOccurred())
