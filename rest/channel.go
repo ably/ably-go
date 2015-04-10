@@ -28,7 +28,7 @@ func newChannel(name string, client *Client) *Channel {
 
 func (c *Channel) Publish(name string, data string) error {
 	messages := []*protocol.Message{
-		&protocol.Message{Name: name, Data: data, Encoding: "utf8"},
+		{Name: name, Data: data, Encoding: "utf8"},
 	}
 	return c.PublishAll(messages)
 }

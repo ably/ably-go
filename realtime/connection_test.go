@@ -19,8 +19,8 @@ var _ = Describe("Connection", func() {
 	})
 
 	It("connects to ably on initialization", func() {
-		Eventually(func() realtime.ConnState {
-			return client.Connection.State
+		Eventually(func() (state realtime.ConnState) {
+			return client.Connection.State()
 		}, "2s").Should(Equal(realtime.ConnStateConnected))
 	})
 

@@ -63,8 +63,8 @@ var _ = Describe("Channel", func() {
 
 		It("allows to send multiple messages at once", func() {
 			messages := []*protocol.Message{
-				&protocol.Message{Name: "send", Data: "test data 1"},
-				&protocol.Message{Name: "send", Data: "test data 2"},
+				{Name: "send", Data: "test data 1"},
+				{Name: "send", Data: "test data 2"},
 			}
 			err := encodingChannel.PublishAll(messages)
 			Expect(err).NotTo(HaveOccurred())

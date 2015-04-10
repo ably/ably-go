@@ -92,12 +92,12 @@ func (c *Channel) notify(msg *protocol.ProtocolMessage) {
 		defer c.listenMtx.RUnlock()
 		for _, m := range msg.Messages {
 			if l, ok := c.listeners[""]; ok {
-				for ch, _ := range l {
+				for ch := range l {
 					ch <- m
 				}
 			}
 			if l, ok := c.listeners[m.Name]; ok {
-				for ch, _ := range l {
+				for ch := range l {
 					ch <- m
 				}
 			}

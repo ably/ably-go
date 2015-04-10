@@ -32,11 +32,11 @@ type Conn struct {
 	config.Params
 
 	ID        string
-	State     ConnState
 	stateChan chan ConnState
 	Ch        chan *protocol.ProtocolMessage
 	Err       chan error
 	ws        *websocket.Conn
+	state     ConnState
 	mtx       sync.RWMutex
 	stateMtx  sync.RWMutex
 
@@ -47,7 +47,7 @@ type Conn struct {
 func NewConn(params config.Params) *Conn {
 	c := &Conn{
 		Params:    params,
-		State:     ConnStateInitialized,
+		state:     ConnStateInitialized,
 		stateChan: make(chan ConnState),
 		Ch:        make(chan *protocol.ProtocolMessage),
 		Err:       make(chan error),
@@ -56,11 +56,17 @@ func NewConn(params config.Params) *Conn {
 	return c
 }
 
+func (c *Conn) State() ConnState {
+	c.stateMtx.Lock()
+	defer c.stateMtx.Unlock()
+	return c.state
+}
+
 func (c *Conn) isActive() bool {
 	c.stateMtx.RLock()
 	defer c.stateMtx.RUnlock()
 
-	switch c.State {
+	switch c.state {
 	case ConnStateConnecting,
 		ConnStateConnected:
 		return true
@@ -119,13 +125,8 @@ func (c *Conn) dial(u *url.URL) error {
 	if err != nil {
 		return err
 	}
-
-	c.Ch = make(chan *protocol.ProtocolMessage)
-	c.Err = make(chan error)
 	c.ws = ws
-
 	go c.read()
-
 	return nil
 }
 
@@ -152,9 +153,11 @@ func (c *Conn) watchConnectionState() {
 }
 
 func (c *Conn) trigger(connState ConnState) {
-	for i := range c.listeners[connState] {
-		go c.listeners[connState][i]()
+	c.listenerMtx.RLock()
+	for _, fn := range c.listeners[connState] {
+		go fn()
 	}
+	c.listenerMtx.RUnlock()
 }
 
 func (c *Conn) On(connState ConnState, listener ConnListener) {
@@ -176,7 +179,7 @@ func (c *Conn) setState(state ConnState) {
 	c.stateMtx.Lock()
 	defer c.stateMtx.Unlock()
 
-	c.State = state
+	c.state = state
 	c.stateChan <- state
 }
 
