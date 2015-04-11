@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/config"
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 	"github.com/ably/ably-go/rest"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
@@ -25,7 +25,7 @@ var _ = Describe("Presence", func() {
 				members, err := presence.Get(nil)
 				messages := members.Current
 				Expect(err).NotTo(HaveOccurred())
-				Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
+				Expect(messages).To(BeAssignableToTypeOf([]*proto.PresenceMessage{}))
 				Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
 			})
 
@@ -55,7 +55,7 @@ var _ = Describe("Presence", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				messages := members.Current
-				Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
+				Expect(messages).To(BeAssignableToTypeOf([]*proto.PresenceMessage{}))
 				Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
 			})
 
@@ -71,7 +71,7 @@ var _ = Describe("Presence", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					messages := members.Current
-					Expect(messages).To(BeAssignableToTypeOf([]*protocol.PresenceMessage{}))
+					Expect(messages).To(BeAssignableToTypeOf([]*proto.PresenceMessage{}))
 					Expect(len(messages)).To(Equal(len(testApp.Config.Channels[0].Presence)))
 				})
 			})

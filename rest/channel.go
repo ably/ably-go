@@ -2,7 +2,7 @@ package rest
 
 import (
 	"github.com/ably/ably-go/config"
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 )
 
 type Channel struct {
@@ -27,7 +27,7 @@ func newChannel(name string, client *Client) *Channel {
 }
 
 func (c *Channel) Publish(name string, data string) error {
-	messages := []*protocol.Message{
+	messages := []*proto.Message{
 		{Name: name, Data: data, Encoding: "utf8"},
 	}
 	return c.PublishAll(messages)
@@ -36,7 +36,7 @@ func (c *Channel) Publish(name string, data string) error {
 // PublishAll sends multiple messages in the same http call.
 // This is the more efficient way of transmitting a batch of messages
 // using the Rest API.
-func (c *Channel) PublishAll(messages []*protocol.Message) error {
+func (c *Channel) PublishAll(messages []*proto.Message) error {
 	res, err := c.client.Post("/channels/"+c.Name+"/messages", messages, nil)
 
 	if err != nil {

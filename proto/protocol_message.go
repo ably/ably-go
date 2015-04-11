@@ -1,4 +1,4 @@
-package protocol
+package proto
 
 type ProtocolMessage struct {
 	Action           Action             `json:"action"`

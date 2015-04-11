@@ -1,18 +1,18 @@
-package protocol_test
+package proto_test
 
 import (
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 )
 
 var _ = Describe("PaginatedResource", func() {
-	var paginatedResource protocol.PaginatedResource
+	var paginatedResource proto.PaginatedResource
 
 	Describe("BuildPath", func() {
 		BeforeEach(func() {
-			paginatedResource = protocol.PaginatedResource{}
+			paginatedResource = proto.PaginatedResource{}
 		})
 
 		It("returns a string pointing to the new path based on the given path", func() {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/config"
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 	"github.com/ably/ably-go/rest"
 
 	"github.com/ably/ably-go/Godeps/_workspace/src/code.google.com/p/go.net/websocket"
@@ -33,7 +33,7 @@ type Conn struct {
 
 	ID        string
 	stateChan chan ConnState
-	Ch        chan *protocol.ProtocolMessage
+	Ch        chan *proto.ProtocolMessage
 	Err       chan error
 	ws        *websocket.Conn
 	state     ConnState
@@ -49,7 +49,7 @@ func NewConn(params config.Params) *Conn {
 		Params:    params,
 		state:     ConnStateInitialized,
 		stateChan: make(chan ConnState),
-		Ch:        make(chan *protocol.ProtocolMessage),
+		Ch:        make(chan *proto.ProtocolMessage),
 		Err:       make(chan error),
 	}
 	go c.watchConnectionState()
@@ -75,7 +75,7 @@ func (c *Conn) isActive() bool {
 	}
 }
 
-func (c *Conn) send(msg *protocol.ProtocolMessage) error {
+func (c *Conn) send(msg *proto.ProtocolMessage) error {
 	return websocket.JSON.Send(c.ws, msg)
 }
 
@@ -132,7 +132,7 @@ func (c *Conn) dial(u *url.URL) error {
 
 func (c *Conn) read() {
 	for {
-		msg := &protocol.ProtocolMessage{}
+		msg := &proto.ProtocolMessage{}
 		err := websocket.JSON.Receive(c.ws, &msg)
 		if err != nil {
 			c.Close()
@@ -190,11 +190,11 @@ func (c *Conn) setConnectionID(id string) {
 	c.ID = id
 }
 
-func (c *Conn) handle(msg *protocol.ProtocolMessage) {
+func (c *Conn) handle(msg *proto.ProtocolMessage) {
 	switch msg.Action {
-	case protocol.ActionHeartbeat, protocol.ActionAck, protocol.ActionNack:
+	case proto.ActionHeartbeat, proto.ActionAck, proto.ActionNack:
 		return
-	case protocol.ActionError:
+	case proto.ActionError:
 		if msg.Channel != "" {
 			c.Ch <- msg
 			return
@@ -202,11 +202,11 @@ func (c *Conn) handle(msg *protocol.ProtocolMessage) {
 		c.Close()
 		c.Err <- msg.Error
 		return
-	case protocol.ActionConnected:
+	case proto.ActionConnected:
 		c.setState(ConnStateConnected)
 		c.setConnectionID(msg.ConnectionId)
 		return
-	case protocol.ActionDisconnected:
+	case proto.ActionDisconnected:
 		c.setState(ConnStateDisconnected)
 		c.setConnectionID("")
 		return

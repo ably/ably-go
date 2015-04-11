@@ -2,19 +2,19 @@ package rest
 
 import (
 	"github.com/ably/ably-go/config"
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 )
 
 type PaginatedMessages struct {
-	paginatedResource *protocol.PaginatedResource
-	Current           []*protocol.Message
+	paginatedResource *proto.PaginatedResource
+	Current           []*proto.Message
 }
 
-func NewPaginatedMessages(client protocol.ResourceReader, path string, params *config.PaginateParams) (*PaginatedMessages, error) {
+func NewPaginatedMessages(client proto.ResourceReader, path string, params *config.PaginateParams) (*PaginatedMessages, error) {
 	paginatedMessages := &PaginatedMessages{}
-	paginatedMessages.Current = make([]*protocol.Message, 0)
+	paginatedMessages.Current = make([]*proto.Message, 0)
 
-	newPaginatedResource, err := protocol.NewPaginatedResource(client, path, params, &paginatedMessages.Current)
+	newPaginatedResource, err := proto.NewPaginatedResource(client, path, params, &paginatedMessages.Current)
 	if err != nil {
 		return nil, err
 	}

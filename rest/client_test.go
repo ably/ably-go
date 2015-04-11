@@ -14,7 +14,7 @@ import (
 	"github.com/ably/ably-go"
 	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 	"github.com/ably/ably-go/config"
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 	"github.com/ably/ably-go/rest"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
@@ -157,7 +157,7 @@ var _ = Describe("Client", func() {
 
 	Describe("Stats", func() {
 		var lastInterval = time.Now().Add(-365 * 24 * time.Hour)
-		var stats []*protocol.Stat
+		var stats []*proto.Stat
 
 		var jsonStats = `
 			[
@@ -185,9 +185,9 @@ var _ = Describe("Client", func() {
 			err := json.NewDecoder(strings.NewReader(jsonStats)).Decode(&stats)
 			Expect(err).NotTo(HaveOccurred())
 
-			stats[0].IntervalId = protocol.IntervalFormatFor(lastInterval.Add(-120*time.Minute), protocol.StatGranularityMinute)
-			stats[1].IntervalId = protocol.IntervalFormatFor(lastInterval.Add(-60*time.Minute), protocol.StatGranularityMinute)
-			stats[2].IntervalId = protocol.IntervalFormatFor(lastInterval.Add(-1*time.Minute), protocol.StatGranularityMinute)
+			stats[0].IntervalId = proto.IntervalFormatFor(lastInterval.Add(-120*time.Minute), proto.StatGranularityMinute)
+			stats[1].IntervalId = proto.IntervalFormatFor(lastInterval.Add(-60*time.Minute), proto.StatGranularityMinute)
+			stats[2].IntervalId = proto.IntervalFormatFor(lastInterval.Add(-1*time.Minute), proto.StatGranularityMinute)
 
 			res, err := client.Post("/stats", &stats, nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -200,7 +200,7 @@ var _ = Describe("Client", func() {
 				Limit: 1,
 				ScopeParams: config.ScopeParams{
 					Start: config.NewTimestamp(longAgo),
-					Unit:  protocol.StatGranularityMinute,
+					Unit:  proto.StatGranularityMinute,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())

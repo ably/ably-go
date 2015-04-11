@@ -4,7 +4,7 @@ import (
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 	"github.com/ably/ably-go/config"
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 	"github.com/ably/ably-go/rest"
 )
 
@@ -62,7 +62,7 @@ var _ = Describe("Channel", func() {
 		})
 
 		It("allows to send multiple messages at once", func() {
-			messages := []*protocol.Message{
+			messages := []*proto.Message{
 				{Name: "send", Data: "test data 1"},
 				{Name: "send", Data: "test data 2"},
 			}
