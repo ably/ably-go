@@ -196,7 +196,7 @@ var _ = Describe("Client", func() {
 
 		It("parses stats from the rest api", func() {
 			longAgo := lastInterval.Add(-120 * time.Minute)
-			paginatedStats, err := client.Stats(&config.PaginateParams{
+			page, err := client.Stats(&config.PaginateParams{
 				Limit: 1,
 				ScopeParams: config.ScopeParams{
 					Start: config.NewTimestamp(longAgo),
@@ -204,7 +204,7 @@ var _ = Describe("Client", func() {
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(paginatedStats.Current[0].IntervalId).To(MatchRegexp("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+"))
+			Expect(page.Stats()[0].IntervalId).To(MatchRegexp("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+"))
 		})
 	})
 })

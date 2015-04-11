@@ -16,7 +16,7 @@ var _ = Describe("PaginatedResource", func() {
 		})
 
 		It("returns a string pointing to the new path based on the given path", func() {
-			newPath, err := paginatedResource.BuildPath("/path/to/resource?hello", "./newresource?world")
+			newPath, err := proto.BuildPath(&paginatedResource, "/path/to/resource?hello", "./newresource?world")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(newPath).To(Equal("/path/to/newresource?world"))
 		})

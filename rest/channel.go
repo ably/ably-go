@@ -48,10 +48,10 @@ func (c *Channel) PublishAll(messages []*proto.Message) error {
 	return nil
 }
 
-func (c *Channel) History(params *config.PaginateParams) (*PaginatedMessages, error) {
-	return c.paginateResults("/channels/"+c.Name+"/history", params)
-}
-
-func (p *Channel) paginateResults(path string, params *config.PaginateParams) (*PaginatedMessages, error) {
-	return NewPaginatedMessages(p.client, path, params)
+// History gives the channel's message history according to the given parameters.
+// The returned resource can be inspected for the messages via the Messages()
+// method.
+func (c *Channel) History(params *config.PaginateParams) (*proto.PaginatedResource, error) {
+	path := "/channels/" + c.Name + "/history"
+	return proto.NewPaginatedResource(msgType, path, params, query(c.client.Get))
 }
