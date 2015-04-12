@@ -31,32 +31,59 @@ TODO
 All examples assume a client and/or channel has been created as follows:
 
 ```go
-client = ably.NewRestClient(ably.ClientOptions{ApiKey: "xxxx"})
-channel = client.Channel('test')
+client := ably.NewRestClient(ably.ClientOptions{ApiKey: "xxxx"})
+channel := client.Channel('test')
 ```
 
 ### Publishing a message to a channel
 
 ```go
-channel.Publish("myEvent", "Hello!") # => returns an error if any
+err := channel.Publish("HelloEvent", "Hello!")
+if err != nil {
+	panic(err)
+}
 ```
 
 ### Querying the History
 
 ```go
-channel.History(nil) # => rest.PaginatedMessages
+page, err := channel.History(nil)
+for ; err == nil; page, err = page.Next() {
+	for _, message := range page.Messages() {
+		fmt.Println(message)
+	}
+}
+if err != nil {
+	panic(err)
+}
 ```
 
 ### Presence on a channel
 
 ```go
-channel.Presence.Get(nil) # => rest.PaginatedPresenceMessages
+page, err := channel.Presence.Get(nil)
+for ; err == nil; page, err = page.Next() {
+	for _, presence := range page.PresenceMessages() {
+		fmt.Println(presence)
+	}
+}
+if err != nil {
+	panic(err)
+}
 ```
 
 ### Querying the Presence History
 
 ```go
-channel.Presence.History(nil) # => rest.PaginatedPresenceMessages
+page, err := channel.Presence.History(nil)
+for ; err == nil; page, err = page.Next() {
+	for _, presence := range page.PresenceMessages() {
+		fmt.Println(presence)
+	}
+}
+if err != nil {
+	panic(err)
+}
 ```
 
 ### Generate Token and Token Request
@@ -68,8 +95,16 @@ client.Auth.CreateTokenRequest()
 
 ### Fetching your application's stats
 
-```ruby
-client.Stats() #=> PaginatedResource
+```go
+page, err := client.Stats()
+for ; err == nil; page, err = page.Next() {
+	for _, stat := range page.Stats() {
+		fmt.Println(stat)
+	}
+}
+if err != nil {
+	panic(err)
+}
 ```
 
 ## Support and feedback
