@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 )
 
 func NewChannel(name string, client *Client) *Channel {
 	return &Channel{
 		Name:      name,
 		client:    client,
-		listeners: make(map[string]map[chan *protocol.Message]struct{}),
+		listeners: make(map[string]map[chan *proto.Message]struct{}),
 	}
 }
 
@@ -37,15 +37,15 @@ type Channel struct {
 
 	Err error
 
-	listeners map[string]map[chan *protocol.Message]struct{}
+	listeners map[string]map[chan *proto.Message]struct{}
 	listenMtx sync.RWMutex
 }
 
-func (c *Channel) SubscribeTo(event string) chan *protocol.Message {
-	ch := make(chan *protocol.Message)
+func (c *Channel) SubscribeTo(event string) chan *proto.Message {
+	ch := make(chan *proto.Message)
 	c.listenMtx.Lock()
 	if _, ok := c.listeners[event]; !ok {
-		c.listeners[event] = make(map[chan *protocol.Message]struct{})
+		c.listeners[event] = make(map[chan *proto.Message]struct{})
 	}
 	c.listeners[event][ch] = struct{}{}
 	c.listenMtx.Unlock()
@@ -53,7 +53,7 @@ func (c *Channel) SubscribeTo(event string) chan *protocol.Message {
 	return ch
 }
 
-func (c *Channel) Unsubscribe(event string, ch chan *protocol.Message) {
+func (c *Channel) Unsubscribe(event string, ch chan *proto.Message) {
 	c.listenMtx.Lock()
 	delete(c.listeners[event], ch)
 	if len(c.listeners[event]) == 0 {
@@ -65,29 +65,29 @@ func (c *Channel) Unsubscribe(event string, ch chan *protocol.Message) {
 
 func (c *Channel) Publish(name string, data string) error {
 	c.Attach()
-	msg := &protocol.ProtocolMessage{
-		Action:  protocol.ActionMessage,
+	msg := &proto.ProtocolMessage{
+		Action:  proto.ActionMessage,
 		Channel: c.Name,
-		Messages: []*protocol.Message{
+		Messages: []*proto.Message{
 			{Name: name, Data: data},
 		},
 	}
 	return c.client.send(msg)
 }
 
-func (c *Channel) notify(msg *protocol.ProtocolMessage) {
+func (c *Channel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
-	case protocol.ActionAttached:
+	case proto.ActionAttached:
 		c.setState(ChanStateAttached)
-	case protocol.ActionDetached:
+	case proto.ActionDetached:
 		c.setState(ChanStateDetached)
-	case protocol.ActionPresence:
+	case proto.ActionPresence:
 		// TODO
-	case protocol.ActionError:
+	case proto.ActionError:
 		c.setState(ChanStateFailed)
 		c.Err = msg.Error
 		// TODO c.Close()
-	case protocol.ActionMessage:
+	case proto.ActionMessage:
 		c.listenMtx.RLock()
 		defer c.listenMtx.RUnlock()
 		for _, m := range msg.Messages {
@@ -116,7 +116,7 @@ func (c *Channel) Attach() {
 		c.Err = errors.New("Connection not active")
 		return
 	}
-	msg := &protocol.ProtocolMessage{Action: protocol.ActionAttach, Channel: c.Name}
+	msg := &proto.ProtocolMessage{Action: proto.ActionAttach, Channel: c.Name}
 	if err := c.client.send(msg); err != nil {
 		c.Err = fmt.Errorf("Attach request failed: %s", err)
 		return

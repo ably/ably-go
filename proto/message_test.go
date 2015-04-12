@@ -1,7 +1,7 @@
-package protocol_test
+package proto_test
 
 import (
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
@@ -9,7 +9,7 @@ import (
 
 var _ = Describe("Message", func() {
 	var (
-		message      *protocol.Message
+		message      *proto.Message
 		aes128Config map[string]string
 	)
 
@@ -23,7 +23,7 @@ var _ = Describe("Message", func() {
 	Describe("DecodeData", func() {
 		Context("with a json/utf-8 encoding", func() {
 			BeforeEach(func() {
-				message = &protocol.Message{Data: `{ "string": "utf-8™" }`, Encoding: "json/utf-8"}
+				message = &proto.Message{Data: `{ "string": "utf-8™" }`, Encoding: "json/utf-8"}
 			})
 
 			It("returns a same string", func() {
@@ -34,7 +34,7 @@ var _ = Describe("Message", func() {
 
 		Context("with base64", func() {
 			BeforeEach(func() {
-				message = &protocol.Message{Data: "dXRmLTjihKIK", Encoding: "base64"}
+				message = &proto.Message{Data: "dXRmLTjihKIK", Encoding: "base64"}
 			})
 
 			It("decodes it into a byte array", func() {
@@ -46,7 +46,7 @@ var _ = Describe("Message", func() {
 
 		Context("with json/utf-8/cipher+aes-128-cbc/base64", func() {
 			BeforeEach(func() {
-				message = &protocol.Message{
+				message = &proto.Message{
 					Data:     "iMKT2IGdZFN1PrlmqwIpk81cutSpuiuHPaE2IrRiRPboO+UoIr/cAY0i3z0oUOs2",
 					Encoding: "json/utf-8/cipher+aes-128-cbc/base64",
 				}

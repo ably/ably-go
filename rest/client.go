@@ -6,12 +6,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 	"github.com/ably/ably-go/config"
+	"github.com/ably/ably-go/proto"
 )
+
+var (
+	msgType     = reflect.TypeOf((*[]*proto.Message)(nil)).Elem()
+	statType    = reflect.TypeOf((*[]*proto.Stat)(nil)).Elem()
+	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
+)
+
+func query(fn func(string, interface{}) (*http.Response, error)) proto.QueryFunc {
+	return func(path string) (*http.Response, error) {
+		return fn(path, nil)
+	}
+}
 
 type Client struct {
 	Auth *Auth
@@ -71,8 +85,11 @@ func (c *Client) Channel(name string) *Channel {
 	return ch
 }
 
-func (c *Client) Stats(params *config.PaginateParams) (*PaginatedStats, error) {
-	return c.paginateResults("/stats", params)
+// Stats gives the channel's metrics according to the given parameters.
+// The returned resource can be inspected for the statistics via the Stats()
+// method.
+func (c *Client) Stats(params *config.PaginateParams) (*proto.PaginatedResource, error) {
+	return proto.NewPaginatedResource(statType, "/stats", params, query(c.Get))
 }
 
 func (c *Client) Get(path string, out interface{}) (*http.Response, error) {
@@ -129,10 +146,6 @@ func (c *Client) Post(path string, in, out interface{}) (*http.Response, error) 
 
 func (c *Client) ok(status int) bool {
 	return status == http.StatusOK || status == http.StatusCreated
-}
-
-func (c *Client) paginateResults(path string, params *config.PaginateParams) (*PaginatedStats, error) {
-	return NewPaginatedStats(c, path, params)
 }
 
 func (c *Client) marshalMessages(in interface{}) ([]byte, error) {

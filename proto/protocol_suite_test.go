@@ -1,9 +1,10 @@
-package protocol_test
+package proto_test
 
 import (
+	"testing"
+
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
-	"testing"
 )
 
 func TestProtocol(t *testing.T) {

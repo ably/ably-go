@@ -1,4 +1,4 @@
-package protocol
+package proto
 
 type Type int64
 

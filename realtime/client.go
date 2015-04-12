@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/ably/ably-go/config"
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 	"github.com/ably/ably-go/rest"
 )
 
@@ -70,7 +70,7 @@ func (c *Client) connect() {
 	}
 }
 
-func (c *Client) send(msg *protocol.ProtocolMessage) error {
+func (c *Client) send(msg *proto.ProtocolMessage) error {
 	return c.Connection.send(msg)
 }
 

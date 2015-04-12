@@ -4,7 +4,7 @@ import (
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 	"github.com/ably/ably-go/config"
-	"github.com/ably/ably-go/protocol"
+	"github.com/ably/ably-go/proto"
 	"github.com/ably/ably-go/rest"
 )
 
@@ -21,10 +21,10 @@ var _ = Describe("Channel", func() {
 		})
 
 		It("is available in the history", func() {
-			paginatedMessages, err := channel.History(nil)
+			page, err := channel.History(nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			messages := paginatedMessages.Current
+			messages := page.Messages()
 			Expect(messages[0].Name).To(Equal(event))
 			Expect(messages[0].Data).To(Equal(message))
 		})
@@ -42,15 +42,13 @@ var _ = Describe("Channel", func() {
 		})
 
 		It("returns a paginated result", func() {
-			messages1, err := historyChannel.History(&config.PaginateParams{Limit: 1})
+			page1, err := historyChannel.History(&config.PaginateParams{Limit: 1})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(messages1).To(BeAssignableToTypeOf(&rest.PaginatedMessages{}))
-			Expect(len(messages1.Current)).To(Equal(1))
+			Expect(len(page1.Messages())).To(Equal(1))
 
-			messages2, err := messages1.NextPage()
+			page2, err := page1.Next()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(messages2).To(BeAssignableToTypeOf(&rest.PaginatedMessages{}))
-			Expect(len(messages2.Current)).To(Equal(1))
+			Expect(len(page2.Messages())).To(Equal(1))
 		})
 	})
 
@@ -62,16 +60,16 @@ var _ = Describe("Channel", func() {
 		})
 
 		It("allows to send multiple messages at once", func() {
-			messages := []*protocol.Message{
+			messages := []*proto.Message{
 				{Name: "send", Data: "test data 1"},
 				{Name: "send", Data: "test data 2"},
 			}
 			err := encodingChannel.PublishAll(messages)
 			Expect(err).NotTo(HaveOccurred())
 
-			messageHistory, err := encodingChannel.History(&config.PaginateParams{Limit: 2})
+			page, err := encodingChannel.History(&config.PaginateParams{Limit: 2})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(messageHistory.Current)).To(Equal(2))
+			Expect(len(page.Messages())).To(Equal(2))
 		})
 	})
 })
