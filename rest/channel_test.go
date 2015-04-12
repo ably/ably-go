@@ -45,10 +45,12 @@ var _ = Describe("Channel", func() {
 			page1, err := historyChannel.History(&config.PaginateParams{Limit: 1})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(page1.Messages())).To(Equal(1))
+			Expect(len(page1.Items())).To(Equal(1))
 
 			page2, err := page1.Next()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(page2.Messages())).To(Equal(1))
+			Expect(len(page2.Items())).To(Equal(1))
 		})
 	})
 
@@ -70,6 +72,7 @@ var _ = Describe("Channel", func() {
 			page, err := encodingChannel.History(&config.PaginateParams{Limit: 2})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(page.Messages())).To(Equal(2))
+			Expect(len(page.Items())).To(Equal(2))
 		})
 	})
 })
