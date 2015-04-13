@@ -7,7 +7,7 @@ A Go client library for [ably.io](https://ably.io), the real-time messaging serv
 ## Installation
 
 ```bash
-go get github.com/ably/ably-go
+go get github.com/ably/ably-go/ably
 ```
 
 ## Using the Realtime API
