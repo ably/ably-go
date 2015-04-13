@@ -1,6 +1,6 @@
-# [Ably](https://ably.io)
+[Ably](https://ably.io) [![Build Status](https://travis-ci.org/ably/ably-go.png)](https://travis-ci.org/ably/ably-go)  [![Coverage Status](https://coveralls.io/repos/ably/ably-go/badge.svg)](https://coveralls.io/r/ably/ably-go)
+----
 
-[![Build Status](https://travis-ci.org/ably/ably-go.png)](https://travis-ci.org/ably/ably-go)
 
 A Go client library for [ably.io](https://ably.io), the real-time messaging service.
 

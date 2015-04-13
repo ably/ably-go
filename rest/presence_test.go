@@ -31,10 +31,12 @@ var _ = Describe("Presence", func() {
 					page1, err := presence.Get(&config.PaginateParams{Limit: 2})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(page1.PresenceMessages())).To(Equal(2))
+					Expect(len(page1.Items())).To(Equal(2))
 
 					page2, err := page1.Next()
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(page2.PresenceMessages())).To(Equal(2))
+					Expect(len(page2.Items())).To(Equal(2))
 
 					_, err = page2.Next()
 					Expect(err).To(HaveOccurred())

@@ -30,12 +30,13 @@ type QueryFunc func(url string) (*http.Response, error)
 // PaginatedResource represents a single page coming back from the REST API.
 // Any call to create a new page will generate a new instance.
 type PaginatedResource struct {
-	path    string
-	headers map[string]string
-	links   []string
-	items   interface{}
-	typ     reflect.Type
-	query   QueryFunc
+	path     string
+	headers  map[string]string
+	links    []string
+	items    []interface{}
+	typItems interface{}
+	typ      reflect.Type
+	query    QueryFunc
 }
 
 // NewPaginatedResource returns a new instance of PaginatedResource
@@ -61,7 +62,7 @@ func NewPaginatedResource(typ reflect.Type, path string, params *config.Paginate
 	if err = json.NewDecoder(resp.Body).Decode(v.Interface()); err != nil {
 		return nil, err
 	}
-	p.items = v.Elem().Interface()
+	p.typItems = v.Elem().Interface()
 	return p, nil
 }
 
@@ -80,10 +81,22 @@ func (p *PaginatedResource) Next() (*PaginatedResource, error) {
 	return NewPaginatedResource(p.typ, nextPage, nil, p.query)
 }
 
+// Items gives a slice of results of the current page.
+func (p *PaginatedResource) Items() []interface{} {
+	if p.items == nil {
+		v := reflect.ValueOf(p.typItems)
+		p.items = make([]interface{}, v.Len())
+		for i := range p.items {
+			p.items[i] = v.Index(i).Interface()
+		}
+	}
+	return p.items
+}
+
 // Messages gives a slice of messages for the current page. The method panics if
 // the underlying paginated resource is not a message.
 func (p *PaginatedResource) Messages() []*Message {
-	items, ok := p.items.([]*Message)
+	items, ok := p.typItems.([]*Message)
 	if !ok {
 		panic(errInvalidType{typ: p.typ})
 	}
@@ -93,7 +106,7 @@ func (p *PaginatedResource) Messages() []*Message {
 // PresenceMessages gives a slice of presence messages for the current path.
 // The method panics if the underlying paginated resource is not a presence message.
 func (p *PaginatedResource) PresenceMessages() []*PresenceMessage {
-	items, ok := p.items.([]*PresenceMessage)
+	items, ok := p.typItems.([]*PresenceMessage)
 	if !ok {
 		panic(errInvalidType{typ: p.typ})
 	}
@@ -103,7 +116,7 @@ func (p *PaginatedResource) PresenceMessages() []*PresenceMessage {
 // Stats gives a slice of statistics for the current page. The method panics if
 // the underlying paginated resource is not statistics.
 func (p *PaginatedResource) Stats() []*Stat {
-	items, ok := p.items.([]*Stat)
+	items, ok := p.typItems.([]*Stat)
 	if !ok {
 		panic(errInvalidType{typ: p.typ})
 	}
