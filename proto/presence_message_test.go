@@ -1,20 +1,19 @@
-package protocol_test
+package proto_test
 
 import (
 	"encoding/json"
 
-	"github.com/ably/ably-go/protocol"
-
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	"github.com/ably/ably-go/proto"
 )
 
 var _ = Describe("PresenceMessage", func() {
-	var presenceMessage protocol.PresenceMessage
+	var presenceMessage proto.PresenceMessage
 
 	BeforeEach(func() {
-		presenceMessage = protocol.PresenceMessage{
-			Message: protocol.Message{
+		presenceMessage = proto.PresenceMessage{
+			Message: proto.Message{
 				Data: "hello",
 			},
 		}
@@ -38,7 +37,7 @@ var _ = Describe("PresenceMessage", func() {
 		})
 
 		It("is decodable", func() {
-			decodedMessage := protocol.PresenceMessage{}
+			decodedMessage := proto.PresenceMessage{}
 			err := json.Unmarshal([]byte(presenceMessageJSON), &decodedMessage)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(decodedMessage).To(Equal(presenceMessage))
