@@ -2,12 +2,49 @@ package proto_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"os"
+	"path/filepath"
 
 	"github.com/ably/ably-go/ably/proto"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 )
+
+type CryptoData struct {
+	Algorithm string `json:"algorithm"`
+	Mode      string `json:"mode"`
+	KeyLen    int    `json:"keylength"`
+	Key       string `json:"key"`
+	IV        string `json:"iv"`
+	Items     []struct {
+		Encoded   proto.Message `json:"encoded"`
+		Encrypted proto.Message `json:"encrypted"`
+	} `json:"items"`
+}
+
+func load(rel string, t GinkgoTInterface) (*CryptoData, map[string]string) {
+	data := &CryptoData{}
+	f, err := os.Open(filepath.Join("..", "..", "common", filepath.FromSlash(rel)))
+	if err != nil {
+		t.Skip("ensure the git submodules are initialized", err)
+	}
+	err = json.NewDecoder(f).Decode(data)
+	f.Close()
+	if err != nil {
+		t.Fatal("unable to unmarshal test cases", err)
+	}
+	key, err := base64.StdEncoding.DecodeString(data.Key)
+	if err != nil {
+		t.Fatal("unable to unbase64 key", err)
+	}
+	iv, err := base64.StdEncoding.DecodeString(data.IV)
+	if err != nil {
+		t.Fatal("unable to unbase64 IV", err)
+	}
+	return data, map[string]string{"key": string(key), "iv": string(iv)}
+}
 
 var _ = Describe("Message", func() {
 	var (
@@ -42,6 +79,13 @@ var _ = Describe("Message", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(message.Data).To(Equal(`{ "string": "utf-8™" }`))
 			})
+
+			It("leaves message intact with empty payload", func() {
+				empty := &proto.Message{Encoding: message.Encoding}
+				err := empty.DecodeData(nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(empty).To(Equal(&proto.Message{Encoding: message.Encoding}))
+			})
 		})
 
 		Context("with base64", func() {
@@ -59,6 +103,13 @@ var _ = Describe("Message", func() {
 				err := message.DecodeData(nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(message.Data).To(Equal("utf-8™\n"))
+			})
+
+			It("leaves message intact with empty payload", func() {
+				empty := &proto.Message{Encoding: message.Encoding}
+				err := empty.DecodeData(nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(empty).To(Equal(&proto.Message{Encoding: message.Encoding}))
 			})
 		})
 
@@ -86,6 +137,13 @@ var _ = Describe("Message", func() {
 			It("fails to decode data without an aes config", func() {
 				err := message.DecodeData(nil)
 				Expect(err).To(HaveOccurred())
+			})
+
+			It("leaves message intact with empty payload", func() {
+				empty := &proto.Message{Encoding: message.Encoding}
+				err := empty.DecodeData(nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(empty).To(Equal(&proto.Message{Encoding: message.Encoding}))
 			})
 		})
 	})
@@ -170,6 +228,42 @@ var _ = Describe("Message", func() {
 			It("has the expected encoded value", func() {
 				Expect(message.Data).To(Equal(encodedData))
 			})
+		})
+	})
+
+	acceptance := func(fixture string, t GinkgoTInterface) {
+		test, cfg := load(fixture, t)
+
+		It("fixture decode", func() {
+			for _, item := range test.Items {
+				err := item.Encoded.DecodeData(nil)
+				Expect(err).NotTo(HaveOccurred())
+				err = item.Encrypted.DecodeData(cfg)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(item.Encrypted.Name).To(Equal(item.Encoded.Name))
+				Expect(item.Encrypted.Data).To(Equal(item.Encoded.Data))
+			}
+		})
+
+		return
+
+		It("fixture encode", func() {
+			for _, item := range test.Items {
+				err := item.Encoded.EncodeData(item.Encrypted.Encoding, cfg)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(item.Encoded.Name).To(Equal(item.Encrypted.Name))
+				Expect(item.Encoded.Data).To(Equal(item.Encrypted.Data))
+			}
+		})
+	}
+
+	Describe("CryptoDataFixtures", func() {
+		Context("with a 128 keylength", func() {
+			acceptance("test-resources/crypto-data-128.json", GinkgoT())
+		})
+
+		Context("with a 256 keylength", func() {
+			acceptance("test-resources/crypto-data-256.json", GinkgoT())
 		})
 	})
 })
