@@ -27,6 +27,10 @@ type Message struct {
 // To be able to decode aes encoded string, the keys parameter must be present. Otherwise, DecodeData
 // will return an error.
 func (m *Message) DecodeData(keys map[string]string) error {
+	// strings.Split on empty string returns []string{""}
+	if m.Encoding == "" || m.Data == "" {
+		return nil
+	}
 	encodings := strings.Split(m.Encoding, "/")
 	for i := len(encodings) - 1; i >= 0; i-- {
 		switch encodings[i] {
@@ -35,7 +39,6 @@ func (m *Message) DecodeData(keys map[string]string) error {
 			if err != nil {
 				return err
 			}
-
 			m.Data = string(data)
 			continue
 
@@ -60,24 +63,22 @@ func (m *Message) DecodeData(keys map[string]string) error {
 // EncodeData will return an error.
 func (m *Message) EncodeData(encoding string, keys map[string]string) error {
 	m.Encoding = ""
-	encodings := strings.Split(encoding, "/")
-	for i := 0; i < len(encodings); i++ {
-		switch encodings[i] {
+	for _, encoding := range strings.Split(encoding, "/") {
+		switch encoding {
 		case "base64":
 			m.Data = base64.StdEncoding.EncodeToString([]byte(m.Data))
-			m.mergeEncoding(encodings[i])
+			m.mergeEncoding(encoding)
 			continue
 		case "json", "utf-8":
-			m.mergeEncoding(encodings[i])
+			m.mergeEncoding(encoding)
 			continue
 		default:
-			if err := m.Encrypt(encodings[i], keys); err != nil {
+			if err := m.Encrypt(encoding, keys); err != nil {
 				return err
 			}
 			continue
 		}
 	}
-
 	return nil
 }
 

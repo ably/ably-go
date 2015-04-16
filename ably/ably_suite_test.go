@@ -2,7 +2,7 @@ package ably_test
 
 import (
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/test/support"
+	"github.com/ably/ably-go/ably/testutil"
 
 	"testing"
 
@@ -16,13 +16,13 @@ func TestAbly(t *testing.T) {
 }
 
 var (
-	testApp *support.TestApp
+	testApp *testutil.App
 	client  *ably.RestClient
 	channel *ably.RestChannel
 )
 
 var _ = BeforeSuite(func() {
-	testApp = support.NewTestApp()
+	testApp = testutil.NewApp()
 	_, err := testApp.Create()
 	Expect(err).NotTo(HaveOccurred())
 })

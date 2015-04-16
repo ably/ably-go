@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 
 	"github.com/ably/ably-go/ably/proto"
+	"github.com/ably/ably-go/ably/testutil"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
@@ -42,6 +43,13 @@ var _ = Describe("Message", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(message.Data).To(Equal(`{ "string": "utf-8™" }`))
 			})
+
+			It("leaves message intact with empty payload", func() {
+				empty := &proto.Message{Encoding: message.Encoding}
+				err := empty.DecodeData(nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(empty).To(Equal(&proto.Message{Encoding: message.Encoding}))
+			})
 		})
 
 		Context("with base64", func() {
@@ -59,6 +67,13 @@ var _ = Describe("Message", func() {
 				err := message.DecodeData(nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(message.Data).To(Equal("utf-8™\n"))
+			})
+
+			It("leaves message intact with empty payload", func() {
+				empty := &proto.Message{Encoding: message.Encoding}
+				err := empty.DecodeData(nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(empty).To(Equal(&proto.Message{Encoding: message.Encoding}))
 			})
 		})
 
@@ -86,6 +101,13 @@ var _ = Describe("Message", func() {
 			It("fails to decode data without an aes config", func() {
 				err := message.DecodeData(nil)
 				Expect(err).To(HaveOccurred())
+			})
+
+			It("leaves message intact with empty payload", func() {
+				empty := &proto.Message{Encoding: message.Encoding}
+				err := empty.DecodeData(nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(empty).To(Equal(&proto.Message{Encoding: message.Encoding}))
 			})
 		})
 	})
@@ -171,5 +193,51 @@ var _ = Describe("Message", func() {
 				Expect(message.Data).To(Equal(encodedData))
 			})
 		})
+	})
+
+	Describe("CryptoDataFixtures", func() {
+		EncodeDecodeFixture := func(fixture string) func() {
+			return func() {
+				var (
+					test *testutil.CryptoData
+					cfg  map[string]string
+				)
+
+				BeforeEach(func() {
+					var err error
+					test, cfg, err = testutil.LoadCryptoData(fixture)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("fixture decode", func() {
+					for i, item := range test.Items {
+						// Ignore item 1 - https://github.com/ably/ably-common/pull/3.
+						if i == 1 {
+							continue
+						}
+						err := item.Encrypted.DecodeData(cfg)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(item.Encrypted.Name).To(Equal(item.Encoded.Name))
+						Expect(item.Encrypted.Data).To(Equal(item.Encoded.Data))
+					}
+				})
+
+				It("fixture encode", func() {
+					for i, item := range test.Items {
+						// Ignore item 1 - https://github.com/ably/ably-common/pull/3.
+						if i == 1 {
+							continue
+						}
+						err := item.Encoded.EncodeData(item.Encrypted.Encoding, cfg)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(item.Encoded.Name).To(Equal(item.Encrypted.Name))
+						Expect(item.Encoded.Data).To(Equal(item.Encrypted.Data))
+					}
+				})
+			}
+		}
+
+		Context("with a 128 keylength", EncodeDecodeFixture("test-resources/crypto-data-128.json"))
+		Context("with a 256 keylength", EncodeDecodeFixture("test-resources/crypto-data-256.json"))
 	})
 })

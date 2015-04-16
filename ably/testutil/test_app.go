@@ -1,4 +1,4 @@
-package support
+package testutil
 
 import (
 	"bytes"
@@ -42,24 +42,24 @@ type testAppConfig struct {
 	Channels   []testAppChannels  `json:"channels"`
 }
 
-type TestApp struct {
+type App struct {
 	Params ably.Params
 	Config testAppConfig
 }
 
-func (t *TestApp) AppKeyValue() string {
+func (t *App) AppKeyValue() string {
 	return t.Config.Keys[0].Value
 }
 
-func (t *TestApp) AppKeyId() string {
+func (t *App) AppKeyId() string {
 	return fmt.Sprintf("%s.%s", t.Config.AppID, t.Config.Keys[0].ID)
 }
 
-func (t *TestApp) ok(status int) bool {
+func (t *App) ok(status int) bool {
 	return status == http.StatusOK || status == http.StatusCreated || status == http.StatusNoContent
 }
 
-func (t *TestApp) populate(res *http.Response) error {
+func (t *App) populate(res *http.Response) error {
 	if err := json.NewDecoder(res.Body).Decode(&t.Config); err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (t *TestApp) populate(res *http.Response) error {
 	return nil
 }
 
-func (t *TestApp) Create() (*http.Response, error) {
+func (t *App) Create() (*http.Response, error) {
 	buf, err := json.Marshal(t.Config)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (t *TestApp) Create() (*http.Response, error) {
 	return res, nil
 }
 
-func (t *TestApp) Delete() (*http.Response, error) {
+func (t *App) Delete() (*http.Response, error) {
 	req, err := http.NewRequest("DELETE", t.Params.RestEndpoint+"/apps/"+t.Config.AppID, nil)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func (t *TestApp) Delete() (*http.Response, error) {
 
 var timeout = 10 * time.Second
 
-func NewTestApp() *TestApp {
+func NewApp() *App {
 	client := &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
@@ -152,7 +152,7 @@ func NewTestApp() *TestApp {
 		client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	return &TestApp{
+	return &App{
 		Params: ably.Params{
 			RealtimeEndpoint: "wss://sandbox-realtime.ably.io:443",
 			RestEndpoint:     "https://sandbox-rest.ably.io",
