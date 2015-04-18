@@ -1,11 +1,11 @@
 package proto
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -26,7 +26,7 @@ type Message struct {
 // library so the string is left untouched.
 // To be able to decode aes encoded string, the keys parameter must be present. Otherwise, DecodeData
 // will return an error.
-func (m *Message) DecodeData(keys map[string]string) error {
+func (m *Message) DecodeData(key []byte) error {
 	// strings.Split on empty string returns []string{""}
 	if m.Encoding == "" || m.Data == "" {
 		return nil
@@ -40,18 +40,13 @@ func (m *Message) DecodeData(keys map[string]string) error {
 				return err
 			}
 			m.Data = string(data)
-			continue
-
 		case "json", "utf-8":
-			continue
 		default:
-			if err := m.Decrypt(encodings[i], keys); err != nil {
+			if err := m.Decrypt(encodings[i], key); err != nil {
 				return err
 			}
-			continue
 		}
 	}
-
 	return nil
 }
 
@@ -61,7 +56,7 @@ func (m *Message) DecodeData(keys map[string]string) error {
 // from left to right to encode the current Data string.
 // To encode data using aes, the keys parameter must be present. Otherwise,
 // EncodeData will return an error.
-func (m *Message) EncodeData(encoding string, keys map[string]string) error {
+func (m *Message) EncodeData(encoding string, key, iv []byte) error {
 	m.Encoding = ""
 	for _, encoding := range strings.Split(encoding, "/") {
 		switch encoding {
@@ -73,7 +68,7 @@ func (m *Message) EncodeData(encoding string, keys map[string]string) error {
 			m.mergeEncoding(encoding)
 			continue
 		default:
-			if err := m.Encrypt(encoding, keys); err != nil {
+			if err := m.Encrypt(encoding, key, iv); err != nil {
 				return err
 			}
 			continue
@@ -84,88 +79,69 @@ func (m *Message) EncodeData(encoding string, keys map[string]string) error {
 
 func (m *Message) getKeyLen(cipherStr string) int64 {
 	cipherConf := strings.Split(cipherStr, "+")
-
 	if len(cipherConf) != 2 || cipherConf[0] != "cipher" {
 		return 0
 	}
-
 	cipherParts := strings.Split(cipherConf[1], "-")
-
-	if cipherParts[0] != "aes" {
+	switch {
+	case cipherParts[0] != "aes":
 		// TODO log unknown encryption algorithm
 		return 0
-	}
-
-	if cipherParts[2] != "cbc" {
+	case cipherParts[2] != "cbc":
 		// TODO log unknown mode
 		return 0
 	}
-
 	keylen, err := strconv.ParseInt(cipherParts[1], 10, 0)
 	if err != nil {
 		// TODO parsing error
 		return 0
 	}
-
 	return keylen
 }
 
-func (m *Message) Decrypt(cipherStr string, keys map[string]string) error {
-	block, err := aes.NewCipher([]byte(keys["key"]))
+func (m *Message) Decrypt(cipherStr string, key []byte) error {
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
 	}
-
 	if len(m.Data)%aes.BlockSize != 0 {
-		return fmt.Errorf("ciphertext is not a multiple of the block size")
+		return errors.New("ciphertext is not a multiple of the block size")
 	}
-
-	iv := m.Data[:aes.BlockSize]
+	iv := []byte(m.Data[:aes.BlockSize])
 	m.Data = m.Data[aes.BlockSize:]
-
 	out := make([]byte, len(m.Data))
-
-	blockMode := cipher.NewCBCDecrypter(block, []byte(iv))
-	blockMode.CryptBlocks(out, []byte(m.Data))
-
-	newData, err := pkcs7Unpad(out, aes.BlockSize)
+	cipher.NewCBCDecrypter(block, iv).CryptBlocks(out, []byte(m.Data))
+	out, err = pkcs7Unpad(out, aes.BlockSize)
 	if err != nil {
 		return err
 	}
-
-	m.Data = string(newData)
+	m.Data = string(out)
 	return nil
 }
 
-func (m *Message) Encrypt(cipherStr string, keys map[string]string) error {
-	block, err := aes.NewCipher([]byte(keys["key"]))
+func (m *Message) Encrypt(cipherStr string, key, iv []byte) error {
+	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		return err
 	}
-
-	if len(m.Data)%aes.BlockSize != 0 {
-		newData, err := pkcs7Pad([]byte(m.Data), aes.BlockSize)
+	// Apply padding to the payload if it's not already padded. Event if
+	// len(m.Data)%aes.Block == 0 we have no guarantee it's already padded.
+	// Try to unpad it and pad on failure.
+	if _, err = pkcs7Unpad([]byte(m.Data), aes.BlockSize); err != nil {
+		data, err := pkcs7Pad([]byte(m.Data), aes.BlockSize)
 		if err != nil {
 			return err
 		}
-
-		m.Data = string(newData)
+		m.Data = string(data)
 	}
-
 	out := make([]byte, aes.BlockSize+len(m.Data))
-	iv := out[:aes.BlockSize]
-
-	if keys["iv"] == "" {
-		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+	if len(iv) == 0 {
+		if _, err = io.ReadFull(rand.Reader, iv); err != nil {
 			return err
 		}
-	} else {
-		copy(iv, keys["iv"])
 	}
-
-	blockMode := cipher.NewCBCEncrypter(block, iv)
-	blockMode.CryptBlocks(out[aes.BlockSize:], []byte(m.Data))
-
+	copy(out[:aes.BlockSize], iv)
+	cipher.NewCBCEncrypter(block, out[:aes.BlockSize]).CryptBlocks(out[aes.BlockSize:], []byte(m.Data))
 	m.Data = string(out)
 	m.mergeEncoding(cipherStr)
 	return nil
@@ -174,22 +150,21 @@ func (m *Message) Encrypt(cipherStr string, keys map[string]string) error {
 // addPadding expands the message Data string to a suitable CBC valid length.
 // CBC encryption requires specific block size to work.
 func (m *Message) addPadding() {
-	paddingLength := aes.BlockSize - (len(m.Data) % aes.BlockSize)
-	paddingByte := byte(paddingLength)
-	newData := make([]byte, len(m.Data)+paddingLength)
-
-	padding := bytes.Repeat([]byte{paddingByte}, paddingLength)
-	copy(newData, m.Data)
-	copy(newData[len(m.Data)-1:], padding)
-
-	m.Data = string(newData)
+	padlen := byte(aes.BlockSize - (len(m.Data) % aes.BlockSize))
+	data := make([]byte, len(m.Data)+int(padlen))
+	padding := data[len(m.Data)-1:]
+	copy(data, m.Data)
+	for i := range padding {
+		padding[i] = padlen
+	}
+	m.Data = string(data)
 }
 
 func (m *Message) mergeEncoding(encoding string) {
 	if m.Encoding == "" {
 		m.Encoding = encoding
 	} else {
-		m.Encoding = strings.Join([]string{m.Encoding, encoding}, "/")
+		m.Encoding = m.Encoding + "/" + encoding
 	}
 }
 
@@ -202,9 +177,12 @@ func pkcs7Pad(data []byte, blocklen int) ([]byte, error) {
 	for ((len(data) + padlen) % blocklen) != 0 {
 		padlen = padlen + 1
 	}
-
-	pad := bytes.Repeat([]byte{byte(padlen)}, padlen)
-	return append(data, pad...), nil
+	p := make([]byte, len(data)+padlen)
+	copy(p, data)
+	for i := len(data); i < len(p); i++ {
+		p[i] = byte(padlen)
+	}
+	return p, nil
 }
 
 // Returns slice of the original data without padding.
@@ -221,12 +199,10 @@ func pkcs7Unpad(data []byte, blocklen int) ([]byte, error) {
 		return data, nil
 	}
 	// check padding
-	pad := data[len(data)-padlen:]
-	for i := 0; i < padlen; i++ {
-		if pad[i] != byte(padlen) {
+	for _, p := range data[len(data)-padlen:] {
+		if p != byte(padlen) {
 			return nil, fmt.Errorf("invalid padding character")
 		}
 	}
-
 	return data[:len(data)-padlen], nil
 }
