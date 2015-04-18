@@ -36,15 +36,15 @@ type testAppChannels struct {
 }
 
 type testAppConfig struct {
-	AppID      string             `json:"appId,omitempty"`
+	ApiID      string             `json:"appId,omitempty"`
 	Keys       []testAppKey       `json:"keys"`
 	Namespaces []testAppNamespace `json:"namespaces"`
 	Channels   []testAppChannels  `json:"channels"`
 }
 
 type App struct {
-	Params ably.Params
-	Config testAppConfig
+	Options ably.ClientOptions
+	Config  testAppConfig
 }
 
 func (t *App) AppKeyValue() string {
@@ -52,7 +52,7 @@ func (t *App) AppKeyValue() string {
 }
 
 func (t *App) AppKeyId() string {
-	return fmt.Sprintf("%s.%s", t.Config.AppID, t.Config.Keys[0].ID)
+	return fmt.Sprintf("%s.%s", t.Config.ApiID, t.Config.Keys[0].ID)
 }
 
 func (t *App) ok(status int) bool {
@@ -64,7 +64,7 @@ func (t *App) populate(res *http.Response) error {
 		return err
 	}
 
-	t.Params.ApiKey = t.AppKeyId() + ":" + t.AppKeyValue()
+	t.Options.Key = t.AppKeyId() + ":" + t.AppKeyValue()
 
 	return nil
 }
@@ -75,14 +75,14 @@ func (t *App) Create() (*http.Response, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", t.Params.RestEndpoint+"/apps", bytes.NewBuffer(buf))
+	req, err := http.NewRequest("POST", t.Options.RestEndpoint+"/apps", bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	res, err := t.Params.HTTPClient.Do(req)
+	res, err := t.Options.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -107,13 +107,13 @@ func (t *App) Create() (*http.Response, error) {
 }
 
 func (t *App) Delete() (*http.Response, error) {
-	req, err := http.NewRequest("DELETE", t.Params.RestEndpoint+"/apps/"+t.Config.AppID, nil)
+	req, err := http.NewRequest("DELETE", t.Options.RestEndpoint+"/apps/"+t.Config.ApiID, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	req.SetBasicAuth(t.AppKeyId(), t.AppKeyValue())
-	res, err := t.Params.HTTPClient.Do(req)
+	res, err := t.Options.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func NewApp() *App {
 	}
 
 	return &App{
-		Params: ably.Params{
+		Options: ably.ClientOptions{
 			RealtimeEndpoint: "wss://sandbox-realtime.ably.io:443",
 			RestEndpoint:     "https://sandbox-rest.ably.io",
 			HTTPClient:       client,

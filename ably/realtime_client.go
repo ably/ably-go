@@ -7,27 +7,25 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
-func NewRealtimeClient(params Params) *RealtimeClient {
-	params.Prepare()
+func NewRealtimeClient(options ClientOptions) *RealtimeClient {
+	options.Prepare()
 	c := &RealtimeClient{
-		Params:     params,
-		Err:        make(chan error),
-		rest:       NewRestClient(params),
-		channels:   make(map[string]*RealtimeChannel),
-		Connection: NewConn(params),
+		ClientOptions: options,
+		Err:           make(chan error),
+		rest:          NewRestClient(options),
+		channels:      make(map[string]*RealtimeChannel),
+		Connection:    NewConn(options),
 	}
 	go c.connect()
 	return c
 }
 
 type RealtimeClient struct {
-	Params
-	Err chan error
-
-	rest *RestClient
-
+	ClientOptions
 	Connection *Conn
+	Err        chan error
 
+	rest     *RestClient
 	channels map[string]*RealtimeChannel
 	chanMtx  sync.RWMutex
 }

@@ -2,67 +2,48 @@ package ably
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 )
-
-type ProtocolType string
 
 const (
 	ProtocolJSON    = "json"
 	ProtocolMsgPack = "msgpack"
 )
 
-type Params struct {
+type ClientOptions struct {
 	RealtimeEndpoint string
 	RestEndpoint     string
-
-	ApiKey       string
-	ClientID     string
-	AppID        string
-	AppSecret    string
-	UseTokenAuth bool
-
-	Protocol ProtocolType
-	Tls      bool
+	Key              string
+	ClientID         string
+	ApiID            string
+	ApiSecret        string
+	UseTokenAuth     bool
+	Protocol         string
+	NoTLS            bool
 
 	HTTPClient *http.Client
-
-	AblyLogger *AblyLogger
-	LogLevel   string
 }
 
-func (p *Params) Prepare() {
-	p.setLogger()
-
-	if p.ApiKey != "" {
-		p.parseApiKey()
+func (p *ClientOptions) Prepare() {
+	if p.Key != "" {
+		p.parseKey()
 	}
 }
 
-func (p *Params) parseApiKey() {
-	keyParts := strings.Split(p.ApiKey, ":")
+func (p *ClientOptions) parseKey() {
+	keyParts := strings.Split(p.Key, ":")
 
 	if len(keyParts) != 2 {
-		p.AblyLogger.Error("ApiKey doesn't use the right format. Ignoring this parameter.")
+		Log.Print(LogError, "invalid key format, ignoring")
 		return
 	}
 
-	p.AppID = keyParts[0]
-	p.AppSecret = keyParts[1]
-}
-
-func (p *Params) setLogger() {
-	if p.AblyLogger == nil {
-		p.AblyLogger = &AblyLogger{
-			Logger: log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile),
-		}
-	}
+	p.ApiID = keyParts[0]
+	p.ApiSecret = keyParts[1]
 }
 
 // This needs to use a timestamp in millisecond
@@ -89,7 +70,7 @@ func (t *TimestampMillisecond) ToInt() int64 {
 
 func (s *ScopeParams) EncodeValues(out *url.Values) error {
 	if s.Start != 0 && s.End != 0 && s.Start > s.End {
-		return fmt.Errorf("ScopeParams.Start can not be after ScopeParams.End")
+		return fmt.Errorf("start must be before end")
 	}
 
 	if s.Start != 0 {
@@ -110,7 +91,6 @@ func (s *ScopeParams) EncodeValues(out *url.Values) error {
 type PaginateParams struct {
 	Limit     int
 	Direction string
-
 	ScopeParams
 }
 

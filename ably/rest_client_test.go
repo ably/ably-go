@@ -103,7 +103,7 @@ var _ = Describe("RestClient", func() {
 
 		Context("with JSON encoding set up", func() {
 			BeforeEach(func() {
-				testParamsCopy := testApp.Params
+				testParamsCopy := testApp.Options
 				testParamsCopy.Protocol = ably.ProtocolJSON
 				client = ably.NewRestClient(testParamsCopy)
 
@@ -123,7 +123,7 @@ var _ = Describe("RestClient", func() {
 
 		Context("with msgpack encoding set up", func() {
 			BeforeEach(func() {
-				testParamsCopy := testApp.Params
+				testParamsCopy := testApp.Options
 				testParamsCopy.Protocol = ably.ProtocolMsgPack
 				client = ably.NewRestClient(testParamsCopy)
 

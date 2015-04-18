@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	client = ably.NewRestClient(testApp.Params)
+	client = ably.NewRestClient(testApp.Options)
 	channel = client.Channel("test")
 })
 

@@ -13,7 +13,7 @@ var _ = Describe("Connection", func() {
 	var client *ably.RealtimeClient
 
 	BeforeEach(func() {
-		client = ably.NewRealtimeClient(testApp.Params)
+		client = ably.NewRealtimeClient(testApp.Options)
 	})
 
 	AfterEach(func() {

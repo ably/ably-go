@@ -27,28 +27,27 @@ const (
 type ConnListener func()
 
 type Conn struct {
-	Params
+	ClientOptions
+	ID  string
+	Ch  chan *proto.ProtocolMessage
+	Err chan error
 
-	ID        string
-	stateChan chan ConnState
-	Ch        chan *proto.ProtocolMessage
-	Err       chan error
-	ws        *websocket.Conn
-	state     ConnState
-	mtx       sync.RWMutex
-	stateMtx  sync.RWMutex
-
+	stateChan   chan ConnState
+	ws          *websocket.Conn
+	state       ConnState
+	mtx         sync.RWMutex
+	stateMtx    sync.RWMutex
 	listeners   map[ConnState][]ConnListener
 	listenerMtx sync.RWMutex
 }
 
-func NewConn(params Params) *Conn {
+func NewConn(options ClientOptions) *Conn {
 	c := &Conn{
-		Params:    params,
-		state:     ConnStateInitialized,
-		stateChan: make(chan ConnState),
-		Ch:        make(chan *proto.ProtocolMessage),
-		Err:       make(chan error),
+		ClientOptions: options,
+		Ch:            make(chan *proto.ProtocolMessage),
+		Err:           make(chan error),
+		state:         ConnStateInitialized,
+		stateChan:     make(chan ConnState),
 	}
 	go c.watchConnectionState()
 	return c
@@ -87,7 +86,7 @@ func (c *Conn) Close() {
 }
 
 func (c *Conn) websocketUrl(token *Token) (*url.URL, error) {
-	u, err := url.Parse(c.Params.RealtimeEndpoint + "?access_token=" + token.ID + "&binary=false&timestamp=" + strconv.Itoa(int(time.Now().Unix())))
+	u, err := url.Parse(c.ClientOptions.RealtimeEndpoint + "?access_token=" + token.ID + "&binary=false&timestamp=" + strconv.Itoa(int(time.Now().Unix())))
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +103,7 @@ func (c *Conn) Connect() error {
 
 	c.setState(ConnStateConnecting)
 
-	restRealtimeClient := NewRestClient(c.Params)
+	restRealtimeClient := NewRestClient(c.ClientOptions)
 	token, err := restRealtimeClient.Auth.RequestToken(60*60, Capability{"*": []string{"*"}})
 	if err != nil {
 		return fmt.Errorf("Error fetching token: %s", err)
