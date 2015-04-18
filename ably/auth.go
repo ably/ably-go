@@ -71,20 +71,20 @@ func (t *TokenRequest) Sign(secret string) {
 }
 
 type Auth struct {
-	Params
+	ClientOptions
 	client *RestClient
 }
 
-func NewAuth(params Params, client *RestClient) *Auth {
+func NewAuth(options ClientOptions, client *RestClient) *Auth {
 	return &Auth{
-		Params: params,
-		client: client,
+		ClientOptions: options,
+		client:        client,
 	}
 }
 
 func (a *Auth) CreateTokenRequest(ttl int, capability Capability) *TokenRequest {
 	req := &TokenRequest{
-		ID:         a.AppID,
+		ID:         a.ApiID,
 		TTL:        ttl,
 		Capability: capability,
 		ClientID:   a.ClientID,
@@ -92,7 +92,7 @@ func (a *Auth) CreateTokenRequest(ttl int, capability Capability) *TokenRequest 
 		Nonce:      random.String(32),
 	}
 
-	req.Sign(a.AppSecret)
+	req.Sign(a.ApiSecret)
 
 	return req
 }
@@ -101,7 +101,7 @@ func (a *Auth) RequestToken(ttl int, capability Capability) (*Token, error) {
 	req := a.CreateTokenRequest(ttl, capability)
 
 	res := &tokenResponse{}
-	_, err := a.client.Post("/keys/"+a.AppID+"/requestToken", req, res)
+	_, err := a.client.Post("/keys/"+a.ApiID+"/requestToken", req, res)
 	if err != nil {
 		return nil, err
 	}

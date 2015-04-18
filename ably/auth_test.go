@@ -15,7 +15,7 @@ var _ = Describe("Auth", func() {
 			token, err := client.Auth.RequestToken(ttl, capability)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(token.ID).To(ContainSubstring(testApp.Config.AppID))
+			Expect(token.ID).To(ContainSubstring(testApp.Config.ApiID))
 			Expect(token.Key).To(Equal(testApp.AppKeyId()))
 			Expect(token.Capability).To(Equal(capability))
 		})
@@ -27,7 +27,7 @@ var _ = Describe("Auth", func() {
 			capability := ably.Capability{"foo": []string{"publish"}}
 			tokenRequest := client.Auth.CreateTokenRequest(ttl, capability)
 
-			Expect(tokenRequest.ID).To(ContainSubstring(testApp.Config.AppID))
+			Expect(tokenRequest.ID).To(ContainSubstring(testApp.Config.ApiID))
 			Expect(tokenRequest.Mac).NotTo(BeNil())
 		})
 	})

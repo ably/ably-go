@@ -14,7 +14,7 @@ var _ = Describe("RealtimeChannel", func() {
 	)
 
 	BeforeEach(func() {
-		client = ably.NewRealtimeClient(testApp.Params)
+		client = ably.NewRealtimeClient(testApp.Options)
 		channel = client.RealtimeChannel("test")
 	})
 

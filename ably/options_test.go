@@ -11,42 +11,46 @@ import (
 	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/gbytes"
 )
 
-var _ = Describe("Params", func() {
+var _ = Describe("ClientOptions", func() {
 	var (
-		params *ably.Params
-		buffer *gbytes.Buffer
+		options *ably.ClientOptions
+		buffer  *gbytes.Buffer
 	)
 
 	BeforeEach(func() {
 		buffer = gbytes.NewBuffer()
 
-		params = &ably.Params{
-			ApiKey: "id:secret",
+		options = &ably.ClientOptions{
+			Key: "id:secret",
 		}
 
-		params.Prepare()
+		options.Prepare()
 	})
 
-	It("parses ApiKey into a set of known parameters", func() {
-		Expect(params.AppID).To(Equal("id"))
-		Expect(params.AppSecret).To(Equal("secret"))
+	It("parses Key into a set of known parameters", func() {
+		Expect(options.ApiID).To(Equal("id"))
+		Expect(options.ApiSecret).To(Equal("secret"))
 	})
 
-	Context("when ApiKey is invalid", func() {
+	Context("when Key is invalid", func() {
+		var old *log.Logger
+
 		BeforeEach(func() {
-			params = &ably.Params{
-				ApiKey: "invalid",
-				AblyLogger: &ably.AblyLogger{
-					Logger: log.New(buffer, "", log.Lmicroseconds|log.Llongfile),
-				},
+			old, ably.Log.Logger = ably.Log.Logger, log.New(buffer, "", log.Lmicroseconds|log.Llongfile)
+			options = &ably.ClientOptions{
+				Key: "invalid",
 			}
 
-			params.Prepare()
+			options.Prepare()
+		})
+
+		AfterEach(func() {
+			ably.Log.Logger = old
 		})
 
 		It("prints an error", func() {
 			Expect(string(buffer.Contents())).To(
-				ContainSubstring("ERRO: ApiKey doesn't use the right format. Ignoring this parameter"),
+				ContainSubstring("ERROR: invalid key format, ignoring"),
 			)
 		})
 	})
