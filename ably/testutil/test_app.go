@@ -152,10 +152,15 @@ func NewApp() *App {
 		client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
+	environment := "sandbox"
+	if s := os.Getenv("ABLY_ENV"); s != "" {
+		environment = s
+	}
+
 	return &App{
 		Options: ably.ClientOptions{
-			RealtimeEndpoint: "wss://sandbox-realtime.ably.io:443",
-			RestEndpoint:     "https://sandbox-rest.ably.io",
+			RealtimeEndpoint: fmt.Sprintf("wss://%s-realtime.ably.io:443", environment),
+			RestEndpoint:     fmt.Sprintf("https://%s-rest.ably.io", environment),
 			HTTPClient:       client,
 		},
 		Config: testAppConfig{
