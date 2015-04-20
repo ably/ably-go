@@ -74,7 +74,6 @@ func (t *App) Create() (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	req, err := http.NewRequest("POST", t.Options.RestEndpoint+"/apps", bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
@@ -86,7 +85,6 @@ func (t *App) Create() (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	defer res.Body.Close()
 
 	if !t.ok(res.StatusCode) {

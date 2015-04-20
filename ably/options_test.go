@@ -28,8 +28,8 @@ var _ = Describe("ClientOptions", func() {
 	})
 
 	It("parses Key into a set of known parameters", func() {
-		Expect(options.ApiID).To(Equal("id"))
-		Expect(options.ApiSecret).To(Equal("secret"))
+		Expect(options.Token).To(Equal("id"))
+		Expect(options.Secret).To(Equal("secret"))
 	})
 
 	Context("when Key is invalid", func() {

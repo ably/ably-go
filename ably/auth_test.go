@@ -10,25 +10,26 @@ import (
 var _ = Describe("Auth", func() {
 	Describe("RequestToken", func() {
 		It("gets a token from the API", func() {
-			ttl := 60 * 60
-			capability := ably.Capability{"foo": []string{"publish"}}
-			token, err := client.Auth.RequestToken(ttl, capability)
+			req := client.Auth.CreateTokenRequest()
+			req.TTL = 60 * 60 * 1000
+			req.Capability = ably.Capability{"foo": []string{"publish"}}
+			token, err := client.Auth.RequestToken(req)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(token.ID).To(ContainSubstring(testApp.Config.ApiID))
-			Expect(token.Key).To(Equal(testApp.AppKeyId()))
-			Expect(token.Capability).To(Equal(capability))
+			Expect(token.Token).To(ContainSubstring(testApp.Config.ApiID))
+			Expect(token.KeyName).To(Equal(testApp.AppKeyId()))
+			Expect(token.Capability).To(Equal(req.Capability))
 		})
 	})
 
 	Describe("CreateTokenRequest", func() {
 		It("gets a token from the API", func() {
-			ttl := 60 * 60
-			capability := ably.Capability{"foo": []string{"publish"}}
-			tokenRequest := client.Auth.CreateTokenRequest(ttl, capability)
+			req := client.Auth.CreateTokenRequest()
+			req.TTL = 60 * 60 * 1000
+			req.Capability = ably.Capability{"foo": []string{"publish"}}
 
-			Expect(tokenRequest.ID).To(ContainSubstring(testApp.Config.ApiID))
-			Expect(tokenRequest.Mac).NotTo(BeNil())
+			Expect(req.KeyName).To(ContainSubstring(testApp.Config.ApiID))
+			Expect(req.Mac).NotTo(BeNil())
 		})
 	})
 })
