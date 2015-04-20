@@ -22,24 +22,24 @@ type CryptoData struct {
 	} `json:"items"`
 }
 
-func LoadCryptoData(rel string) (*CryptoData, map[string]string, error) {
+func LoadCryptoData(rel string) (*CryptoData, []byte, []byte, error) {
 	data := &CryptoData{}
 	f, err := os.Open(filepath.Join("..", "..", "common", filepath.FromSlash(rel)))
 	if err != nil {
-		return nil, nil, errors.New("missing common subrepo - ensure git submodules are initialized")
+		return nil, nil, nil, errors.New("missing common subrepo - ensure git submodules are initialized")
 	}
 	err = json.NewDecoder(f).Decode(data)
 	f.Close()
 	if err != nil {
-		return nil, nil, errors.New("unable to unmarshal test cases: " + err.Error())
+		return nil, nil, nil, errors.New("unable to unmarshal test cases: " + err.Error())
 	}
 	key, err := base64.StdEncoding.DecodeString(data.Key)
 	if err != nil {
-		return nil, nil, errors.New("unable to unbase64 key" + err.Error())
+		return nil, nil, nil, errors.New("unable to unbase64 key" + err.Error())
 	}
 	iv, err := base64.StdEncoding.DecodeString(data.IV)
 	if err != nil {
-		return nil, nil, errors.New("unable to unbase64 IV" + err.Error())
+		return nil, nil, nil, errors.New("unable to unbase64 IV" + err.Error())
 	}
-	return data, map[string]string{"key": string(key), "iv": string(iv)}, nil
+	return data, key, iv, nil
 }

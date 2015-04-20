@@ -12,18 +12,16 @@ import (
 
 var _ = Describe("Message", func() {
 	var (
-		message      *proto.Message
-		aes128Config map[string]string
+		message   *proto.Message
+		aes128Key []byte
+		aes128IV  []byte
 	)
 
 	BeforeEach(func() {
 		key, err := base64.StdEncoding.DecodeString("WUP6u0K7MXI5Zeo0VppPwg==")
 		Expect(err).NotTo(HaveOccurred())
 
-		aes128Config = map[string]string{
-			"key": string(key),
-			"iv":  "",
-		}
+		aes128Key = key
 	})
 
 	Describe("DecodeData", func() {
@@ -33,7 +31,7 @@ var _ = Describe("Message", func() {
 			})
 
 			It("returns the same string", func() {
-				err := message.DecodeData(aes128Config)
+				err := message.DecodeData(aes128Key)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(message.Data).To(Equal(`{ "string": "utf-8™" }`))
 			})
@@ -58,7 +56,7 @@ var _ = Describe("Message", func() {
 			})
 
 			It("decodes it into a byte array", func() {
-				err := message.DecodeData(aes128Config)
+				err := message.DecodeData(aes128Key)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(message.Data).To(Equal("utf-8™\n"))
 			})
@@ -93,7 +91,7 @@ var _ = Describe("Message", func() {
 			})
 
 			It("decodes it into a byte array", func() {
-				err := message.DecodeData(aes128Config)
+				err := message.DecodeData(aes128Key)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(message.Data).To(Equal(decodedData))
 			})
@@ -120,7 +118,7 @@ var _ = Describe("Message", func() {
 				message = &proto.Message{Data: `{ "string": "utf-8™" }`}
 				encodeInto = "json/utf-8"
 
-				err := message.EncodeData(encodeInto, nil)
+				err := message.EncodeData(encodeInto, nil, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -145,7 +143,7 @@ var _ = Describe("Message", func() {
 				base64Str = base64.StdEncoding.EncodeToString([]byte(str))
 
 				message = &proto.Message{Data: str}
-				err := message.EncodeData(encodeInto, nil)
+				err := message.EncodeData(encodeInto, nil, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -172,10 +170,10 @@ var _ = Describe("Message", func() {
 				iv, err := base64.StdEncoding.DecodeString("HO4cYSP8LybPYBPZPHQOtg==")
 				Expect(err).NotTo(HaveOccurred())
 
-				aes128Config["iv"] = string(iv)
+				aes128IV = iv
 
 				message = &proto.Message{Data: str}
-				err = message.EncodeData(encodeInto, aes128Config)
+				err = message.EncodeData(encodeInto, aes128Key, aes128IV)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -184,7 +182,7 @@ var _ = Describe("Message", func() {
 			})
 
 			It("is decode-able through the DecodeData method", func() {
-				err := message.DecodeData(aes128Config)
+				err := message.DecodeData(aes128Key)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(message.Data).To(Equal(str))
 			})
@@ -199,23 +197,26 @@ var _ = Describe("Message", func() {
 		EncodeDecodeFixture := func(fixture string) func() {
 			return func() {
 				var (
-					test *testutil.CryptoData
-					cfg  map[string]string
+					test    *testutil.CryptoData
+					key, iv []byte
 				)
 
 				BeforeEach(func() {
 					var err error
-					test, cfg, err = testutil.LoadCryptoData(fixture)
+					test, key, iv, err = testutil.LoadCryptoData(fixture)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("fixture decode", func() {
-					for i, item := range test.Items {
-						// Ignore item 1 - https://github.com/ably/ably-common/pull/3.
-						if i == 1 {
-							continue
-						}
-						err := item.Encrypted.DecodeData(cfg)
+					for _, item := range test.Items {
+						// All test-cases from the common fixtures files are encoded
+						// for binary transports. Decode the input message first,
+						// to ensure we're not comparing decoded binary payloads
+						// with its base64.
+						err := item.Encoded.DecodeData(nil)
+						Expect(err).NotTo(HaveOccurred())
+
+						err = item.Encrypted.DecodeData(key)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(item.Encrypted.Name).To(Equal(item.Encoded.Name))
 						Expect(item.Encrypted.Data).To(Equal(item.Encoded.Data))
@@ -223,12 +224,14 @@ var _ = Describe("Message", func() {
 				})
 
 				It("fixture encode", func() {
-					for i, item := range test.Items {
-						// Ignore item 1 - https://github.com/ably/ably-common/pull/3.
-						if i == 1 {
-							continue
-						}
-						err := item.Encoded.EncodeData(item.Encrypted.Encoding, cfg)
+					for _, item := range test.Items {
+						// All test-cases from the common fixtures files are encoded
+						// for binary transports. Decode the input message first,
+						// to ensure we're not encrypting base64d payloads.
+						err := item.Encoded.DecodeData(nil)
+						Expect(err).NotTo(HaveOccurred())
+
+						err = item.Encoded.EncodeData(item.Encrypted.Encoding, key, iv)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(item.Encoded.Name).To(Equal(item.Encrypted.Name))
 						Expect(item.Encoded.Data).To(Equal(item.Encrypted.Data))
