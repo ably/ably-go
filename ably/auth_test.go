@@ -13,6 +13,7 @@ var _ = Describe("Auth", func() {
 			req := client.Auth.CreateTokenRequest()
 			req.TTL = 60 * 60 * 1000
 			req.Capability = ably.Capability{"foo": []string{"publish"}}
+			req.ClientID = "client_string"
 			token, err := client.Auth.RequestToken(req)
 
 			Expect(err).NotTo(HaveOccurred())

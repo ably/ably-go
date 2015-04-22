@@ -55,7 +55,7 @@ type TokenRequest struct {
 	KeyName    string     `json:"keyName"`
 	TTL        int        `json:"ttl"`
 	Capability Capability `json:"capability"`
-	ClientID   string     `json:"client_id"`
+	ClientID   string     `json:"clientId"`
 	Timestamp  int64      `json:"timestamp"`
 	Nonce      string     `json:"nonce"`
 	Mac        string     `json:"mac"`
