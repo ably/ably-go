@@ -47,7 +47,7 @@ type Token struct {
 	Token      string     `json:"token"`
 	KeyName    string     `json:"keyName"`
 	Expires    int64      `json:"expires"`
-	Issued     int64      `json:"issued_at"`
+	Issued     int64      `json:"issued"`
 	Capability Capability `json:"capability"`
 }
 
