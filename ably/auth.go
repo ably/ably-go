@@ -12,8 +12,6 @@ import (
 	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/flynn/flynn/pkg/random"
 )
 
-// TODO(rjeczalik): add support for :query_time
-
 type Capability map[string][]string
 
 func (c Capability) MarshalJSON() ([]byte, error) {
@@ -88,21 +86,16 @@ func (req *TokenRequest) sign(secret []byte) {
 }
 
 type Auth struct {
-	Options *ClientOptions
-	client  *RestClient
-}
-
-func NewAuth(options *ClientOptions, client *RestClient) *Auth {
-	return &Auth{
-		Options: options,
-		client:  client,
-	}
+	options   ClientOptions
+	client    *RestClient
+	keyName   string
+	keySecret string
 }
 
 func (a *Auth) CreateTokenRequest() *TokenRequest {
 	return &TokenRequest{
-		KeyName:  a.Options.Token,
-		ClientID: a.Options.ClientID,
+		KeyName:  a.keyName,
+		ClientID: a.options.ClientID,
 	}
 }
 
@@ -110,7 +103,7 @@ func (a *Auth) RequestToken(req *TokenRequest) (*Token, error) {
 	if req == nil {
 		req = a.CreateTokenRequest()
 	}
-	req.sign([]byte(a.Options.Secret))
+	req.sign([]byte(a.keySecret))
 	resp := &Token{}
 	_, err := a.client.Post("/keys/"+req.KeyName+"/requestToken", req, resp)
 	if err != nil {

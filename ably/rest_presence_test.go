@@ -12,6 +12,7 @@ import (
 var _ = Describe("Presence", func() {
 	Context("tested against presence fixture data set up in test app", func() {
 		var presence *ably.RestPresence
+		var channel *ably.RestChannel
 
 		BeforeEach(func() {
 			channel = client.Channel("persisted:presence_fixtures")

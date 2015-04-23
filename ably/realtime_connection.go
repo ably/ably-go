@@ -85,7 +85,7 @@ func (c *Conn) Close() {
 }
 
 func (c *Conn) websocketUrl(token *Token) (*url.URL, error) {
-	u, err := url.Parse(c.ClientOptions.RealtimeEndpoint + "?access_token=" + token.Token + "&binary=false&timestamp=" + strconv.FormatInt(TimestampNow(), 10))
+	u, err := url.Parse(c.ClientOptions.realtimeURL() + "?access_token=" + token.Token + "&binary=false&timestamp=" + strconv.FormatInt(TimestampNow(), 10))
 	if err != nil {
 		return nil, err
 	}
@@ -95,24 +95,22 @@ func (c *Conn) websocketUrl(token *Token) (*url.URL, error) {
 func (c *Conn) Connect() error {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-
 	if c.isActive() {
 		return nil
 	}
-
 	c.setState(ConnStateConnecting)
-
-	restRealtimeClient := NewRestClient(c.ClientOptions)
+	restRealtimeClient, err := NewRestClient(&c.ClientOptions)
+	if err != nil {
+		return err
+	}
 	token, err := restRealtimeClient.Auth.RequestToken(nil)
 	if err != nil {
 		return fmt.Errorf("Error fetching token: %s", err)
 	}
-
 	u, err := c.websocketUrl(token)
 	if err != nil {
 		return err
 	}
-
 	return c.dial(u)
 }
 

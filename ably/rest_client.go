@@ -4,14 +4,16 @@ import (
 	"bytes"
 	_ "crypto/sha512"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
 	"sync"
 	"time"
 
-	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 	"github.com/ably/ably-go/ably/proto"
+
+	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
 var (
@@ -27,36 +29,31 @@ func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
 }
 
 type RestClient struct {
-	Auth *Auth
+	Auth     *Auth
+	Protocol string
+	Host     string
 
-	RestEndpoint string
-	Protocol     string
-
-	HTTPClient *http.Client
-
-	channels map[string]*RestChannel
-	chanMtx  sync.Mutex
+	chansMtx sync.Mutex
+	chans    map[string]*RestChannel
 }
 
-func NewRestClient(options ClientOptions) *RestClient {
-	options.Prepare()
-	client := &RestClient{
-		RestEndpoint: options.RestEndpoint,
-		HTTPClient:   options.HTTPClient,
-		channels:     make(map[string]*RestChannel),
+func NewRestClient(options *ClientOptions) (*RestClient, error) {
+	keyName, keySecret := options.KeyName(), options.KeySecret()
+	if keyName == "" || keySecret == "" {
+		return nil, errors.New("invalid key format")
 	}
-
-	client.Auth = NewAuth(&options, client)
-	client.Protocol = options.Protocol
-
-	return client
-}
-
-func (c *RestClient) httpclient() *http.Client {
-	if c.HTTPClient != nil {
-		return c.HTTPClient
+	c := &RestClient{
+		Protocol: options.protocol(),
+		Host:     options.restURL(),
+		chans:    make(map[string]*RestChannel),
 	}
-	return http.DefaultClient
+	c.Auth = &Auth{
+		options:   *options,
+		client:    c,
+		keyName:   keyName,
+		keySecret: keySecret,
+	}
+	return c, nil
 }
 
 func (c *RestClient) Time() (time.Time, error) {
@@ -66,21 +63,19 @@ func (c *RestClient) Time() (time.Time, error) {
 		return time.Time{}, err
 	}
 	if len(times) != 1 {
-		return time.Time{}, fmt.Errorf("Expected 1 timestamp, got %d", len(times))
+		return time.Time{}, fmt.Errorf("expected 1 timestamp, got %d", len(times))
 	}
 	return time.Unix(times[0]/1000, times[0]%1000), nil
 }
 
 func (c *RestClient) Channel(name string) *RestChannel {
-	c.chanMtx.Lock()
-	defer c.chanMtx.Unlock()
-
-	if ch, ok := c.channels[name]; ok {
+	c.chansMtx.Lock()
+	defer c.chansMtx.Unlock()
+	if ch, ok := c.chans[name]; ok {
 		return ch
 	}
-
 	ch := newRestChannel(name, c)
-	c.channels[name] = ch
+	c.chans[name] = ch
 	return ch
 }
 
@@ -92,27 +87,23 @@ func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResource, error) {
 }
 
 func (c *RestClient) Get(path string, out interface{}) (*http.Response, error) {
-	req, err := http.NewRequest("GET", c.RestEndpoint+path, nil)
+	req, err := http.NewRequest("GET", c.Auth.options.restURL()+path, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.SetBasicAuth(c.Auth.Options.Token, c.Auth.Options.Secret)
-	res, err := c.httpclient().Do(req)
-
+	req.SetBasicAuth(c.Auth.keyName, c.Auth.keySecret)
+	res, err := c.Auth.options.httpclient().Do(req)
 	if err != nil {
 		return nil, err
 	}
-
 	if !c.ok(res.StatusCode) {
-		return res, NewRestHttpError(res, fmt.Sprintf("Unexpected status code %d", res.StatusCode))
+		return res, NewRestHttpError(res, fmt.Sprintf("unexpected status code %d", res.StatusCode))
 	}
-
 	if out != nil {
 		defer res.Body.Close()
 		return res, json.NewDecoder(res.Body).Decode(out)
 	}
-
 	return res, nil
 }
 
@@ -121,21 +112,21 @@ func (c *RestClient) Post(path string, in, out interface{}) (*http.Response, err
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", c.RestEndpoint+path, bytes.NewBuffer(buf))
+	req, err := http.NewRequest("POST", c.Auth.options.restURL()+path, bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.SetBasicAuth(c.Auth.Options.Token, c.Auth.Options.Secret)
-	res, err := c.httpclient().Do(req)
+	req.SetBasicAuth(c.Auth.keyName, c.Auth.keySecret)
+	res, err := c.Auth.options.httpclient().Do(req)
 	if err != nil {
 		return nil, err
 	}
 	if !c.ok(res.StatusCode) {
-		return res, NewRestHttpError(res, fmt.Sprintf("Unexpected status code %d", res.StatusCode))
+		return res, NewRestHttpError(res, fmt.Sprintf("unexpected status code %d", res.StatusCode))
 	}
-	if out != nil && c.ok(res.StatusCode) {
+	if out != nil {
 		defer res.Body.Close()
 		return res, json.NewDecoder(res.Body).Decode(out)
 	}
@@ -147,13 +138,12 @@ func (c *RestClient) ok(status int) bool {
 }
 
 func (c *RestClient) marshalMessages(in interface{}) ([]byte, error) {
-	switch c.Protocol {
+	switch proto := c.Auth.options.protocol(); proto {
 	case ProtocolJSON:
 		return json.Marshal(in)
 	case ProtocolMsgPack:
 		return msgpack.Marshal(in)
 	default:
-		// TODO log fallback to default encoding
-		return json.Marshal(in)
+		return nil, errors.New(`invalid protocol: "` + proto + `"`)
 	}
 }

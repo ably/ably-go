@@ -1,10 +1,11 @@
 package ably_test
 
 import (
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/proto"
+
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
+	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 )
 
 var _ = Describe("RestChannel", func() {
@@ -24,6 +25,7 @@ var _ = Describe("RestChannel", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			messages := page.Messages()
+			Expect(len(messages)).NotTo(Equal(0))
 			Expect(messages[0].Name).To(Equal(event))
 			Expect(messages[0].Data).To(Equal(message))
 		})

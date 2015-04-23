@@ -14,12 +14,10 @@ func newRestChannel(name string, client *RestClient) *RestChannel {
 		Name:   name,
 		client: client,
 	}
-
 	c.Presence = &RestPresence{
 		client:  client,
 		channel: c,
 	}
-
 	return c
 }
 
@@ -35,13 +33,10 @@ func (c *RestChannel) Publish(name string, data string) error {
 // using the Rest API.
 func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 	res, err := c.client.Post("/channels/"+c.Name+"/messages", messages, nil)
-
 	if err != nil {
 		return err
 	}
-
-	defer res.Body.Close()
-
+	res.Body.Close()
 	return nil
 }
 

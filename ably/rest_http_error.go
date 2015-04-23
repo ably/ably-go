@@ -6,15 +6,16 @@ import (
 )
 
 type RestHttpError struct {
-	Msg      string
-	Response *http.Response
-
+	Msg          string
 	ResponseBody string
+
+	resp *http.Response
 }
 
-func NewRestHttpError(response *http.Response, message string) *RestHttpError {
-	err := &RestHttpError{Response: response, Msg: message}
+func NewRestHttpError(resp *http.Response, message string) *RestHttpError {
+	err := &RestHttpError{Msg: message, resp: resp}
 	err.readBody()
+	err.resp = nil
 	return err
 }
 
@@ -23,12 +24,12 @@ func (e *RestHttpError) Error() string {
 }
 
 func (e *RestHttpError) readBody() {
-	if e.Response == nil {
+	if e.resp == nil {
 		return
 	}
-
-	if body, err := ioutil.ReadAll(e.Response.Body); err == nil {
-		defer e.Response.Body.Close()
+	body, err := ioutil.ReadAll(e.resp.Body)
+	e.resp.Body.Close()
+	if err == nil {
 		e.ResponseBody = string(body)
 	}
 }

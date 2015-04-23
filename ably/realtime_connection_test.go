@@ -10,10 +10,14 @@ import (
 )
 
 var _ = Describe("Connection", func() {
-	var client *ably.RealtimeClient
+	var (
+		client *ably.RealtimeClient
+		err    error
+	)
 
 	BeforeEach(func() {
-		client = ably.NewRealtimeClient(testApp.Options)
+		client, err = ably.NewRealtimeClient(*testApp.Options())
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
