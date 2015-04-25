@@ -3,7 +3,6 @@ package ably
 import (
 	"fmt"
 	"strconv"
-	"time"
 
 	"crypto/hmac"
 	"crypto/sha256"
@@ -13,9 +12,14 @@ import (
 	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/flynn/flynn/pkg/random"
 )
 
+// TODO(rjeczalik): add support for :query_time
+
 type Capability map[string][]string
 
 func (c Capability) MarshalJSON() ([]byte, error) {
+	if len(c) == 0 {
+		return []byte(`""`), nil
+	}
 	p, err := json.Marshal((map[string][]string)(c))
 	if err != nil {
 		return nil, err
@@ -40,70 +44,77 @@ func (c Capability) String() string {
 }
 
 type Token struct {
-	ID         string     `json:"id"`
-	Key        string     `json:"key"`
+	Token      string     `json:"token"`
+	KeyName    string     `json:"keyName"`
+	Expires    int64      `json:"expires"`
+	Issued     int64      `json:"issued"`
 	Capability Capability `json:"capability"`
-}
-
-type tokenResponse struct {
-	AccessToken *Token `json:"access_token"`
 }
 
 type TokenRequest struct {
-	ID         string     `json:"id"`
+	KeyName    string     `json:"keyName"`
 	TTL        int        `json:"ttl"`
 	Capability Capability `json:"capability"`
-	ClientID   string     `json:"client_id"`
+	ClientID   string     `json:"clientId"`
 	Timestamp  int64      `json:"timestamp"`
 	Nonce      string     `json:"nonce"`
 	Mac        string     `json:"mac"`
 }
 
-func (t *TokenRequest) Sign(secret string) {
-	mac := hmac.New(sha256.New, []byte(secret))
-	fmt.Fprintln(mac, t.ID)
-	fmt.Fprintln(mac, t.TTL)
-	fmt.Fprintln(mac, t.Capability.String())
-	fmt.Fprintln(mac, t.ClientID)
-	fmt.Fprintln(mac, t.Timestamp)
-	fmt.Fprintln(mac, t.Nonce)
-	t.Mac = base64.StdEncoding.EncodeToString(mac.Sum(nil))
+func (req *TokenRequest) sign(secret []byte) {
+	// Set defaults.
+	if req.Timestamp == 0 {
+		req.Timestamp = TimestampNow()
+	}
+	if req.Nonce == "" {
+		req.Nonce = random.String(32)
+	}
+	if req.Capability == nil {
+		req.Capability = Capability{"*": {"*"}}
+	}
+	if req.TTL == 0 {
+		req.TTL = 60 * 60 * 1000
+	}
+
+	// Sign.
+	mac := hmac.New(sha256.New, secret)
+	fmt.Fprintln(mac, req.KeyName)
+	fmt.Fprintln(mac, req.TTL)
+	fmt.Fprintln(mac, req.Capability.String())
+	fmt.Fprintln(mac, req.ClientID)
+	fmt.Fprintln(mac, req.Timestamp)
+	fmt.Fprintln(mac, req.Nonce)
+	req.Mac = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
 type Auth struct {
-	ClientOptions
-	client *RestClient
+	Options *ClientOptions
+	client  *RestClient
 }
 
-func NewAuth(options ClientOptions, client *RestClient) *Auth {
+func NewAuth(options *ClientOptions, client *RestClient) *Auth {
 	return &Auth{
-		ClientOptions: options,
-		client:        client,
+		Options: options,
+		client:  client,
 	}
 }
 
-func (a *Auth) CreateTokenRequest(ttl int, capability Capability) *TokenRequest {
-	req := &TokenRequest{
-		ID:         a.ApiID,
-		TTL:        ttl,
-		Capability: capability,
-		ClientID:   a.ClientID,
-		Timestamp:  time.Now().Unix(),
-		Nonce:      random.String(32),
+func (a *Auth) CreateTokenRequest() *TokenRequest {
+	return &TokenRequest{
+		KeyName:  a.Options.Token,
+		ClientID: a.Options.ClientID,
 	}
-
-	req.Sign(a.ApiSecret)
-
-	return req
 }
 
-func (a *Auth) RequestToken(ttl int, capability Capability) (*Token, error) {
-	req := a.CreateTokenRequest(ttl, capability)
-
-	res := &tokenResponse{}
-	_, err := a.client.Post("/keys/"+a.ApiID+"/requestToken", req, res)
+func (a *Auth) RequestToken(req *TokenRequest) (*Token, error) {
+	if req == nil {
+		req = a.CreateTokenRequest()
+	}
+	req.sign([]byte(a.Options.Secret))
+	resp := &Token{}
+	_, err := a.client.Post("/keys/"+req.KeyName+"/requestToken", req, resp)
 	if err != nil {
 		return nil, err
 	}
-	return res.AccessToken, nil
+	return resp, nil
 }

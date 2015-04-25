@@ -18,11 +18,11 @@ type ClientOptions struct {
 	RealtimeEndpoint string
 	RestEndpoint     string
 	Key              string
+	Token            string
+	Secret           string
 	ClientID         string
-	ApiID            string
-	ApiSecret        string
-	UseTokenAuth     bool
 	Protocol         string
+	UseTokenAuth     bool
 	NoTLS            bool
 
 	HTTPClient *http.Client
@@ -42,8 +42,18 @@ func (p *ClientOptions) parseKey() {
 		return
 	}
 
-	p.ApiID = keyParts[0]
-	p.ApiSecret = keyParts[1]
+	p.Token = keyParts[0]
+	p.Secret = keyParts[1]
+}
+
+// Timestamp returns the given time as a timestamp in milliseconds since epoch.
+func Timestamp(t time.Time) int64 {
+	return t.UnixNano() / int64(time.Millisecond)
+}
+
+// TimestampNow returns current time as a timestamp in milliseconds since epoch.
+func TimestampNow() int64 {
+	return Timestamp(time.Now())
 }
 
 // This needs to use a timestamp in millisecond
@@ -52,20 +62,6 @@ type ScopeParams struct {
 	Start int64
 	End   int64
 	Unit  string
-}
-
-type TimestampMillisecond struct {
-	time.Time
-}
-
-// Get a timestamp in millisecond
-func NewTimestamp(t time.Time) int64 {
-	tm := TimestampMillisecond{Time: t}
-	return tm.ToInt()
-}
-
-func (t *TimestampMillisecond) ToInt() int64 {
-	return int64(time.Nanosecond * time.Duration(t.UnixNano()) / time.Millisecond)
 }
 
 func (s *ScopeParams) EncodeValues(out *url.Values) error {

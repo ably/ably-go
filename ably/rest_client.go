@@ -46,7 +46,7 @@ func NewRestClient(options ClientOptions) *RestClient {
 		channels:     make(map[string]*RestChannel),
 	}
 
-	client.Auth = NewAuth(options, client)
+	client.Auth = NewAuth(&options, client)
 	client.Protocol = options.Protocol
 
 	return client
@@ -59,17 +59,16 @@ func (c *RestClient) httpclient() *http.Client {
 	return http.DefaultClient
 }
 
-func (c *RestClient) Time() (*time.Time, error) {
+func (c *RestClient) Time() (time.Time, error) {
 	times := []int64{}
 	_, err := c.Get("/time", &times)
 	if err != nil {
-		return nil, err
+		return time.Time{}, err
 	}
 	if len(times) != 1 {
-		return nil, fmt.Errorf("Expected 1 timestamp, got %d", len(times))
+		return time.Time{}, fmt.Errorf("Expected 1 timestamp, got %d", len(times))
 	}
-	t := time.Unix(times[0]/1000, times[0]%1000)
-	return &t, nil
+	return time.Unix(times[0]/1000, times[0]%1000), nil
 }
 
 func (c *RestClient) Channel(name string) *RestChannel {
@@ -98,7 +97,7 @@ func (c *RestClient) Get(path string, out interface{}) (*http.Response, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.SetBasicAuth(c.Auth.ApiID, c.Auth.ApiSecret)
+	req.SetBasicAuth(c.Auth.Options.Token, c.Auth.Options.Secret)
 	res, err := c.httpclient().Do(req)
 
 	if err != nil {
@@ -122,14 +121,13 @@ func (c *RestClient) Post(path string, in, out interface{}) (*http.Response, err
 	if err != nil {
 		return nil, err
 	}
-
 	req, err := http.NewRequest("POST", c.RestEndpoint+path, bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.SetBasicAuth(c.Auth.ApiID, c.Auth.ApiSecret)
+	req.SetBasicAuth(c.Auth.Options.Token, c.Auth.Options.Secret)
 	res, err := c.httpclient().Do(req)
 	if err != nil {
 		return nil, err

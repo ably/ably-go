@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/ably/ably-go/ably/proto"
 
@@ -86,7 +85,7 @@ func (c *Conn) Close() {
 }
 
 func (c *Conn) websocketUrl(token *Token) (*url.URL, error) {
-	u, err := url.Parse(c.ClientOptions.RealtimeEndpoint + "?access_token=" + token.ID + "&binary=false&timestamp=" + strconv.Itoa(int(time.Now().Unix())))
+	u, err := url.Parse(c.ClientOptions.RealtimeEndpoint + "?access_token=" + token.Token + "&binary=false&timestamp=" + strconv.FormatInt(TimestampNow(), 10))
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +103,7 @@ func (c *Conn) Connect() error {
 	c.setState(ConnStateConnecting)
 
 	restRealtimeClient := NewRestClient(c.ClientOptions)
-	token, err := restRealtimeClient.Auth.RequestToken(60*60, Capability{"*": []string{"*"}})
+	token, err := restRealtimeClient.Auth.RequestToken(nil)
 	if err != nil {
 		return fmt.Errorf("Error fetching token: %s", err)
 	}

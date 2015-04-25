@@ -54,8 +54,8 @@ var _ = Describe("Presence", func() {
 				It("can return older items from a certain date given a start / end timestamp", func() {
 					params := &ably.PaginateParams{
 						ScopeParams: ably.ScopeParams{
-							Start: ably.NewTimestamp(time.Now().Add(-24 * time.Hour)),
-							End:   ably.NewTimestamp(time.Now()),
+							Start: ably.Timestamp(time.Now().Add(-24 * time.Hour)),
+							End:   ably.Timestamp(time.Now()),
 						},
 					}
 					page, err := presence.History(params)
