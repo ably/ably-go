@@ -80,10 +80,10 @@ func (c *RestClient) Channel(name string) *RestChannel {
 }
 
 // Stats gives the channel's metrics according to the given parameters.
-// The returned resource can be inspected for the statistics via the Stats()
+// The returned result can be inspected for the statistics via the Stats()
 // method.
-func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResource, error) {
-	return newPaginatedResource(statType, "/stats", params, query(c.Get))
+func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
+	return newPaginatedResult(statType, "/stats", params, query(c.Get))
 }
 
 func (c *RestClient) Get(path string, out interface{}) (*http.Response, error) {

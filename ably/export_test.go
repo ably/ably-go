@@ -1,6 +1,6 @@
 package ably
 
-func (p *PaginatedResource) BuildPath(base, rel string) (string, error) {
+func (p *PaginatedResult) BuildPath(base, rel string) (string, error) {
 	return p.buildPath(base, rel)
 }
 

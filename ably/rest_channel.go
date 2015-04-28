@@ -41,9 +41,9 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 }
 
 // History gives the channel's message history according to the given parameters.
-// The returned resource can be inspected for the messages via the Messages()
+// The returned result can be inspected for the messages via the Messages()
 // method.
-func (c *RestChannel) History(params *PaginateParams) (*PaginatedResource, error) {
+func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
 	path := "/channels/" + c.Name + "/history"
-	return newPaginatedResource(msgType, path, params, query(c.client.Get))
+	return newPaginatedResult(msgType, path, params, query(c.client.Get))
 }

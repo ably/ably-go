@@ -7,16 +7,16 @@ import (
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 )
 
-var _ = Describe("PaginatedResource", func() {
-	var paginatedResource ably.PaginatedResource
+var _ = Describe("PaginatedResult", func() {
+	var result *ably.PaginatedResult
 
 	Describe("BuildPath", func() {
 		BeforeEach(func() {
-			paginatedResource = ably.PaginatedResource{}
+			result = &ably.PaginatedResult{}
 		})
 
 		It("returns a string pointing to the new path based on the given path", func() {
-			newPath, err := paginatedResource.BuildPath("/path/to/resource?hello", "./newresource?world")
+			newPath, err := result.BuildPath("/path/to/resource?hello", "./newresource?world")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(newPath).To(Equal("/path/to/newresource?world"))
 		})
