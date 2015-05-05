@@ -1,57 +1,39 @@
 package ably_test
 
 import (
-	"log"
 	"net/url"
 
 	"github.com/ably/ably-go/ably"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
-	"github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("ClientOptions", func() {
-	var (
-		options *ably.ClientOptions
-		buffer  *gbytes.Buffer
-	)
+	var err error
 
-	BeforeEach(func() {
-		buffer = gbytes.NewBuffer()
+	Context("when Key is valid", func() {
+		var options *ably.ClientOptions
 
-		options = &ably.ClientOptions{
-			Key: "id:secret",
-		}
+		BeforeEach(func() {
+			options = &ably.ClientOptions{Key: "name:secret"}
+			_, err = ably.NewRestClient(options)
+		})
 
-		options.Prepare()
-	})
-
-	It("parses Key into a set of known parameters", func() {
-		Expect(options.Token).To(Equal("id"))
-		Expect(options.Secret).To(Equal("secret"))
+		It("parses it into a set of known parameters", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(options.KeyName()).To(Equal("name"))
+			Expect(options.KeySecret()).To(Equal("secret"))
+		})
 	})
 
 	Context("when Key is invalid", func() {
-		var old *log.Logger
-
 		BeforeEach(func() {
-			old, ably.Log.Logger = ably.Log.Logger, log.New(buffer, "", log.Lmicroseconds|log.Llongfile)
-			options = &ably.ClientOptions{
-				Key: "invalid",
-			}
-
-			options.Prepare()
+			_, err = ably.NewRestClient(&ably.ClientOptions{Key: "invalid"})
 		})
 
-		AfterEach(func() {
-			ably.Log.Logger = old
-		})
-
-		It("prints an error", func() {
-			Expect(string(buffer.Contents())).To(
-				ContainSubstring("ERROR: invalid key format, ignoring"),
-			)
+		It("returns an error", func() {
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

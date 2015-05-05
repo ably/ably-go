@@ -31,8 +31,11 @@ TODO
 All examples assume a client and/or channel has been created as follows:
 
 ```go
-client := ably.NewRestClient(ably.ClientOptions{ApiKey: "xxxx"})
-channel := client.Channel('test')
+client, err := ably.NewRestClient(&ably.ClientOptions{Key: "xxx:xxx"})
+if err != nil {
+	panic(err)
+}
+channel := client.Channel("test")
 ```
 
 ### Publishing a message to a channel

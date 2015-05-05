@@ -11,9 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/proto"
+
+	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
@@ -23,12 +24,10 @@ var _ = Describe("RestClient", func() {
 	var (
 		server *httptest.Server
 
-		createMockedRestClient = func(server *httptest.Server) *http.Client {
+		newHTTPClientMock = func(srv *httptest.Server) *http.Client {
 			return &http.Client{
 				Transport: &http.Transport{
-					Proxy: func(req *http.Request) (*url.URL, error) {
-						return url.Parse(server.URL)
-					},
+					Proxy: func(*http.Request) (*url.URL, error) { return url.Parse(srv.URL) },
 				},
 			}
 		}
@@ -36,23 +35,26 @@ var _ = Describe("RestClient", func() {
 
 	Context("with a failing request", func() {
 		var (
-			statusCode int
-			request    *http.Request
+			request *http.Request
+			client  *ably.RestClient
 		)
 
 		BeforeEach(func() {
-			statusCode = 404
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(statusCode)
+				w.WriteHeader(404)
 				w.Header().Set("Content-Type", "application/json")
 				fmt.Fprintf(w, `{"error":"Not Found"}`)
 			}))
 
-			client.RestEndpoint = strings.Replace(client.RestEndpoint, "https", "http", 1)
-			client.HTTPClient = createMockedRestClient(server)
+			options := testApp.Options()
+			options.NoTLS = true
+			options.HTTPClient = newHTTPClientMock(server)
 
 			var err error
-			request, err = http.NewRequest("POST", client.RestEndpoint+"/any_path", bytes.NewBuffer([]byte{}))
+			client, err = ably.NewRestClient(options)
+			Expect(err).NotTo(HaveOccurred())
+
+			request, err = http.NewRequest("POST", options.RestURL()+"/any_path", bytes.NewBuffer([]byte{}))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -62,7 +64,7 @@ var _ = Describe("RestClient", func() {
 			It("fails with a meaningful error", func() {
 				_, err := client.Get("/any_path", data)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Unexpected status code 404"))
+				Expect(err.Error()).To(Equal("unexpected status code 404"))
 
 				httpError, ok := err.(*ably.RestHttpError)
 				Expect(ok).To(BeTrue())
@@ -74,7 +76,7 @@ var _ = Describe("RestClient", func() {
 			It("fails with a meaningful error", func() {
 				_, err := client.Post("/any_path", request, nil)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Unexpected status code 404"))
+				Expect(err.Error()).To(Equal("unexpected status code 404"))
 
 				httpError, ok := err.(*ably.RestHttpError)
 				Expect(ok).To(BeTrue())
@@ -87,6 +89,8 @@ var _ = Describe("RestClient", func() {
 		var (
 			buffer []byte
 			server *httptest.Server
+			client *ably.RestClient
+			err    error
 		)
 
 		BeforeEach(func() {
@@ -99,16 +103,18 @@ var _ = Describe("RestClient", func() {
 				w.Header().Set("Content-Type", "application/json")
 				fmt.Fprintf(w, `{}`)
 			}))
+
 		})
 
 		Context("with JSON encoding set up", func() {
 			BeforeEach(func() {
-				testParamsCopy := testApp.Options
-				testParamsCopy.Protocol = ably.ProtocolJSON
-				client = ably.NewRestClient(testParamsCopy)
+				options := testApp.Options()
+				options.NoTLS = true
+				options.HTTPClient = newHTTPClientMock(server)
+				options.Protocol = ably.ProtocolJSON
 
-				client.RestEndpoint = strings.Replace(client.RestEndpoint, "https", "http", 1)
-				client.HTTPClient = createMockedRestClient(server)
+				client, err = ably.NewRestClient(options)
+				Expect(err).NotTo(HaveOccurred())
 
 				err := client.Channel("test").Publish("ping", "pong")
 				Expect(err).NotTo(HaveOccurred())
@@ -123,12 +129,13 @@ var _ = Describe("RestClient", func() {
 
 		Context("with msgpack encoding set up", func() {
 			BeforeEach(func() {
-				testParamsCopy := testApp.Options
-				testParamsCopy.Protocol = ably.ProtocolMsgPack
-				client = ably.NewRestClient(testParamsCopy)
+				options := testApp.Options()
+				options.NoTLS = true
+				options.HTTPClient = newHTTPClientMock(server)
+				options.Protocol = ably.ProtocolMsgPack
 
-				client.RestEndpoint = strings.Replace(client.RestEndpoint, "https", "http", 1)
-				client.HTTPClient = createMockedRestClient(server)
+				client, err = ably.NewRestClient(options)
+				Expect(err).NotTo(HaveOccurred())
 
 				err := client.Channel("test").Publish("ping", "pong")
 				Expect(err).NotTo(HaveOccurred())
@@ -145,7 +152,7 @@ var _ = Describe("RestClient", func() {
 	})
 
 	Describe("Time", func() {
-		It("returns server time", func() {
+		It("returns srv time", func() {
 			t, err := client.Time()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(t.Unix()).To(BeNumerically("<=", time.Now().Add(2*time.Second).Unix()))

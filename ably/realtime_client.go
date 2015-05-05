@@ -7,17 +7,20 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
-func NewRealtimeClient(options ClientOptions) *RealtimeClient {
-	options.Prepare()
+func NewRealtimeClient(options ClientOptions) (*RealtimeClient, error) {
+	rest, err := NewRestClient(&options)
+	if err != nil {
+		return nil, err
+	}
 	c := &RealtimeClient{
 		ClientOptions: options,
 		Err:           make(chan error),
-		rest:          NewRestClient(options),
+		rest:          rest,
 		channels:      make(map[string]*RealtimeChannel),
 		Connection:    NewConn(options),
 	}
 	go c.connect()
-	return c
+	return c, nil
 }
 
 type RealtimeClient struct {
@@ -34,14 +37,12 @@ func (c *RealtimeClient) Close() {
 	c.Connection.Close()
 }
 
-func (c *RealtimeClient) RealtimeChannel(name string) *RealtimeChannel {
+func (c *RealtimeClient) Channel(name string) *RealtimeChannel {
 	c.chanMtx.Lock()
 	defer c.chanMtx.Unlock()
-
 	if ch, ok := c.channels[name]; ok {
 		return ch
 	}
-
 	ch := NewRealtimeChannel(name, c)
 	c.channels[name] = ch
 	return ch
@@ -58,7 +59,7 @@ func (c *RealtimeClient) connect() {
 	for {
 		select {
 		case msg := <-c.Connection.Ch:
-			c.RealtimeChannel(msg.Channel).notify(msg)
+			c.Channel(msg.Channel).notify(msg)
 		case err := <-c.Connection.Err:
 			c.Close()
 			c.Err <- err

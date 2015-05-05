@@ -27,9 +27,9 @@ func (err errInvalidType) Error() string {
 // occurred.
 type QueryFunc func(url string) (*http.Response, error)
 
-// PaginatedResource represents a single page coming back from the REST API.
+// PaginatedResult represents a single page coming back from the REST API.
 // Any call to create a new page will generate a new instance.
-type PaginatedResource struct {
+type PaginatedResult struct {
 	path     string
 	headers  map[string]string
 	links    []string
@@ -39,9 +39,9 @@ type PaginatedResource struct {
 	query    QueryFunc
 }
 
-func newPaginatedResource(typ reflect.Type, path string, params *PaginateParams,
-	query QueryFunc) (*PaginatedResource, error) {
-	p := &PaginatedResource{
+func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
+	query QueryFunc) (*PaginatedResult, error) {
+	p := &PaginatedResult{
 		typ:   typ,
 		query: query,
 	}
@@ -65,9 +65,9 @@ func newPaginatedResource(typ reflect.Type, path string, params *PaginateParams,
 }
 
 // Next returns the path to the next page as found in the response headers.
-// The response headers from the REST API contains a relative link to the next resource
+// The response headers from the REST API contains a relative link to the next result.
 // (Link: <./path>; rel="next").
-func (p *PaginatedResource) Next() (*PaginatedResource, error) {
+func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 	nextPath, ok := p.paginationHeaders()["next"]
 	if !ok {
 		return nil, errors.New("no next page after " + p.path)
@@ -76,11 +76,11 @@ func (p *PaginatedResource) Next() (*PaginatedResource, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newPaginatedResource(p.typ, nextPage, nil, p.query)
+	return newPaginatedResult(p.typ, nextPage, nil, p.query)
 }
 
 // Items gives a slice of results of the current page.
-func (p *PaginatedResource) Items() []interface{} {
+func (p *PaginatedResult) Items() []interface{} {
 	if p.items == nil {
 		v := reflect.ValueOf(p.typItems)
 		p.items = make([]interface{}, v.Len())
@@ -92,8 +92,8 @@ func (p *PaginatedResource) Items() []interface{} {
 }
 
 // Messages gives a slice of messages for the current page. The method panics if
-// the underlying paginated resource is not a message.
-func (p *PaginatedResource) Messages() []*proto.Message {
+// the underlying paginated result is not a message.
+func (p *PaginatedResult) Messages() []*proto.Message {
 	items, ok := p.typItems.([]*proto.Message)
 	if !ok {
 		panic(errInvalidType{typ: p.typ})
@@ -102,8 +102,8 @@ func (p *PaginatedResource) Messages() []*proto.Message {
 }
 
 // PresenceMessages gives a slice of presence messages for the current path.
-// The method panics if the underlying paginated resource is not a presence message.
-func (p *PaginatedResource) PresenceMessages() []*proto.PresenceMessage {
+// The method panics if the underlying paginated result is not a presence message.
+func (p *PaginatedResult) PresenceMessages() []*proto.PresenceMessage {
 	items, ok := p.typItems.([]*proto.PresenceMessage)
 	if !ok {
 		panic(errInvalidType{typ: p.typ})
@@ -112,8 +112,8 @@ func (p *PaginatedResource) PresenceMessages() []*proto.PresenceMessage {
 }
 
 // Stats gives a slice of statistics for the current page. The method panics if
-// the underlying paginated resource is not statistics.
-func (p *PaginatedResource) Stats() []*proto.Stat {
+// the underlying paginated result is not statistics.
+func (p *PaginatedResult) Stats() []*proto.Stat {
 	items, ok := p.typItems.([]*proto.Stat)
 	if !ok {
 		panic(errInvalidType{typ: p.typ})
@@ -121,7 +121,7 @@ func (p *PaginatedResource) Stats() []*proto.Stat {
 	return items
 }
 
-func (c *PaginatedResource) buildPaginatedPath(path string, params *PaginateParams) (string, error) {
+func (c *PaginatedResult) buildPaginatedPath(path string, params *PaginateParams) (string, error) {
 	if params == nil {
 		return path, nil
 	}
@@ -138,7 +138,7 @@ func (c *PaginatedResource) buildPaginatedPath(path string, params *PaginatePara
 }
 
 // buildPath finds the absolute path based on the path parameter and the new relative path.
-func (p *PaginatedResource) buildPath(path string, newRelativePath string) (string, error) {
+func (p *PaginatedResult) buildPath(path string, newRelativePath string) (string, error) {
 	oldURL, err := url.Parse("http://example.com" + path)
 	if err != nil {
 		return "", err
@@ -147,7 +147,7 @@ func (p *PaginatedResource) buildPath(path string, newRelativePath string) (stri
 	return rootPath + strings.TrimLeft(newRelativePath, "./"), nil
 }
 
-func (p *PaginatedResource) paginationHeaders() map[string]string {
+func (p *PaginatedResult) paginationHeaders() map[string]string {
 	if p.headers == nil {
 		p.headers = make(map[string]string)
 		for _, link := range p.links {
@@ -159,7 +159,7 @@ func (p *PaginatedResource) paginationHeaders() map[string]string {
 	return p.headers
 }
 
-func (p *PaginatedResource) addMatch(matches []string) {
+func (p *PaginatedResult) addMatch(matches []string) {
 	matchingNames := relLinkRegexp.SubexpNames()
 	matchMap := map[string]string{}
 	for i, value := range matches {

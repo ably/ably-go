@@ -14,12 +14,10 @@ func newRestChannel(name string, client *RestClient) *RestChannel {
 		Name:   name,
 		client: client,
 	}
-
 	c.Presence = &RestPresence{
 		client:  client,
 		channel: c,
 	}
-
 	return c
 }
 
@@ -35,20 +33,17 @@ func (c *RestChannel) Publish(name string, data string) error {
 // using the Rest API.
 func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 	res, err := c.client.Post("/channels/"+c.Name+"/messages", messages, nil)
-
 	if err != nil {
 		return err
 	}
-
-	defer res.Body.Close()
-
+	res.Body.Close()
 	return nil
 }
 
 // History gives the channel's message history according to the given parameters.
-// The returned resource can be inspected for the messages via the Messages()
+// The returned result can be inspected for the messages via the Messages()
 // method.
-func (c *RestChannel) History(params *PaginateParams) (*PaginatedResource, error) {
+func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
 	path := "/channels/" + c.Name + "/history"
-	return newPaginatedResource(msgType, path, params, query(c.client.Get))
+	return newPaginatedResult(msgType, path, params, query(c.client.Get))
 }

@@ -11,11 +11,13 @@ var _ = Describe("RealtimeChannel", func() {
 	var (
 		client  *ably.RealtimeClient
 		channel *ably.RealtimeChannel
+		err     error
 	)
 
 	BeforeEach(func() {
-		client = ably.NewRealtimeClient(testApp.Options)
-		channel = client.RealtimeChannel("test")
+		client, err = ably.NewRealtimeClient(*testApp.Options())
+		channel = client.Channel("test")
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
