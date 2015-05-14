@@ -4,7 +4,7 @@ go:
   - 1.4.2
 
 env:
-  - ABLY_ENV=staging
+  - GOMAXPROCS=1
 
 install:
   - go get golang.org/x/tools/cmd/vet

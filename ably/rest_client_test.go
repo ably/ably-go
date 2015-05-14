@@ -43,7 +43,7 @@ var _ = Describe("RestClient", func() {
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(404)
 				w.Header().Set("Content-Type", "application/json")
-				fmt.Fprintf(w, `{"error":"Not Found"}`)
+				fmt.Fprintf(w, `{"message":"Not Found"}`)
 			}))
 
 			options := testApp.Options()
@@ -64,11 +64,11 @@ var _ = Describe("RestClient", func() {
 			It("fails with a meaningful error", func() {
 				_, err := client.Get("/any_path", data)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("unexpected status code 404"))
 
-				httpError, ok := err.(*ably.RestHttpError)
+				e, ok := err.(*ably.Error)
 				Expect(ok).To(BeTrue())
-				Expect(httpError.ResponseBody).To(Equal(`{"error":"Not Found"}`))
+				Expect(e.Err.Error()).To(Equal("Not Found"))
+				Expect(e.Status).To(Equal(404))
 			})
 		})
 
@@ -76,11 +76,11 @@ var _ = Describe("RestClient", func() {
 			It("fails with a meaningful error", func() {
 				_, err := client.Post("/any_path", request, nil)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("unexpected status code 404"))
 
-				httpError, ok := err.(*ably.RestHttpError)
+				e, ok := err.(*ably.Error)
 				Expect(ok).To(BeTrue())
-				Expect(httpError.ResponseBody).To(Equal(`{"error":"Not Found"}`))
+				Expect(e.Err.Error()).To(Equal("Not Found"))
+				Expect(e.Status).To(Equal(404))
 			})
 		})
 	})

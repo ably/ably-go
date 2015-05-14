@@ -2,7 +2,6 @@ package ably
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -53,6 +52,9 @@ func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
 	if err != nil {
 		return nil, err
 	}
+	if err = checkError(resp); err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
 	p.path = builtPath
 	p.links = resp.Header["Link"]
@@ -70,7 +72,7 @@ func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
 func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 	nextPath, ok := p.paginationHeaders()["next"]
 	if !ok {
-		return nil, errors.New("no next page after " + p.path)
+		return nil, newErrorf(ErrCodeNotFound, "no next page after %q", p.path)
 	}
 	nextPage, err := p.buildPath(p.path, nextPath)
 	if err != nil {
@@ -128,7 +130,7 @@ func (c *PaginatedResult) buildPaginatedPath(path string, params *PaginateParams
 	values := &url.Values{}
 	err := params.EncodeValues(values)
 	if err != nil {
-		return "", err
+		return "", newError(50000, err)
 	}
 	queryString := values.Encode()
 	if len(queryString) > 0 {
@@ -141,7 +143,7 @@ func (c *PaginatedResult) buildPaginatedPath(path string, params *PaginateParams
 func (p *PaginatedResult) buildPath(path string, newRelativePath string) (string, error) {
 	oldURL, err := url.Parse("http://example.com" + path)
 	if err != nil {
-		return "", err
+		return "", newError(50000, err)
 	}
 	rootPath := strings.TrimRightFunc(oldURL.Path, func(r rune) bool { return r != '/' })
 	return rootPath + strings.TrimLeft(newRelativePath, "./"), nil

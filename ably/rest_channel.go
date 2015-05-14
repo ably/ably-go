@@ -32,11 +32,14 @@ func (c *RestChannel) Publish(name string, data string) error {
 // This is the more efficient way of transmitting a batch of messages
 // using the Rest API.
 func (c *RestChannel) PublishAll(messages []*proto.Message) error {
-	res, err := c.client.Post("/channels/"+c.Name+"/messages", messages, nil)
+	resp, err := c.client.Post("/channels/"+c.Name+"/messages", messages, nil)
 	if err != nil {
 		return err
 	}
-	res.Body.Close()
+	if err = checkError(resp); err != nil {
+		return err
+	}
+	resp.Body.Close()
 	return nil
 }
 

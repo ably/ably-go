@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"reflect"
+	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -154,6 +156,34 @@ func (t *App) Delete() (*http.Response, error) {
 }
 
 var timeout = 10 * time.Second
+
+func Options(t *testing.T, overwrite *ably.ClientOptions) *ably.ClientOptions {
+	t.Parallel()
+	app := NewApp()
+	_, err := app.Create()
+	if err != nil {
+		t.Fatalf("testApp.Create()=%v", err)
+	}
+	opts := app.Options()
+	if overwrite != nil {
+		// Overwrite any non-zero field from ClientOptions passed as argument.
+		orig := reflect.ValueOf(opts).Elem()
+		ovrw := reflect.ValueOf(overwrite).Elem()
+		for i := 0; i < ovrw.NumField(); i++ {
+			field := ovrw.Field(i)
+			typ := reflect.TypeOf(field.Interface())
+			// Ignore non-comparable fields.
+			if typ.Kind() == reflect.Func {
+				continue
+			}
+			if field.Interface() == reflect.Zero(typ).Interface() {
+				continue
+			}
+			orig.Field(i).Set(field)
+		}
+	}
+	return opts
+}
 
 func NewApp() *App {
 	var client *http.Client
