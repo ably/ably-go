@@ -4,14 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 
 	"github.com/ably/ably-go/ably/proto"
 )
 
-func tostatus(code int) int {
+func toStatusCode(code int) int {
 	switch status := code / 100; status {
 	case 400, 401, 403, 404, 405, 500:
 		return status
@@ -24,9 +23,9 @@ func tostatus(code int) int {
 // code. It may contain underlying error value which caused the failure
 // condition.
 type Error struct {
-	Code   int   // internal error code
-	Status int   // HTTP status code
-	Err    error // underlying error responsible for the failure; may be nil
+	Code       int   // internal error code
+	StatusCode int   // HTTP status code
+	Err        error // underlying error responsible for the failure; may be nil
 }
 
 // Error implements builtin error interface.
@@ -37,60 +36,56 @@ func (err *Error) Error() string {
 	return errCodeText[err.Code]
 }
 
-func newError(code int, err error) error {
+func newError(code int, err error) *Error {
 	switch err := err.(type) {
 	case *Error:
 		return err
 	case net.Error:
 		if err.Timeout() {
-			return &Error{Code: ErrCodeTimeout, Status: 500, Err: err}
+			return &Error{Code: ErrCodeTimeout, StatusCode: 500, Err: err}
 		}
 	}
 	return &Error{
-		Code:   code,
-		Status: tostatus(code),
-		Err:    err,
+		Code:       code,
+		StatusCode: toStatusCode(code),
+		Err:        err,
 	}
 }
 
-func newErrorf(code int, format string, v ...interface{}) error {
+func newErrorf(code int, format string, v ...interface{}) *Error {
 	return &Error{
-		Code:   code,
-		Status: tostatus(code),
-		Err:    fmt.Errorf(format, v...),
+		Code:       code,
+		StatusCode: toStatusCode(code),
+		Err:        fmt.Errorf(format, v...),
 	}
 }
 
-func newErrorProto(err *proto.Error) error {
+func newErrorProto(err *proto.Error) *Error {
 	if err == nil {
 		return nil
 	}
 	return &Error{
-		Code:   err.Code,
-		Status: err.StatusCode,
-		Err:    errors.New(err.Message),
+		Code:       err.Code,
+		StatusCode: err.StatusCode,
+		Err:        errors.New(err.Message),
 	}
 }
 
-func checkError(resp *http.Response) error {
-	const maxContentLength = 32 * 1024 // 32 KiB
-	if resp.StatusCode/100 < 3 {
+func checkValidHTTPResponse(resp *http.Response) error {
+	if resp.StatusCode < 300 {
 		return nil
 	}
-	n := resp.ContentLength
-	if n <= 0 || n >= maxContentLength {
-		n = maxContentLength
-	}
+	defer resp.Body.Close()
 	body := &proto.Error{}
-	if e := json.NewDecoder(io.LimitReader(resp.Body, n)).Decode(body); e != nil {
-		return &Error{Code: 50000, Status: 500, Err: e}
+	if e := json.NewDecoder(resp.Body).Decode(body); e != nil {
+		return &Error{Code: 50000, StatusCode: 500, Err: e}
 	}
-	err := &Error{Code: body.Code, Status: body.StatusCode}
+	err := &Error{Code: body.Code, StatusCode: body.StatusCode}
 	if body.Message != "" {
 		err.Err = errors.New(body.Message)
 	}
-	if err.Code == 0 && err.Status == 0 {
-		err.Code, err.Status = resp.StatusCode*100, resp.StatusCode
+	if err.Code == 0 && err.StatusCode == 0 {
+		err.Code, err.StatusCode = resp.StatusCode*100, resp.StatusCode
 	}
 	return err
 }

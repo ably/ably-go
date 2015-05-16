@@ -68,7 +68,7 @@ var _ = Describe("RestClient", func() {
 				e, ok := err.(*ably.Error)
 				Expect(ok).To(BeTrue())
 				Expect(e.Err.Error()).To(Equal("Not Found"))
-				Expect(e.Status).To(Equal(404))
+				Expect(e.StatusCode).To(Equal(404))
 			})
 		})
 
@@ -80,7 +80,7 @@ var _ = Describe("RestClient", func() {
 				e, ok := err.(*ably.Error)
 				Expect(ok).To(BeTrue())
 				Expect(e.Err.Error()).To(Equal("Not Found"))
-				Expect(e.Status).To(Equal(404))
+				Expect(e.StatusCode).To(Equal(404))
 			})
 		})
 	})

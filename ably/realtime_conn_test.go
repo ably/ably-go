@@ -1,8 +1,8 @@
 package ably_test
 
 import (
+	"fmt"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -10,65 +10,95 @@ import (
 	"github.com/ably/ably-go/ably/testutil"
 )
 
-func record(t *testing.T, spy map[int]int, done func() bool) (chan<- ably.State, func()) {
-	ch := make(chan ably.State, 64)
-	stop := time.After(timeout)
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-stop:
-				t.Fatalf("record timed out after %v (spy=%v)", timeout, spy)
-			case s := <-ch:
-				spy[s.State]++
-			default:
-				if done() {
-					return
-				}
-				time.Sleep(50 * time.Millisecond)
-			}
+func record() (*[]int, chan<- ably.State) {
+	listen := make(chan ably.State, 16)
+	states := make([]int, 0, 16)
+	go func(states *[]int) {
+		for state := range listen {
+			*states = append(*states, state.State)
 		}
-	}()
-	return ch, func() { wg.Wait() }
+	}(&states)
+	return &states, listen
 }
 
+func await(fn func() int, state int) error {
+	t := time.After(timeout)
+	for {
+		select {
+		case <-t:
+			return fmt.Errorf("waiting for %s state has timed out after %v",
+				ably.StateText(state), timeout)
+		default:
+			if fn() == state {
+				return nil
+			}
+		}
+	}
+}
+
+var connTransitions = []int{ably.StateConnConnecting, ably.StateConnConnected}
+
 func TestRealtimeConn_Connect(t *testing.T) {
-	client, err := ably.NewRealtimeClient(testutil.Options(t, nil))
+	states, listen := record()
+	opts := testutil.Options(&ably.ClientOptions{Listener: listen})
+
+	client, err := ably.NewRealtimeClient(opts)
 	if err != nil {
 		t.Fatalf("ably.NewRealtimeClient=%v", err)
 	}
 	defer client.Close()
-	record(t, nil, func() bool { return client.Connection.State() == ably.StateConnConnected })
+	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(*states, connTransitions) {
+		t.Errorf("expected states=%v; got %v", connTransitions, *states)
+	}
 }
 
 func TestRealtimeConn_NoConnect(t *testing.T) {
-	spy := map[int]int{}
-	expected := map[int]int{
-		ably.StateConnConnecting: 1,
-		ably.StateConnConnected:  1,
-	}
-	opts := testutil.Options(t, nil)
-	opts.NoConnect = true
+	opts := testutil.Options(&ably.ClientOptions{NoConnect: true})
+	states, listen := record()
 
 	client, err := ably.NewRealtimeClient(opts)
 	if err != nil {
 		t.Fatalf("NewRealtimeClient(%v)=%v", opts, err)
 	}
 	defer client.Close()
-
-	ch, wait := record(t, spy, func() bool { return client.Connection.State() == ably.StateConnConnected })
-	client.Connection.On(ch)
-	if err := client.Connection.Connect(); err != nil {
+	client.Connection.On(listen)
+	if err := ably.Wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
-	wait()
-	if !reflect.DeepEqual(spy, expected) {
-		t.Errorf("expected spy=%v; got %v", expected, spy)
+	if !reflect.DeepEqual(*states, connTransitions) {
+		t.Errorf("expected states=%v; got %v", connTransitions, *states)
 	}
 }
 
-func TestRealtimeConn_Queueing(t *testing.T) {
-	t.Skip("TODO")
+var connCloseTransitions = []int{
+	ably.StateConnConnecting,
+	ably.StateConnConnected,
+	ably.StateConnClosing,
+	ably.StateConnClosed,
+}
+
+func TestRealtimeConn_ConnectClose(t *testing.T) {
+	states, listen := record()
+	opts := testutil.Options(&ably.ClientOptions{Listener: listen})
+
+	client, err := ably.NewRealtimeClient(opts)
+	if err != nil {
+		t.Fatalf("ably.NewRealtimeClient=%v", err)
+	}
+	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Close(); err != nil {
+		t.Fatalf("client.Close()=%v", err)
+	}
+	if err := await(client.Connection.State, ably.StateConnClosed); err != nil {
+		t.Fatal(err)
+	}
+	close(listen)
+	if !reflect.DeepEqual(*states, connCloseTransitions) {
+		t.Errorf("expected states=%v; got %v", connCloseTransitions, *states)
+	}
 }

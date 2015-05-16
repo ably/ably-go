@@ -52,7 +52,7 @@ func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
 	if err != nil {
 		return nil, err
 	}
-	if err = checkError(resp); err != nil {
+	if err = checkValidHTTPResponse(resp); err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()

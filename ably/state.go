@@ -45,13 +45,14 @@ const (
 	StateConnConnected
 	StateConnDisconnected
 	StateConnSuspended
+	StateConnClosing
 	StateConnClosed
 	StateConnFailed
 )
 
 // StateChan describes states of realtime channel.
 const (
-	StateChanInitialized = 1 << (iota + 7)
+	StateChanInitialized = 1 << (iota + 8)
 	StateChanAttaching
 	StateChanAttached
 	StateChanDetaching
@@ -61,12 +62,34 @@ const (
 	StateChanFailed
 )
 
+// StateText returns a text for either connection or channel state.
+// It returns empty string if the state is unknown
+func StateText(state int) string {
+	return stateText[state]
+}
+
+// Result awaits completion of asynchronous operation.
+type Result interface {
+	// Wait blocks until asynchronous operation is completed. Upon its completion,
+	// the method returns nil error if it was successful and non-nil error otherwise.
+	// It's allowed to call Wait multiple times.
+	Wait() error
+}
+
+func wait(res Result, err error) error {
+	if err != nil {
+		return err
+	}
+	return res.Wait()
+}
+
 var stateText = map[int]string{
 	StateConnInitialized:  "ably.StateConnInitialized",
 	StateConnConnecting:   "ably.StateConnConnecting",
 	StateConnConnected:    "ably.StateConnConnected",
 	StateConnDisconnected: "ably.StateConnDisconnected",
 	StateConnSuspended:    "ably.StateConnSuspended",
+	StateConnClosing:      "ably.StateConnClosing",
 	StateConnClosed:       "ably.StateConnClosed",
 	StateConnFailed:       "ably.StateConnFailed",
 	StateChanInitialized:  "ably.StateChanInitialized",
@@ -79,12 +102,6 @@ var stateText = map[int]string{
 	StateChanFailed:       "ably.StateChanFailed",
 }
 
-// StateText returns a text for either connection or channel state.
-// It returns empty string if the state is unknown
-func StateText(state int) string {
-	return stateText[state]
-}
-
 // stateAll lists all valid connection and channel state values.
 var stateAll = map[StateType][]int{
 	StateConn: []int{
@@ -93,6 +110,7 @@ var stateAll = map[StateType][]int{
 		StateConnConnected,
 		StateConnDisconnected,
 		StateConnSuspended,
+		StateConnClosing,
 		StateConnClosed,
 		StateConnFailed,
 	},
@@ -109,7 +127,8 @@ var stateAll = map[StateType][]int{
 // stateMasks is used for testing connection and channel state values.
 var stateMasks = map[StateType]int{
 	StateConn: StateConnInitialized | StateConnConnecting | StateConnConnected |
-		StateConnDisconnected | StateConnSuspended | StateConnClosed | StateConnFailed,
+		StateConnDisconnected | StateConnSuspended | StateConnClosing | StateConnClosed |
+		StateConnFailed,
 	StateChan: StateChanInitialized | StateChanAttaching | StateChanAttached |
 		StateChanDetaching | StateChanDetached | StateChanClosing | StateChanClosed |
 		StateChanFailed,
@@ -139,6 +158,7 @@ type stateEmitter struct {
 	sync.Mutex
 	channel   string
 	listeners map[int]map[chan<- State]struct{}
+	onetime   map[int]map[chan<- State]struct{}
 	err       error
 	current   int
 	typ       StateType
@@ -151,6 +171,7 @@ func newStateEmitter(typ StateType, startState int, channel string) *stateEmitte
 	return &stateEmitter{
 		channel:   channel,
 		listeners: make(map[int]map[chan<- State]struct{}),
+		onetime:   make(map[int]map[chan<- State]struct{}),
 		current:   startState,
 		typ:       typ,
 	}
@@ -172,13 +193,41 @@ func (s *stateEmitter) set(state int, err error) error {
 			Log.Printf(LogWarn, "dropping %s due to slow receiver", st)
 		}
 	}
+	onetime := s.onetime[state]
+	if len(onetime) != 0 {
+		delete(s.onetime, state)
+		for ch := range onetime {
+			select {
+			case ch <- st:
+			default:
+				Log.Printf(LogWarn, "dropping %s due to slow receiver", st)
+			}
+			for _, l := range s.onetime {
+				delete(l, ch)
+			}
+		}
+	}
 	return s.err
 }
 
-func (s *stateEmitter) syncSet(state int, err error) {
+func (s *stateEmitter) syncSet(state int, err error) error {
 	s.Lock()
-	s.set(state, err)
-	s.Unlock()
+	defer s.Unlock()
+	return s.set(state, err)
+}
+
+func (s *stateEmitter) once(ch chan<- State, states ...int) {
+	if len(states) == 0 {
+		states = stateAll[s.typ]
+	}
+	for _, state := range states {
+		l, ok := s.onetime[state]
+		if !ok {
+			l = make(map[chan<- State]struct{})
+			s.onetime[state] = l
+		}
+		l[ch] = struct{}{}
+	}
 }
 
 func (s *stateEmitter) on(ch chan<- State, states ...int) {
@@ -371,4 +420,70 @@ func (q *msgQueue) Fail(err error) {
 	}
 	q.queue = nil
 	q.mtx.Unlock()
+}
+
+type errResult struct {
+	err    error
+	listen <-chan error
+}
+
+func newErrResult() (Result, chan<- error) {
+	listen := make(chan error, 1)
+	res := &errResult{listen: listen}
+	return res, listen
+}
+
+// Wait implements the Result interface.
+func (res *errResult) Wait() error {
+	if res == nil {
+		return nil
+	}
+	if res.listen != nil {
+		res.err = <-res.listen
+		res.listen = nil
+	}
+	return res.err
+}
+
+type stateResult struct {
+	err      error
+	listen   <-chan State
+	expected int
+}
+
+func newResult(expected int) (Result, chan<- State) {
+	listen := make(chan State, 1)
+	res := &stateResult{listen: listen, expected: expected}
+	return res, listen
+}
+
+func (s *stateEmitter) listenResult(states ...int) Result {
+	res, listen := newResult(states[0])
+	s.once(listen, states...)
+	return res
+}
+
+// Wait implements the Result interface.
+func (res *stateResult) Wait() error {
+	if res == nil {
+		return nil
+	}
+	if res.listen != nil {
+		switch state := <-res.listen; {
+		case state.Err != nil:
+			res.err = state.Err
+		case state.State == res.expected:
+		default:
+			code := 50001
+			if state.Type == StateConn {
+				code = 50002
+			}
+			res.err = &Error{
+				Code: code,
+				Err:  fmt.Errorf("failed %s state: %s", state.Type, StateText(state.State)),
+			}
+		}
+		res.listen = nil
+	}
+	return res.err
 }

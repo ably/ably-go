@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -49,6 +48,15 @@ type App struct {
 	opts   *ably.ClientOptions
 }
 
+func nonempty(s ...string) string {
+	for _, s := range s {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
 func (t *App) Options() *ably.ClientOptions {
 	opts := *t.opts
 	if opts.HTTPClient != nil {
@@ -58,11 +66,15 @@ func (t *App) Options() *ably.ClientOptions {
 	return &opts
 }
 
-func (t *App) RestURL() string {
-	if t.opts.NoTLS {
-		return "http://" + t.opts.RestHost
+func (t *App) RestURL() (url string) {
+	if t.opts.Environment != "" {
+		url = t.opts.Environment + "-"
 	}
-	return "https://" + t.opts.RestHost
+	url = url + "rest.ably.io"
+	if t.opts.NoTLS {
+		return "http://" + url
+	}
+	return "https://" + url
 }
 
 func (t *App) KeySecret() string {
@@ -157,12 +169,11 @@ func (t *App) Delete() (*http.Response, error) {
 
 var timeout = 10 * time.Second
 
-func Options(t *testing.T, overwrite *ably.ClientOptions) *ably.ClientOptions {
-	t.Parallel()
+func Options(overwrite *ably.ClientOptions) *ably.ClientOptions {
 	app := NewApp()
 	_, err := app.Create()
 	if err != nil {
-		t.Fatalf("testApp.Create()=%v", err)
+		panic(fmt.Sprintf("testApp.Create()=%v", err))
 	}
 	opts := app.Options()
 	if overwrite != nil {
@@ -204,16 +215,10 @@ func NewApp() *App {
 		}
 	}
 
-	environment := "sandbox"
-	if s := os.Getenv("ABLY_ENV"); s != "" {
-		environment = s
-	}
-
 	return &App{
 		opts: &ably.ClientOptions{
-			RealtimeHost: fmt.Sprintf("%s-realtime.ably.io", environment),
-			RestHost:     fmt.Sprintf("%s-rest.ably.io", environment),
-			HTTPClient:   client,
+			HTTPClient:  client,
+			Environment: nonempty(os.Getenv("ABLY_ENV"), "sandbox"),
 		},
 		Config: testAppConfig{
 			Keys: []testAppKey{

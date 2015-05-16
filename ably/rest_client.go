@@ -81,7 +81,7 @@ func (c *RestClient) handleResp(v interface{}, resp *http.Response, err error) (
 	if err != nil {
 		return nil, newError(50000, err)
 	}
-	if err = checkError(resp); err != nil {
+	if err = checkValidHTTPResponse(resp); err != nil {
 		return nil, err
 	}
 	if v == nil {

@@ -19,6 +19,7 @@ const (
 	ActionDetached
 	ActionPresence
 	ActionMessage
+	ActionSync
 )
 
 var actions = map[Action]string{
@@ -38,6 +39,7 @@ var actions = map[Action]string{
 	ActionDetached:     "detached",
 	ActionPresence:     "presence",
 	ActionMessage:      "message",
+	ActionSync:         "sync",
 }
 
 func (a Action) String() string {

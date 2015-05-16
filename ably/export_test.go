@@ -1,5 +1,9 @@
 package ably
 
+func Wait(res Result, err error) error {
+	return wait(res, err)
+}
+
 func (p *PaginatedResult) BuildPath(base, rel string) (string, error) {
 	return p.buildPath(base, rel)
 }

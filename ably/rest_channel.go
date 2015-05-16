@@ -36,7 +36,7 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 	if err != nil {
 		return err
 	}
-	if err = checkError(resp); err != nil {
+	if err = checkValidHTTPResponse(resp); err != nil {
 		return err
 	}
 	resp.Body.Close()
