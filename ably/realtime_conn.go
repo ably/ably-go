@@ -125,8 +125,8 @@ func (c *Conn) connect(result bool) (Result, error) {
 
 var errClose = newError(50002, errors.New("Close() on inactive connection"))
 
-// Close initiates closing sequence for the connection, which runs asynchronously
-// on a separate goroutine.
+// Close initiates closing sequence for the connection; it waits until the
+// operation is complete.
 //
 // If connection is already closed, this method is a nop.
 func (c *Conn) Close() error {
@@ -138,6 +138,12 @@ func (c *Conn) Close() error {
 	return nil
 }
 
+var closeResultStates = []int{
+	StateConnClosed, // expected state
+	StateConnFailed,
+	StateConnDisconnected,
+}
+
 func (c *Conn) close() (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
@@ -147,7 +153,7 @@ func (c *Conn) close() (Result, error) {
 	case StateConnFailed, StateConnDisconnected:
 		return nil, errClose
 	}
-	res := c.state.listenResult(StateConnClosed, StateConnFailed, StateConnDisconnected)
+	res := c.state.listenResult(closeResultStates...)
 	c.state.set(StateConnClosing, nil)
 	msg := &proto.ProtocolMessage{Action: proto.ActionClose}
 	c.updateSerial(msg, nil)
