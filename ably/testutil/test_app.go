@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -47,6 +48,15 @@ type App struct {
 	opts   *ably.ClientOptions
 }
 
+func nonempty(s ...string) string {
+	for _, s := range s {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
 func (t *App) Options() *ably.ClientOptions {
 	opts := *t.opts
 	if opts.HTTPClient != nil {
@@ -56,11 +66,15 @@ func (t *App) Options() *ably.ClientOptions {
 	return &opts
 }
 
-func (t *App) RestURL() string {
-	if t.opts.NoTLS {
-		return "http://" + t.opts.RestHost
+func (t *App) RestURL() (url string) {
+	if t.opts.Environment != "" {
+		url = t.opts.Environment + "-"
 	}
-	return "https://" + t.opts.RestHost
+	url = url + "rest.ably.io"
+	if t.opts.NoTLS {
+		return "http://" + url
+	}
+	return "https://" + url
 }
 
 func (t *App) KeySecret() string {
@@ -155,6 +169,33 @@ func (t *App) Delete() (*http.Response, error) {
 
 var timeout = 10 * time.Second
 
+func Options(overwrite *ably.ClientOptions) *ably.ClientOptions {
+	app := NewApp()
+	_, err := app.Create()
+	if err != nil {
+		panic(fmt.Sprintf("testApp.Create()=%v", err))
+	}
+	opts := app.Options()
+	if overwrite != nil {
+		// Overwrite any non-zero field from ClientOptions passed as argument.
+		orig := reflect.ValueOf(opts).Elem()
+		ovrw := reflect.ValueOf(overwrite).Elem()
+		for i := 0; i < ovrw.NumField(); i++ {
+			field := ovrw.Field(i)
+			typ := reflect.TypeOf(field.Interface())
+			// Ignore non-comparable fields.
+			if typ.Kind() == reflect.Func {
+				continue
+			}
+			if field.Interface() == reflect.Zero(typ).Interface() {
+				continue
+			}
+			orig.Field(i).Set(field)
+		}
+	}
+	return opts
+}
+
 func NewApp() *App {
 	var client *http.Client
 
@@ -174,16 +215,10 @@ func NewApp() *App {
 		}
 	}
 
-	environment := "sandbox"
-	if s := os.Getenv("ABLY_ENV"); s != "" {
-		environment = s
-	}
-
 	return &App{
 		opts: &ably.ClientOptions{
-			RealtimeHost: fmt.Sprintf("%s-realtime.ably.io", environment),
-			RestHost:     fmt.Sprintf("%s-rest.ably.io", environment),
-			HTTPClient:   client,
+			HTTPClient:  client,
+			Environment: nonempty(os.Getenv("ABLY_ENV"), "sandbox"),
 		},
 		Config: testAppConfig{
 			Keys: []testAppKey{

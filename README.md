@@ -7,22 +7,57 @@ A Go client library for [ably.io](https://ably.io), the real-time messaging serv
 ## Installation
 
 ```bash
-go get github.com/ably/ably-go/ably
+~ $ go get -u github.com/ably/ably-go/ably
 ```
 
 ## Using the Realtime API
 
+### Creating a client
+
+```go
+client, err := ably.NewRealtimeClient(&ably.ClientOptions{Key: "xxx:xxx"})
+if err != nil {
+	panic(err)
+}
+
+channel := client.Channel.Get("test")
+```
+
 ### Subscribing to a channel
 
-TODO
+```go
+sub, err := channel.Subscribe("EventName1", "EventName2")
+if err != nil {
+	panic(err)
+}
+
+for msg := range sub.MessageChannel() {
+	fmt.Println("Received message:", msg)
+}
+```
 
 ### Publishing to a channel
 
-TODO
+```go
+res, err := channel.Publish("EventName1", "EventData2")
+if err != nil {
+	panic(err)
+}
+
+fmt.Println("message sent successfully, awaiting confirmation. . .")
+
+if err = res.Wait(); err != nil {
+	panic(err)
+}
+
+fmt.Println("message published successfully")
+```
 
 ### Presence on a channel
 
-TODO
+```go
+panic("TODO")
+```
 
 ## Using the REST API
 
@@ -35,6 +70,7 @@ client, err := ably.NewRestClient(&ably.ClientOptions{Key: "xxx:xxx"})
 if err != nil {
 	panic(err)
 }
+
 channel := client.Channel("test")
 ```
 
@@ -109,6 +145,16 @@ if err != nil {
 	panic(err)
 }
 ```
+
+## Known limitations (work in progress)
+
+As the library is actively developed couple of features are not there yet:
+
+- REST client does not use token authentication
+- Realtime client does not implement Presence
+- Realtime connection recovery is not implemented
+- Realtime connection failures handling is not implemented
+- Realtime Ping function is missing
 
 ## Support and feedback
 

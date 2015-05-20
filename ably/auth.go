@@ -104,10 +104,10 @@ func (a *Auth) RequestToken(req *TokenRequest) (*Token, error) {
 		req = a.CreateTokenRequest()
 	}
 	req.sign([]byte(a.keySecret))
-	resp := &Token{}
-	_, err := a.client.Post("/keys/"+req.KeyName+"/requestToken", req, resp)
+	token := &Token{}
+	_, err := a.client.Post("/keys/"+req.KeyName+"/requestToken", req, token)
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+	return token, nil
 }

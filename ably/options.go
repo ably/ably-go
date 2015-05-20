@@ -18,27 +18,79 @@ const (
 var errInvalidKey = errors.New("invalid key format")
 
 var DefaultOptions = &ClientOptions{
-	RestHost:     "rest.ably.io",
-	RealtimeHost: "realtime.ably.io",
-	Protocol:     ProtocolJSON, // TODO: make it ProtocolMsgPack
+	RestHost:          "rest.ably.io",
+	RealtimeHost:      "realtime.ably.io",
+	Protocol:          ProtocolJSON, // TODO: make it ProtocolMsgPack
+	TimeoutConnect:    15 * time.Second,
+	TimeoutDisconnect: 30 * time.Second,
+	TimeoutSuspended:  2 * time.Minute,
 }
 
 type ClientOptions struct {
-	RestHost     string
-	RealtimeHost string
-	Key          string
-	ClientID     string
-	Protocol     string // either ProtocolJSON or ProtocolMsgPack
-	UseTokenAuth bool
-	NoTLS        bool
+	RestHost     string // optional; overwrite endpoint hostname for REST client
+	RealtimeHost string // optional; overwrite endpoint hostname for Realtime client
+	Environment  string // optional; prefixes both hostname with the environment string
+	Key          string // an authorization key in the 'name:secret' format
+	ClientID     string // optional;
+	Protocol     string // optional; either ProtocolJSON or ProtocolMsgPack
+	Recover      string // optional; used to recover client state
+	Token        *Token // optional; is used for authorization when UseTokenAuth is true
 
+	UseBinaryProtocol bool // when true uses msgpack for network serialization protocol
+	UseTokenAuth      bool // when true REST and realtime client will use token authentication
+
+	NoTLS      bool // when true REST and realtime client won't use TLS
+	NoConnect  bool // when true realtime client will not attempt to connect automatically
+	NoEcho     bool // when true published messages will not be echoed back
+	NoQueueing bool // when true drops messages published during regaining connection
+
+	TimeoutConnect    time.Duration // time period after which connect request is failed
+	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
+	TimeoutSuspended  time.Duration // time period after which no more reconnection attempts are performed
+
+	// Dial specifies the dial function for creating message connections used
+	// by RealtimeClient.
+	// If Dial is nil, the default websocket connection is used.
+	Dial func(protocol string, u *url.URL) (MsgConn, error)
+
+	// Listener if set, will be automatically registered with On method for every
+	// realtime connection and realtime channel created by realtime client.
+	// The listener will receive events for all state transitions.
+	Listener chan<- State
+
+	// HTTPClient specifies the client used for HTTP communication by RestClient.
+	// If HTTPClient is nil, the http.DefaultClient is used.
 	HTTPClient *http.Client
+}
+
+func (opts *ClientOptions) timeoutConnect() time.Duration {
+	if opts.TimeoutConnect != 0 {
+		return opts.TimeoutConnect
+	}
+	return DefaultOptions.TimeoutConnect
+}
+
+func (opts *ClientOptions) timeoutDisconnect() time.Duration {
+	if opts.TimeoutDisconnect != 0 {
+		return opts.TimeoutDisconnect
+	}
+	return DefaultOptions.TimeoutDisconnect
+}
+
+func (opts *ClientOptions) timeoutSuspended() time.Duration {
+	if opts.TimeoutSuspended != 0 {
+		return opts.TimeoutSuspended
+	}
+	return DefaultOptions.TimeoutSuspended
 }
 
 func (opts *ClientOptions) restURL() string {
 	host := opts.RestHost
 	if host == "" {
 		host = DefaultOptions.RestHost
+		if opts.Environment != "" {
+			host = opts.Environment + "-" + host
+		}
 	}
 	if opts.NoTLS {
 		return "http://" + host
@@ -50,6 +102,9 @@ func (opts *ClientOptions) realtimeURL() string {
 	host := opts.RealtimeHost
 	if host == "" {
 		host = DefaultOptions.RealtimeHost
+		if opts.Environment != "" {
+			host = opts.Environment + "-" + host
+		}
 	}
 	if opts.NoTLS {
 		return "ws://" + host + ":80"
