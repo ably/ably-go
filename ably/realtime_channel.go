@@ -225,7 +225,7 @@ func (c *RealtimeChannel) attach(result bool) (Result, error) {
 		return nil, nil
 	}
 	c.state.set(StateChanAttaching, nil)
-	if !c.client.Connection.isActive() {
+	if !c.client.Connection.lockIsActive() {
 		return nil, c.state.set(StateChanFailed, errAttach)
 	}
 	var res Result
@@ -270,7 +270,7 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 		return nil, nil
 	}
 	c.state.set(StateChanDetaching, nil)
-	if !c.client.Connection.isActive() {
+	if !c.client.Connection.lockIsActive() {
 		return nil, c.state.set(StateChanFailed, errDetach)
 	}
 	var res Result
