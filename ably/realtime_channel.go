@@ -84,12 +84,11 @@ func (ch *Channels) Release(name string) error {
 type RealtimeChannel struct {
 	Name string // name used to create the channel
 
-	client  *RealtimeClient
-	state   *stateEmitter
-	err     error
-	subs    map[string]map[*Subscription]struct{}
-	subsMtx sync.Mutex
-	queue   *msgQueue
+	client *RealtimeClient
+	state  *stateEmitter
+	err    error
+	subs   *subscriptions
+	queue  *msgQueue
 }
 
 func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
@@ -97,7 +96,7 @@ func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
 		Name:   name,
 		client: client,
 		state:  newStateEmitter(StateChan, StateChanInitialized, name),
-		subs:   make(map[string]map[*Subscription]struct{}),
+		subs:   newSubscriptions(),
 	}
 	c.queue = newMsgQueue(client.Connection)
 	if c.client.opts.Listener != nil {
@@ -203,17 +202,7 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 // If sending close message succeeds, it closes and unsubscribes all channels.
 func (c *RealtimeChannel) Close() error {
 	err := wait(c.Detach())
-	c.state.Lock()
-	for _, subs := range c.subs {
-		for sub := range subs {
-			// Stop is idempotent, no need to keep track which sub was already
-			// stopped.
-			sub.close(false)
-		}
-	}
-	// Unsubscribe all channels by creating new sub map for future use.
-	c.subs = make(map[string]map[*Subscription]struct{})
-	c.state.Unlock()
+	c.subs.close()
 	if err != nil {
 		return c.state.syncSet(StateChanClosed, newErrorf(90000, "Close() error: %s", err))
 	}
@@ -230,59 +219,24 @@ func (c *RealtimeChannel) Subscribe(names ...string) (*Subscription, error) {
 	if _, err := c.attach(false); err != nil {
 		return nil, err
 	}
-	unsubscribe := func(sub *Subscription) { c.unsubscribe(false, sub, names...) }
-	sub := newSubscription(subscriptionMessages, unsubscribe)
-	all := false
-	if len(names) == 0 {
-		all = true
-		names = []string{""}
-	}
-	c.subsMtx.Lock()
-	for _, name := range names {
-		// Ignore empty message names.
-		if name == "" && !all {
-			continue
-		}
-		subs, ok := c.subs[name]
-		if !ok {
-			subs = make(map[*Subscription]struct{})
-			c.subs[name] = subs
-		}
-		subs[sub] = struct{}{}
-	}
-	c.subsMtx.Unlock()
-	return sub, nil
+	return c.subs.subscribe(namesToKeys(names)...)
 }
 
 // Unsubscribe removes previous Subscription for the given message names.
+//
+// Unsubscribe panics if the given sub was subscribed for presence messages and
+// not for regular channel messages.
+//
+// If sub was already unsubscribed the method is a nop.
 func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
+	if sub.typ != subscriptionMessages {
+		panic(errInvalidType{typ: sub.typ})
+	}
 	c.unsubscribe(true, sub, names...)
 }
+
 func (c *RealtimeChannel) unsubscribe(stop bool, sub *Subscription, names ...string) {
-	if len(names) == 0 {
-		names = []string{""}
-	}
-	c.subsMtx.Lock()
-	for _, name := range names {
-		delete(c.subs[name], sub)
-		if len(c.subs[name]) == 0 {
-			delete(c.subs, name)
-		}
-	}
-	// Don't try to stop when we got here from the (*Subscription).Close method.
-	if stop {
-		count := 0
-		for _, subs := range c.subs {
-			if _, ok := subs[sub]; ok {
-				count++
-			}
-		}
-		// Stop subscription if it no longer listens for messages.
-		if count == 0 {
-			sub.close(false)
-		}
-	}
-	c.subsMtx.Unlock()
+	c.subs.unsubscribe(stop, sub, namesToKeys(names)...)
 }
 
 // On relays request channel states to c; on state transition
@@ -368,20 +322,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 		c.queue.Fail(newErrorProto(msg.Error))
 		// TODO recovery
 	case proto.ActionMessage:
-		c.subsMtx.Lock()
-		for _, msg := range msg.Messages {
-			if subs, ok := c.subs[""]; ok {
-				for sub := range subs {
-					sub.enqueue(msg)
-				}
-			}
-			if subs, ok := c.subs[msg.Name]; ok {
-				for sub := range subs {
-					sub.enqueue(msg)
-				}
-			}
-		}
-		c.subsMtx.Unlock()
+		c.subs.messageEnqueue(msg)
 	default:
 	}
 }

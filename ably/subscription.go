@@ -44,9 +44,9 @@ func (sub *Subscription) MessageChannel() <-chan *proto.Message {
 	return ch
 }
 
-// PresenceMessageChannel gives a channel on which the presence messages are delivered.
+// PresenceChannel gives a channel on which the presence messages are delivered.
 // It panics when sub was not subscribed to receive channel's presence messages.
-func (sub *Subscription) PresenceMessageChannel() <-chan *proto.PresenceMessage {
+func (sub *Subscription) PresenceChannel() <-chan *proto.PresenceMessage {
 	if sub.typ != subscriptionPresenceMessages {
 		panic(errInvalidType{typ: sub.typ})
 	}
@@ -139,4 +139,137 @@ func (sub *Subscription) loop() {
 			channel.Send(reflect.ValueOf(msg))
 		}
 	}
+}
+
+var (
+	subsAll     struct{}
+	subsAllKeys = []interface{}{subsAll}
+)
+
+func namesToKeys(names []string) []interface{} {
+	if len(names) == 0 {
+		return nil
+	}
+	keys := make([]interface{}, 0, len(names))
+	for _, name := range names {
+		// Ignore empty names.
+		if name != "" {
+			keys = append(keys, name)
+		}
+	}
+	return keys
+}
+
+func statesToKeys(states []proto.PresenceState) []interface{} {
+	if len(states) == 0 {
+		return nil
+	}
+	keys := make([]interface{}, 0, len(states))
+	for _, state := range states {
+		keys = append(keys, state)
+	}
+	return keys
+}
+
+type subscriptions struct {
+	mtx sync.Mutex
+	all map[interface{}]map[*Subscription]struct{}
+}
+
+func newSubscriptions() *subscriptions {
+	return &subscriptions{
+		all: make(map[interface{}]map[*Subscription]struct{}),
+	}
+}
+
+func (subs *subscriptions) close() {
+	for _, subs := range subs.all {
+		for sub := range subs {
+			// Stop is idempotent, no need to keep track which sub was already
+			// stopped.
+			sub.close(false)
+		}
+	}
+	// Unsubscribe all channels by creating new sub map for future use.
+	subs.all = make(map[interface{}]map[*Subscription]struct{})
+}
+
+func (subs *subscriptions) subscribe(keys ...interface{}) (*Subscription, error) {
+	unsubscribe := func(sub *Subscription) { subs.unsubscribe(false, sub, keys...) }
+	sub := newSubscription(subscriptionMessages, unsubscribe)
+	if len(keys) == 0 {
+		keys = subsAllKeys
+	}
+	subs.mtx.Lock()
+	for _, key := range keys {
+		all, ok := subs.all[key]
+		if !ok {
+			all = make(map[*Subscription]struct{})
+			subs.all[key] = all
+		}
+		all[sub] = struct{}{}
+	}
+	subs.mtx.Unlock()
+	return sub, nil
+}
+
+func (subs *subscriptions) unsubscribe(stop bool, sub *Subscription, keys ...interface{}) {
+	if len(keys) == 0 {
+		keys = subsAllKeys
+	}
+	subs.mtx.Lock()
+	for _, key := range keys {
+		delete(subs.all[key], sub)
+		if len(subs.all[key]) == 0 {
+			delete(subs.all, key)
+		}
+	}
+	// Don't try to stop when we got here from the (*Subscription).Close method.
+	if stop {
+		count := 0
+		for _, all := range subs.all {
+			if _, ok := all[sub]; ok {
+				count++
+			}
+		}
+		// Stop subscription if it no longer listens for messages.
+		if count == 0 {
+			sub.close(false)
+		}
+	}
+	subs.mtx.Unlock()
+}
+
+func (subs *subscriptions) messageEnqueue(msg *proto.ProtocolMessage) {
+	subs.mtx.Lock()
+	for _, msg := range msg.Messages {
+		if subs, ok := subs.all[subsAll]; ok {
+			for sub := range subs {
+				sub.enqueue(msg)
+			}
+		}
+		if subs, ok := subs.all[msg.Name]; ok {
+			for sub := range subs {
+				sub.enqueue(msg)
+			}
+		}
+	}
+	subs.mtx.Unlock()
+}
+
+func (subs *subscriptions) presenceEnqueue(msg *proto.ProtocolMessage) {
+	subs.mtx.Lock()
+	for _, msg := range msg.Presence {
+		if subs, ok := subs.all[subsAll]; ok {
+			for sub := range subs {
+				sub.enqueue(msg)
+			}
+		}
+		if subs, ok := subs.all[msg.State]; ok {
+			for sub := range subs {
+				sub.enqueue(msg)
+			}
+		}
+	}
+	subs.mtx.Unlock()
 }

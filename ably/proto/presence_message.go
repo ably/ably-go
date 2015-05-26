@@ -3,9 +3,11 @@ package proto
 type PresenceState int64
 
 const (
-	PresenceStateENTER PresenceState = iota
-	PresenceStateLEAVE
-	PresenceStateUPDATE
+	PresenceAbsent PresenceState = iota
+	PresencePresent
+	PresenceEnter
+	PresenceLeave
+	PresenceUpdate
 )
 
 type PresenceMessage struct {
