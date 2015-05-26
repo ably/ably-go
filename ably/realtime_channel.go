@@ -15,98 +15,6 @@ func (ch chanSlice) Less(i, j int) bool { return ch[i].Name < ch[j].Name }
 func (ch chanSlice) Swap(i, j int)      { ch[i], ch[j] = ch[j], ch[i] }
 func (ch chanSlice) Sort()              { sort.Sort(ch) }
 
-// Subscription queues messages received from a realtime channel.
-type Subscription struct {
-	mtx            sync.Mutex
-	messageChannel chan *proto.Message
-	sleep          chan struct{}
-	queue          []*proto.Message
-	unsubscribe    func()
-	stopped        bool
-}
-
-func newSubscription() *Subscription {
-	sub := &Subscription{
-		messageChannel: make(chan *proto.Message),
-		sleep:          make(chan struct{}, 1),
-	}
-	go sub.loop()
-	return sub
-}
-
-// MessageChannel gives a channel on which the messages are delivered.
-func (sub *Subscription) MessageChannel() <-chan *proto.Message {
-	return sub.messageChannel
-}
-
-// Close unsubscribes from the realtime channel the sub was previously subscribed.
-// It closes the chan returned by C method.
-func (sub *Subscription) Close() error {
-	return sub.close(true)
-}
-
-func (sub *Subscription) close(unsubscribe bool) error {
-	if unsubscribe {
-		sub.unsubscribe()
-	}
-	sub.mtx.Lock()
-	if sub.stopped {
-		sub.mtx.Unlock()
-		return nil
-	}
-	sub.stopped = true
-	sub.queue = nil
-	close(sub.sleep)
-	sub.mtx.Unlock()
-	// Dry sub.ch to stop loop goroutine.
-	for {
-		select {
-		case <-sub.messageChannel:
-		default:
-			close(sub.messageChannel)
-			return nil
-		}
-	}
-}
-
-// Len gives a number of messages currently queued.
-func (sub *Subscription) Len() int {
-	sub.mtx.Lock()
-	defer sub.mtx.Unlock()
-	return len(sub.queue)
-}
-
-func (sub *Subscription) enqueue(msg *proto.Message) {
-	sub.mtx.Lock()
-	defer sub.mtx.Unlock()
-	if sub.stopped {
-		return
-	}
-	sleeping := len(sub.queue) == 0
-	sub.queue = append(sub.queue, msg)
-	if sleeping {
-		sub.sleep <- struct{}{}
-	}
-}
-
-func (sub *Subscription) pop() (msg *proto.Message, n int) {
-	sub.mtx.Lock()
-	defer sub.mtx.Unlock()
-	if n = len(sub.queue); n == 0 {
-		return nil, 0
-	}
-	msg, sub.queue = sub.queue[0], sub.queue[1:]
-	return msg, n
-}
-
-func (sub *Subscription) loop() {
-	for range sub.sleep {
-		for msg, n := sub.pop(); n != 0; msg, n = sub.pop() {
-			sub.messageChannel <- msg
-		}
-	}
-}
-
 // Channels is a goroutine-safe container for realtime channels that allows
 // for creating, deleting and iterating over existing channels.
 type Channels struct {
@@ -322,8 +230,8 @@ func (c *RealtimeChannel) Subscribe(names ...string) (*Subscription, error) {
 	if _, err := c.attach(false); err != nil {
 		return nil, err
 	}
-	sub := newSubscription()
-	sub.unsubscribe = func() { c.unsubscribe(false, sub, names...) }
+	unsubscribe := func(sub *Subscription) { c.unsubscribe(false, sub, names...) }
+	sub := newSubscription(subscriptionMessages, unsubscribe)
 	all := false
 	if len(names) == 0 {
 		all = true
