@@ -23,7 +23,20 @@ if err != nil {
 channel := client.Channel.Get("test")
 ```
 
-### Subscribing to a channel
+### Subscribing to a channel for all events
+
+```go
+sub, err := channel.Subscribe()
+if err != nil {
+	panic(err)
+}
+
+for msg := range sub.MessageChannel() {
+	fmt.Println("Received message:", msg)
+}
+```
+
+### Subscribing to a channel for `EventName1` and `EventName2` events
 
 ```go
 sub, err := channel.Subscribe("EventName1", "EventName2")
@@ -39,24 +52,82 @@ for msg := range sub.MessageChannel() {
 ### Publishing to a channel
 
 ```go
-res, err := channel.Publish("EventName1", "EventData2")
+// send request to a server
+res, err := channel.Publish("EventName1", "EventData1")
 if err != nil {
 	panic(err)
 }
 
-fmt.Println("message sent successfully, awaiting confirmation. . .")
-
+// await confirmation
 if err = res.Wait(); err != nil {
 	panic(err)
 }
-
-fmt.Println("message published successfully")
 ```
 
-### Presence on a channel
+### Announcing presence on a channel
 
 ```go
-panic("TODO")
+// send request to a server
+res, err := channel.Presence.Enter("presence data")
+if err != nil {
+	panic(err)
+}
+
+// await confirmation
+if err = res.Wait(); err != nil {
+	panic(err)
+}
+```
+
+### Announcing presence on a channel on behalf of other client
+
+```go
+// send request to a server
+res, err := channel.Presence.EnterClient("clientID", "presence data")
+if err != nil {
+	panic(err)
+}
+
+// await confirmation
+if err = res.Wait(); err != nil {
+	panic(err)
+}
+```
+
+### Getting all clients present on a channel
+
+```go
+clients := channel.Presence.Get(true)
+
+for _, client := range clients {
+	fmt.Println("Present client:", client)
+}
+```
+
+### Subscribing to all presence messages
+
+```go
+sub, err := channel.Presence.Subscribe()
+if err != nil {
+	panic(err)
+}
+
+for msg := range sub.PresenceChannel() {
+	fmt.Println("Presence event:", msg)
+}
+```
+
+### Subscribing to 'Enter' presence messages only
+
+```go
+sub, err := channel.Presence.Subscribe(proto.PresenceEnter)
+if err != nil {
+	panic(err)
+}
+
+for msg := range sub.PresenceChannel() {
+	fmt.Println("Presence event:", msg)
+}
 ```
 
 ## Using the REST API
@@ -151,7 +222,6 @@ if err != nil {
 As the library is actively developed couple of features are not there yet:
 
 - REST client does not use token authentication
-- Realtime client does not implement Presence
 - Realtime connection recovery is not implemented
 - Realtime connection failures handling is not implemented
 - Realtime Ping function is missing

@@ -2,6 +2,7 @@ package proto
 
 type ProtocolMessage struct {
 	Action           Action             `json:"action"`
+	ID               string             `json:"id,omitempty"`
 	Flags            byte               `json:"flags,omitempty"`
 	Count            int                `json:"count,omitempty"`
 	Error            *Error             `json:"error,omitempty"`

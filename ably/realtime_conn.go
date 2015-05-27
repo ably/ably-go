@@ -149,7 +149,7 @@ func (c *Conn) close() (Result, error) {
 	defer c.state.Unlock()
 	switch c.state.current {
 	case StateConnClosing, StateConnClosed:
-		return nil, nil
+		return nopResult, nil
 	case StateConnFailed, StateConnDisconnected:
 		return nil, errClose
 	}

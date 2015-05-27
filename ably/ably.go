@@ -22,3 +22,12 @@ func nonil(err ...error) error {
 	}
 	return nil
 }
+
+func nonempty(s ...string) string {
+	for _, s := range s {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
+}

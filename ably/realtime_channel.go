@@ -3,6 +3,7 @@ package ably
 import (
 	"errors"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/ably/ably-go/ably/proto"
@@ -82,7 +83,8 @@ func (ch *Channels) Release(name string) error {
 
 // RealtimeChannel represents a single named message channel.
 type RealtimeChannel struct {
-	Name string // name used to create the channel
+	Name     string            // name used to create the channel
+	Presence *RealtimePresence //
 
 	client *RealtimeClient
 	state  *stateEmitter
@@ -96,8 +98,9 @@ func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
 		Name:   name,
 		client: client,
 		state:  newStateEmitter(StateChan, StateChanInitialized, name),
-		subs:   newSubscriptions(),
+		subs:   newSubscriptions(subscriptionMessages),
 	}
+	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
 	if c.client.opts.Listener != nil {
 		c.On(c.client.opts.Listener)
@@ -232,11 +235,7 @@ func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
 	if sub.typ != subscriptionMessages {
 		panic(errInvalidType{typ: sub.typ})
 	}
-	c.unsubscribe(true, sub, names...)
-}
-
-func (c *RealtimeChannel) unsubscribe(stop bool, sub *Subscription, names ...string) {
-	c.subs.unsubscribe(stop, sub, namesToKeys(names)...)
+	c.subs.unsubscribe(true, sub, namesToKeys(names)...)
 }
 
 // On relays request channel states to c; on state transition
@@ -271,15 +270,23 @@ func (c *RealtimeChannel) Publish(name string, data string) (Result, error) {
 //
 // This implicitly attaches the channel if it's not already attached.
 func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) {
+	msg := &proto.ProtocolMessage{
+		Action:   proto.ActionMessage,
+		Channel:  c.state.channel,
+		Messages: messages,
+	}
+	return c.send(msg, true)
+}
+
+func (c *RealtimeChannel) send(msg *proto.ProtocolMessage, result bool) (Result, error) {
 	if _, err := c.attach(false); err != nil {
 		return nil, err
 	}
-	msg := &proto.ProtocolMessage{
-		Action:   proto.ActionMessage,
-		Channel:  c.Name,
-		Messages: messages,
+	var res Result
+	var listen chan<- error
+	if result {
+		res, listen = newErrResult()
 	}
-	res, listen := newErrResult()
 	switch c.State() {
 	case StateChanInitialized, StateChanAttaching:
 		c.queue.Enqueue(msg, listen)
@@ -313,14 +320,22 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	case proto.ActionAttached:
 		c.state.syncSet(StateChanAttached, nil)
 		c.queue.Flush()
+		if msg.Flags&1 == 1 {
+			c.Presence.syncStartLock()
+		}
 	case proto.ActionDetached:
 		c.state.syncSet(StateChanDetached, nil)
+	case proto.ActionSync:
+		syncSerial := ""
+		if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 {
+			syncSerial = msg.ChannelSerial[i+1:]
+		}
+		c.Presence.processIncomingMessage(msg, syncSerial)
 	case proto.ActionPresence:
-		// TODO realtime presence
+		c.Presence.processIncomingMessage(msg, "")
 	case proto.ActionError:
 		c.state.syncSet(StateChanFailed, newErrorProto(msg.Error))
 		c.queue.Fail(newErrorProto(msg.Error))
-		// TODO recovery
 	case proto.ActionMessage:
 		c.subs.messageEnqueue(msg)
 	default:

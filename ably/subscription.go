@@ -9,7 +9,7 @@ import (
 
 var (
 	subscriptionMessages         = reflect.TypeOf((chan *proto.Message)(nil))
-	subscriptionPresenceMessages = reflect.TypeOf((chan *proto.ProtocolMessage)(nil))
+	subscriptionPresenceMessages = reflect.TypeOf((chan *proto.PresenceMessage)(nil))
 )
 
 // Subscription queues messages received from a realtime channel.
@@ -60,28 +60,13 @@ func (sub *Subscription) Close() error {
 	return sub.close(true)
 }
 
-func (sub *Subscription) dry() {
-	switch channel := sub.channel.(type) {
-	case chan *proto.Message:
-		for {
-			select {
-			case <-channel:
-			default:
-				close(channel)
-				return
-			}
+func (sub *Subscription) drain() {
+	v := reflect.ValueOf(sub.channel)
+	for {
+		if _, ok := v.TryRecv(); !ok {
+			v.Close()
+			return
 		}
-	case chan *proto.PresenceMessage:
-		for {
-			select {
-			case <-channel:
-			default:
-				close(channel)
-				return
-			}
-		}
-	default:
-		panic(errInvalidType{typ: sub.typ})
 	}
 }
 
@@ -98,7 +83,7 @@ func (sub *Subscription) close(unsubscribe bool) error {
 	sub.queue = nil
 	close(sub.sleep)
 	sub.mtx.Unlock()
-	sub.dry() // dry sub.channel to stop loop goroutine.
+	sub.drain() // drain sub.channel to stop loop goroutine.
 	return nil
 }
 
@@ -172,12 +157,14 @@ func statesToKeys(states []proto.PresenceState) []interface{} {
 }
 
 type subscriptions struct {
+	typ reflect.Type
 	mtx sync.Mutex
 	all map[interface{}]map[*Subscription]struct{}
 }
 
-func newSubscriptions() *subscriptions {
+func newSubscriptions(typ reflect.Type) *subscriptions {
 	return &subscriptions{
+		typ: typ,
 		all: make(map[interface{}]map[*Subscription]struct{}),
 	}
 }
@@ -196,7 +183,7 @@ func (subs *subscriptions) close() {
 
 func (subs *subscriptions) subscribe(keys ...interface{}) (*Subscription, error) {
 	unsubscribe := func(sub *Subscription) { subs.unsubscribe(false, sub, keys...) }
-	sub := newSubscription(subscriptionMessages, unsubscribe)
+	sub := newSubscription(subs.typ, unsubscribe)
 	if len(keys) == 0 {
 		keys = subsAllKeys
 	}
@@ -214,6 +201,9 @@ func (subs *subscriptions) subscribe(keys ...interface{}) (*Subscription, error)
 }
 
 func (subs *subscriptions) unsubscribe(stop bool, sub *Subscription, keys ...interface{}) {
+	if sub.typ != subs.typ {
+		panic(errInvalidType{typ: sub.typ})
+	}
 	if len(keys) == 0 {
 		keys = subsAllKeys
 	}

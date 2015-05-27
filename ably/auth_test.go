@@ -14,11 +14,12 @@ var _ = Describe("Auth", func() {
 			req.TTL = 60 * 60 * 1000
 			req.Capability = ably.Capability{"foo": []string{"publish"}}
 			req.ClientID = "client_string"
+			keyName, _ := testApp.KeyParts()
 			token, err := client.Auth.RequestToken(req)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(token.Token).To(ContainSubstring(testApp.Config.ApiID))
-			Expect(token.KeyName).To(Equal(testApp.KeyName()))
+			Expect(token.Token).To(ContainSubstring(testApp.Config.AppID))
+			Expect(token.KeyName).To(Equal(keyName))
 			Expect(token.Issued).NotTo(Equal(int64(0)))
 			Expect(token.Capability).To(Equal(req.Capability))
 		})
@@ -30,7 +31,7 @@ var _ = Describe("Auth", func() {
 			req.TTL = 60 * 60 * 1000
 			req.Capability = ably.Capability{"foo": []string{"publish"}}
 
-			Expect(req.KeyName).To(ContainSubstring(testApp.Config.ApiID))
+			Expect(req.KeyName).To(ContainSubstring(testApp.Config.AppID))
 			Expect(req.Mac).NotTo(BeNil())
 		})
 	})

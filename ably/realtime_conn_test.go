@@ -49,12 +49,9 @@ var connTransitions = []int{
 
 func TestRealtimeConn_Connect(t *testing.T) {
 	states, listen, wg := record()
-	opts := testutil.Options(&ably.ClientOptions{Listener: listen})
+	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{Listener: listen})
+	defer multiclose(client, app)
 
-	client, err := ably.NewRealtimeClient(opts)
-	if err != nil {
-		t.Fatalf("ably.NewRealtimeClient=%v", err)
-	}
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
 		t.Fatal(err)
 	}
@@ -70,12 +67,9 @@ func TestRealtimeConn_Connect(t *testing.T) {
 
 func TestRealtimeConn_NoConnect(t *testing.T) {
 	states, listen, wg := record()
-	opts := testutil.Options(&ably.ClientOptions{NoConnect: true})
+	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{NoConnect: true})
+	defer multiclose(client, app)
 
-	client, err := ably.NewRealtimeClient(opts)
-	if err != nil {
-		t.Fatalf("NewRealtimeClient(%v)=%v", opts, err)
-	}
 	client.Connection.On(listen)
 	if err := ably.Wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect()=%v", err)
@@ -99,12 +93,9 @@ var connCloseTransitions = []int{
 
 func TestRealtimeConn_ConnectClose(t *testing.T) {
 	states, listen, wg := record()
-	opts := testutil.Options(&ably.ClientOptions{Listener: listen})
+	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{Listener: listen})
+	defer multiclose(client, app)
 
-	client, err := ably.NewRealtimeClient(opts)
-	if err != nil {
-		t.Fatalf("ably.NewRealtimeClient=%v", err)
-	}
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
 		t.Fatal(err)
 	}
