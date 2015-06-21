@@ -34,13 +34,21 @@ func (st StateType) String() string {
 }
 
 // Contains returns true when the state belongs to the given type.
-func (st StateType) Contains(state int) bool {
+func (st StateType) Contains(state StateEnum) bool {
 	return stateMasks[st]&state == state
+}
+
+// StateEnum is an enumeration type for connection and channel states.
+type StateEnum int
+
+// String implements the fmt.Stringer interface.
+func (sc StateEnum) String() string {
+	return stateText[sc]
 }
 
 // StateConn describes states of realtime connection.
 const (
-	StateConnInitialized = 1 << iota
+	StateConnInitialized StateEnum = 1 << iota
 	StateConnConnecting
 	StateConnConnected
 	StateConnDisconnected
@@ -52,7 +60,7 @@ const (
 
 // StateChan describes states of realtime channel.
 const (
-	StateChanInitialized = 1 << (iota + 8)
+	StateChanInitialized StateEnum = 1 << (iota + 8)
 	StateChanAttaching
 	StateChanAttached
 	StateChanDetaching
@@ -61,12 +69,6 @@ const (
 	StateChanClosed
 	StateChanFailed
 )
-
-// StateText returns a text for either connection or channel state.
-// It returns empty string if the state is unknown
-func StateText(state int) string {
-	return stateText[state]
-}
 
 // Result awaits completion of asynchronous operation.
 type Result interface {
@@ -83,7 +85,7 @@ func wait(res Result, err error) error {
 	return res.Wait()
 }
 
-var stateText = map[int]string{
+var stateText = map[StateEnum]string{
 	StateConnInitialized:  "ably.StateConnInitialized",
 	StateConnConnecting:   "ably.StateConnConnecting",
 	StateConnConnected:    "ably.StateConnConnected",
@@ -103,8 +105,8 @@ var stateText = map[int]string{
 }
 
 // stateAll lists all valid connection and channel state values.
-var stateAll = map[StateType][]int{
-	StateConn: []int{
+var stateAll = map[StateType][]StateEnum{
+	StateConn: {
 		StateConnInitialized,
 		StateConnConnecting,
 		StateConnConnected,
@@ -114,7 +116,7 @@ var stateAll = map[StateType][]int{
 		StateConnClosed,
 		StateConnFailed,
 	},
-	StateChan: []int{
+	StateChan: {
 		StateChanInitialized,
 		StateChanAttaching,
 		StateChanAttached,
@@ -125,7 +127,7 @@ var stateAll = map[StateType][]int{
 }
 
 // stateMasks is used for testing connection and channel state values.
-var stateMasks = map[StateType]int{
+var stateMasks = map[StateType]StateEnum{
 	StateConn: StateConnInitialized | StateConnConnecting | StateConnConnected |
 		StateConnDisconnected | StateConnSuspended | StateConnClosing | StateConnClosed |
 		StateConnFailed,
@@ -145,39 +147,34 @@ var stateMasks = map[StateType]int{
 type State struct {
 	Channel string    // channel name or empty if Type is StateConn
 	Err     error     // eventual error value associated with transition
-	State   int       // state which connection or channel has transitioned to
+	State   StateEnum // state which connection or channel has transitioned to
 	Type    StateType // whether transition happened on connection or channel
-}
-
-// String implements the fmt.Stringer interface.
-func (st State) String() string {
-	return fmt.Sprintf("{Type: %s, State: %s, Err: %v}", st.Type, StateText(st.State), st.Err)
 }
 
 type stateEmitter struct {
 	sync.Mutex
 	channel   string
-	listeners map[int]map[chan<- State]struct{}
-	onetime   map[int]map[chan<- State]struct{}
+	listeners map[StateEnum]map[chan<- State]struct{}
+	onetime   map[StateEnum]map[chan<- State]struct{}
 	err       error
-	current   int
+	current   StateEnum
 	typ       StateType
 }
 
-func newStateEmitter(typ StateType, startState int, channel string) *stateEmitter {
+func newStateEmitter(typ StateType, startState StateEnum, channel string) *stateEmitter {
 	if !typ.Contains(startState) {
-		panic(`invalid start state: "` + StateText(startState) + `"`)
+		panic(`invalid start state: "` + startState.String() + `"`)
 	}
 	return &stateEmitter{
 		channel:   channel,
-		listeners: make(map[int]map[chan<- State]struct{}),
-		onetime:   make(map[int]map[chan<- State]struct{}),
+		listeners: make(map[StateEnum]map[chan<- State]struct{}),
+		onetime:   make(map[StateEnum]map[chan<- State]struct{}),
 		current:   startState,
 		typ:       typ,
 	}
 }
 
-func (s *stateEmitter) set(state int, err error) error {
+func (s *stateEmitter) set(state StateEnum, err error) error {
 	st := State{
 		Channel: s.channel,
 		Err:     err,
@@ -210,13 +207,13 @@ func (s *stateEmitter) set(state int, err error) error {
 	return s.err
 }
 
-func (s *stateEmitter) syncSet(state int, err error) error {
+func (s *stateEmitter) syncSet(state StateEnum, err error) error {
 	s.Lock()
 	defer s.Unlock()
 	return s.set(state, err)
 }
 
-func (s *stateEmitter) once(ch chan<- State, states ...int) {
+func (s *stateEmitter) once(ch chan<- State, states ...StateEnum) {
 	if len(states) == 0 {
 		states = stateAll[s.typ]
 	}
@@ -230,7 +227,7 @@ func (s *stateEmitter) once(ch chan<- State, states ...int) {
 	}
 }
 
-func (s *stateEmitter) on(ch chan<- State, states ...int) {
+func (s *stateEmitter) on(ch chan<- State, states ...StateEnum) {
 	if ch == nil {
 		panic(fmt.Sprintf("ably: %s On using nil channel", s.typ))
 	}
@@ -240,7 +237,7 @@ func (s *stateEmitter) on(ch chan<- State, states ...int) {
 	s.Lock()
 	for _, state := range states {
 		if !s.typ.Contains(state) {
-			panic(fmt.Sprintf("ably: %s On using invalid state value: %s", s.typ, StateText(state)))
+			panic(fmt.Sprintf("ably: %s On using invalid state value: %s", s.typ, state.String()))
 		}
 		l, ok := s.listeners[state]
 		if !ok {
@@ -252,7 +249,7 @@ func (s *stateEmitter) on(ch chan<- State, states ...int) {
 	s.Unlock()
 }
 
-func (s *stateEmitter) off(ch chan<- State, states ...int) {
+func (s *stateEmitter) off(ch chan<- State, states ...StateEnum) {
 	if ch == nil {
 		panic(fmt.Sprintf("ably: %s Off using nil channel", s.typ))
 	}
@@ -262,7 +259,7 @@ func (s *stateEmitter) off(ch chan<- State, states ...int) {
 	s.Lock()
 	for _, state := range states {
 		if !s.typ.Contains(state) {
-			panic(fmt.Sprintf("ably: %s Off using invalid state value: %s", s.typ, StateText(state)))
+			panic(fmt.Sprintf("ably: %s Off using invalid state value: %s", s.typ, state.String()))
 		}
 		delete(s.listeners[state], ch)
 		if len(s.listeners[state]) == 0 {
@@ -450,16 +447,16 @@ func (res *errResult) Wait() error {
 type stateResult struct {
 	err      error
 	listen   <-chan State
-	expected int
+	expected StateEnum
 }
 
-func newResult(expected int) (Result, chan<- State) {
+func newResult(expected StateEnum) (Result, chan<- State) {
 	listen := make(chan State, 1)
 	res := &stateResult{listen: listen, expected: expected}
 	return res, listen
 }
 
-func (s *stateEmitter) listenResult(states ...int) Result {
+func (s *stateEmitter) listenResult(states ...StateEnum) Result {
 	res, listen := newResult(states[0])
 	s.once(listen, states...)
 	return res
@@ -482,7 +479,7 @@ func (res *stateResult) Wait() error {
 			}
 			res.err = &Error{
 				Code: code,
-				Err:  fmt.Errorf("failed %s state: %s", state.Type, StateText(state.State)),
+				Err:  fmt.Errorf("failed %s state: %s", state.Type, state.State),
 			}
 		}
 		res.listen = nil

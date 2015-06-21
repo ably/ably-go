@@ -78,7 +78,7 @@ func (c *Conn) Connect() (Result, error) {
 	return c.connect(true)
 }
 
-var connectResultStates = []int{
+var connectResultStates = []StateEnum{
 	StateConnConnected, // expected state
 	StateConnFailed,
 	StateConnDisconnected,
@@ -138,7 +138,7 @@ func (c *Conn) Close() error {
 	return nil
 }
 
-var closeResultStates = []int{
+var closeResultStates = []StateEnum{
 	StateConnClosed, // expected state
 	StateConnFailed,
 	StateConnDisconnected,
@@ -204,7 +204,7 @@ func (c *Conn) Serial() int64 {
 }
 
 // State returns current state of the connection.
-func (c *Conn) State() int {
+func (c *Conn) State() StateEnum {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.state.current
@@ -217,7 +217,7 @@ func (c *Conn) State() int {
 // If no states are given, c is registered for all of them.
 // If c is nil, the method panics.
 // If c is alreadt registered, its state set is expanded.
-func (c *Conn) On(ch chan<- State, states ...int) {
+func (c *Conn) On(ch chan<- State, states ...StateEnum) {
 	c.state.on(ch, states...)
 }
 
@@ -226,7 +226,7 @@ func (c *Conn) On(ch chan<- State, states ...int) {
 // If no states are given, c is removed for all of the connection's states.
 // If c is nil, the method panics.
 // If c was not registered or is already removed, the method is a nop.
-func (c *Conn) Off(ch chan<- State, states ...int) {
+func (c *Conn) Off(ch chan<- State, states ...StateEnum) {
 	c.state.off(ch, states...)
 }
 

@@ -17,19 +17,44 @@ type RealtimePresence struct {
 	serial         string
 	subs           *subscriptions
 	channel        *RealtimeChannel
+	event          chan State
 	members        map[string]*proto.PresenceMessage
 	stale          map[string]struct{}
 	state          proto.PresenceState
+	observedAttach bool
 	syncInProgress bool
 	synced         bool
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
-	return &RealtimePresence{
+	pres := &RealtimePresence{
 		subs:    newSubscriptions(subscriptionPresenceMessages),
 		channel: channel,
+		event:   make(chan State, 1),
 		members: make(map[string]*proto.PresenceMessage),
 	}
+	pres.sync.Add(1) // wait for initial channel Attached state
+	channel.On(pres.event, StateChanAttached)
+	go pres.eventloop()
+	return pres
+}
+
+func (pres *RealtimePresence) eventloop() {
+	for event := range pres.event {
+		switch event.State {
+		case StateChanAttached:
+			pres.mu.Lock()
+			if !pres.observedAttach {
+				pres.sync.Done() // initial channel Attached state observed
+				pres.observedAttach = true
+			}
+			pres.mu.Unlock()
+		}
+	}
+}
+
+func (pres *RealtimePresence) stop() {
+	close(pres.event)
 }
 
 func (pres *RealtimePresence) send(msg *proto.PresenceMessage, result bool) (Result, error) {
@@ -39,7 +64,7 @@ func (pres *RealtimePresence) send(msg *proto.PresenceMessage, result bool) (Res
 	switch state := pres.channel.State(); state {
 	case StateChanDetached, StateChanDetaching, StateChanClosing, StateChanClosed,
 		StateChanFailed:
-		return nil, newError(91001, errors.New(StateText(state)))
+		return nil, newError(91001, errors.New("invalid channel state: "+state.String()))
 	}
 	protomsg := &proto.ProtocolMessage{
 		Action:   proto.ActionPresence,

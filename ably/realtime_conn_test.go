@@ -11,12 +11,12 @@ import (
 	"github.com/ably/ably-go/ably/testutil"
 )
 
-func record() (*[]int, chan<- ably.State, *sync.WaitGroup) {
+func record() (*[]ably.StateEnum, chan<- ably.State, *sync.WaitGroup) {
 	listen := make(chan ably.State, 16)
-	states := make([]int, 0, 16)
+	states := make([]ably.StateEnum, 0, 16)
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go func(states *[]int) {
+	go func(states *[]ably.StateEnum) {
 		defer wg.Done()
 		for state := range listen {
 			*states = append(*states, state.State)
@@ -25,13 +25,12 @@ func record() (*[]int, chan<- ably.State, *sync.WaitGroup) {
 	return &states, listen, wg
 }
 
-func await(fn func() int, state int) error {
+func await(fn func() ably.StateEnum, state ably.StateEnum) error {
 	t := time.After(timeout)
 	for {
 		select {
 		case <-t:
-			return fmt.Errorf("waiting for %s state has timed out after %v",
-				ably.StateText(state), timeout)
+			return fmt.Errorf("waiting for %s state has timed out after %v", state, timeout)
 		default:
 			if fn() == state {
 				return nil
@@ -40,7 +39,7 @@ func await(fn func() int, state int) error {
 	}
 }
 
-var connTransitions = []int{
+var connTransitions = []ably.StateEnum{
 	ably.StateConnConnecting,
 	ably.StateConnConnected,
 	ably.StateConnClosing,
@@ -84,7 +83,7 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 	}
 }
 
-var connCloseTransitions = []int{
+var connCloseTransitions = []ably.StateEnum{
 	ably.StateConnConnecting,
 	ably.StateConnConnected,
 	ably.StateConnClosing,
