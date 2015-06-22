@@ -15,7 +15,7 @@ A Go client library for [ably.io](https://ably.io), the real-time messaging serv
 ### Creating a client
 
 ```go
-client, err := ably.NewRealtimeClient(&ably.ClientOptions{Key: "xxx:xxx"})
+client, err := ably.NewRealtimeClient(ably.NewClientOptions("xxx:xxx"))
 if err != nil {
 	panic(err)
 }

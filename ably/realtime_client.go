@@ -34,7 +34,7 @@ func NewRealtimeClient(options *ClientOptions) (*RealtimeClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn, err := newConn(&c.opts)
+	conn, err := newConn(&c.opts, rest.Auth)
 	if err != nil {
 		return nil, err
 	}

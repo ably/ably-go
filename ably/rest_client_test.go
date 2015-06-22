@@ -50,40 +50,16 @@ var _ = Describe("RestClient", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 		})
-
-		Describe("Get", func() {
-			var data interface{}
-
-			It("fails with a meaningful error", func() {
-				_, err := client.Get("/any_path", data)
-				Expect(err).To(HaveOccurred())
-
-				e, ok := err.(*ably.Error)
-				Expect(ok).To(BeTrue())
-				Expect(e.Err.Error()).To(Equal("Not Found"))
-				Expect(e.StatusCode).To(Equal(404))
-			})
-		})
-
-		Describe("Post", func() {
-			It("fails with a meaningful error", func() {
-				_, err := client.Post("/any_path", nil, nil)
-				Expect(err).To(HaveOccurred())
-
-				e, ok := err.(*ably.Error)
-				Expect(ok).To(BeTrue())
-				Expect(e.Err.Error()).To(Equal("Not Found"))
-				Expect(e.StatusCode).To(Equal(404))
-			})
-		})
 	})
 
 	Describe("encoding messages", func() {
 		var (
-			buffer []byte
-			server *httptest.Server
-			client *ably.RestClient
-			err    error
+			buffer   []byte
+			server   *httptest.Server
+			client   *ably.RestClient
+			mockType string
+			mockBody []byte
+			err      error
 		)
 
 		BeforeEach(func() {
@@ -92,9 +68,9 @@ var _ = Describe("RestClient", func() {
 				buffer, err = ioutil.ReadAll(r.Body)
 				Expect(err).NotTo(HaveOccurred())
 
+				w.Header().Set("Content-Type", mockType)
 				w.WriteHeader(200)
-				w.Header().Set("Content-Type", "application/json")
-				fmt.Fprintf(w, `{}`)
+				w.Write(mockBody)
 			}))
 
 		})
@@ -105,7 +81,13 @@ var _ = Describe("RestClient", func() {
 					NoTLS:      true,
 					Protocol:   ably.ProtocolJSON,
 					HTTPClient: newHTTPClientMock(server),
+					AuthOptions: ably.AuthOptions{
+						UseTokenAuth: true,
+					},
 				}
+
+				mockType = "application/json"
+				mockBody = []byte("{}")
 
 				client, err = ably.NewRestClient(testApp.Options(options))
 				Expect(err).NotTo(HaveOccurred())
@@ -127,7 +109,13 @@ var _ = Describe("RestClient", func() {
 					NoTLS:      true,
 					Protocol:   ably.ProtocolMsgPack,
 					HTTPClient: newHTTPClientMock(server),
+					AuthOptions: ably.AuthOptions{
+						UseTokenAuth: true,
+					},
 				}
+
+				mockType = "application/x-msgpack"
+				mockBody = []byte{0x80}
 
 				client, err = ably.NewRestClient(testApp.Options(options))
 				Expect(err).NotTo(HaveOccurred())

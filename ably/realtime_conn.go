@@ -27,13 +27,15 @@ type Conn struct {
 	stateCh   chan State
 	pending   pendingEmitter
 	queue     *msgQueue
+	auth      *Auth
 }
 
-func newConn(opts *ClientOptions) (*Conn, error) {
+func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
 	c := &Conn{
 		opts:  opts,
 		msgCh: make(chan *proto.ProtocolMessage),
 		state: newStateEmitter(StateConn, StateConnInitialized, ""),
+		auth:  auth,
 	}
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
@@ -95,26 +97,20 @@ func (c *Conn) connect(result bool) (Result, error) {
 	if err != nil {
 		return nil, c.state.set(StateConnFailed, newError(50000, err))
 	}
-	rest, err := NewRestClient(c.opts)
-	if err != nil {
-		return nil, c.state.set(StateConnFailed, err)
-	}
-	token, err := rest.Auth.RequestToken(nil)
-	if err != nil {
-		return nil, c.state.set(StateConnFailed, err)
-	}
 	var res Result
 	if result {
 		res = c.state.listenResult(connectResultStates...)
 	}
 	proto := c.opts.protocol()
 	query := url.Values{
-		"access_token": {token.Token},
-		"timestamp":    []string{strconv.FormatInt(TimestampNow(), 10)},
-		"echo":         booltext(!c.opts.NoEcho),
+		"timestamp": []string{strconv.FormatInt(TimestampNow(), 10)},
+		"echo":      booltext(!c.opts.NoEcho),
 	}
 	if c.opts.UseBinaryProtocol || c.opts.protocol() == ProtocolMsgPack {
-		query.Add("format", "msgpack")
+		query.Set("format", "msgpack")
+	}
+	if err := c.auth.authQuery(query); err != nil {
+		return nil, err
 	}
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)

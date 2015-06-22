@@ -1,12 +1,18 @@
 package ably
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,6 +26,226 @@ func (opts *ClientOptions) RestURL() string {
 
 func (opts *ClientOptions) RealtimeURL() string {
 	return opts.realtimeURL()
+}
+
+func (c *RestClient) Post(path string, in, out interface{}) (*http.Response, error) {
+	return c.post(path, in, out)
+}
+
+func ErrorCode(err error) int {
+	return code(err)
+}
+
+// AuthReverseProxy serves token requests by reverse proxying them to
+// the Ably servers. Use URL method for creating values for AuthURL
+// option and Callback method - for AuthCallback ones.
+type AuthReverseProxy struct {
+	TokenQueue []*TokenDetails // when non-nil pops the token from the queue instead querying Ably servers
+	Listener   net.Listener    // listener which accepts token request connections
+
+	auth *Auth
+}
+
+// NewAuthReverseProxy creates new auth reverse proxy. The given opts
+// are used to create a Auth client, used to reverse proxying token requests.
+func NewAuthReverseProxy(opts *ClientOptions) (*AuthReverseProxy, error) {
+	opts.UseTokenAuth = true
+	client, err := NewRestClient(opts)
+	if err != nil {
+		return nil, err
+	}
+	lis, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return nil, err
+	}
+	srv := &AuthReverseProxy{
+		Listener: lis,
+		auth:     client.Auth,
+	}
+	go http.Serve(lis, srv)
+	return srv, nil
+}
+
+// MustAuthReverseProxy panics when creating the proxy fails.
+func MustAuthReverseProxy(opts *ClientOptions) *AuthReverseProxy {
+	srv, err := NewAuthReverseProxy(opts)
+	if err != nil {
+		panic(err)
+	}
+	return srv
+}
+
+// URL gives new AuthURL for the requested responseType. Available response
+// types are:
+//
+//   - "token", which responds with (ably.TokenDetails).Token as a string
+//   - "details", which responds with ably.TokenDetails
+//   - "request", which responds with ably.TokenRequest
+//
+func (srv *AuthReverseProxy) URL(responseType string) string {
+	return "http://" + srv.Listener.Addr().String() + "/" + responseType
+}
+
+// Callback gives new AuthCallback. Available response types are the same
+// as for URL method.
+func (srv *AuthReverseProxy) Callback(responseType string) func(*TokenParams) (interface{}, error) {
+	return func(params *TokenParams) (interface{}, error) {
+		token, _, err := srv.handleAuth(responseType, params)
+		return token, err
+	}
+}
+
+// Close makes the proxy server stop accepting connections.
+func (srv *AuthReverseProxy) Close() error {
+	return srv.Listener.Close()
+}
+
+// ServeHTTP implements the http.Handler interface.
+func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	token, contentType, err := srv.handleAuth(req.URL.Path[1:], nil)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	p, err := encode(contentType, token)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", strconv.Itoa(len(p)))
+	w.WriteHeader(200)
+	if _, err = io.Copy(w, bytes.NewReader(p)); err != nil {
+		panic(err)
+	}
+}
+
+func (srv *AuthReverseProxy) handleAuth(responseType string, params *TokenParams) (token interface{}, typ string, err error) {
+	switch responseType {
+	case "token", "details":
+		var tok *TokenDetails
+		if len(srv.TokenQueue) != 0 {
+			tok, srv.TokenQueue = srv.TokenQueue[0], srv.TokenQueue[1:]
+		} else {
+			tok, err = srv.auth.Authorise(nil, params, true)
+			if err != nil {
+				return nil, "", err
+			}
+		}
+		if responseType == "token" {
+			return tok.Token, "text/plain", nil
+		}
+		return tok, srv.auth.opts().protocol(), nil
+	case "request":
+		tokReq, err := srv.auth.CreateTokenRequest(nil, params)
+		if err != nil {
+			return nil, "", err
+		}
+		return tokReq, srv.auth.opts().protocol(), nil
+	default:
+		return nil, "", errors.New("unexpected token value type: " + typ)
+	}
+}
+
+// RoundTripRecorder is a http.Transport wrapper which records
+// HTTP request/response pairs.
+type RoundTripRecorder struct {
+	*http.Transport
+
+	mtx     sync.Mutex
+	reqs    []*http.Request
+	resps   []*http.Response
+	stopped int32
+}
+
+var _ http.RoundTripper = (*RoundTripRecorder)(nil)
+
+// Len gives number of recorded request/response pairs.
+//
+// It is save to call Len() before calling Stop().
+func (rec *RoundTripRecorder) Len() int {
+	rec.mtx.Lock()
+	defer rec.mtx.Unlock()
+	return len(rec.reqs)
+}
+
+// Request gives nth recorded http.Request.
+func (rec *RoundTripRecorder) Request(n int) *http.Request {
+	rec.mtx.Lock()
+	defer rec.mtx.Unlock()
+	return rec.reqs[n]
+}
+
+// Response gives nth recorded http.Response.
+func (rec *RoundTripRecorder) Response(n int) *http.Response {
+	rec.mtx.Lock()
+	defer rec.mtx.Unlock()
+	return rec.resps[n]
+}
+
+// Requests gives all HTTP requests in order they were recorded.
+func (rec *RoundTripRecorder) Requests() []*http.Request {
+	rec.mtx.Lock()
+	defer rec.mtx.Unlock()
+	reqs := make([]*http.Request, len(rec.reqs))
+	copy(reqs, rec.reqs)
+	return reqs
+}
+
+// Responses gives all HTTP responses in order they were recorded.
+func (rec *RoundTripRecorder) Responses() []*http.Response {
+	rec.mtx.Lock()
+	defer rec.mtx.Unlock()
+	resps := make([]*http.Response, len(rec.resps))
+	copy(resps, rec.resps)
+	return resps
+}
+
+// RoundTrip implements the http.RoundTripper interface.
+func (rec *RoundTripRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
+	if atomic.LoadInt32(&rec.stopped) == 0 {
+		return rec.roundTrip(req)
+	}
+	return rec.Transport.RoundTrip(req)
+}
+
+// Stop makes the recorder stop recording new requests/responses.
+func (rec *RoundTripRecorder) Stop() {
+	atomic.StoreInt32(&rec.stopped, 1)
+}
+
+// Hijack injects http.Transport into the wrapper.
+func (rec *RoundTripRecorder) Hijack(rt http.RoundTripper) http.RoundTripper {
+	if tr, ok := rt.(*http.Transport); ok {
+		rec.Transport = tr
+	}
+	return rec
+}
+
+func body(p []byte) io.ReadCloser {
+	return ioutil.NopCloser(bytes.NewReader(p))
+}
+
+func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, error) {
+	var buf bytes.Buffer
+	if req.Body != nil {
+		req.Body = ioutil.NopCloser(io.TeeReader(req.Body, &buf))
+	}
+	resp, err := rec.Transport.RoundTrip(req)
+	req.Body = body(buf.Bytes())
+	buf.Reset()
+	if resp != nil && resp.Body != nil {
+		_, e := io.Copy(&buf, resp.Body)
+		err = nonil(err, e, resp.Body.Close())
+		resp.Body = body(buf.Bytes())
+	}
+	rec.mtx.Lock()
+	respCopy := *resp
+	respCopy.Body = body(buf.Bytes())
+	rec.reqs = append(rec.reqs, req)
+	rec.resps = append(rec.resps, &respCopy)
+	rec.mtx.Unlock()
+	return resp, err
 }
 
 // StateRecorder provides:

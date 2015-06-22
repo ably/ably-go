@@ -39,6 +39,12 @@ func (err *Error) Error() string {
 func newError(code int, err error) *Error {
 	switch err := err.(type) {
 	case *Error:
+		if _, ok := err.Err.(genericError); ok {
+			// If err was returned from http.Response but we were unable to
+			// parse the internal error code, we overwrite it here.
+			err.Code = code
+			return err
+		}
 		return err
 	case net.Error:
 		if err.Timeout() {
@@ -71,6 +77,15 @@ func newErrorProto(err *proto.Error) *Error {
 	}
 }
 
+type genericError error
+
+func code(err error) int {
+	if e, ok := err.(*Error); ok {
+		return e.Code
+	}
+	return 0
+}
+
 func checkValidHTTPResponse(resp *http.Response) error {
 	if resp.StatusCode < 300 {
 		return nil
@@ -78,7 +93,8 @@ func checkValidHTTPResponse(resp *http.Response) error {
 	defer resp.Body.Close()
 	body := &proto.Error{}
 	if e := json.NewDecoder(resp.Body).Decode(body); e != nil {
-		return &Error{Code: 50000, StatusCode: 500, Err: e}
+		err := genericError(errors.New(http.StatusText(resp.StatusCode)))
+		return &Error{Code: 50000, StatusCode: resp.StatusCode, Err: err}
 	}
 	err := &Error{Code: body.Code, StatusCode: body.StatusCode}
 	if body.Message != "" {

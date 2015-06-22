@@ -35,7 +35,7 @@ func expectMsg(ch <-chan *proto.Message, name, data string, t time.Duration, rec
 
 func TestRealtimeChannel_Publish(t *testing.T) {
 	t.Parallel()
-	app, client := testutil.ProvisionRealtime(nil, nil)
+	app, client := testutil.Provision(nil)
 	defer safeclose(t, client, app)
 
 	channel := client.Channels.Get("test")
@@ -46,12 +46,9 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 
 func TestRealtimeChannel_Subscribe(t *testing.T) {
 	t.Parallel()
-	app, client1 := testutil.ProvisionRealtime(nil, nil)
+	app, client1 := testutil.Provision(nil)
 	defer safeclose(t, client1, app)
-	client2, err := ably.NewRealtimeClient(app.Options(&ably.ClientOptions{NoEcho: true}))
-	if err != nil {
-		t.Fatalf("client2: NewRealtimeClient()=%v", err)
-	}
+	client2 := app.NewRealtimeClient(&ably.ClientOptions{NoEcho: true})
 	defer safeclose(t, client2)
 
 	channel1 := client1.Channels.Get("test")
@@ -113,7 +110,7 @@ var chanCloseTransitions = [][]ably.StateEnum{{
 
 func TestRealtimeChannel_Close(t *testing.T) {
 	rec := ably.NewStateRecorder(8)
-	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{Listener: rec.Channel()})
+	app, client := testutil.Provision(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, client, app)
 
 	channel := client.Channels.Get("test")

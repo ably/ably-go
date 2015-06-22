@@ -29,7 +29,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	cl, err := ably.NewRestClient(testApp.Options(nil))
+	cl, err := ably.NewRestClient(testApp.Options())
 	Expect(err).NotTo(HaveOccurred())
 	client = cl
 	channel = client.Channel("test")
