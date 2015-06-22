@@ -1,9 +1,20 @@
 package proto
 
+const (
+	FlagPresence Flag = iota + 1
+	FlagBacklog
+)
+
+type Flag byte
+
+func (f Flag) Has(flag Flag) bool {
+	return f&flag == flag
+}
+
 type ProtocolMessage struct {
 	Action           Action             `json:"action"`
 	ID               string             `json:"id,omitempty"`
-	Flags            byte               `json:"flags,omitempty"`
+	Flags            Flag               `json:"flags,omitempty"`
 	Count            int                `json:"count,omitempty"`
 	Error            *Error             `json:"error,omitempty"`
 	ApplicationId    string             `json:"applicationId,omitempty"`

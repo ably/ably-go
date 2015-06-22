@@ -49,12 +49,17 @@ func (pres *RealtimePresence) send(msg *proto.PresenceMessage, result bool) (Res
 	return pres.channel.send(protomsg, result)
 }
 
+// syncStartLock begins sync process; it's safe to call it from separate goroutine,
+// thus it can be called from external context, e.g. channel's attach message
+// handler.
 func (pres *RealtimePresence) syncStartLock() {
 	pres.mu.Lock()
 	pres.syncStart()
 	pres.mu.Unlock()
 }
 
+// syncStart begins sync process; it isn't safe to call it without locking
+// pres.mu first.
 func (pres *RealtimePresence) syncStart() {
 	if pres.syncInProgress {
 		return

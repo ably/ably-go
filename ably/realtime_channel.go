@@ -320,7 +320,10 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	case proto.ActionAttached:
 		c.state.syncSet(StateChanAttached, nil)
 		c.queue.Flush()
-		if msg.Flags&1 == 1 {
+		if msg.Flags.Has(proto.FlagPresence) {
+			// since syncStart writes to RealtimePresence's internal WaitGroup
+			// from different goroutine than it's being read we need to lock
+			// it with syncStartLock call instead.
 			c.Presence.syncStartLock()
 		}
 	case proto.ActionDetached:
