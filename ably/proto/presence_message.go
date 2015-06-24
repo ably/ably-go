@@ -3,15 +3,18 @@ package proto
 type PresenceState int64
 
 const (
-	PresenceStateENTER PresenceState = iota
-	PresenceStateLEAVE
-	PresenceStateUPDATE
+	PresenceAbsent PresenceState = iota
+	PresencePresent
+	PresenceEnter
+	PresenceLeave
+	PresenceUpdate
 )
 
 type PresenceMessage struct {
 	Message
 	State        PresenceState `json:"action" msgpack:"action"`
-	ClientId     string        `json:"clientId" msgpack:"clientId"`
-	ConnectionId string        `json:"connectionId" msgpack:"connectionId"`
-	Timestamp    int64         `json:"timestamp" msgpack:"timestamp"`
+	ClientID     string        `json:"clientId" msgpack:"clientId"`
+	ID           string        `json:"id,omitempty" msgpack:"id,omitempty"`
+	ConnectionId string        `json:"connectionId,omitempty" msgpack:"connectionId,omitempty"`
+	Timestamp    int64         `json:"timestamp,omitempty" msgpack:"timestamp,omityempty"`
 }

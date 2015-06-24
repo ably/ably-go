@@ -35,12 +35,8 @@ func expectMsg(ch <-chan *proto.Message, name, data string, t time.Duration, rec
 
 func TestRealtimeChannel_Publish(t *testing.T) {
 	t.Parallel()
-	opts := testutil.Options(nil)
-	client, err := ably.NewRealtimeClient(opts)
-	if err != nil {
-		t.Fatalf("NewRealtimeClient()=%v", err)
-	}
-	defer client.Close()
+	app, client := testutil.ProvisionRealtime(nil, nil)
+	defer multiclose(client, app)
 
 	channel := client.Channels.Get("test")
 	if err := ably.Wait(channel.Publish("hello", "world")); err != nil {
@@ -50,18 +46,13 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 
 func TestRealtimeChannel_Subscribe(t *testing.T) {
 	t.Parallel()
-	opts := testutil.Options(nil)
-	client1, err := ably.NewRealtimeClient(opts)
-	if err != nil {
-		t.Fatalf("client1: NewRealtimeClient()=%v", err)
-	}
-	defer client1.Close()
-	opts.NoEcho = true
-	client2, err := ably.NewRealtimeClient(opts)
+	app, client1 := testutil.ProvisionRealtime(nil, nil)
+	defer multiclose(client1, app)
+	client2, err := ably.NewRealtimeClient(app.Options(&ably.ClientOptions{NoEcho: true}))
 	if err != nil {
 		t.Fatalf("client2: NewRealtimeClient()=%v", err)
 	}
-	defer client2.Close()
+	defer multiclose(client2)
 
 	channel1 := client1.Channels.Get("test")
 	sub1, err := channel1.Subscribe()
@@ -113,12 +104,9 @@ var chanCloseTransitions = []int{
 
 func TestRealtimeChannel_Close(t *testing.T) {
 	states, listen, wg := record()
-	opts := testutil.Options(&ably.ClientOptions{Listener: listen})
+	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{Listener: listen})
+	defer multiclose(client, app)
 
-	client, err := ably.NewRealtimeClient(opts)
-	if err != nil {
-		t.Fatalf("ably.NewRealtimeClient()=%v", err)
-	}
 	channel := client.Channels.Get("test")
 	sub, err := channel.Subscribe()
 	if err != nil {

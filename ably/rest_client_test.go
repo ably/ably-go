@@ -46,12 +46,10 @@ var _ = Describe("RestClient", func() {
 				fmt.Fprintf(w, `{"message":"Not Found"}`)
 			}))
 
-			options := testApp.Options()
-			options.NoTLS = true
-			options.HTTPClient = newHTTPClientMock(server)
+			options := &ably.ClientOptions{NoTLS: true, HTTPClient: newHTTPClientMock(server)}
 
 			var err error
-			client, err = ably.NewRestClient(options)
+			client, err = ably.NewRestClient(testApp.Options(options))
 			Expect(err).NotTo(HaveOccurred())
 
 			request, err = http.NewRequest("POST", options.RestURL()+"/any_path", bytes.NewBuffer([]byte{}))
@@ -108,12 +106,13 @@ var _ = Describe("RestClient", func() {
 
 		Context("with JSON encoding set up", func() {
 			BeforeEach(func() {
-				options := testApp.Options()
-				options.NoTLS = true
-				options.HTTPClient = newHTTPClientMock(server)
-				options.Protocol = ably.ProtocolJSON
+				options := &ably.ClientOptions{
+					NoTLS:      true,
+					Protocol:   ably.ProtocolJSON,
+					HTTPClient: newHTTPClientMock(server),
+				}
 
-				client, err = ably.NewRestClient(options)
+				client, err = ably.NewRestClient(testApp.Options(options))
 				Expect(err).NotTo(HaveOccurred())
 
 				err := client.Channel("test").Publish("ping", "pong")
@@ -129,12 +128,13 @@ var _ = Describe("RestClient", func() {
 
 		Context("with msgpack encoding set up", func() {
 			BeforeEach(func() {
-				options := testApp.Options()
-				options.NoTLS = true
-				options.HTTPClient = newHTTPClientMock(server)
-				options.Protocol = ably.ProtocolMsgPack
+				options := &ably.ClientOptions{
+					NoTLS:      true,
+					Protocol:   ably.ProtocolMsgPack,
+					HTTPClient: newHTTPClientMock(server),
+				}
 
-				client, err = ably.NewRestClient(options)
+				client, err = ably.NewRestClient(testApp.Options(options))
 				Expect(err).NotTo(HaveOccurred())
 
 				err := client.Channel("test").Publish("ping", "pong")

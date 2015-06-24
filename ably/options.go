@@ -31,7 +31,7 @@ type ClientOptions struct {
 	RealtimeHost string // optional; overwrite endpoint hostname for Realtime client
 	Environment  string // optional; prefixes both hostname with the environment string
 	Key          string // an authorization key in the 'name:secret' format
-	ClientID     string // optional;
+	ClientID     string // optional; required for realtime presence
 	Protocol     string // optional; either ProtocolJSON or ProtocolMsgPack
 	Recover      string // optional; used to recover client state
 	Token        *Token // optional; is used for authorization when UseTokenAuth is true

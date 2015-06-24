@@ -17,25 +17,25 @@ func TestAbly(t *testing.T) {
 }
 
 var (
-	testApp *testutil.App
+	testApp *testutil.Sandbox
 	client  *ably.RestClient
 	channel *ably.RestChannel
 )
 
 var _ = BeforeSuite(func() {
-	testApp = testutil.NewApp()
-	_, err := testApp.Create()
+	app, err := testutil.NewSandbox(nil)
 	Expect(err).NotTo(HaveOccurred())
+	testApp = app
 })
 
 var _ = BeforeEach(func() {
-	var err error
-	client, err = ably.NewRestClient(testApp.Options())
+	cl, err := ably.NewRestClient(testApp.Options(nil))
 	Expect(err).NotTo(HaveOccurred())
+	client = cl
 	channel = client.Channel("test")
 })
 
 var _ = AfterSuite(func() {
-	_, err := testApp.Delete()
+	err := testApp.Close()
 	Expect(err).NotTo(HaveOccurred())
 })

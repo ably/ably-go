@@ -3,6 +3,7 @@ package ably
 import (
 	"errors"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/ably/ably-go/ably/proto"
@@ -14,98 +15,6 @@ func (ch chanSlice) Len() int           { return len(ch) }
 func (ch chanSlice) Less(i, j int) bool { return ch[i].Name < ch[j].Name }
 func (ch chanSlice) Swap(i, j int)      { ch[i], ch[j] = ch[j], ch[i] }
 func (ch chanSlice) Sort()              { sort.Sort(ch) }
-
-// Subscription queues messages received from a realtime channel.
-type Subscription struct {
-	mtx            sync.Mutex
-	messageChannel chan *proto.Message
-	sleep          chan struct{}
-	queue          []*proto.Message
-	unsubscribe    func()
-	stopped        bool
-}
-
-func newSubscription() *Subscription {
-	sub := &Subscription{
-		messageChannel: make(chan *proto.Message),
-		sleep:          make(chan struct{}, 1),
-	}
-	go sub.loop()
-	return sub
-}
-
-// MessageChannel gives a channel on which the messages are delivered.
-func (sub *Subscription) MessageChannel() <-chan *proto.Message {
-	return sub.messageChannel
-}
-
-// Close unsubscribes from the realtime channel the sub was previously subscribed.
-// It closes the chan returned by C method.
-func (sub *Subscription) Close() error {
-	return sub.close(true)
-}
-
-func (sub *Subscription) close(unsubscribe bool) error {
-	if unsubscribe {
-		sub.unsubscribe()
-	}
-	sub.mtx.Lock()
-	if sub.stopped {
-		sub.mtx.Unlock()
-		return nil
-	}
-	sub.stopped = true
-	sub.queue = nil
-	close(sub.sleep)
-	sub.mtx.Unlock()
-	// Dry sub.ch to stop loop goroutine.
-	for {
-		select {
-		case <-sub.messageChannel:
-		default:
-			close(sub.messageChannel)
-			return nil
-		}
-	}
-}
-
-// Len gives a number of messages currently queued.
-func (sub *Subscription) Len() int {
-	sub.mtx.Lock()
-	defer sub.mtx.Unlock()
-	return len(sub.queue)
-}
-
-func (sub *Subscription) enqueue(msg *proto.Message) {
-	sub.mtx.Lock()
-	defer sub.mtx.Unlock()
-	if sub.stopped {
-		return
-	}
-	sleeping := len(sub.queue) == 0
-	sub.queue = append(sub.queue, msg)
-	if sleeping {
-		sub.sleep <- struct{}{}
-	}
-}
-
-func (sub *Subscription) pop() (msg *proto.Message, n int) {
-	sub.mtx.Lock()
-	defer sub.mtx.Unlock()
-	if n = len(sub.queue); n == 0 {
-		return nil, 0
-	}
-	msg, sub.queue = sub.queue[0], sub.queue[1:]
-	return msg, n
-}
-
-func (sub *Subscription) loop() {
-	for range sub.sleep {
-		for msg, n := sub.pop(); n != 0; msg, n = sub.pop() {
-			sub.messageChannel <- msg
-		}
-	}
-}
 
 // Channels is a goroutine-safe container for realtime channels that allows
 // for creating, deleting and iterating over existing channels.
@@ -174,14 +83,14 @@ func (ch *Channels) Release(name string) error {
 
 // RealtimeChannel represents a single named message channel.
 type RealtimeChannel struct {
-	Name string // name used to create the channel
+	Name     string            // name used to create the channel
+	Presence *RealtimePresence //
 
-	client  *RealtimeClient
-	state   *stateEmitter
-	err     error
-	subs    map[string]map[*Subscription]struct{}
-	subsMtx sync.Mutex
-	queue   *msgQueue
+	client *RealtimeClient
+	state  *stateEmitter
+	err    error
+	subs   *subscriptions
+	queue  *msgQueue
 }
 
 func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
@@ -189,8 +98,9 @@ func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
 		Name:   name,
 		client: client,
 		state:  newStateEmitter(StateChan, StateChanInitialized, name),
-		subs:   make(map[string]map[*Subscription]struct{}),
+		subs:   newSubscriptions(subscriptionMessages),
 	}
+	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
 	if c.client.opts.Listener != nil {
 		c.On(c.client.opts.Listener)
@@ -295,17 +205,7 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 // If sending close message succeeds, it closes and unsubscribes all channels.
 func (c *RealtimeChannel) Close() error {
 	err := wait(c.Detach())
-	c.state.Lock()
-	for _, subs := range c.subs {
-		for sub := range subs {
-			// Stop is idempotent, no need to keep track which sub was already
-			// stopped.
-			sub.close(false)
-		}
-	}
-	// Unsubscribe all channels by creating new sub map for future use.
-	c.subs = make(map[string]map[*Subscription]struct{})
-	c.state.Unlock()
+	c.subs.close()
 	if err != nil {
 		return c.state.syncSet(StateChanClosed, newErrorf(90000, "Close() error: %s", err))
 	}
@@ -322,59 +222,20 @@ func (c *RealtimeChannel) Subscribe(names ...string) (*Subscription, error) {
 	if _, err := c.attach(false); err != nil {
 		return nil, err
 	}
-	sub := newSubscription()
-	sub.unsubscribe = func() { c.unsubscribe(false, sub, names...) }
-	all := false
-	if len(names) == 0 {
-		all = true
-		names = []string{""}
-	}
-	c.subsMtx.Lock()
-	for _, name := range names {
-		// Ignore empty message names.
-		if name == "" && !all {
-			continue
-		}
-		subs, ok := c.subs[name]
-		if !ok {
-			subs = make(map[*Subscription]struct{})
-			c.subs[name] = subs
-		}
-		subs[sub] = struct{}{}
-	}
-	c.subsMtx.Unlock()
-	return sub, nil
+	return c.subs.subscribe(namesToKeys(names)...)
 }
 
 // Unsubscribe removes previous Subscription for the given message names.
+//
+// Unsubscribe panics if the given sub was subscribed for presence messages and
+// not for regular channel messages.
+//
+// If sub was already unsubscribed the method is a nop.
 func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
-	c.unsubscribe(true, sub, names...)
-}
-func (c *RealtimeChannel) unsubscribe(stop bool, sub *Subscription, names ...string) {
-	if len(names) == 0 {
-		names = []string{""}
+	if sub.typ != subscriptionMessages {
+		panic(errInvalidType{typ: sub.typ})
 	}
-	c.subsMtx.Lock()
-	for _, name := range names {
-		delete(c.subs[name], sub)
-		if len(c.subs[name]) == 0 {
-			delete(c.subs, name)
-		}
-	}
-	// Don't try to stop when we got here from the (*Subscription).Close method.
-	if stop {
-		count := 0
-		for _, subs := range c.subs {
-			if _, ok := subs[sub]; ok {
-				count++
-			}
-		}
-		// Stop subscription if it no longer listens for messages.
-		if count == 0 {
-			sub.close(false)
-		}
-	}
-	c.subsMtx.Unlock()
+	c.subs.unsubscribe(true, sub, namesToKeys(names)...)
 }
 
 // On relays request channel states to c; on state transition
@@ -409,15 +270,23 @@ func (c *RealtimeChannel) Publish(name string, data string) (Result, error) {
 //
 // This implicitly attaches the channel if it's not already attached.
 func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) {
+	msg := &proto.ProtocolMessage{
+		Action:   proto.ActionMessage,
+		Channel:  c.state.channel,
+		Messages: messages,
+	}
+	return c.send(msg, true)
+}
+
+func (c *RealtimeChannel) send(msg *proto.ProtocolMessage, result bool) (Result, error) {
 	if _, err := c.attach(false); err != nil {
 		return nil, err
 	}
-	msg := &proto.ProtocolMessage{
-		Action:   proto.ActionMessage,
-		Channel:  c.Name,
-		Messages: messages,
+	var res Result
+	var listen chan<- error
+	if result {
+		res, listen = newErrResult()
 	}
-	res, listen := newErrResult()
 	switch c.State() {
 	case StateChanInitialized, StateChanAttaching:
 		c.queue.Enqueue(msg, listen)
@@ -451,29 +320,27 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	case proto.ActionAttached:
 		c.state.syncSet(StateChanAttached, nil)
 		c.queue.Flush()
+		if msg.Flags.Has(proto.FlagPresence) {
+			// since syncStart writes to RealtimePresence's internal WaitGroup
+			// from different goroutine than it's being read we need to lock
+			// it with syncStartLock call instead.
+			c.Presence.syncStartLock()
+		}
 	case proto.ActionDetached:
 		c.state.syncSet(StateChanDetached, nil)
+	case proto.ActionSync:
+		syncSerial := ""
+		if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 {
+			syncSerial = msg.ChannelSerial[i+1:]
+		}
+		c.Presence.processIncomingMessage(msg, syncSerial)
 	case proto.ActionPresence:
-		// TODO realtime presence
+		c.Presence.processIncomingMessage(msg, "")
 	case proto.ActionError:
 		c.state.syncSet(StateChanFailed, newErrorProto(msg.Error))
 		c.queue.Fail(newErrorProto(msg.Error))
-		// TODO recovery
 	case proto.ActionMessage:
-		c.subsMtx.Lock()
-		for _, msg := range msg.Messages {
-			if subs, ok := c.subs[""]; ok {
-				for sub := range subs {
-					sub.enqueue(msg)
-				}
-			}
-			if subs, ok := c.subs[msg.Name]; ok {
-				for sub := range subs {
-					sub.enqueue(msg)
-				}
-			}
-		}
-		c.subsMtx.Unlock()
+		c.subs.messageEnqueue(msg)
 	default:
 	}
 }

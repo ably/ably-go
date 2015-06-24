@@ -422,6 +422,8 @@ func (q *msgQueue) Fail(err error) {
 	q.mtx.Unlock()
 }
 
+var nopResult *errResult
+
 type errResult struct {
 	err    error
 	listen <-chan error
