@@ -115,7 +115,7 @@ var errAttach = newError(90000, errors.New("Attach() on inactive connection"))
 // If channel is already attached, this method is a nop.
 // If sending attach message failed, the returned error value is non-nil.
 // If sending attach message succeed, the returned Result value can be used
-// to wait until result from server is received.
+// to wait until ack from server is received.
 func (c *RealtimeChannel) Attach() (Result, error) {
 	return c.attach(true)
 }
@@ -160,7 +160,7 @@ var errDetach = newError(90000, errors.New("Detach() on inactive connection"))
 // If channel is already detached, this method is a nop.
 // If sending detach message failed, the returned error value is non-nil.
 // If sending detach message succeed, the returned Result value can be used
-// to wait until result from server is received.
+// to wait until ack from server is received.
 func (c *RealtimeChannel) Detach() (Result, error) {
 	return c.detach(true)
 }
@@ -205,7 +205,6 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 func (c *RealtimeChannel) Close() error {
 	err := wait(c.Detach())
 	c.subs.close()
-	c.Presence.stop()
 	if err != nil {
 		return c.state.syncSet(StateChanClosed, newErrorf(90000, "Close() error: %s", err))
 	}
@@ -230,7 +229,7 @@ func (c *RealtimeChannel) Subscribe(names ...string) (*Subscription, error) {
 // Unsubscribe panics if the given sub was subscribed for presence messages and
 // not for regular channel messages.
 //
-// If sub was already unsubscribed the method is a nop.
+// If sub was already unsubscribed, the method is a nop.
 func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
 	if sub.typ != subscriptionMessages {
 		panic(errInvalidType{typ: sub.typ})
@@ -318,12 +317,7 @@ func (c *RealtimeChannel) Reason() error {
 func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
-		if msg.Flags.Has(proto.FlagPresence) {
-			// since syncStart writes to RealtimePresence's internal WaitGroup
-			// from different goroutine than it's being read we need to lock
-			// it with syncStartLock call instead.
-			c.Presence.syncStartLock()
-		}
+		c.Presence.onAttach(msg.Flags.Has(proto.FlagPresence))
 		c.state.syncSet(StateChanAttached, nil)
 		c.queue.Flush()
 	case proto.ActionDetached:

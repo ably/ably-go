@@ -1,70 +1,65 @@
 package ably
 
 import (
-	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/ably/ably-go/ably/proto"
+)
+
+type syncState uint8
+
+const (
+	syncInitial syncState = iota + 1
+	syncInProgress
+	syncComplete
 )
 
 // RealtimePresence represents a single presence map of a prarticular channel.
 // It allows entering, leaving and updating presence state for the current
 // client or on behalf of other client.
 type RealtimePresence struct {
-	mu             sync.Mutex
-	sync           sync.WaitGroup
-	data           string
-	serial         string
-	subs           *subscriptions
-	channel        *RealtimeChannel
-	event          chan State
-	members        map[string]*proto.PresenceMessage
-	stale          map[string]struct{}
-	state          proto.PresenceState
-	observedAttach bool
-	syncInProgress bool
-	synced         bool
+	mtx       sync.Mutex
+	data      string
+	serial    string
+	subs      *subscriptions
+	channel   *RealtimeChannel
+	members   map[string]*proto.PresenceMessage
+	stale     map[string]struct{}
+	state     proto.PresenceState
+	syncMtx   sync.Mutex
+	syncState syncState
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	pres := &RealtimePresence{
-		subs:    newSubscriptions(subscriptionPresenceMessages),
-		channel: channel,
-		event:   make(chan State, 1),
-		members: make(map[string]*proto.PresenceMessage),
+		subs:      newSubscriptions(subscriptionPresenceMessages),
+		channel:   channel,
+		members:   make(map[string]*proto.PresenceMessage),
+		syncState: syncInitial,
 	}
-	pres.sync.Add(1) // wait for initial channel Attached state
-	channel.On(pres.event, StateChanAttached)
-	go pres.eventloop()
+	// Lock syncMtx to make all callers to Get(true) wait until the presence
+	// is in initial sync state. This is to not make them early return
+	// with an empty presence list before channel attaches.
+	pres.syncMtx.Lock()
 	return pres
 }
 
-func (pres *RealtimePresence) eventloop() {
-	for event := range pres.event {
-		switch event.State {
-		case StateChanAttached:
-			pres.mu.Lock()
-			if !pres.observedAttach {
-				pres.sync.Done() // initial channel Attached state observed
-				pres.observedAttach = true
-			}
-			pres.mu.Unlock()
-		}
+func (pres *RealtimePresence) verifyChanState() error {
+	switch state := pres.channel.State(); state {
+	case StateChanDetached, StateChanDetaching, StateChanClosing, StateChanClosed, StateChanFailed:
+		return newError(91001, fmt.Errorf("unable to enter presence channel (invalid channel state: %s)", state.String()))
+	default:
+		return nil
 	}
-}
-
-func (pres *RealtimePresence) stop() {
-	close(pres.event)
 }
 
 func (pres *RealtimePresence) send(msg *proto.PresenceMessage, result bool) (Result, error) {
 	if _, err := pres.channel.attach(false); err != nil {
 		return nil, err
 	}
-	switch state := pres.channel.State(); state {
-	case StateChanDetached, StateChanDetaching, StateChanClosing, StateChanClosed,
-		StateChanFailed:
-		return nil, newError(91001, errors.New("invalid channel state: "+state.String()))
+	if err := pres.verifyChanState(); err != nil {
+		return nil, err
 	}
 	protomsg := &proto.ProtocolMessage{
 		Action:   proto.ActionPresence,
@@ -74,23 +69,43 @@ func (pres *RealtimePresence) send(msg *proto.PresenceMessage, result bool) (Res
 	return pres.channel.send(protomsg, result)
 }
 
-// syncStartLock begins sync process; it's safe to call it from separate goroutine,
-// thus it can be called from external context, e.g. channel's attach message
-// handler.
-func (pres *RealtimePresence) syncStartLock() {
-	pres.mu.Lock()
-	pres.syncStart()
-	pres.mu.Unlock()
+func (pres *RealtimePresence) syncWait() {
+	// If there's an undergoing sync operation or we wait till channel gets
+	// attached, the following lock is going to block until the operations
+	// complete.
+	pres.syncMtx.Lock()
+	pres.syncMtx.Unlock()
 }
 
-// syncStart begins sync process; it isn't safe to call it without locking
-// pres.mu first.
-func (pres *RealtimePresence) syncStart() {
-	if pres.syncInProgress {
-		return
+func (pres *RealtimePresence) onAttach(hasSync bool) {
+	pres.mtx.Lock()
+	defer pres.mtx.Unlock()
+	switch {
+	case hasSync:
+		pres.syncStart()
+	case pres.syncState == syncInitial:
+		pres.syncState = syncComplete
+		pres.syncMtx.Unlock()
 	}
-	pres.sync.Add(1)
-	pres.syncInProgress = true
+}
+
+// SyncComplete gives true if the initial SYNC operation has completed
+// for the members present on the channel.
+func (pres *RealtimePresence) SyncComplete() bool {
+	pres.mtx.Lock()
+	defer pres.mtx.Unlock()
+	return pres.syncState == syncComplete
+}
+
+func (pres *RealtimePresence) syncStart() {
+	if pres.syncState == syncInProgress {
+		return
+	} else if pres.syncState != syncInitial {
+		// Sync has started, make all callers to Get(true) wait. If it's channel's
+		// initial sync, the callers are already waiting.
+		pres.syncMtx.Lock()
+	}
+	pres.syncState = syncInProgress
 	pres.stale = make(map[string]struct{}, len(pres.members))
 	for memberKey := range pres.members {
 		pres.stale[memberKey] = struct{}{}
@@ -98,7 +113,7 @@ func (pres *RealtimePresence) syncStart() {
 }
 
 func (pres *RealtimePresence) syncEnd() {
-	if !pres.syncInProgress {
+	if pres.syncState != syncInProgress {
 		return
 	}
 	for memberKey := range pres.stale {
@@ -110,8 +125,10 @@ func (pres *RealtimePresence) syncEnd() {
 		}
 	}
 	pres.stale = nil
-	pres.syncInProgress = false
-	pres.sync.Done()
+	pres.syncState = syncComplete
+	// Sync has completed, unblock all callers to Get(true) waiting
+	// for the sync.
+	pres.syncMtx.Unlock()
 }
 
 func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage, syncSerial string) {
@@ -123,7 +140,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 			presmsg.Timestamp = msg.Timestamp
 		}
 	}
-	pres.mu.Lock()
+	pres.mtx.Lock()
 	if syncSerial != "" {
 		pres.serial = syncSerial
 		pres.syncStart()
@@ -155,25 +172,36 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 	if syncSerial == "" {
 		pres.syncEnd()
 	}
-	pres.mu.Unlock()
+	pres.mtx.Unlock()
 	msg.Count = len(messages)
 	msg.Presence = messages
 	pres.subs.presenceEnqueue(msg)
 }
 
-func (pres *RealtimePresence) Get(wait bool) []*proto.PresenceMessage {
-	if wait {
-		pres.sync.Wait()
+// Get returns a list of current members on the channel.
+//
+// If wait is true it blocks until undergoing sync operation completes.
+// If wait is false or sync already completed, the function returns immediately.
+func (pres *RealtimePresence) Get(wait bool) ([]*proto.PresenceMessage, error) {
+	if err := pres.verifyChanState(); err != nil {
+		return nil, err
 	}
-	pres.mu.Lock()
-	defer pres.mu.Unlock()
+	if wait {
+		pres.syncWait()
+	}
+	pres.mtx.Lock()
+	defer pres.mtx.Unlock()
 	members := make([]*proto.PresenceMessage, 0, len(pres.members))
 	for _, member := range pres.members {
 		members = append(members, member)
 	}
-	return members
+	return members, nil
 }
 
+// Subscribe subscribes to presence events on the associated channel.
+//
+// If the channel is not attached, Subscribe implicitly attaches it.
+// If no presence states are given, Subscribe subscribes to all of them.
 func (pres *RealtimePresence) Subscribe(states ...proto.PresenceState) (*Subscription, error) {
 	if _, err := pres.channel.attach(false); err != nil {
 		return nil, err
@@ -181,10 +209,15 @@ func (pres *RealtimePresence) Subscribe(states ...proto.PresenceState) (*Subscri
 	return pres.subs.subscribe(statesToKeys(states)...)
 }
 
+// Unsubscribe removes previous Subscription for the given presence states.
+//
+// If sub was already unsubscribed, the method is a nop.
 func (pres *RealtimePresence) Unsubscribe(sub *Subscription, states ...proto.PresenceState) {
 	pres.subs.unsubscribe(true, sub, statesToKeys(states)...)
 }
 
+// Enter announces presence of the current client with an enter message
+// for the associated channel.
 func (pres *RealtimePresence) Enter(data string) (Result, error) {
 	clientID := pres.channel.client.opts.ClientID
 	if clientID == "" {
@@ -193,6 +226,10 @@ func (pres *RealtimePresence) Enter(data string) (Result, error) {
 	return pres.EnterClient(clientID, data)
 }
 
+// Update announces an updated presence message for the current client.
+//
+// If the current client is not present on the channel, Update will
+// behave as Enter method.
 func (pres *RealtimePresence) Update(data string) (Result, error) {
 	clientID := pres.channel.client.opts.ClientID
 	if clientID == "" {
@@ -201,6 +238,8 @@ func (pres *RealtimePresence) Update(data string) (Result, error) {
 	return pres.UpdateClient(clientID, data)
 }
 
+// Leave announces current client leave the channel altogether with a leave
+// message if data is non-empty.
 func (pres *RealtimePresence) Leave(data string) (Result, error) {
 	clientID := pres.channel.client.opts.ClientID
 	if clientID == "" {
@@ -209,11 +248,13 @@ func (pres *RealtimePresence) Leave(data string) (Result, error) {
 	return pres.LeaveClient(clientID, data)
 }
 
+// EnterClient announces presence of the given clientID altogether with an enter
+// message for the associated channel.
 func (pres *RealtimePresence) EnterClient(clientID, data string) (Result, error) {
-	pres.mu.Lock()
+	pres.mtx.Lock()
 	pres.data = data
 	pres.state = proto.PresenceEnter
-	pres.mu.Unlock()
+	pres.mtx.Unlock()
 	msg := &proto.PresenceMessage{
 		State:    proto.PresenceEnter,
 		ClientID: clientID,
@@ -222,15 +263,19 @@ func (pres *RealtimePresence) EnterClient(clientID, data string) (Result, error)
 	return pres.send(msg, true)
 }
 
+// UpdateClient announces an updated presence message for the given clientID.
+//
+// If the given clientID is not present on the channel, Update will
+// behave as Enter method.
 func (pres *RealtimePresence) UpdateClient(clientID, data string) (Result, error) {
-	pres.mu.Lock()
+	pres.mtx.Lock()
 	if pres.state != proto.PresenceEnter {
 		oldData := pres.data
-		pres.mu.Unlock()
+		pres.mtx.Unlock()
 		return pres.EnterClient(clientID, nonempty(data, oldData))
 	}
 	pres.data = data
-	pres.mu.Unlock()
+	pres.mtx.Unlock()
 	msg := &proto.PresenceMessage{
 		State:    proto.PresenceUpdate,
 		ClientID: clientID,
@@ -239,15 +284,17 @@ func (pres *RealtimePresence) UpdateClient(clientID, data string) (Result, error
 	return pres.send(msg, true)
 }
 
+// LeaveClient announces the given clientID leave the associated channel altogether
+// with a leave message if data is non-empty.
 func (pres *RealtimePresence) LeaveClient(clientID, data string) (Result, error) {
-	pres.mu.Lock()
+	pres.mtx.Lock()
 	if pres.state != proto.PresenceEnter {
-		pres.mu.Unlock()
+		pres.mtx.Unlock()
 		return nil, newError(91001, nil)
 	}
 	data = nonempty(data, pres.data)
 	pres.data = data
-	pres.mu.Unlock()
+	pres.mtx.Unlock()
 	msg := &proto.PresenceMessage{
 		State:    proto.PresenceLeave,
 		ClientID: clientID,
