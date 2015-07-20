@@ -36,7 +36,7 @@ func expectMsg(ch <-chan *proto.Message, name, data string, t time.Duration, rec
 func TestRealtimeChannel_Publish(t *testing.T) {
 	t.Parallel()
 	app, client := testutil.ProvisionRealtime(nil, nil)
-	defer multiclose(client, app)
+	defer safeclose(t, client, app)
 
 	channel := client.Channels.Get("test")
 	if err := ably.Wait(channel.Publish("hello", "world")); err != nil {
@@ -47,12 +47,12 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 func TestRealtimeChannel_Subscribe(t *testing.T) {
 	t.Parallel()
 	app, client1 := testutil.ProvisionRealtime(nil, nil)
-	defer multiclose(client1, app)
+	defer safeclose(t, client1, app)
 	client2, err := ably.NewRealtimeClient(app.Options(&ably.ClientOptions{NoEcho: true}))
 	if err != nil {
 		t.Fatalf("client2: NewRealtimeClient()=%v", err)
 	}
-	defer multiclose(client2)
+	defer safeclose(t, client2)
 
 	channel1 := client1.Channels.Get("test")
 	sub1, err := channel1.Subscribe()
@@ -112,9 +112,9 @@ var chanCloseTransitions = [][]ably.StateEnum{{
 }}
 
 func TestRealtimeChannel_Close(t *testing.T) {
-	states, listen, wg := record()
-	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{Listener: listen})
-	defer multiclose(client, app)
+	rec := ably.NewStateRecorder()
+	app, client := testutil.ProvisionRealtime(nil, rec.Options())
+	defer safeclose(t, client, app)
 
 	channel := client.Channels.Get("test")
 	sub, err := channel.Subscribe()
@@ -153,12 +153,12 @@ func TestRealtimeChannel_Close(t *testing.T) {
 	case <-time.After(timeout):
 		t.Fatalf("waiting on subscribed channel close timed out after %v", timeout)
 	}
-	close(listen)
-	wg.Wait()
+	rec.Stop()
+	states := rec.States()
 	for _, expected := range chanCloseTransitions {
-		if reflect.DeepEqual(*states, expected) {
+		if reflect.DeepEqual(states, expected) {
 			return
 		}
 	}
-	t.Fatalf("unexpected state transitions %v", *states)
+	t.Fatalf("unexpected state transitions %v", states)
 }

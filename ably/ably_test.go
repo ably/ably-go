@@ -3,6 +3,7 @@ package ably_test
 import (
 	"io"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -28,12 +29,23 @@ func nonil(err ...error) error {
 	return nil
 }
 
-func multiclose(closers ...io.Closer) {
-	var err error
-	for _, closer := range closers {
-		err = nonil(err, closer.Close())
+func safeclose(t *testing.T, closers ...io.Closer) {
+	type failed struct {
+		i   int
+		c   io.Closer
+		err error
 	}
-	if err != nil {
-		panic(err)
+	var errors []failed
+	for i, closer := range closers {
+		err := closer.Close()
+		if err != nil {
+			errors = append(errors, failed{i, closer, err})
+		}
+	}
+	if len(errors) != 0 {
+		for _, err := range errors {
+			t.Logf("safeclose %d: failed to close %T: %s", err.i, err.c, err.err)
+		}
+		t.FailNow()
 	}
 }

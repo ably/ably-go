@@ -29,7 +29,7 @@ func (st StateType) String() string {
 	case StateChan:
 		return "channel"
 	default:
-		return ""
+		return "invalid"
 	}
 }
 
@@ -43,7 +43,10 @@ type StateEnum int
 
 // String implements the fmt.Stringer interface.
 func (sc StateEnum) String() string {
-	return stateText[sc]
+	if s, ok := stateText[sc]; ok {
+		return s
+	}
+	return "invalid"
 }
 
 // StateConn describes states of realtime connection.
