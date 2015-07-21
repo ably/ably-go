@@ -91,7 +91,7 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	}
 }
 
-var chanCloseTransitions = []int{
+var chanCloseTransitions = [][]ably.StateEnum{{
 	ably.StateConnConnecting,
 	ably.StateChanAttaching,
 	ably.StateConnConnected,
@@ -100,7 +100,16 @@ var chanCloseTransitions = []int{
 	ably.StateChanDetached,
 	ably.StateConnClosing,
 	ably.StateConnClosed,
-}
+}, {
+	ably.StateConnConnecting,
+	ably.StateConnConnected,
+	ably.StateChanAttaching,
+	ably.StateChanAttached,
+	ably.StateChanDetaching,
+	ably.StateChanDetached,
+	ably.StateConnClosing,
+	ably.StateConnClosed,
+}}
 
 func TestRealtimeChannel_Close(t *testing.T) {
 	states, listen, wg := record()
@@ -146,7 +155,10 @@ func TestRealtimeChannel_Close(t *testing.T) {
 	}
 	close(listen)
 	wg.Wait()
-	if !reflect.DeepEqual(*states, chanCloseTransitions) {
-		t.Fatalf("expected states=%v; got %v", chanCloseTransitions, states)
+	for _, expected := range chanCloseTransitions {
+		if reflect.DeepEqual(*states, expected) {
+			return
+		}
 	}
+	t.Fatalf("unexpected state transitions %v", *states)
 }

@@ -37,9 +37,12 @@ func TestRealtimePresence_Sync(t *testing.T) {
 	app, client := testutil.ProvisionRealtime(nil, nil)
 	defer multiclose(client, app)
 
-	members := client.Channels.TestGet("persisted:presence_fixtures").Presence.Get(true)
+	members, err := client.Channels.TestGet("persisted:presence_fixtures").Presence.Get(true)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := contains(members, "client_bool", "client_int", "client_string", "client_json")
+	err = contains(members, "client_bool", "client_int", "client_string", "client_json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +88,10 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	if err = contains(members2, clients...); err != nil {
 		t.Fatalf("members2: %v", err)
 	}
-	members3 := client3.Channels.TestGet("sync250").Presence.Get(true)
+	members3, err := client3.Channels.TestGet("sync250").Presence.Get(true)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err = contains(members3, clients...); err != nil {
 		t.Fatalf("members3: %v", err)
 	}

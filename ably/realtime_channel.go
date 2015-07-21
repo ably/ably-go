@@ -64,7 +64,6 @@ func (ch *Channels) All() []*RealtimeChannel {
 	ch.mtx.Unlock()
 	chanSlice(chans).Sort()
 	return chans
-
 }
 
 // Release closes a channel looked up by the name.
@@ -116,12 +115,12 @@ var errAttach = newError(90000, errors.New("Attach() on inactive connection"))
 // If channel is already attached, this method is a nop.
 // If sending attach message failed, the returned error value is non-nil.
 // If sending attach message succeed, the returned Result value can be used
-// to wait until result from server is received.
+// to wait until ack from server is received.
 func (c *RealtimeChannel) Attach() (Result, error) {
 	return c.attach(true)
 }
 
-var attachResultStates = []int{
+var attachResultStates = []StateEnum{
 	StateChanAttached, // expected state
 	StateChanClosing,
 	StateChanClosed,
@@ -161,12 +160,12 @@ var errDetach = newError(90000, errors.New("Detach() on inactive connection"))
 // If channel is already detached, this method is a nop.
 // If sending detach message failed, the returned error value is non-nil.
 // If sending detach message succeed, the returned Result value can be used
-// to wait until result from server is received.
+// to wait until ack from server is received.
 func (c *RealtimeChannel) Detach() (Result, error) {
 	return c.detach(true)
 }
 
-var detachResultStates = []int{
+var detachResultStates = []StateEnum{
 	StateChanDetached, // expected state
 	StateChanClosing,
 	StateChanClosed,
@@ -230,7 +229,7 @@ func (c *RealtimeChannel) Subscribe(names ...string) (*Subscription, error) {
 // Unsubscribe panics if the given sub was subscribed for presence messages and
 // not for regular channel messages.
 //
-// If sub was already unsubscribed the method is a nop.
+// If sub was already unsubscribed, the method is a nop.
 func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
 	if sub.typ != subscriptionMessages {
 		panic(errInvalidType{typ: sub.typ})
@@ -245,7 +244,7 @@ func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
 // If no states are given, c is registered for all of them.
 // If c is nil, the method panics.
 // If c is already registered, its state set is expanded.
-func (c *RealtimeChannel) On(ch chan<- State, states ...int) {
+func (c *RealtimeChannel) On(ch chan<- State, states ...StateEnum) {
 	c.state.on(ch, states...)
 }
 
@@ -253,7 +252,7 @@ func (c *RealtimeChannel) On(ch chan<- State, states ...int) {
 //
 // If no states are given, c is removed for all of the connection's states.
 // If c is nil, the method panics.
-func (c *RealtimeChannel) Off(ch chan<- State, states ...int) {
+func (c *RealtimeChannel) Off(ch chan<- State, states ...StateEnum) {
 	c.state.off(ch, states...)
 }
 
@@ -302,7 +301,7 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage, result bool) (Result,
 }
 
 // State gives current state of the channel.
-func (c *RealtimeChannel) State() int {
+func (c *RealtimeChannel) State() StateEnum {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.state.current
@@ -318,14 +317,9 @@ func (c *RealtimeChannel) Reason() error {
 func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
+		c.Presence.onAttach(msg.Flags.Has(proto.FlagPresence))
 		c.state.syncSet(StateChanAttached, nil)
 		c.queue.Flush()
-		if msg.Flags.Has(proto.FlagPresence) {
-			// since syncStart writes to RealtimePresence's internal WaitGroup
-			// from different goroutine than it's being read we need to lock
-			// it with syncStartLock call instead.
-			c.Presence.syncStartLock()
-		}
 	case proto.ActionDetached:
 		c.state.syncSet(StateChanDetached, nil)
 	case proto.ActionSync:

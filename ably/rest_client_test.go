@@ -1,7 +1,6 @@
 package ably_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -52,7 +51,7 @@ var _ = Describe("RestClient", func() {
 			client, err = ably.NewRestClient(testApp.Options(options))
 			Expect(err).NotTo(HaveOccurred())
 
-			request, err = http.NewRequest("POST", options.RestURL()+"/any_path", bytes.NewBuffer([]byte{}))
+			request, err = http.NewRequest("POST", options.RestURL()+"/any_path", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -72,7 +71,7 @@ var _ = Describe("RestClient", func() {
 
 		Describe("Post", func() {
 			It("fails with a meaningful error", func() {
-				_, err := client.Post("/any_path", request, nil)
+				_, err := client.Post("/any_path", nil, nil)
 				Expect(err).To(HaveOccurred())
 
 				e, ok := err.(*ably.Error)
