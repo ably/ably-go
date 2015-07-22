@@ -1,6 +1,11 @@
 package ably
 
-import "sync"
+import (
+	"fmt"
+	"reflect"
+	"sync"
+	"time"
+)
 
 func Wait(res Result, err error) error {
 	return wait(res, err)
@@ -31,15 +36,21 @@ type StateRecorder struct {
 	mtx    sync.Mutex
 }
 
-func NewStateRecorder() *StateRecorder {
-	return newRecorderBuffer(16)
-}
-
-func newRecorderBuffer(buffer int) *StateRecorder {
+// NewStateRecorder gives new recorder which purpose is to record states via
+// (*ClientOptions).Listener channel.
+//
+// If buffer is > 0, the recorder will use it as a buffer to ensure all states
+// transitions are received.
+// If buffer is <= 0, the recorder will not buffer any states, which can
+// result in some of them being dropped.
+func NewStateRecorder(buffer int) *StateRecorder {
+	if buffer < 0 {
+		buffer = 0
+	}
 	rec := &StateRecorder{
 		ch:     make(chan State, buffer),
 		done:   make(chan struct{}),
-		states: make([]StateEnum, 0, 16),
+		states: make([]StateEnum, 0, buffer),
 	}
 	rec.wg.Add(1)
 	go rec.processIncomingStates()
@@ -77,10 +88,6 @@ func (rec *StateRecorder) Channel() chan<- State {
 	return rec.ch
 }
 
-func (rec *StateRecorder) Options() *ClientOptions {
-	return &ClientOptions{Listener: rec.ch}
-}
-
 // Stop stops separate recording gorouting and waits until it terminates.
 func (rec *StateRecorder) Stop() {
 	close(rec.done)
@@ -103,6 +110,34 @@ func (rec *StateRecorder) States() []StateEnum {
 	states := make([]StateEnum, len(rec.states))
 	copy(states, rec.states)
 	return states
+}
+
+// WaitFor blocks until we observe the given exact states were recorded.
+func (rec *StateRecorder) WaitFor(states []StateEnum, timeout time.Duration) error {
+	done := make(chan struct{})
+	stop := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				if recorded := rec.States(); reflect.DeepEqual(states, recorded) {
+					close(done)
+					return
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+		}
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-time.After(timeout):
+		close(stop)
+		return fmt.Errorf("WaitFor(%v) has timed out after %v: recorded states were %v",
+			states, timeout, rec.States())
+	}
 }
 
 // MustRealtimeClient is like NewRealtimeClient, but panics on error.

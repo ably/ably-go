@@ -112,8 +112,8 @@ var chanCloseTransitions = [][]ably.StateEnum{{
 }}
 
 func TestRealtimeChannel_Close(t *testing.T) {
-	rec := ably.NewStateRecorder()
-	app, client := testutil.ProvisionRealtime(nil, rec.Options())
+	rec := ably.NewStateRecorder(8)
+	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, client, app)
 
 	channel := client.Channels.Get("test")

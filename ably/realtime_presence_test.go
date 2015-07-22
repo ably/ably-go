@@ -105,28 +105,27 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	}
 }
 
-var stateGuard = ^ably.StateEnum(0)
-
-var presTransitions = []ably.StateEnum{
-	ably.StateConnConnecting,
-	ably.StateConnConnected,
-	stateGuard,
-	ably.StateChanAttaching,
-	ably.StateChanAttached,
-}
-
 func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
-	rec := ably.NewStateRecorder()
-	opts := rec.Options()
-	opts.NoConnect = true
+	presTransitions := []ably.StateEnum{
+		ably.StateConnConnecting,
+		ably.StateConnConnected,
+		ably.StateChanAttaching,
+		ably.StateChanAttached,
+	}
+	rec := ably.NewStateRecorder(4)
+	opts := &ably.ClientOptions{
+		Listener:  rec.Channel(),
+		NoConnect: true,
+	}
 	app, client := testutil.ProvisionRealtime(nil, opts)
 	defer safeclose(t, client, app)
 	channel := client.Channels.Get("persisted:presence_fixtures")
 	if err := ably.Wait(client.Connection.Connect()); err != nil {
 		t.Fatal(err)
 	}
-	rec.Add(stateGuard)
-
+	if err := rec.WaitFor(presTransitions[:2], time.Second); err != nil {
+		t.Fatal(err)
+	}
 	members, err := channel.Presence.Get(true)
 	if err != nil {
 		t.Fatal(err)
