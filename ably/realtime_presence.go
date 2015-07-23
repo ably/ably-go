@@ -183,7 +183,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 // If wait is true it blocks until undergoing sync operation completes.
 // If wait is false or sync already completed, the function returns immediately.
 func (pres *RealtimePresence) Get(wait bool) ([]*proto.PresenceMessage, error) {
-	if err := pres.verifyChanState(); err != nil {
+	if _, err := pres.channel.attach(false); err != nil {
 		return nil, err
 	}
 	if wait {

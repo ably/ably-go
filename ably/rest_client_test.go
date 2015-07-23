@@ -33,10 +33,7 @@ var _ = Describe("RestClient", func() {
 	)
 
 	Context("with a failing request", func() {
-		var (
-			request *http.Request
-			client  *ably.RestClient
-		)
+		var client *ably.RestClient
 
 		BeforeEach(func() {
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +48,6 @@ var _ = Describe("RestClient", func() {
 			client, err = ably.NewRestClient(testApp.Options(options))
 			Expect(err).NotTo(HaveOccurred())
 
-			request, err = http.NewRequest("POST", options.RestURL()+"/any_path", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
