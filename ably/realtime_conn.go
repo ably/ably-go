@@ -131,7 +131,9 @@ var errClose = newError(50002, errors.New("Close() on inactive connection"))
 // If connection is already closed, this method is a nop.
 func (c *Conn) Close() error {
 	err := wait(c.close())
-	c.conn.Close()
+	if c.conn != nil {
+		c.conn.Close()
+	}
 	if err != nil {
 		return c.state.syncSet(StateConnFailed, newErrorf(50002, "Close error: %s", err))
 	}

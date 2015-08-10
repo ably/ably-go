@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -47,5 +48,16 @@ func safeclose(t *testing.T, closers ...io.Closer) {
 			t.Logf("safeclose %d: failed to close %T: %s", err.i, err.c, err.err)
 		}
 		t.FailNow()
+	}
+}
+
+func checkError(code int, err error) error {
+	switch e, ok := err.(*ably.Error); {
+	case !ok:
+		return fmt.Errorf("want err to be *ably.Error; was %T", err)
+	case e.Code != code:
+		return fmt.Errorf("want e.Code=%d; got %d", code, e.Code)
+	default:
+		return nil
 	}
 }
