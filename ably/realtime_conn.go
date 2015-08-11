@@ -110,9 +110,11 @@ func (c *Conn) connect(result bool) (Result, error) {
 	proto := c.opts.protocol()
 	query := url.Values{
 		"access_token": {token.Token},
-		"binary":       booltext(proto == ProtocolMsgPack),
 		"timestamp":    []string{strconv.FormatInt(TimestampNow(), 10)},
 		"echo":         booltext(!c.opts.NoEcho),
+	}
+	if c.opts.UseBinaryProtocol || c.opts.protocol() == ProtocolMsgPack {
+		query.Add("format", "msgpack")
 	}
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)

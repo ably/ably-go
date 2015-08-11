@@ -194,7 +194,7 @@ var _ = Describe("RestClient", func() {
 			res.Body.Close()
 		})
 
-		It("parses stats from the rest api", func() {
+		XIt("parses stats from the rest api", func() {
 			longAgo := lastInterval.Add(-120 * time.Minute)
 			page, err := client.Stats(&ably.PaginateParams{
 				Limit: 1,
