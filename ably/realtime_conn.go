@@ -8,7 +8,7 @@ import (
 
 	"github.com/ably/ably-go/ably/proto"
 
-	"github.com/ably/ably-go/Godeps/_workspace/src/code.google.com/p/go.net/websocket"
+	"github.com/ably/ably-go/Godeps/_workspace/src/golang.org/x/net/websocket"
 	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
