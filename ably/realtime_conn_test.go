@@ -92,3 +92,15 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 		t.Errorf("expected states=%v; got %v", connCloseTransitions, states)
 	}
 }
+
+func TestRealtimeConn_AlreadyConnected(t *testing.T) {
+	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{NoConnect: true})
+	defer safeclose(t, client, app)
+
+	if err := ably.Wait(client.Connection.Connect()); err != nil {
+		t.Fatalf("Connect=%s", err)
+	}
+	if err := ably.Wait(client.Connection.Connect()); err != nil {
+		t.Fatalf("Connect=%s", err)
+	}
+}

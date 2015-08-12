@@ -88,7 +88,7 @@ func (c *Conn) connect(result bool) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	if c.isActive() {
-		return nil, nil
+		return nopResult, nil
 	}
 	c.state.set(StateConnConnecting, nil)
 	u, err := url.Parse(c.opts.realtimeURL())
