@@ -126,8 +126,8 @@ func (p *PaginatedResult) PresenceMessages() []*proto.PresenceMessage {
 
 // Stats gives a slice of statistics for the current page. The method panics if
 // the underlying paginated result is not statistics.
-func (p *PaginatedResult) Stats() []*proto.Stat {
-	items, ok := p.typItems.([]*proto.Stat)
+func (p *PaginatedResult) Stats() []*proto.Stats {
+	items, ok := p.typItems.([]*proto.Stats)
 	if !ok {
 		panic(errInvalidType{typ: p.typ})
 	}

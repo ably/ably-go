@@ -18,7 +18,7 @@ import (
 
 var (
 	msgType     = reflect.TypeOf((*[]*proto.Message)(nil)).Elem()
-	statType    = reflect.TypeOf((*[]*proto.Stat)(nil)).Elem()
+	statType    = reflect.TypeOf((*[]*proto.Stats)(nil)).Elem()
 	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
 )
 

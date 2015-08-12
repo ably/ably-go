@@ -157,7 +157,7 @@ var _ = Describe("RestClient", func() {
 
 	Describe("Stats", func() {
 		var lastInterval = time.Now().Add(-365 * 24 * time.Hour)
-		var stats []*proto.Stat
+		var stats []*proto.Stats
 
 		var jsonStats = `
 			[
@@ -185,16 +185,16 @@ var _ = Describe("RestClient", func() {
 			err := json.NewDecoder(strings.NewReader(jsonStats)).Decode(&stats)
 			Expect(err).NotTo(HaveOccurred())
 
-			stats[0].IntervalId = proto.IntervalFormatFor(lastInterval.Add(-120*time.Minute), proto.StatGranularityMinute)
-			stats[1].IntervalId = proto.IntervalFormatFor(lastInterval.Add(-60*time.Minute), proto.StatGranularityMinute)
-			stats[2].IntervalId = proto.IntervalFormatFor(lastInterval.Add(-1*time.Minute), proto.StatGranularityMinute)
+			stats[0].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-120*time.Minute), proto.StatGranularityMinute)
+			stats[1].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-60*time.Minute), proto.StatGranularityMinute)
+			stats[2].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-1*time.Minute), proto.StatGranularityMinute)
 
 			res, err := client.Post("/stats", &stats, nil)
 			Expect(err).NotTo(HaveOccurred())
 			res.Body.Close()
 		})
 
-		XIt("parses stats from the rest api", func() {
+		It("parses stats from the rest api", func() {
 			longAgo := lastInterval.Add(-120 * time.Minute)
 			page, err := client.Stats(&ably.PaginateParams{
 				Limit: 1,
@@ -204,7 +204,7 @@ var _ = Describe("RestClient", func() {
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(page.Stats()[0].IntervalId).To(MatchRegexp("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+"))
+			Expect(page.Stats()[0].IntervalID).To(MatchRegexp("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+"))
 		})
 	})
 })
