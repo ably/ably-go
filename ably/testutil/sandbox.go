@@ -176,6 +176,7 @@ func (app *Sandbox) Options(extra *ably.ClientOptions) *ably.ClientOptions {
 		Environment: app.Environment,
 		HTTPClient:  app.client,
 		Key:         app.Key(),
+		Protocol:    os.Getenv("ABLY_PROTOCOL"),
 	}
 	if extra != nil {
 		// Overwrite any non-zero field from ClientOptions passed as argument.
