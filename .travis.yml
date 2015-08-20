@@ -7,12 +7,3 @@ env:
   - GOMAXPROCS=1
 
 sudo: false
-
-install:
-  - go get golang.org/x/tools/cmd/vet
-  - go get -t -v ./...
-
-script:
-  - find . -type f -name '*.go' -not -path './Godeps/*' -exec go vet -x {} \;
-  - go build ./...
-  - go test -race -v ./...
