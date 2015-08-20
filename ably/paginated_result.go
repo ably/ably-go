@@ -1,8 +1,7 @@
 package ably
 
 import (
-	"encoding/json"
-	"errors"
+	"mime"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -10,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/ably/ably-go/ably/proto"
-
-	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
 // relLinkRegexp is the regexp that matches our pagination format
@@ -61,16 +58,12 @@ func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
 	defer resp.Body.Close()
 	p.path = builtPath
 	p.links = resp.Header["Link"]
-	v := reflect.New(p.typ)
-	switch typ := strip(resp.Header.Get("Content-Type"), ';'); typ {
-	case "", "application/x-msgpack":
-		err = msgpack.NewDecoder(resp.Body).Decode(v.Interface())
-	case "application/json":
-		err = json.NewDecoder(resp.Body).Decode(v.Interface())
-	default:
-		err = newError(40000, errors.New("unrecognized Content-Type: "+typ))
-	}
+	mediaType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if err != nil {
+		return nil, err
+	}
+	v := reflect.New(p.typ)
+	if err = decode(mediaType, resp.Body, v.Interface()); err != nil {
 		return nil, err
 	}
 	p.typItems = v.Elem().Interface()

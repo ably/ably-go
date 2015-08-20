@@ -1,7 +1,5 @@
 package ably
 
-import "strings"
-
 func min(i, j int) int {
 	if i < j {
 		return i
@@ -32,11 +30,4 @@ func nonempty(s ...string) string {
 		}
 	}
 	return ""
-}
-
-func strip(s string, r rune) string {
-	if i := strings.IndexRune(s, r); i != -1 {
-		return s[:i]
-	}
-	return s
 }
