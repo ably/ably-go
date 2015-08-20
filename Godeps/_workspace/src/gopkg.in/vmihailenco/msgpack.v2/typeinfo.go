@@ -72,6 +72,7 @@ func init() {
 //------------------------------------------------------------------------------
 
 type field struct {
+	name      string
 	index     []int
 	omitEmpty bool
 
@@ -97,7 +98,61 @@ func (f *field) DecodeValue(d *Decoder, strct reflect.Value) error {
 
 //------------------------------------------------------------------------------
 
-type fields map[string]*field
+type fields struct {
+	List  []*field
+	Table map[string]*field
+}
+
+func newFields(numField int) *fields {
+	return &fields{
+		List:  make([]*field, 0, numField),
+		Table: make(map[string]*field, numField),
+	}
+}
+
+func (fs *fields) Len() int {
+	return len(fs.List)
+}
+
+func (fs *fields) Add(field *field) {
+	fs.List = append(fs.List, field)
+	fs.Table[field.name] = field
+}
+
+func getFields(typ reflect.Type) *fields {
+	numField := typ.NumField()
+	fs := newFields(numField)
+
+	for i := 0; i < numField; i++ {
+		f := typ.Field(i)
+		if f.PkgPath != "" {
+			continue
+		}
+
+		name, opts := parseTag(f.Tag.Get("msgpack"))
+		if name == "-" {
+			continue
+		}
+
+		if opts.Contains("inline") {
+			inlineFields(fs, f)
+			continue
+		}
+
+		if name == "" {
+			name = f.Name
+		}
+		field := &field{
+			name:      name,
+			index:     f.Index,
+			omitEmpty: opts.Contains("omitempty"),
+			encoder:   getEncoder(f.Type),
+			decoder:   getDecoder(f.Type),
+		}
+		fs.Add(field)
+	}
+	return fs
+}
 
 //------------------------------------------------------------------------------
 
@@ -295,7 +350,6 @@ func unmarshalValue(d *Decoder, v reflect.Value) error {
 	if v.IsNil() {
 		v.Set(reflect.New(v.Type().Elem()))
 	}
-
 	b, err := ioutil.ReadAll(d.r)
 	if err != nil {
 		return err
@@ -308,16 +362,16 @@ func unmarshalValue(d *Decoder, v reflect.Value) error {
 
 type structCache struct {
 	l sync.RWMutex
-	m map[reflect.Type]fields
+	m map[reflect.Type]*fields
 }
 
 func newStructCache() *structCache {
 	return &structCache{
-		m: make(map[reflect.Type]fields),
+		m: make(map[reflect.Type]*fields),
 	}
 }
 
-func (m *structCache) Fields(typ reflect.Type) fields {
+func (m *structCache) Fields(typ reflect.Type) *fields {
 	m.l.RLock()
 	fs, ok := m.m[typ]
 	m.l.RUnlock()
@@ -334,37 +388,34 @@ func (m *structCache) Fields(typ reflect.Type) fields {
 	return fs
 }
 
-func getFields(typ reflect.Type) fields {
-	numField := typ.NumField()
-	fs := make(fields, numField)
-	for i := 0; i < numField; i++ {
-		f := typ.Field(i)
-
-		if f.PkgPath != "" {
-			continue
-		}
-
-		name, opts := parseTag(f.Tag.Get("msgpack"))
-		if name == "-" {
-			continue
-		}
-		if name == "" {
-			name = f.Name
-		}
-
-		fieldTyp := typ.FieldByIndex(f.Index).Type
-		fs[name] = &field{
-			index:     f.Index,
-			omitEmpty: opts.Contains("omitempty"),
-
-			encoder: getEncoder(fieldTyp),
-			decoder: getDecoder(fieldTyp),
-		}
+func inlineFields(fs *fields, f reflect.StructField) {
+	typ := f.Type
+	for typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
 	}
-	return fs
+	inlinedFields := getFields(typ).List
+	if len(inlinedFields) == 0 {
+		panic("no fields to inline")
+	}
+	for _, field := range inlinedFields {
+		if _, ok := fs.Table[field.name]; ok {
+			// Don't overwrite shadowed fields.
+			continue
+		}
+		field.index = append(f.Index, field.index...)
+		fs.Add(field)
+	}
 }
 
 func getEncoder(typ reflect.Type) encoderFunc {
+	enc := getTypeEncoder(typ)
+	if id := extTypeId(typ); id != -1 {
+		return makeExtEncoder(id, enc)
+	}
+	return enc
+}
+
+func getTypeEncoder(typ reflect.Type) encoderFunc {
 	kind := typ.Kind()
 
 	if typ.Implements(encoderType) {
@@ -372,7 +423,7 @@ func getEncoder(typ reflect.Type) encoderFunc {
 	}
 
 	// Addressable struct field value.
-	if reflect.PtrTo(typ).Implements(decoderType) {
+	if reflect.PtrTo(typ).Implements(encoderType) {
 		return encodeCustomValuePtr
 	}
 
