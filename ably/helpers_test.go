@@ -10,10 +10,6 @@ import (
 	"time"
 )
 
-func Wait(res Result, err error) error {
-	return wait(res, err)
-}
-
 func (p *PaginatedResult) BuildPath(base, rel string) (string, error) {
 	return p.buildPath(base, rel)
 }
@@ -156,7 +152,7 @@ func MustRealtimeClient(opts *ClientOptions) *RealtimeClient {
 // the attaching failed.
 func (ch *Channels) GetAndAttach(name string) *RealtimeChannel {
 	channel := ch.Get(name)
-	if err := Wait(channel.Attach()); err != nil {
+	if err := wait(channel.Attach()); err != nil {
 		panic(`attach to "` + name + `" failed: ` + err.Error())
 	}
 	return channel

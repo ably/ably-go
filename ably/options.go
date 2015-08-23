@@ -3,6 +3,7 @@ package ably
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -107,9 +108,9 @@ func (opts *ClientOptions) realtimeURL() string {
 		}
 	}
 	if opts.NoTLS {
-		return "ws://" + host + ":80"
+		return "ws://" + net.JoinHostPort(host, "80")
 	}
-	return "wss://" + host + ":443"
+	return "wss://" + net.JoinHostPort(host, "443")
 }
 
 func (opts *ClientOptions) KeyName() string {

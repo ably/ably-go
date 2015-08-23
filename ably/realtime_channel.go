@@ -3,7 +3,6 @@ package ably
 import (
 	"errors"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/ably/ably-go/ably/proto"
@@ -317,17 +316,13 @@ func (c *RealtimeChannel) Reason() error {
 func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
-		c.Presence.onAttach(msg.Flags.Has(proto.FlagPresence))
+		c.Presence.onAttach(msg)
 		c.state.syncSet(StateChanAttached, nil)
 		c.queue.Flush()
 	case proto.ActionDetached:
 		c.state.syncSet(StateChanDetached, nil)
 	case proto.ActionSync:
-		syncSerial := ""
-		if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 {
-			syncSerial = msg.ChannelSerial[i+1:]
-		}
-		c.Presence.processIncomingMessage(msg, syncSerial)
+		c.Presence.processIncomingMessage(msg, syncSerial(msg))
 	case proto.ActionPresence:
 		c.Presence.processIncomingMessage(msg, "")
 	case proto.ActionError:

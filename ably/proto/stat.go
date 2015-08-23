@@ -45,7 +45,7 @@ type Stats struct {
 	TokenRequests Stat            `json:"tokenRequests" msgpack:"tokenRequests"`
 	All           StatSummary     `json:"all" msgpack:"all"`
 	Connections   StatSummary     `json:"connections" msgpack:"connections"`
-	Persisted     StatSummary     `json:"persisted" msgpack"persisted"`
+	Persisted     StatSummary     `json:"persisted" msgpack:"persisted"`
 	Inbound       StatConnSummary `json:"inbound" msgpack:"inbound"`
 	Outbound      StatConnSummary `json:"outbound" msgpack:"outbound"`
 }

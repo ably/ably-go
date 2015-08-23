@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,7 +11,7 @@ import (
 	"github.com/ably/ably-go/ably"
 )
 
-var timeout = 2 * time.Second
+var timeout = 5 * time.Second
 
 func init() {
 	ably.Log.Level = ably.LogVerbose
@@ -28,6 +29,22 @@ func nonil(err ...error) error {
 		}
 	}
 	return nil
+}
+
+func wait(res ably.Result, err error) error {
+	if err != nil {
+		return err
+	}
+	errch := make(chan error)
+	go func() {
+		errch <- res.Wait()
+	}()
+	select {
+	case err := <-errch:
+		return err
+	case <-time.After(timeout):
+		return errors.New("waiting on Result timed out after " + timeout.String())
+	}
 }
 
 func safeclose(t *testing.T, closers ...io.Closer) {

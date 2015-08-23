@@ -2,6 +2,7 @@ package ably
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/ably/ably-go/ably/proto"
@@ -77,12 +78,20 @@ func (pres *RealtimePresence) syncWait() {
 	pres.syncMtx.Unlock()
 }
 
-func (pres *RealtimePresence) onAttach(hasSync bool) {
+func syncSerial(msg *proto.ProtocolMessage) string {
+	if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 {
+		return msg.ChannelSerial[i+1:]
+	}
+	return ""
+}
+
+func (pres *RealtimePresence) onAttach(msg *proto.ProtocolMessage) {
+	serial := syncSerial(msg)
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
 	switch {
-	case hasSync:
-		pres.syncStart()
+	case msg.Flags.Has(proto.FlagPresence) || serial != "":
+		pres.syncStart(serial)
 	case pres.syncState == syncInitial:
 		pres.syncState = syncComplete
 		pres.syncMtx.Unlock()
@@ -97,7 +106,7 @@ func (pres *RealtimePresence) SyncComplete() bool {
 	return pres.syncState == syncComplete
 }
 
-func (pres *RealtimePresence) syncStart() {
+func (pres *RealtimePresence) syncStart(serial string) {
 	if pres.syncState == syncInProgress {
 		return
 	} else if pres.syncState != syncInitial {
@@ -105,6 +114,7 @@ func (pres *RealtimePresence) syncStart() {
 		// initial sync, the callers are already waiting.
 		pres.syncMtx.Lock()
 	}
+	pres.serial = serial
 	pres.syncState = syncInProgress
 	pres.stale = make(map[string]struct{}, len(pres.members))
 	for memberKey := range pres.members {
@@ -142,8 +152,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 	}
 	pres.mtx.Lock()
 	if syncSerial != "" {
-		pres.serial = syncSerial
-		pres.syncStart()
+		pres.syncStart(syncSerial)
 	}
 	// Filter out old messages by their timestamp.
 	messages := make([]*proto.PresenceMessage, 0, len(msg.Presence))

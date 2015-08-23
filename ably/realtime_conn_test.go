@@ -54,7 +54,7 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 	defer safeclose(t, client, app)
 
 	client.Connection.On(rec.Channel())
-	if err := ably.Wait(client.Connection.Connect()); err != nil {
+	if err := wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	if err := client.Close(); err != nil {
@@ -97,10 +97,10 @@ func TestRealtimeConn_AlreadyConnected(t *testing.T) {
 	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{NoConnect: true})
 	defer safeclose(t, client, app)
 
-	if err := ably.Wait(client.Connection.Connect()); err != nil {
+	if err := wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
-	if err := ably.Wait(client.Connection.Connect()); err != nil {
+	if err := wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
 }

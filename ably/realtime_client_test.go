@@ -18,17 +18,17 @@ func TestRealtimeClient_RealtimeHost(t *testing.T) {
 
 	rec := ably.NewRecorder(httpClient)
 	hosts := []string{
-		"ablytest_testhost",
-		"ablytest_somehost",
-		"ablytest_someotherhost",
+		"127.0.0.1",
+		"localhost",
+		"::1",
 	}
 	for _, host := range hosts {
 		client, err := ably.NewRealtimeClient(app.Options(rec.Options(host)))
 		if err != nil {
-			t.Errorf("NewRealtimeClient=%s (host=%s)", err)
+			t.Errorf("NewRealtimeClient=%s (host=%s)", err, host)
 			continue
 		}
-		if err := checkError(80000, ably.Wait(client.Connection.Connect())); err != nil {
+		if err := checkError(80000, wait(client.Connection.Connect())); err != nil {
 			t.Errorf("%s (host=%s)", err, host)
 			continue
 		}
@@ -37,7 +37,7 @@ func TestRealtimeClient_RealtimeHost(t *testing.T) {
 			continue
 		}
 		if _, ok := rec.Hosts[host]; !ok {
-			t.Errorf("host %s was not recorded", host)
+			t.Errorf("host %s was not recorded (recorded %v)", host, rec.Hosts)
 		}
 	}
 }
