@@ -3,9 +3,9 @@ package proto
 import "fmt"
 
 type Error struct {
-	StatusCode int    `json:"statusCode"`
-	Code       int    `json:"code"`
-	Message    string `json:"message"`
+	StatusCode int    `json:"statusCode" msgpack:"statusCode"`
+	Code       int    `json:"code" msgpack:"code"`
+	Message    string `json:"message" msgpack:"message"`
 }
 
 func (e *Error) Error() string {

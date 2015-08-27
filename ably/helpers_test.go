@@ -2,14 +2,13 @@ package ably
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 	"reflect"
 	"sync"
 	"time"
 )
-
-func Wait(res Result, err error) error {
-	return wait(res, err)
-}
 
 func (p *PaginatedResult) BuildPath(base, rel string) (string, error) {
 	return p.buildPath(base, rel)
@@ -153,7 +152,7 @@ func MustRealtimeClient(opts *ClientOptions) *RealtimeClient {
 // the attaching failed.
 func (ch *Channels) GetAndAttach(name string) *RealtimeChannel {
 	channel := ch.Get(name)
-	if err := Wait(channel.Attach()); err != nil {
+	if err := wait(channel.Attach()); err != nil {
 		panic(`attach to "` + name + `" failed: ` + err.Error())
 	}
 	return channel
@@ -212,4 +211,50 @@ func (rg *ResultGroup) Wait() error {
 	case err := <-rg.errch:
 		return err
 	}
+}
+
+type HostRecorder struct {
+	Hosts map[string]struct{}
+
+	mu         sync.Mutex
+	httpClient *http.Client
+	dialWS     func(string, *url.URL) (MsgConn, error)
+}
+
+func NewRecorder(httpClient *http.Client) *HostRecorder {
+	hr := &HostRecorder{
+		Hosts:      make(map[string]struct{}),
+		httpClient: httpClient,
+	}
+	transport := httpClient.Transport.(*http.Transport)
+	dial := transport.Dial
+	transport.Dial = func(network, addr string) (net.Conn, error) {
+		hr.addHost(addr)
+		return dial(network, addr)
+	}
+	hr.dialWS = func(proto string, u *url.URL) (MsgConn, error) {
+		hr.addHost(u.Host)
+		return dialWebsocket(proto, u)
+	}
+	return hr
+}
+
+func (hr *HostRecorder) Options(host string) *ClientOptions {
+	return &ClientOptions{
+		RealtimeHost: host,
+		NoConnect:    true,
+		HTTPClient:   hr.httpClient,
+		Dial:         hr.dialWS,
+	}
+}
+
+func (hr *HostRecorder) addHost(host string) {
+	hr.mu.Lock()
+	defer hr.mu.Unlock()
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		hr.Hosts[h] = struct{}{}
+	} else {
+		hr.Hosts[host] = struct{}{}
+	}
+
 }

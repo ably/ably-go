@@ -16,11 +16,11 @@ const (
 )
 
 type Data struct {
-	Type       Type    `json:"type"`
-	I32Data    int32   `json:"i32Data"`
-	I64Data    int64   `json:"i64Data"`
-	DoubleData float64 `json:"doubleData"`
-	StringData string  `json:"stringData"`
-	BinaryData []byte  `json:"binaryData"`
-	CipherData []byte  `json:"cipherData"`
+	Type       Type    `json:"type" msgpack:"type"`
+	I32Data    int32   `json:"i32Data" msgpack:"i32Data"`
+	I64Data    int64   `json:"i64Data" msgpack:"i64Data"`
+	DoubleData float64 `json:"doubleData" msgpack:"doubleData"`
+	StringData string  `json:"stringData" msgpack:"stringData"`
+	BinaryData []byte  `json:"binaryData" msgpack:"binaryData"`
+	CipherData []byte  `json:"cipherData" msgpack:"cipherData"`
 }

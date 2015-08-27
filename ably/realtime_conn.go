@@ -8,7 +8,7 @@ import (
 
 	"github.com/ably/ably-go/ably/proto"
 
-	"github.com/ably/ably-go/Godeps/_workspace/src/code.google.com/p/go.net/websocket"
+	"github.com/ably/ably-go/Godeps/_workspace/src/golang.org/x/net/websocket"
 	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
@@ -88,7 +88,7 @@ func (c *Conn) connect(result bool) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	if c.isActive() {
-		return nil, nil
+		return nopResult, nil
 	}
 	c.state.set(StateConnConnecting, nil)
 	u, err := url.Parse(c.opts.realtimeURL())
@@ -110,9 +110,11 @@ func (c *Conn) connect(result bool) (Result, error) {
 	proto := c.opts.protocol()
 	query := url.Values{
 		"access_token": {token.Token},
-		"binary":       booltext(proto == ProtocolMsgPack),
 		"timestamp":    []string{strconv.FormatInt(TimestampNow(), 10)},
 		"echo":         booltext(!c.opts.NoEcho),
+	}
+	if c.opts.UseBinaryProtocol || c.opts.protocol() == ProtocolMsgPack {
+		query.Add("format", "msgpack")
 	}
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)
@@ -131,7 +133,9 @@ var errClose = newError(50002, errors.New("Close() on inactive connection"))
 // If connection is already closed, this method is a nop.
 func (c *Conn) Close() error {
 	err := wait(c.close())
-	c.conn.Close()
+	if c.conn != nil {
+		c.conn.Close()
+	}
 	if err != nil {
 		return c.state.syncSet(StateConnFailed, newErrorf(50002, "Close error: %s", err))
 	}

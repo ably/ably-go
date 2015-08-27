@@ -2,7 +2,6 @@ package ably_test
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -120,7 +119,7 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	app, client := testutil.ProvisionRealtime(nil, opts)
 	defer safeclose(t, client, app)
 	channel := client.Channels.Get("persisted:presence_fixtures")
-	if err := ably.Wait(client.Connection.Connect()); err != nil {
+	if err := wait(client.Connection.Connect()); err != nil {
 		t.Fatal(err)
 	}
 	if err := rec.WaitFor(presTransitions[:2], time.Second); err != nil {
@@ -130,11 +129,11 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := rec.WaitFor(presTransitions, time.Second); err != nil {
+		t.Fatal(err)
+	}
 	rec.Stop()
 	if err = contains(members, fixtureMembers...); err != nil {
 		t.Fatal(err)
-	}
-	if states := rec.States(); !reflect.DeepEqual(states, presTransitions) {
-		t.Errorf("expected states=%# v; got %# v", presTransitions, states)
 	}
 }

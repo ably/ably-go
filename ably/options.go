@@ -3,6 +3,7 @@ package ably
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -20,7 +21,7 @@ var errInvalidKey = errors.New("invalid key format")
 var DefaultOptions = &ClientOptions{
 	RestHost:          "rest.ably.io",
 	RealtimeHost:      "realtime.ably.io",
-	Protocol:          ProtocolJSON, // TODO: make it ProtocolMsgPack
+	Protocol:          ProtocolMsgPack,
 	TimeoutConnect:    15 * time.Second,
 	TimeoutDisconnect: 30 * time.Second,
 	TimeoutSuspended:  2 * time.Minute,
@@ -107,9 +108,9 @@ func (opts *ClientOptions) realtimeURL() string {
 		}
 	}
 	if opts.NoTLS {
-		return "ws://" + host + ":80"
+		return "ws://" + net.JoinHostPort(host, "80")
 	}
-	return "wss://" + host + ":443"
+	return "wss://" + net.JoinHostPort(host, "443")
 }
 
 func (opts *ClientOptions) KeyName() string {
@@ -137,7 +138,7 @@ func (opts *ClientOptions) protocol() string {
 	if opts.Protocol != "" {
 		return opts.Protocol
 	}
-	return ProtocolJSON // TODO: make it ProtocolMsgPack
+	return DefaultOptions.Protocol
 }
 
 // Timestamp returns the given time as a timestamp in milliseconds since epoch.

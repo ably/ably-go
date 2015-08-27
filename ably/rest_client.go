@@ -4,6 +4,8 @@ import (
 	"bytes"
 	_ "crypto/sha512"
 	"encoding/json"
+	"io"
+	"mime"
 	"net/http"
 	"reflect"
 	"sync"
@@ -16,9 +18,14 @@ import (
 
 var (
 	msgType     = reflect.TypeOf((*[]*proto.Message)(nil)).Elem()
-	statType    = reflect.TypeOf((*[]*proto.Stat)(nil)).Elem()
+	statType    = reflect.TypeOf((*[]*proto.Stats)(nil)).Elem()
 	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
 )
+
+var protoMIME = map[string]string{
+	ProtocolJSON:    "application/json",
+	ProtocolMsgPack: "application/x-msgpack",
+}
 
 func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
 	return func(path string) (*http.Response, error) {
@@ -88,8 +95,16 @@ func (c *RestClient) handleResp(v interface{}, resp *http.Response, err error) (
 		return resp, nil
 	}
 	defer resp.Body.Close()
-	if err = json.NewDecoder(resp.Body).Decode(v); err != nil {
-		return nil, newError(50000, err)
+	proto := c.Auth.options.protocol()
+	typ, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, err
+	}
+	if typ != protoMIME[proto] {
+		return nil, newErrorf(40000, "unrecognized Content-Type: %q", typ)
+	}
+	if err := decode(typ, resp.Body, v); err != nil {
+		return nil, err
 	}
 	return resp, nil
 }
@@ -102,39 +117,63 @@ func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
 }
 
 func (c *RestClient) Get(path string, out interface{}) (*http.Response, error) {
-	req, err := http.NewRequest("GET", c.Auth.options.restURL()+path, nil)
+	req, err := c.newRequest("GET", path, nil)
 	if err != nil {
-		return nil, newError(50000, err)
+		return nil, err
 	}
-	req.Header.Set("Accept", "application/json")
-	req.SetBasicAuth(c.Auth.keyName, c.Auth.keySecret)
 	resp, err := c.Auth.options.httpclient().Do(req)
 	return c.handleResp(out, resp, err)
 }
 
 func (c *RestClient) Post(path string, in, out interface{}) (*http.Response, error) {
-	p, err := c.marshalMessages(in)
+	req, err := c.newRequest("POST", path, in)
 	if err != nil {
-		return nil, newError(ErrCodeProtocol, err)
+		return nil, err
 	}
-	req, err := http.NewRequest("POST", c.Auth.options.restURL()+path, bytes.NewReader(p))
-	if err != nil {
-		return nil, newError(50000, err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.SetBasicAuth(c.Auth.keyName, c.Auth.keySecret)
 	resp, err := c.Auth.options.httpclient().Do(req)
 	return c.handleResp(out, resp, err)
 }
 
-func (c *RestClient) marshalMessages(in interface{}) ([]byte, error) {
-	switch proto := c.Auth.options.protocol(); proto {
-	case ProtocolJSON:
+func (c *RestClient) newRequest(method, path string, in interface{}) (*http.Request, error) {
+	var body io.Reader
+	var typ = protoMIME[c.Auth.options.protocol()]
+	if in != nil {
+		p, err := encode(typ, in)
+		if err != nil {
+			return nil, newError(ErrCodeProtocol, err)
+		}
+		body = bytes.NewReader(p)
+	}
+	req, err := http.NewRequest(method, c.Auth.options.restURL()+path, body)
+	if err != nil {
+		return nil, newError(50000, err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", typ)
+	}
+	req.Header.Set("Accept", typ)
+	req.SetBasicAuth(c.Auth.keyName, c.Auth.keySecret)
+	return req, nil
+}
+
+func encode(typ string, in interface{}) ([]byte, error) {
+	switch typ {
+	case "application/json":
 		return json.Marshal(in)
-	case ProtocolMsgPack:
+	case "application/x-msgpack":
 		return msgpack.Marshal(in)
 	default:
-		return nil, newErrorf(ErrCodeProtocol, "invalid protocol: %q", proto)
+		return nil, newErrorf(40000, "unrecognized Content-Type: %q", typ)
+	}
+}
+
+func decode(typ string, r io.Reader, out interface{}) error {
+	switch typ {
+	case "application/json":
+		return json.NewDecoder(r).Decode(out)
+	case "application/x-msgpack":
+		return msgpack.NewDecoder(r).Decode(out)
+	default:
+		return newErrorf(40000, "unrecognized Content-Type: %q", typ)
 	}
 }

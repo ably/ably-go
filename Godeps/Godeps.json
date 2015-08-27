@@ -6,11 +6,6 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "code.google.com/p/go.net/websocket",
-			"Comment": "null-240",
-			"Rev": "937a34c9de13c766c814510f76bca091dee06028"
-		},
-		{
 			"ImportPath": "github.com/flynn/flynn/pkg/random",
 			"Comment": "v20150105.0-15-g736b4d5",
 			"Rev": "736b4d597fe39e75c9777942245ee02a24bb0d26"
@@ -30,9 +25,13 @@
 			"Rev": "f71da62b90e6a6df720e69d4607dcfd10443c75a"
 		},
 		{
+			"ImportPath": "golang.org/x/net/websocket",
+			"Rev": "4a71d182556e05375344f3da665304f3d5784ab4"
+		},
+		{
 			"ImportPath": "gopkg.in/vmihailenco/msgpack.v2",
-			"Comment": "v2.1.4",
-			"Rev": "2f3337bc4c9ded23745439860363115f8a8e99e2"
+			"Comment": "v2.3",
+			"Rev": "9dbd4ac30c0b67927f0fb5557fb8341047bd35f7"
 		}
 	]
 }

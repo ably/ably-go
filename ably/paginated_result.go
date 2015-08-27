@@ -1,7 +1,7 @@
 package ably
 
 import (
-	"encoding/json"
+	"mime"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -58,8 +58,12 @@ func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
 	defer resp.Body.Close()
 	p.path = builtPath
 	p.links = resp.Header["Link"]
+	mediaType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, err
+	}
 	v := reflect.New(p.typ)
-	if err = json.NewDecoder(resp.Body).Decode(v.Interface()); err != nil {
+	if err = decode(mediaType, resp.Body, v.Interface()); err != nil {
 		return nil, err
 	}
 	p.typItems = v.Elem().Interface()
@@ -115,8 +119,8 @@ func (p *PaginatedResult) PresenceMessages() []*proto.PresenceMessage {
 
 // Stats gives a slice of statistics for the current page. The method panics if
 // the underlying paginated result is not statistics.
-func (p *PaginatedResult) Stats() []*proto.Stat {
-	items, ok := p.typItems.([]*proto.Stat)
+func (p *PaginatedResult) Stats() []*proto.Stats {
+	items, ok := p.typItems.([]*proto.Stats)
 	if !ok {
 		panic(errInvalidType{typ: p.typ})
 	}

@@ -39,7 +39,7 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 	defer safeclose(t, client, app)
 
 	channel := client.Channels.Get("test")
-	if err := ably.Wait(channel.Publish("hello", "world")); err != nil {
+	if err := wait(channel.Publish("hello", "world")); err != nil {
 		t.Fatalf("Publish()=%v", err)
 	}
 }
@@ -68,10 +68,10 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	}
 	defer sub2.Close()
 
-	if err := ably.Wait(channel1.Publish("hello", "client1")); err != nil {
+	if err := wait(channel1.Publish("hello", "client1")); err != nil {
 		t.Fatalf("client1: Publish()=%v", err)
 	}
-	if err := ably.Wait(channel2.Publish("hello", "client2")); err != nil {
+	if err := wait(channel2.Publish("hello", "client2")); err != nil {
 		t.Fatalf("client2: Publish()=%v", err)
 	}
 
@@ -122,7 +122,7 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		t.Fatalf("channel.Subscribe()=%v", err)
 	}
 	defer sub.Close()
-	if err := ably.Wait(channel.Publish("hello", "world")); err != nil {
+	if err := wait(channel.Publish("hello", "world")); err != nil {
 		t.Fatalf("channel.Publish()=%v", err)
 	}
 	done := make(chan error)

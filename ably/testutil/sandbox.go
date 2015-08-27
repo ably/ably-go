@@ -116,7 +116,7 @@ func NewSandbox(config *Config) (*Sandbox, error) {
 	app := &Sandbox{
 		Config:      config,
 		Environment: nonempty(os.Getenv("ABLY_ENV"), "sandbox"),
-		client:      httpClient(),
+		client:      NewHTTPClient(),
 	}
 	if app.Config == nil {
 		app.Config = DefaultConfig()
@@ -176,6 +176,7 @@ func (app *Sandbox) Options(extra *ably.ClientOptions) *ably.ClientOptions {
 		Environment: app.Environment,
 		HTTPClient:  app.client,
 		Key:         app.Key(),
+		Protocol:    os.Getenv("ABLY_PROTOCOL"),
 	}
 	if extra != nil {
 		// Overwrite any non-zero field from ClientOptions passed as argument.
@@ -219,11 +220,8 @@ func nonempty(s ...string) string {
 	return ""
 }
 
-func httpClient() *http.Client {
+func NewHTTPClient() *http.Client {
 	const timeout = 10 * time.Second
-	if os.Getenv("HTTP_PROXY") == "" {
-		return http.DefaultClient
-	}
 	return &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
@@ -233,7 +231,9 @@ func httpClient() *http.Client {
 				KeepAlive: timeout,
 			}).Dial,
 			TLSHandshakeTimeout: timeout,
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: os.Getenv("HTTP_PROXY") != "",
+			},
 		},
 	}
 }
