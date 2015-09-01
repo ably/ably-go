@@ -187,7 +187,7 @@ var _ = Describe("RestClient", func() {
 			page, err := client.Stats(&ably.PaginateParams{
 				Limit: 1,
 				ScopeParams: ably.ScopeParams{
-					Start: ably.Timestamp(longAgo),
+					Start: ably.Time(longAgo),
 					Unit:  proto.StatGranularityMinute,
 				},
 			})

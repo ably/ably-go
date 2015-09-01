@@ -1,6 +1,10 @@
 package ably
 
-import "reflect"
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"reflect"
+)
 
 func min(i, j int) int {
 	if i < j {
@@ -32,6 +36,12 @@ func nonempty(s ...string) string {
 		}
 	}
 	return ""
+}
+
+func randomString(n int) string {
+	p := make([]byte, n/2+1)
+	rand.Read(p)
+	return hex.EncodeToString(p)[:n]
 }
 
 // merge iterates over fields of struct pointed by v and when it's non-zero,

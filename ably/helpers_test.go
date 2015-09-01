@@ -32,6 +32,10 @@ func (c *RestClient) Post(path string, in, out interface{}) (*http.Response, err
 	return c.post(path, in, out)
 }
 
+func DecodeResp(resp *http.Response, out interface{}) error {
+	return decodeResp(resp, out)
+}
+
 func ErrorCode(err error) int {
 	return code(err)
 }

@@ -103,7 +103,7 @@ func (c *Conn) connect(result bool) (Result, error) {
 	}
 	proto := c.opts.protocol()
 	query := url.Values{
-		"timestamp": []string{strconv.FormatInt(TimestampNow(), 10)},
+		"timestamp": []string{strconv.FormatInt(TimeNow(), 10)},
 		"echo":      booltext(!c.opts.NoEcho),
 	}
 	if c.opts.UseBinaryProtocol || c.opts.protocol() == ProtocolMsgPack {

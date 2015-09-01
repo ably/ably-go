@@ -1,7 +1,6 @@
 package ably
 
 import (
-	"mime"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -58,12 +57,8 @@ func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
 	defer resp.Body.Close()
 	p.path = builtPath
 	p.links = resp.Header["Link"]
-	mediaType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
-	if err != nil {
-		return nil, err
-	}
 	v := reflect.New(p.typ)
-	if err = decode(mediaType, resp.Body, v.Interface()); err != nil {
+	if err := decodeResp(resp, v.Interface()); err != nil {
 		return nil, err
 	}
 	p.typItems = v.Elem().Interface()

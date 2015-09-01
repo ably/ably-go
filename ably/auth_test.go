@@ -15,6 +15,17 @@ import (
 	"github.com/ably/ably-go/ably/testutil"
 )
 
+var single = &ably.PaginateParams{
+	Limit:     1,
+	Direction: "forwards",
+}
+
+var useToken = &ably.ClientOptions{
+	AuthOptions: ably.AuthOptions{
+		UseTokenAuth: true,
+	},
+}
+
 func recorder() (*ably.RoundTripRecorder, *ably.ClientOptions) {
 	rec := &ably.RoundTripRecorder{}
 	opts := &ably.ClientOptions{
@@ -40,6 +51,7 @@ func authValue(req *http.Request) (value string, err error) {
 func TestAuth_BasicAuth(t *testing.T) {
 	t.Parallel()
 	rec, opts := recorder()
+	opts.UseQueryTime = true
 	defer rec.Stop()
 	app, client := testutil.ProvisionRest(opts)
 	defer safeclose(t, app)
@@ -47,17 +59,20 @@ func TestAuth_BasicAuth(t *testing.T) {
 	if _, err := client.Time(); err != nil {
 		t.Fatalf("client.Time()=%v", err)
 	}
-	if rec.Len() != 1 {
-		t.Fatalf("want rec.Len()=1; got %d", rec.Len())
+	if _, err := client.Stats(single); err != nil {
+		t.Fatalf("client.Stats()=%v", err)
+	}
+	if n := rec.Len(); n != 2 {
+		t.Fatalf("want rec.Len()=2; got %d", n)
 	}
 	if method := client.Auth.Method; method != ably.AuthBasic {
 		t.Fatalf("want method=basic; got %s", method)
 	}
-	url := rec.Request(0).URL
+	url := rec.Request(1).URL
 	if url.Scheme != "https" {
 		t.Fatalf("want url.Scheme=https; got %s", url.Scheme)
 	}
-	auth, err := authValue(rec.Request(0))
+	auth, err := authValue(rec.Request(1))
 	if err != nil {
 		t.Fatalf("authValue=%v", err)
 	}
@@ -87,6 +102,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 	defer rec.Stop()
 	opts.NoTLS = true
 	opts.UseTokenAuth = true
+	opts.UseQueryTime = true
 	app, client := testutil.ProvisionRest(opts)
 	defer safeclose(t, app)
 
@@ -94,22 +110,27 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if _, err := client.Time(); err != nil {
 		t.Fatalf("client.Time()=%v", err)
 	}
+	if _, err := client.Stats(single); err != nil {
+		t.Fatalf("client.Stats()=%v", err)
+	}
 	// At this points there should be two requests recorded:
 	//
-	//   - first: the one requesting token
-	//   - second: actual time request
+	//   - first: explicit call to Time()
+	//   - second: implicit call to Time() during token request
+	//   - third: token request
+	//   - fourth: actual stats request
 	//
-	if rec.Len() != 2 {
-		t.Fatalf("want rec.Len()=2; got %d", rec.Len())
+	if n := rec.Len(); n != 4 {
+		t.Fatalf("want rec.Len()=4; got %d", n)
 	}
 	if client.Auth.Method != ably.AuthToken {
 		t.Fatalf("want method=token; got %s", client.Auth.Method)
 	}
-	url := rec.Request(1).URL
+	url := rec.Request(3).URL
 	if url.Scheme != "http" {
 		t.Fatalf("want url.Scheme=http; got %s", url.Scheme)
 	}
-	auth, err := authValue(rec.Request(1))
+	auth, err := authValue(rec.Request(3))
 	if err != nil {
 		t.Fatalf("authValue=%v", err)
 	}
@@ -120,8 +141,8 @@ func TestAuth_TokenAuth(t *testing.T) {
 	// Call to Authorise with force set to false should not refresh the token
 	// and return existing one.
 	// The following ensures no token request was made.
-	if rec.Len() != 2 {
-		t.Fatal("Authorise() did not return existing token")
+	if n := rec.Len(); n != 4 {
+		t.Fatalf("Authorise() did not return existing token; want rec.Len()=4; %d", n)
 	}
 	if auth != tok.Token {
 		t.Fatalf("want auth=%q; got %q", tok.Token, auth)
@@ -150,6 +171,70 @@ func TestAuth_TokenAuth(t *testing.T) {
 	}
 }
 
+func TestAuth_TokenAuth_Renew(t *testing.T) {
+	t.Parallel()
+	rec, opts := recorder()
+	defer rec.Stop()
+	opts.UseTokenAuth = true
+	app, client := testutil.ProvisionRest(opts)
+	defer safeclose(t, app)
+
+	params := &ably.TokenParams{
+		TTL: ably.Duration(time.Second),
+	}
+	tok, err := client.Auth.Authorise(nil, params, true)
+	if err != nil {
+		t.Fatalf("Authorise()=%v", err)
+	}
+	if n := rec.Len(); n != 1 {
+		t.Fatalf("want rec.Len()=1; got %d", n)
+	}
+	if ttl := tok.ExpireTime().Sub(tok.IssueTime()); ttl > 2*time.Second {
+		t.Fatalf("want ttl=1s; got %v", ttl)
+	}
+	time.Sleep(2 * time.Second) // wait till expires
+	_, err = client.Stats(single)
+	if err != nil {
+		t.Fatalf("Stats()=%v", err)
+	}
+	// Recorded responses:
+	//
+	//   - 0: response for explicit Authorise()
+	//   - 1: response for implicit Authorise() (token renewal)
+	//   - 2: response for Stats()
+	//
+	if n := rec.Len(); n != 3 {
+		t.Fatalf("token not renewed; want rec.Len()=3; got %d", n)
+	}
+	var newTok ably.TokenDetails
+	if err := ably.DecodeResp(rec.Response(1), &newTok); err != nil {
+		t.Fatalf("token decode error: %v", err)
+	}
+	if tok.Token == newTok.Token {
+		t.Fatalf("token not renewed; new token equals old: %s", tok.Token)
+	}
+	// Ensure token was renewed with original params.
+	if ttl := newTok.ExpireTime().Sub(newTok.IssueTime()); ttl > 2*time.Second {
+		t.Fatalf("want ttl=1s; got %v", ttl)
+	}
+	time.Sleep(2 * time.Second) // wait for token to expire
+	// Ensure request fails when Token or *TokenDetails is provided, but no
+	// means to renew the token
+	opts = app.Options(opts)
+	opts.Key = ""
+	opts.TokenDetails = tok
+	client, err = ably.NewRestClient(opts)
+	if err != nil {
+		t.Fatalf("NewRestClient()=%v", err)
+	}
+	if _, err := client.Stats(single); err == nil {
+		t.Fatal("want err!=nil")
+	}
+	if n := rec.Len(); n != 3 {
+		t.Fatalf("token not renewed; want rec.Len()=3; got %d", n)
+	}
+}
+
 func TestAuth_RequestToken(t *testing.T) {
 	t.Parallel()
 	rec, opts := recorder()
@@ -160,15 +245,15 @@ func TestAuth_RequestToken(t *testing.T) {
 	server := ably.MustAuthReverseProxy(app.Options(opts))
 	defer safeclose(t, server)
 
-	if rec.Len() != 0 {
-		t.Fatalf("want rec.Len()=0; got %d", rec.Len())
+	if n := rec.Len(); n != 0 {
+		t.Fatalf("want rec.Len()=0; got %d", n)
 	}
 	token, err := client.Auth.RequestToken(nil, nil)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
-	if rec.Len() != 1 {
-		t.Fatalf("want rec.Len()=1; got %d", rec.Len())
+	if n := rec.Len(); n != 1 {
+		t.Fatalf("want rec.Len()=1; got %d", n)
 	}
 	// Enqueue token in the auth reverse proxy - expect it'd be received in response
 	// to AuthURL request.
@@ -181,8 +266,8 @@ func TestAuth_RequestToken(t *testing.T) {
 		t.Fatalf("RequestToken()=%v", err)
 	}
 	// Ensure token was requested from AuthURL.
-	if rec.Len() != 2 {
-		t.Fatalf("want rec.Len()=2; got %d", rec.Len())
+	if n := rec.Len(); n != 2 {
+		t.Fatalf("want rec.Len()=2; got %d", n)
 	}
 	if got, want := rec.Request(1).URL.Host, server.Listener.Addr().String(); got != want {
 		t.Fatalf("want request.URL.Host=%s; got %s", want, got)
@@ -199,8 +284,8 @@ func TestAuth_RequestToken(t *testing.T) {
 	}
 	// token2 and token3 were obtained from the original token value, thus
 	// ensure no request to Ably servers were made.
-	if rec.Len() != 2 {
-		t.Fatalf("want rec.Len()=2; got %d", rec.Len())
+	if n := rec.Len(); n != 2 {
+		t.Fatalf("want rec.Len()=2; got %d", n)
 	}
 	// Ensure all tokens received from RequestToken are equal.
 	if !reflect.DeepEqual(token, token2) {
@@ -219,8 +304,8 @@ func TestAuth_RequestToken(t *testing.T) {
 	if _, err = client.Auth.RequestToken(authOpts, nil); err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
-	if rec.Len() != 3 {
-		t.Fatalf("want rec.Len()=3; got %d", rec.Len())
+	if n := rec.Len(); n != 3 {
+		t.Fatalf("want rec.Len()=3; got %d", n)
 	}
 	req := rec.Request(2)
 	if req.Method != "POST" {
@@ -236,5 +321,29 @@ func TestAuth_RequestToken(t *testing.T) {
 		if got, want := query.Get(k), authOpts.AuthParams.Get(k); got != want {
 			t.Errorf("want %s; got %s", want, got)
 		}
+	}
+}
+
+func TestAuth_CreateTokenRequest(t *testing.T) {
+	t.Parallel()
+	app, client := testutil.ProvisionRest(useToken)
+	defer safeclose(t, app)
+
+	opts := &ably.AuthOptions{
+		UseQueryTime: true,
+	}
+	params := &ably.TokenParams{
+		TTL:           ably.Duration(5 * time.Second),
+		RawCapability: (ably.Capability{"presence": {"read", "write"}}).Encode(),
+	}
+	req, err := client.Auth.CreateTokenRequest(opts, params)
+	if err != nil {
+		t.Fatalf("CreateTokenRequest()=%v", err)
+	}
+	if len(req.Nonce) < 16 {
+		t.Fatalf("want len(nonce)>=16; got %d", len(req.Nonce))
+	}
+	if req.Mac == "" {
+		t.Fatalf("want mac to be not empty")
 	}
 }

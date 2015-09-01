@@ -52,8 +52,14 @@ func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 }
 
 func (c *RestClient) Time() (time.Time, error) {
-	times := []int64{}
-	_, err := c.get("/time", &times)
+	var times []int64
+	r := &request{
+		Method: "GET",
+		Path:   "/time",
+		Out:    &times,
+		NoAuth: true,
+	}
+	_, err := c.do(r)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -127,11 +133,11 @@ func (c *RestClient) do(r *request) (*http.Response, error) {
 	case err == nil:
 		return resp, nil
 	case code(err) == 40140:
+		c.Auth.setToken(nil) // clear expired token
 		if r.NoRenew || !c.Auth.isTokenRenewable() {
 			return nil, err
 		}
-		// Renew token.
-		if _, err := c.Auth.Authorise(nil, nil, true); err != nil {
+		if _, err := c.Auth.reauthorise(true); err != nil {
 			return nil, err
 		}
 		r.NoRenew = true
@@ -174,16 +180,7 @@ func (c *RestClient) handleResponse(resp *http.Response, out interface{}) (*http
 	if out == nil {
 		return resp, nil
 	}
-	defer resp.Body.Close()
-	proto := c.options.protocol()
-	typ, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
-	if err != nil {
-		return nil, err
-	}
-	if typ != proto {
-		return nil, newErrorf(40000, "unrecognized Content-Type: %q", typ)
-	}
-	if err := decode(typ, resp.Body, out); err != nil {
+	if err := decodeResp(resp, out); err != nil {
 		return nil, err
 	}
 	return resp, nil
@@ -218,4 +215,13 @@ func decode(typ string, r io.Reader, out interface{}) error {
 	default:
 		return newErrorf(40000, "decoding error: unrecognized Content-Type: %q", typ)
 	}
+}
+
+func decodeResp(resp *http.Response, out interface{}) error {
+	defer resp.Body.Close()
+	typ, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
+	return decode(typ, resp.Body, out)
 }

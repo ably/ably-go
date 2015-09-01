@@ -6,11 +6,6 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "github.com/flynn/flynn/pkg/random",
-			"Comment": "v20150105.0-15-g736b4d5",
-			"Rev": "736b4d597fe39e75c9777942245ee02a24bb0d26"
-		},
-		{
 			"ImportPath": "github.com/onsi/ginkgo",
 			"Comment": "v1.1.0-33-g17ea479",
 			"Rev": "17ea479729ee427265ac1e913443018350946ddf"

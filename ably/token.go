@@ -42,7 +42,7 @@ type TokenParams struct {
 	// is successful, the TTL of the returned token will be less than or equal
 	// to this value depending on application settings and the attributes
 	// of the issuing key.
-	TTL int `json:"ttl" msgpack:"ttl"`
+	TTL int64 `json:"ttl" msgpack:"ttl"`
 
 	// RawCapability represents encoded access rights of the token.
 	RawCapability string `json:"capability" msgpack:"capability"`
@@ -72,7 +72,7 @@ func (params *TokenParams) Query() url.Values {
 		q.Set("keyName", params.KeyName)
 	}
 	if params.TTL != 0 {
-		q.Set("ttl", strconv.Itoa(params.TTL))
+		q.Set("ttl", strconv.FormatInt(params.TTL, 10))
 	}
 	if params.RawCapability != "" {
 		q.Set("capability", params.RawCapability)
@@ -131,7 +131,7 @@ func (tok *TokenDetails) Capability() Capability {
 
 // Expired
 func (tok *TokenDetails) Expired() bool {
-	return tok.Expires != 0 && tok.Expires <= TimestampNow()
+	return tok.Expires != 0 && tok.Expires <= TimeNow()
 }
 
 func (tok *TokenDetails) IssueTime() time.Time {

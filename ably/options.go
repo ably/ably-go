@@ -252,14 +252,19 @@ func (opts *ClientOptions) protocol() string {
 	return DefaultOptions.Protocol
 }
 
-// Timestamp returns the given time as a timestamp in milliseconds since epoch.
-func Timestamp(t time.Time) int64 {
+// Time returns the given time as a timestamp in milliseconds since epoch.
+func Time(t time.Time) int64 {
 	return t.UnixNano() / int64(time.Millisecond)
 }
 
-// TimestampNow returns current time as a timestamp in milliseconds since epoch.
-func TimestampNow() int64 {
-	return Timestamp(time.Now())
+// TimeNow returns current time as a timestamp in milliseconds since epoch.
+func TimeNow() int64 {
+	return Time(time.Now())
+}
+
+// Duration returns converts the given duration to milliseconds.
+func Duration(d time.Duration) int64 {
+	return int64(d / time.Millisecond)
 }
 
 // This needs to use a timestamp in millisecond
