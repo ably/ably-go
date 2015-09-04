@@ -301,11 +301,18 @@ func TestAuth_RequestToken(t *testing.T) {
 		AuthHeaders: http.Header{"X-Header-1": {"header"}, "X-Header-2": {"header"}},
 		AuthParams:  url.Values{"param_1": {"value"}, "param_2": {"value"}},
 	}
-	if _, err = client.Auth.RequestToken(authOpts, nil); err != nil {
+	params := &ably.TokenParams{
+		ClientID: "test",
+	}
+	token4, err := client.Auth.RequestToken(authOpts, params)
+	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
-	if n := rec.Len(); n != 3 {
-		t.Fatalf("want rec.Len()=3; got %d", n)
+	if token4.Token == token3.Token {
+		t.Fatalf("want token4.Token != token3.Token: %s", token4.Token)
+	}
+	if n := rec.Len(); n != 4 {
+		t.Fatalf("want rec.Len()=4; got %d", n)
 	}
 	req := rec.Request(2)
 	if req.Method != "POST" {
@@ -321,6 +328,16 @@ func TestAuth_RequestToken(t *testing.T) {
 		if got, want := query.Get(k), authOpts.AuthParams.Get(k); got != want {
 			t.Errorf("want %s; got %s", want, got)
 		}
+	}
+	var tokReq ably.TokenRequest
+	if err := ably.DecodeResp(rec.Response(3), &tokReq); err != nil {
+		t.Fatalf("token request decode error: %v", err)
+	}
+	if tokReq.ClientID != "test" {
+		t.Fatalf("want clientID=test; got %v", tokReq.ClientID)
+	}
+	if _, err = client.Stats(single); err != nil {
+		t.Fatalf("client.Stats()=%v", err)
 	}
 }
 

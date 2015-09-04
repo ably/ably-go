@@ -35,9 +35,6 @@ func (c Capability) Encode() string {
 
 // TokenParams
 type TokenParams struct {
-	// KeyName represents a key name against which a token request is issued.
-	KeyName string `json:"keyName" msgpack:"keyName"`
-
 	// TTL is a requested time to live for the token. If the token request
 	// is successful, the TTL of the returned token will be less than or equal
 	// to this value depending on application settings and the attributes
@@ -68,9 +65,6 @@ func (params *TokenParams) Query() url.Values {
 	if params == nil {
 		return q
 	}
-	if params.KeyName != "" {
-		q.Set("keyName", params.KeyName)
-	}
 	if params.TTL != 0 {
 		q.Set("ttl", strconv.FormatInt(params.TTL, 10))
 	}
@@ -90,8 +84,9 @@ func (params *TokenParams) Query() url.Values {
 type TokenRequest struct {
 	TokenParams `msgpack:",inline"`
 
-	Nonce string `json:"nonce" msgpack:"nonce"` // should be at least 16 characters long
-	Mac   string `json:"mac" msgpack:"mac"`     // message authentication code for the request
+	KeyName string `json:"keyName" msgpack:"keyName"`
+	Nonce   string `json:"nonce" msgpack:"nonce"` // should be at least 16 characters long
+	Mac     string `json:"mac" msgpack:"mac"`     // message authentication code for the request
 }
 
 func (req *TokenRequest) sign(secret []byte) {

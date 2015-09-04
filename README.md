@@ -221,7 +221,6 @@ if err != nil {
 
 As the library is actively developed couple of features are not there yet:
 
-- REST client does not use token authentication
 - Realtime connection recovery is not implemented
 - Realtime connection failures handling is not implemented
 - Realtime Ping function is missing

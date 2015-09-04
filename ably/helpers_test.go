@@ -40,6 +40,23 @@ func ErrorCode(err error) int {
 	return code(err)
 }
 
+func NewTokenParams(query url.Values) *TokenParams {
+	params := &TokenParams{}
+	if n, err := strconv.ParseInt(query.Get("ttl"), 10, 64); err == nil {
+		params.TTL = n
+	}
+	if s := query.Get("capability"); s != "" {
+		params.RawCapability = s
+	}
+	if s := query.Get("clientId"); s != "" {
+		params.ClientID = s
+	}
+	if n, err := strconv.ParseInt(query.Get("timestamp"), 10, 64); err == nil {
+		params.Timestamp = n
+	}
+	return params
+}
+
 // AuthReverseProxy serves token requests by reverse proxying them to
 // the Ably servers. Use URL method for creating values for AuthURL
 // option and Callback method - for AuthCallback ones.
@@ -106,7 +123,7 @@ func (srv *AuthReverseProxy) Close() error {
 
 // ServeHTTP implements the http.Handler interface.
 func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	token, contentType, err := srv.handleAuth(req.URL.Path[1:], nil)
+	token, contentType, err := srv.handleAuth(req.URL.Path[1:], NewTokenParams(req.URL.Query()))
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -486,5 +503,4 @@ func (hr *HostRecorder) addHost(host string) {
 	} else {
 		hr.Hosts[host] = struct{}{}
 	}
-
 }

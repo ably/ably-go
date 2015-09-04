@@ -1,7 +1,9 @@
 package ably
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"io/ioutil"
 	"mime"
 	"net/http"
@@ -18,6 +20,7 @@ var (
 	errUnsupportedType     = errors.New("unsupported Content-Type header in response from AuthURL")
 	errMissingType         = errors.New("missing Content-Type header in response from AuthURL")
 	errInvalidCallbackType = errors.New("invalid value type returned from AuthCallback")
+	errInsecureBasicAuth   = errors.New("basic auth is not supported on insecure non-TLS connections")
 )
 
 // addParams copies each params from rhs to lhs and returns lhs.
@@ -70,13 +73,10 @@ func newAuth(client *RestClient) (*Auth, error) {
 // CreateTokenRequest
 func (a *Auth) CreateTokenRequest(opts *AuthOptions, params *TokenParams) (*TokenRequest, error) {
 	opts = a.mergeOpts(opts)
-	keyName, keySecret := opts.KeyName(), opts.KeySecret()
-	req := &TokenRequest{}
+	keySecret := opts.KeySecret()
+	req := &TokenRequest{KeyName: opts.KeyName()}
 	if params != nil {
 		req.TokenParams = *params
-	}
-	if req.KeyName == "" {
-		req.KeyName = keyName
 	}
 	if err := a.setDefaults(opts, req); err != nil {
 		return nil, err
@@ -85,10 +85,8 @@ func (a *Auth) CreateTokenRequest(opts *AuthOptions, params *TokenParams) (*Toke
 	switch {
 	case opts.Key == "":
 		return nil, newError(40101, errMissingKey)
-	case keyName == "" || keySecret == "":
+	case req.KeyName == "" || keySecret == "":
 		return nil, newError(40102, errInvalidKey)
-	case req.KeyName != keyName:
-		return nil, newError(40102, errMismatchedKeys)
 	}
 	req.sign([]byte(keySecret))
 	return req, nil
@@ -124,7 +122,16 @@ func (a *Auth) RequestToken(opts *AuthOptions, params *TokenParams) (*TokenDetai
 			return nil, newError(40170, errInvalidCallbackType)
 		}
 	case opts.AuthURL != "":
-		return a.requestAuthURL(opts, params)
+		res, err := a.requestAuthURL(opts, params)
+		if err != nil {
+			return nil, err
+		}
+		switch res := res.(type) {
+		case *TokenDetails:
+			return res, nil
+		case *TokenRequest:
+			tokReq = res
+		}
 	default:
 		req, err := a.CreateTokenRequest(opts, params)
 		if err != nil {
@@ -201,7 +208,7 @@ func (a *Auth) setDefaults(opts *AuthOptions, req *TokenRequest) error {
 	return nil
 }
 
-func (a *Auth) requestAuthURL(opts *AuthOptions, params *TokenParams) (*TokenDetails, error) {
+func (a *Auth) requestAuthURL(opts *AuthOptions, params *TokenParams) (interface{}, error) {
 	req, err := http.NewRequest(opts.authMethod(), opts.AuthURL, nil)
 	if err != nil {
 		return nil, newError(40000, err)
@@ -228,8 +235,14 @@ func (a *Auth) requestAuthURL(opts *AuthOptions, params *TokenParams) (*TokenDet
 		}
 		return newTokenDetails(string(token)), nil
 	case ProtocolJSON, ProtocolMsgPack:
+		var req TokenRequest
+		var buf bytes.Buffer
+		err := decode(typ, io.TeeReader(resp.Body, &buf), &req)
+		if err == nil && req.Mac != "" && req.Nonce != "" {
+			return &req, nil
+		}
 		var token TokenDetails
-		if err := decode(typ, resp.Body, &token); err != nil {
+		if err := decode(typ, io.MultiReader(&buf, resp.Body), &token); err != nil {
 			return nil, newError(40000, err)
 		}
 		return &token, nil
@@ -241,8 +254,7 @@ func (a *Auth) requestAuthURL(opts *AuthOptions, params *TokenParams) (*TokenDet
 }
 
 func (a *Auth) isTokenRenewable() bool {
-	return (a.opts().Key != "" && a.opts().Token == "") ||
-		a.opts().AuthURL != "" || a.opts().AuthCallback != nil
+	return a.opts().Key != "" || a.opts().AuthURL != "" || a.opts().AuthCallback != nil
 }
 
 func (a *Auth) authReq(req *http.Request) error {
@@ -294,7 +306,7 @@ func detectAuthMethod(opts *ClientOptions) (AuthMethod, error) {
 			return 0, newError(40005, errInvalidKey)
 		}
 		if opts.NoTLS {
-			return 0, newError(40103, nil)
+			return 0, newError(40103, errInsecureBasicAuth)
 		}
 		return AuthBasic, nil
 	case isAuthExternal || isKeyValid:
