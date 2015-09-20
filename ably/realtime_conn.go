@@ -318,6 +318,7 @@ func (c *Conn) eventloop() {
 		case proto.ActionConnected:
 			c.state.Lock()
 			c.id = msg.ConnectionId
+			c.key = msg.ConnectionKey
 			c.serial = -1
 			c.msgSerial = 0
 			c.state.set(StateConnConnected, nil)

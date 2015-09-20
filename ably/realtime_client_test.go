@@ -76,6 +76,21 @@ func TestRealtimeClient_RealtimeHost(t *testing.T) {
 	}
 }
 
+func checkUnique(ch chan string, typ string, n int) error {
+	close(ch)
+	uniq := make(map[string]struct{}, n)
+	for s := range ch {
+		if _, ok := uniq[s]; ok {
+			return fmt.Errorf("duplicate connection %s: %s", typ, s)
+		}
+		uniq[s] = struct{}{}
+	}
+	if len(uniq) != n {
+		return fmt.Errorf("want len(%s)=%d; got %d", typ, n, len(uniq))
+	}
+	return nil
+}
+
 func TestRealtimeClient_50clients(t *testing.T) {
 	const N = 50
 	t.Parallel()
@@ -88,6 +103,7 @@ func TestRealtimeClient_50clients(t *testing.T) {
 	defer safeclose(t, app)
 	wg.Add(N)
 	idch := make(chan string, N)
+	keych := make(chan string, N)
 	for i := 0; i < N; i++ {
 		go func(i int) {
 			defer wg.Done()
@@ -110,25 +126,21 @@ func TestRealtimeClient_50clients(t *testing.T) {
 				all.Add(nil, err)
 			}
 			idch <- c.Connection.ID()
+			keych <- c.Connection.Key()
 			if err := c.Close(); err != nil {
 				all.Add(nil, err)
 			}
 		}(i)
 	}
 	wg.Wait()
-	close(idch)
 	if err := all.Wait(); err != nil {
 		t.Fatalf("want err=nil; got %s", err)
 	}
-	uniqID := make(map[string]struct{}, N)
-	for id := range idch {
-		if _, ok := uniqID[id]; ok {
-			t.Fatalf("duplicate connection ID: %s", id)
-		}
-		uniqID[id] = struct{}{}
+	if err := checkUnique(idch, "ID", N); err != nil {
+		t.Fatal(err)
 	}
-	if len(uniqID) != N {
-		t.Fatalf("want len(uniqID)=%d; got %d", N, len(uniqID))
+	if err := checkUnique(keych, "key", N); err != nil {
+		t.Fatal(err)
 	}
 }
 
