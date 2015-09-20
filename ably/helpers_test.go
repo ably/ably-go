@@ -276,7 +276,7 @@ func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, erro
 //
 type StateRecorder struct {
 	ch     chan State
-	states []StateEnum
+	states []State
 	wg     sync.WaitGroup
 	done   chan struct{}
 	mtx    sync.Mutex
@@ -296,7 +296,7 @@ func NewStateRecorder(buffer int) *StateRecorder {
 	rec := &StateRecorder{
 		ch:     make(chan State, buffer),
 		done:   make(chan struct{}),
-		states: make([]StateEnum, 0, buffer),
+		states: make([]State, 0, buffer),
 	}
 	rec.wg.Add(1)
 	go rec.processIncomingStates()
@@ -311,7 +311,7 @@ func (rec *StateRecorder) processIncomingStates() {
 			if !ok {
 				return
 			}
-			rec.add(state.State)
+			rec.add(state)
 		case <-rec.done:
 			return
 		}
@@ -324,7 +324,7 @@ func (rec *StateRecorder) Add(state StateEnum) {
 	rec.ch <- State{State: state}
 }
 
-func (rec *StateRecorder) add(state StateEnum) {
+func (rec *StateRecorder) add(state State) {
 	rec.mtx.Lock()
 	rec.states = append(rec.states, state)
 	rec.mtx.Unlock()
@@ -353,9 +353,26 @@ func (rec *StateRecorder) Stop() {
 func (rec *StateRecorder) States() []StateEnum {
 	rec.mtx.Lock()
 	defer rec.mtx.Unlock()
-	states := make([]StateEnum, len(rec.states))
-	copy(states, rec.states)
+	states := make([]StateEnum, 0, len(rec.states))
+	for _, state := range rec.states {
+		states = append(states, state.State)
+	}
 	return states
+}
+
+// Errors gives copy of the error that recorded events hold. It returns only
+// non-nil errors. If none of the recorded states contained an error, the
+// method returns nil.
+func (rec *StateRecorder) Errors() []error {
+	var errors []error
+	rec.mtx.Lock()
+	defer rec.mtx.Unlock()
+	for _, state := range rec.states {
+		if state.Err != nil {
+			errors = append(errors, state.Err)
+		}
+	}
+	return errors
 }
 
 // WaitFor blocks until we observe the given exact states were recorded.

@@ -178,24 +178,31 @@ func newStateEmitter(typ StateType, startState StateEnum, channel string) *state
 }
 
 func (s *stateEmitter) set(state StateEnum, err error) error {
-	st := State{
-		Channel: s.channel,
-		Err:     err,
-		State:   state,
-		Type:    s.typ,
-	}
+	doemit := s.current != state
 	s.current = state
 	s.err = err
-	for ch := range s.listeners[state] {
+	if doemit {
+		s.emit(State{
+			Channel: s.channel,
+			Err:     err,
+			State:   state,
+			Type:    s.typ,
+		})
+	}
+	return s.err
+}
+
+func (s *stateEmitter) emit(st State) {
+	for ch := range s.listeners[st.State] {
 		select {
 		case ch <- st:
 		default:
 			Log.Printf(LogWarn, "dropping %s due to slow receiver", st)
 		}
 	}
-	onetime := s.onetime[state]
+	onetime := s.onetime[st.State]
 	if len(onetime) != 0 {
-		delete(s.onetime, state)
+		delete(s.onetime, st.State)
 		for ch := range onetime {
 			select {
 			case ch <- st:
@@ -207,7 +214,6 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 			}
 		}
 	}
-	return s.err
 }
 
 func (s *stateEmitter) syncSet(state StateEnum, err error) error {
