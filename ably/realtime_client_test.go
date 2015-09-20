@@ -1,6 +1,8 @@
 package ably_test
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -71,5 +73,47 @@ func TestRealtimeClient_RealtimeHost(t *testing.T) {
 		if err := checkError(80000, err); err != nil {
 			t.Errorf("%s (host=%s)", err, hosts[i])
 		}
+	}
+}
+
+func TestRealtimeClient_50clients(t *testing.T) {
+	t.Parallel()
+	var all ably.ResultGroup
+	var wg sync.WaitGroup
+	app, err := testutil.NewSandbox(nil)
+	if err != nil {
+		t.Fatalf("NewSandbox()=%v", err)
+	}
+	defer safeclose(t, app)
+	wg.Add(50)
+	for i := 0; i < 50; i++ {
+		go func(i int) {
+			defer wg.Done()
+			opts := app.Options(nil)
+			opts.ClientID = fmt.Sprintf("client-%d", i)
+			opts.NoConnect = true
+			c, err := ably.NewRealtimeClient(opts)
+			if err != nil {
+				all.Add(nil, err)
+				return
+			}
+			var rg ably.ResultGroup
+			rg.Add(c.Connection.Connect())
+			for j := 0; j < 10; j++ {
+				channel := c.Channels.Get(fmt.Sprintf("client-%d-channel-%d", i, j))
+				rg.Add(channel.Attach())
+				rg.Add(channel.Presence.Enter(""))
+			}
+			if err := rg.Wait(); err != nil {
+				all.Add(nil, err)
+			}
+			if err := c.Close(); err != nil {
+				all.Add(nil, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+	if err := all.Wait(); err != nil {
+		t.Fatalf("want err=nil; got %s", err)
 	}
 }
