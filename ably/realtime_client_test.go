@@ -77,6 +77,7 @@ func TestRealtimeClient_RealtimeHost(t *testing.T) {
 }
 
 func TestRealtimeClient_50clients(t *testing.T) {
+	const N = 50
 	t.Parallel()
 	var all ably.ResultGroup
 	var wg sync.WaitGroup
@@ -85,8 +86,9 @@ func TestRealtimeClient_50clients(t *testing.T) {
 		t.Fatalf("NewSandbox()=%v", err)
 	}
 	defer safeclose(t, app)
-	wg.Add(50)
-	for i := 0; i < 50; i++ {
+	wg.Add(N)
+	idch := make(chan string, N)
+	for i := 0; i < N; i++ {
 		go func(i int) {
 			defer wg.Done()
 			opts := app.Options(nil)
@@ -107,14 +109,26 @@ func TestRealtimeClient_50clients(t *testing.T) {
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
 			}
+			idch <- c.Connection.ID()
 			if err := c.Close(); err != nil {
 				all.Add(nil, err)
 			}
 		}(i)
 	}
 	wg.Wait()
+	close(idch)
 	if err := all.Wait(); err != nil {
 		t.Fatalf("want err=nil; got %s", err)
+	}
+	uniqID := make(map[string]struct{}, N)
+	for id := range idch {
+		if _, ok := uniqID[id]; ok {
+			t.Fatalf("duplicate connection ID: %s", id)
+		}
+		uniqID[id] = struct{}{}
+	}
+	if len(uniqID) != N {
+		t.Fatalf("want len(uniqID)=%d; got %d", N, len(uniqID))
 	}
 }
 
