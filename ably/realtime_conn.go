@@ -150,7 +150,7 @@ func (c *Conn) close() (Result, error) {
 	switch c.state.current {
 	case StateConnClosing, StateConnClosed:
 		return nopResult, nil
-	case StateConnFailed, StateConnDisconnected:
+	case StateConnInitialized, StateConnFailed, StateConnDisconnected:
 		return nil, errClose
 	}
 	res := c.state.listenResult(closeResultStates...)

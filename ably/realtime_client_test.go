@@ -117,3 +117,13 @@ func TestRealtimeClient_50clients(t *testing.T) {
 		t.Fatalf("want err=nil; got %s", err)
 	}
 }
+
+func TestRealtimeClient_DontCrashOnCloseWhenEchoOff(t *testing.T) {
+	t.Parallel()
+	app, client := testutil.Provision(&ably.ClientOptions{NoConnect: true})
+	defer safeclose(t, app)
+
+	if err := checkError(50002, client.Close()); err != nil {
+		t.Fatal(err)
+	}
+}
