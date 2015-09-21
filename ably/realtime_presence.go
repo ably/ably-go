@@ -143,8 +143,8 @@ func (pres *RealtimePresence) syncEnd() {
 
 func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage, syncSerial string) {
 	for _, presmsg := range msg.Presence {
-		if presmsg.ConnectionId == "" {
-			presmsg.ConnectionId = msg.ConnectionId
+		if presmsg.ConnectionID == "" {
+			presmsg.ConnectionID = msg.ConnectionId
 		}
 		if presmsg.Timestamp == 0 {
 			presmsg.Timestamp = msg.Timestamp
@@ -158,7 +158,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 	messages := make([]*proto.PresenceMessage, 0, len(msg.Presence))
 	// Update presence map / channel's member state.
 	for _, member := range msg.Presence {
-		memberKey := member.ConnectionId + member.ClientID
+		memberKey := member.ConnectionID + member.ClientID
 		if oldMember, ok := pres.members[memberKey]; ok {
 			if member.Timestamp <= oldMember.Timestamp {
 				continue // do not process old message
@@ -265,9 +265,11 @@ func (pres *RealtimePresence) EnterClient(clientID, data string) (Result, error)
 	pres.state = proto.PresenceEnter
 	pres.mtx.Unlock()
 	msg := &proto.PresenceMessage{
-		State:    proto.PresenceEnter,
-		ClientID: clientID,
-		Message:  proto.Message{Data: data},
+		State: proto.PresenceEnter,
+		Message: proto.Message{
+			Data:     data,
+			ClientID: clientID,
+		},
 	}
 	return pres.send(msg, true)
 }
@@ -286,9 +288,11 @@ func (pres *RealtimePresence) UpdateClient(clientID, data string) (Result, error
 	pres.data = data
 	pres.mtx.Unlock()
 	msg := &proto.PresenceMessage{
-		State:    proto.PresenceUpdate,
-		ClientID: clientID,
-		Message:  proto.Message{Data: data},
+		State: proto.PresenceUpdate,
+		Message: proto.Message{
+			ClientID: clientID,
+			Data:     data,
+		},
 	}
 	return pres.send(msg, true)
 }
@@ -305,9 +309,11 @@ func (pres *RealtimePresence) LeaveClient(clientID, data string) (Result, error)
 	pres.data = data
 	pres.mtx.Unlock()
 	msg := &proto.PresenceMessage{
-		State:    proto.PresenceLeave,
-		ClientID: clientID,
-		Message:  proto.Message{Data: data},
+		State: proto.PresenceLeave,
+		Message: proto.Message{
+			Data:     data,
+			ClientID: clientID,
+		},
 	}
 	return pres.send(msg, true)
 }

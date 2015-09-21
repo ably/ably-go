@@ -13,9 +13,18 @@ import (
 )
 
 type Message struct {
-	Name     string `json:"name,omitempty" msgpack:"name,omitempty"`
-	Data     string `json:"data,omitempty" msgpack:"data,omitempty"`
-	Encoding string `json:"encoding,omitempty" msgpack:"encoding,omitempty"`
+	ID           string `json:"id,omitempty" msgpack:"id,omitempty"`
+	ClientID     string `json:"clientId,omitempty" msgpack:"clientId,omitempty"`
+	ConnectionID string `json:"connectionId,omitempty" msgpack:"connectionID,omitempty"`
+	Name         string `json:"name,omitempty" msgpack:"name,omitempty"`
+	Data         string `json:"data,omitempty" msgpack:"data,omitempty"`
+	Encoding     string `json:"encoding,omitempty" msgpack:"encoding,omitempty"`
+	Timestamp    int64  `json:"timestamp" msgpack:"timestamp"`
+}
+
+// MemberKey returns string that allows to uniquely identify connected clients.
+func (msg *Message) MemberKey() string {
+	return msg.ConnectionID + ":" + msg.ClientID
 }
 
 // DecodeData reads the current Encoding field and decode Data following it.

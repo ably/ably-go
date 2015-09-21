@@ -12,6 +12,11 @@ import (
 	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
+var (
+	errQueueing      = errors.New("unable to send messages in current state with disabled queueing")
+	errCloseInactive = errors.New("attempted to close inactive connection")
+)
+
 // Conn represents a single connection RealtimeClient instantiates for
 // communication with Ably servers.
 type Conn struct {
@@ -95,7 +100,7 @@ func (c *Conn) connect(result bool) (Result, error) {
 	c.state.set(StateConnConnecting, nil)
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
-		return nil, c.state.set(StateConnFailed, newError(50000, err))
+		return nil, c.state.set(StateConnFailed, err)
 	}
 	var res Result
 	if result {
@@ -115,13 +120,11 @@ func (c *Conn) connect(result bool) (Result, error) {
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)
 	if err != nil {
-		return nil, c.state.set(StateConnFailed, newError(ErrCodeConnectionFailed, err))
+		return nil, c.state.set(StateConnFailed, err)
 	}
 	c.setConn(conn)
 	return res, nil
 }
-
-var errClose = newError(50002, errors.New("Close() on inactive connection"))
 
 // Close initiates closing sequence for the connection; it waits until the
 // operation is complete.
@@ -133,7 +136,7 @@ func (c *Conn) Close() error {
 		c.conn.Close()
 	}
 	if err != nil {
-		return c.state.syncSet(StateConnFailed, newErrorf(50002, "Close error: %s", err))
+		return c.state.syncSet(StateConnFailed, err)
 	}
 	return nil
 }
@@ -151,7 +154,7 @@ func (c *Conn) close() (Result, error) {
 	case StateConnClosing, StateConnClosed:
 		return nopResult, nil
 	case StateConnInitialized, StateConnFailed, StateConnDisconnected:
-		return nil, errClose
+		return nil, stateError(c.state.current, errCloseInactive)
 	}
 	res := c.state.listenResult(closeResultStates...)
 	c.state.set(StateConnClosing, nil)
@@ -230,8 +233,6 @@ func (c *Conn) Off(ch chan<- State, states ...StateEnum) {
 	c.state.off(ch, states...)
 }
 
-var errQueueing = &Error{Code: 40000, Err: errors.New("unable to send messages in current state with disabled queueing")}
-
 func (c *Conn) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {
 	const maxint64 = 1<<63 - 1
 	msg.MsgSerial = c.msgSerial
@@ -243,18 +244,18 @@ func (c *Conn) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {
 
 func (c *Conn) send(msg *proto.ProtocolMessage, listen chan<- error) error {
 	c.state.Lock()
-	switch c.state.current {
+	switch state := c.state.current; state {
 	case StateConnInitialized, StateConnConnecting, StateConnDisconnected:
 		c.state.Unlock()
 		if c.opts.NoQueueing {
-			return errQueueing
+			return stateError(state, errQueueing)
 		}
 		c.queue.Enqueue(msg, listen)
 		return nil
 	case StateConnConnected:
 	default:
 		c.state.Unlock()
-		return &Error{Code: 80000}
+		return stateError(state, nil)
 	}
 	c.updateSerial(msg, listen)
 	c.state.Unlock()
@@ -286,7 +287,7 @@ func (c *Conn) eventloop() {
 				c.state.Unlock()
 				return
 			}
-			c.state.set(StateConnFailed, newError(80000, err))
+			c.state.set(StateConnFailed, err)
 			c.state.Unlock()
 			return // TODO recovery
 		}

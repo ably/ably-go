@@ -45,9 +45,8 @@ func TestRealtimeConn_Connect(t *testing.T) {
 	if err := client.Close(); err != nil {
 		t.Fatalf("client.Close()=%v", err)
 	}
-	rec.Stop()
-	if states := rec.States(); !reflect.DeepEqual(states, connTransitions) {
-		t.Errorf("expected states=%v; got %v", connTransitions, states)
+	if err := rec.WaitFor(connTransitions, time.Second); err != nil {
+		t.Fatal(err)
 	}
 }
 

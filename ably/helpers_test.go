@@ -14,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/ably/ably-go/ably/proto"
 )
 
 func (p *PaginatedResult) BuildPath(base, rel string) (string, error) {
@@ -275,11 +277,12 @@ func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, erro
 //   * goroutine-safe access to recorded state enums
 //
 type StateRecorder struct {
-	ch     chan State
-	states []State
-	wg     sync.WaitGroup
-	done   chan struct{}
 	mtx    sync.Mutex
+	wg     sync.WaitGroup
+	states []State
+	ch     chan State
+	done   chan struct{}
+	typ    StateType
 }
 
 // NewStateRecorder gives new recorder which purpose is to record states via
@@ -290,6 +293,22 @@ type StateRecorder struct {
 // If buffer is <= 0, the recorder will not buffer any states, which can
 // result in some of them being dropped.
 func NewStateRecorder(buffer int) *StateRecorder {
+	return newStateRecorder(buffer, StateChan|StateConn)
+}
+
+// NewStateChanRecorder gives new recorder which records channel-related
+// state transitions only.
+func NewStateChanRecorder(buffer int) *StateRecorder {
+	return newStateRecorder(buffer, StateChan)
+}
+
+// NewStateConnRecorder gives new recorder which records connection-related
+// state transitions only.
+func NewStateConnRecorder(buffer int) *StateRecorder {
+	return newStateRecorder(buffer, StateConn)
+}
+
+func newStateRecorder(buffer int, typ StateType) *StateRecorder {
 	if buffer < 0 {
 		buffer = 0
 	}
@@ -297,6 +316,7 @@ func NewStateRecorder(buffer int) *StateRecorder {
 		ch:     make(chan State, buffer),
 		done:   make(chan struct{}),
 		states: make([]State, 0, buffer),
+		typ:    typ,
 	}
 	rec.wg.Add(1)
 	go rec.processIncomingStates()
@@ -310,6 +330,9 @@ func (rec *StateRecorder) processIncomingStates() {
 		case state, ok := <-rec.ch:
 			if !ok {
 				return
+			}
+			if state.Type != 0 && state.Type&rec.typ == 0 {
+				continue
 			}
 			rec.add(state)
 		case <-rec.done:
@@ -403,6 +426,93 @@ func (rec *StateRecorder) WaitFor(states []StateEnum, timeout time.Duration) err
 	}
 }
 
+// MessageRecorder
+type MessageRecorder struct {
+	mu       sync.Mutex
+	url      []*url.URL
+	sent     []*proto.ProtocolMessage
+	received []*proto.ProtocolMessage
+}
+
+// NewMessageRecorder gives new spy value that records incoming and outgoing
+// ProtocolMessages and dialed endpoints.
+//
+// For use with Dial field of ClientOptions.
+func NewMessageRecorder() *MessageRecorder {
+	return &MessageRecorder{}
+}
+
+// Dial
+func (rec *MessageRecorder) Dial(proto string, u *url.URL) (MsgConn, error) {
+	rec.mu.Lock()
+	rec.url = append(rec.url, u)
+	rec.mu.Unlock()
+	conn, err := dialWebsocket(proto, u)
+	if err != nil {
+		return nil, err
+	}
+	return recConn{
+		conn: conn,
+		rec:  rec,
+	}, nil
+}
+
+// URL
+func (rec *MessageRecorder) URL() []*url.URL {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	url := make([]*url.URL, len(rec.url))
+	copy(url, rec.url)
+	return url
+}
+
+// Sent
+func (rec *MessageRecorder) Sent() []*proto.ProtocolMessage {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	sent := make([]*proto.ProtocolMessage, len(rec.sent))
+	copy(sent, rec.sent)
+	return sent
+}
+
+// Received
+func (rec *MessageRecorder) Received() []*proto.ProtocolMessage {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	received := make([]*proto.ProtocolMessage, len(rec.received))
+	copy(received, rec.received)
+	return received
+}
+
+type recConn struct {
+	conn MsgConn
+	rec  *MessageRecorder
+}
+
+func (c recConn) Send(msg interface{}) error {
+	if err := c.conn.Send(msg); err != nil {
+		return err
+	}
+	c.rec.mu.Lock()
+	c.rec.sent = append(c.rec.sent, msg.(*proto.ProtocolMessage))
+	c.rec.mu.Unlock()
+	return nil
+}
+
+func (c recConn) Receive(msg interface{}) error {
+	if err := c.conn.Receive(msg); err != nil {
+		return err
+	}
+	c.rec.mu.Lock()
+	c.rec.received = append(c.rec.received, *msg.(**proto.ProtocolMessage))
+	c.rec.mu.Unlock()
+	return nil
+}
+
+func (c recConn) Close() error {
+	return c.conn.Close()
+}
+
 // MustRealtimeClient is like NewRealtimeClient, but panics on error.
 func MustRealtimeClient(opts *ClientOptions) *RealtimeClient {
 	client, err := NewRealtimeClient(opts)
@@ -427,24 +537,24 @@ func (ch *Channels) GetAndAttach(name string) *RealtimeChannel {
 // If at least ably.Result value failed, ResultGroup returns first encountered
 // error immadiately.
 type ResultGroup struct {
+	mu    sync.Mutex
 	wg    sync.WaitGroup
 	err   error
 	errch chan error
 }
 
-func (rg *ResultGroup) init() {
+func (rg *ResultGroup) check(err error) bool {
+	rg.mu.Lock()
+	defer rg.mu.Unlock()
 	if rg.errch == nil {
 		rg.errch = make(chan error, 1)
 	}
+	rg.err = nonil(rg.err, err)
+	return rg.err == nil
 }
 
 func (rg *ResultGroup) Add(res Result, err error) {
-	rg.init()
-	if rg.err != nil {
-		return
-	}
-	if err != nil {
-		rg.err = err
+	if !rg.check(err) {
 		return
 	}
 	rg.wg.Add(1)

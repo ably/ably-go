@@ -46,7 +46,7 @@ func TestRealtimeClient_RealtimeHost(t *testing.T) {
 			t.Errorf("want state=%v; got %s", ably.StateConnFailed, state)
 			continue
 		}
-		if err := checkError(50002, client.Close()); err != nil {
+		if err := checkError(80000, client.Close()); err != nil {
 			t.Errorf("%s (host=%s)", err, host)
 			continue
 		}
@@ -166,7 +166,7 @@ func TestRealtimeClient_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 	app, client := testutil.Provision(&ably.ClientOptions{NoConnect: true})
 	defer safeclose(t, app)
 
-	if err := checkError(50002, client.Close()); err != nil {
+	if err := checkError(80002, client.Close()); err != nil {
 		t.Fatal(err)
 	}
 }
