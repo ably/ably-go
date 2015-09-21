@@ -130,7 +130,7 @@ func (c *RealtimeChannel) attach(result bool) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	if c.isActive() {
-		return nil, nil
+		return nopResult, nil
 	}
 	c.state.set(StateChanAttaching, nil)
 	if !c.client.Connection.lockIsActive() {
@@ -175,7 +175,7 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	if !c.isActive() {
-		return nil, nil
+		return nopResult, nil
 	}
 	c.state.set(StateChanDetaching, nil)
 	if !c.client.Connection.lockIsActive() {

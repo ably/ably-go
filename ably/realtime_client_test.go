@@ -120,10 +120,17 @@ func TestRealtimeClient_50clients(t *testing.T) {
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client-%d-channel-%d", i, j))
 				rg.Add(channel.Attach())
+				rg.Add(channel.Attach())
 				rg.Add(channel.Presence.Enter(""))
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
+			}
+			for j := 0; j < 10; j++ {
+				channel := c.Channels.Get(fmt.Sprintf("client-%d-channel-%d", i, j))
+				rg.Add(channel.Presence.Leave(""))
+				rg.Add(channel.Detach())
+				rg.Add(channel.Detach())
 			}
 			idch <- c.Connection.ID()
 			keych <- c.Connection.Key()
