@@ -136,6 +136,9 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		}
 		done <- nil
 	}()
+	if state := channel.State(); state != ably.StateChanAttached {
+		t.Fatalf("want state=%v; got %v", ably.StateChanAttached)
+	}
 	if err := channel.Close(); err != nil {
 		t.Fatalf("channel.Close()=%v", err)
 	}
