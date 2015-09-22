@@ -32,15 +32,8 @@ func (c *RestChannel) Publish(name string, data string) error {
 // This is the more efficient way of transmitting a batch of messages
 // using the Rest API.
 func (c *RestChannel) PublishAll(messages []*proto.Message) error {
-	resp, err := c.client.Post("/channels/"+c.Name+"/messages", messages, nil)
-	if err != nil {
-		return err
-	}
-	if err = checkValidHTTPResponse(resp); err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return nil
+	_, err := c.client.post("/channels/"+c.Name+"/messages", messages, nil)
+	return err
 }
 
 // History gives the channel's message history according to the given parameters.
@@ -48,5 +41,5 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 // method.
 func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
 	path := "/channels/" + c.Name + "/history"
-	return newPaginatedResult(msgType, path, params, query(c.client.Get))
+	return newPaginatedResult(msgType, path, params, query(c.client.get))
 }

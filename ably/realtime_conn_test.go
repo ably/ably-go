@@ -33,7 +33,7 @@ var connTransitions = []ably.StateEnum{
 
 func TestRealtimeConn_Connect(t *testing.T) {
 	rec := ably.NewStateRecorder(4)
-	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{Listener: rec.Channel()})
+	app, client := testutil.Provision(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, client, app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
@@ -50,7 +50,11 @@ func TestRealtimeConn_Connect(t *testing.T) {
 
 func TestRealtimeConn_NoConnect(t *testing.T) {
 	rec := ably.NewStateRecorder(4)
-	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{NoConnect: true})
+	opts := &ably.ClientOptions{
+		Listener:  rec.Channel(),
+		NoConnect: true,
+	}
+	app, client := testutil.Provision(opts)
 	defer safeclose(t, client, app)
 
 	client.Connection.On(rec.Channel())
@@ -75,7 +79,7 @@ var connCloseTransitions = []ably.StateEnum{
 
 func TestRealtimeConn_ConnectClose(t *testing.T) {
 	rec := ably.NewStateRecorder(4)
-	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{Listener: rec.Channel()})
+	app, client := testutil.Provision(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, client, app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
@@ -94,7 +98,7 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 }
 
 func TestRealtimeConn_AlreadyConnected(t *testing.T) {
-	app, client := testutil.ProvisionRealtime(nil, &ably.ClientOptions{NoConnect: true})
+	app, client := testutil.Provision(&ably.ClientOptions{NoConnect: true})
 	defer safeclose(t, client, app)
 
 	if err := wait(client.Connection.Connect()); err != nil {

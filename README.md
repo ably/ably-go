@@ -15,7 +15,7 @@ A Go client library for [ably.io](https://ably.io), the real-time messaging serv
 ### Creating a client
 
 ```go
-client, err := ably.NewRealtimeClient(&ably.ClientOptions{Key: "xxx:xxx"})
+client, err := ably.NewRealtimeClient(ably.NewClientOptions("xxx:xxx"))
 if err != nil {
 	panic(err)
 }
@@ -221,7 +221,6 @@ if err != nil {
 
 As the library is actively developed couple of features are not there yet:
 
-- REST client does not use token authentication
 - Realtime connection recovery is not implemented
 - Realtime connection failures handling is not implemented
 - Realtime Ping function is missing

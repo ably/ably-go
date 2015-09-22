@@ -1,57 +1,22 @@
-package ably
+package testutil
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"reflect"
+
+	"github.com/ably/ably-go/ably"
 )
 
-func min(i, j int) int {
-	if i < j {
-		return i
-	}
-	return j
-}
-
-func max(i, j int) int {
-	if i > j {
-		return i
-	}
-	return j
-}
-
-func nonil(err ...error) error {
-	for _, err := range err {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func nonempty(s ...string) string {
-	for _, s := range s {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
-}
-
-func randomString(n int) string {
-	p := make([]byte, n/2+1)
-	rand.Read(p)
-	return hex.EncodeToString(p)[:n]
-}
-
-// merge iterates over fields of struct pointed by v and when it's non-zero,
+// merge iterates over fields of struct pointed by extra and when it's non-zero,
 // copies its value to corresponding filed in orig.
 //
-// merge assumes both orig and v are pointers to a struct value of the
+// merge assumes both orig and extra are pointers to a struct value of the
 // same type.
 //
 // When defaults is true, merge uses v as the source of default values for each
 // field; the default is copied when orig's field is a zero-value.
+//
+// NOTE: the implementation of merge is copied from ably.go due to avoid
+// recursive deps problem.
 func merge(orig, v interface{}, defaults bool) {
 	vv := reflect.ValueOf(v).Elem()
 	if !vv.IsValid() {
@@ -76,4 +41,27 @@ func merge(orig, v interface{}, defaults bool) {
 			vorig.Field(i).Set(vv.Field(i))
 		}
 	}
+}
+
+func mergeOpts(opts, extra *ably.ClientOptions) *ably.ClientOptions {
+	if extra == nil {
+		return opts
+	}
+	merge(opts, extra, false)
+	merge(&opts.AuthOptions, &extra.AuthOptions, false)
+	return opts
+}
+
+func MergeOptions(opts ...*ably.ClientOptions) *ably.ClientOptions {
+	switch len(opts) {
+	case 0:
+		return nil
+	case 1:
+		return opts[0]
+	}
+	mergedOpts := opts[0]
+	for _, opt := range opts[1:] {
+		mergedOpts = mergeOpts(mergedOpts, opt)
+	}
+	return mergedOpts
 }

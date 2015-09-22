@@ -16,7 +16,7 @@ var _ = Describe("ClientOptions", func() {
 		var options *ably.ClientOptions
 
 		BeforeEach(func() {
-			options = &ably.ClientOptions{Key: "name:secret"}
+			options = ably.NewClientOptions("name:secret")
 			_, err = ably.NewRestClient(options)
 		})
 
@@ -29,7 +29,7 @@ var _ = Describe("ClientOptions", func() {
 
 	Context("when Key is invalid", func() {
 		BeforeEach(func() {
-			_, err = ably.NewRestClient(&ably.ClientOptions{Key: "invalid"})
+			_, err = ably.NewRestClient(ably.NewClientOptions("invalid"))
 		})
 
 		It("returns an error", func() {

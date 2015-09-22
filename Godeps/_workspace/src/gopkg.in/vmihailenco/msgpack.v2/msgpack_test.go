@@ -8,7 +8,6 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"math"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -485,37 +484,6 @@ func (t *MsgpackTest) TestStructNil(c *C) {
 	c.Assert(dst.Name, Equals, "foo")
 }
 
-type testStruct struct {
-	Name   string
-	Tm     time.Time
-	Data   []byte
-	Colors []string
-}
-
-func TestStruct(t *testing.T) {
-	in := testStruct{
-		Name:   "hello world",
-		Tm:     time.Now(),
-		Data:   []byte{1, 2, 3},
-		Colors: []string{"red", "orange", "yellow", "green", "blue", "violet"},
-	}
-	var out testStruct
-
-	b, err := msgpack.Marshal(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = msgpack.Unmarshal(b, &out)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(out, in) {
-		t.Fatal("%#v != %#v", out, in)
-	}
-}
-
 func (t *MsgpackTest) TestStructUnknownField(c *C) {
 	in := struct {
 		Field1 string
@@ -539,6 +507,10 @@ func (t *MsgpackTest) TestStructUnknownField(c *C) {
 
 type coderStruct struct {
 	name string
+}
+
+type wrapperStruct struct {
+	coderStruct `msgpack:",inline"`
 }
 
 var (
@@ -589,6 +561,14 @@ func (t *MsgpackTest) TestPtrToCoder(c *C) {
 	out2 := &out
 	c.Assert(t.enc.Encode(in), IsNil)
 	c.Assert(t.dec.Decode(&out2), IsNil)
+	c.Assert(out.Name(), Equals, "hello")
+}
+
+func (t *MsgpackTest) TestWrappedCoder(c *C) {
+	in := &wrapperStruct{coderStruct: coderStruct{name: "hello"}}
+	var out wrapperStruct
+	c.Assert(t.enc.Encode(in), IsNil)
+	c.Assert(t.dec.Decode(&out), IsNil)
 	c.Assert(out.Name(), Equals, "hello")
 }
 
