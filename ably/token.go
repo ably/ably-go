@@ -111,6 +111,9 @@ type TokenDetails struct {
 	// Expires
 	Expires int64 `json:"expires" msgpack:"expires"`
 
+	// ClientID
+	ClientID string `json:"clientId" msgpack:"clientId"`
+
 	// Issued
 	Issued int64 `json:"issued" msgpack:"issued"`
 
