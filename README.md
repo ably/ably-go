@@ -222,8 +222,9 @@ if err != nil {
 As the library is actively developed couple of features are not there yet:
 
 - Realtime connection recovery is not implemented
-- Realtime connection failures handling is not implemented
-- Realtime Ping function is missing
+- Realtime connection failure handling is not implemented
+- ChannelsOptions and CipherParams are not supported when creating a Channel
+- Realtime Ping function is not implemented
 
 ## Support and feedback
 

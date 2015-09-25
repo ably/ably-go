@@ -124,6 +124,7 @@ var stateAll = map[StateType][]StateEnum{
 		StateChanAttaching,
 		StateChanAttached,
 		StateChanDetaching,
+		StateChanClosed,
 		StateChanDetached,
 		StateChanFailed,
 	},
@@ -137,6 +138,40 @@ var stateMasks = map[StateType]StateEnum{
 	StateChan: StateChanInitialized | StateChanAttaching | StateChanAttached |
 		StateChanDetaching | StateChanDetached | StateChanClosing | StateChanClosed |
 		StateChanFailed,
+}
+
+var (
+	errClosed         = newErrorf(10000, "Connection closed by client")
+	errDisconnected   = newErrorf(80003, "Connection temporarily unavailable")
+	errSuspended      = newErrorf(80002, "Connection unavailable")
+	errFailed         = newErrorf(80000, "Connection failed")
+	errNeverConnected = newErrorf(80002, "Unable to establish connection")
+)
+
+var stateErrors = map[StateEnum]Error{
+	StateConnInitialized:  *errNeverConnected,
+	StateConnClosed:       *errClosed,
+	StateConnClosing:      *errClosed,
+	StateConnDisconnected: *errDisconnected,
+	StateConnFailed:       *errFailed,
+	StateConnSuspended:    *errSuspended,
+	StateChanClosed:       *errClosed,
+	StateChanFailed:       *errFailed,
+}
+
+func stateError(state StateEnum, err error) error {
+	// Set default error information associated with the target state.
+	e, ok := err.(*Error)
+	if ok {
+		return e
+	}
+	if e, ok := stateErrors[state]; ok {
+		if err != nil {
+			e.Err = err
+		}
+		err = &e
+	}
+	return err
 }
 
 // State describes a single state transition of either realtime connection or channel
@@ -178,24 +213,31 @@ func newStateEmitter(typ StateType, startState StateEnum, channel string) *state
 }
 
 func (s *stateEmitter) set(state StateEnum, err error) error {
-	st := State{
-		Channel: s.channel,
-		Err:     err,
-		State:   state,
-		Type:    s.typ,
-	}
+	doemit := s.current != state
 	s.current = state
-	s.err = err
-	for ch := range s.listeners[state] {
+	s.err = stateError(state, err)
+	if doemit {
+		s.emit(State{
+			Channel: s.channel,
+			Err:     s.err,
+			State:   s.current,
+			Type:    s.typ,
+		})
+	}
+	return s.err
+}
+
+func (s *stateEmitter) emit(st State) {
+	for ch := range s.listeners[st.State] {
 		select {
 		case ch <- st:
 		default:
 			Log.Printf(LogWarn, "dropping %s due to slow receiver", st)
 		}
 	}
-	onetime := s.onetime[state]
+	onetime := s.onetime[st.State]
 	if len(onetime) != 0 {
-		delete(s.onetime, state)
+		delete(s.onetime, st.State)
 		for ch := range onetime {
 			select {
 			case ch <- st:
@@ -207,7 +249,6 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 			}
 		}
 	}
-	return s.err
 }
 
 func (s *stateEmitter) syncSet(state StateEnum, err error) error {
@@ -472,9 +513,9 @@ func (res *stateResult) Wait() error {
 	}
 	if res.listen != nil {
 		switch state := <-res.listen; {
+		case state.State == res.expected:
 		case state.Err != nil:
 			res.err = state.Err
-		case state.State == res.expected:
 		default:
 			code := 50001
 			if state.Type == StateConn {

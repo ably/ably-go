@@ -19,6 +19,7 @@ type ProtocolMessage struct {
 	Error            *Error             `json:"error,omitempty" msgpack:"error,omitempty"`
 	ApplicationId    string             `json:"applicationId,omitempty" msgpack:"applicationId,omitempty"`
 	ConnectionId     string             `json:"connectionId,omitempty" msgpack:"connectionId,omitempty"`
+	ConnectionKey    string             `json:"connectionKey,omitempty" msgpack:"connectionKey,omitempty"`
 	ConnectionSerial int64              `json:"connectionSerial,omitempty" msgpack:"connectionSerial,omitempty"`
 	Channel          string             `json:"channel,omitempty" msgpack:"channel,omitempty"`
 	ChannelSerial    string             `json:"channelSerial,omitempty" msgpack:"channelSerial,omitempty"`

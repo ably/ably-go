@@ -8,6 +8,11 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
+var (
+	errAttach = errors.New("attempted to attach channel to inactive connection")
+	errDetach = errors.New("attempted to detach channel from inactive connection")
+)
+
 type chanSlice []*RealtimeChannel
 
 func (ch chanSlice) Len() int           { return len(ch) }
@@ -86,9 +91,9 @@ type RealtimeChannel struct {
 
 	client *RealtimeClient
 	state  *stateEmitter
-	err    error
 	subs   *subscriptions
 	queue  *msgQueue
+	listen chan State
 }
 
 func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
@@ -97,16 +102,35 @@ func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
 		client: client,
 		state:  newStateEmitter(StateChan, StateChanInitialized, name),
 		subs:   newSubscriptions(subscriptionMessages),
+		listen: make(chan State, 1),
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
 	if c.client.opts.Listener != nil {
 		c.On(c.client.opts.Listener)
 	}
+	c.client.Connection.On(c.listen, StateConnFailed, StateConnClosed)
+	go c.listenLoop()
 	return c
 }
 
-var errAttach = newError(90000, errors.New("Attach() on inactive connection"))
+func (c *RealtimeChannel) listenLoop() {
+	for state := range c.listen {
+		c.state.Lock()
+		active := c.isActive()
+		c.state.Unlock()
+		switch state.State {
+		case StateConnFailed:
+			if active {
+				c.state.syncSet(StateChanFailed, state.Err)
+			}
+		case StateConnClosed:
+			if active {
+				c.state.syncSet(StateChanClosed, state.Err)
+			}
+		}
+	}
+}
 
 // Attach initiates attach request, which is being processed on a separate
 // goroutine.
@@ -130,12 +154,12 @@ func (c *RealtimeChannel) attach(result bool) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	if c.isActive() {
-		return nil, nil
+		return nopResult, nil
 	}
-	c.state.set(StateChanAttaching, nil)
 	if !c.client.Connection.lockIsActive() {
 		return nil, c.state.set(StateChanFailed, errAttach)
 	}
+	c.state.set(StateChanAttaching, nil)
 	var res Result
 	if result {
 		res = c.state.listenResult(attachResultStates...)
@@ -146,12 +170,10 @@ func (c *RealtimeChannel) attach(result bool) (Result, error) {
 	}
 	err := c.client.Connection.send(msg, nil)
 	if err != nil {
-		return nil, c.state.set(StateChanFailed, newErrorf(90000, "Attach() error: %s", err))
+		return nil, c.state.set(StateChanFailed, err)
 	}
 	return res, nil
 }
-
-var errDetach = newError(90000, errors.New("Detach() on inactive connection"))
 
 // Detach initiates detach request, which is being processed on a separate
 // goroutine.
@@ -174,13 +196,16 @@ var detachResultStates = []StateEnum{
 func (c *RealtimeChannel) detach(result bool) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
-	if !c.isActive() {
-		return nil, nil
+	switch {
+	case c.state.current == StateChanFailed:
+		return nil, stateError(StateChanFailed, errDetach)
+	case !c.isActive():
+		return nopResult, nil
 	}
-	c.state.set(StateChanDetaching, nil)
 	if !c.client.Connection.lockIsActive() {
 		return nil, c.state.set(StateChanFailed, errDetach)
 	}
+	c.state.set(StateChanDetaching, nil)
 	var res Result
 	if result {
 		res = c.state.listenResult(detachResultStates...)
@@ -191,7 +216,7 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 	}
 	err := c.client.Connection.send(msg, nil)
 	if err != nil {
-		return nil, c.state.set(StateChanFailed, newErrorf(90000, "Detach() error: %s", err))
+		return nil, c.state.set(StateChanFailed, err)
 	}
 	return res, nil
 }
@@ -205,7 +230,7 @@ func (c *RealtimeChannel) Close() error {
 	err := wait(c.Detach())
 	c.subs.close()
 	if err != nil {
-		return c.state.syncSet(StateChanClosed, newErrorf(90000, "Close() error: %s", err))
+		return c.state.syncSet(StateChanClosed, err)
 	}
 	return nil
 }
@@ -268,12 +293,28 @@ func (c *RealtimeChannel) Publish(name string, data string) (Result, error) {
 //
 // This implicitly attaches the channel if it's not already attached.
 func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) {
+	var clientID string
+	if c.client.Auth.Method == AuthToken && c.client.opts.ClientID != "" {
+		clientID = c.client.opts.ClientID
+	}
+	connectionID := c.client.Connection.ID()
+	for _, message := range messages {
+		message.ClientID = clientID
+		message.ConnectionID = connectionID
+	}
 	msg := &proto.ProtocolMessage{
 		Action:   proto.ActionMessage,
 		Channel:  c.state.channel,
 		Messages: messages,
 	}
 	return c.send(msg, true)
+}
+
+// History gives the channel's message history according to the given parameters.
+// The returned result can be inspected for the messages via the Messages()
+// method.
+func (c *RealtimeChannel) History(params *PaginateParams) (*PaginatedResult, error) {
+	return c.client.rest.Channel(c.Name).History(params)
 }
 
 func (c *RealtimeChannel) send(msg *proto.ProtocolMessage, result bool) (Result, error) {
