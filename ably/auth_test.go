@@ -364,3 +364,32 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		t.Fatalf("want mac to be not empty")
 	}
 }
+
+func TestAuth_RealtimeAccessToken(t *testing.T) {
+	rec := ablytest.NewMessageRecorder()
+	opts := &ably.ClientOptions{
+		AuthOptions: ably.AuthOptions{
+			UseTokenAuth: true,
+		},
+		NoConnect: true,
+		Dial:      rec.Dial,
+	}
+	app, client := ablytest.NewRealtimeClient(opts)
+	defer safeclose(t, app)
+
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+		t.Fatalf("Connect()=%v", err)
+	}
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close()=%v", err)
+	}
+	urls := rec.URL()
+	if len(urls) == 0 {
+		t.Fatal("want urls to be non-empty")
+	}
+	for _, url := range urls {
+		if s := url.Query().Get("access_token"); s == "" {
+			t.Errorf("missing access_token param in %q", url)
+		}
+	}
+}
