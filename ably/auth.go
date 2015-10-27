@@ -71,7 +71,7 @@ func newAuth(client *RestClient) (*Auth, error) {
 }
 
 // CreateTokenRequest
-func (a *Auth) CreateTokenRequest(opts *AuthOptions, params *TokenParams) (*TokenRequest, error) {
+func (a *Auth) CreateTokenRequest(params *TokenParams, opts *AuthOptions) (*TokenRequest, error) {
 	opts = a.mergeOpts(opts)
 	keySecret := opts.KeySecret()
 	req := &TokenRequest{KeyName: opts.KeyName()}
@@ -93,7 +93,7 @@ func (a *Auth) CreateTokenRequest(opts *AuthOptions, params *TokenParams) (*Toke
 }
 
 // RequestToken
-func (a *Auth) RequestToken(opts *AuthOptions, params *TokenParams) (*TokenDetails, error) {
+func (a *Auth) RequestToken(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
 	switch {
 	case opts != nil && opts.Token != "":
 		tok := newTokenDetails(opts.Token)
@@ -122,7 +122,7 @@ func (a *Auth) RequestToken(opts *AuthOptions, params *TokenParams) (*TokenDetai
 			return nil, newError(40170, errInvalidCallbackType)
 		}
 	case opts.AuthURL != "":
-		res, err := a.requestAuthURL(opts, params)
+		res, err := a.requestAuthURL(params, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +133,7 @@ func (a *Auth) RequestToken(opts *AuthOptions, params *TokenParams) (*TokenDetai
 			tokReq = res
 		}
 	default:
-		req, err := a.CreateTokenRequest(opts, params)
+		req, err := a.CreateTokenRequest(params, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -154,11 +154,11 @@ func (a *Auth) RequestToken(opts *AuthOptions, params *TokenParams) (*TokenDetai
 }
 
 // Authorise
-func (a *Auth) Authorise(opts *AuthOptions, params *TokenParams, force bool) (*TokenDetails, error) {
+func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions, force bool) (*TokenDetails, error) {
 	if tok := a.token(); tok != nil && !force && (tok.Expires == 0 || !tok.Expired()) {
 		return tok, nil
 	}
-	tok, err := a.RequestToken(opts, params)
+	tok, err := a.RequestToken(params, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (a *Auth) Authorise(opts *AuthOptions, params *TokenParams, force bool) (*T
 }
 
 func (a *Auth) reauthorise(force bool) (*TokenDetails, error) {
-	return a.Authorise(nil, a.params, force)
+	return a.Authorise(a.params, nil, force)
 }
 
 func (a *Auth) mergeOpts(opts *AuthOptions) *AuthOptions {
@@ -208,7 +208,7 @@ func (a *Auth) setDefaults(opts *AuthOptions, req *TokenRequest) error {
 	return nil
 }
 
-func (a *Auth) requestAuthURL(opts *AuthOptions, params *TokenParams) (interface{}, error) {
+func (a *Auth) requestAuthURL(params *TokenParams, opts *AuthOptions) (interface{}, error) {
 	req, err := http.NewRequest(opts.authMethod(), opts.AuthURL, nil)
 	if err != nil {
 		return nil, newError(40000, err)

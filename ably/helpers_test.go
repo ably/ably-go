@@ -150,7 +150,7 @@ func (srv *AuthReverseProxy) handleAuth(responseType string, params *TokenParams
 		if len(srv.TokenQueue) != 0 {
 			tok, srv.TokenQueue = srv.TokenQueue[0], srv.TokenQueue[1:]
 		} else {
-			tok, err = srv.auth.Authorise(nil, params, true)
+			tok, err = srv.auth.Authorise(params, nil, true)
 			if err != nil {
 				return nil, "", err
 			}
@@ -160,7 +160,7 @@ func (srv *AuthReverseProxy) handleAuth(responseType string, params *TokenParams
 		}
 		return tok, srv.auth.opts().protocol(), nil
 	case "request":
-		tokReq, err := srv.auth.CreateTokenRequest(nil, params)
+		tokReq, err := srv.auth.CreateTokenRequest(params, nil)
 		if err != nil {
 			return nil, "", err
 		}

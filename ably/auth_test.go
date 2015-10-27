@@ -182,7 +182,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	params := &ably.TokenParams{
 		TTL: ably.Duration(time.Second),
 	}
-	tok, err := client.Auth.Authorise(nil, params, true)
+	tok, err := client.Auth.Authorise(params, nil, true)
 	if err != nil {
 		t.Fatalf("Authorise()=%v", err)
 	}
@@ -261,7 +261,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	authOpts := &ably.AuthOptions{
 		AuthURL: server.URL("details"),
 	}
-	token2, err := client.Auth.RequestToken(authOpts, nil)
+	token2, err := client.Auth.RequestToken(nil, authOpts)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
@@ -278,7 +278,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	authOpts = &ably.AuthOptions{
 		AuthCallback: server.Callback("token"),
 	}
-	token3, err := client.Auth.RequestToken(authOpts, nil)
+	token3, err := client.Auth.RequestToken(nil, authOpts)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
@@ -304,7 +304,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	params := &ably.TokenParams{
 		ClientID: "test",
 	}
-	token4, err := client.Auth.RequestToken(authOpts, params)
+	token4, err := client.Auth.RequestToken(params, authOpts)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
@@ -353,7 +353,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		TTL:           ably.Duration(5 * time.Second),
 		RawCapability: (ably.Capability{"presence": {"read", "write"}}).Encode(),
 	}
-	req, err := client.Auth.CreateTokenRequest(opts, params)
+	req, err := client.Auth.CreateTokenRequest(params, opts)
 	if err != nil {
 		t.Fatalf("CreateTokenRequest()=%v", err)
 	}
