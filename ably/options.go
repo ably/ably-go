@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
 
 const (
@@ -116,7 +118,7 @@ func (opts *AuthOptions) externalTokenAuthSupported() bool {
 }
 
 func (opts *AuthOptions) merge(extra *AuthOptions, defaults bool) *AuthOptions {
-	merge(opts, extra, defaults)
+	ablyutil.Merge(opts, extra, defaults)
 	return opts
 }
 

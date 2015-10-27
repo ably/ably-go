@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/testutil"
+	"github.com/ably/ably-go/ably/ablytest"
 )
 
 var single = &ably.PaginateParams{
@@ -26,8 +26,8 @@ var useToken = &ably.ClientOptions{
 	},
 }
 
-func recorder() (*ably.RoundTripRecorder, *ably.ClientOptions) {
-	rec := &ably.RoundTripRecorder{}
+func recorder() (*ablytest.RoundTripRecorder, *ably.ClientOptions) {
+	rec := &ablytest.RoundTripRecorder{}
 	opts := &ably.ClientOptions{
 		HTTPClient: &http.Client{
 			Transport: rec,
@@ -53,7 +53,7 @@ func TestAuth_BasicAuth(t *testing.T) {
 	rec, opts := recorder()
 	opts.UseQueryTime = true
 	defer rec.Stop()
-	app, client := testutil.ProvisionRest(opts)
+	app, client := ablytest.NewRestClient(opts)
 	defer safeclose(t, app)
 
 	if _, err := client.Time(); err != nil {
@@ -103,7 +103,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 	opts.NoTLS = true
 	opts.UseTokenAuth = true
 	opts.UseQueryTime = true
-	app, client := testutil.ProvisionRest(opts)
+	app, client := ablytest.NewRestClient(opts)
 	defer safeclose(t, app)
 
 	beforeAuth := time.Now()
@@ -176,7 +176,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	rec, opts := recorder()
 	defer rec.Stop()
 	opts.UseTokenAuth = true
-	app, client := testutil.ProvisionRest(opts)
+	app, client := ablytest.NewRestClient(opts)
 	defer safeclose(t, app)
 
 	params := &ably.TokenParams{
@@ -240,9 +240,9 @@ func TestAuth_RequestToken(t *testing.T) {
 	rec, opts := recorder()
 	opts.UseTokenAuth = true
 	defer rec.Stop()
-	app, client := testutil.ProvisionRest(opts)
+	app, client := ablytest.NewRestClient(opts)
 	defer safeclose(t, app)
-	server := ably.MustAuthReverseProxy(app.Options(opts))
+	server := ablytest.MustAuthReverseProxy(app.Options(opts))
 	defer safeclose(t, server)
 
 	if n := rec.Len(); n != 0 {
@@ -343,7 +343,7 @@ func TestAuth_RequestToken(t *testing.T) {
 
 func TestAuth_CreateTokenRequest(t *testing.T) {
 	t.Parallel()
-	app, client := testutil.ProvisionRest(useToken)
+	app, client := ablytest.NewRestClient(useToken)
 	defer safeclose(t, app)
 
 	opts := &ably.AuthOptions{

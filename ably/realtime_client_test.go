@@ -7,25 +7,25 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/testutil"
+	"github.com/ably/ably-go/ably/ablytest"
 )
 
 func TestRealtimeClient_RealtimeHost(t *testing.T) {
 	t.Parallel()
-	httpClient := testutil.NewHTTPClient()
-	app, err := testutil.NewSandbox(nil)
+	httpClient := ablytest.NewHTTPClient()
+	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatalf("NewSandbox=%s", err)
 	}
 	defer safeclose(t, app)
 
-	rec := ably.NewRecorder(httpClient)
+	rec := ablytest.NewRecorder(httpClient)
 	hosts := []string{
 		"127.0.0.1",
 		"localhost",
 		"::1",
 	}
-	stateRec := ably.NewStateRecorder(len(hosts))
+	stateRec := ablytest.NewStateRecorder(len(hosts))
 	for _, host := range hosts {
 		opts := rec.Options(host)
 		opts.Listener = stateRec.Channel()
@@ -38,7 +38,7 @@ func TestRealtimeClient_RealtimeHost(t *testing.T) {
 			t.Errorf("want state=%v; got %s", ably.StateConnInitialized, state)
 			continue
 		}
-		if err := checkError(80000, wait(client.Connection.Connect())); err != nil {
+		if err := checkError(80000, ablytest.Wait(client.Connection.Connect())); err != nil {
 			t.Errorf("%s (host=%s)", err, host)
 			continue
 		}
@@ -94,9 +94,9 @@ func checkUnique(ch chan string, typ string, n int) error {
 func TestRealtimeClient_50clients(t *testing.T) {
 	const N = 50
 	t.Parallel()
-	var all ably.ResultGroup
+	var all ablytest.ResultGroup
 	var wg sync.WaitGroup
-	app, err := testutil.NewSandbox(nil)
+	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatalf("NewSandbox()=%v", err)
 	}
@@ -115,7 +115,7 @@ func TestRealtimeClient_50clients(t *testing.T) {
 				all.Add(nil, err)
 				return
 			}
-			var rg ably.ResultGroup
+			var rg ablytest.ResultGroup
 			rg.Add(c.Connection.Connect())
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client-%d-channel-%d", i, j))
@@ -163,7 +163,7 @@ func TestRealtimeClient_50clients(t *testing.T) {
 
 func TestRealtimeClient_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 	t.Parallel()
-	app, client := testutil.Provision(&ably.ClientOptions{NoConnect: true})
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
 	defer safeclose(t, app)
 
 	if err := checkError(80002, client.Close()); err != nil {

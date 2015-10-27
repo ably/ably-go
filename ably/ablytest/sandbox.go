@@ -1,4 +1,4 @@
-package testutil
+package ablytest
 
 import (
 	"bytes"
@@ -103,7 +103,7 @@ type Sandbox struct {
 	client *http.Client
 }
 
-func Provision(opts *ably.ClientOptions) (*Sandbox, *ably.RealtimeClient) {
+func NewRealtimeClient(opts *ably.ClientOptions) (*Sandbox, *ably.RealtimeClient) {
 	app, err := NewSandbox(nil)
 	if err != nil {
 		panic(err)
@@ -115,7 +115,7 @@ func Provision(opts *ably.ClientOptions) (*Sandbox, *ably.RealtimeClient) {
 	return app, client
 }
 
-func ProvisionRest(opts *ably.ClientOptions) (*Sandbox, *ably.RestClient) {
+func NewRestClient(opts *ably.ClientOptions) (*Sandbox, *ably.RestClient) {
 	app, err := NewSandbox(nil)
 	if err != nil {
 		panic(err)

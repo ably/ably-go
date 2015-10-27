@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/ablytest"
 	"github.com/ably/ably-go/ably/proto"
-	"github.com/ably/ably-go/ably/testutil"
 )
 
 func expectMsg(ch <-chan *proto.Message, name, data string, t time.Duration, received bool) error {
@@ -35,27 +35,27 @@ func expectMsg(ch <-chan *proto.Message, name, data string, t time.Duration, rec
 
 func TestRealtimeChannel_Publish(t *testing.T) {
 	t.Parallel()
-	app, client := testutil.Provision(nil)
+	app, client := ablytest.NewRealtimeClient(nil)
 	defer safeclose(t, client, app)
 
 	channel := client.Channels.Get("test")
-	if err := wait(channel.Publish("hello", "world")); err != nil {
+	if err := ablytest.Wait(channel.Publish("hello", "world")); err != nil {
 		t.Fatalf("Publish()=%v", err)
 	}
 }
 
 func TestRealtimeChannel_Failed(t *testing.T) {
 	t.Parallel()
-	rec := ably.NewStateChanRecorder(5)
+	rec := ablytest.NewStateChanRecorder(5)
 	opts := &ably.ClientOptions{
 		NoConnect:  true,
 		NoQueueing: true,
 		Listener:   rec.Channel(),
 	}
-	app, client := testutil.Provision(opts)
+	app, client := ablytest.NewRealtimeClient(opts)
 	defer safeclose(t, client, app)
 
-	if err := wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	channel := client.Channels.GetAndAttach("test")
@@ -71,13 +71,13 @@ func TestRealtimeChannel_Failed(t *testing.T) {
 	if err := rec.WaitFor(want[:3], time.Second); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkError(80000, wait(channel.Publish("im", "closed"))); err != nil {
+	if err := checkError(80000, ablytest.Wait(channel.Publish("im", "closed"))); err != nil {
 		t.Fatal(err)
 	}
 	if err := rec.WaitFor(want, time.Second); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkError(80000, wait(channel.Detach())); err != nil {
+	if err := checkError(80000, ablytest.Wait(channel.Detach())); err != nil {
 		t.Fatal(err)
 	}
 	if len(rec.Errors()) == 0 {
@@ -87,7 +87,7 @@ func TestRealtimeChannel_Failed(t *testing.T) {
 
 func TestRealtimeChannel_Subscribe(t *testing.T) {
 	t.Parallel()
-	app, client1 := testutil.Provision(nil)
+	app, client1 := ablytest.NewRealtimeClient(nil)
 	defer safeclose(t, client1, app)
 	client2 := app.NewRealtimeClient(&ably.ClientOptions{NoEcho: true})
 	defer safeclose(t, client2)
@@ -106,10 +106,10 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	}
 	defer sub2.Close()
 
-	if err := wait(channel1.Publish("hello", "client1")); err != nil {
+	if err := ablytest.Wait(channel1.Publish("hello", "client1")); err != nil {
 		t.Fatalf("client1: Publish()=%v", err)
 	}
-	if err := wait(channel2.Publish("hello", "client2")); err != nil {
+	if err := ablytest.Wait(channel2.Publish("hello", "client2")); err != nil {
 		t.Fatalf("client2: Publish()=%v", err)
 	}
 
@@ -150,8 +150,8 @@ var chanCloseTransitions = [][]ably.StateEnum{{
 }}
 
 func TestRealtimeChannel_Close(t *testing.T) {
-	rec := ably.NewStateRecorder(8)
-	app, client := testutil.Provision(&ably.ClientOptions{Listener: rec.Channel()})
+	rec := ablytest.NewStateRecorder(8)
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, client, app)
 
 	channel := client.Channels.Get("test")
@@ -160,7 +160,7 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		t.Fatalf("channel.Subscribe()=%v", err)
 	}
 	defer sub.Close()
-	if err := wait(channel.Publish("hello", "world")); err != nil {
+	if err := ablytest.Wait(channel.Publish("hello", "world")); err != nil {
 		t.Fatalf("channel.Publish()=%v", err)
 	}
 	done := make(chan error)
@@ -191,8 +191,8 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		if err != nil {
 			t.Fatalf("waiting on subscribed channel close failed: err=%s", err)
 		}
-	case <-time.After(timeout):
-		t.Fatalf("waiting on subscribed channel close timed out after %v", timeout)
+	case <-time.After(ablytest.Timeout):
+		t.Fatalf("waiting on subscribed channel close timed out after %v", ablytest.Timeout)
 	}
 	rec.Stop()
 	states := rec.States()

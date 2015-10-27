@@ -6,10 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
-
-	"github.com/ably/ably-go/Godeps/_workspace/src/golang.org/x/net/websocket"
-	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
 var (
@@ -58,7 +56,7 @@ func (c *Conn) dial(proto string, u *url.URL) (MsgConn, error) {
 	if c.opts.Dial != nil {
 		return c.opts.Dial(proto, u)
 	}
-	return dialWebsocket(proto, u)
+	return ablyutil.DialWebsocket(proto, u)
 }
 
 func booltext(b ...bool) []string {
@@ -353,49 +351,4 @@ type MsgConn interface {
 
 	// Close closes the connection.
 	Close() error
-}
-
-func dialWebsocket(proto string, u *url.URL) (MsgConn, error) {
-	ws := &wsConn{}
-	switch proto {
-	case ProtocolJSON:
-		ws.codec = websocket.JSON
-	case ProtocolMsgPack:
-		ws.codec = msgpackCodec
-	default:
-		return nil, errors.New(`invalid protocol "` + proto + `"`)
-	}
-	conn, err := websocket.Dial(u.String(), "", "https://"+u.Host)
-	if err != nil {
-		return nil, err
-	}
-	ws.conn = conn
-	return ws, nil
-}
-
-var msgpackCodec = websocket.Codec{
-	Marshal: func(v interface{}) ([]byte, byte, error) {
-		p, err := msgpack.Marshal(v)
-		return p, websocket.BinaryFrame, err
-	},
-	Unmarshal: func(p []byte, _ byte, v interface{}) error {
-		return msgpack.Unmarshal(p, v)
-	},
-}
-
-type wsConn struct {
-	conn  *websocket.Conn
-	codec websocket.Codec
-}
-
-func (ws *wsConn) Send(v interface{}) error {
-	return ws.codec.Send(ws.conn, v)
-}
-
-func (ws *wsConn) Receive(v interface{}) error {
-	return ws.codec.Receive(ws.conn, v)
-}
-
-func (ws *wsConn) Close() error {
-	return ws.conn.Close()
 }
