@@ -35,7 +35,7 @@ var _ = Describe("RestChannel", func() {
 		var historyRestChannel *ably.RestChannel
 
 		BeforeEach(func() {
-			historyRestChannel = client.Channel("history")
+			historyRestChannel = client.Channel("/channel/history/")
 
 			for i := 0; i < 2; i++ {
 				historyRestChannel.Publish("breakingnews", "Another Shark attack!!")
@@ -59,7 +59,7 @@ var _ = Describe("RestChannel", func() {
 		var encodingRestChannel *ably.RestChannel
 
 		BeforeEach(func() {
-			encodingRestChannel = client.Channel("encoding")
+			encodingRestChannel = client.Channel("this?is#an?encoding#channel")
 		})
 
 		It("allows to send multiple messages at once", func() {

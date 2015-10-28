@@ -2,7 +2,7 @@ package ably
 
 import "net/http"
 
-func (p *PaginatedResult) BuildPath(base, rel string) (string, error) {
+func (p *PaginatedResult) BuildPath(base, rel string) string {
 	return p.buildPath(base, rel)
 }
 

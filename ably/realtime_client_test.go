@@ -108,7 +108,7 @@ func TestRealtimeClient_50clients(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			opts := app.Options(nil)
-			opts.ClientID = fmt.Sprintf("client-%d", i)
+			opts.ClientID = fmt.Sprintf("client/%d", i)
 			opts.NoConnect = true
 			c, err := ably.NewRealtimeClient(opts)
 			if err != nil {
@@ -118,7 +118,7 @@ func TestRealtimeClient_50clients(t *testing.T) {
 			var rg ablytest.ResultGroup
 			rg.Add(c.Connection.Connect())
 			for j := 0; j < 10; j++ {
-				channel := c.Channels.Get(fmt.Sprintf("client-%d-channel-%d", i, j))
+				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
 				rg.Add(channel.Attach())
 				rg.Add(channel.Attach())
 				rg.Add(channel.Presence.Enter(""))
@@ -127,14 +127,14 @@ func TestRealtimeClient_50clients(t *testing.T) {
 				all.Add(nil, err)
 			}
 			for j := 0; j < 25; j++ {
-				channel := c.Channels.Get(fmt.Sprintf("client-%d-channel-%d", i, j))
-				rg.Add(channel.Publish(fmt.Sprintf("event-%d-%d", i, j), fmt.Sprintf("data-%d-%d", i, j)))
+				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
+				rg.Add(channel.Publish(fmt.Sprintf("event/%d/%d", i, j), fmt.Sprintf("data/%d/%d", i, j)))
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
 			}
 			for j := 0; j < 10; j++ {
-				channel := c.Channels.Get(fmt.Sprintf("client-%d-channel-%d", i, j))
+				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
 				rg.Add(channel.Presence.Leave(""))
 				rg.Add(channel.Detach())
 				rg.Add(channel.Detach())
