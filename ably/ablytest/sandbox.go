@@ -104,10 +104,7 @@ type Sandbox struct {
 }
 
 func NewRealtimeClient(opts *ably.ClientOptions) (*Sandbox, *ably.RealtimeClient) {
-	app, err := NewSandbox(nil)
-	if err != nil {
-		panic(err)
-	}
+	app := MustSandbox(nil)
 	client, err := ably.NewRealtimeClient(app.Options(opts))
 	if err != nil {
 		panic(nonil(err, app.Close()))
@@ -116,15 +113,20 @@ func NewRealtimeClient(opts *ably.ClientOptions) (*Sandbox, *ably.RealtimeClient
 }
 
 func NewRestClient(opts *ably.ClientOptions) (*Sandbox, *ably.RestClient) {
-	app, err := NewSandbox(nil)
-	if err != nil {
-		panic(err)
-	}
+	app := MustSandbox(nil)
 	client, err := ably.NewRestClient(app.Options(opts))
 	if err != nil {
 		panic(nonil(err, app.Close()))
 	}
 	return app, client
+}
+
+func MustSandbox(config *Config) *Sandbox {
+	app, err := NewSandbox(nil)
+	if err != nil {
+		panic(err)
+	}
+	return app
 }
 
 func NewSandbox(config *Config) (*Sandbox, error) {

@@ -113,7 +113,7 @@ func (c *Conn) connect(result bool) (Result, error) {
 		query.Set("format", "msgpack")
 	}
 	if err := c.auth.authQuery(query); err != nil {
-		return nil, err
+		return nil, c.state.set(StateConnFailed, err)
 	}
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)

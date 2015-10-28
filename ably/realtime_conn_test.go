@@ -113,3 +113,26 @@ func TestRealtimeConn_AlreadyConnected(t *testing.T) {
 		t.Fatalf("Connect=%s", err)
 	}
 }
+
+func TestRealtimeConn_AuthError(t *testing.T) {
+	opts := &ably.ClientOptions{
+		AuthOptions: ably.AuthOptions{
+			Key:          "abc:abc",
+			UseTokenAuth: true,
+		},
+		NoConnect: true,
+	}
+	client, err := ably.NewRealtimeClient(opts)
+	if err != nil {
+		t.Fatal("NewRealtimeClient()=%v", err)
+	}
+	if err = ablytest.Wait(client.Connection.Connect()); err == nil {
+		t.Fatal("Connect(): want err != nil")
+	}
+	if state := client.Connection.State(); state != ably.StateConnFailed {
+		t.Fatalf("want state=%s; got %s", ably.StateConnFailed, state)
+	}
+	if err = client.Close(); err == nil {
+		t.Fatal("Close(): want err != nil")
+	}
+}
