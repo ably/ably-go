@@ -134,7 +134,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authValue=%v", err)
 	}
-	tok, err := client.Auth.Authorise(nil, nil, false)
+	tok, err := client.Auth.Authorise(nil, nil)
 	if err != nil {
 		t.Fatalf("Authorise()=%v", err)
 	}
@@ -182,7 +182,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	params := &ably.TokenParams{
 		TTL: ably.Duration(time.Second),
 	}
-	tok, err := client.Auth.Authorise(params, nil, true)
+	tok, err := client.Auth.Authorise(params, &ably.AuthOptions{Force: true})
 	if err != nil {
 		t.Fatalf("Authorise()=%v", err)
 	}

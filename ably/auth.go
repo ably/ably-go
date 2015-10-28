@@ -154,7 +154,15 @@ func (a *Auth) RequestToken(params *TokenParams, opts *AuthOptions) (*TokenDetai
 }
 
 // Authorise
-func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions, force bool) (*TokenDetails, error) {
+func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
+	force := a.opts().Force
+	if opts != nil && opts.Force {
+		force = true
+	}
+	return a.authorise(params, opts, force)
+}
+
+func (a *Auth) authorise(params *TokenParams, opts *AuthOptions, force bool) (*TokenDetails, error) {
 	if tok := a.token(); tok != nil && !force && (tok.Expires == 0 || !tok.Expired()) {
 		return tok, nil
 	}
@@ -169,7 +177,7 @@ func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions, force bool) (*T
 }
 
 func (a *Auth) reauthorise(force bool) (*TokenDetails, error) {
-	return a.Authorise(a.params, nil, force)
+	return a.authorise(a.params, nil, force)
 }
 
 func (a *Auth) mergeOpts(opts *AuthOptions) *AuthOptions {

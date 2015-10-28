@@ -125,7 +125,7 @@ func (srv *AuthReverseProxy) handleAuth(responseType string, params *ably.TokenP
 		if len(srv.TokenQueue) != 0 {
 			tok, srv.TokenQueue = srv.TokenQueue[0], srv.TokenQueue[1:]
 		} else {
-			tok, err = srv.auth.Authorise(params, nil, true)
+			tok, err = srv.auth.Authorise(params, &ably.AuthOptions{Force: true})
 			if err != nil {
 				return nil, "", err
 			}

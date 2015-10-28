@@ -111,6 +111,12 @@ type AuthOptions struct {
 	// UseTokenAuth makes the Rest and Realtime clients always use token
 	// authentication method.
 	UseTokenAuth bool
+
+	// Force when true makes the client request new token unconditionally.
+	//
+	// By default the client does not request new token if the current one
+	// is still valid.
+	Force bool
 }
 
 func (opts *AuthOptions) externalTokenAuthSupported() bool {
