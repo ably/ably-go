@@ -106,7 +106,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 	app, client := ablytest.NewRestClient(opts)
 	defer safeclose(t, app)
 
-	beforeAuth := time.Now()
+	beforeAuth := time.Now().Add(-time.Second)
 	if _, err := client.Time(); err != nil {
 		t.Fatalf("client.Time()=%v", err)
 	}
@@ -151,7 +151,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if defaultCap := (ably.Capability{"*": {"*"}}); tok.RawCapability != defaultCap.Encode() {
 		t.Fatalf("want tok.Capability=%v; got %v", defaultCap, tok.Capability())
 	}
-	now := time.Now()
+	now := time.Now().Add(time.Second)
 	if err := timeWithin(tok.IssueTime(), beforeAuth, now); err != nil {
 		t.Fatal(err)
 	}
