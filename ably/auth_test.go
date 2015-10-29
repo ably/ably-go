@@ -13,6 +13,7 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/proto"
 )
 
 var single = &ably.PaginateParams{
@@ -65,8 +66,8 @@ func TestAuth_BasicAuth(t *testing.T) {
 	if n := rec.Len(); n != 2 {
 		t.Fatalf("want rec.Len()=2; got %d", n)
 	}
-	if method := client.Auth.Method; method != ably.AuthBasic {
-		t.Fatalf("want method=basic; got %s", method)
+	if method := client.Auth.Method(); method != ably.AuthBasic {
+		t.Fatalf("want method=1; got %d", method)
 	}
 	url := rec.Request(1).URL
 	if url.Scheme != "https" {
@@ -123,8 +124,8 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if n := rec.Len(); n != 4 {
 		t.Fatalf("want rec.Len()=4; got %d", n)
 	}
-	if client.Auth.Method != ably.AuthToken {
-		t.Fatalf("want method=token; got %s", client.Auth.Method)
+	if method := client.Auth.Method(); method != ably.AuthToken {
+		t.Fatalf("want method=2; got %d", method)
 	}
 	url := rec.Request(3).URL
 	if url.Scheme != "http" {
@@ -389,6 +390,77 @@ func TestAuth_RequestToken(t *testing.T) {
 		if _, err = c.Stats(single); err != nil {
 			t.Errorf("c.Stats()=%v (method=%s)", err, method)
 		}
+	}
+}
+
+func TestAuth_RequestToken_ClientID(t *testing.T) {
+	t.Parallel()
+	app := ablytest.MustSandbox(nil)
+	defer safeclose(t, app)
+	cases := []struct {
+		authAs    string
+		publishAs string
+		clientID  string
+		rejected  bool
+	}{
+		{"", "", "", false},                         // i=0
+		{"", "explicit", "", true},                  // i=1
+		{"*", "", "", false},                        // i=2
+		{"*", "explicit", "", false},                // i=3
+		{"explicit", "different", "explicit", true}, // i=4
+	}
+	for i, cas := range cases {
+		client := app.NewRealtimeClient()
+		params := &ably.TokenParams{
+			ClientID: cas.authAs,
+		}
+		tok, err := client.Auth.RequestToken(params, nil)
+		if err != nil {
+			t.Errorf("%d: CreateTokenRequest()=%v", i, err)
+			continue
+		}
+		opts := &ably.AuthOptions{
+			TokenDetails: tok,
+		}
+		if _, err = client.Auth.Authorise(params, opts); err != nil {
+			t.Errorf("%d: Authorise()=%v", i, err)
+			continue
+		}
+		if id := client.Auth.ClientID(); id != cas.clientID {
+			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
+		}
+		channel := client.Channels.GetAndAttach("publish")
+		sub, err := channel.Subscribe("test")
+		if err != nil {
+			t.Errorf("%d: Subscribe()=%v", i, err)
+			continue
+		}
+		msg := []*proto.Message{{
+			ClientID: cas.publishAs,
+			Name:     "test",
+			Data:     "payload",
+		}}
+		err = ablytest.Wait(channel.PublishAll(msg))
+		if cas.rejected {
+			if err == nil {
+				t.Errorf("%d: expected message to be rejected", i)
+			}
+			safeclose(t, client)
+			continue
+		}
+		if err != nil {
+			t.Errorf("%d: PublishAll()=%v", i, err)
+			continue
+		}
+		select {
+		case msg := <-sub.MessageChannel():
+			if msg.ClientID != cas.publishAs {
+				t.Errorf("%d: want ClientID=%q; got %q", i, cas.publishAs, msg.ClientID)
+			}
+		case <-time.After(ablytest.Timeout):
+			t.Errorf("%d: waiting for message timed out after %v", i, ablytest.Timeout)
+		}
+		safeclose(t, client)
 	}
 }
 

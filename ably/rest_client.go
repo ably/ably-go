@@ -136,11 +136,10 @@ func (c *RestClient) do(r *request) (*http.Response, error) {
 	case err == nil:
 		return resp, nil
 	case code(err) == 40140:
-		c.Auth.setToken(nil) // clear expired token
 		if r.NoRenew || !c.Auth.isTokenRenewable() {
 			return nil, err
 		}
-		if _, err := c.Auth.reauthorise(true); err != nil {
+		if _, err := c.Auth.reauthorise(); err != nil {
 			return nil, err
 		}
 		r.NoRenew = true

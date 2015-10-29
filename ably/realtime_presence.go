@@ -144,7 +144,7 @@ func (pres *RealtimePresence) syncEnd() {
 func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage, syncSerial string) {
 	for _, presmsg := range msg.Presence {
 		if presmsg.ConnectionID == "" {
-			presmsg.ConnectionID = msg.ConnectionId
+			presmsg.ConnectionID = msg.ConnectionID
 		}
 		if presmsg.Timestamp == 0 {
 			presmsg.Timestamp = msg.Timestamp

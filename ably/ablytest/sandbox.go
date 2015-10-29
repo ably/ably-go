@@ -92,10 +92,6 @@ func DefaultConfig() *Config {
 	}
 }
 
-type TransportHijacker interface {
-	Hijack(http.RoundTripper) http.RoundTripper
-}
-
 type Sandbox struct {
 	Config      *Config
 	Environment string
@@ -197,6 +193,9 @@ func (app *Sandbox) Key() string {
 }
 
 func (app *Sandbox) Options(opts ...*ably.ClientOptions) *ably.ClientOptions {
+	type transportHijacker interface {
+		Hijack(http.RoundTripper) http.RoundTripper
+	}
 	appOpts := &ably.ClientOptions{
 		Environment:      app.Environment,
 		HTTPClient:       NewHTTPClient(),
@@ -212,8 +211,8 @@ func (app *Sandbox) Options(opts ...*ably.ClientOptions) *ably.ClientOptions {
 	// If opts want to record round trips inject the recording transport
 	// via TransportHijacker interface.
 	if appOpts.HTTPClient != nil && opt.HTTPClient != nil {
-		if hijacked, ok := opt.HTTPClient.Transport.(TransportHijacker); ok {
-			appOpts.HTTPClient.Transport = hijacked.Hijack(appOpts.HTTPClient.Transport)
+		if hijacker, ok := opt.HTTPClient.Transport.(transportHijacker); ok {
+			appOpts.HTTPClient.Transport = hijacker.Hijack(appOpts.HTTPClient.Transport)
 			opt.HTTPClient = nil
 		}
 	}
@@ -226,7 +225,7 @@ func (app *Sandbox) URL(paths ...string) string {
 }
 
 func NewHTTPClient() *http.Client {
-	const timeout = 10 * time.Second
+	const timeout = time.Minute
 	return &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{

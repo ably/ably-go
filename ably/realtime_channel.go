@@ -293,15 +293,6 @@ func (c *RealtimeChannel) Publish(name string, data string) (Result, error) {
 //
 // This implicitly attaches the channel if it's not already attached.
 func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) {
-	var clientID string
-	if c.client.Auth.Method == AuthToken && c.client.opts.ClientID != "" {
-		clientID = c.client.opts.ClientID
-	}
-	connectionID := c.client.Connection.ID()
-	for _, message := range messages {
-		message.ClientID = clientID
-		message.ConnectionID = connectionID
-	}
 	msg := &proto.ProtocolMessage{
 		Action:   proto.ActionMessage,
 		Channel:  c.state.channel,

@@ -13,6 +13,15 @@ func (f Flag) Has(flag Flag) bool {
 	return f&flag == flag
 }
 
+type ConnectionDetails struct {
+	ClientID           string `json:"clientId,omitempty" msgpack:"clientId,omitempty"`
+	ConnectionKey      string `json:"connectionKey,omitempty" msgpack:"connectionKey,omitempty"`
+	MaxMessageSize     int64  `json:"maxMessageSize,omitempty" msgpack:"maxMessageSize,omitempty"`
+	MaxFrameSize       int64  `json:"maxFrameSize,omitempty" msgpack:"maxFrameSize,omitempty"`
+	MaxInboundRate     int64  `json:"maxInboundRate,omitempty" msgpack:"maxInboundRate,omitempty"`
+	ConnectionStateTTL int64  `json:"connectionStateTtl,omitempty" msgpack:"connectionStateTtl,omitempty"`
+}
+
 type ProtocolMessage struct {
 	Messages          []*Message         `json:"messages,omitempty" msgpack:"messages,omitempty"`
 	Presence          []*PresenceMessage `json:"presence,omitempty" msgpack:"presence,omitempty"`

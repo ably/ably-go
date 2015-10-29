@@ -2,6 +2,7 @@ package ably
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -18,8 +19,8 @@ var (
 // Conn represents a single connection RealtimeClient instantiates for
 // communication with Ably servers.
 type Conn struct {
+	details   proto.ConnectionDetails
 	id        string
-	key       string
 	serial    int64
 	msgSerial int64
 	err       error
@@ -58,17 +59,6 @@ func (c *Conn) dial(proto string, u *url.URL) (proto.Conn, error) {
 		return c.opts.Dial(proto, u)
 	}
 	return ablyutil.DialWebsocket(proto, u)
-}
-
-func booltext(b ...bool) []string {
-	ok := true
-	for _, b := range b {
-		ok = ok && b
-	}
-	if ok {
-		return []string{"true"}
-	}
-	return []string{"false"}
 }
 
 // Connect is used to connect to Ably servers manually, when the client owning
@@ -185,7 +175,7 @@ func (c *Conn) ID() string {
 func (c *Conn) Key() string {
 	c.state.Lock()
 	defer c.state.Unlock()
-	return c.key
+	return c.details.ConnectionKey
 }
 
 // Ping issues a ping request against configured endpoint and returns TTR times
@@ -264,9 +254,49 @@ func (c *Conn) send(msg *proto.ProtocolMessage, listen chan<- error) error {
 		c.state.Unlock()
 		return stateError(state, nil)
 	}
+	if err := c.verifyAndUpdateMessages(msg); err != nil {
+		c.state.Unlock()
+		return err
+	}
 	c.updateSerial(msg, listen)
 	c.state.Unlock()
 	return c.conn.Send(msg)
+}
+
+// verifyAndUpdateMessages ensures the ClientID sent with published messages or
+// presence messages matches the authenticated user's ClientID and if it does,
+// ensures it's empty as Able service is responsible for populating it.
+//
+// If both user was not authenticated with a wildcard ClientID and the one
+// being sent does not match it, the method return non-nil error.
+func (c *Conn) verifyAndUpdateMessages(msg *proto.ProtocolMessage) (err error) {
+	clientID := c.auth.clientIDForCheck()
+	connectionID := c.id
+	switch msg.Action {
+	case proto.ActionMessage:
+		for _, msg := range msg.Messages {
+			if !isClientIDAllowed(clientID, msg.ClientID) {
+				return newError(90000, fmt.Errorf("unable to send message as %q", msg.ClientID))
+			}
+			if clientID == msg.ClientID {
+				msg.ClientID = ""
+			}
+			msg.ConnectionID = connectionID
+		}
+	case proto.ActionPresence:
+		for _, presmsg := range msg.Presence {
+			switch {
+			case !isClientIDAllowed(clientID, presmsg.ClientID):
+				return newError(90000, fmt.Errorf("unable to send presence message as %q", presmsg.ClientID))
+			case clientID == "" && presmsg.ClientID == "":
+				return newError(90000, errors.New("unable to infer ClientID from the connection"))
+			case presmsg.ClientID == "":
+				presmsg.ClientID = clientID
+			}
+			presmsg.ConnectionID = connectionID
+		}
+	}
+	return nil
 }
 
 func (c *Conn) isActive() bool {
@@ -327,6 +357,7 @@ func (c *Conn) eventloop() {
 			c.state.Unlock()
 			c.queue.Fail(newErrorProto(msg.Error))
 		case proto.ActionConnected:
+			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
 			c.state.Lock()
 			c.id = msg.ConnectionID
 			if msg.ConnectionDetails != nil {

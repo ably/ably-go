@@ -26,23 +26,10 @@ var defaultOptions = &ClientOptions{
 	TimeoutSuspended:  2 * time.Minute,
 }
 
-type AuthMethod uint8
-
 const (
-	AuthBasic AuthMethod = 1 + iota
-	AuthToken
+	authBasic = 1 + iota
+	authToken
 )
-
-func (method AuthMethod) String() string {
-	switch method {
-	case AuthBasic:
-		return "basic"
-	case AuthToken:
-		return "token"
-	default:
-		return "none"
-	}
-}
 
 type AuthOptions struct {
 	// AuthCallback is called in order to obtain a signed token request.

@@ -18,6 +18,15 @@ func (c *RestClient) Post(path string, in, out interface{}) (*http.Response, err
 	return c.post(path, in, out)
 }
 
+const (
+	AuthBasic = authBasic
+	AuthToken = authToken
+)
+
+func (a *Auth) Method() int {
+	return a.method
+}
+
 func DecodeResp(resp *http.Response, out interface{}) error {
 	return decodeResp(resp, out)
 }
