@@ -8,6 +8,8 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"encoding/base64"
 )
@@ -55,6 +57,7 @@ type Auth struct {
 
 	client *RestClient
 	params *TokenParams // save params to use with token renewal
+	host   string       // a host part of AuthURL
 }
 
 func newAuth(client *RestClient) (*Auth, error) {
@@ -62,6 +65,13 @@ func newAuth(client *RestClient) (*Auth, error) {
 	method, err := detectAuthMethod(a.opts())
 	if err != nil {
 		return nil, err
+	}
+	if a.opts().AuthURL != "" {
+		u, err := url.Parse(a.opts().AuthURL)
+		if err != nil {
+			return nil, newError(40003, err)
+		}
+		a.host = u.Host
 	}
 	a.Method = method
 	if a.opts().Token != "" {
@@ -219,27 +229,37 @@ func (a *Auth) setDefaults(opts *AuthOptions, req *TokenRequest) error {
 func (a *Auth) requestAuthURL(params *TokenParams, opts *AuthOptions) (interface{}, error) {
 	req, err := http.NewRequest(opts.authMethod(), opts.AuthURL, nil)
 	if err != nil {
-		return nil, newError(40000, err)
+		return nil, a.newError(40000, err)
 	}
-	req.URL.RawQuery = addParams(params.Query(), opts.AuthParams).Encode()
+	query := addParams(params.Query(), opts.AuthParams).Encode()
 	req.Header = addHeaders(req.Header, opts.AuthHeaders)
+	switch opts.authMethod() {
+	case "GET":
+		req.URL.RawQuery = query
+	case "POST":
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Content-Length", strconv.Itoa(len(query)))
+		req.Body = ioutil.NopCloser(strings.NewReader(query))
+	default:
+		return nil, a.newError(40500, nil)
+	}
 	resp, err := a.opts().httpclient().Do(req)
 	if err != nil {
-		return nil, newError(40000, err)
+		return nil, a.newError(40170, err)
 	}
 	if err = checkValidHTTPResponse(resp); err != nil {
-		return nil, newError(40000, err)
+		return nil, a.newError(40170, err)
 	}
 	defer resp.Body.Close()
 	typ, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if err != nil {
-		return nil, newError(40004, err)
+		return nil, a.newError(40004, err)
 	}
 	switch typ {
 	case "text/plain":
 		token, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, newError(40000, err)
+			return nil, a.newError(40000, err)
 		}
 		return newTokenDetails(string(token)), nil
 	case ProtocolJSON, ProtocolMsgPack:
@@ -251,18 +271,24 @@ func (a *Auth) requestAuthURL(params *TokenParams, opts *AuthOptions) (interface
 		}
 		var token TokenDetails
 		if err := decode(typ, io.MultiReader(&buf, resp.Body), &token); err != nil {
-			return nil, newError(40000, err)
+			return nil, a.newError(40000, err)
 		}
 		return &token, nil
 	case "":
-		return nil, newError(40000, errMissingType)
+		return nil, a.newError(40000, errMissingType)
 	default:
-		return nil, newError(40000, errUnsupportedType)
+		return nil, a.newError(40000, errUnsupportedType)
 	}
 }
 
 func (a *Auth) isTokenRenewable() bool {
 	return a.opts().Key != "" || a.opts().AuthURL != "" || a.opts().AuthCallback != nil
+}
+
+func (a *Auth) newError(code int, err error) error {
+	e := newError(code, err)
+	e.Server = a.host
+	return e
 }
 
 func (a *Auth) authReq(req *http.Request) error {

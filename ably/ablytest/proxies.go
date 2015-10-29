@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,6 +12,17 @@ import (
 
 	"github.com/ably/ably-go/ably"
 )
+
+var hopHeaders = map[string]struct{}{
+	"Connection":          {},
+	"Keep-Alive":          {},
+	"Proxy-Authenticate":  {},
+	"Proxy-Authorization": {},
+	"Te":                {},
+	"Trailers":          {},
+	"Transfer-Encoding": {},
+	"Upgrade":           {},
+}
 
 func NewTokenParams(query url.Values) *ably.TokenParams {
 	params := &ably.TokenParams{}
@@ -27,6 +39,29 @@ func NewTokenParams(query url.Values) *ably.TokenParams {
 		params.Timestamp = n
 	}
 	return params
+}
+
+func Query(req *http.Request) (url.Values, error) {
+	switch req.Method {
+	case "GET":
+		return req.URL.Query(), nil
+	case "POST":
+		p, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		return url.ParseQuery(string(p))
+	default:
+		return nil, errors.New(http.StatusText(405))
+	}
+}
+
+func MustQuery(req *http.Request) url.Values {
+	query, err := Query(req)
+	if err != nil {
+		panic(err)
+	}
+	return query
 }
 
 // AuthReverseProxy serves token requests by reverse proxying them to
@@ -48,7 +83,7 @@ func NewAuthReverseProxy(opts *ably.ClientOptions) (*AuthReverseProxy, error) {
 	if err != nil {
 		return nil, err
 	}
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp4", ":0")
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +135,12 @@ func (srv *AuthReverseProxy) Close() error {
 
 // ServeHTTP implements the http.Handler interface.
 func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	token, contentType, err := srv.handleAuth(req.URL.Path[1:], NewTokenParams(req.URL.Query()))
+	query, err := Query(req)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	token, contentType, err := srv.handleAuth(req.URL.Path[1:], NewTokenParams(query))
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -109,6 +149,11 @@ func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
+	}
+	for k, v := range req.Header {
+		if _, ok := hopHeaders[k]; !ok {
+			w.Header()[k] = v
+		}
 	}
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Length", strconv.Itoa(len(p)))

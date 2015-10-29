@@ -73,9 +73,16 @@ type AuthOptions struct {
 	//
 	// The req is built with the following values:
 	//
-	//   - req.Method is set to AuthMethod
+	// GET requests:
+	//
 	//   - req.URL.RawQuery is encoded from *TokenParams and AuthParams
 	//   - req.Header is set to AuthHeaders
+	//
+	// POST requests:
+	//
+	//   - req.Header is set to AuthHeaders
+	//   - Content-Type is set to "application/x-www-form-urlencoded" and
+	//     the payload is encoded from *TokenParams and AuthParams
 	//
 	AuthURL string
 

@@ -134,6 +134,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authValue=%v", err)
 	}
+	rec.Reset()
 	tok, err := client.Auth.Authorise(nil, nil)
 	if err != nil {
 		t.Fatalf("Authorise()=%v", err)
@@ -141,8 +142,8 @@ func TestAuth_TokenAuth(t *testing.T) {
 	// Call to Authorise with force set to false should not refresh the token
 	// and return existing one.
 	// The following ensures no token request was made.
-	if n := rec.Len(); n != 4 {
-		t.Fatalf("Authorise() did not return existing token; want rec.Len()=4; %d", n)
+	if n := rec.Len(); n != 0 {
+		t.Fatalf("Authorise() did not return existing token; want rec.Len()=0; %d", n)
 	}
 	if auth != tok.Token {
 		t.Fatalf("want auth=%q; got %q", tok.Token, auth)
@@ -220,6 +221,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	time.Sleep(2 * time.Second) // wait for token to expire
 	// Ensure request fails when Token or *TokenDetails is provided, but no
 	// means to renew the token
+	rec.Reset()
 	opts = app.Options(opts)
 	opts.Key = ""
 	opts.TokenDetails = tok
@@ -230,8 +232,9 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	if _, err := client.Stats(single); err == nil {
 		t.Fatal("want err!=nil")
 	}
-	if n := rec.Len(); n != 3 {
-		t.Fatalf("token not renewed; want rec.Len()=3; got %d", n)
+	// Ensure no requests were made to Ably servers.
+	if n := rec.Len(); n != 0 {
+		t.Fatalf("want rec.Len()=0; got %d", n)
 	}
 }
 
@@ -274,70 +277,118 @@ func TestAuth_RequestToken(t *testing.T) {
 	}
 	// Again enqueue received token in the auth reverse proxy - expect it'd be returned
 	// by the AuthCallback.
+	//
+	// For "token" and "details" callback the TokenDetails value is obtained from
+	// token2, thus token2 and tokCallback are the same.
+	rec.Reset()
+	for _, callback := range []string{"token", "details"} {
+		server.TokenQueue = append(server.TokenQueue, token2)
+		authOpts := &ably.AuthOptions{
+			AuthCallback: server.Callback(callback),
+		}
+		tokCallback, err := client.Auth.RequestToken(nil, authOpts)
+		if err != nil {
+			t.Fatalf("RequestToken()=%v (callback=%s)", err, callback)
+		}
+		// Ensure no requests to Ably servers were made.
+		if n := rec.Len(); n != 0 {
+			t.Fatalf("want rec.Len()=0; got %d (callback=%s)", n, callback)
+		}
+		// Ensure all tokens received from RequestToken are equal.
+		if !reflect.DeepEqual(token, token2) {
+			t.Fatalf("want token=%v == token2=%v (callback=%s)", token, token2, callback)
+		}
+		if token2.Token != tokCallback.Token {
+			t.Fatalf("want token2.Token=%s == tokCallback.Token=%s (callback=%s)",
+				token2.Token, tokCallback.Token, callback)
+		}
+	}
+	// For "request" callback, a TokenRequest value is created from the token2,
+	// then it's used to request TokenDetails from the Ably servers.
 	server.TokenQueue = append(server.TokenQueue, token2)
 	authOpts = &ably.AuthOptions{
-		AuthCallback: server.Callback("token"),
+		AuthCallback: server.Callback("request"),
 	}
-	token3, err := client.Auth.RequestToken(nil, authOpts)
+	tokCallback, err := client.Auth.RequestToken(nil, authOpts)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
-	// token2 and token3 were obtained from the original token value, thus
-	// ensure no request to Ably servers were made.
-	if n := rec.Len(); n != 2 {
-		t.Fatalf("want rec.Len()=2; got %d", n)
+	if n := rec.Len(); n != 1 {
+		t.Fatalf("want rec.Len()=1; got %d", n)
 	}
-	// Ensure all tokens received from RequestToken are equal.
-	if !reflect.DeepEqual(token, token2) {
-		t.Fatalf("want token=%v == token2=%v", token, token2)
-	}
-	if token2.Token != token3.Token {
-		t.Fatalf("want token2.Token=%s == token3.Token=%s", token2.Token, token3.Token)
+	if token2.Token == tokCallback.Token {
+		t.Fatalf("want token2.Token2=% != tokCallback.Token=%s", token2.Token, tokCallback.Token)
 	}
 	// Ensure all headers and params are sent with request to AuthURL.
-	authOpts = &ably.AuthOptions{
-		AuthMethod:  "POST",
-		AuthURL:     server.URL("request"),
-		AuthHeaders: http.Header{"X-Header-1": {"header"}, "X-Header-2": {"header"}},
-		AuthParams:  url.Values{"param_1": {"value"}, "param_2": {"value"}},
-	}
-	params := &ably.TokenParams{
-		ClientID: "test",
-	}
-	token4, err := client.Auth.RequestToken(params, authOpts)
-	if err != nil {
-		t.Fatalf("RequestToken()=%v", err)
-	}
-	if token4.Token == token3.Token {
-		t.Fatalf("want token4.Token != token3.Token: %s", token4.Token)
-	}
-	if n := rec.Len(); n != 4 {
-		t.Fatalf("want rec.Len()=4; got %d", n)
-	}
-	req := rec.Request(2)
-	if req.Method != "POST" {
-		t.Fatalf("want req.Method=POST; got %s", req.Method)
-	}
-	for k := range authOpts.AuthHeaders {
-		if got, want := req.Header.Get(k), authOpts.AuthHeaders.Get(k); got != want {
-			t.Errorf("want %s; got %s", want, got)
+	for _, method := range []string{"GET", "POST"} {
+		// Each iteration records the requests:
+		//
+		//  0 - RequestToken: request to AuthURL
+		//  1 - RequestToken: proxied Auth request to Ably servers
+		//  2 - Stats request to Ably API
+		//
+		// Responses are analogously ordered.
+		rec.Reset()
+		authOpts = &ably.AuthOptions{
+			AuthMethod:  method,
+			AuthURL:     server.URL("request"),
+			AuthHeaders: http.Header{"X-Header-1": {"header"}, "X-Header-2": {"header"}},
+			AuthParams: url.Values{
+				"param_1":  {"value"},
+				"param_2":  {"value"},
+				"clientId": {"should not be overwritten"},
+			},
 		}
-	}
-	query := req.URL.Query()
-	for k := range authOpts.AuthParams {
-		if got, want := query.Get(k), authOpts.AuthParams.Get(k); got != want {
-			t.Errorf("want %s; got %s", want, got)
+		params := &ably.TokenParams{
+			ClientID: "test",
 		}
-	}
-	var tokReq ably.TokenRequest
-	if err := ably.DecodeResp(rec.Response(3), &tokReq); err != nil {
-		t.Fatalf("token request decode error: %v", err)
-	}
-	if tokReq.ClientID != "test" {
-		t.Fatalf("want clientID=test; got %v", tokReq.ClientID)
-	}
-	if _, err = client.Stats(single); err != nil {
-		t.Fatalf("client.Stats()=%v", err)
+		tokURL, err := client.Auth.RequestToken(params, authOpts)
+		if err != nil {
+			t.Fatalf("RequestToken()=%v (method=%s)", err, method)
+		}
+		if tokURL.Token == token2.Token {
+			t.Fatalf("want tokURL.Token != token2.Token: %s (method=%s)", tokURL.Token, method)
+		}
+		req := rec.Request(0)
+		if req.Method != method {
+			t.Fatalf("want req.Method=%s; got %s", method, req.Method)
+		}
+		for k := range authOpts.AuthHeaders {
+			if got, want := req.Header.Get(k), authOpts.AuthHeaders.Get(k); got != want {
+				t.Errorf("want %s; got %s (method=%s)", want, got, method)
+			}
+		}
+		query := ablytest.MustQuery(req)
+		for k := range authOpts.AuthParams {
+			if k == "clientId" {
+				if got := query.Get(k); got != params.ClientID {
+					t.Errorf("want client_id=%q to be not overwritten; it was: %q (method=%s)",
+						params.ClientID, got, method)
+				}
+				continue
+			}
+			if got, want := query.Get(k), authOpts.AuthParams.Get(k); got != want {
+				t.Errorf("want %s; got %s (method=%s)", want, got, method)
+			}
+		}
+		var tokReq ably.TokenRequest
+		if err := ably.DecodeResp(rec.Response(1), &tokReq); err != nil {
+			t.Errorf("token request decode error: %v (method=%s)", err, method)
+		}
+		if tokReq.ClientID != "test" {
+			t.Errorf("want clientID=test; got %v (method=%s)", tokReq.ClientID, method)
+		}
+		// Call the API with the token obtained via AuthURL.
+		optsURL := app.Options(opts)
+		optsURL.AuthOptions = ably.AuthOptions{Token: tokURL.Token}
+		c, err := ably.NewRestClient(optsURL)
+		if err != nil {
+			t.Errorf("NewRealtimeClient()=%v", err)
+			continue
+		}
+		if _, err = c.Stats(single); err != nil {
+			t.Errorf("c.Stats()=%v (method=%s)", err, method)
+		}
 	}
 }
 

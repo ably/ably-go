@@ -93,6 +93,14 @@ func (rec *RoundTripRecorder) Hijack(rt http.RoundTripper) http.RoundTripper {
 	return rec
 }
 
+// Reset resets the recorder requests and responses.
+func (rec *RoundTripRecorder) Reset() {
+	rec.mtx.Lock()
+	rec.reqs = nil
+	rec.resps = nil
+	rec.mtx.Unlock()
+}
+
 func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, error) {
 	var buf bytes.Buffer
 	if req.Body != nil {
