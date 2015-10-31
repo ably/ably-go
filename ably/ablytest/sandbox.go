@@ -132,7 +132,7 @@ func MustSandbox(config *Config) *Sandbox {
 func NewSandbox(config *Config) (*Sandbox, error) {
 	app := &Sandbox{
 		Config:      config,
-		Environment: nonempty(os.Getenv("ABLY_ENV"), "sandbox"),
+		Environment: Environment,
 		client:      NewHTTPClient(),
 	}
 	if app.Config == nil {
@@ -198,9 +198,12 @@ func (app *Sandbox) Key() string {
 
 func (app *Sandbox) Options(opts ...*ably.ClientOptions) *ably.ClientOptions {
 	appOpts := &ably.ClientOptions{
-		Environment: app.Environment,
-		Protocol:    os.Getenv("ABLY_PROTOCOL"),
-		HTTPClient:  NewHTTPClient(),
+		Environment:      app.Environment,
+		HTTPClient:       NewHTTPClient(),
+		NoBinaryProtocol: NoBinaryProtocol,
+		Log: ably.Logger{
+			Level: LogLevel,
+		},
 		AuthOptions: ably.AuthOptions{
 			Key: app.Key(),
 		},
@@ -220,24 +223,6 @@ func (app *Sandbox) Options(opts ...*ably.ClientOptions) *ably.ClientOptions {
 
 func (app *Sandbox) URL(paths ...string) string {
 	return "https://" + app.Environment + "-rest.ably.io/" + path.Join(paths...)
-}
-
-func nonil(err ...error) error {
-	for _, err := range err {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func nonempty(s ...string) string {
-	for _, s := range s {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 func NewHTTPClient() *http.Client {

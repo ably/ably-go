@@ -61,7 +61,9 @@ type Auth struct {
 }
 
 func newAuth(client *RestClient) (*Auth, error) {
-	a := &Auth{client: client}
+	a := &Auth{
+		client: client,
+	}
 	method, err := detectAuthMethod(a.opts())
 	if err != nil {
 		return nil, err
@@ -262,7 +264,7 @@ func (a *Auth) requestAuthURL(params *TokenParams, opts *AuthOptions) (interface
 			return nil, a.newError(40000, err)
 		}
 		return newTokenDetails(string(token)), nil
-	case ProtocolJSON, ProtocolMsgPack:
+	case protocolJSON, protocolMsgPack:
 		var req TokenRequest
 		var buf bytes.Buffer
 		err := decode(typ, io.TeeReader(resp.Body, &buf), &req)
@@ -319,7 +321,7 @@ func (a *Auth) authQuery(query url.Values) error {
 }
 
 func (a *Auth) opts() *ClientOptions {
-	return &a.client.options
+	return &a.client.opts
 }
 
 func (a *Auth) token() *TokenDetails {
@@ -330,7 +332,11 @@ func (a *Auth) setToken(tok *TokenDetails) {
 	a.client.options.TokenDetails = tok
 }
 
-func detectAuthMethod(opts *ClientOptions) (AuthMethod, error) {
+func (a *Auth) log() *Logger {
+	return a.client.log()
+}
+
+func detectAuthMethod(opts *ClientOptions) (int, error) {
 	useTokenAuth := opts.UseTokenAuth || opts.ClientID != ""
 	isKeyValid := opts.KeyName() != "" && opts.KeySecret() != ""
 	isAuthExternal := opts.externalTokenAuthSupported()

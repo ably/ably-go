@@ -36,13 +36,15 @@ type PaginatedResult struct {
 	typItems interface{}
 	typ      reflect.Type
 	query    QueryFunc
+	log      *Logger
 }
 
 func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
-	query QueryFunc) (*PaginatedResult, error) {
+	query QueryFunc, log *Logger) (*PaginatedResult, error) {
 	p := &PaginatedResult{
 		typ:   typ,
 		query: query,
+		log:   log,
 	}
 	builtPath, err := p.buildPaginatedPath(path, params)
 	if err != nil {
@@ -75,7 +77,7 @@ func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 		return nil, newErrorf(ErrCodeNotFound, "no next page after %q", p.path)
 	}
 	nextPage := p.buildPath(p.path, nextPath)
-	return newPaginatedResult(p.typ, nextPage, nil, p.query)
+	return newPaginatedResult(p.typ, nextPage, nil, p.query, p.log)
 }
 
 // Items gives a slice of results of the current page.

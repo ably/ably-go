@@ -90,10 +90,7 @@ func NewAuthReverseProxy(opts *ably.ClientOptions) (*AuthReverseProxy, error) {
 	srv := &AuthReverseProxy{
 		Listener: lis,
 		auth:     client.Auth,
-		proto:    opts.Protocol,
-	}
-	if srv.proto == "" {
-		srv.proto = ably.DefaultOptions.Protocol
+		proto:    protocol(opts),
 	}
 	go http.Serve(lis, srv)
 	return srv, nil

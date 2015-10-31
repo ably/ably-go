@@ -100,14 +100,14 @@ func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
 	c := &RealtimeChannel{
 		Name:   name,
 		client: client,
-		state:  newStateEmitter(StateChan, StateChanInitialized, name),
-		subs:   newSubscriptions(subscriptionMessages),
+		state:  newStateEmitter(StateChan, StateChanInitialized, name, client.log()),
+		subs:   newSubscriptions(subscriptionMessages, client.log()),
 		listen: make(chan State, 1),
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
-	if c.client.opts.Listener != nil {
-		c.On(c.client.opts.Listener)
+	if c.opts().Listener != nil {
+		c.On(c.opts().Listener)
 	}
 	c.client.Connection.On(c.listen, StateConnFailed, StateConnClosed)
 	go c.listenLoop()
@@ -377,4 +377,12 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 
 func (c *RealtimeChannel) isActive() bool {
 	return c.state.current == StateChanAttaching || c.state.current == StateChanAttached
+}
+
+func (c *RealtimeChannel) opts() *ClientOptions {
+	return c.client.opts()
+}
+
+func (c *RealtimeChannel) log() *Logger {
+	return c.client.log()
 }

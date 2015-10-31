@@ -197,9 +197,10 @@ type stateEmitter struct {
 	err       error
 	current   StateEnum
 	typ       StateType
+	log       *Logger
 }
 
-func newStateEmitter(typ StateType, startState StateEnum, channel string) *stateEmitter {
+func newStateEmitter(typ StateType, startState StateEnum, channel string, log *Logger) *stateEmitter {
 	if !typ.Contains(startState) {
 		panic(`invalid start state: "` + startState.String() + `"`)
 	}
@@ -209,6 +210,7 @@ func newStateEmitter(typ StateType, startState StateEnum, channel string) *state
 		onetime:   make(map[StateEnum]map[chan<- State]struct{}),
 		current:   startState,
 		typ:       typ,
+		log:       log,
 	}
 }
 
@@ -232,7 +234,7 @@ func (s *stateEmitter) emit(st State) {
 		select {
 		case ch <- st:
 		default:
-			Log.Printf(LogWarn, "dropping %s due to slow receiver", st)
+			s.log.Printf(LogWarning, "dropping %s due to slow receiver", st)
 		}
 	}
 	onetime := s.onetime[st.State]
@@ -242,7 +244,7 @@ func (s *stateEmitter) emit(st State) {
 			select {
 			case ch <- st:
 			default:
-				Log.Printf(LogWarn, "dropping %s due to slow receiver", st)
+				s.log.Printf(LogWarning, "dropping %s due to slow receiver", st)
 			}
 			for _, l := range s.onetime {
 				delete(l, ch)
@@ -314,7 +316,16 @@ func (s *stateEmitter) off(ch chan<- State, states ...StateEnum) {
 }
 
 // queuedEmitter emits confirmation events triggered by ACK or NACK messages.
-type pendingEmitter []serialCh
+type pendingEmitter struct {
+	queue []serialCh
+	log   *Logger
+}
+
+func newPendingEmitter(log *Logger) pendingEmitter {
+	return pendingEmitter{
+		log: log,
+	}
+}
 
 type serialCh struct {
 	serial int64
@@ -322,31 +333,31 @@ type serialCh struct {
 }
 
 func (q pendingEmitter) Len() int {
-	return len(q)
+	return len(q.queue)
 }
 
 func (q pendingEmitter) Less(i, j int) bool {
-	return q[i].serial < q[j].serial
+	return q.queue[i].serial < q.queue[j].serial
 }
 
 func (q pendingEmitter) Swap(i, j int) {
-	q[i], q[j] = q[j], q[i]
+	q.queue[i], q.queue[j] = q.queue[j], q.queue[i]
 }
 
 func (q pendingEmitter) Search(serial int64) int {
-	return sort.Search(q.Len(), func(i int) bool { return q[i].serial >= serial })
+	return sort.Search(q.Len(), func(i int) bool { return q.queue[i].serial >= serial })
 }
 
 func (q *pendingEmitter) Enqueue(serial int64, ch chan<- error) {
 	switch i := q.Search(serial); {
 	case i == q.Len():
-		*q = append(*q, serialCh{serial, ch})
-	case (*q)[i].serial == serial:
-		panic(fmt.Sprintf("duplicated message serial: %d", serial))
+		q.queue = append(q.queue, serialCh{serial, ch})
+	case q.queue[i].serial == serial:
+		q.log.Printf(LogWarning, "duplicated message serial: %d", serial)
 	default:
-		*q = append(*q, serialCh{})
-		copy((*q)[i+1:], (*q)[i:])
-		(*q)[i] = serialCh{serial, ch}
+		q.queue = append(q.queue, serialCh{})
+		copy(q.queue[i+1:], q.queue[i:])
+		q.queue[i] = serialCh{serial, ch}
 	}
 }
 
@@ -359,7 +370,7 @@ func (q *pendingEmitter) Ack(serial int64, count int, err error) {
 	switch i := q.Search(serial); {
 	case i == q.Len():
 		nack = q.Len()
-	case (*q)[i].serial == serial:
+	case q.queue[i].serial == serial:
 		nack = i
 		ack = min(i+count, q.Len())
 	default:
@@ -369,21 +380,21 @@ func (q *pendingEmitter) Ack(serial int64, count int, err error) {
 	if err == nil {
 		err = newError(50000, err)
 	}
-	for _, sch := range (*q)[:nack] {
+	for _, sch := range q.queue[:nack] {
 		select {
 		case sch.ch <- err:
 		default:
-			Log.Printf(LogWarn, "dropping nack for message serial %d due to slow receiver: %v", sch.serial, err)
+			q.log.Printf(LogWarning, "dropping nack for message serial %d due to slow receiver: %v", sch.serial, err)
 		}
 	}
-	for _, sch := range (*q)[nack:ack] {
+	for _, sch := range q.queue[nack:ack] {
 		select {
 		case sch.ch <- nil:
 		default:
-			Log.Printf(LogWarn, "dropping ack for message serial %d due to slow receiver", sch.serial)
+			q.log.Printf(LogWarning, "dropping ack for message serial %d due to slow receiver", sch.serial)
 		}
 	}
-	*q = (*q)[ack:]
+	q.queue = q.queue[ack:]
 }
 
 func (q *pendingEmitter) Nack(serial int64, count int, err error) {
@@ -394,7 +405,7 @@ func (q *pendingEmitter) Nack(serial int64, count int, err error) {
 	switch i := q.Search(serial); {
 	case i == q.Len():
 		nack = q.Len()
-	case (*q)[i].serial == serial:
+	case q.queue[i].serial == serial:
 		nack = min(i+count, q.Len())
 	default:
 		nack = min(i+1+count, q.Len())
@@ -402,14 +413,14 @@ func (q *pendingEmitter) Nack(serial int64, count int, err error) {
 	if err == nil {
 		err = newError(50000, err)
 	}
-	for _, sch := range (*q)[:nack] {
+	for _, sch := range q.queue[:nack] {
 		select {
 		case sch.ch <- err:
 		default:
-			Log.Printf(LogWarn, "dropping nack for message serial %d due to slow receiver: %v", sch.serial, err)
+			q.log.Printf(LogWarning, "dropping nack for message serial %d due to slow receiver: %v", sch.serial, err)
 		}
 	}
-	*q = (*q)[nack:]
+	q.queue = q.queue[nack:]
 }
 
 type msgch struct {
@@ -424,7 +435,9 @@ type msgQueue struct {
 }
 
 func newMsgQueue(conn *Conn) *msgQueue {
-	return &msgQueue{conn: conn}
+	return &msgQueue{
+		conn: conn,
+	}
 }
 
 func (q *msgQueue) Enqueue(msg *proto.ProtocolMessage, listen chan<- error) {
@@ -442,7 +455,7 @@ func (q *msgQueue) Flush() {
 			select {
 			case msgch.ch <- newError(90000, err):
 			default:
-				Log.Printf(LogWarn, "dropped message serial %d due to slow receiver", msgch.msg.MsgSerial)
+				q.log().Printf(LogWarning, "dropped message serial %d due to slow receiver", msgch.msg.MsgSerial)
 			}
 		}
 	}
@@ -456,11 +469,15 @@ func (q *msgQueue) Fail(err error) {
 		select {
 		case msgch.ch <- newError(90000, err):
 		default:
-			Log.Printf(LogWarn, "dropped message serial %d due to slow receiver", msgch.msg.MsgSerial)
+			q.log().Printf(LogWarning, "dropped message serial %d due to slow receiver", msgch.msg.MsgSerial)
 		}
 	}
 	q.queue = nil
 	q.mtx.Unlock()
+}
+
+func (q *msgQueue) log() *Logger {
+	return q.conn.log()
 }
 
 var nopResult *errResult

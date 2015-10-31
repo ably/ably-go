@@ -34,7 +34,7 @@ type RealtimePresence struct {
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	pres := &RealtimePresence{
-		subs:      newSubscriptions(subscriptionPresenceMessages),
+		subs:      newSubscriptions(subscriptionPresenceMessages, channel.log()),
 		channel:   channel,
 		members:   make(map[string]*proto.PresenceMessage),
 		syncState: syncInitial,
@@ -228,7 +228,7 @@ func (pres *RealtimePresence) Unsubscribe(sub *Subscription, states ...proto.Pre
 // Enter announces presence of the current client with an enter message
 // for the associated channel.
 func (pres *RealtimePresence) Enter(data string) (Result, error) {
-	clientID := pres.channel.client.opts.ClientID
+	clientID := pres.auth().ClientID()
 	if clientID == "" {
 		return nil, newError(91000, nil)
 	}
@@ -240,7 +240,7 @@ func (pres *RealtimePresence) Enter(data string) (Result, error) {
 // If the current client is not present on the channel, Update will
 // behave as Enter method.
 func (pres *RealtimePresence) Update(data string) (Result, error) {
-	clientID := pres.channel.client.opts.ClientID
+	clientID := pres.auth().ClientID()
 	if clientID == "" {
 		return nil, newError(91000, nil)
 	}
@@ -250,7 +250,7 @@ func (pres *RealtimePresence) Update(data string) (Result, error) {
 // Leave announces current client leave the channel altogether with a leave
 // message if data is non-empty.
 func (pres *RealtimePresence) Leave(data string) (Result, error) {
-	clientID := pres.channel.client.opts.ClientID
+	clientID := pres.auth().ClientID()
 	if clientID == "" {
 		return nil, newError(91000, nil)
 	}
@@ -316,4 +316,12 @@ func (pres *RealtimePresence) LeaveClient(clientID, data string) (Result, error)
 		},
 	}
 	return pres.send(msg, true)
+}
+
+func (pres *RealtimePresence) auth() *Auth {
+	return pres.channel.client.Auth
+}
+
+func (pres *RealtimePresence) log() *Logger {
+	return pres.channel.log()
 }

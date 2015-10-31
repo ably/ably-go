@@ -37,9 +37,10 @@ func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
 	c := &Conn{
 		opts:  opts,
 		msgCh: make(chan *proto.ProtocolMessage),
-		state: newStateEmitter(StateConn, StateConnInitialized, ""),
+		state: newStateEmitter(StateConn, StateConnInitialized, "", auth.log()),
 		auth:  auth,
 	}
+	c.pending.log = auth.log()
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
 		c.On(opts.Listener)
@@ -107,10 +108,14 @@ func (c *Conn) connect(result bool) (Result, error) {
 	proto := c.opts.protocol()
 	query := url.Values{
 		"timestamp": []string{strconv.FormatInt(TimeNow(), 10)},
-		"echo":      booltext(!c.opts.NoEcho),
+		"echo":      []string{"true"},
+		"format":    []string{"msgpack"},
 	}
-	if c.opts.UseBinaryProtocol || c.opts.protocol() == ProtocolMsgPack {
-		query.Set("format", "msgpack")
+	if c.opts.NoEcho {
+		query.Set("echo", "false")
+	}
+	if c.opts.NoBinaryProtocol {
+		query.Set("format", "json")
 	}
 	if err := c.auth.authQuery(query); err != nil {
 		return nil, c.state.set(StateConnFailed, err)
@@ -273,6 +278,10 @@ func (c *Conn) lockIsActive() bool {
 func (c *Conn) setConn(conn proto.Conn) {
 	c.conn = conn
 	go c.eventloop()
+}
+
+func (c *Conn) log() *Logger {
+	return c.auth.log()
 }
 
 func (c *Conn) eventloop() {

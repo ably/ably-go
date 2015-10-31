@@ -13,32 +13,30 @@ type RealtimeClient struct {
 	Channels   *Channels
 	Connection *Conn
 
-	opts     ClientOptions
-	err      chan error
-	rest     *RestClient
-	chans    map[string]*RealtimeChannel
 	chansMtx sync.RWMutex
+	chans    map[string]*RealtimeChannel
+	rest     *RestClient
+	err      chan error
 }
 
 // NewRealtimeClient
-func NewRealtimeClient(options *ClientOptions) (*RealtimeClient, error) {
-	if options == nil {
-		options = DefaultOptions
+func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
+	if opts == nil {
+		panic("called NewRealtimeClient with nil ClientOptions")
 	}
 	c := &RealtimeClient{
-		opts:  *options,
 		err:   make(chan error),
 		chans: make(map[string]*RealtimeChannel),
 	}
-	rest, err := NewRestClient(&c.opts)
-	if err != nil {
-		return nil, err
-	}
-	conn, err := newConn(&c.opts, rest.Auth)
+	rest, err := NewRestClient(opts)
 	if err != nil {
 		return nil, err
 	}
 	c.rest = rest
+	conn, err := newConn(c.opts(), rest.Auth)
+	if err != nil {
+		return nil, err
+	}
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
 	c.Connection = conn
@@ -67,4 +65,12 @@ func (c *RealtimeClient) dispatchloop() {
 	for msg := range c.Connection.msgCh {
 		c.Channels.Get(msg.Channel).notify(msg)
 	}
+}
+
+func (c *RealtimeClient) opts() *ClientOptions {
+	return &c.rest.opts
+}
+
+func (c *RealtimeClient) log() *Logger {
+	return c.rest.log()
 }

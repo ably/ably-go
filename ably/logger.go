@@ -1,27 +1,31 @@
 package ably
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
 
 const (
-	LogError = 1 + iota
-	LogWarn
+	LogNone = iota
+	LogError
+	LogWarning
 	LogInfo
 	LogVerbose
+	LogDebug
 )
 
 var logLevels = map[int]string{
-	LogError:   "ERROR: ",
-	LogWarn:    "WARN: ",
-	LogInfo:    "INFO: ",
-	LogVerbose: "VERBOSE: ",
+	LogError:   "[ERROR] ",
+	LogWarning: "[WARN] ",
+	LogInfo:    "[INFO] ",
+	LogVerbose: "[VERBOSE] ",
+	LogDebug:   "[DEBUG] ",
 }
 
-var Log = Logger{
-	Logger: log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile),
-	Level:  LogError,
+var defaultLog = Logger{
+	Logger: log.New(os.Stderr, "", log.Lmicroseconds|log.Lshortfile),
+	Level:  LogNone,
 }
 
 type Logger struct {
@@ -31,17 +35,22 @@ type Logger struct {
 
 func (l Logger) Print(level int, v ...interface{}) {
 	if l.Level >= level {
-		if prefix, ok := logLevels[level]; ok {
-			v = append(v, interface{}(nil))
-			copy(v[1:], v)
-			v[0] = prefix
+		if len(v) != 0 {
+			v[0] = fmt.Sprintf(logLevels[level]+"%v", v[0])
 		}
-		l.Logger.Print(v...)
+		l.log().Print(v...)
 	}
 }
 
 func (l Logger) Printf(level int, format string, v ...interface{}) {
 	if l.Level >= level {
-		l.Logger.Printf(logLevels[level]+format, v...)
+		l.log().Printf(logLevels[level]+format, v...)
 	}
+}
+
+func (l Logger) log() *log.Logger {
+	if l.Logger != nil {
+		return l.Logger
+	}
+	return defaultLog.Logger
 }

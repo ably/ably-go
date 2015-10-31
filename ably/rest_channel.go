@@ -62,5 +62,9 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 // method.
 func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
 	path := "/channels/" + c.uriName + "/history"
-	return newPaginatedResult(msgType, path, params, query(c.client.get))
+	return newPaginatedResult(msgType, path, params, query(c.client.get), c.log())
+}
+
+func (c *RestChannel) log() *Logger {
+	return c.client.log()
 }

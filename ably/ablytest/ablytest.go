@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -13,13 +14,33 @@ import (
 )
 
 var Timeout = 5 * time.Second
+var NoBinaryProtocol bool
+var LogLevel int
+var Environment = "sandbox"
+
+func nonil(err ...error) error {
+	for _, err := range err {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func init() {
-	ably.Log.Level = ably.LogVerbose
 	if s := os.Getenv("ABLY_TIMEOUT"); s != "" {
 		if t, err := time.ParseDuration(s); err == nil {
 			Timeout = t
 		}
+	}
+	if os.Getenv("ABLY_PROTOCOL") == "application/json" {
+		NoBinaryProtocol = true
+	}
+	if n, err := strconv.Atoi(os.Getenv("ABLY_LOGLEVEL")); err == nil {
+		LogLevel = n
+	}
+	if s := os.Getenv("ABLY_ENV"); s != "" {
+		Environment = s
 	}
 }
 
@@ -61,4 +82,11 @@ func mergeOpts(opts, extra *ably.ClientOptions) *ably.ClientOptions {
 	ablyutil.Merge(opts, extra, false)
 	ablyutil.Merge(&opts.AuthOptions, &extra.AuthOptions, false)
 	return opts
+}
+
+func protocol(opts *ably.ClientOptions) string {
+	if opts.NoBinaryProtocol {
+		return "application/json"
+	}
+	return "application/x-msgpack"
 }

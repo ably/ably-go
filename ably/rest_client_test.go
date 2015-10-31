@@ -78,9 +78,9 @@ var _ = Describe("RestClient", func() {
 		Context("with JSON encoding set up", func() {
 			BeforeEach(func() {
 				options := &ably.ClientOptions{
-					NoTLS:      true,
-					Protocol:   ably.ProtocolJSON,
-					HTTPClient: newHTTPClientMock(server),
+					NoTLS:            true,
+					NoBinaryProtocol: true,
+					HTTPClient:       newHTTPClientMock(server),
 					AuthOptions: ably.AuthOptions{
 						UseTokenAuth: true,
 					},
@@ -107,7 +107,6 @@ var _ = Describe("RestClient", func() {
 			BeforeEach(func() {
 				options := &ably.ClientOptions{
 					NoTLS:      true,
-					Protocol:   ably.ProtocolMsgPack,
 					HTTPClient: newHTTPClientMock(server),
 					AuthOptions: ably.AuthOptions{
 						UseTokenAuth: true,
@@ -117,7 +116,9 @@ var _ = Describe("RestClient", func() {
 				mockType = "application/x-msgpack"
 				mockBody = []byte{0x80}
 
-				client, err = ably.NewRestClient(testApp.Options(options))
+				options = testApp.Options(options)
+				options.NoBinaryProtocol = false
+				client, err = ably.NewRestClient(options)
 				Expect(err).NotTo(HaveOccurred())
 
 				err := client.Channel("test").Publish("ping", "pong")

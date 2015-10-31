@@ -35,13 +35,16 @@ type RestClient struct {
 
 	chansMtx sync.Mutex
 	chans    map[string]*RestChannel
-	options  ClientOptions
+	opts     ClientOptions
 }
 
 func NewRestClient(opts *ClientOptions) (*RestClient, error) {
+	if opts == nil {
+		panic("called NewRealtimeClient with nil ClientOptions")
+	}
 	c := &RestClient{
-		chans:   make(map[string]*RestChannel),
-		options: *opts,
+		chans: make(map[string]*RestChannel),
+		opts:  *opts,
 	}
 	auth, err := newAuth(c)
 	if err != nil {
@@ -84,7 +87,7 @@ func (c *RestClient) Channel(name string) *RestChannel {
 // The returned result can be inspected for the statistics via the Stats()
 // method.
 func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
-	return newPaginatedResult(statType, "/stats", params, query(c.get))
+	return newPaginatedResult(statType, "/stats", params, query(c.get), c.log())
 }
 
 type request struct {
@@ -124,7 +127,7 @@ func (c *RestClient) do(r *request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.options.httpclient().Do(req)
+	resp, err := c.opts.httpclient().Do(req)
 	if err != nil {
 		return nil, newError(50000, err)
 	}
@@ -149,7 +152,7 @@ func (c *RestClient) do(r *request) (*http.Response, error) {
 
 func (c *RestClient) newHTTPRequest(r *request) (*http.Request, error) {
 	var body io.Reader
-	var proto = c.options.protocol()
+	var proto = c.opts.protocol()
 	if r.In != nil {
 		p, err := encode(proto, r.In)
 		if err != nil {
@@ -157,7 +160,7 @@ func (c *RestClient) newHTTPRequest(r *request) (*http.Request, error) {
 		}
 		body = bytes.NewReader(p)
 	}
-	req, err := http.NewRequest(r.Method, c.options.restURL()+r.Path, body)
+	req, err := http.NewRequest(r.Method, c.opts.restURL()+r.Path, body)
 	if err != nil {
 		return nil, newError(50000, err)
 	}
@@ -184,6 +187,10 @@ func (c *RestClient) handleResponse(resp *http.Response, out interface{}) (*http
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (c *RestClient) log() *Logger {
+	return &c.opts.Log
 }
 
 func encode(typ string, in interface{}) ([]byte, error) {
