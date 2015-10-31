@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
+	"github.com/ably/ably-go/ably/proto"
 )
 
 const (
@@ -183,7 +184,7 @@ type ClientOptions struct {
 	// by RealtimeClient.
 	//
 	// If Dial is nil, the default websocket connection is used.
-	Dial func(protocol string, u *url.URL) (MsgConn, error)
+	Dial func(protocol string, u *url.URL) (proto.Conn, error)
 
 	// Listener if set, will be automatically registered with On method for every
 	// realtime connection and realtime channel created by realtime client.

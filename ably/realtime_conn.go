@@ -23,7 +23,7 @@ type Conn struct {
 	serial    int64
 	msgSerial int64
 	err       error
-	conn      MsgConn
+	conn      proto.Conn
 	msgCh     chan *proto.ProtocolMessage
 	opts      *ClientOptions
 	state     *stateEmitter
@@ -52,7 +52,7 @@ func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
 	return c, nil
 }
 
-func (c *Conn) dial(proto string, u *url.URL) (MsgConn, error) {
+func (c *Conn) dial(proto string, u *url.URL) (proto.Conn, error) {
 	if c.opts.Dial != nil {
 		return c.opts.Dial(proto, u)
 	}
@@ -270,15 +270,14 @@ func (c *Conn) lockIsActive() bool {
 	return c.isActive()
 }
 
-func (c *Conn) setConn(conn MsgConn) {
+func (c *Conn) setConn(conn proto.Conn) {
 	c.conn = conn
 	go c.eventloop()
 }
 
 func (c *Conn) eventloop() {
 	for {
-		msg := &proto.ProtocolMessage{}
-		err := c.conn.Receive(&msg)
+		msg, err := c.conn.Receive()
 		if err != nil {
 			c.state.Lock()
 			if c.state.current == StateConnClosed {
@@ -316,8 +315,10 @@ func (c *Conn) eventloop() {
 			c.queue.Fail(newErrorProto(msg.Error))
 		case proto.ActionConnected:
 			c.state.Lock()
-			c.id = msg.ConnectionId
-			c.key = msg.ConnectionKey
+			c.id = msg.ConnectionID
+			if msg.ConnectionDetails != nil {
+				c.details = *msg.ConnectionDetails
+			}
 			c.serial = -1
 			c.msgSerial = 0
 			c.state.set(StateConnConnected, nil)
@@ -337,18 +338,4 @@ func (c *Conn) eventloop() {
 			c.msgCh <- msg
 		}
 	}
-}
-
-// MsgConn represents a message-oriented connection.
-type MsgConn interface {
-	// Send write the given message to the connection.
-	// It is expected to block until whole message is written.
-	Send(msg interface{}) error
-
-	// Receive reads the given message from the connection.
-	// It is expected to block until whole message is read.
-	Receive(msg interface{}) error
-
-	// Close closes the connection.
-	Close() error
 }

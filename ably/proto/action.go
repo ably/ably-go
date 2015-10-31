@@ -1,6 +1,6 @@
 package proto
 
-type Action int64
+type Action int8
 
 const (
 	ActionHeartbeat Action = iota

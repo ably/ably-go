@@ -295,7 +295,7 @@ func NewMessageRecorder() *MessageRecorder {
 }
 
 // Dial
-func (rec *MessageRecorder) Dial(proto string, u *url.URL) (ably.MsgConn, error) {
+func (rec *MessageRecorder) Dial(proto string, u *url.URL) (proto.Conn, error) {
 	rec.mu.Lock()
 	rec.url = append(rec.url, u)
 	rec.mu.Unlock()
@@ -337,28 +337,29 @@ func (rec *MessageRecorder) Received() []*proto.ProtocolMessage {
 }
 
 type recConn struct {
-	conn ably.MsgConn
+	conn proto.Conn
 	rec  *MessageRecorder
 }
 
-func (c recConn) Send(msg interface{}) error {
+func (c recConn) Send(msg *proto.ProtocolMessage) error {
 	if err := c.conn.Send(msg); err != nil {
 		return err
 	}
 	c.rec.mu.Lock()
-	c.rec.sent = append(c.rec.sent, msg.(*proto.ProtocolMessage))
+	c.rec.sent = append(c.rec.sent, msg)
 	c.rec.mu.Unlock()
 	return nil
 }
 
-func (c recConn) Receive(msg interface{}) error {
-	if err := c.conn.Receive(msg); err != nil {
-		return err
+func (c recConn) Receive() (*proto.ProtocolMessage, error) {
+	msg, err := c.conn.Receive()
+	if err != nil {
+		return nil, err
 	}
 	c.rec.mu.Lock()
-	c.rec.received = append(c.rec.received, *msg.(**proto.ProtocolMessage))
+	c.rec.received = append(c.rec.received, msg)
 	c.rec.mu.Unlock()
-	return nil
+	return msg, nil
 }
 
 func (c recConn) Close() error {
@@ -370,7 +371,7 @@ type HostRecorder struct {
 
 	mu         sync.Mutex
 	httpClient *http.Client
-	dialWS     func(string, *url.URL) (ably.MsgConn, error)
+	dialWS     func(string, *url.URL) (proto.Conn, error)
 }
 
 func NewRecorder(httpClient *http.Client) *HostRecorder {
@@ -384,7 +385,7 @@ func NewRecorder(httpClient *http.Client) *HostRecorder {
 		hr.addHost(addr)
 		return dial(network, addr)
 	}
-	hr.dialWS = func(proto string, u *url.URL) (ably.MsgConn, error) {
+	hr.dialWS = func(proto string, u *url.URL) (proto.Conn, error) {
 		hr.addHost(u.Host)
 		return ablyutil.DialWebsocket(proto, u)
 	}
