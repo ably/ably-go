@@ -81,6 +81,7 @@ func mergeOpts(opts, extra *ably.ClientOptions) *ably.ClientOptions {
 	}
 	ablyutil.Merge(opts, extra, false)
 	ablyutil.Merge(&opts.AuthOptions, &extra.AuthOptions, false)
+	ablyutil.Merge(&opts.Log, &extra.Log, false)
 	return opts
 }
 

@@ -24,7 +24,7 @@ var logLevels = map[int]string{
 }
 
 var defaultLog = Logger{
-	Logger: log.New(os.Stderr, "", log.Lmicroseconds|log.Lshortfile),
+	Logger: log.New(os.Stderr, "", log.LstdFlags),
 	Level:  LogNone,
 }
 
@@ -33,8 +33,12 @@ type Logger struct {
 	Level  int
 }
 
+func (l Logger) Is(level int) bool {
+	return l.Level >= level
+}
+
 func (l Logger) Print(level int, v ...interface{}) {
-	if l.Level >= level {
+	if l.Is(level) {
 		if len(v) != 0 {
 			v[0] = fmt.Sprintf(logLevels[level]+"%v", v[0])
 		}
@@ -43,7 +47,7 @@ func (l Logger) Print(level int, v ...interface{}) {
 }
 
 func (l Logger) Printf(level int, format string, v ...interface{}) {
-	if l.Level >= level {
+	if l.Is(level) {
 		l.log().Printf(logLevels[level]+format, v...)
 	}
 }

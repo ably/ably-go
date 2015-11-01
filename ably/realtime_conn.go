@@ -125,7 +125,11 @@ func (c *Conn) connect(result bool) (Result, error) {
 	if err != nil {
 		return nil, c.state.set(StateConnFailed, err)
 	}
-	c.setConn(conn)
+	if c.log().Is(LogVerbose) {
+		c.setConn(verboseConn{conn: conn, log: c.log()})
+	} else {
+		c.setConn(conn)
+	}
 	return res, nil
 }
 
@@ -347,4 +351,28 @@ func (c *Conn) eventloop() {
 			c.msgCh <- msg
 		}
 	}
+}
+
+type verboseConn struct {
+	conn proto.Conn
+	log  *Logger
+}
+
+func (vc verboseConn) Send(msg *proto.ProtocolMessage) error {
+	vc.log.Printf(LogVerbose, "Realtime Connection: sending %s", msg)
+	return vc.conn.Send(msg)
+}
+
+func (vc verboseConn) Receive() (*proto.ProtocolMessage, error) {
+	msg, err := vc.conn.Receive()
+	if err != nil {
+		return nil, err
+	}
+	vc.log.Printf(LogVerbose, "Realtime Connection: received %s", msg)
+	return msg, nil
+}
+
+func (vc verboseConn) Close() error {
+	vc.log.Printf(LogVerbose, "Realtime Connection: closed")
+	return vc.conn.Close()
 }

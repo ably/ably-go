@@ -1,5 +1,7 @@
 package proto
 
+import "fmt"
+
 const (
 	FlagPresence Flag = iota + 1
 	FlagBacklog
@@ -28,6 +30,46 @@ type ProtocolMessage struct {
 	Count             int                `json:"count,omitempty" msgpack:"count,omitempty"`
 	Action            Action             `json:"action,omitempty" msgpack:"action,omitempty"`
 	Flags             Flag               `json:"flags,omitempty" msgpack:"flags,omitempty"`
+}
+
+func (msg *ProtocolMessage) String() string {
+	switch msg.Action {
+	case ActionHeartbeat:
+		return fmt.Sprintf("(action=%q)", msg.Action)
+	case ActionAck, ActionNack:
+		return fmt.Sprintf("(action=%q, serial=%d, count=%d)", msg.Action, msg.MsgSerial, msg.Count)
+	case ActionConnect:
+		return fmt.Sprintf("(action=%q)", msg.Action)
+	case ActionConnected:
+		return fmt.Sprintf("(action=%q, id=%q, details=%# v)", msg.Action, msg.ConnectionID, msg.ConnectionDetails)
+	case ActionDisconnect:
+		return fmt.Sprintf("(action=%q)", msg.Action)
+	case ActionDisconnected:
+		return fmt.Sprintf("(action=%q)", msg.Action)
+	case ActionClose:
+		return fmt.Sprintf("(action=%q)", msg.Action)
+	case ActionClosed:
+		return fmt.Sprintf("(action=%q)", msg.Action)
+	case ActionError:
+		return fmt.Sprintf("(action=%q, error=%# v)", msg.Action, msg.Error)
+	case ActionAttach:
+		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
+	case ActionAttached:
+		return fmt.Sprintf("(action=%q, channel=%q, channelSerial=%q, flags=%x)",
+			msg.Action, msg.Channel, msg.ChannelSerial, msg.Flags)
+	case ActionDetach:
+		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
+	case ActionDetached:
+		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
+	case ActionPresence, ActionSync:
+		return fmt.Sprintf("(action=%q, id=%q, channel=%q, timestamp=%d, presenceMessages=%v)",
+			msg.Action, msg.ConnectionID, msg.Timestamp, len(msg.Presence))
+	case ActionMessage:
+		return fmt.Sprintf("(action=%q, id=%q, messages=%v)", msg.Action,
+			msg.ConnectionID, msg.Messages)
+	default:
+		return fmt.Sprintf("%v", msg)
+	}
 }
 
 type Conn interface {
