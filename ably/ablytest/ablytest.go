@@ -13,7 +13,7 @@ import (
 	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
-var Timeout = 5 * time.Second
+var Timeout = 30 * time.Second
 var NoBinaryProtocol bool
 var LogLevel int
 var Environment = "sandbox"
