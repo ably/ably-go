@@ -83,11 +83,9 @@ func newAuth(client *RestClient) (*Auth, error) {
 	if a.opts().Token != "" {
 		a.opts().TokenDetails = newTokenDetails(a.opts().Token)
 	}
-	if a.opts().TokenDetails != nil {
-		a.clientID = a.opts().TokenDetails.ClientID
-		if a.clientID == "*" {
-			return nil, newError(40102, errWildcardClientID)
-		}
+	a.clientID = a.opts().ClientID
+	if a.clientID == "*" {
+		return nil, newError(40102, errWildcardClientID)
 	}
 	return a, nil
 }
@@ -226,11 +224,13 @@ func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions) (*TokenDetails,
 }
 
 func (a *Auth) authorise(params *TokenParams, opts *AuthOptions, force bool) (*TokenDetails, error) {
-	if tok := a.token(); tok != nil && !force && (tok.Expires == 0 || !tok.Expired()) {
+	switch tok := a.token(); {
+	case tok != nil && !force && (tok.Expires == 0 || !tok.Expired()):
 		return tok, nil
-	}
-	if params != nil && params.ClientID == "" {
+	case params != nil && params.ClientID == "":
 		params.ClientID = a.clientID
+	case params == nil && a.clientID != "":
+		params = &TokenParams{ClientID: a.clientID}
 	}
 	tok, tokReqClientID, err := a.requestToken(params, opts)
 	if err != nil {

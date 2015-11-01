@@ -243,6 +243,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	t.Parallel()
 	rec, opts := recorder()
 	opts.UseTokenAuth = true
+	opts.AuthParams = url.Values{"param_1": []string{"this", "should", "get", "overwritten"}}
 	defer rec.Stop()
 	app, client := ablytest.NewRestClient(opts)
 	defer safeclose(t, app)
@@ -393,7 +394,56 @@ func TestAuth_RequestToken(t *testing.T) {
 	}
 }
 
-func TestAuth_RequestToken_ClientID(t *testing.T) {
+func TestAuth_ClientID_Error(t *testing.T) {
+	opts := &ably.ClientOptions{
+		ClientID: "*",
+		AuthOptions: ably.AuthOptions{
+			Key:          "abc:abc",
+			UseTokenAuth: true,
+		},
+	}
+	_, err := ably.NewRealtimeClient(opts)
+	if err := checkError(40102, err); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAuth_ReuseClientID(t *testing.T) {
+	t.Parallel()
+	opts := &ably.ClientOptions{
+		AuthOptions: ably.AuthOptions{
+			UseTokenAuth: true,
+		},
+	}
+	app, client := ablytest.NewRestClient(opts)
+	defer safeclose(t, app)
+
+	params := &ably.TokenParams{
+		ClientID: "reuse-me",
+	}
+	tok, err := client.Auth.Authorise(params, nil)
+	if err != nil {
+		t.Fatalf("Authorise()=%v", err)
+	}
+	if tok.ClientID != params.ClientID {
+		t.Fatalf("want ClientID=%q; got %q", params.ClientID, tok.ClientID)
+	}
+	if clientID := client.Auth.ClientID(); clientID != params.ClientID {
+		t.Fatalf("want ClientID=%q; got %q", params.ClientID, tok.ClientID)
+	}
+	force := &ably.AuthOptions{
+		Force: true,
+	}
+	tok2, err := client.Auth.Authorise(nil, force)
+	if err != nil {
+		t.Fatalf("Authorise()=%v", err)
+	}
+	if tok2.ClientID != params.ClientID {
+		t.Fatalf("want ClientID=%q; got %q", params.ClientID, tok2.ClientID)
+	}
+}
+
+func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 	t.Parallel()
 	app := ablytest.MustSandbox(nil)
 	defer safeclose(t, app)
@@ -464,6 +514,102 @@ func TestAuth_RequestToken_ClientID(t *testing.T) {
 	}
 }
 
+func TestAuth_ClientID(t *testing.T) {
+	t.Parallel()
+	in := make(chan *proto.ProtocolMessage, 16)
+	out := make(chan *proto.ProtocolMessage, 16)
+	app := ablytest.MustSandbox(nil)
+	defer safeclose(t, app)
+	opts := &ably.ClientOptions{
+		AuthOptions: ably.AuthOptions{
+			UseTokenAuth: true,
+		},
+	}
+	proxy := ablytest.MustAuthReverseProxy(app.Options(opts))
+	defer safeclose(t, proxy)
+	params := &ably.TokenParams{
+		TTL: ably.Duration(time.Second),
+	}
+	opts = &ably.ClientOptions{
+		AuthOptions: ably.AuthOptions{
+			AuthURL:      proxy.URL("details"),
+			UseTokenAuth: true,
+			Force:        true,
+		},
+		Dial:      ablytest.MessagePipe(in, out),
+		NoConnect: true,
+	}
+	client := app.NewRealtimeClient(opts) // no client.Close as the connection is mocked
+
+	tok, err := client.Auth.RequestToken(params, nil)
+	if err != nil {
+		t.Fatalf("RequestToken()=%v", err)
+	}
+	proxy.TokenQueue = append(proxy.TokenQueue, tok)
+
+	tok, err = client.Auth.Authorise(nil, nil)
+	if err != nil {
+		t.Fatalf("Authorise()=%v", err)
+	}
+	connected := &proto.ProtocolMessage{
+		Action:       proto.ActionConnected,
+		ConnectionID: "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{
+			ClientID: "client-id",
+		},
+	}
+	// Ensure CONNECTED message changes the empty Auth.ClientID.
+	in <- connected
+	if id := client.Auth.ClientID(); id != "" {
+		t.Fatalf("want clientID to be empty; got %q", id)
+	}
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+		t.Fatalf("Connect()=%v", err)
+	}
+	if id := client.Auth.ClientID(); id != connected.ConnectionDetails.ClientID {
+		t.Fatalf("want clientID=%q; got %q", connected.ConnectionDetails.ClientID, id)
+	}
+	// Mock the auth reverse proxy to return a token with non-matching ClientID
+	// via AuthURL.
+	tok.ClientID = "non-matching"
+	proxy.TokenQueue = append(proxy.TokenQueue, tok)
+
+	force := &ably.AuthOptions{
+		Force: true,
+	}
+	_, err = client.Auth.Authorise(nil, force)
+	if err := checkError(40012, err); err != nil {
+		t.Fatal(err)
+	}
+	closed := &proto.ProtocolMessage{
+		Action: proto.ActionClosed,
+	}
+	in <- closed
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close()=%v", err)
+	}
+	time.Sleep(2 * time.Second) // wait for token to expire
+	in <- connected
+	proxy.TokenQueue = append(proxy.TokenQueue, tok)
+	failed := make(chan ably.State, 1)
+	client.Connection.On(failed, ably.StateConnFailed)
+	err = ablytest.Wait(client.Connection.Connect())
+	if err = checkError(40012, err); err != nil {
+		t.Fatal(err)
+	}
+	if state := client.Connection.State(); state != ably.StateConnFailed {
+		t.Fatalf("want state=%q; got %q", ably.StateConnFailed, state)
+	}
+	select {
+	case state := <-failed:
+		if state.State != ably.StateConnFailed {
+			t.Fatalf("want state=%q; got %q", ably.StateConnFailed, state.State)
+		}
+	default:
+		t.Fatal("wanted to have StateConnFailed emitted; it wasn't")
+	}
+}
+
 func TestAuth_CreateTokenRequest(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRestClient(useToken)
@@ -489,11 +635,10 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 }
 
 func TestAuth_RealtimeAccessToken(t *testing.T) {
+	t.Parallel()
 	rec := ablytest.NewMessageRecorder()
 	opts := &ably.ClientOptions{
-		AuthOptions: ably.AuthOptions{
-			UseTokenAuth: true,
-		},
+		ClientID:  "explicit",
 		NoConnect: true,
 		Dial:      rec.Dial,
 	}
@@ -502,6 +647,12 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 
 	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect()=%v", err)
+	}
+	if err := ablytest.Wait(client.Channels.Get("test").Publish("name", "value")); err != nil {
+		t.Fatalf("Publish()=%v", err)
+	}
+	if clientID := client.Auth.ClientID(); clientID != opts.ClientID {
+		t.Fatalf("want ClientID=%q; got %q", opts.ClientID, clientID)
 	}
 	if err := client.Close(); err != nil {
 		t.Fatalf("Close()=%v", err)
@@ -513,6 +664,13 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	for _, url := range urls {
 		if s := url.Query().Get("access_token"); s == "" {
 			t.Errorf("missing access_token param in %q", url)
+		}
+	}
+	for _, msg := range rec.Sent() {
+		for _, msg := range msg.Messages {
+			if msg.ClientID != "" {
+				t.Fatalf("want ClientID to be empty; got %q", msg.ClientID)
+			}
 		}
 	}
 }

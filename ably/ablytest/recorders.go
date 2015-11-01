@@ -278,6 +278,33 @@ func (rec *StateRecorder) WaitFor(states []ably.StateEnum, timeout time.Duration
 	}
 }
 
+func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMessage) func(string, *url.URL) (proto.Conn, error) {
+	return func(proto string, u *url.URL) (proto.Conn, error) {
+		return pipeConn{
+			in:  in,
+			out: out,
+		}, nil
+	}
+}
+
+type pipeConn struct {
+	in  <-chan *proto.ProtocolMessage
+	out chan<- *proto.ProtocolMessage
+}
+
+func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
+	pc.out <- msg
+	return nil
+}
+
+func (pc pipeConn) Receive() (*proto.ProtocolMessage, error) {
+	return <-pc.in, nil
+}
+
+func (pc pipeConn) Close() error {
+	return nil
+}
+
 // MessageRecorder
 type MessageRecorder struct {
 	mu       sync.Mutex
