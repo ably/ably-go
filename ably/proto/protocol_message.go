@@ -72,12 +72,12 @@ func (msg *ProtocolMessage) String() string {
 		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
 	case ActionPresence, ActionSync:
 		return fmt.Sprintf("(action=%q, id=%q, channel=%q, timestamp=%d, presenceMessages=%v)",
-			msg.Action, msg.ConnectionID, msg.Timestamp, len(msg.Presence))
+			msg.Action, msg.ConnectionID, msg.Channel, msg.Timestamp, msg.Presence)
 	case ActionMessage:
 		return fmt.Sprintf("(action=%q, id=%q, messages=%v)", msg.Action,
 			msg.ConnectionID, msg.Messages)
 	default:
-		return fmt.Sprintf("%v", msg)
+		return fmt.Sprintf("%# v", msg)
 	}
 }
 

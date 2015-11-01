@@ -124,7 +124,7 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 	}
 	client, err := ably.NewRealtimeClient(opts)
 	if err != nil {
-		t.Fatal("NewRealtimeClient()=%v", err)
+		t.Fatalf("NewRealtimeClient()=%v", err)
 	}
 	if err = ablytest.Wait(client.Connection.Connect()); err == nil {
 		t.Fatal("Connect(): want err != nil")

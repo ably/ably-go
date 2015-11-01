@@ -319,7 +319,7 @@ func TestAuth_RequestToken(t *testing.T) {
 		t.Fatalf("want rec.Len()=1; got %d", n)
 	}
 	if token2.Token == tokCallback.Token {
-		t.Fatalf("want token2.Token2=% != tokCallback.Token=%s", token2.Token, tokCallback.Token)
+		t.Fatalf("want token2.Token2=%s != tokCallback.Token=%s", token2.Token, tokCallback.Token)
 	}
 	// Ensure all headers and params are sent with request to AuthURL.
 	for _, method := range []string{"GET", "POST"} {
