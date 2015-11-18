@@ -88,7 +88,7 @@ func (c *RestClient) Channel(name string) *RestChannel {
 // The returned result can be inspected for the statistics via the Stats()
 // method.
 func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
-	return newPaginatedResult(statType, "/stats", params, query(c.get), c.log())
+	return newPaginatedResult(statType, "/stats", params, query(c.get), c.logger())
 }
 
 type request struct {
@@ -198,8 +198,8 @@ func (c *RestClient) handleResponse(resp *http.Response, out interface{}) (*http
 	return resp, nil
 }
 
-func (c *RestClient) log() *Logger {
-	return &c.opts.Log
+func (c *RestClient) logger() *Logger {
+	return &c.opts.Logger
 }
 
 func encode(typ string, in interface{}) ([]byte, error) {

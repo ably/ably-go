@@ -100,8 +100,8 @@ func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
 	c := &RealtimeChannel{
 		Name:   name,
 		client: client,
-		state:  newStateEmitter(StateChan, StateChanInitialized, name, client.log()),
-		subs:   newSubscriptions(subscriptionMessages, client.log()),
+		state:  newStateEmitter(StateChan, StateChanInitialized, name, client.logger()),
+		subs:   newSubscriptions(subscriptionMessages, client.logger()),
 		listen: make(chan State, 1),
 	}
 	c.Presence = newRealtimePresence(c)
@@ -298,7 +298,7 @@ func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) 
 		Channel:  c.state.channel,
 		Messages: messages,
 	}
-	return c.send(msg, true)
+	return c.send(msg)
 }
 
 // History gives the channel's message history according to the given parameters.
@@ -308,15 +308,11 @@ func (c *RealtimeChannel) History(params *PaginateParams) (*PaginatedResult, err
 	return c.client.rest.Channel(c.Name).History(params)
 }
 
-func (c *RealtimeChannel) send(msg *proto.ProtocolMessage, result bool) (Result, error) {
+func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 	if _, err := c.attach(false); err != nil {
 		return nil, err
 	}
-	var res Result
-	var listen chan<- error
-	if result {
-		res, listen = newErrResult()
-	}
+	res, listen := newErrResult()
 	switch c.State() {
 	case StateChanInitialized, StateChanAttaching:
 		c.queue.Enqueue(msg, listen)
@@ -374,6 +370,6 @@ func (c *RealtimeChannel) opts() *ClientOptions {
 	return c.client.opts()
 }
 
-func (c *RealtimeChannel) log() *Logger {
-	return c.client.log()
+func (c *RealtimeChannel) logger() *Logger {
+	return c.client.logger()
 }

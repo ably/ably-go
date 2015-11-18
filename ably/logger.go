@@ -42,17 +42,17 @@ func (l Logger) Print(level int, v ...interface{}) {
 		if len(v) != 0 {
 			v[0] = fmt.Sprintf(logLevels[level]+"%v", v[0])
 		}
-		l.log().Print(v...)
+		l.logger().Print(v...)
 	}
 }
 
 func (l Logger) Printf(level int, format string, v ...interface{}) {
 	if l.Is(level) {
-		l.log().Printf(logLevels[level]+format, v...)
+		l.logger().Printf(logLevels[level]+format, v...)
 	}
 }
 
-func (l Logger) log() *log.Logger {
+func (l Logger) logger() *log.Logger {
 	if l.Logger != nil {
 		return l.Logger
 	}

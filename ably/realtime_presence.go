@@ -34,7 +34,7 @@ type RealtimePresence struct {
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	pres := &RealtimePresence{
-		subs:      newSubscriptions(subscriptionPresenceMessages, channel.log()),
+		subs:      newSubscriptions(subscriptionPresenceMessages, channel.logger()),
 		channel:   channel,
 		members:   make(map[string]*proto.PresenceMessage),
 		syncState: syncInitial,
@@ -55,7 +55,7 @@ func (pres *RealtimePresence) verifyChanState() error {
 	}
 }
 
-func (pres *RealtimePresence) send(msg *proto.PresenceMessage, result bool) (Result, error) {
+func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
 	if _, err := pres.channel.attach(false); err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (pres *RealtimePresence) send(msg *proto.PresenceMessage, result bool) (Res
 		Channel:  pres.channel.state.channel,
 		Presence: []*proto.PresenceMessage{msg},
 	}
-	return pres.channel.send(protomsg, result)
+	return pres.channel.send(protomsg)
 }
 
 func (pres *RealtimePresence) syncWait() {
@@ -143,9 +143,6 @@ func (pres *RealtimePresence) syncEnd() {
 
 func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage, syncSerial string) {
 	for _, presmsg := range msg.Presence {
-		if presmsg.ConnectionID == "" {
-			presmsg.ConnectionID = msg.ConnectionID
-		}
 		if presmsg.Timestamp == 0 {
 			presmsg.Timestamp = msg.Timestamp
 		}
@@ -271,7 +268,7 @@ func (pres *RealtimePresence) EnterClient(clientID, data string) (Result, error)
 			ClientID: clientID,
 		},
 	}
-	return pres.send(msg, true)
+	return pres.send(msg)
 }
 
 // UpdateClient announces an updated presence message for the given clientID.
@@ -294,7 +291,7 @@ func (pres *RealtimePresence) UpdateClient(clientID, data string) (Result, error
 			Data:     data,
 		},
 	}
-	return pres.send(msg, true)
+	return pres.send(msg)
 }
 
 // LeaveClient announces the given clientID leave the associated channel altogether
@@ -315,13 +312,13 @@ func (pres *RealtimePresence) LeaveClient(clientID, data string) (Result, error)
 			ClientID: clientID,
 		},
 	}
-	return pres.send(msg, true)
+	return pres.send(msg)
 }
 
 func (pres *RealtimePresence) auth() *Auth {
 	return pres.channel.client.Auth
 }
 
-func (pres *RealtimePresence) log() *Logger {
-	return pres.channel.log()
+func (pres *RealtimePresence) logger() *Logger {
+	return pres.channel.logger()
 }

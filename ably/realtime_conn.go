@@ -36,12 +36,12 @@ type Conn struct {
 
 func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
 	c := &Conn{
-		opts:  opts,
-		msgCh: make(chan *proto.ProtocolMessage),
-		state: newStateEmitter(StateConn, StateConnInitialized, "", auth.log()),
-		auth:  auth,
+		opts:    opts,
+		msgCh:   make(chan *proto.ProtocolMessage),
+		state:   newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
+		pending: newPendingEmitter(auth.logger()),
+		auth:    auth,
 	}
-	c.pending.log = auth.log()
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
 		c.On(opts.Listener)
@@ -115,8 +115,8 @@ func (c *Conn) connect(result bool) (Result, error) {
 	if err != nil {
 		return nil, c.state.set(StateConnFailed, err)
 	}
-	if c.log().Is(LogVerbose) {
-		c.setConn(verboseConn{conn: conn, log: c.log()})
+	if c.logger().Is(LogVerbose) {
+		c.setConn(verboseConn{conn: conn, logger: c.logger()})
 	} else {
 		c.setConn(conn)
 	}
@@ -314,8 +314,8 @@ func (c *Conn) setConn(conn proto.Conn) {
 	go c.eventloop()
 }
 
-func (c *Conn) log() *Logger {
-	return c.auth.log()
+func (c *Conn) logger() *Logger {
+	return c.auth.logger()
 }
 
 func (c *Conn) eventloop() {
@@ -385,12 +385,12 @@ func (c *Conn) eventloop() {
 }
 
 type verboseConn struct {
-	conn proto.Conn
-	log  *Logger
+	conn   proto.Conn
+	logger *Logger
 }
 
 func (vc verboseConn) Send(msg *proto.ProtocolMessage) error {
-	vc.log.Printf(LogVerbose, "Realtime Connection: sending %s", msg)
+	vc.logger.Printf(LogVerbose, "Realtime Connection: sending %s", msg)
 	return vc.conn.Send(msg)
 }
 
@@ -399,11 +399,11 @@ func (vc verboseConn) Receive() (*proto.ProtocolMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	vc.log.Printf(LogVerbose, "Realtime Connection: received %s", msg)
+	vc.logger.Printf(LogVerbose, "Realtime Connection: received %s", msg)
 	return msg, nil
 }
 
 func (vc verboseConn) Close() error {
-	vc.log.Printf(LogVerbose, "Realtime Connection: closed")
+	vc.logger.Printf(LogVerbose, "Realtime Connection: closed")
 	return vc.conn.Close()
 }

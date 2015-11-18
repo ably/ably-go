@@ -21,7 +21,7 @@ type Subscription struct {
 	queue       []interface{}
 	unsubscribe func(*Subscription)
 	stopped     bool
-	log         *Logger
+	logger      *Logger
 }
 
 func newSubscription(typ reflect.Type, unsubscribe func(*Subscription), log *Logger) *Subscription {
@@ -30,7 +30,7 @@ func newSubscription(typ reflect.Type, unsubscribe func(*Subscription), log *Log
 		channel:     reflect.MakeChan(typ, 0).Interface(),
 		sleep:       make(chan struct{}, 1),
 		unsubscribe: unsubscribe,
-		log:         log,
+		logger:      log,
 	}
 	go sub.loop()
 	return sub
@@ -159,17 +159,17 @@ func statesToKeys(states []proto.PresenceState) []interface{} {
 }
 
 type subscriptions struct {
-	typ reflect.Type
-	mtx sync.Mutex
-	all map[interface{}]map[*Subscription]struct{}
-	log *Logger
+	typ    reflect.Type
+	mtx    sync.Mutex
+	all    map[interface{}]map[*Subscription]struct{}
+	logger *Logger
 }
 
 func newSubscriptions(typ reflect.Type, log *Logger) *subscriptions {
 	return &subscriptions{
-		typ: typ,
-		all: make(map[interface{}]map[*Subscription]struct{}),
-		log: log,
+		typ:    typ,
+		all:    make(map[interface{}]map[*Subscription]struct{}),
+		logger: log,
 	}
 }
 
@@ -187,7 +187,7 @@ func (subs *subscriptions) close() {
 
 func (subs *subscriptions) subscribe(keys ...interface{}) (*Subscription, error) {
 	unsubscribe := func(sub *Subscription) { subs.unsubscribe(false, sub, keys...) }
-	sub := newSubscription(subs.typ, unsubscribe, subs.log)
+	sub := newSubscription(subs.typ, unsubscribe, subs.logger)
 	if len(keys) == 0 {
 		keys = subsAllKeys
 	}

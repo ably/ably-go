@@ -200,9 +200,7 @@ func (app *Sandbox) Options(opts ...*ably.ClientOptions) *ably.ClientOptions {
 		Environment:      app.Environment,
 		HTTPClient:       NewHTTPClient(),
 		NoBinaryProtocol: NoBinaryProtocol,
-		Log: ably.Logger{
-			Level: LogLevel,
-		},
+		Logger:           DefaultLogger,
 		AuthOptions: ably.AuthOptions{
 			Key: app.Key(),
 		},

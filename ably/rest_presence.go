@@ -10,7 +10,7 @@ type RestPresence struct {
 // the PresenceMessages() method.
 func (p *RestPresence) Get(params *PaginateParams) (*PaginatedResult, error) {
 	path := "/channels/" + p.channel.uriName + "/presence"
-	return newPaginatedResult(presMsgType, path, params, query(p.client.get), p.log())
+	return newPaginatedResult(presMsgType, path, params, query(p.client.get), p.logger())
 }
 
 // History gives the channel's presence messages history according to the given
@@ -18,9 +18,9 @@ func (p *RestPresence) Get(params *PaginateParams) (*PaginatedResult, error) {
 // via the PresenceMessages() method.
 func (p *RestPresence) History(params *PaginateParams) (*PaginatedResult, error) {
 	path := "/channels/" + p.channel.uriName + "/presence/history"
-	return newPaginatedResult(presMsgType, path, params, query(p.client.get), p.log())
+	return newPaginatedResult(presMsgType, path, params, query(p.client.get), p.logger())
 }
 
-func (p *RestPresence) log() *Logger {
-	return p.client.log()
+func (p *RestPresence) logger() *Logger {
+	return p.client.logger()
 }

@@ -197,7 +197,7 @@ type stateEmitter struct {
 	err       error
 	current   StateEnum
 	typ       StateType
-	log       *Logger
+	logger    *Logger
 }
 
 func newStateEmitter(typ StateType, startState StateEnum, channel string, log *Logger) *stateEmitter {
@@ -210,7 +210,7 @@ func newStateEmitter(typ StateType, startState StateEnum, channel string, log *L
 		onetime:   make(map[StateEnum]map[chan<- State]struct{}),
 		current:   startState,
 		typ:       typ,
-		log:       log,
+		logger:    log,
 	}
 }
 
@@ -234,7 +234,7 @@ func (s *stateEmitter) emit(st State) {
 		select {
 		case ch <- st:
 		default:
-			s.log.Printf(LogWarning, "dropping %s due to slow receiver", st)
+			s.logger.Printf(LogWarning, "dropping %s due to slow receiver", st)
 		}
 	}
 	onetime := s.onetime[st.State]
@@ -244,7 +244,7 @@ func (s *stateEmitter) emit(st State) {
 			select {
 			case ch <- st:
 			default:
-				s.log.Printf(LogWarning, "dropping %s due to slow receiver", st)
+				s.logger.Printf(LogWarning, "dropping %s due to slow receiver", st)
 			}
 			for _, l := range s.onetime {
 				delete(l, ch)
@@ -317,13 +317,13 @@ func (s *stateEmitter) off(ch chan<- State, states ...StateEnum) {
 
 // queuedEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
-	queue []serialCh
-	log   *Logger
+	queue  []serialCh
+	logger *Logger
 }
 
 func newPendingEmitter(log *Logger) pendingEmitter {
 	return pendingEmitter{
-		log: log,
+		logger: log,
 	}
 }
 
@@ -353,7 +353,7 @@ func (q *pendingEmitter) Enqueue(serial int64, ch chan<- error) {
 	case i == q.Len():
 		q.queue = append(q.queue, serialCh{serial, ch})
 	case q.queue[i].serial == serial:
-		q.log.Printf(LogWarning, "duplicated message serial: %d", serial)
+		q.logger.Printf(LogWarning, "duplicated message serial: %d", serial)
 	default:
 		q.queue = append(q.queue, serialCh{})
 		copy(q.queue[i+1:], q.queue[i:])
@@ -381,18 +381,12 @@ func (q *pendingEmitter) Ack(serial int64, count int, err error) {
 		err = newError(50000, err)
 	}
 	for _, sch := range q.queue[:nack] {
-		select {
-		case sch.ch <- err:
-		default:
-			q.log.Printf(LogWarning, "dropping nack for message serial %d due to slow receiver: %v", sch.serial, err)
-		}
+		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
+		sch.ch <- err
 	}
 	for _, sch := range q.queue[nack:ack] {
-		select {
-		case sch.ch <- nil:
-		default:
-			q.log.Printf(LogWarning, "dropping ack for message serial %d due to slow receiver", sch.serial)
-		}
+		q.logger.Printf(LogVerbose, "received ACK for message serial %d", sch.serial)
+		sch.ch <- nil
 	}
 	q.queue = q.queue[ack:]
 }
@@ -414,11 +408,8 @@ func (q *pendingEmitter) Nack(serial int64, count int, err error) {
 		err = newError(50000, err)
 	}
 	for _, sch := range q.queue[:nack] {
-		select {
-		case sch.ch <- err:
-		default:
-			q.log.Printf(LogWarning, "dropping nack for message serial %d due to slow receiver: %v", sch.serial, err)
-		}
+		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
+		sch.ch <- err
 	}
 	q.queue = q.queue[nack:]
 }
@@ -452,11 +443,8 @@ func (q *msgQueue) Flush() {
 	for _, msgch := range q.queue {
 		err := q.conn.send(msgch.msg, msgch.ch)
 		if err != nil {
-			select {
-			case msgch.ch <- newError(90000, err):
-			default:
-				q.log().Printf(LogWarning, "dropped message serial %d due to slow receiver", msgch.msg.MsgSerial)
-			}
+			q.logger().Printf(LogError, "failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
+			msgch.ch <- newError(90000, err)
 		}
 	}
 	q.queue = nil
@@ -466,18 +454,15 @@ func (q *msgQueue) Flush() {
 func (q *msgQueue) Fail(err error) {
 	q.mtx.Lock()
 	for _, msgch := range q.queue {
-		select {
-		case msgch.ch <- newError(90000, err):
-		default:
-			q.log().Printf(LogWarning, "dropped message serial %d due to slow receiver", msgch.msg.MsgSerial)
-		}
+		q.logger().Printf(LogError, "failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
+		msgch.ch <- newError(90000, err)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
 }
 
-func (q *msgQueue) log() *Logger {
-	return q.conn.log()
+func (q *msgQueue) logger() *Logger {
+	return q.conn.logger()
 }
 
 var nopResult *errResult

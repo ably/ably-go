@@ -397,8 +397,8 @@ func (a *Auth) token() *TokenDetails {
 	return a.opts().TokenDetails
 }
 
-func (a *Auth) log() *Logger {
-	return a.client.log()
+func (a *Auth) logger() *Logger {
+	return a.client.logger()
 }
 
 func detectAuthMethod(opts *ClientOptions) (int, error) {
