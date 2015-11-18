@@ -100,14 +100,14 @@ func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
 	c := &RealtimeChannel{
 		Name:   name,
 		client: client,
-		state:  newStateEmitter(StateChan, StateChanInitialized, name),
-		subs:   newSubscriptions(subscriptionMessages),
+		state:  newStateEmitter(StateChan, StateChanInitialized, name, client.logger()),
+		subs:   newSubscriptions(subscriptionMessages, client.logger()),
 		listen: make(chan State, 1),
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
-	if c.client.opts.Listener != nil {
-		c.On(c.client.opts.Listener)
+	if c.opts().Listener != nil {
+		c.On(c.opts().Listener)
 	}
 	c.client.Connection.On(c.listen, StateConnFailed, StateConnClosed)
 	go c.listenLoop()
@@ -293,21 +293,12 @@ func (c *RealtimeChannel) Publish(name string, data string) (Result, error) {
 //
 // This implicitly attaches the channel if it's not already attached.
 func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) {
-	var clientID string
-	if c.client.Auth.Method == AuthToken && c.client.opts.ClientID != "" {
-		clientID = c.client.opts.ClientID
-	}
-	connectionID := c.client.Connection.ID()
-	for _, message := range messages {
-		message.ClientID = clientID
-		message.ConnectionID = connectionID
-	}
 	msg := &proto.ProtocolMessage{
 		Action:   proto.ActionMessage,
 		Channel:  c.state.channel,
 		Messages: messages,
 	}
-	return c.send(msg, true)
+	return c.send(msg)
 }
 
 // History gives the channel's message history according to the given parameters.
@@ -317,15 +308,11 @@ func (c *RealtimeChannel) History(params *PaginateParams) (*PaginatedResult, err
 	return c.client.rest.Channel(c.Name).History(params)
 }
 
-func (c *RealtimeChannel) send(msg *proto.ProtocolMessage, result bool) (Result, error) {
+func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 	if _, err := c.attach(false); err != nil {
 		return nil, err
 	}
-	var res Result
-	var listen chan<- error
-	if result {
-		res, listen = newErrResult()
-	}
+	res, listen := newErrResult()
 	switch c.State() {
 	case StateChanInitialized, StateChanAttaching:
 		c.queue.Enqueue(msg, listen)
@@ -377,4 +364,12 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 
 func (c *RealtimeChannel) isActive() bool {
 	return c.state.current == StateChanAttaching || c.state.current == StateChanAttached
+}
+
+func (c *RealtimeChannel) opts() *ClientOptions {
+	return c.client.opts()
+}
+
+func (c *RealtimeChannel) logger() *Logger {
+	return c.client.logger()
 }

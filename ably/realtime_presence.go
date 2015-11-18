@@ -34,7 +34,7 @@ type RealtimePresence struct {
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	pres := &RealtimePresence{
-		subs:      newSubscriptions(subscriptionPresenceMessages),
+		subs:      newSubscriptions(subscriptionPresenceMessages, channel.logger()),
 		channel:   channel,
 		members:   make(map[string]*proto.PresenceMessage),
 		syncState: syncInitial,
@@ -55,7 +55,7 @@ func (pres *RealtimePresence) verifyChanState() error {
 	}
 }
 
-func (pres *RealtimePresence) send(msg *proto.PresenceMessage, result bool) (Result, error) {
+func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
 	if _, err := pres.channel.attach(false); err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (pres *RealtimePresence) send(msg *proto.PresenceMessage, result bool) (Res
 		Channel:  pres.channel.state.channel,
 		Presence: []*proto.PresenceMessage{msg},
 	}
-	return pres.channel.send(protomsg, result)
+	return pres.channel.send(protomsg)
 }
 
 func (pres *RealtimePresence) syncWait() {
@@ -143,9 +143,6 @@ func (pres *RealtimePresence) syncEnd() {
 
 func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage, syncSerial string) {
 	for _, presmsg := range msg.Presence {
-		if presmsg.ConnectionID == "" {
-			presmsg.ConnectionID = msg.ConnectionId
-		}
 		if presmsg.Timestamp == 0 {
 			presmsg.Timestamp = msg.Timestamp
 		}
@@ -228,7 +225,7 @@ func (pres *RealtimePresence) Unsubscribe(sub *Subscription, states ...proto.Pre
 // Enter announces presence of the current client with an enter message
 // for the associated channel.
 func (pres *RealtimePresence) Enter(data string) (Result, error) {
-	clientID := pres.channel.client.opts.ClientID
+	clientID := pres.auth().ClientID()
 	if clientID == "" {
 		return nil, newError(91000, nil)
 	}
@@ -240,7 +237,7 @@ func (pres *RealtimePresence) Enter(data string) (Result, error) {
 // If the current client is not present on the channel, Update will
 // behave as Enter method.
 func (pres *RealtimePresence) Update(data string) (Result, error) {
-	clientID := pres.channel.client.opts.ClientID
+	clientID := pres.auth().ClientID()
 	if clientID == "" {
 		return nil, newError(91000, nil)
 	}
@@ -250,7 +247,7 @@ func (pres *RealtimePresence) Update(data string) (Result, error) {
 // Leave announces current client leave the channel altogether with a leave
 // message if data is non-empty.
 func (pres *RealtimePresence) Leave(data string) (Result, error) {
-	clientID := pres.channel.client.opts.ClientID
+	clientID := pres.auth().ClientID()
 	if clientID == "" {
 		return nil, newError(91000, nil)
 	}
@@ -271,7 +268,7 @@ func (pres *RealtimePresence) EnterClient(clientID, data string) (Result, error)
 			ClientID: clientID,
 		},
 	}
-	return pres.send(msg, true)
+	return pres.send(msg)
 }
 
 // UpdateClient announces an updated presence message for the given clientID.
@@ -294,7 +291,7 @@ func (pres *RealtimePresence) UpdateClient(clientID, data string) (Result, error
 			Data:     data,
 		},
 	}
-	return pres.send(msg, true)
+	return pres.send(msg)
 }
 
 // LeaveClient announces the given clientID leave the associated channel altogether
@@ -315,5 +312,13 @@ func (pres *RealtimePresence) LeaveClient(clientID, data string) (Result, error)
 			ClientID: clientID,
 		},
 	}
-	return pres.send(msg, true)
+	return pres.send(msg)
+}
+
+func (pres *RealtimePresence) auth() *Auth {
+	return pres.channel.client.Auth
+}
+
+func (pres *RealtimePresence) logger() *Logger {
+	return pres.channel.logger()
 }

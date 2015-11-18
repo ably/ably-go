@@ -1,4 +1,4 @@
-package testutil
+package ablytest
 
 import (
 	"bytes"
@@ -92,10 +92,6 @@ func DefaultConfig() *Config {
 	}
 }
 
-type TransportHijacker interface {
-	Hijack(http.RoundTripper) http.RoundTripper
-}
-
 type Sandbox struct {
 	Config      *Config
 	Environment string
@@ -103,11 +99,8 @@ type Sandbox struct {
 	client *http.Client
 }
 
-func Provision(opts *ably.ClientOptions) (*Sandbox, *ably.RealtimeClient) {
-	app, err := NewSandbox(nil)
-	if err != nil {
-		panic(err)
-	}
+func NewRealtimeClient(opts *ably.ClientOptions) (*Sandbox, *ably.RealtimeClient) {
+	app := MustSandbox(nil)
 	client, err := ably.NewRealtimeClient(app.Options(opts))
 	if err != nil {
 		panic(nonil(err, app.Close()))
@@ -115,11 +108,8 @@ func Provision(opts *ably.ClientOptions) (*Sandbox, *ably.RealtimeClient) {
 	return app, client
 }
 
-func ProvisionRest(opts *ably.ClientOptions) (*Sandbox, *ably.RestClient) {
-	app, err := NewSandbox(nil)
-	if err != nil {
-		panic(err)
-	}
+func NewRestClient(opts *ably.ClientOptions) (*Sandbox, *ably.RestClient) {
+	app := MustSandbox(nil)
 	client, err := ably.NewRestClient(app.Options(opts))
 	if err != nil {
 		panic(nonil(err, app.Close()))
@@ -127,10 +117,18 @@ func ProvisionRest(opts *ably.ClientOptions) (*Sandbox, *ably.RestClient) {
 	return app, client
 }
 
+func MustSandbox(config *Config) *Sandbox {
+	app, err := NewSandbox(nil)
+	if err != nil {
+		panic(err)
+	}
+	return app
+}
+
 func NewSandbox(config *Config) (*Sandbox, error) {
 	app := &Sandbox{
 		Config:      config,
-		Environment: nonempty(os.Getenv("ABLY_ENV"), "sandbox"),
+		Environment: Environment,
 		client:      NewHTTPClient(),
 	}
 	if app.Config == nil {
@@ -195,10 +193,14 @@ func (app *Sandbox) Key() string {
 }
 
 func (app *Sandbox) Options(opts ...*ably.ClientOptions) *ably.ClientOptions {
+	type transportHijacker interface {
+		Hijack(http.RoundTripper) http.RoundTripper
+	}
 	appOpts := &ably.ClientOptions{
-		Environment: app.Environment,
-		Protocol:    os.Getenv("ABLY_PROTOCOL"),
-		HTTPClient:  NewHTTPClient(),
+		Environment:      app.Environment,
+		HTTPClient:       NewHTTPClient(),
+		NoBinaryProtocol: NoBinaryProtocol,
+		Logger:           DefaultLogger,
 		AuthOptions: ably.AuthOptions{
 			Key: app.Key(),
 		},
@@ -207,8 +209,8 @@ func (app *Sandbox) Options(opts ...*ably.ClientOptions) *ably.ClientOptions {
 	// If opts want to record round trips inject the recording transport
 	// via TransportHijacker interface.
 	if appOpts.HTTPClient != nil && opt.HTTPClient != nil {
-		if hijacked, ok := opt.HTTPClient.Transport.(TransportHijacker); ok {
-			appOpts.HTTPClient.Transport = hijacked.Hijack(appOpts.HTTPClient.Transport)
+		if hijacker, ok := opt.HTTPClient.Transport.(transportHijacker); ok {
+			appOpts.HTTPClient.Transport = hijacker.Hijack(appOpts.HTTPClient.Transport)
 			opt.HTTPClient = nil
 		}
 	}
@@ -220,26 +222,8 @@ func (app *Sandbox) URL(paths ...string) string {
 	return "https://" + app.Environment + "-rest.ably.io/" + path.Join(paths...)
 }
 
-func nonil(err ...error) error {
-	for _, err := range err {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func nonempty(s ...string) string {
-	for _, s := range s {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
-}
-
 func NewHTTPClient() *http.Client {
-	const timeout = 10 * time.Second
+	const timeout = time.Minute
 	return &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{

@@ -1,4 +1,4 @@
-package testutil
+package ablytest
 
 import (
 	"encoding/base64"

@@ -2,14 +2,13 @@ package ably
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 	"time"
 
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
-
-	"github.com/ably/ably-go/Godeps/_workspace/src/golang.org/x/net/websocket"
-	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
 var (
@@ -20,12 +19,12 @@ var (
 // Conn represents a single connection RealtimeClient instantiates for
 // communication with Ably servers.
 type Conn struct {
+	details   proto.ConnectionDetails
 	id        string
-	key       string
 	serial    int64
 	msgSerial int64
 	err       error
-	conn      MsgConn
+	conn      proto.Conn
 	msgCh     chan *proto.ProtocolMessage
 	opts      *ClientOptions
 	state     *stateEmitter
@@ -37,10 +36,11 @@ type Conn struct {
 
 func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
 	c := &Conn{
-		opts:  opts,
-		msgCh: make(chan *proto.ProtocolMessage),
-		state: newStateEmitter(StateConn, StateConnInitialized, ""),
-		auth:  auth,
+		opts:    opts,
+		msgCh:   make(chan *proto.ProtocolMessage),
+		state:   newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
+		pending: newPendingEmitter(auth.logger()),
+		auth:    auth,
 	}
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
@@ -54,22 +54,11 @@ func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
 	return c, nil
 }
 
-func (c *Conn) dial(proto string, u *url.URL) (MsgConn, error) {
+func (c *Conn) dial(proto string, u *url.URL) (proto.Conn, error) {
 	if c.opts.Dial != nil {
 		return c.opts.Dial(proto, u)
 	}
-	return dialWebsocket(proto, u)
-}
-
-func booltext(b ...bool) []string {
-	ok := true
-	for _, b := range b {
-		ok = ok && b
-	}
-	if ok {
-		return []string{"true"}
-	}
-	return []string{"false"}
+	return ablyutil.DialWebsocket(proto, u)
 }
 
 // Connect is used to connect to Ably servers manually, when the client owning
@@ -109,20 +98,28 @@ func (c *Conn) connect(result bool) (Result, error) {
 	proto := c.opts.protocol()
 	query := url.Values{
 		"timestamp": []string{strconv.FormatInt(TimeNow(), 10)},
-		"echo":      booltext(!c.opts.NoEcho),
+		"echo":      []string{"true"},
+		"format":    []string{"msgpack"},
 	}
-	if c.opts.UseBinaryProtocol || c.opts.protocol() == ProtocolMsgPack {
-		query.Set("format", "msgpack")
+	if c.opts.NoEcho {
+		query.Set("echo", "false")
+	}
+	if c.opts.NoBinaryProtocol {
+		query.Set("format", "json")
 	}
 	if err := c.auth.authQuery(query); err != nil {
-		return nil, err
+		return nil, c.state.set(StateConnFailed, err)
 	}
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)
 	if err != nil {
 		return nil, c.state.set(StateConnFailed, err)
 	}
-	c.setConn(conn)
+	if c.logger().Is(LogVerbose) {
+		c.setConn(verboseConn{conn: conn, logger: c.logger()})
+	} else {
+		c.setConn(conn)
+	}
 	return res, nil
 }
 
@@ -178,7 +175,7 @@ func (c *Conn) ID() string {
 func (c *Conn) Key() string {
 	c.state.Lock()
 	defer c.state.Unlock()
-	return c.key
+	return c.details.ConnectionKey
 }
 
 // Ping issues a ping request against configured endpoint and returns TTR times
@@ -257,9 +254,49 @@ func (c *Conn) send(msg *proto.ProtocolMessage, listen chan<- error) error {
 		c.state.Unlock()
 		return stateError(state, nil)
 	}
+	if err := c.verifyAndUpdateMessages(msg); err != nil {
+		c.state.Unlock()
+		return err
+	}
 	c.updateSerial(msg, listen)
 	c.state.Unlock()
 	return c.conn.Send(msg)
+}
+
+// verifyAndUpdateMessages ensures the ClientID sent with published messages or
+// presence messages matches the authenticated user's ClientID and if it does,
+// ensures it's empty as Able service is responsible for populating it.
+//
+// If both user was not authenticated with a wildcard ClientID and the one
+// being sent does not match it, the method return non-nil error.
+func (c *Conn) verifyAndUpdateMessages(msg *proto.ProtocolMessage) (err error) {
+	clientID := c.auth.clientIDForCheck()
+	connectionID := c.id
+	switch msg.Action {
+	case proto.ActionMessage:
+		for _, msg := range msg.Messages {
+			if !isClientIDAllowed(clientID, msg.ClientID) {
+				return newError(90000, fmt.Errorf("unable to send message as %q", msg.ClientID))
+			}
+			if clientID == msg.ClientID {
+				msg.ClientID = ""
+			}
+			msg.ConnectionID = connectionID
+		}
+	case proto.ActionPresence:
+		for _, presmsg := range msg.Presence {
+			switch {
+			case !isClientIDAllowed(clientID, presmsg.ClientID):
+				return newError(90000, fmt.Errorf("unable to send presence message as %q", presmsg.ClientID))
+			case clientID == "" && presmsg.ClientID == "":
+				return newError(90000, errors.New("unable to infer ClientID from the connection"))
+			case presmsg.ClientID == "":
+				presmsg.ClientID = clientID
+			}
+			presmsg.ConnectionID = connectionID
+		}
+	}
+	return nil
 }
 
 func (c *Conn) isActive() bool {
@@ -272,15 +309,18 @@ func (c *Conn) lockIsActive() bool {
 	return c.isActive()
 }
 
-func (c *Conn) setConn(conn MsgConn) {
+func (c *Conn) setConn(conn proto.Conn) {
 	c.conn = conn
 	go c.eventloop()
 }
 
+func (c *Conn) logger() *Logger {
+	return c.auth.logger()
+}
+
 func (c *Conn) eventloop() {
 	for {
-		msg := &proto.ProtocolMessage{}
-		err := c.conn.Receive(&msg)
+		msg, err := c.conn.Receive()
 		if err != nil {
 			c.state.Lock()
 			if c.state.current == StateConnClosed {
@@ -317,9 +357,12 @@ func (c *Conn) eventloop() {
 			c.state.Unlock()
 			c.queue.Fail(newErrorProto(msg.Error))
 		case proto.ActionConnected:
+			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
 			c.state.Lock()
-			c.id = msg.ConnectionId
-			c.key = msg.ConnectionKey
+			c.id = msg.ConnectionID
+			if msg.ConnectionDetails != nil {
+				c.details = *msg.ConnectionDetails
+			}
 			c.serial = -1
 			c.msgSerial = 0
 			c.state.set(StateConnConnected, nil)
@@ -341,61 +384,26 @@ func (c *Conn) eventloop() {
 	}
 }
 
-// MsgConn represents a message-oriented connection.
-type MsgConn interface {
-	// Send write the given message to the connection.
-	// It is expected to block until whole message is written.
-	Send(msg interface{}) error
-
-	// Receive reads the given message from the connection.
-	// It is expected to block until whole message is read.
-	Receive(msg interface{}) error
-
-	// Close closes the connection.
-	Close() error
+type verboseConn struct {
+	conn   proto.Conn
+	logger *Logger
 }
 
-func dialWebsocket(proto string, u *url.URL) (MsgConn, error) {
-	ws := &wsConn{}
-	switch proto {
-	case ProtocolJSON:
-		ws.codec = websocket.JSON
-	case ProtocolMsgPack:
-		ws.codec = msgpackCodec
-	default:
-		return nil, errors.New(`invalid protocol "` + proto + `"`)
-	}
-	conn, err := websocket.Dial(u.String(), "", "https://"+u.Host)
+func (vc verboseConn) Send(msg *proto.ProtocolMessage) error {
+	vc.logger.Printf(LogVerbose, "Realtime Connection: sending %s", msg)
+	return vc.conn.Send(msg)
+}
+
+func (vc verboseConn) Receive() (*proto.ProtocolMessage, error) {
+	msg, err := vc.conn.Receive()
 	if err != nil {
 		return nil, err
 	}
-	ws.conn = conn
-	return ws, nil
+	vc.logger.Printf(LogVerbose, "Realtime Connection: received %s", msg)
+	return msg, nil
 }
 
-var msgpackCodec = websocket.Codec{
-	Marshal: func(v interface{}) ([]byte, byte, error) {
-		p, err := msgpack.Marshal(v)
-		return p, websocket.BinaryFrame, err
-	},
-	Unmarshal: func(p []byte, _ byte, v interface{}) error {
-		return msgpack.Unmarshal(p, v)
-	},
-}
-
-type wsConn struct {
-	conn  *websocket.Conn
-	codec websocket.Codec
-}
-
-func (ws *wsConn) Send(v interface{}) error {
-	return ws.codec.Send(ws.conn, v)
-}
-
-func (ws *wsConn) Receive(v interface{}) error {
-	return ws.codec.Receive(ws.conn, v)
-}
-
-func (ws *wsConn) Close() error {
-	return ws.conn.Close()
+func (vc verboseConn) Close() error {
+	vc.logger.Printf(LogVerbose, "Realtime Connection: closed")
+	return vc.conn.Close()
 }

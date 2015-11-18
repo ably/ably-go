@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/ablytest"
 	"github.com/ably/ably-go/ably/proto"
-	"github.com/ably/ably-go/ably/testutil"
 )
 
 func contains(members []*proto.PresenceMessage, clients ...string) error {
@@ -41,7 +41,7 @@ var fixtureMembers = []string{
 
 func TestRealtimePresence_Sync(t *testing.T) {
 	t.Parallel()
-	app, client := testutil.Provision(nil)
+	app, client := ablytest.NewRealtimeClient(nil)
 	defer safeclose(t, client, app)
 
 	members, err := client.Channels.GetAndAttach("persisted:presence_fixtures").Presence.Get(true)
@@ -55,7 +55,7 @@ func TestRealtimePresence_Sync(t *testing.T) {
 
 func TestRealtimePresence_Sync250(t *testing.T) {
 	t.Parallel()
-	app, client1 := testutil.Provision(nil)
+	app, client1 := ablytest.NewRealtimeClient(nil)
 	defer safeclose(t, client1, app)
 	client2 := app.NewRealtimeClient()
 	client3 := app.NewRealtimeClient()
@@ -70,7 +70,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	}
 	defer safeclose(t, sub2)
 
-	var rg ably.ResultGroup
+	var rg ablytest.ResultGroup
 	var clients = generateClients(250)
 	for _, client := range clients {
 		rg.Add(channel1.Presence.EnterClient(client, ""))
@@ -79,14 +79,14 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 		t.Fatalf("rg.Wait()=%v", err)
 	}
 	members2 := make([]*proto.PresenceMessage, 250)
-	tout := time.After(250 * timeout)
+	tout := time.After(250 * ablytest.Timeout)
 
 	for i := range members2 {
 		select {
 		case msg := <-sub2.PresenceChannel():
 			members2[i] = msg
 		case <-tout:
-			t.Fatalf("waiting for presence messages timed out after %v", 250*timeout)
+			t.Fatalf("waiting for presence messages timed out after %v", 250*ablytest.Timeout)
 		}
 	}
 
@@ -110,15 +110,15 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 		ably.StateChanAttaching,
 		ably.StateChanAttached,
 	}
-	rec := ably.NewStateRecorder(4)
+	rec := ablytest.NewStateRecorder(4)
 	opts := &ably.ClientOptions{
 		Listener:  rec.Channel(),
 		NoConnect: true,
 	}
-	app, client := testutil.Provision(opts)
+	app, client := ablytest.NewRealtimeClient(opts)
 	defer safeclose(t, client, app)
 	channel := client.Channels.Get("persisted:presence_fixtures")
-	if err := wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
 		t.Fatal(err)
 	}
 	if err := rec.WaitFor(presTransitions[:2], time.Second); err != nil {

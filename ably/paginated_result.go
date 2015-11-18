@@ -3,6 +3,7 @@ package ably
 import (
 	"net/http"
 	"net/url"
+	"path"
 	"reflect"
 	"regexp"
 	"strings"
@@ -35,13 +36,15 @@ type PaginatedResult struct {
 	typItems interface{}
 	typ      reflect.Type
 	query    QueryFunc
+	logger   *Logger
 }
 
 func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
-	query QueryFunc) (*PaginatedResult, error) {
+	query QueryFunc, log *Logger) (*PaginatedResult, error) {
 	p := &PaginatedResult{
-		typ:   typ,
-		query: query,
+		typ:    typ,
+		query:  query,
+		logger: log,
 	}
 	builtPath, err := p.buildPaginatedPath(path, params)
 	if err != nil {
@@ -73,11 +76,8 @@ func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 	if !ok {
 		return nil, newErrorf(ErrCodeNotFound, "no next page after %q", p.path)
 	}
-	nextPage, err := p.buildPath(p.path, nextPath)
-	if err != nil {
-		return nil, err
-	}
-	return newPaginatedResult(p.typ, nextPage, nil, p.query)
+	nextPage := p.buildPath(p.path, nextPath)
+	return newPaginatedResult(p.typ, nextPage, nil, p.query, p.logger)
 }
 
 // Items gives a slice of results of the current page.
@@ -139,13 +139,11 @@ func (c *PaginatedResult) buildPaginatedPath(path string, params *PaginateParams
 }
 
 // buildPath finds the absolute path based on the path parameter and the new relative path.
-func (p *PaginatedResult) buildPath(path string, newRelativePath string) (string, error) {
-	oldURL, err := url.Parse("http://example.com" + path)
-	if err != nil {
-		return "", newError(50000, err)
+func (p *PaginatedResult) buildPath(origPath string, newRelativePath string) string {
+	if i := strings.IndexRune(origPath, '?'); i != -1 {
+		origPath = origPath[:i]
 	}
-	rootPath := strings.TrimRightFunc(oldURL.Path, func(r rune) bool { return r != '/' })
-	return rootPath + strings.TrimLeft(newRelativePath, "./"), nil
+	return path.Join(path.Dir(origPath), newRelativePath)
 }
 
 func (p *PaginatedResult) paginationHeaders() map[string]string {

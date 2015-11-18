@@ -40,7 +40,7 @@ func testQueuedEmitter(t *testing.T, serials, ack, nack []int64, emit func(*pend
 	for i, serial := range serials {
 		index[serial] = i
 	}
-	q := &pendingEmitter{}
+	q := &pendingEmitter{logger: &Logger{}}
 	for serial, i := range index {
 		q.Enqueue(serial, ch[i])
 	}

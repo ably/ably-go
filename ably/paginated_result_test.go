@@ -16,8 +16,7 @@ var _ = Describe("PaginatedResult", func() {
 		})
 
 		It("returns a string pointing to the new path based on the given path", func() {
-			newPath, err := result.BuildPath("/path/to/resource?hello", "./newresource?world")
-			Expect(err).NotTo(HaveOccurred())
+			newPath := result.BuildPath("/path/to/resource?hello", "./newresource?world")
 			Expect(newPath).To(Equal("/path/to/newresource?world"))
 		})
 	})

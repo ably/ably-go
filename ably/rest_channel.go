@@ -1,18 +1,39 @@
 package ably
 
-import "github.com/ably/ably-go/ably/proto"
+import (
+	"strings"
+
+	"github.com/ably/ably-go/ably/proto"
+)
+
+// based on HttpUtils::encodeURIComponent from ably-java library
+var encodeURIComponent = strings.NewReplacer(
+	" ", "%20",
+	"!", "%21",
+	"'", "%27",
+	"(", "%28",
+	")", "%29",
+	"+", "%2B",
+	":", "%3A",
+	"~", "%7E",
+	"/", "%2F",
+	"?", "%3F",
+	"#", "%23",
+)
 
 type RestChannel struct {
 	Name     string
 	Presence *RestPresence
 
-	client *RestClient
+	client  *RestClient
+	uriName string
 }
 
 func newRestChannel(name string, client *RestClient) *RestChannel {
 	c := &RestChannel{
-		Name:   name,
-		client: client,
+		Name:    name,
+		client:  client,
+		uriName: encodeURIComponent.Replace(name),
 	}
 	c.Presence = &RestPresence{
 		client:  client,
@@ -32,7 +53,7 @@ func (c *RestChannel) Publish(name string, data string) error {
 // This is the more efficient way of transmitting a batch of messages
 // using the Rest API.
 func (c *RestChannel) PublishAll(messages []*proto.Message) error {
-	_, err := c.client.post("/channels/"+c.Name+"/messages", messages, nil)
+	_, err := c.client.post("/channels/"+c.uriName+"/messages", messages, nil)
 	return err
 }
 
@@ -40,6 +61,10 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 // The returned result can be inspected for the messages via the Messages()
 // method.
 func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
-	path := "/channels/" + c.Name + "/history"
-	return newPaginatedResult(msgType, path, params, query(c.client.get))
+	path := "/channels/" + c.uriName + "/history"
+	return newPaginatedResult(msgType, path, params, query(c.client.get), c.logger())
+}
+
+func (c *RestChannel) logger() *Logger {
+	return c.client.logger()
 }

@@ -7,15 +7,15 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/testutil"
+	"github.com/ably/ably-go/ably/ablytest"
 )
 
 func await(fn func() ably.StateEnum, state ably.StateEnum) error {
-	t := time.After(timeout)
+	t := time.After(ablytest.Timeout)
 	for {
 		select {
 		case <-t:
-			return fmt.Errorf("waiting for %s state has timed out after %v", state, timeout)
+			return fmt.Errorf("waiting for %s state has timed out after %v", state, ablytest.Timeout)
 		default:
 			if fn() == state {
 				return nil
@@ -32,8 +32,8 @@ var connTransitions = []ably.StateEnum{
 }
 
 func TestRealtimeConn_Connect(t *testing.T) {
-	rec := ably.NewStateRecorder(4)
-	app, client := testutil.Provision(&ably.ClientOptions{Listener: rec.Channel()})
+	rec := ablytest.NewStateRecorder(4)
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, client, app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
@@ -51,16 +51,16 @@ func TestRealtimeConn_Connect(t *testing.T) {
 }
 
 func TestRealtimeConn_NoConnect(t *testing.T) {
-	rec := ably.NewStateRecorder(4)
+	rec := ablytest.NewStateRecorder(4)
 	opts := &ably.ClientOptions{
 		Listener:  rec.Channel(),
 		NoConnect: true,
 	}
-	app, client := testutil.Provision(opts)
+	app, client := ablytest.NewRealtimeClient(opts)
 	defer safeclose(t, client, app)
 
 	client.Connection.On(rec.Channel())
-	if err := wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	if serial := client.Connection.Serial(); serial != -1 {
@@ -83,8 +83,8 @@ var connCloseTransitions = []ably.StateEnum{
 }
 
 func TestRealtimeConn_ConnectClose(t *testing.T) {
-	rec := ably.NewStateRecorder(4)
-	app, client := testutil.Provision(&ably.ClientOptions{Listener: rec.Channel()})
+	rec := ablytest.NewStateRecorder(4)
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, client, app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
@@ -103,13 +103,36 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 }
 
 func TestRealtimeConn_AlreadyConnected(t *testing.T) {
-	app, client := testutil.Provision(&ably.ClientOptions{NoConnect: true})
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
 	defer safeclose(t, client, app)
 
-	if err := wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
-	if err := wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect=%s", err)
+	}
+}
+
+func TestRealtimeConn_AuthError(t *testing.T) {
+	opts := &ably.ClientOptions{
+		AuthOptions: ably.AuthOptions{
+			Key:          "abc:abc",
+			UseTokenAuth: true,
+		},
+		NoConnect: true,
+	}
+	client, err := ably.NewRealtimeClient(opts)
+	if err != nil {
+		t.Fatalf("NewRealtimeClient()=%v", err)
+	}
+	if err = ablytest.Wait(client.Connection.Connect()); err == nil {
+		t.Fatal("Connect(): want err != nil")
+	}
+	if state := client.Connection.State(); state != ably.StateConnFailed {
+		t.Fatalf("want state=%s; got %s", ably.StateConnFailed, state)
+	}
+	if err = client.Close(); err == nil {
+		t.Fatal("Close(): want err != nil")
 	}
 }

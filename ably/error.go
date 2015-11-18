@@ -23,15 +23,16 @@ func toStatusCode(code int) int {
 // code. It may contain underlying error value which caused the failure
 // condition.
 type Error struct {
-	Code       int   // internal error code
-	StatusCode int   // HTTP status code
-	Err        error // underlying error responsible for the failure; may be nil
+	Code       int    // internal error code
+	StatusCode int    // HTTP status code
+	Err        error  // underlying error responsible for the failure; may be nil
+	Server     string // non-empty ID of the Ably server which the error was received from
 }
 
 // Error implements builtin error interface.
 func (err *Error) Error() string {
 	if err.Err != nil {
-		return err.Err.Error()
+		return fmt.Sprintf("%s (status=%d, internal=%d)", err.Err, err.StatusCode, err.Code)
 	}
 	return errCodeText[err.Code]
 }
@@ -87,18 +88,28 @@ func code(err error) int {
 }
 
 func checkValidHTTPResponse(resp *http.Response) error {
+	type errorBody struct {
+		Error proto.Error `json:"error,omitempty" msgpack:"error,omitempty"`
+	}
 	if resp.StatusCode < 300 {
 		return nil
 	}
 	defer resp.Body.Close()
-	body := &proto.Error{}
+	body := &errorBody{}
 	if e := json.NewDecoder(resp.Body).Decode(body); e != nil {
-		err := genericError(errors.New(http.StatusText(resp.StatusCode)))
-		return &Error{Code: 50000, StatusCode: resp.StatusCode, Err: err}
+		return &Error{
+			Code:       50000,
+			StatusCode: resp.StatusCode,
+			Err:        genericError(errors.New(http.StatusText(resp.StatusCode))),
+		}
 	}
-	err := &Error{Code: body.Code, StatusCode: body.StatusCode}
-	if body.Message != "" {
-		err.Err = errors.New(body.Message)
+	err := &Error{
+		Code:       body.Error.Code,
+		StatusCode: body.Error.StatusCode,
+		Server:     body.Error.Server,
+	}
+	if body.Error.Message != "" {
+		err.Err = errors.New(body.Error.Message)
 	}
 	if err.Code == 0 && err.StatusCode == 0 {
 		err.Code, err.StatusCode = resp.StatusCode*100, resp.StatusCode

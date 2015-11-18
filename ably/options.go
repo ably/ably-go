@@ -8,39 +8,28 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
+	"github.com/ably/ably-go/ably/proto"
 )
 
 const (
-	ProtocolJSON    = "application/json"
-	ProtocolMsgPack = "application/x-msgpack"
+	protocolJSON    = "application/json"
+	protocolMsgPack = "application/x-msgpack"
 )
 
-var DefaultOptions = &ClientOptions{
+var defaultOptions = &ClientOptions{
 	RestHost:          "rest.ably.io",
 	RealtimeHost:      "realtime.ably.io",
-	Protocol:          ProtocolMsgPack,
 	TimeoutConnect:    15 * time.Second,
 	TimeoutDisconnect: 30 * time.Second,
 	TimeoutSuspended:  2 * time.Minute,
 }
 
-type AuthMethod uint8
-
 const (
-	AuthBasic AuthMethod = 1 + iota
-	AuthToken
+	authBasic = 1 + iota
+	authToken
 )
-
-func (method AuthMethod) String() string {
-	switch method {
-	case AuthBasic:
-		return "basic"
-	case AuthToken:
-		return "token"
-	default:
-		return "none"
-	}
-}
 
 type AuthOptions struct {
 	// AuthCallback is called in order to obtain a signed token request.
@@ -71,9 +60,16 @@ type AuthOptions struct {
 	//
 	// The req is built with the following values:
 	//
-	//   - req.Method is set to AuthMethod
+	// GET requests:
+	//
 	//   - req.URL.RawQuery is encoded from *TokenParams and AuthParams
 	//   - req.Header is set to AuthHeaders
+	//
+	// POST requests:
+	//
+	//   - req.Header is set to AuthHeaders
+	//   - Content-Type is set to "application/x-www-form-urlencoded" and
+	//     the payload is encoded from *TokenParams and AuthParams
 	//
 	AuthURL string
 
@@ -109,6 +105,12 @@ type AuthOptions struct {
 	// UseTokenAuth makes the Rest and Realtime clients always use token
 	// authentication method.
 	UseTokenAuth bool
+
+	// Force when true makes the client request new token unconditionally.
+	//
+	// By default the client does not request new token if the current one
+	// is still valid.
+	Force bool
 }
 
 func (opts *AuthOptions) externalTokenAuthSupported() bool {
@@ -116,7 +118,7 @@ func (opts *AuthOptions) externalTokenAuthSupported() bool {
 }
 
 func (opts *AuthOptions) merge(extra *AuthOptions, defaults bool) *AuthOptions {
-	merge(opts, extra, defaults)
+	ablyutil.Merge(opts, extra, defaults)
 	return opts
 }
 
@@ -150,15 +152,14 @@ type ClientOptions struct {
 	RealtimeHost string // optional; overwrite endpoint hostname for Realtime client
 	Environment  string // optional; prefixes both hostname with the environment string
 	ClientID     string // optional; required for managing realtime presence of the current client
-	Protocol     string // optional; either ProtocolJSON or ProtocolMsgPack
 	Recover      string // optional; used to recover client state
+	Logger       Logger // optional; overwrite logging defaults
 
-	UseBinaryProtocol bool // when true uses msgpack for network serialization protocol
-
-	NoTLS      bool // when true REST and realtime client won't use TLS
-	NoConnect  bool // when true realtime client will not attempt to connect automatically
-	NoEcho     bool // when true published messages will not be echoed back
-	NoQueueing bool // when true drops messages published during regaining connection
+	NoTLS            bool // when true REST and realtime client won't use TLS
+	NoConnect        bool // when true realtime client will not attempt to connect automatically
+	NoEcho           bool // when true published messages will not be echoed back
+	NoQueueing       bool // when true drops messages published during regaining connection
+	NoBinaryProtocol bool // when true uses JSON for network serialization protocol instead of MsgPack
 
 	TimeoutConnect    time.Duration // time period after which connect request is failed
 	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
@@ -168,7 +169,7 @@ type ClientOptions struct {
 	// by RealtimeClient.
 	//
 	// If Dial is nil, the default websocket connection is used.
-	Dial func(protocol string, u *url.URL) (MsgConn, error)
+	Dial func(protocol string, u *url.URL) (proto.Conn, error)
 
 	// Listener if set, will be automatically registered with On method for every
 	// realtime connection and realtime channel created by realtime client.
@@ -193,27 +194,27 @@ func (opts *ClientOptions) timeoutConnect() time.Duration {
 	if opts.TimeoutConnect != 0 {
 		return opts.TimeoutConnect
 	}
-	return DefaultOptions.TimeoutConnect
+	return defaultOptions.TimeoutConnect
 }
 
 func (opts *ClientOptions) timeoutDisconnect() time.Duration {
 	if opts.TimeoutDisconnect != 0 {
 		return opts.TimeoutDisconnect
 	}
-	return DefaultOptions.TimeoutDisconnect
+	return defaultOptions.TimeoutDisconnect
 }
 
 func (opts *ClientOptions) timeoutSuspended() time.Duration {
 	if opts.TimeoutSuspended != 0 {
 		return opts.TimeoutSuspended
 	}
-	return DefaultOptions.TimeoutSuspended
+	return defaultOptions.TimeoutSuspended
 }
 
 func (opts *ClientOptions) restURL() string {
 	host := opts.RestHost
 	if host == "" {
-		host = DefaultOptions.RestHost
+		host = defaultOptions.RestHost
 		if opts.Environment != "" {
 			host = opts.Environment + "-" + host
 		}
@@ -227,7 +228,7 @@ func (opts *ClientOptions) restURL() string {
 func (opts *ClientOptions) realtimeURL() string {
 	host := opts.RealtimeHost
 	if host == "" {
-		host = DefaultOptions.RealtimeHost
+		host = defaultOptions.RealtimeHost
 		if opts.Environment != "" {
 			host = opts.Environment + "-" + host
 		}
@@ -246,10 +247,10 @@ func (opts *ClientOptions) httpclient() *http.Client {
 }
 
 func (opts *ClientOptions) protocol() string {
-	if opts.Protocol != "" {
-		return opts.Protocol
+	if opts.NoBinaryProtocol {
+		return protocolJSON
 	}
-	return DefaultOptions.Protocol
+	return protocolMsgPack
 }
 
 // Time returns the given time as a timestamp in milliseconds since epoch.

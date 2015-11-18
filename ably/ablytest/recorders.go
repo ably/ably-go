@@ -1,8 +1,7 @@
-package ably
+package ablytest
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,165 +9,14 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
 )
-
-func (p *PaginatedResult) BuildPath(base, rel string) (string, error) {
-	return p.buildPath(base, rel)
-}
-
-func (opts *ClientOptions) RestURL() string {
-	return opts.restURL()
-}
-
-func (opts *ClientOptions) RealtimeURL() string {
-	return opts.realtimeURL()
-}
-
-func (c *RestClient) Post(path string, in, out interface{}) (*http.Response, error) {
-	return c.post(path, in, out)
-}
-
-func DecodeResp(resp *http.Response, out interface{}) error {
-	return decodeResp(resp, out)
-}
-
-func ErrorCode(err error) int {
-	return code(err)
-}
-
-func NewTokenParams(query url.Values) *TokenParams {
-	params := &TokenParams{}
-	if n, err := strconv.ParseInt(query.Get("ttl"), 10, 64); err == nil {
-		params.TTL = n
-	}
-	if s := query.Get("capability"); s != "" {
-		params.RawCapability = s
-	}
-	if s := query.Get("clientId"); s != "" {
-		params.ClientID = s
-	}
-	if n, err := strconv.ParseInt(query.Get("timestamp"), 10, 64); err == nil {
-		params.Timestamp = n
-	}
-	return params
-}
-
-// AuthReverseProxy serves token requests by reverse proxying them to
-// the Ably servers. Use URL method for creating values for AuthURL
-// option and Callback method - for AuthCallback ones.
-type AuthReverseProxy struct {
-	TokenQueue []*TokenDetails // when non-nil pops the token from the queue instead querying Ably servers
-	Listener   net.Listener    // listener which accepts token request connections
-
-	auth *Auth
-}
-
-// NewAuthReverseProxy creates new auth reverse proxy. The given opts
-// are used to create a Auth client, used to reverse proxying token requests.
-func NewAuthReverseProxy(opts *ClientOptions) (*AuthReverseProxy, error) {
-	opts.UseTokenAuth = true
-	client, err := NewRestClient(opts)
-	if err != nil {
-		return nil, err
-	}
-	lis, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return nil, err
-	}
-	srv := &AuthReverseProxy{
-		Listener: lis,
-		auth:     client.Auth,
-	}
-	go http.Serve(lis, srv)
-	return srv, nil
-}
-
-// MustAuthReverseProxy panics when creating the proxy fails.
-func MustAuthReverseProxy(opts *ClientOptions) *AuthReverseProxy {
-	srv, err := NewAuthReverseProxy(opts)
-	if err != nil {
-		panic(err)
-	}
-	return srv
-}
-
-// URL gives new AuthURL for the requested responseType. Available response
-// types are:
-//
-//   - "token", which responds with (ably.TokenDetails).Token as a string
-//   - "details", which responds with ably.TokenDetails
-//   - "request", which responds with ably.TokenRequest
-//
-func (srv *AuthReverseProxy) URL(responseType string) string {
-	return "http://" + srv.Listener.Addr().String() + "/" + responseType
-}
-
-// Callback gives new AuthCallback. Available response types are the same
-// as for URL method.
-func (srv *AuthReverseProxy) Callback(responseType string) func(*TokenParams) (interface{}, error) {
-	return func(params *TokenParams) (interface{}, error) {
-		token, _, err := srv.handleAuth(responseType, params)
-		return token, err
-	}
-}
-
-// Close makes the proxy server stop accepting connections.
-func (srv *AuthReverseProxy) Close() error {
-	return srv.Listener.Close()
-}
-
-// ServeHTTP implements the http.Handler interface.
-func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	token, contentType, err := srv.handleAuth(req.URL.Path[1:], NewTokenParams(req.URL.Query()))
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	p, err := encode(contentType, token)
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Length", strconv.Itoa(len(p)))
-	w.WriteHeader(200)
-	if _, err = io.Copy(w, bytes.NewReader(p)); err != nil {
-		panic(err)
-	}
-}
-
-func (srv *AuthReverseProxy) handleAuth(responseType string, params *TokenParams) (token interface{}, typ string, err error) {
-	switch responseType {
-	case "token", "details":
-		var tok *TokenDetails
-		if len(srv.TokenQueue) != 0 {
-			tok, srv.TokenQueue = srv.TokenQueue[0], srv.TokenQueue[1:]
-		} else {
-			tok, err = srv.auth.Authorise(nil, params, true)
-			if err != nil {
-				return nil, "", err
-			}
-		}
-		if responseType == "token" {
-			return tok.Token, "text/plain", nil
-		}
-		return tok, srv.auth.opts().protocol(), nil
-	case "request":
-		tokReq, err := srv.auth.CreateTokenRequest(nil, params)
-		if err != nil {
-			return nil, "", err
-		}
-		return tokReq, srv.auth.opts().protocol(), nil
-	default:
-		return nil, "", errors.New("unexpected token value type: " + typ)
-	}
-}
 
 // RoundTripRecorder is a http.Transport wrapper which records
 // HTTP request/response pairs.
@@ -245,8 +93,12 @@ func (rec *RoundTripRecorder) Hijack(rt http.RoundTripper) http.RoundTripper {
 	return rec
 }
 
-func body(p []byte) io.ReadCloser {
-	return ioutil.NopCloser(bytes.NewReader(p))
+// Reset resets the recorder requests and responses.
+func (rec *RoundTripRecorder) Reset() {
+	rec.mtx.Lock()
+	rec.reqs = nil
+	rec.resps = nil
+	rec.mtx.Unlock()
 }
 
 func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, error) {
@@ -279,10 +131,10 @@ func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, erro
 type StateRecorder struct {
 	mtx    sync.Mutex
 	wg     sync.WaitGroup
-	states []State
-	ch     chan State
+	states []ably.State
+	ch     chan ably.State
 	done   chan struct{}
-	typ    StateType
+	typ    ably.StateType
 }
 
 // NewStateRecorder gives new recorder which purpose is to record states via
@@ -293,29 +145,29 @@ type StateRecorder struct {
 // If buffer is <= 0, the recorder will not buffer any states, which can
 // result in some of them being dropped.
 func NewStateRecorder(buffer int) *StateRecorder {
-	return newStateRecorder(buffer, StateChan|StateConn)
+	return newStateRecorder(buffer, ably.StateChan|ably.StateConn)
 }
 
 // NewStateChanRecorder gives new recorder which records channel-related
 // state transitions only.
 func NewStateChanRecorder(buffer int) *StateRecorder {
-	return newStateRecorder(buffer, StateChan)
+	return newStateRecorder(buffer, ably.StateChan)
 }
 
 // NewStateConnRecorder gives new recorder which records connection-related
 // state transitions only.
 func NewStateConnRecorder(buffer int) *StateRecorder {
-	return newStateRecorder(buffer, StateConn)
+	return newStateRecorder(buffer, ably.StateConn)
 }
 
-func newStateRecorder(buffer int, typ StateType) *StateRecorder {
+func newStateRecorder(buffer int, typ ably.StateType) *StateRecorder {
 	if buffer < 0 {
 		buffer = 0
 	}
 	rec := &StateRecorder{
-		ch:     make(chan State, buffer),
+		ch:     make(chan ably.State, buffer),
 		done:   make(chan struct{}),
-		states: make([]State, 0, buffer),
+		states: make([]ably.State, 0, buffer),
 		typ:    typ,
 	}
 	rec.wg.Add(1)
@@ -343,17 +195,17 @@ func (rec *StateRecorder) processIncomingStates() {
 
 // Add appends state to the list of recorded ones, used to ensure ordering
 // of the states by injecting values at certain points of the test.
-func (rec *StateRecorder) Add(state StateEnum) {
-	rec.ch <- State{State: state}
+func (rec *StateRecorder) Add(state ably.StateEnum) {
+	rec.ch <- ably.State{State: state}
 }
 
-func (rec *StateRecorder) add(state State) {
+func (rec *StateRecorder) add(state ably.State) {
 	rec.mtx.Lock()
 	rec.states = append(rec.states, state)
 	rec.mtx.Unlock()
 }
 
-func (rec *StateRecorder) Channel() chan<- State {
+func (rec *StateRecorder) Channel() chan<- ably.State {
 	return rec.ch
 }
 
@@ -373,10 +225,10 @@ func (rec *StateRecorder) Stop() {
 
 // States gives copy of the recorded states, safe for use while the recorder
 // is still running.
-func (rec *StateRecorder) States() []StateEnum {
+func (rec *StateRecorder) States() []ably.StateEnum {
 	rec.mtx.Lock()
 	defer rec.mtx.Unlock()
-	states := make([]StateEnum, 0, len(rec.states))
+	states := make([]ably.StateEnum, 0, len(rec.states))
 	for _, state := range rec.states {
 		states = append(states, state.State)
 	}
@@ -399,7 +251,7 @@ func (rec *StateRecorder) Errors() []error {
 }
 
 // WaitFor blocks until we observe the given exact states were recorded.
-func (rec *StateRecorder) WaitFor(states []StateEnum, timeout time.Duration) error {
+func (rec *StateRecorder) WaitFor(states []ably.StateEnum, timeout time.Duration) error {
 	done := make(chan struct{})
 	stop := make(chan struct{})
 	go func() {
@@ -426,6 +278,33 @@ func (rec *StateRecorder) WaitFor(states []StateEnum, timeout time.Duration) err
 	}
 }
 
+func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMessage) func(string, *url.URL) (proto.Conn, error) {
+	return func(proto string, u *url.URL) (proto.Conn, error) {
+		return pipeConn{
+			in:  in,
+			out: out,
+		}, nil
+	}
+}
+
+type pipeConn struct {
+	in  <-chan *proto.ProtocolMessage
+	out chan<- *proto.ProtocolMessage
+}
+
+func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
+	pc.out <- msg
+	return nil
+}
+
+func (pc pipeConn) Receive() (*proto.ProtocolMessage, error) {
+	return <-pc.in, nil
+}
+
+func (pc pipeConn) Close() error {
+	return nil
+}
+
 // MessageRecorder
 type MessageRecorder struct {
 	mu       sync.Mutex
@@ -443,11 +322,11 @@ func NewMessageRecorder() *MessageRecorder {
 }
 
 // Dial
-func (rec *MessageRecorder) Dial(proto string, u *url.URL) (MsgConn, error) {
+func (rec *MessageRecorder) Dial(proto string, u *url.URL) (proto.Conn, error) {
 	rec.mu.Lock()
 	rec.url = append(rec.url, u)
 	rec.mu.Unlock()
-	conn, err := dialWebsocket(proto, u)
+	conn, err := ablyutil.DialWebsocket(proto, u)
 	if err != nil {
 		return nil, err
 	}
@@ -485,106 +364,33 @@ func (rec *MessageRecorder) Received() []*proto.ProtocolMessage {
 }
 
 type recConn struct {
-	conn MsgConn
+	conn proto.Conn
 	rec  *MessageRecorder
 }
 
-func (c recConn) Send(msg interface{}) error {
+func (c recConn) Send(msg *proto.ProtocolMessage) error {
 	if err := c.conn.Send(msg); err != nil {
 		return err
 	}
 	c.rec.mu.Lock()
-	c.rec.sent = append(c.rec.sent, msg.(*proto.ProtocolMessage))
+	c.rec.sent = append(c.rec.sent, msg)
 	c.rec.mu.Unlock()
 	return nil
 }
 
-func (c recConn) Receive(msg interface{}) error {
-	if err := c.conn.Receive(msg); err != nil {
-		return err
+func (c recConn) Receive() (*proto.ProtocolMessage, error) {
+	msg, err := c.conn.Receive()
+	if err != nil {
+		return nil, err
 	}
 	c.rec.mu.Lock()
-	c.rec.received = append(c.rec.received, *msg.(**proto.ProtocolMessage))
+	c.rec.received = append(c.rec.received, msg)
 	c.rec.mu.Unlock()
-	return nil
+	return msg, nil
 }
 
 func (c recConn) Close() error {
 	return c.conn.Close()
-}
-
-// MustRealtimeClient is like NewRealtimeClient, but panics on error.
-func MustRealtimeClient(opts *ClientOptions) *RealtimeClient {
-	client, err := NewRealtimeClient(opts)
-	if err != nil {
-		panic("ably.NewRealtimeClient failed: " + err.Error())
-	}
-	return client
-}
-
-// GetAndAttach is a helper method, which returns attached channel or panics if
-// the attaching failed.
-func (ch *Channels) GetAndAttach(name string) *RealtimeChannel {
-	channel := ch.Get(name)
-	if err := wait(channel.Attach()); err != nil {
-		panic(`attach to "` + name + `" failed: ` + err.Error())
-	}
-	return channel
-}
-
-// ResultGroup is like sync.WaitGroup, but for ably.Result values.
-// ResultGroup blocks till last added ably.Result has completed successfully.
-// If at least ably.Result value failed, ResultGroup returns first encountered
-// error immadiately.
-type ResultGroup struct {
-	mu    sync.Mutex
-	wg    sync.WaitGroup
-	err   error
-	errch chan error
-}
-
-func (rg *ResultGroup) check(err error) bool {
-	rg.mu.Lock()
-	defer rg.mu.Unlock()
-	if rg.errch == nil {
-		rg.errch = make(chan error, 1)
-	}
-	rg.err = nonil(rg.err, err)
-	return rg.err == nil
-}
-
-func (rg *ResultGroup) Add(res Result, err error) {
-	if !rg.check(err) {
-		return
-	}
-	rg.wg.Add(1)
-	go func() {
-		err := res.Wait()
-		if err != nil {
-			select {
-			case rg.errch <- err:
-			default:
-			}
-		}
-		rg.wg.Done()
-	}()
-}
-
-func (rg *ResultGroup) Wait() error {
-	if rg.err != nil {
-		return rg.err
-	}
-	done := make(chan struct{})
-	go func() {
-		rg.wg.Wait()
-		done <- struct{}{}
-	}()
-	select {
-	case <-done:
-		return nil
-	case err := <-rg.errch:
-		return err
-	}
 }
 
 type HostRecorder struct {
@@ -592,7 +398,7 @@ type HostRecorder struct {
 
 	mu         sync.Mutex
 	httpClient *http.Client
-	dialWS     func(string, *url.URL) (MsgConn, error)
+	dialWS     func(string, *url.URL) (proto.Conn, error)
 }
 
 func NewRecorder(httpClient *http.Client) *HostRecorder {
@@ -606,15 +412,15 @@ func NewRecorder(httpClient *http.Client) *HostRecorder {
 		hr.addHost(addr)
 		return dial(network, addr)
 	}
-	hr.dialWS = func(proto string, u *url.URL) (MsgConn, error) {
+	hr.dialWS = func(proto string, u *url.URL) (proto.Conn, error) {
 		hr.addHost(u.Host)
-		return dialWebsocket(proto, u)
+		return ablyutil.DialWebsocket(proto, u)
 	}
 	return hr
 }
 
-func (hr *HostRecorder) Options(host string) *ClientOptions {
-	return &ClientOptions{
+func (hr *HostRecorder) Options(host string) *ably.ClientOptions {
+	return &ably.ClientOptions{
 		RealtimeHost: host,
 		NoConnect:    true,
 		HTTPClient:   hr.httpClient,
@@ -630,4 +436,8 @@ func (hr *HostRecorder) addHost(host string) {
 	} else {
 		hr.Hosts[host] = struct{}{}
 	}
+}
+
+func body(p []byte) io.ReadCloser {
+	return ioutil.NopCloser(bytes.NewReader(p))
 }

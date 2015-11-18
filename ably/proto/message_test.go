@@ -3,8 +3,8 @@ package proto_test
 import (
 	"encoding/base64"
 
+	"github.com/ably/ably-go/ably/ablytest"
 	"github.com/ably/ably-go/ably/proto"
-	"github.com/ably/ably-go/ably/testutil"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
@@ -197,13 +197,13 @@ var _ = Describe("Message", func() {
 		EncodeDecodeFixture := func(fixture string) func() {
 			return func() {
 				var (
-					test    *testutil.CryptoData
+					test    *ablytest.CryptoData
 					key, iv []byte
 				)
 
 				BeforeEach(func() {
 					var err error
-					test, key, iv, err = testutil.LoadCryptoData(fixture)
+					test, key, iv, err = ablytest.LoadCryptoData(fixture)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
