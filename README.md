@@ -228,7 +228,9 @@ As the library is actively developed couple of features are not there yet:
 
 ## Support and feedback
 
-Please visit https://support.ably.io/ for access to our knowledgebase and to ask for any assistance.
+Please visit http://support.ably.io/ for access to our knowledgebase and to ask for any assistance.
+
+You can also view the [community reported Github issues](https://github.com/ably/ably-go/issues).
 
 ## Contributing
 
@@ -241,4 +243,4 @@ Please visit https://support.ably.io/ for access to our knowledgebase and to ask
 
 ## License
 
-Copyright (c) 2015 Ably, Licensed under an MIT license.  Refer to [LICENSE.txt](LICENSE.txt) for the license terms.
+Copyright (c) 2015 Ably Real-time Ltd, Licensed under the Apache License, Version 2.0.  Refer to [LICENSE](LICENSE) for the license terms.
