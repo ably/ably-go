@@ -112,7 +112,7 @@ func (a *Auth) clientIDForCheck() string {
 func (a *Auth) updateClientID(clientID string) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	if clientID != "" {
+	if clientID != "*" && clientID != "" {
 		a.clientID = clientID
 	}
 }

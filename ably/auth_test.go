@@ -461,6 +461,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 	}
 	for i, cas := range cases {
 		client := app.NewRealtimeClient()
+		defer safeclose(t, client)
 		params := &ably.TokenParams{
 			ClientID: cas.authAs,
 		}
@@ -478,6 +479,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		}
 		if id := client.Auth.ClientID(); id != cas.clientID {
 			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
+			continue
 		}
 		channel := client.Channels.GetAndAttach("publish")
 		sub, err := channel.Subscribe("test")
@@ -495,7 +497,6 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			if err == nil {
 				t.Errorf("%d: expected message to be rejected", i)
 			}
-			safeclose(t, client)
 			continue
 		}
 		if err != nil {
@@ -510,7 +511,6 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		case <-time.After(ablytest.Timeout):
 			t.Errorf("%d: waiting for message timed out after %v", i, ablytest.Timeout)
 		}
-		safeclose(t, client)
 	}
 }
 
