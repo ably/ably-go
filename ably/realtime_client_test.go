@@ -11,7 +11,6 @@ import (
 )
 
 func TestRealtimeClient_RealtimeHost(t *testing.T) {
-	t.Parallel()
 	httpClient := ablytest.NewHTTPClient()
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
@@ -93,7 +92,6 @@ func checkUnique(ch chan string, typ string, n int) error {
 
 func TestRealtimeClient_50clients(t *testing.T) {
 	const N = 50
-	t.Parallel()
 	var all ablytest.ResultGroup
 	var wg sync.WaitGroup
 	app, err := ablytest.NewSandbox(nil)
@@ -162,7 +160,6 @@ func TestRealtimeClient_50clients(t *testing.T) {
 }
 
 func TestRealtimeClient_DontCrashOnCloseWhenEchoOff(t *testing.T) {
-	t.Parallel()
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
 	defer safeclose(t, app)
 

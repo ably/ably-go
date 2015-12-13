@@ -11,7 +11,6 @@ import (
 )
 
 func TestAbly(t *testing.T) {
-	t.Parallel()
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Ably Suite")
 }

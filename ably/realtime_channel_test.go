@@ -34,7 +34,6 @@ func expectMsg(ch <-chan *proto.Message, name, data string, t time.Duration, rec
 }
 
 func TestRealtimeChannel_Publish(t *testing.T) {
-	t.Parallel()
 	app, client := ablytest.NewRealtimeClient(nil)
 	defer safeclose(t, client, app)
 
@@ -45,7 +44,6 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 }
 
 func TestRealtimeChannel_Failed(t *testing.T) {
-	t.Parallel()
 	rec := ablytest.NewStateChanRecorder(5)
 	opts := &ably.ClientOptions{
 		NoConnect:  true,
@@ -86,7 +84,6 @@ func TestRealtimeChannel_Failed(t *testing.T) {
 }
 
 func TestRealtimeChannel_Subscribe(t *testing.T) {
-	t.Parallel()
 	app, client1 := ablytest.NewRealtimeClient(nil)
 	defer safeclose(t, client1, app)
 	client2 := app.NewRealtimeClient(&ably.ClientOptions{NoEcho: true})

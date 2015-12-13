@@ -50,7 +50,6 @@ func authValue(req *http.Request) (value string, err error) {
 }
 
 func TestAuth_BasicAuth(t *testing.T) {
-	t.Parallel()
 	rec, opts := recorder()
 	opts.UseQueryTime = true
 	defer rec.Stop()
@@ -98,7 +97,6 @@ func timeWithin(t, start, end time.Time) error {
 }
 
 func TestAuth_TokenAuth(t *testing.T) {
-	t.Parallel()
 	rec, opts := recorder()
 	defer rec.Stop()
 	opts.NoTLS = true
@@ -174,7 +172,6 @@ func TestAuth_TokenAuth(t *testing.T) {
 }
 
 func TestAuth_TokenAuth_Renew(t *testing.T) {
-	t.Parallel()
 	rec, opts := recorder()
 	defer rec.Stop()
 	opts.UseTokenAuth = true
@@ -240,7 +237,6 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 }
 
 func TestAuth_RequestToken(t *testing.T) {
-	t.Parallel()
 	rec, opts := recorder()
 	opts.UseTokenAuth = true
 	opts.AuthParams = url.Values{"param_1": []string{"this", "should", "get", "overwritten"}}
@@ -409,7 +405,6 @@ func TestAuth_ClientID_Error(t *testing.T) {
 }
 
 func TestAuth_ReuseClientID(t *testing.T) {
-	t.Parallel()
 	opts := &ably.ClientOptions{
 		AuthOptions: ably.AuthOptions{
 			UseTokenAuth: true,
@@ -444,7 +439,6 @@ func TestAuth_ReuseClientID(t *testing.T) {
 }
 
 func TestAuth_RequestToken_PublishClientID(t *testing.T) {
-	t.Parallel()
 	app := ablytest.MustSandbox(nil)
 	defer safeclose(t, app)
 	cases := []struct {
@@ -515,7 +509,6 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 }
 
 func TestAuth_ClientID(t *testing.T) {
-	t.Parallel()
 	in := make(chan *proto.ProtocolMessage, 16)
 	out := make(chan *proto.ProtocolMessage, 16)
 	app := ablytest.MustSandbox(nil)
@@ -611,7 +604,6 @@ func TestAuth_ClientID(t *testing.T) {
 }
 
 func TestAuth_CreateTokenRequest(t *testing.T) {
-	t.Parallel()
 	app, client := ablytest.NewRestClient(useToken)
 	defer safeclose(t, app)
 
@@ -635,7 +627,6 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 }
 
 func TestAuth_RealtimeAccessToken(t *testing.T) {
-	t.Parallel()
 	rec := ablytest.NewMessageRecorder()
 	opts := &ably.ClientOptions{
 		ClientID:  "explicit",
