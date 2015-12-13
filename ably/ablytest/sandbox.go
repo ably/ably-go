@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -150,7 +152,11 @@ func NewSandbox(config *Config) (*Sandbox, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode > 299 {
-		return nil, errors.New(http.StatusText(resp.StatusCode))
+		err := errors.New(http.StatusText(resp.StatusCode))
+		if p, e := ioutil.ReadAll(resp.Body); e == nil && len(p) != 0 {
+			err = fmt.Errorf("request error: %s (%q)", err, p)
+		}
+		return nil, err
 	}
 	if err := json.NewDecoder(resp.Body).Decode(app.Config); err != nil {
 		return nil, err
