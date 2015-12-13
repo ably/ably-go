@@ -35,7 +35,7 @@ var _ = Describe("RestChannel", func() {
 		var historyRestChannel *ably.RestChannel
 
 		BeforeEach(func() {
-			historyRestChannel = client.Channel("/channel/history/")
+			historyRestChannel = client.Channel("channelhistory")
 
 			for i := 0; i < 2; i++ {
 				historyRestChannel.Publish("breakingnews", "Another Shark attack!!")

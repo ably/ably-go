@@ -10,7 +10,6 @@ import (
 	"mime"
 	"net/http"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -160,22 +159,13 @@ func (c *RestClient) newHTTPRequest(r *request) (*http.Request, error) {
 		}
 		body = bytes.NewReader(p)
 	}
-	path := c.opts.restURL() + r.Path
-	req, err := http.NewRequest(r.Method, path, body)
+	req, err := http.NewRequest(r.Method, c.opts.restURL()+r.Path, body)
 	if err != nil {
 		return nil, newError(50000, err)
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", proto)
 	}
-	// Workaround for 1.4.x which unescapes %2F prior to request.
-	if i := strings.IndexRune(path, ':'); i != -1 {
-		path = path[i+1:]
-	}
-	if i := strings.IndexRune(path, '?'); i != -1 {
-		path = path[:i]
-	}
-	req.URL.Opaque = path
 	req.Header.Set("Accept", proto)
 	if !r.NoAuth {
 		if err := c.Auth.authReq(req); err != nil {
