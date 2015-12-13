@@ -3,7 +3,6 @@ package ably_test
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -192,11 +191,10 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		t.Fatalf("waiting on subscribed channel close timed out after %v", ablytest.Timeout)
 	}
 	rec.Stop()
-	states := rec.States()
 	for _, expected := range chanCloseTransitions {
-		if reflect.DeepEqual(states, expected) {
+		if err = rec.WaitFor(expected, time.Second); err != nil {
 			return
 		}
 	}
-	t.Fatalf("unexpected state transitions %v", states)
+	t.Error(err)
 }
