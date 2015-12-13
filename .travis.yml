@@ -5,6 +5,6 @@ go:
   - 1.5.2
 
 env:
-  - GOMAXPROCS=1
+  - GOMAXPROCS=4
 
 sudo: false
