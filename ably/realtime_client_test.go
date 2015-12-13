@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/ablytest"
@@ -61,7 +60,7 @@ func TestRealtimeClient_RealtimeHost(t *testing.T) {
 		ably.StateConnConnecting,
 		ably.StateConnFailed,
 	}
-	if err := stateRec.WaitFor(want, time.Second); err != nil {
+	if err := stateRec.WaitFor(want); err != nil {
 		t.Fatal(err)
 	}
 	errors := stateRec.Errors()

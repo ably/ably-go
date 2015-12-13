@@ -118,14 +118,14 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
 		t.Fatal(err)
 	}
-	if err := rec.WaitFor(presTransitions[:2], time.Second); err != nil {
+	if err := rec.WaitFor(presTransitions[:2]); err != nil {
 		t.Fatal(err)
 	}
 	members, err := channel.Presence.Get(true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := rec.WaitFor(presTransitions, time.Second); err != nil {
+	if err := rec.WaitFor(presTransitions); err != nil {
 		t.Fatal(err)
 	}
 	rec.Stop()

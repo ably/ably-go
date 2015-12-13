@@ -129,6 +129,8 @@ func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, erro
 //   * goroutine-safe access to recorded state enums
 //
 type StateRecorder struct {
+	Timeout time.Duration // times out waiting for states after this duration; 15s by default
+
 	mtx    sync.Mutex
 	wg     sync.WaitGroup
 	states []ably.State
@@ -251,7 +253,7 @@ func (rec *StateRecorder) Errors() []error {
 }
 
 // WaitFor blocks until we observe the given exact states were recorded.
-func (rec *StateRecorder) WaitFor(states []ably.StateEnum, timeout time.Duration) error {
+func (rec *StateRecorder) WaitFor(states []ably.StateEnum) error {
 	done := make(chan struct{})
 	stop := make(chan struct{})
 	go func() {
@@ -271,11 +273,18 @@ func (rec *StateRecorder) WaitFor(states []ably.StateEnum, timeout time.Duration
 	select {
 	case <-done:
 		return nil
-	case <-time.After(timeout):
+	case <-time.After(rec.timeout()):
 		close(stop)
 		return fmt.Errorf("WaitFor(%v) has timed out after %v: recorded states were %v",
-			states, timeout, rec.States())
+			states, rec.timeout(), rec.States())
 	}
+}
+
+func (rec *StateRecorder) timeout() time.Duration {
+	if rec.Timeout != 0 {
+		return rec.Timeout
+	}
+	return 15 * time.Second
 }
 
 func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMessage) func(string, *url.URL) (proto.Conn, error) {

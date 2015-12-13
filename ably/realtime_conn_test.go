@@ -2,7 +2,6 @@ package ably_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -45,7 +44,7 @@ func TestRealtimeConn_Connect(t *testing.T) {
 	if err := client.Close(); err != nil {
 		t.Fatalf("client.Close()=%v", err)
 	}
-	if err := rec.WaitFor(connTransitions, time.Second); err != nil {
+	if err := rec.WaitFor(connTransitions); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -70,7 +69,7 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 		t.Fatalf("client.Close()=%v", err)
 	}
 	rec.Stop()
-	if err := rec.WaitFor(connTransitions, time.Second); err != nil {
+	if err := rec.WaitFor(connTransitions); err != nil {
 		t.Error(err)
 	}
 }
@@ -97,8 +96,8 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec.Stop()
-	if states := rec.States(); !reflect.DeepEqual(states, connCloseTransitions) {
-		t.Errorf("expected states=%v; got %v", connCloseTransitions, states)
+	if err := rec.WaitFor(connCloseTransitions); err != nil {
+		t.Error(err)
 	}
 }
 

@@ -65,13 +65,13 @@ func TestRealtimeChannel_Failed(t *testing.T) {
 		ably.StateChanClosed,
 		ably.StateChanFailed,
 	}
-	if err := rec.WaitFor(want[:3], time.Second); err != nil {
+	if err := rec.WaitFor(want[:3]); err != nil {
 		t.Fatal(err)
 	}
 	if err := checkError(80000, ablytest.Wait(channel.Publish("im", "closed"))); err != nil {
 		t.Fatal(err)
 	}
-	if err := rec.WaitFor(want, time.Second); err != nil {
+	if err := rec.WaitFor(want); err != nil {
 		t.Fatal(err)
 	}
 	if err := checkError(80000, ablytest.Wait(channel.Detach())); err != nil {
@@ -192,7 +192,7 @@ func TestRealtimeChannel_Close(t *testing.T) {
 	}
 	rec.Stop()
 	for _, expected := range chanCloseTransitions {
-		if err = rec.WaitFor(expected, time.Second); err != nil {
+		if err = rec.WaitFor(expected); err != nil {
 			return
 		}
 	}
