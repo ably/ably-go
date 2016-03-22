@@ -20,7 +20,7 @@ if err != nil {
 	panic(err)
 }
 
-channel := client.Channel.Get("test")
+channel := client.Channels.Get("test")
 ```
 
 ### Subscribing to a channel for all events
@@ -97,7 +97,10 @@ if err = res.Wait(); err != nil {
 ### Getting all clients present on a channel
 
 ```go
-clients := channel.Presence.Get(true)
+clients, err := channel.Presence.Get(true)
+if err != nil {
+	panic(err)
+}
 
 for _, client := range clients {
 	fmt.Println("Present client:", client)
@@ -137,7 +140,7 @@ for msg := range sub.PresenceChannel() {
 All examples assume a client and/or channel has been created as follows:
 
 ```go
-client, err := ably.NewRestClient(&ably.ClientOptions{Key: "xxx:xxx"})
+client, err := ably.NewRestClient(ably.NewClientOptions("xxx:xxx"))
 if err != nil {
 	panic(err)
 }
@@ -148,7 +151,7 @@ channel := client.Channel("test")
 ### Publishing a message to a channel
 
 ```go
-err := channel.Publish("HelloEvent", "Hello!")
+err = channel.Publish("HelloEvent", "Hello!")
 if err != nil {
 	panic(err)
 }
@@ -206,7 +209,7 @@ client.Auth.CreateTokenRequest()
 ### Fetching your application's stats
 
 ```go
-page, err := client.Stats()
+page, err := client.Stats(&ably.PaginateParams{})
 for ; err == nil; page, err = page.Next() {
 	for _, stat := range page.Stats() {
 		fmt.Println(stat)
