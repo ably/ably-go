@@ -1,8 +1,4 @@
-[Ably](https://ably.io) [![Build Status](https://travis-ci.org/ably/ably-go.png)](https://travis-ci.org/ably/ably-go)  [![Coverage Status](https://coveralls.io/repos/ably/ably-go/badge.svg)](https://coveralls.io/r/ably/ably-go)
-----
-
-
-A Go client library for [ably.io](https://ably.io), the real-time messaging service.
+A Go client library for [www.ably.io](https://ably.io), the realtime messaging service.
 
 ## Installation
 
@@ -246,4 +242,4 @@ You can also view the [community reported Github issues](https://github.com/ably
 
 ## License
 
-Copyright (c) 2015 Ably Real-time Ltd, Licensed under the Apache License, Version 2.0.  Refer to [LICENSE](LICENSE) for the license terms.
+Copyright (c) 2016 Ably Real-time Ltd, Licensed under the Apache License, Version 2.0.  Refer to [LICENSE](LICENSE) for the license terms.
