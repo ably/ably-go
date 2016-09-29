@@ -1,4 +1,4 @@
-[Ably Go](https://www.ably.io)
+## [Ably Go](https://www.ably.io)
 
 A Go client library for [www.ably.io](https://ably.io), the realtime messaging service.
 
