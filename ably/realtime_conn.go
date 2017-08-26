@@ -107,6 +107,9 @@ func (c *Conn) connect(result bool) (Result, error) {
 	if c.opts.NoBinaryProtocol {
 		query.Set("format", "json")
 	}
+	for k, v := range c.opts.TransportParams {
+		query.Set(k, v)
+	}
 	if err := c.auth.authQuery(query); err != nil {
 		return nil, c.state.set(StateConnFailed, err)
 	}
