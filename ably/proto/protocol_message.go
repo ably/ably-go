@@ -7,7 +7,7 @@ const (
 	FlagBacklog
 )
 
-type Flag byte
+type Flag int64
 
 func (f Flag) Has(flag Flag) bool {
 	return f&flag == flag
