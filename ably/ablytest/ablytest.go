@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/internal/ablyutil"
+	"github.com/ably/ably-go/ably/ablyutil"
 
 	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
