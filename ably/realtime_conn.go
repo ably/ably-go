@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ably/ably-go/ably/internal/ablyutil"
+	"github.com/ably/ably-go/ably/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
 )
 
