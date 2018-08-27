@@ -33,7 +33,6 @@ var _ = Describe("RestClient", func() {
 	)
 
 	Context("with a failing request", func() {
-		var client *ably.RestClient
 
 		BeforeEach(func() {
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
