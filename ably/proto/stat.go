@@ -5,9 +5,9 @@ import "time"
 type Stat struct {
 	// The following fields hold statistical information only for Channels
 	// and Connections fields, for the rest they are going to be always zero.
-	Peak   float64 `json:"peak" msgpack:"peak"`
+	Peak   int64   `json:"peak" msgpack:"peak"`
 	Mean   float64 `json:"mean" msgpack:"mean"`
-	Opened float64 `json:"opened" msgpack:"opened"`
+	Opened int64   `json:"opened" msgpack:"opened"`
 
 	// The following fields hold statistical information only for
 	// APIRequests and TokenRequests fields, for the rest they are going
