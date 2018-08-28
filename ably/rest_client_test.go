@@ -127,8 +127,8 @@ var _ = Describe("RestClient", func() {
 				var anyMsgPack []map[string]interface{}
 				err := ablyutil.Unmarshal(buffer, &anyMsgPack)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(anyMsgPack[0]["name"]).To(Equal("ping"))
-				Expect(anyMsgPack[0]["data"]).To(Equal("pong"))
+				Expect(anyMsgPack[0]["name"]).To(Equal([]byte("ping")))
+				Expect(anyMsgPack[0]["data"]).To(Equal([]byte("pong")))
 			})
 		})
 	})
