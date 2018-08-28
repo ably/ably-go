@@ -13,9 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
-
-	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
 var (
@@ -197,7 +196,7 @@ func encode(typ string, in interface{}) ([]byte, error) {
 	case "application/json":
 		return json.Marshal(in)
 	case "application/x-msgpack":
-		return msgpack.Marshal(in)
+		return ablyutil.Marshal(in)
 	case "text/plain":
 		return []byte(fmt.Sprintf("%v", in)), nil
 	default:
@@ -210,7 +209,11 @@ func decode(typ string, r io.Reader, out interface{}) error {
 	case "application/json":
 		return json.NewDecoder(r).Decode(out)
 	case "application/x-msgpack":
-		return msgpack.NewDecoder(r).Decode(out)
+		b, err := ioutil.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		return ablyutil.Unmarshal(b, out)
 	case "text/plain":
 		p, err := ioutil.ReadAll(r)
 		if err != nil {

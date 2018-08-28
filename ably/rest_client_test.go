@@ -11,9 +11,8 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
-
-	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
@@ -126,7 +125,7 @@ var _ = Describe("RestClient", func() {
 
 			It("encode the body of the message using msgpack", func() {
 				var anyMsgPack []map[string]interface{}
-				err := msgpack.Unmarshal(buffer, &anyMsgPack)
+				err := ablyutil.Unmarshal(buffer, &anyMsgPack)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(anyMsgPack[0]["name"]).To(Equal("ping"))
 				Expect(anyMsgPack[0]["data"]).To(Equal("pong"))

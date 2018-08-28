@@ -7,7 +7,6 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 
 	"github.com/ably/ably-go/Godeps/_workspace/src/golang.org/x/net/websocket"
-	"github.com/ably/ably-go/Godeps/_workspace/src/gopkg.in/vmihailenco/msgpack.v2"
 )
 
 type WebsocketConn struct {
@@ -52,10 +51,10 @@ func DialWebsocket(proto string, u *url.URL) (*WebsocketConn, error) {
 
 var msgpackCodec = websocket.Codec{
 	Marshal: func(v interface{}) ([]byte, byte, error) {
-		p, err := msgpack.Marshal(v)
+		p, err := Marshal(v)
 		return p, websocket.BinaryFrame, err
 	},
 	Unmarshal: func(p []byte, _ byte, v interface{}) error {
-		return msgpack.Unmarshal(p, v)
+		return Unmarshal(p, v)
 	},
 }
