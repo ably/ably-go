@@ -14,31 +14,31 @@ func (f Flag) Has(flag Flag) bool {
 }
 
 type ConnectionDetails struct {
-	ClientID           string `json:"clientId,omitempty" msgpack:"clientId,omitempty"`
-	ConnectionKey      string `json:"connectionKey,omitempty" msgpack:"connectionKey,omitempty"`
-	MaxMessageSize     int64  `json:"maxMessageSize,omitempty" msgpack:"maxMessageSize,omitempty"`
-	MaxFrameSize       int64  `json:"maxFrameSize,omitempty" msgpack:"maxFrameSize,omitempty"`
-	MaxInboundRate     int64  `json:"maxInboundRate,omitempty" msgpack:"maxInboundRate,omitempty"`
-	ConnectionStateTTL int64  `json:"connectionStateTtl,omitempty" msgpack:"connectionStateTtl,omitempty"`
+	ClientID           string `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	ConnectionKey      string `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
+	MaxMessageSize     int64  `json:"maxMessageSize,omitempty" codec:"maxMessageSize,omitempty"`
+	MaxFrameSize       int64  `json:"maxFrameSize,omitempty" codec:"maxFrameSize,omitempty"`
+	MaxInboundRate     int64  `json:"maxInboundRate,omitempty" codec:"maxInboundRate,omitempty"`
+	ConnectionStateTTL int64  `json:"connectionStateTtl,omitempty" codec:"connectionStateTtl,omitempty"`
 }
 
 type ProtocolMessage struct {
-	Messages          []*Message         `json:"messages,omitempty" msgpack:"messages,omitempty"`
-	Presence          []*PresenceMessage `json:"presence,omitempty" msgpack:"presence,omitempty"`
-	ID                string             `json:"id,omitempty" msgpack:"id,omitempty"`
-	ApplicationID     string             `json:"applicationId,omitempty" msgpack:"applicationId,omitempty"`
-	ConnectionID      string             `json:"connectionId,omitempty" msgpack:"connectionId,omitempty"`
-	ConnectionKey     string             `json:"connectionKey,omitempty" msgpack:"connectionKey,omitempty"`
-	Channel           string             `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	ChannelSerial     string             `json:"channelSerial,omitempty" msgpack:"channelSerial,omitempty"`
-	ConnectionDetails *ConnectionDetails `json:"connectionDetails,omitempty" msgpack:"connectionDetails,omitempty"`
-	Error             *Error             `json:"error,omitempty" msgpack:"error,omitempty"`
-	MsgSerial         int64              `json:"msgSerial,omitempty" msgpack:"msgSerial,omitempty"`
-	ConnectionSerial  int64              `json:"connectionSerial,omitempty" msgpack:"connectionSerial,omitempty"`
-	Timestamp         int64              `json:"timestamp,omitempty" msgpack:"timestamp,omitempty"`
-	Count             int                `json:"count,omitempty" msgpack:"count,omitempty"`
-	Action            Action             `json:"action,omitempty" msgpack:"action,omitempty"`
-	Flags             Flag               `json:"flags,omitempty" msgpack:"flags,omitempty"`
+	Messages          []*Message         `json:"messages,omitempty" codec:"messages,omitempty"`
+	Presence          []*PresenceMessage `json:"presence,omitempty" codec:"presence,omitempty"`
+	ID                string             `json:"id,omitempty" codec:"id,omitempty"`
+	ApplicationID     string             `json:"applicationId,omitempty" codec:"applicationId,omitempty"`
+	ConnectionID      string             `json:"connectionId,omitempty" codec:"connectionId,omitempty"`
+	ConnectionKey     string             `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
+	Channel           string             `json:"channel,omitempty" codec:"channel,omitempty"`
+	ChannelSerial     string             `json:"channelSerial,omitempty" codec:"channelSerial,omitempty"`
+	ConnectionDetails *ConnectionDetails `json:"connectionDetails,omitempty" codec:"connectionDetails,omitempty"`
+	Error             *Error             `json:"error,omitempty" codec:"error,omitempty"`
+	MsgSerial         int64              `json:"msgSerial,omitempty" codec:"msgSerial,omitempty"`
+	ConnectionSerial  int64              `json:"connectionSerial,omitempty" codec:"connectionSerial,omitempty"`
+	Timestamp         int64              `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
+	Count             int                `json:"count,omitempty" codec:"count,omitempty"`
+	Action            Action             `json:"action,omitempty" codec:"action,omitempty"`
+	Flags             Flag               `json:"flags,omitempty" codec:"flags,omitempty"`
 }
 
 func (msg *ProtocolMessage) String() string {

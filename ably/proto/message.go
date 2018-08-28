@@ -13,14 +13,14 @@ import (
 )
 
 type Message struct {
-	ID           string                 `json:"id,omitempty" msgpack:"id,omitempty"`
-	ClientID     string                 `json:"clientId,omitempty" msgpack:"clientId,omitempty"`
-	ConnectionID string                 `json:"connectionId,omitempty" msgpack:"connectionID,omitempty"`
-	Name         string                 `json:"name,omitempty" msgpack:"name,omitempty"`
-	Data         string                 `json:"data,omitempty" msgpack:"data,omitempty"`
-	Encoding     string                 `json:"encoding,omitempty" msgpack:"encoding,omitempty"`
-	Timestamp    int64                  `json:"timestamp" msgpack:"timestamp"`
-	Extras       map[string]interface{} `json:"extras" msgpack:"extras"`
+	ID           string                 `json:"id,omitempty" codec:"id,omitempty"`
+	ClientID     string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	ConnectionID string                 `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
+	Name         string                 `json:"name,omitempty" codec:"name,omitempty"`
+	Data         string                 `json:"data,omitempty" codec:"data,omitempty"`
+	Encoding     string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
+	Timestamp    int64                  `json:"timestamp" codec:"timestamp"`
+	Extras       map[string]interface{} `json:"extras" codec:"extras"`
 }
 
 // MemberKey returns string that allows to uniquely identify connected clients.
