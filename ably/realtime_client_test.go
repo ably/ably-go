@@ -89,7 +89,7 @@ func checkUnique(ch chan string, typ string, n int) error {
 	return nil
 }
 
-func TestRealtimeClient_50clients(t *testing.T) {
+func TestRealtimeClient_multiple(t *testing.T) {
 	const N = 3
 	var all ablytest.ResultGroup
 	var wg sync.WaitGroup
