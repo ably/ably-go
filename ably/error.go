@@ -89,7 +89,7 @@ func code(err error) int {
 
 func checkValidHTTPResponse(resp *http.Response) error {
 	type errorBody struct {
-		Error proto.Error `json:"error,omitempty" msgpack:"error,omitempty"`
+		Error proto.Error `json:"error,omitempty" codec:"error,omitempty"`
 	}
 	if resp.StatusCode < 300 {
 		return nil

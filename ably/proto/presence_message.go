@@ -11,6 +11,6 @@ const (
 )
 
 type PresenceMessage struct {
-	Message `msgpack:",inline"`
-	State   PresenceState `json:"action" msgpack:"action"`
+	Message `codec:",inline"`
+	State   PresenceState `json:"action" codec:"action"`
 }
