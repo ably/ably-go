@@ -24,8 +24,11 @@ var (
 )
 
 const (
-	versionHeader = "X-Ably-Version"
-	clientVersion = "1.0"
+	// VersionHeader is a header key sent to ably with the client's version.
+	VersionHeader = "X-Ably-Version"
+
+	// ClientVersion the spec version supported by the client.
+	ClientVersion = "1.0"
 )
 
 func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
@@ -175,7 +178,7 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 		req.Header.Set("Content-Type", proto)
 	}
 	req.Header.Set("Accept", proto)
-	req.Header.Set(versionHeader, clientVersion)
+	req.Header.Set(VersionHeader, ClientVersion)
 	if !r.NoAuth {
 		if err := c.Auth.authReq(req); err != nil {
 			return nil, err
