@@ -1,10 +1,13 @@
 language: go
 
 go:
-  - 1.4.3
   - 1.5.2
 
+before_install:
+  - go get -t -v ./ably/...
+  - go get golang.org/x/tools/cmd/vet
 env:
   - GOMAXPROCS=4
-
 sudo: false
+script:
+  - make test
