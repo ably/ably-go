@@ -212,10 +212,9 @@ func TestRSC7(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		h := req.Header.Get("X-Ably-Version")
-		expect := "1.0"
-		if h != expect {
-			t.Errorf("expected %s got %s", expect, h)
+		h := req.Header.Get(ably.VersionHeader)
+		if h != ably.ClientVersion {
+			t.Errorf("expected %s got %s", ably.ClientVersion, h)
 		}
 	})
 }
