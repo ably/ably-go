@@ -122,7 +122,7 @@ func (c *RestClient) post(path string, in, out interface{}) (*http.Response, err
 }
 
 func (c *RestClient) do(r *request) (*http.Response, error) {
-	req, err := c.newHTTPRequest(r)
+	req, err := c.NewHTTPRequest(r)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,9 @@ func (c *RestClient) do(r *request) (*http.Response, error) {
 	}
 }
 
-func (c *RestClient) newHTTPRequest(r *request) (*http.Request, error) {
+// NewHTTPRequest creates a new http.Request that can be sent to ably endpoints.
+// This makes sure necessary headers are set.
+func (c *RestClient) NewHTTPRequest(r *request) (*http.Request, error) {
 	var body io.Reader
 	var proto = c.opts.protocol()
 	if r.In != nil {
