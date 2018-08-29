@@ -8,9 +8,11 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/ablytest"
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
 
@@ -195,3 +197,25 @@ var _ = Describe("RestClient", func() {
 		})
 	})
 })
+
+func TestRSC7(t *testing.T) {
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := ably.NewRestClient(app.Options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("must set version header", func(ts *testing.T) {
+		req, err := c.NewHTTPRequest(&ably.Request{})
+		if err != nil {
+			ts.Fatal(err)
+		}
+		h := req.Header.Get("X-Ably-Version")
+		expect := "1.0"
+		if h != expect {
+			t.Errorf("expected %s got %s", expect, h)
+		}
+	})
+}
