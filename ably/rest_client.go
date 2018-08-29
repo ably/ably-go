@@ -23,6 +23,11 @@ var (
 	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
 )
 
+const (
+	versionHeader = "X-Ably-Version"
+	clientVersion = "1.0"
+)
+
 func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
 	return func(path string) (*http.Response, error) {
 		return fn(path, nil)
@@ -55,7 +60,7 @@ func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 
 func (c *RestClient) Time() (time.Time, error) {
 	var times []int64
-	r := &request{
+	r := &Request{
 		Method: "GET",
 		Path:   "/time",
 		Out:    &times,
@@ -89,7 +94,9 @@ func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
 	return newPaginatedResult(statType, "/stats", params, query(c.get), c.logger())
 }
 
-type request struct {
+// Request this contains fields necessary to compose http request that will be
+// sent ably endpoints.
+type Request struct {
 	Method string
 	Path   string
 	In     interface{} // value to be encoded and sent with request body
@@ -103,7 +110,7 @@ type request struct {
 }
 
 func (c *RestClient) get(path string, out interface{}) (*http.Response, error) {
-	r := &request{
+	r := &Request{
 		Method: "GET",
 		Path:   path,
 		Out:    out,
@@ -112,7 +119,7 @@ func (c *RestClient) get(path string, out interface{}) (*http.Response, error) {
 }
 
 func (c *RestClient) post(path string, in, out interface{}) (*http.Response, error) {
-	r := &request{
+	r := &Request{
 		Method: "POST",
 		Path:   path,
 		In:     in,
@@ -121,7 +128,7 @@ func (c *RestClient) post(path string, in, out interface{}) (*http.Response, err
 	return c.do(r)
 }
 
-func (c *RestClient) do(r *request) (*http.Response, error) {
+func (c *RestClient) do(r *Request) (*http.Response, error) {
 	req, err := c.NewHTTPRequest(r)
 	if err != nil {
 		return nil, err
@@ -150,7 +157,7 @@ func (c *RestClient) do(r *request) (*http.Response, error) {
 
 // NewHTTPRequest creates a new http.Request that can be sent to ably endpoints.
 // This makes sure necessary headers are set.
-func (c *RestClient) NewHTTPRequest(r *request) (*http.Request, error) {
+func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 	var body io.Reader
 	var proto = c.opts.protocol()
 	if r.In != nil {
@@ -168,6 +175,7 @@ func (c *RestClient) NewHTTPRequest(r *request) (*http.Request, error) {
 		req.Header.Set("Content-Type", proto)
 	}
 	req.Header.Set("Accept", proto)
+	req.Header.Set(versionHeader, clientVersion)
 	if !r.NoAuth {
 		if err := c.Auth.authReq(req); err != nil {
 			return nil, err
