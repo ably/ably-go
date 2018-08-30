@@ -6,8 +6,10 @@ import (
 	"os"
 )
 
+type LogLevel uint
+
 const (
-	LogNone = iota
+	LogNone LogLevel = iota
 	LogError
 	LogWarning
 	LogInfo
@@ -15,7 +17,7 @@ const (
 	LogDebug
 )
 
-var logLevels = map[int]string{
+var logLevels = map[LogLevel]string{
 	LogError:   "[ERROR] ",
 	LogWarning: "[WARN] ",
 	LogInfo:    "[INFO] ",
@@ -24,37 +26,59 @@ var logLevels = map[int]string{
 }
 
 var defaultLog = LoggerOptions{
-	Logger: log.New(os.Stderr, "", log.LstdFlags),
+	Logger: &StdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)},
 	Level:  LogNone,
 }
 
+// LoggerOptions defines options for ably logging.
 type LoggerOptions struct {
-	Logger *log.Logger
-	Level  int
+	Logger Logger
+	Level  LogLevel
 }
 
-func (l LoggerOptions) Is(level int) bool {
-	return l.Level >= level
+func (l LoggerOptions) Is(level LogLevel) bool {
+	return l.Level != LogNone && l.Level >= level
 }
 
-func (l LoggerOptions) Print(level int, v ...interface{}) {
+func (l LoggerOptions) Print(level LogLevel, v ...interface{}) {
 	if l.Is(level) {
-		if len(v) != 0 {
-			v[0] = fmt.Sprintf(logLevels[level]+"%v", v[0])
-		}
-		l.logger().Print(v...)
+		l.GetLogger().Print(level, v...)
 	}
 }
 
-func (l LoggerOptions) Printf(level int, format string, v ...interface{}) {
+func (l LoggerOptions) Printf(level LogLevel, format string, v ...interface{}) {
 	if l.Is(level) {
-		l.logger().Printf(logLevels[level]+format, v...)
+		l.GetLogger().Printf(level, format, v...)
 	}
 }
 
-func (l LoggerOptions) logger() *log.Logger {
+// GetLogger returns the custom logger if any. This will return the default
+// logger if custom logger was not specified.
+func (l LoggerOptions) GetLogger() Logger {
 	if l.Logger != nil {
 		return l.Logger
 	}
 	return defaultLog.Logger
+}
+
+// Logger is an interface for ably loggers.
+type Logger interface {
+	Print(level LogLevel, v ...interface{})
+	Printf(level LogLevel, format string, v ...interface{})
+}
+
+// StdLogger wraps log.Logger to satisfy the Logger interface.
+type StdLogger struct {
+	*log.Logger
+}
+
+func (s *StdLogger) Printf(level LogLevel, format string, v ...interface{}) {
+	s.Logger.Printf(logLevels[level]+format, v...)
+}
+
+func (s *StdLogger) Print(level LogLevel, v ...interface{}) {
+	if len(v) != 0 {
+		v[0] = fmt.Sprintf(logLevels[level]+"%v", v[0])
+		s.Logger.Print(v...)
+	}
 }
