@@ -65,6 +65,6 @@ func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) 
 	return newPaginatedResult(msgType, path, params, query(c.client.get), c.logger())
 }
 
-func (c *RestChannel) logger() *Logger {
+func (c *RestChannel) logger() *LoggerOptions {
 	return c.client.logger()
 }

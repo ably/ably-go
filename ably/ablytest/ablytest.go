@@ -13,7 +13,7 @@ import (
 
 var Timeout = 30 * time.Second
 var NoBinaryProtocol bool
-var DefaultLogger = ably.Logger{Level: ably.LogNone}
+var DefaultLogger = ably.LoggerOptions{Level: ably.LogNone}
 var Environment = "sandbox"
 
 func nonil(err ...error) error {

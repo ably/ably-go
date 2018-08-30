@@ -148,12 +148,12 @@ func (opts *AuthOptions) KeySecret() string {
 type ClientOptions struct {
 	AuthOptions
 
-	RestHost        string // optional; overwrite endpoint hostname for REST client
-	RealtimeHost    string // optional; overwrite endpoint hostname for Realtime client
-	Environment     string // optional; prefixes both hostname with the environment string
-	ClientID        string // optional; required for managing realtime presence of the current client
-	Recover         string // optional; used to recover client state
-	Logger          Logger // optional; overwrite logging defaults
+	RestHost        string        // optional; overwrite endpoint hostname for REST client
+	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
+	Environment     string        // optional; prefixes both hostname with the environment string
+	ClientID        string        // optional; required for managing realtime presence of the current client
+	Recover         string        // optional; used to recover client state
+	Logger          LoggerOptions // optional; overwrite logging defaults
 	TransportParams map[string]string
 
 	NoTLS            bool // when true REST and realtime client won't use TLS

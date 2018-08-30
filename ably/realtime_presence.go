@@ -319,6 +319,6 @@ func (pres *RealtimePresence) auth() *Auth {
 	return pres.channel.client.Auth
 }
 
-func (pres *RealtimePresence) logger() *Logger {
+func (pres *RealtimePresence) logger() *LoggerOptions {
 	return pres.channel.logger()
 }
