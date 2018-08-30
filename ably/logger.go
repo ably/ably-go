@@ -23,21 +23,21 @@ var logLevels = map[int]string{
 	LogDebug:   "[DEBUG] ",
 }
 
-var defaultLog = Logger{
+var defaultLog = LoggerOptions{
 	Logger: log.New(os.Stderr, "", log.LstdFlags),
 	Level:  LogNone,
 }
 
-type Logger struct {
+type LoggerOptions struct {
 	Logger *log.Logger
 	Level  int
 }
 
-func (l Logger) Is(level int) bool {
+func (l LoggerOptions) Is(level int) bool {
 	return l.Level >= level
 }
 
-func (l Logger) Print(level int, v ...interface{}) {
+func (l LoggerOptions) Print(level int, v ...interface{}) {
 	if l.Is(level) {
 		if len(v) != 0 {
 			v[0] = fmt.Sprintf(logLevels[level]+"%v", v[0])
@@ -46,13 +46,13 @@ func (l Logger) Print(level int, v ...interface{}) {
 	}
 }
 
-func (l Logger) Printf(level int, format string, v ...interface{}) {
+func (l LoggerOptions) Printf(level int, format string, v ...interface{}) {
 	if l.Is(level) {
 		l.logger().Printf(logLevels[level]+format, v...)
 	}
 }
 
-func (l Logger) logger() *log.Logger {
+func (l LoggerOptions) logger() *log.Logger {
 	if l.Logger != nil {
 		return l.Logger
 	}
