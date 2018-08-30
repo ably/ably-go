@@ -35,7 +35,7 @@ func init() {
 		NoBinaryProtocol = true
 	}
 	if n, err := strconv.Atoi(os.Getenv("ABLY_LOGLEVEL")); err == nil {
-		DefaultLogger.Level = n
+		DefaultLogger.Level = ably.LogLevel(n)
 	}
 	if s := os.Getenv("ABLY_ENV"); s != "" {
 		Environment = s
