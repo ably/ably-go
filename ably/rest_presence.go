@@ -21,6 +21,6 @@ func (p *RestPresence) History(params *PaginateParams) (*PaginatedResult, error)
 	return newPaginatedResult(presMsgType, path, params, query(p.client.get), p.logger())
 }
 
-func (p *RestPresence) logger() *Logger {
+func (p *RestPresence) logger() *LoggerOptions {
 	return p.client.logger()
 }

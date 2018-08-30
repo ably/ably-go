@@ -36,11 +36,11 @@ type PaginatedResult struct {
 	typItems interface{}
 	typ      reflect.Type
 	query    QueryFunc
-	logger   *Logger
+	logger   *LoggerOptions
 }
 
 func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
-	query QueryFunc, log *Logger) (*PaginatedResult, error) {
+	query QueryFunc, log *LoggerOptions) (*PaginatedResult, error) {
 	p := &PaginatedResult{
 		typ:    typ,
 		query:  query,
