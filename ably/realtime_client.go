@@ -71,6 +71,6 @@ func (c *RealtimeClient) opts() *ClientOptions {
 	return &c.rest.opts
 }
 
-func (c *RealtimeClient) logger() *Logger {
+func (c *RealtimeClient) logger() *LoggerOptions {
 	return c.rest.logger()
 }

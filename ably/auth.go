@@ -397,7 +397,7 @@ func (a *Auth) token() *TokenDetails {
 	return a.opts().TokenDetails
 }
 
-func (a *Auth) logger() *Logger {
+func (a *Auth) logger() *LoggerOptions {
 	return a.client.logger()
 }
 

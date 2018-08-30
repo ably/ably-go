@@ -370,6 +370,6 @@ func (c *RealtimeChannel) opts() *ClientOptions {
 	return c.client.opts()
 }
 
-func (c *RealtimeChannel) logger() *Logger {
+func (c *RealtimeChannel) logger() *LoggerOptions {
 	return c.client.logger()
 }

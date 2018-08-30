@@ -317,7 +317,7 @@ func (c *Conn) setConn(conn proto.Conn) {
 	go c.eventloop()
 }
 
-func (c *Conn) logger() *Logger {
+func (c *Conn) logger() *LoggerOptions {
 	return c.auth.logger()
 }
 
@@ -389,7 +389,7 @@ func (c *Conn) eventloop() {
 
 type verboseConn struct {
 	conn   proto.Conn
-	logger *Logger
+	logger *LoggerOptions
 }
 
 func (vc verboseConn) Send(msg *proto.ProtocolMessage) error {

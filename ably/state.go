@@ -197,10 +197,10 @@ type stateEmitter struct {
 	err       error
 	current   StateEnum
 	typ       StateType
-	logger    *Logger
+	logger    *LoggerOptions
 }
 
-func newStateEmitter(typ StateType, startState StateEnum, channel string, log *Logger) *stateEmitter {
+func newStateEmitter(typ StateType, startState StateEnum, channel string, log *LoggerOptions) *stateEmitter {
 	if !typ.Contains(startState) {
 		panic(`invalid start state: "` + startState.String() + `"`)
 	}
@@ -318,10 +318,10 @@ func (s *stateEmitter) off(ch chan<- State, states ...StateEnum) {
 // queuedEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
 	queue  []serialCh
-	logger *Logger
+	logger *LoggerOptions
 }
 
-func newPendingEmitter(log *Logger) pendingEmitter {
+func newPendingEmitter(log *LoggerOptions) pendingEmitter {
 	return pendingEmitter{
 		logger: log,
 	}
@@ -461,7 +461,7 @@ func (q *msgQueue) Fail(err error) {
 	q.mtx.Unlock()
 }
 
-func (q *msgQueue) logger() *Logger {
+func (q *msgQueue) logger() *LoggerOptions {
 	return q.conn.logger()
 }
 

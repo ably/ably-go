@@ -21,10 +21,10 @@ type Subscription struct {
 	queue       []interface{}
 	unsubscribe func(*Subscription)
 	stopped     bool
-	logger      *Logger
+	logger      *LoggerOptions
 }
 
-func newSubscription(typ reflect.Type, unsubscribe func(*Subscription), log *Logger) *Subscription {
+func newSubscription(typ reflect.Type, unsubscribe func(*Subscription), log *LoggerOptions) *Subscription {
 	sub := &Subscription{
 		typ:         typ,
 		channel:     reflect.MakeChan(typ, 0).Interface(),
@@ -162,10 +162,10 @@ type subscriptions struct {
 	typ    reflect.Type
 	mtx    sync.Mutex
 	all    map[interface{}]map[*Subscription]struct{}
-	logger *Logger
+	logger *LoggerOptions
 }
 
-func newSubscriptions(typ reflect.Type, log *Logger) *subscriptions {
+func newSubscriptions(typ reflect.Type, log *LoggerOptions) *subscriptions {
 	return &subscriptions{
 		typ:    typ,
 		all:    make(map[interface{}]map[*Subscription]struct{}),

@@ -201,7 +201,7 @@ func (c *RestClient) handleResponse(resp *http.Response, out interface{}) (*http
 	return resp, nil
 }
 
-func (c *RestClient) logger() *Logger {
+func (c *RestClient) logger() *LoggerOptions {
 	return &c.opts.Logger
 }
 
