@@ -1,5 +1,7 @@
 package ably
 
+//go:generate go run ../scripts/errors.go ../common/protocol/errors.json errors.go
+
 import (
 	"crypto/rand"
 	"encoding/hex"
