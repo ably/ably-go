@@ -203,6 +203,7 @@ func TestRSC7(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer app.Close()
 	c, err := ably.NewRestClient(app.Options())
 	if err != nil {
 		t.Fatal(err)
