@@ -100,9 +100,9 @@ type MessageDirections struct {
 }
 
 type XchgMessages struct {
-	All          MessageTypes `json:"all" codec:"all"`
-	ProducerPaid MessageTypes `json:"producerPaid" codec:"producerPaid"`
-	ConsumerPaid MessageTypes `json:"consumerPaid" codec:"consumerPaid"`
+	All          MessageTypes      `json:"all" codec:"all"`
+	ProducerPaid MessageDirections `json:"producerPaid" codec:"producerPaid"`
+	ConsumerPaid MessageDirections `json:"consumerPaid" codec:"consumerPaid"`
 }
 
 type ReactorRates struct {
