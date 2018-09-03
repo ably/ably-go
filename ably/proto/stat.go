@@ -105,13 +105,6 @@ type XchgMessages struct {
 	ConsumerPaid MessageTypes `json:"consumerPaid" codec:"consumerPaid"`
 }
 
-type BaseStats struct {
-	IntervalID string  `json:"intervalId" codec:"intervalId"`
-	Unit       string  `json:"unit" codec:"unit"`
-	InProgress string  `json:"inProgress" codec:"inProgress"`
-	Count      float64 `json:"count" codec:"count"`
-}
-
 type ReactorRates struct {
 	HTTPEvent float64 `json:"httpEvent" codec:"httpEvent"`
 	AMQP      float64 `json:"amqp" codec:"amqp"`
