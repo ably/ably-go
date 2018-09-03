@@ -45,8 +45,8 @@ type ResourceCount struct {
 }
 
 type MessageCount struct {
-	Count int64  `json:"count" codec:"count"`
-	Data  uint64 `json:"data" codec:"data"`
+	Count float64 `json:"count" codec:"count"`
+	Data  float64 `json:"data" codec:"data"`
 }
 
 type ConnectionTypes struct {
