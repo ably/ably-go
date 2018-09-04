@@ -6,6 +6,8 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
+const MessageEncoding = "utf-8"
+
 // based on HttpUtils::encodeURIComponent from ably-java library
 var encodeURIComponent = strings.NewReplacer(
 	" ", "%20",
@@ -44,7 +46,7 @@ func newRestChannel(name string, client *RestClient) *RestChannel {
 
 func (c *RestChannel) Publish(name string, data string) error {
 	messages := []*proto.Message{
-		{Name: name, Data: data, Encoding: "utf8"},
+		{Name: name, Data: data, Encoding: MessageEncoding},
 	}
 	return c.PublishAll(messages)
 }
