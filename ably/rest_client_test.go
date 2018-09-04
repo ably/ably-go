@@ -217,4 +217,14 @@ func TestRSC7(t *testing.T) {
 			t.Errorf("expected %s got %s", ably.AblyVersion, h)
 		}
 	})
+	t.Run("must set lib header", func(ts *testing.T) {
+		req, err := c.NewHTTPRequest(&ably.Request{})
+		if err != nil {
+			ts.Fatal(err)
+		}
+		h := req.Header.Get(ably.AblyLibHeader)
+		if h != ably.LibraryString {
+			t.Errorf("expected %s got %s", ably.LibraryString, h)
+		}
+	})
 }
