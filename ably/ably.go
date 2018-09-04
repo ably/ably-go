@@ -1,6 +1,6 @@
 package ably
 
-//go:generate go run ../scripts/errors.go ../common/protocol/errors.json errors.go
+//go:generate go run ../scripts/errors.go -json ../common/protocol/errors.json -o errors.go
 
 import (
 	"crypto/rand"
