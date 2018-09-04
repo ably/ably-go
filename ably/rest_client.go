@@ -23,13 +23,14 @@ var (
 	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
 )
 
+// constants for rsc7
 const (
-	// AblyVersionHeader is a header key sent to ably with the client's supported
-	// ably version.
 	AblyVersionHeader = "X-Ably-Version"
-
-	// AblyVersion the spec version supported by the client.
-	AblyVersion = "1.0"
+	AblyLibHeader     = "X-Ably-Lib"
+	LibraryVersion    = "1.0"
+	LibraryName       = "ably-go"
+	LibraryString     = LibraryName + "-" + LibraryVersion
+	AblyVersion       = "1.0"
 )
 
 func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
@@ -180,6 +181,7 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 	}
 	req.Header.Set("Accept", proto)
 	req.Header.Set(AblyVersionHeader, AblyVersion)
+	req.Header.Set(AblyLibHeader, LibraryString)
 	if !r.NoAuth {
 		if err := c.Auth.authReq(req); err != nil {
 			return nil, err
