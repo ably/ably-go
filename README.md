@@ -235,12 +235,16 @@ You can also view the [community reported Github issues](https://github.com/ably
 
 ## Contributing
 
-1. Fork it
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Ensure you have added suitable tests and the test suite is passing (`make test`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create a new Pull Request
+Because this package uses `internal` packages, all fork development has to happen under `$GOPATH/src/github.com/ably/ably-go` to prevent `use of internal package not allowed` errors.
+
+1. Fork `github.com/ably/ably-go`
+2. go to the `ably-go` directory: `cd $GOPATH/src/github.com/ably/ably-go`
+3. add your fork as a remote: `git remote add fork git@github.com:your-username/ably-go`
+4. create your feature branch: `git checkout -b my-new-feature`
+5. commit your changes (`git commit -am 'Add some feature'`)
+6. ensure you have added suitable tests and the test suite is passing: `make test`
+7. push to the branch: `git push fork my-new-feature`
+8. create a new Pull Request
 
 ## License
 

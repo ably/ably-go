@@ -12,6 +12,13 @@ import (
 	"strings"
 )
 
+// encodings
+const (
+	UTF8   = "utf-8"
+	JSON   = "json"
+	Base64 = "base64"
+)
+
 type Message struct {
 	ID           string                 `json:"id,omitempty" codec:"id,omitempty"`
 	ClientID     string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
@@ -44,13 +51,13 @@ func (m *Message) DecodeData(key []byte) error {
 	encodings := strings.Split(m.Encoding, "/")
 	for i := len(encodings) - 1; i >= 0; i-- {
 		switch encodings[i] {
-		case "base64":
+		case Base64:
 			data, err := base64.StdEncoding.DecodeString(m.Data)
 			if err != nil {
 				return err
 			}
 			m.Data = string(data)
-		case "json", "utf-8":
+		case JSON, UTF8:
 		default:
 			if err := m.Decrypt(encodings[i], key); err != nil {
 				return err
@@ -70,11 +77,11 @@ func (m *Message) EncodeData(encoding string, key, iv []byte) error {
 	m.Encoding = ""
 	for _, encoding := range strings.Split(encoding, "/") {
 		switch encoding {
-		case "base64":
+		case Base64:
 			m.Data = base64.StdEncoding.EncodeToString([]byte(m.Data))
 			m.mergeEncoding(encoding)
 			continue
-		case "json", "utf-8":
+		case JSON, UTF8:
 			m.mergeEncoding(encoding)
 			continue
 		default:
