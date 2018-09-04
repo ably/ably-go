@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"go/format"
 	"io/ioutil"
 	"log"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -34,11 +32,6 @@ func main() {
 	if opts.jsonSource == "" {
 		flag.PrintDefaults()
 		return
-	}
-	if opts.template == "" {
-		fmt.Println("[error] missing -t flag")
-		flag.PrintDefaults()
-		os.Exit(1)
 	}
 	sourceFile, err := ioutil.ReadFile(opts.jsonSource)
 	if err != nil {
