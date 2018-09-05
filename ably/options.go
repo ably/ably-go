@@ -19,7 +19,14 @@ const (
 )
 
 var defaultOptions = &ClientOptions{
-	RestHost:          "rest.ably.io",
+	RestHost: "rest.ably.io",
+	FallbackHosts: []string{
+		"a.ably-realtime.com",
+		"b.ably-realtime.com",
+		"c.ably-realtime.com",
+		"d.ably-realtime.com",
+		"e.ably-realtime.com",
+	},
 	RealtimeHost:      "realtime.ably.io",
 	TimeoutConnect:    15 * time.Second,
 	TimeoutDisconnect: 30 * time.Second,
@@ -148,7 +155,8 @@ func (opts *AuthOptions) KeySecret() string {
 type ClientOptions struct {
 	AuthOptions
 
-	RestHost        string        // optional; overwrite endpoint hostname for REST client
+	RestHost        string // optional; overwrite endpoint hostname for REST client
+	FallbackHosts   []string
 	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
 	Environment     string        // optional; prefixes both hostname with the environment string
 	ClientID        string        // optional; required for managing realtime presence of the current client
@@ -221,9 +229,18 @@ func (opts *ClientOptions) restURL() string {
 		}
 	}
 	if opts.NoTLS {
-		return "http://" + host
+		return opts.scheme() + host
 	}
-	return "https://" + host
+	return opts.scheme() + host
+}
+
+// This returns http scheme to use . http if NoTLS is true otherwise defaults to
+// https.
+func (opts *ClientOptions) scheme() string {
+	if opts.NoTLS {
+		return "http://"
+	}
+	return "https://"
 }
 
 func (opts *ClientOptions) realtimeURL() string {
