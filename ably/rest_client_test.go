@@ -255,8 +255,8 @@ func TestRest_hostfallback(t *testing.T) {
 		if err == nil {
 			ts.Error("expected an error")
 		}
-		if retryCount != 6 {
-			t.Errorf("expected 6 retries got %d", retryCount)
+		if retryCount != 4 {
+			t.Errorf("expected 4 retries got %d", retryCount)
 		}
 	})
 }
