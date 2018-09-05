@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"mime"
 	"net/http"
 	"reflect"
@@ -32,6 +33,8 @@ const (
 	LibraryString     = LibraryName + "-" + LibraryVersion
 	AblyVersion       = "1.0"
 )
+
+const HostHeader = "Host"
 
 func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
 	return func(path string) (*http.Response, error) {
@@ -76,7 +79,7 @@ func (c *RestClient) Time() (time.Time, error) {
 		return time.Time{}, err
 	}
 	if len(times) != 1 {
-		return time.Time{}, newErrorf(50000, "expected 1 timestamp, got %d", len(times))
+		return time.Time{}, newErrorf(ErrInternalError, "expected 1 timestamp, got %d", len(times))
 	}
 	return time.Unix(times[0]/1000, times[0]%1000), nil
 }
@@ -140,24 +143,75 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 	}
 	resp, err := c.opts.httpclient().Do(req)
 	if err != nil {
-		return nil, newError(50000, err)
+		return nil, newError(ErrInternalError, err)
 	}
 	resp, err = c.handleResponse(resp, r.Out)
-	switch {
-	case err == nil:
-		return resp, nil
-	case code(err) == 40140:
-		if r.NoRenew || !c.Auth.isTokenRenewable() {
-			return nil, err
+	if err != nil {
+		if e, ok := err.(*Error); ok {
+			if canFallBack(e.StatusCode) {
+				fallback := defaultOptions.FallbackHosts
+				if c.opts.FallbackHosts != nil {
+					fallback = c.opts.FallbackHosts
+				}
+				if len(fallback) > 0 {
+					left := make([]string, len(fallback))
+					copy(left, fallback)
+					for {
+						if len(left) == 0 {
+							return nil, err
+						}
+						var h string
+						if len(left) == 1 {
+							h = left[0]
+						} else {
+							h = left[rand.Intn(len(left)-1)]
+						}
+						var n []string
+						for _, v := range left {
+							if v != h {
+								n = append(n, v)
+							}
+						}
+						left = n
+						req.URL.Host = h
+						req.Header.Set(HostHeader, h)
+						resp, err := c.opts.httpclient().Do(req)
+						if err != nil {
+							return nil, newError(ErrInternalError, err)
+						}
+						resp, err = c.handleResponse(resp, r.Out)
+						if err != nil {
+							if ev, ok := err.(*Error); ok {
+								if canFallBack(ev.StatusCode) {
+									continue
+								}
+							}
+							return nil, err
+						}
+						return resp, nil
+					}
+				}
+				return nil, err
+			}
+			if e.Code == 40140 {
+				if r.NoRenew || !c.Auth.isTokenRenewable() {
+					return nil, err
+				}
+				if _, err := c.Auth.reauthorise(); err != nil {
+					return nil, err
+				}
+				r.NoRenew = true
+				return c.do(r)
+			}
 		}
-		if _, err := c.Auth.reauthorise(); err != nil {
-			return nil, err
-		}
-		r.NoRenew = true
-		return c.do(r)
-	default:
 		return nil, err
 	}
+	return resp, nil
+}
+
+func canFallBack(code int) bool {
+	return http.StatusInternalServerError <= code &&
+		code <= http.StatusGatewayTimeout
 }
 
 // NewHTTPRequest creates a new http.Request that can be sent to ably endpoints.
@@ -174,7 +228,7 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 	}
 	req, err := http.NewRequest(r.Method, c.opts.restURL()+r.Path, body)
 	if err != nil {
-		return nil, newError(50000, err)
+		return nil, newError(ErrInternalError, err)
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", proto)
