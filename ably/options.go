@@ -19,19 +19,23 @@ const (
 )
 
 var defaultOptions = &ClientOptions{
-	RestHost: "rest.ably.io",
-	FallbackHosts: []string{
-		"a.ably-realtime.com",
-		"b.ably-realtime.com",
-		"c.ably-realtime.com",
-		"d.ably-realtime.com",
-		"e.ably-realtime.com",
-	},
+	RestHost:          "rest.ably.io",
+	FallbackHosts:     DefaultFallbackHosts(),
 	HTTPMaxRetryCount: 3,
 	RealtimeHost:      "realtime.ably.io",
 	TimeoutConnect:    15 * time.Second,
 	TimeoutDisconnect: 30 * time.Second,
 	TimeoutSuspended:  2 * time.Minute,
+}
+
+func DefaultFallbackHosts() []string {
+	return []string{
+		"a.ably-realtime.com",
+		"b.ably-realtime.com",
+		"c.ably-realtime.com",
+		"d.ably-realtime.com",
+		"e.ably-realtime.com",
+	}
 }
 
 const (
@@ -166,7 +170,7 @@ type ClientOptions struct {
 	Logger                  LoggerOptions // optional; overwrite logging defaults
 	TransportParams         map[string]string
 
-	// max number of fallback hosts to use as a fallback w
+	// max number of fallback hosts to use as a fallback.
 	HTTPMaxRetryCount int
 
 	NoTLS            bool // when true REST and realtime client won't use TLS
