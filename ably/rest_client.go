@@ -195,7 +195,7 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 				}
 				return nil, err
 			}
-			if e.Code == 40140 {
+			if e.Code == ErrTokenErrorUnspecified {
 				if r.NoRenew || !c.Auth.isTokenRenewable() {
 					return nil, err
 				}
