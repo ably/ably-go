@@ -27,6 +27,7 @@ var defaultOptions = &ClientOptions{
 		"d.ably-realtime.com",
 		"e.ably-realtime.com",
 	},
+	HTTPMaxRetryCount: 3,
 	RealtimeHost:      "realtime.ably.io",
 	TimeoutConnect:    15 * time.Second,
 	TimeoutDisconnect: 30 * time.Second,
@@ -164,6 +165,9 @@ type ClientOptions struct {
 	Recover                 string        // optional; used to recover client state
 	Logger                  LoggerOptions // optional; overwrite logging defaults
 	TransportParams         map[string]string
+
+	// max number of fallback hosts to use as a fallback w
+	HTTPMaxRetryCount int
 
 	NoTLS            bool // when true REST and realtime client won't use TLS
 	NoConnect        bool // when true realtime client will not attempt to connect automatically

@@ -161,6 +161,11 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 					// running.
 					left := make([]string, len(fallback))
 					copy(left, fallback)
+					iteration := 0
+					maxLimit := c.opts.HTTPMaxRetryCount
+					if maxLimit == 0 {
+						maxLimit = defaultOptions.HTTPMaxRetryCount
+					}
 					for {
 						if len(left) == 0 {
 							return nil, err
@@ -186,8 +191,12 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 						}
 						resp, err = c.handleResponse(resp, r.Out)
 						if err != nil {
+							if iteration == maxLimit-1 {
+								return nil, err
+							}
 							if ev, ok := err.(*Error); ok {
 								if canFallBack(ev.StatusCode) {
+									iteration++
 									continue
 								}
 							}
