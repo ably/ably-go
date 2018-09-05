@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net/http"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -148,7 +149,9 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 	resp, err = c.handleResponse(resp, r.Out)
 	if err != nil {
 		if e, ok := err.(*Error); ok {
-			if canFallBack(e.StatusCode) {
+			if canFallBack(e.StatusCode) &&
+				(c.opts.FallbackHostsUseDefault ||
+					strings.HasSuffix(req.URL.Host, defaultOptions.RestHost)) {
 				fallback := defaultOptions.FallbackHosts
 				if c.opts.FallbackHosts != nil {
 					fallback = c.opts.FallbackHosts
