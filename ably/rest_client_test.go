@@ -20,21 +20,19 @@ import (
 	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 )
 
+func newHTTPClientMock(srv *httptest.Server) *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: func(*http.Request) (*url.URL, error) { return url.Parse(srv.URL) },
+		},
+	}
+}
+
 var _ = Describe("RestClient", func() {
 	var (
 		server *httptest.Server
-
-		newHTTPClientMock = func(srv *httptest.Server) *http.Client {
-			return &http.Client{
-				Transport: &http.Transport{
-					Proxy: func(*http.Request) (*url.URL, error) { return url.Parse(srv.URL) },
-				},
-			}
-		}
 	)
-
 	Context("with a failing request", func() {
-
 		BeforeEach(func() {
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(404)
@@ -226,6 +224,39 @@ func TestRSC7(t *testing.T) {
 		h := req.Header.Get(ably.AblyLibHeader)
 		if h != ably.LibraryString {
 			t.Errorf("expected %s got %s", ably.LibraryString, h)
+		}
+	})
+}
+
+func TestRest_hostfallback(t *testing.T) {
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	t.Run("RSC15d must use alternative host", func(ts *testing.T) {
+		var retryCount int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			retryCount++
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		options := &ably.ClientOptions{
+			NoTLS:      true,
+			HTTPClient: newHTTPClientMock(server),
+			AuthOptions: ably.AuthOptions{
+				UseTokenAuth: true,
+			},
+		}
+		client, err := ably.NewRestClient(app.Options(options))
+		if err != nil {
+			ts.Fatal(err)
+		}
+		err = client.Channel("test").Publish("ping", "pong")
+		if err == nil {
+			ts.Error("expected an error")
+		}
+		if retryCount != 6 {
+			t.Errorf("expected 6 retries got %d", retryCount)
 		}
 	})
 }
