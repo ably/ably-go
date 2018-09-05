@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -236,8 +237,13 @@ func TestRest_hostfallback(t *testing.T) {
 	defer app.Close()
 	t.Run("RSC15d must use alternative host", func(ts *testing.T) {
 		var retryCount int
+		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if retryCount > 0 {
+				hosts = append(hosts, r.Host)
+			}
 			retryCount++
+			fmt.Println(r.Host)
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		options := &ably.ClientOptions{
@@ -257,6 +263,14 @@ func TestRest_hostfallback(t *testing.T) {
 		}
 		if retryCount != 4 {
 			t.Errorf("expected 4 retries got %d", retryCount)
+		}
+		// make sure the host header is set. Since we are using defaults from the spec
+		// the hosts should be in [a..e].ably-realtime.com
+		expect := ably.DefaultFallbackHosts()
+		for _, host := range hosts {
+			if sort.SearchStrings(expect, host) == -1 {
+				t.Errorf("unexpected host %s", host)
+			}
 		}
 	})
 }

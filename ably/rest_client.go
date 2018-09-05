@@ -183,6 +183,10 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 							}
 						}
 						left = n
+						req, err := c.NewHTTPRequest(r)
+						if err != nil {
+							return nil, err
+						}
 						req.URL.Host = h
 						req.Header.Set(HostHeader, h)
 						resp, err := c.opts.httpclient().Do(req)
