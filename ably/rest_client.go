@@ -157,10 +157,7 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 					fallback = c.opts.FallbackHosts
 				}
 				if len(fallback) > 0 {
-					// we copy the hosts to avoid accidentally mutating the array while
-					// running.
-					left := make([]string, len(fallback))
-					copy(left, fallback)
+					left := fallback
 					iteration := 0
 					maxLimit := c.opts.HTTPMaxRetryCount
 					if maxLimit == 0 {
