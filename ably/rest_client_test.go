@@ -243,7 +243,6 @@ func TestRest_hostfallback(t *testing.T) {
 				hosts = append(hosts, r.Host)
 			}
 			retryCount++
-			fmt.Println(r.Host)
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		options := &ably.ClientOptions{

@@ -237,9 +237,6 @@ func (opts *ClientOptions) restURL() string {
 			host = opts.Environment + "-" + host
 		}
 	}
-	if opts.NoTLS {
-		return opts.scheme() + host
-	}
 	return opts.scheme() + host
 }
 
