@@ -270,7 +270,17 @@ func TestRest_hostfallback(t *testing.T) {
 		expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
 		for _, host := range hosts[1:] {
 			if !strings.Contains(expect, host) {
-				t.Errorf("expected %s got be in %s", host, expect)
+				ts.Errorf("expected %s got be in %s", host, expect)
+			}
+		}
+
+		// ensure all picked fallbacks are unique
+		uniq := make(map[string]bool)
+		for _, h := range hosts {
+			if _, ok := uniq[h]; ok {
+				ts.Errorf("duplicate fallback %s", h)
+			} else {
+				uniq[h] = true
 			}
 		}
 	})
