@@ -254,7 +254,7 @@ func TestRest_hostfallback(t *testing.T) {
 		}
 		return retryCount, hosts
 	}
-	t.Run("RSC15d must use alternative host", func(ts *testing.T) {
+	t.Run("RSC15d RSC15a must use alternative host", func(ts *testing.T) {
 		options := &ably.ClientOptions{
 			NoTLS: true,
 			AuthOptions: ably.AuthOptions{
