@@ -151,7 +151,8 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 		if e, ok := err.(*Error); ok {
 			if canFallBack(e.StatusCode) &&
 				(c.opts.FallbackHostsUseDefault ||
-					strings.HasSuffix(req.URL.Host, defaultOptions.RestHost)) {
+					strings.HasSuffix(req.URL.Host, defaultOptions.RestHost) ||
+					c.opts.FallbackHosts != nil) {
 				fallback := defaultOptions.FallbackHosts
 				if c.opts.FallbackHosts != nil {
 					fallback = c.opts.FallbackHosts
@@ -185,6 +186,7 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 							return nil, err
 						}
 						req.URL.Host = h
+						req.Host = ""
 						req.Header.Set(HostHeader, h)
 						resp, err := c.opts.httpclient().Do(req)
 						if err != nil {

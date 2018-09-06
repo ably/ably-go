@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -235,23 +234,16 @@ func TestRest_hostfallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	t.Run("RSC15d must use alternative host", func(ts *testing.T) {
+	runTestServer := func(ts *testing.T, options *ably.ClientOptions) (int, []string) {
 		var retryCount int
 		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if retryCount > 0 {
-				hosts = append(hosts, r.Host)
-			}
+			hosts = append(hosts, r.Host)
 			retryCount++
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
-		options := &ably.ClientOptions{
-			NoTLS:      true,
-			HTTPClient: newHTTPClientMock(server),
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
-		}
+		defer server.Close()
+		options.HTTPClient = newHTTPClientMock(server)
 		client, err := ably.NewRestClient(app.Options(options))
 		if err != nil {
 			ts.Fatal(err)
@@ -260,16 +252,87 @@ func TestRest_hostfallback(t *testing.T) {
 		if err == nil {
 			ts.Error("expected an error")
 		}
+		return retryCount, hosts
+	}
+	t.Run("RSC15d must use alternative host", func(ts *testing.T) {
+		options := &ably.ClientOptions{
+			NoTLS: true,
+			AuthOptions: ably.AuthOptions{
+				UseTokenAuth: true,
+			},
+		}
+		retryCount, hosts := runTestServer(ts, options)
 		if retryCount != 4 {
-			t.Errorf("expected 4 retries got %d", retryCount)
+			ts.Fatalf("expected 4 http calls got %d", retryCount)
 		}
 		// make sure the host header is set. Since we are using defaults from the spec
 		// the hosts should be in [a..e].ably-realtime.com
-		expect := ably.DefaultFallbackHosts()
-		for _, host := range hosts {
-			if sort.SearchStrings(expect, host) == -1 {
-				t.Errorf("unexpected host %s", host)
+		expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
+		for _, host := range hosts[1:] {
+			if !strings.Contains(expect, host) {
+				t.Errorf("expected %s got be in %s", host, expect)
 			}
 		}
+	})
+	t.Run("rsc15b", func(ts *testing.T) {
+		ts.Run("must not occur when default  rest.ably.io is overriden", func(ts *testing.T) {
+			customHost := "example.com"
+			options := &ably.ClientOptions{
+				NoTLS:    true,
+				RestHost: customHost,
+				AuthOptions: ably.AuthOptions{
+					UseTokenAuth: true,
+				},
+			}
+			retryCount, hosts := runTestServer(ts, options)
+			if retryCount != 1 {
+				ts.Fatalf("expected 1 http call got %d", retryCount)
+			}
+			host := hosts[0]
+			if host != customHost {
+				ts.Errorf("expected %s got %s", customHost, host)
+			}
+		})
+		ts.Run("must occur when fallbackHostsUseDefault is true", func(ts *testing.T) {
+			customHost := "example.com"
+			options := &ably.ClientOptions{
+				NoTLS:                   true,
+				RestHost:                customHost,
+				FallbackHostsUseDefault: true,
+				AuthOptions: ably.AuthOptions{
+					UseTokenAuth: true,
+				},
+			}
+			retryCount, hosts := runTestServer(ts, options)
+			if retryCount != 4 {
+				ts.Fatalf("expected 4 http call got %d", retryCount)
+			}
+			expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
+			for _, host := range hosts[1:] {
+				if !strings.Contains(expect, host) {
+					t.Errorf("expected %s got be in %s", host, expect)
+				}
+			}
+		})
+		ts.Run("must occur when fallbackHosts is set", func(ts *testing.T) {
+			customHost := "example.com"
+			fallback := "a.example.com"
+			options := &ably.ClientOptions{
+				NoTLS:         true,
+				RestHost:      customHost,
+				FallbackHosts: []string{fallback},
+				AuthOptions: ably.AuthOptions{
+					UseTokenAuth: true,
+				},
+			}
+			retryCount, hosts := runTestServer(ts, options)
+			if retryCount != 2 {
+				ts.Fatalf("expected 2 http call got %d", retryCount)
+			}
+			host := hosts[1]
+			if host != fallback {
+				t.Errorf("expected %s got %s", fallback, host)
+			}
+		})
 	})
 }
