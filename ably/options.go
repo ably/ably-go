@@ -16,10 +16,13 @@ import (
 const (
 	protocolJSON    = "application/json"
 	protocolMsgPack = "application/x-msgpack"
+
+	// RestHost is the primary ably host .
+	RestHost = "rest.ably.io"
 )
 
 var defaultOptions = &ClientOptions{
-	RestHost:          "rest.ably.io",
+	RestHost:          RestHost,
 	FallbackHosts:     DefaultFallbackHosts(),
 	HTTPMaxRetryCount: 3,
 	RealtimeHost:      "realtime.ably.io",
