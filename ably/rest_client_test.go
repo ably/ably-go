@@ -348,7 +348,22 @@ func TestRest_hostfallback(t *testing.T) {
 		}
 		firstHostCalled := hosts[0]
 		if !strings.HasSuffix(firstHostCalled, ably.RestHost) {
-			t.Errorf("expected primary host got %s", firstHostCalled)
+			ts.Errorf("expected primary host got %s", firstHostCalled)
+		}
+	})
+	t.Run("must not occur when FallbackHosts is an empty array", func(ts *testing.T) {
+		customHost := "example.com"
+		options := &ably.ClientOptions{
+			NoTLS:         true,
+			RestHost:      customHost,
+			FallbackHosts: []string{},
+			AuthOptions: ably.AuthOptions{
+				UseTokenAuth: true,
+			},
+		}
+		retryCount, _ := runTestServer(ts, options)
+		if retryCount != 1 {
+			ts.Fatalf("expected 1 http calls got %d", retryCount)
 		}
 	})
 }
