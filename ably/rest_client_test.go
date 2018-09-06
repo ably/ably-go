@@ -334,5 +334,21 @@ func TestRest_hostfallback(t *testing.T) {
 				t.Errorf("expected %s got %s", fallback, host)
 			}
 		})
+		ts.Run("RSC15e must start with default host", func(ts *testing.T) {
+			options := &ably.ClientOptions{
+				NoTLS: true,
+				AuthOptions: ably.AuthOptions{
+					UseTokenAuth: true,
+				},
+			}
+			retryCount, hosts := runTestServer(ts, options)
+			if retryCount != 4 {
+				ts.Fatalf("expected 4 http calls got %d", retryCount)
+			}
+			firstHostCalled := hosts[0]
+			if !strings.HasSuffix(firstHostCalled, ably.RestHost) {
+				t.Errorf("expected primary host got %s", firstHostCalled)
+			}
+		})
 	})
 }
