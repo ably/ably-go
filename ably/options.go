@@ -41,8 +41,10 @@ func DefaultFallbackHosts() []string {
 	}
 }
 
+type authMethod uint
+
 const (
-	authBasic = 1 + iota
+	authBasic authMethod = 1 << iota
 	authToken
 )
 

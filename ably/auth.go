@@ -57,7 +57,7 @@ func addHeaders(lhs, rhs http.Header) http.Header {
 // Auth
 type Auth struct {
 	mtx      sync.Mutex
-	method   int
+	method   authMethod
 	client   *RestClient
 	params   *TokenParams // save params to use with token renewal
 	host     string       // a host part of AuthURL
@@ -401,23 +401,24 @@ func (a *Auth) logger() *LoggerOptions {
 	return a.client.logger()
 }
 
-func detectAuthMethod(opts *ClientOptions) (int, error) {
-	useTokenAuth := opts.UseTokenAuth || opts.ClientID != ""
+func detectAuthMethod(opts *ClientOptions) (authMethod, error) {
+	useTokenAuth := opts.UseTokenAuth || opts.AuthURL != "" ||
+		opts.AuthCallback != nil || opts.Token != "" || opts.TokenDetails != nil
 	isKeyValid := opts.KeyName() != "" && opts.KeySecret() != ""
 	isAuthExternal := opts.externalTokenAuthSupported()
 	switch {
 	case !isAuthExternal && !useTokenAuth:
 		if !isKeyValid {
-			return 0, newError(40005, errInvalidKey)
+			return 0, newError(ErrInvalidCredential, errInvalidKey)
 		}
 		if opts.NoTLS {
-			return 0, newError(40103, errInsecureBasicAuth)
+			return 0, newError(ErrInvalidUseOfBasicAuthOverNonTLSTransport, errInsecureBasicAuth)
 		}
 		return authBasic, nil
 	case isAuthExternal || isKeyValid:
 		return authToken, nil
 	default:
-		return 0, newError(40102, errMissingTokenOpts)
+		return 0, newError(ErrIncompatibleCredentials, errMissingTokenOpts)
 	}
 }
 
