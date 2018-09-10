@@ -137,9 +137,9 @@ func (a *Auth) createTokenRequest(params *TokenParams, opts *AuthOptions) (*Toke
 	// Validate arguments.
 	switch {
 	case opts.Key == "":
-		return nil, newError(40101, errMissingKey)
+		return nil, newError(ErrInvalidCredentials, errMissingKey)
 	case req.KeyName == "" || keySecret == "":
-		return nil, newError(40102, errInvalidKey)
+		return nil, newError(ErrIncompatibleCredentials, errInvalidKey)
 	}
 	req.sign([]byte(keySecret))
 	return req, nil
