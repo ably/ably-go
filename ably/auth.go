@@ -125,7 +125,9 @@ func (a *Auth) CreateTokenRequest(params *TokenParams, opts *AuthOptions) (*Toke
 }
 
 func (a *Auth) createTokenRequest(params *TokenParams, opts *AuthOptions) (*TokenRequest, error) {
-	opts = a.mergeOpts(opts)
+	if opts == nil {
+		opts = &a.opts().AuthOptions
+	}
 	keySecret := opts.KeySecret()
 	req := &TokenRequest{KeyName: opts.KeyName()}
 	if params != nil {
@@ -285,7 +287,7 @@ func (a *Auth) setDefaults(opts *AuthOptions, req *TokenRequest) error {
 		if opts.UseQueryTime {
 			t, err := a.client.Time()
 			if err != nil {
-				return newError(40100, err)
+				return newError(ErrUnauthorized, err)
 			}
 			req.Timestamp = Time(t)
 		} else {

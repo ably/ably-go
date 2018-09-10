@@ -604,26 +604,75 @@ func TestAuth_ClientID(t *testing.T) {
 }
 
 func TestAuth_CreateTokenRequest(t *testing.T) {
-	app, client := ablytest.NewRestClient(useToken)
+	app, client := ablytest.NewRestClient(nil)
 	defer safeclose(t, app)
 
 	opts := &ably.AuthOptions{
 		UseQueryTime: true,
+		Key:          app.Key(),
 	}
 	params := &ably.TokenParams{
 		TTL:           ably.Duration(5 * time.Second),
 		RawCapability: (ably.Capability{"presence": {"read", "write"}}).Encode(),
 	}
-	req, err := client.Auth.CreateTokenRequest(params, opts)
-	if err != nil {
-		t.Fatalf("CreateTokenRequest()=%v", err)
-	}
-	if len(req.Nonce) < 16 {
-		t.Fatalf("want len(nonce)>=16; got %d", len(req.Nonce))
-	}
-	if req.Mac == "" {
-		t.Fatalf("want mac to be not empty")
-	}
+	t.Run("RSA9h", func(ts *testing.T) {
+		ts.Run("paramaters are optional", func(ts *testing.T) {
+			_, err := client.Auth.CreateTokenRequest(params, nil)
+			if err != nil {
+				ts.Fatalf("expected no error to occur got %v instead", err)
+			}
+			_, err = client.Auth.CreateTokenRequest(nil, opts)
+			if err != nil {
+				ts.Fatalf("expected no error to occur got %v instead", err)
+			}
+			_, err = client.Auth.CreateTokenRequest(nil, nil)
+			if err != nil {
+				ts.Fatalf("expected no error to occur got %v instead", err)
+			}
+		})
+		ts.Run("AuthOptions must not be merged", func(ts *testing.T) {
+			opts := &ably.AuthOptions{
+				UseQueryTime: true,
+			}
+			_, err := client.Auth.CreateTokenRequest(params, opts)
+			if err == nil {
+				ts.Fatal("expected an error")
+			}
+			e := err.(*ably.Error)
+			if e.Code != ably.ErrInvalidCredentials {
+				ts.Errorf("expected error code %d got %d", ably.ErrInvalidCredentials, e.Code)
+			}
+
+			// overide with bad key
+			opts.Key = "some bad key"
+			_, err = client.Auth.CreateTokenRequest(params, opts)
+			if err == nil {
+				ts.Fatal("expected an error")
+			}
+			e = err.(*ably.Error)
+			if e.Code != ably.ErrIncompatibleCredentials {
+				ts.Errorf("expected error code %d got %d", ably.ErrIncompatibleCredentials, e.Code)
+			}
+		})
+	})
+	t.Run("RSA9c must generate a unique 16+ character nonce", func(ts *testing.T) {
+		req, err := client.Auth.CreateTokenRequest(params, opts)
+		if err != nil {
+			ts.Fatalf("CreateTokenRequest()=%v", err)
+		}
+		if len(req.Nonce) < 16 {
+			ts.Fatalf("want len(nonce)>=16; got %d", len(req.Nonce))
+		}
+	})
+	t.Run("generate a signed request", func(ts *testing.T) {
+		req, err := client.Auth.CreateTokenRequest(nil, nil)
+		if err != nil {
+			ts.Fatalf("CreateTokenRequest()=%v", err)
+		}
+		if req.Mac == "" {
+			ts.Fatalf("want mac to be not empty")
+		}
+	})
 }
 
 func TestAuth_RealtimeAccessToken(t *testing.T) {
