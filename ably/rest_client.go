@@ -55,12 +55,17 @@ type RestChannels struct {
 // false then the iteration is stopped.
 func (c *RestChannels) Range(fn func(name string, channel *RestChannel) bool) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+	clone := make(map[string]*RestChannel)
 	for k, v := range c.cache {
+		clone[k] = v
+	}
+	c.mu.RUnlock()
+	for k, v := range clone {
 		if !fn(k, v) {
 			break
 		}
 	}
+
 }
 
 // Exists returns true if the channel by the given name exists.
