@@ -46,45 +46,58 @@ func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
 // RestChannels provides an API for managing collection of RestChannel. This is
 // safe for concurrent use.
 type RestChannels struct {
-	cache  *sync.Map
+	cache  map[string]*RestChannel
+	mu     sync.RWMutex
 	client *RestClient
 }
 
 // Range iterates over the channels calling fn on every iteration. If fn returns
 // false then the iteration is stopped.
 func (c *RestChannels) Range(fn func(name string, channel *RestChannel) bool) {
-	c.cache.Range(func(k, v interface{}) bool {
-		return fn(k.(string), v.(*RestChannel))
-	})
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for k, v := range c.cache {
+		if !fn(k, v) {
+			break
+		}
+	}
 }
 
 // Exists returns true if the channel by the given name exists.
 func (c *RestChannels) Exists(name string) bool {
-	_, ok := c.cache.Load(name)
+	c.mu.RLock()
+	_, ok := c.cache[name]
+	c.mu.RUnlock()
 	return ok
 }
 
 // Get returns an existing channel or creates a new one if it doesn't exist.
 func (c *RestChannels) Get(name string) *RestChannel {
-	if v, ok := c.cache.Load(name); ok {
-		return v.(*RestChannel)
+	c.mu.RLock()
+	v, ok := c.cache[name]
+	c.mu.RUnlock()
+	if ok {
+		return v
 	}
-	v := c.client.Channel(name)
-	c.cache.Store(name, v)
+	v = c.client.Channel(name)
+	c.mu.Lock()
+	c.cache[name] = v
+	c.mu.Unlock()
 	return v
 }
 
 // Release deletes the channel from the cache.
 func (c *RestChannels) Release(ch *RestChannel) {
-	c.cache.Delete(ch.Name)
+	c.mu.Lock()
+	delete(c.cache, ch.Name)
+	c.mu.Unlock()
 }
 
 // Len returns the number of channels stored.
 func (c *RestChannels) Len() (size int) {
-	c.cache.Range(func(_, _ interface{}) bool {
-		size++
-		return true
-	})
+	c.mu.RLock()
+	size = len(c.cache)
+	c.mu.RUnlock()
 	return
 }
 
@@ -110,7 +123,7 @@ func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 	}
 	c.Auth = auth
 	c.Channels = &RestChannels{
-		cache:  &sync.Map{},
+		cache:  make(map[string]*RestChannel),
 		client: c,
 	}
 	return c, nil
