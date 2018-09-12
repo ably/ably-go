@@ -418,4 +418,10 @@ func TestRestChannels_RSN1(t *testing.T) {
 			ts.Errorf("expected 0 channels  got %d", size)
 		}
 	})
+	t.Run("ensure no deadlock in Rage", func(ts *testing.T) {
+		client.Channels.Range(func(name string, _ *ably.RestChannel) bool {
+			n := client.Channels.Get(name + "_range")
+			return client.Channels.Exists(n.Name)
+		})
+	})
 }
