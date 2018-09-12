@@ -378,7 +378,7 @@ func TestRest_hostfallback(t *testing.T) {
 	})
 }
 
-func TestRestChannels(t *testing.T) {
+func TestRestChannels_RSN1(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -399,7 +399,7 @@ func TestRestChannels(t *testing.T) {
 		{name: "third_channel"},
 	}
 
-	t.Run("must create new channels when they don't exist", func(ts *testing.T) {
+	t.Run("RSN3 RSN3a  must create new channels when they don't exist", func(ts *testing.T) {
 		for _, v := range sample {
 			client.Channels.Get(v.name)
 		}
@@ -408,7 +408,7 @@ func TestRestChannels(t *testing.T) {
 			ts.Errorf("expected %d got %d", len(sample), size)
 		}
 	})
-	t.Run("must release channels", func(ts *testing.T) {
+	t.Run("RSN4 RSN4a must release channels", func(ts *testing.T) {
 		for _, v := range sample {
 			ch := client.Channels.Get(v.name)
 			client.Channels.Release(ch)
