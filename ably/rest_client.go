@@ -43,9 +43,54 @@ func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
 	}
 }
 
-type RestClient struct {
-	Auth *Auth
+// RestChannels provides an API for managing collection of RestChannel. This is
+// safe for concurrent use.
+type RestChannels struct {
+	cache  *sync.Map
+	client *RestClient
+}
 
+// Range iterates over the channels calling fn on every iteration. If fn returns
+// false then the iteration is stopped.
+func (c *RestChannels) Range(fn func(name string, channel *RestChannel) bool) {
+	c.cache.Range(func(k, v interface{}) bool {
+		return fn(k.(string), v.(*RestChannel))
+	})
+}
+
+// Exists returns true if the channel by the given name exists.
+func (c *RestChannels) Exists(name string) bool {
+	_, ok := c.cache.Load(name)
+	return ok
+}
+
+// Get returns an existing channel or creates a new one if it doesn't exist.
+func (c *RestChannels) Get(name string) *RestChannel {
+	if v, ok := c.cache.Load(name); ok {
+		return v.(*RestChannel)
+	}
+	v := c.client.Channel(name)
+	c.cache.Store(name, v)
+	return v
+}
+
+// Release deletes the channel from the cache.
+func (c *RestChannels) Release(ch *RestChannel) {
+	c.cache.Delete(ch.Name)
+}
+
+// Len returns the number of channels stored.
+func (c *RestChannels) Len() (size int) {
+	c.cache.Range(func(_, _ interface{}) bool {
+		size++
+		return true
+	})
+	return
+}
+
+type RestClient struct {
+	Auth     *Auth
+	Channels *RestChannels
 	chansMtx sync.Mutex
 	chans    map[string]*RestChannel
 	opts     ClientOptions
@@ -64,6 +109,10 @@ func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 		return nil, err
 	}
 	c.Auth = auth
+	c.Channels = &RestChannels{
+		cache:  &sync.Map{},
+		client: c,
+	}
 	return c, nil
 }
 
