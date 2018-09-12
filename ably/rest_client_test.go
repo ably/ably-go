@@ -419,6 +419,9 @@ func TestRestChannels_RSN1(t *testing.T) {
 		}
 	})
 	t.Run("ensure no deadlock in Rage", func(ts *testing.T) {
+		for _, v := range sample {
+			client.Channels.Get(v.name)
+		}
 		client.Channels.Range(func(name string, _ *ably.RestChannel) bool {
 			n := client.Channels.Get(name + "_range")
 			return client.Channels.Exists(n.Name)
