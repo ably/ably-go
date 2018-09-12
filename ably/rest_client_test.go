@@ -377,3 +377,45 @@ func TestRest_hostfallback(t *testing.T) {
 		}
 	})
 }
+
+func TestRestChannels(t *testing.T) {
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	client, err := ably.NewRestClient(app.Options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.Channels == nil {
+		t.Errorf("expected Channels to be initialized")
+	}
+	sample := []struct {
+		name string
+	}{
+		{name: "first_channel"},
+		{name: "second_channel"},
+		{name: "third_channel"},
+	}
+
+	t.Run("must create new channels when they don't exist", func(ts *testing.T) {
+		for _, v := range sample {
+			client.Channels.Get(v.name)
+		}
+		size := client.Channels.Len()
+		if size != len(sample) {
+			ts.Errorf("expected %d got %d", len(sample), size)
+		}
+	})
+	t.Run("must release channels", func(ts *testing.T) {
+		for _, v := range sample {
+			ch := client.Channels.Get(v.name)
+			client.Channels.Release(ch)
+		}
+		size := client.Channels.Len()
+		if size != 0 {
+			ts.Errorf("expected 0 channels  got %d", size)
+		}
+	})
+}
