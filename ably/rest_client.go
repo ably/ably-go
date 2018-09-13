@@ -53,9 +53,14 @@ type RestChannels struct {
 
 // Range iterates over the channels calling fn on every iteration. If fn returns
 // false then the iteration is stopped.
+//
+// This uses locking to take a snapshot of the underlying RestChannel map before
+// iteration to avoid any deadlock, meaning any modification (like creating new
+// RestChannel, or removing one) that occurs during iteration will not have any
+// effect to the values passed to the fn.
 func (c *RestChannels) Range(fn func(name string, channel *RestChannel) bool) {
-	c.mu.RLock()
 	clone := make(map[string]*RestChannel)
+	c.mu.RLock()
 	for k, v := range c.cache {
 		clone[k] = v
 	}
