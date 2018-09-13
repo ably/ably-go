@@ -418,7 +418,7 @@ func TestRestChannels_RSN1(t *testing.T) {
 			ts.Errorf("expected 0 channels  got %d", size)
 		}
 	})
-	t.Run("ensure no deadlock in Rage", func(ts *testing.T) {
+	t.Run("ensure no deadlock in Range", func(ts *testing.T) {
 		for _, v := range sample {
 			client.Channels.Get(v.name)
 		}
