@@ -27,6 +27,7 @@ type RestChannel struct {
 
 	client  *RestClient
 	uriName string
+	options *proto.ChannelOptions
 }
 
 func newRestChannel(name string, client *RestClient) *RestChannel {
