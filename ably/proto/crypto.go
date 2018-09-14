@@ -57,10 +57,7 @@ func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
 	}
 	switch c.Cipher.Algorithm {
 	case AES:
-		cipher, err := NewCBCCipher(c.Cipher)
-		if err != nil {
-			return nil, err
-		}
+		cipher := NewCBCCipher(c.Cipher)
 		c.cipher = cipher
 		return cipher, nil
 	default:
@@ -79,29 +76,17 @@ var _ ChannelCipher = (*CBCCipher)(nil)
 
 // CBCCipher implements ChannelCipher that uses cbc block cipher.
 type CBCCipher struct {
-	block     cipher.Block
-	encrypter cipher.BlockMode
-	decrypter cipher.BlockMode
 	algorithm string
-	iv        []byte
+	params    CipherParams
 }
 
 // NewCBCCipher returns a new CBCCipher that uses opts to initialize.
-func NewCBCCipher(opts CipherParams) (*CBCCipher, error) {
-	block, err := aes.NewCipher(opts.Key)
-	if err != nil {
-		return nil, err
-	}
+func NewCBCCipher(opts CipherParams) *CBCCipher {
 	algo := fmt.Sprintf("cipher+%s-%d-cbc", opts.Algorithm, opts.KeyLength)
-	encrypter := cipher.NewCBCEncrypter(block, opts.IV)
-	decrypter := cipher.NewCBCDecrypter(block, opts.IV)
 	return &CBCCipher{
-		block:     block,
-		encrypter: encrypter,
-		decrypter: decrypter,
 		algorithm: algo,
-		iv:        opts.IV,
-	}, nil
+		params:    opts,
+	}
 }
 
 // DefaultCipherParams returns CipherParams with fields set to default values.
@@ -123,6 +108,10 @@ func DefaultCipherParams() (*CipherParams, error) {
 
 // Encrypt encrypts plainText using AES algorithm and returns encoded bytes.
 func (c *CBCCipher) Encrypt(plainText []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.params.Key)
+	if err != nil {
+		return nil, err
+	}
 	// Apply padding to the payload if it's not already padded. Event if
 	// len(m.Data)%aes.Block == 0 we have no guarantee it's already padded.
 	// Try to unpad it and pad on failure.
@@ -134,21 +123,26 @@ func (c *CBCCipher) Encrypt(plainText []byte) ([]byte, error) {
 		plainText = data
 	}
 	out := make([]byte, aes.BlockSize+len(plainText))
-	copy(out[:aes.BlockSize], c.iv)
-	c.encrypter.CryptBlocks(out[aes.BlockSize:], plainText)
+	copy(out[:aes.BlockSize], c.params.IV)
+	cipher.NewCBCEncrypter(block, out[:aes.BlockSize]).CryptBlocks(out[aes.BlockSize:], plainText)
 	return out, nil
 }
 
 // Decrypt decrypts cipherText using CBC cipher and AES algorithm and returns
 // decrypted bytes.
 func (c *CBCCipher) Decrypt(cipherText []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.params.Key)
+	if err != nil {
+		return nil, err
+	}
 	if len(cipherText)%aes.BlockSize != 0 {
 		return nil, errors.New("ciphertext is not a multiple of the block size")
 	}
+	iv := []byte(cipherText[:aes.BlockSize])
 	cipherText = cipherText[aes.BlockSize:]
 	out := make([]byte, len(cipherText))
-	c.decrypter.CryptBlocks(out, cipherText)
-	out, err := pkcs7Unpad(out, aes.BlockSize)
+	cipher.NewCBCDecrypter(block, iv).CryptBlocks(out, cipherText)
+	out, err = pkcs7Unpad(out, aes.BlockSize)
 	if err != nil {
 		return nil, err
 	}
