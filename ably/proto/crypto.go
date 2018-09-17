@@ -31,7 +31,7 @@ const (
 	DefaultCipherAlgorithm = AES
 )
 
-// CipherParams this provides parameters for configuring encryption  for channel.
+// CipherParams  provides parameters for configuring encryption  for channels.
 //
 //(TZ1)
 type CipherParams struct {
