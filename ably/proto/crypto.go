@@ -57,7 +57,10 @@ func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
 	}
 	switch c.Cipher.Algorithm {
 	case AES:
-		cipher := NewCBCCipher(c.Cipher)
+		cipher, err := NewCBCCipher(c.Cipher)
+		if err != nil {
+			return nil, err
+		}
 		c.cipher = cipher
 		return cipher, nil
 	default:
@@ -81,12 +84,15 @@ type CBCCipher struct {
 }
 
 // NewCBCCipher returns a new CBCCipher that uses opts to initialize.
-func NewCBCCipher(opts CipherParams) *CBCCipher {
+func NewCBCCipher(opts CipherParams) (*CBCCipher, error) {
+	if opts.Algorithm != AES {
+		return nil, errors.New("unknown cipher algorithm")
+	}
 	algo := fmt.Sprintf("cipher+%s-%d-cbc", opts.Algorithm, opts.KeyLength)
 	return &CBCCipher{
 		algorithm: algo,
 		params:    opts,
-	}
+	}, nil
 }
 
 // DefaultCipherParams returns CipherParams with fields set to default values.
