@@ -105,7 +105,7 @@ type ChannelCipher interface {
 
 var _ ChannelCipher = (*CBCCipher)(nil)
 
-// CBCCipher implements ChannelCipher that uses cbc block cipher.
+// CBCCipher implements ChannelCipher that uses CBC mode.
 type CBCCipher struct {
 	algorithm string
 	params    CipherParams
@@ -172,7 +172,7 @@ func (c *CBCCipher) Encrypt(plainText []byte) ([]byte, error) {
 	return out, nil
 }
 
-// Decrypt decrypts cipherText using CBC cipher and AES algorithm and returns
+// Decrypt decrypts cipherText using CBC mode and AES algorithm and returns
 // decrypted bytes.
 func (c *CBCCipher) Decrypt(cipherText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.params.Key)
