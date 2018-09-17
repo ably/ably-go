@@ -86,20 +86,18 @@ func (c *RestChannels) Exists(name string) bool {
 // RSN3a: you can optionally pass ChannelOptions, if the channel exists it will
 // updated with the options and when it doesn't a new channel will be created
 // with the given options.
-func (c *RestChannels) Get(name string, opts ...*proto.ChannelOptions) *RestChannel {
+func (c *RestChannels) Get(name string, opts *proto.ChannelOptions) *RestChannel {
 	c.mu.RLock()
 	v, ok := c.cache[name]
 	c.mu.RUnlock()
 	if ok {
-		if len(opts) > 0 {
-			v.options = opts[0]
+		if opts != nil {
+			v.options = opts
 		}
 		return v
 	}
 	v = c.client.Channel(name)
-	if len(opts) > 0 {
-		v.options = opts[0]
-	}
+	v.options = opts
 	c.mu.Lock()
 	c.cache[name] = v
 	c.mu.Unlock()
