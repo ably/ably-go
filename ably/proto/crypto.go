@@ -46,9 +46,8 @@ type CipherParams struct {
 
 // ChannelOptions defines options provided for creating a new channel.
 type ChannelOptions struct {
-	Encrypted bool
-	Cipher    CipherParams
-	cipher    ChannelCipher
+	Cipher CipherParams
+	cipher ChannelCipher
 }
 
 func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
