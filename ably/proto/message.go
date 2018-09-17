@@ -41,7 +41,7 @@ func (msg *Message) MemberKey() string {
 // library so the string is left untouched.
 // To be able to decode aes encoded string, the keys parameter must be present. Otherwise, DecodeData
 // will return an error.
-func (m *Message) DecodeData(opts ...*ChannelOptions) error {
+func (m *Message) DecodeData(opts *ChannelOptions) error {
 	// strings.Split on empty string returns []string{""}
 	if m.Encoding == "" || m.Data == "" {
 		return nil
@@ -59,8 +59,8 @@ func (m *Message) DecodeData(opts ...*ChannelOptions) error {
 		default:
 			switch {
 			case strings.HasPrefix(encodings[i], Cipher):
-				if len(opts) > 0 && opts[0].Cipher.Key != nil {
-					if err := m.Decrypt(encodings[i], opts[0]); err != nil {
+				if opts != nil && opts.Cipher.Key != nil {
+					if err := m.Decrypt(encodings[i], opts); err != nil {
 						return err
 					}
 				} else {
@@ -81,7 +81,7 @@ func (m *Message) DecodeData(opts ...*ChannelOptions) error {
 // from left to right to encode the current Data string.
 // To encode data using aes, the keys parameter must be present. Otherwise,
 // EncodeData will return an error.
-func (m *Message) EncodeData(encoding string, opts ...*ChannelOptions) error {
+func (m *Message) EncodeData(encoding string, opts *ChannelOptions) error {
 	m.Encoding = ""
 	for _, encoding := range strings.Split(encoding, "/") {
 		switch encoding {
@@ -94,8 +94,8 @@ func (m *Message) EncodeData(encoding string, opts ...*ChannelOptions) error {
 			continue
 		default:
 			if strings.HasPrefix(encoding, Cipher) {
-				if len(opts) > 0 && opts[0].Cipher.Key != nil {
-					if err := m.Encrypt("", opts[0]); err != nil {
+				if opts != nil && opts.Cipher.Key != nil {
+					if err := m.Encrypt("", opts); err != nil {
 						return err
 					}
 				} else {
