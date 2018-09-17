@@ -79,8 +79,21 @@ func (m *Message) DecodeData(opts *ChannelOptions) error {
 // encoding data following the given `encoding` parameter.
 // `encoding` contains slash (/) separated values that EncodeData will read
 // from left to right to encode the current Data string.
-// To encode data using aes, the keys parameter must be present. Otherwise,
-// EncodeData will return an error.
+//
+// You can pass ChannelOptions to configure encryption of the message. The
+// encryption details will be taken from the encoding string, when a macthing
+// cipher is present it will be used to encrypt the message.
+//
+// For example for encoding is json/utf-8/cipher+aes-128-cbc/base64 Will be
+// handled as follows.
+//
+//	1- The message will be encoded as json, then
+//	2- The result of step 1 will be encoded as utf-8
+// 	3- If opts is not nil, we will check if we can ge a valid ChannelCipher that
+// 	will be used to encrypt the result of step 3 in case we have it then we use
+// 	it to encrypt the result of step 2
+//
+// Any errors encountered in any step will be returned immediately.
 func (m *Message) EncodeData(encoding string, opts *ChannelOptions) error {
 	m.Encoding = ""
 	for _, encoding := range strings.Split(encoding, "/") {
