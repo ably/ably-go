@@ -76,8 +76,8 @@ func (m *Message) DecodeData(opts *ChannelOptions) error {
 }
 
 // EncodeData resets the current Encoding field to an empty string and starts
-// encoding data following the given `encoding` parameter.
-// `encoding` contains slash (/) separated values that EncodeData will read
+// encoding data following the given encoding parameter.
+// encoding contains slash (/) separated values that EncodeData will read
 // from left to right to encode the current Data string.
 //
 // You can pass ChannelOptions to configure encryption of the message.
