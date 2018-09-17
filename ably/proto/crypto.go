@@ -41,6 +41,12 @@ type CipherParams struct {
 	// This is the private key used to  encrypt/decrypt payloads.
 	Key []byte // Spec item (TZ2d)
 
+	// This is a sequence of bytes used as initialization vector.This is used to
+	// user distinct ciphertexts are produced even when the same plaintext is
+	// encrypted multiple times independently with the same key.
+	//
+	// This field is optional. A random value will be generated if this is set to
+	// nil.
 	IV []byte
 }
 
@@ -129,8 +135,15 @@ func (c *CBCCipher) Encrypt(plainText []byte) ([]byte, error) {
 		}
 		plainText = data
 	}
+	iv := c.params.IV
+	if iv == nil {
+		iv = make([]byte, aes.BlockSize)
+		if _, err = io.ReadFull(rand.Reader, iv); err != nil {
+			return nil, err
+		}
+	}
 	out := make([]byte, aes.BlockSize+len(plainText))
-	copy(out[:aes.BlockSize], c.params.IV)
+	copy(out[:aes.BlockSize], iv)
 	cipher.NewCBCEncrypter(block, out[:aes.BlockSize]).CryptBlocks(out[aes.BlockSize:], plainText)
 	return out, nil
 }
