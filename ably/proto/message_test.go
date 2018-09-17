@@ -135,7 +135,7 @@ func TestMessage_DecodeData(t *testing.T) {
 }
 
 func TestMessage_EncodeData(t *testing.T) {
-	t.Run("with a json/utf-8 encoding", func(ts *testing.T) {
+	t.Run("with a json/utf-8 encoding RSL4d3", func(ts *testing.T) {
 		message := &proto.Message{Data: `{ "string": "utf-8™" }`}
 		encodeInto := "json/utf-8"
 		message.EncodeData(encodeInto, nil)
@@ -212,7 +212,7 @@ func TestMessage_EncodeData(t *testing.T) {
 	})
 }
 
-func TestMessage_CryptoDataFixtures(t *testing.T) {
+func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 	fixtures := []struct {
 		desc, file string
 		keylength  int
