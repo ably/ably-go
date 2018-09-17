@@ -29,13 +29,13 @@ func (c CipherAlgorithm) String() string {
 type CipherMode uint
 
 const (
-	// CBS defines cbc block cipher.
-	CBS CipherMode = 1 << iota
+	// CBC defines cbc mode.
+	CBC CipherMode = 1 << iota
 )
 
 func (c CipherMode) String() string {
 	switch c {
-	case CBS:
+	case CBC:
 		return "cbs"
 	default:
 		return ""
@@ -116,7 +116,7 @@ func NewCBCCipher(opts CipherParams) (*CBCCipher, error) {
 	if opts.Algorithm != AES {
 		return nil, errors.New("unknown cipher algorithm")
 	}
-	if opts.Mode != 0 && opts.Mode != CBS {
+	if opts.Mode != 0 && opts.Mode != CBC {
 		return nil, errors.New("unknown cipher mode")
 	}
 	algo := fmt.Sprintf("cipher+%s-%d-cbc", opts.Algorithm, opts.KeyLength)
