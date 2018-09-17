@@ -80,9 +80,7 @@ func (m *Message) DecodeData(opts *ChannelOptions) error {
 // `encoding` contains slash (/) separated values that EncodeData will read
 // from left to right to encode the current Data string.
 //
-// You can pass ChannelOptions to configure encryption of the message. The
-// encryption details will be taken from the encoding string, when a macthing
-// cipher is present it will be used to encrypt the message.
+// You can pass ChannelOptions to configure encryption of the message.
 //
 // For example for encoding is json/utf-8/cipher+aes-128-cbc/base64 Will be
 // handled as follows.
