@@ -401,7 +401,7 @@ func TestRestChannels_RSN1(t *testing.T) {
 
 	t.Run("RSN3 RSN3a  must create new channels when they don't exist", func(ts *testing.T) {
 		for _, v := range sample {
-			client.Channels.Get(v.name)
+			client.Channels.Get(v.name, nil)
 		}
 		size := client.Channels.Len()
 		if size != len(sample) {
@@ -410,7 +410,7 @@ func TestRestChannels_RSN1(t *testing.T) {
 	})
 	t.Run("RSN4 RSN4a must release channels", func(ts *testing.T) {
 		for _, v := range sample {
-			ch := client.Channels.Get(v.name)
+			ch := client.Channels.Get(v.name, nil)
 			client.Channels.Release(ch)
 		}
 		size := client.Channels.Len()
@@ -420,10 +420,10 @@ func TestRestChannels_RSN1(t *testing.T) {
 	})
 	t.Run("ensure no deadlock in Range", func(ts *testing.T) {
 		for _, v := range sample {
-			client.Channels.Get(v.name)
+			client.Channels.Get(v.name, nil)
 		}
 		client.Channels.Range(func(name string, _ *ably.RestChannel) bool {
-			n := client.Channels.Get(name + "_range")
+			n := client.Channels.Get(name+"_range", nil)
 			return client.Channels.Exists(n.Name)
 		})
 	})
