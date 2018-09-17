@@ -13,7 +13,6 @@ import (
 type CipherAlgorithm uint
 
 const (
-	// AES is the default channel encryption algorithm.
 	AES CipherAlgorithm = 1 << iota
 )
 
@@ -21,6 +20,23 @@ func (c CipherAlgorithm) String() string {
 	switch c {
 	case AES:
 		return "aes"
+	default:
+		return ""
+	}
+}
+
+// CipherMode defines supported  ciphers.
+type CipherMode uint
+
+const (
+	// CBS defines cbc block cipher.
+	CBS CipherMode = 1 << iota
+)
+
+func (c CipherMode) String() string {
+	switch c {
+	case CBS:
+		return "cbs"
 	default:
 		return ""
 	}
@@ -48,6 +64,11 @@ type CipherParams struct {
 	// This field is optional. A random value will be generated if this is set to
 	// nil.
 	IV []byte
+
+	// The cipher mode to be used for encryption default is CBC.
+	//
+	// Spec item (TZ2c)
+	Mode CipherMode
 }
 
 // ChannelOptions defines options provided for creating a new channel.
@@ -94,6 +115,9 @@ type CBCCipher struct {
 func NewCBCCipher(opts CipherParams) (*CBCCipher, error) {
 	if opts.Algorithm != AES {
 		return nil, errors.New("unknown cipher algorithm")
+	}
+	if opts.Mode != 0 && opts.Mode != CBS {
+		return nil, errors.New("unknown cipher mode")
 	}
 	algo := fmt.Sprintf("cipher+%s-%d-cbc", opts.Algorithm, opts.KeyLength)
 	return &CBCCipher{
