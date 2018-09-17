@@ -29,8 +29,8 @@ type Message struct {
 }
 
 // MemberKey returns string that allows to uniquely identify connected clients.
-func (msg *Message) MemberKey() string {
-	return msg.ConnectionID + ":" + msg.ClientID
+func (m *Message) MemberKey() string {
+	return m.ConnectionID + ":" + m.ClientID
 }
 
 // DecodeData reads the current Encoding field and decode Data following it.
