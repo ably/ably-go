@@ -36,11 +36,12 @@ func (m *Message) MemberKey() string {
 // DecodeData reads the current Encoding field and decode Data following it.
 // The Encoding field contains slash (/) separated values and will be read from right to left
 // to decode data.
-// For example, if Encodind is currently set to "json/base64" it will first try to decode data
+// For example, if Encoding is currently set to "json/base64" it will first try to decode data
 // using base64 decoding and then json. In this example JSON is not a real type used in the Go
 // library so the string is left untouched.
-// To be able to decode aes encoded string, the keys parameter must be present. Otherwise, DecodeData
-// will return an error.
+//
+// If opts is not nil, it will be used to decrypt the msessage if the message
+// was encrypted.
 func (m *Message) DecodeData(opts *ChannelOptions) error {
 	// strings.Split on empty string returns []string{""}
 	if m.Encoding == "" || m.Data == "" {
@@ -87,8 +88,8 @@ func (m *Message) DecodeData(opts *ChannelOptions) error {
 //
 //	1- The message will be encoded as json, then
 //	2- The result of step 1 will be encoded as utf-8
-// 	3- If opts is not nil, we will check if we can ge a valid ChannelCipher that
-// 	will be used to encrypt the result of step 3 in case we have it then we use
+// 	3- If opts is not nil, we will check if we can get a valid ChannelCipher that
+// 	will be used to encrypt the result of step 2 in case we have it then we use
 // 	it to encrypt the result of step 2
 //
 // Any errors encountered in any step will be returned immediately.
