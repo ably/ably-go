@@ -60,7 +60,7 @@ func (m *Message) DecodeData(opts *ChannelOptions) error {
 			switch {
 			case strings.HasPrefix(encodings[i], Cipher):
 				if opts != nil && opts.Cipher.Key != nil {
-					if err := m.Decrypt(encodings[i], opts); err != nil {
+					if err := m.eecrypt(encodings[i], opts); err != nil {
 						return err
 					}
 				} else {
@@ -106,7 +106,7 @@ func (m *Message) EncodeData(encoding string, opts *ChannelOptions) error {
 		default:
 			if strings.HasPrefix(encoding, Cipher) {
 				if opts != nil && opts.Cipher.Key != nil {
-					if err := m.Encrypt("", opts); err != nil {
+					if err := m.encrypt("", opts); err != nil {
 						return err
 					}
 				} else {
@@ -140,7 +140,7 @@ func (m *Message) getKeyLen(cipherStr string) int64 {
 	return keylen
 }
 
-func (m *Message) Decrypt(cipherStr string, opts *ChannelOptions) error {
+func (m *Message) eecrypt(cipherStr string, opts *ChannelOptions) error {
 	cipher, err := opts.GetCipher()
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func (m *Message) Decrypt(cipherStr string, opts *ChannelOptions) error {
 	return nil
 }
 
-func (m *Message) Encrypt(encoding string, opts *ChannelOptions) error {
+func (m *Message) encrypt(encoding string, opts *ChannelOptions) error {
 	cipher, err := opts.GetCipher()
 	if err != nil {
 		return err
