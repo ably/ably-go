@@ -33,13 +33,13 @@ const (
 
 // CipherParams  provides parameters for configuring encryption  for channels.
 //
-//(TZ1)
+//Spec item (TZ1)
 type CipherParams struct {
-	Algorithm CipherAlgorithm // (TZ2a)
+	Algorithm CipherAlgorithm // Spec item (TZ2a)
 	// The length of the private key in bits
-	KeyLength int //(TZ2b)
+	KeyLength int // Spec item (TZ2b)
 	// This is the private key used to  encrypt/decrypt payloads.
-	Key []byte //(TZ2d)
+	Key []byte // Spec item (TZ2d)
 
 	IV []byte
 }
@@ -50,6 +50,8 @@ type ChannelOptions struct {
 	cipher ChannelCipher
 }
 
+// GetCipher retruns a ChannelCipher based on the algorithms set in the
+// ChannelOptions.CipherParams.
 func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
 	if c.cipher != nil {
 		return c.cipher, nil
