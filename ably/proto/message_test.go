@@ -18,7 +18,6 @@ func TestMessage_DecodeData(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts := &proto.ChannelOptions{
-		Encrypted: true,
 		Cipher: proto.CipherParams{
 			Key:       key,
 			KeyLength: 128,
@@ -31,7 +30,6 @@ func TestMessage_DecodeData(t *testing.T) {
 		ts.Run("it returns the same string", func(ts *testing.T) {
 			message := &proto.Message{Data: `{ "string": "utf-8™" }`, Encoding: "json/utf-8"}
 			err := message.DecodeData(&proto.ChannelOptions{
-				Encrypted: true,
 				Cipher: proto.CipherParams{
 					Key:       key,
 					KeyLength: 128,
@@ -48,7 +46,7 @@ func TestMessage_DecodeData(t *testing.T) {
 		})
 		ts.Run("can decode data without the aes config", func(ts *testing.T) {
 			message := &proto.Message{Data: `{ "string": "utf-8™" }`, Encoding: "json/utf-8"}
-			err := message.DecodeData()
+			err := message.DecodeData(nil)
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -84,7 +82,7 @@ func TestMessage_DecodeData(t *testing.T) {
 		})
 		ts.Run("can decode data without the channel options", func(ts *testing.T) {
 			message := &proto.Message{Data: "dXRmLTjihKIK", Encoding: "base64"}
-			err := message.DecodeData()
+			err := message.DecodeData(nil)
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -115,7 +113,7 @@ func TestMessage_DecodeData(t *testing.T) {
 				Data:     encodedData,
 				Encoding: "json/utf-8/cipher+aes-128-cbc/base64",
 			}
-			err := message.DecodeData()
+			err := message.DecodeData(nil)
 			if err == nil {
 				ts.Fatal("expected an error")
 			}
@@ -124,7 +122,7 @@ func TestMessage_DecodeData(t *testing.T) {
 			message := &proto.Message{
 				Encoding: "json/utf-8/cipher+aes-128-cbc/base64",
 			}
-			err := message.DecodeData()
+			err := message.DecodeData(nil)
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -140,7 +138,7 @@ func TestMessage_EncodeData(t *testing.T) {
 	t.Run("with a json/utf-8 encoding", func(ts *testing.T) {
 		message := &proto.Message{Data: `{ "string": "utf-8™" }`}
 		encodeInto := "json/utf-8"
-		message.EncodeData(encodeInto)
+		message.EncodeData(encodeInto, nil)
 		expect := `{ "string": "utf-8™" }`
 		if message.Data != expect {
 			ts.Errorf("expected %s got %s", expect, message.Data)
@@ -156,7 +154,7 @@ func TestMessage_EncodeData(t *testing.T) {
 		expect := base64.StdEncoding.EncodeToString([]byte(str))
 
 		message := &proto.Message{Data: str}
-		err := message.EncodeData(encodeInto, nil, nil)
+		err := message.EncodeData(encodeInto, nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -177,7 +175,6 @@ func TestMessage_EncodeData(t *testing.T) {
 			ts.Fatal(err)
 		}
 		opts := &proto.ChannelOptions{
-			Encrypted: true,
 			Cipher: proto.CipherParams{
 				Key:       key,
 				KeyLength: 128,
@@ -231,7 +228,6 @@ func TestMessage_CryptoDataFixtures(t *testing.T) {
 				ts.Fatal(err)
 			}
 			opts := &proto.ChannelOptions{
-				Encrypted: true,
 				Cipher: proto.CipherParams{
 					Algorithm: proto.AES,
 					Key:       key,
