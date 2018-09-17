@@ -59,7 +59,7 @@ func (m *Message) DecodeData(opts ...*ChannelOptions) error {
 		default:
 			switch {
 			case strings.HasPrefix(encodings[i], Cipher):
-				if len(opts) > 0 && opts[0].Encrypted {
+				if len(opts) > 0 && opts[0].Cipher.Key != nil {
 					if err := m.Decrypt(encodings[i], opts[0]); err != nil {
 						return err
 					}
@@ -94,7 +94,7 @@ func (m *Message) EncodeData(encoding string, opts ...*ChannelOptions) error {
 			continue
 		default:
 			if strings.HasPrefix(encoding, Cipher) {
-				if len(opts) > 0 && opts[0].Encrypted {
+				if len(opts) > 0 && opts[0].Cipher.Key != nil {
 					if err := m.Encrypt("", opts[0]); err != nil {
 						return err
 					}
