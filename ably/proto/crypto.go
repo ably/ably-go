@@ -43,7 +43,7 @@ func (c CipherMode) String() string {
 }
 
 const (
-	DefaultKeyLength       = 256
+	DefaultKeyLength       = 32
 	DefaultCipherAlgorithm = AES
 )
 
@@ -136,6 +136,7 @@ func DefaultCipherParams() (*CipherParams, error) {
 	if _, err := io.ReadFull(rand.Reader, c.Key); err != nil {
 		return nil, err
 	}
+	c.KeyLength = len(c.Key) * 8
 	c.IV = make([]byte, aes.BlockSize)
 	if _, err := io.ReadFull(rand.Reader, c.IV); err != nil {
 		return nil, err
