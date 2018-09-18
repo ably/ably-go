@@ -94,6 +94,9 @@ func (m *Message) DecodeData(opts *ChannelOptions) error {
 //
 // Any errors encountered in any step will be returned immediately.
 func (m *Message) EncodeData(encoding string, opts *ChannelOptions) error {
+	if encoding == "" {
+		return nil
+	}
 	m.Encoding = ""
 	for _, encoding := range strings.Split(encoding, "/") {
 		switch encoding {
