@@ -258,7 +258,7 @@ func TestRest_hostfallback(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		err = client.Channel("test").Publish("ping", "pong")
+		err = client.Channels.Get("test", nil).Publish("ping", "pong")
 		if err == nil {
 			ts.Error("expected an error")
 		}
