@@ -54,6 +54,23 @@ func (c *RestChannel) Publish(name string, data string) error {
 // This is the more efficient way of transmitting a batch of messages
 // using the Rest API.
 func (c *RestChannel) PublishAll(messages []*proto.Message) error {
+	for _, v := range messages {
+		e := v.Encoding
+		if c.options != nil {
+			a, err := c.options.GetCipher()
+			if err != nil {
+				return err
+			}
+			if e != "" {
+				e += "/"
+			}
+			e += a.GetAlgorithm()
+		}
+		err := v.EncodeData(e, c.options)
+		if err != nil {
+			return err
+		}
+	}
 	res, err := c.client.post(c.baseURL+"/messages", messages, nil)
 	if err != nil {
 		return err
@@ -66,7 +83,21 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 // method.
 func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
 	path := c.baseURL + "/history"
-	return newPaginatedResult(msgType, path, params, query(c.client.get), c.logger())
+	rst, err := newPaginatedResult(msgType, path, params, query(c.client.get), c.logger())
+	if err != nil {
+		return nil, err
+	}
+	if c.options != nil {
+		if v, ok := rst.typItems.([]*proto.Message); ok {
+			for _, msg := range v {
+				err := msg.DecodeData(c.options)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return rst, nil
 }
 
 func (c *RestChannel) logger() *LoggerOptions {
