@@ -43,7 +43,7 @@ func (c CipherMode) String() string {
 }
 
 const (
-	DefaultKeyLength       = 255
+	DefaultKeyLength       = 256
 	DefaultCipherAlgorithm = AES
 )
 
