@@ -15,7 +15,7 @@ var _ = Describe("Presence", func() {
 		var channel *ably.RestChannel
 
 		BeforeEach(func() {
-			channel = client.Channel("persisted:presence_fixtures")
+			channel = client.Channels.Get("persisted:presence_fixtures", nil)
 			presence = channel.Presence
 		})
 

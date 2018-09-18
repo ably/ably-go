@@ -96,7 +96,7 @@ func (c *RestChannels) Get(name string, opts *proto.ChannelOptions) *RestChannel
 		}
 		return v
 	}
-	v = c.client.Channel(name)
+	v = newRestChannel(name, c.client)
 	v.options = opts
 	c.mu.Lock()
 	c.cache[name] = v
@@ -122,8 +122,6 @@ func (c *RestChannels) Len() (size int) {
 type RestClient struct {
 	Auth     *Auth
 	Channels *RestChannels
-	chansMtx sync.Mutex
-	chans    map[string]*RestChannel
 	opts     ClientOptions
 }
 
@@ -132,8 +130,7 @@ func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 		panic("called NewRealtimeClient with nil ClientOptions")
 	}
 	c := &RestClient{
-		chans: make(map[string]*RestChannel),
-		opts:  *opts,
+		opts: *opts,
 	}
 	auth, err := newAuth(c)
 	if err != nil {
@@ -163,17 +160,6 @@ func (c *RestClient) Time() (time.Time, error) {
 		return time.Time{}, newErrorf(ErrInternalError, "expected 1 timestamp, got %d", len(times))
 	}
 	return time.Unix(times[0]/1000, times[0]%1000), nil
-}
-
-func (c *RestClient) Channel(name string) *RestChannel {
-	c.chansMtx.Lock()
-	defer c.chansMtx.Unlock()
-	if ch, ok := c.chans[name]; ok {
-		return ch
-	}
-	ch := newRestChannel(name, c)
-	c.chans[name] = ch
-	return ch
 }
 
 // Stats gives the channel's metrics according to the given parameters.

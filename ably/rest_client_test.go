@@ -90,7 +90,7 @@ var _ = Describe("RestClient", func() {
 				client, err = ably.NewRestClient(testApp.Options(options))
 				Expect(err).NotTo(HaveOccurred())
 
-				err := client.Channel("test").Publish("ping", "pong")
+				err := client.Channels.Get("test", nil).Publish("ping", "pong")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -119,7 +119,7 @@ var _ = Describe("RestClient", func() {
 				client, err = ably.NewRestClient(options)
 				Expect(err).NotTo(HaveOccurred())
 
-				err := client.Channel("test").Publish("ping", "pong")
+				err := client.Channels.Get("test", nil).Publish("ping", "pong")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -248,7 +248,7 @@ func TestRest_hostfallback(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		err = client.Channel("test").Publish("ping", "pong")
+		err = client.Channels.Get("test", nil).Publish("ping", "pong")
 		if err == nil {
 			ts.Error("expected an error")
 		}
