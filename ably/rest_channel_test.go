@@ -22,8 +22,8 @@ func TestRestChannel(t *testing.T) {
 	channel := client.Channel("test_rest_channel")
 	event := "sendMessage"
 	message := "A message in a bottle"
-
-	t.Run("publishing a message", func(ts *testing.T) {
+	t.Run("Publish", func(ts *testing.T) {
+		channel := client.Channels.Get("test_publish_channel", nil)
 		err := channel.Publish(event, message)
 		if err != nil {
 			ts.Fatal(err)
@@ -50,8 +50,7 @@ func TestRestChannel(t *testing.T) {
 	})
 
 	t.Run("History", func(ts *testing.T) {
-		historyRestChannel := client.Channel("channelhistory")
-
+		historyRestChannel := client.Channels.Get("channelhistory", nil)
 		for i := 0; i < 2; i++ {
 			historyRestChannel.Publish("breakingnews", "Another Shark attack!!")
 		}
@@ -80,7 +79,7 @@ func TestRestChannel(t *testing.T) {
 	})
 
 	t.Run("PublishAll", func(ts *testing.T) {
-		encodingRestChannel := client.Channel("this?is#an?encoding#channel")
+		encodingRestChannel := client.Channels.Get("this?is#an?encoding#channel", nil)
 		messages := []*proto.Message{
 			{Name: "send", Data: "test data 1"},
 			{Name: "send", Data: "test data 2"},
