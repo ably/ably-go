@@ -26,7 +26,7 @@ type RestChannel struct {
 	Presence *RestPresence
 
 	client  *RestClient
-	uriName string
+	baseURL string
 	options *proto.ChannelOptions
 }
 
@@ -34,7 +34,7 @@ func newRestChannel(name string, client *RestClient) *RestChannel {
 	c := &RestChannel{
 		Name:    name,
 		client:  client,
-		uriName: encodeURIComponent.Replace(name),
+		baseURL: "/channels/" + encodeURIComponent.Replace(name),
 	}
 	c.Presence = &RestPresence{
 		client:  client,
@@ -54,7 +54,7 @@ func (c *RestChannel) Publish(name string, data string) error {
 // This is the more efficient way of transmitting a batch of messages
 // using the Rest API.
 func (c *RestChannel) PublishAll(messages []*proto.Message) error {
-	_, err := c.client.post("/channels/"+c.uriName+"/messages", messages, nil)
+	_, err := c.client.post(c.baseURL+"/messages", messages, nil)
 	return err
 }
 
@@ -62,7 +62,7 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 // The returned result can be inspected for the messages via the Messages()
 // method.
 func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
-	path := "/channels/" + c.uriName + "/history"
+	path := c.baseURL + "/history"
 	return newPaginatedResult(msgType, path, params, query(c.client.get), c.logger())
 }
 
