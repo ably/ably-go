@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -110,6 +111,57 @@ func TestRestChannel(t *testing.T) {
 		expectItems := 2
 		if items != expectItems {
 			ts.Errorf("expected %d got %d", expectItems, items)
+		}
+	})
+
+	t.Run("encryption", func(ts *testing.T) {
+		key, err := base64.StdEncoding.DecodeString("WUP6u0K7MXI5Zeo0VppPwg==")
+		if err != nil {
+			ts.Fatal(err)
+		}
+		iv, err := base64.StdEncoding.DecodeString("HO4cYSP8LybPYBPZPHQOtg==")
+		if err != nil {
+			ts.Fatal(err)
+		}
+		opts := &proto.ChannelOptions{
+			Cipher: proto.CipherParams{
+				Key:       key,
+				KeyLength: 128,
+				IV:        iv,
+				Algorithm: proto.AES,
+			},
+		}
+		channelName := "encrypted_channel"
+		channel := client.Channels.Get(channelName, opts)
+		sample := []struct {
+			event, message string
+		}{
+			{"publish_0", "first message"},
+			{"publish_1", "second message"},
+		}
+		for _, v := range sample {
+			err := channel.Publish(v.event, v.message)
+			if err != nil {
+				ts.Error(err)
+			}
+		}
+
+		rst, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		msg := rst.Messages()
+		if len(msg) != len(sample) {
+			t.Errorf("expected %d messages got %d", len(sample), len(msg))
+		}
+		for k, v := range msg {
+			e := sample[k]
+			if v.Name != e.event {
+				t.Errorf("expected %s got %s", e.event, v.Name)
+			}
+			if v.Data != e.message {
+				t.Errorf("expected %s got %s", e.message, v.Data)
+			}
 		}
 	})
 }
