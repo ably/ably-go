@@ -2,6 +2,7 @@ package ably_test
 
 import (
 	"encoding/base64"
+	"sort"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -141,6 +142,9 @@ func TestRestChannel(t *testing.T) {
 		if len(msg) != len(sample) {
 			t.Errorf("expected %d messages got %d", len(sample), len(msg))
 		}
+		sort.Slice(msg, func(i, j int) bool {
+			return msg[i].Name < msg[j].Name
+		})
 		for k, v := range msg {
 			e := sample[k]
 			if v.Name != e.event {
