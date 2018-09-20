@@ -171,6 +171,8 @@ func (m *Message) encrypt(encoding string, opts *ChannelOptions) error {
 		encoding += "/"
 	}
 	m.mergeEncoding(encoding + cipher.GetAlgorithm())
+	m.Data = base64.StdEncoding.EncodeToString([]byte(m.Data))
+	m.mergeEncoding(Base64)
 	return nil
 }
 
