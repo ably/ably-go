@@ -184,15 +184,16 @@ func TestMessage_EncodeData(t *testing.T) {
 		}
 		str := `The quick brown fox jumped over the lazy dog`
 		encodedData := "HO4cYSP8LybPYBPZPHQOtmHItcxYdSvcNUC6kXVpMn0VFL+9z2/5tJ6WFbR0SBT1xhFRuJ+MeBGTU3yOY9P5ow=="
-		encodeInto := "utf-8/cipher+aes-128-cbc/base64"
+		encodeInto := "utf-8/cipher+aes-128-cbc"
 
 		message := &proto.Message{Data: str}
 		err = message.EncodeData(encodeInto, opts)
 		if err != nil {
 			ts.Fatal(err)
 		}
-		if message.Encoding != encodeInto {
-			t.Errorf("expected %s got %s", encodeInto, message.Encoding)
+		expect := "utf-8/cipher+aes-128-cbc/base64"
+		if message.Encoding != expect {
+			t.Errorf("expected %s got %s", expect, message.Encoding)
 		}
 
 		ts.Run("is decode-able through the DecodeData method", func(ts *testing.T) {
