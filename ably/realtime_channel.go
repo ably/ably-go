@@ -305,7 +305,7 @@ func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) 
 // The returned result can be inspected for the messages via the Messages()
 // method.
 func (c *RealtimeChannel) History(params *PaginateParams) (*PaginatedResult, error) {
-	return c.client.rest.Channel(c.Name).History(params)
+	return c.client.rest.Channels.Get(c.Name, nil).History(params)
 }
 
 func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {

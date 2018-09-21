@@ -18,7 +18,6 @@ func TestAbly(t *testing.T) {
 var (
 	testApp *ablytest.Sandbox
 	client  *ably.RestClient
-	channel *ably.RestChannel
 )
 
 var _ = BeforeSuite(func() {
@@ -31,7 +30,6 @@ var _ = BeforeEach(func() {
 	cl, err := ably.NewRestClient(testApp.Options())
 	Expect(err).NotTo(HaveOccurred())
 	client = cl
-	channel = client.Channel("test")
 })
 
 var _ = AfterSuite(func() {
