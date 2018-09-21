@@ -64,7 +64,7 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 			if e != "" {
 				e += "/"
 			}
-			e += a.GetAlgorithm()
+			e += a.GetAlgorithm() + "/" + proto.Base64
 		}
 		err := v.EncodeData(e, c.options)
 		if err != nil {
