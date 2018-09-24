@@ -2,6 +2,7 @@ package ably_test
 
 import (
 	"encoding/base64"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -30,25 +31,26 @@ func TestRestChannel(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		page, err := channel.History(nil)
-		if err != nil {
-			ts.Fatal(err)
-		}
-
-		messages := page.Messages()
-		if len(messages) == 0 {
-			ts.Fatal("expected more messages")
-		}
-		if messages[0].Name != event {
-			ts.Errorf("expected %s got %s", event, messages[0].Name)
-		}
-
-		if messages[0].Data != message {
-			ts.Errorf("expected %s got %s", message, messages[0].Data)
-		}
-		if messages[0].Encoding != proto.UTF8 {
-			ts.Errorf("expected %s got %s", proto.UTF8, messages[0].Encoding)
-		}
+		ts.Run("is available in the history", func(ts *testing.T) {
+			page, err := channel.History(nil)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			messages := page.Messages()
+			if len(messages) == 0 {
+				ts.Fatal("expected messages")
+			}
+			m := messages[0]
+			if m.Name != event {
+				ts.Errorf("expected %s got %s", event, m.Name)
+			}
+			if !reflect.DeepEqual(m.Data.Value, message) {
+				ts.Errorf("expected %s got %v", message, m.Data.Value)
+			}
+			if m.Encoding != proto.UTF8 {
+				t.Errorf("expected %s got %s", proto.UTF8, m.Encoding)
+			}
+		})
 	})
 
 	t.Run("History", func(ts *testing.T) {
@@ -83,8 +85,8 @@ func TestRestChannel(t *testing.T) {
 	t.Run("PublishAll", func(ts *testing.T) {
 		encodingRestChannel := client.Channels.Get("this?is#an?encoding#channel", nil)
 		messages := []*proto.Message{
-			{Name: "send", Data: "test data 1"},
-			{Name: "send", Data: "test data 2"},
+			{Name: "send", Data: &proto.DataValue{Value: "test data 1"}},
+			{Name: "send", Data: &proto.DataValue{Value: "test data 2"}},
 		}
 		err := encodingRestChannel.PublishAll(messages)
 		if err != nil {
@@ -150,8 +152,8 @@ func TestRestChannel(t *testing.T) {
 			if v.Name != e.event {
 				t.Errorf("expected %s got %s", e.event, v.Name)
 			}
-			if v.Data != e.message {
-				t.Errorf("expected %s got %s", e.message, v.Data)
+			if reflect.DeepEqual(v.Data.Value, e.message) {
+				t.Errorf("expected %s got %v", e.message, v.Data.Value)
 			}
 		}
 	})

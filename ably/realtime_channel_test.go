@@ -3,6 +3,7 @@ package ably_test
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
-func expectMsg(ch <-chan *proto.Message, name, data string, t time.Duration, received bool) error {
+func expectMsg(ch <-chan *proto.Message, name string, data interface{}, t time.Duration, received bool) error {
 	select {
 	case msg := <-ch:
 		if !received {
@@ -20,8 +21,8 @@ func expectMsg(ch <-chan *proto.Message, name, data string, t time.Duration, rec
 		if msg.Name != name {
 			return fmt.Errorf("want msg.Name=%q; got %q", name, msg.Name)
 		}
-		if msg.Data != data {
-			return fmt.Errorf("want msg.Data=%q; got %q", name, msg.Name)
+		if !reflect.DeepEqual(msg.Data.Value, data) {
+			return fmt.Errorf("want msg.Data=%v; got %v", data, msg.Data.Value)
 		}
 		return nil
 	case <-time.After(t):
@@ -169,8 +170,8 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		if !ok {
 			done <- errors.New("did not receive published message")
 		}
-		if msg.Name != "hello" || msg.Data != "world" {
-			done <- fmt.Errorf(`want name="hello", data="world"; got %s, %s`, msg.Name, msg.Data)
+		if msg.Name != "hello" || reflect.DeepEqual(msg.Data.Value, "world") {
+			done <- fmt.Errorf(`want name="hello", data="world"; got %s, %v`, msg.Name, msg.Data.Value)
 		}
 		if _, ok = <-sub.MessageChannel(); ok {
 			done <- fmt.Errorf("expected channel to be closed")
