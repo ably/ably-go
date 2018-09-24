@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -350,17 +349,18 @@ func TestDataValue(t *testing.T) {
 	})
 	t.Run("marshals/unmarshal to msgpack", func(ts *testing.T) {
 		sample := []struct {
+			reason string
 			src    interface{}
 			expect string
 			empty  interface{}
 		}{
-			{src: "hello", expect: `gaREYXRhpWhlbGxv`, empty: ""},
-			{src: []byte("hello"), expect: `gaREYXRhpWhlbGxv`, empty: []byte{}},
-			{src: []byte("hello, some  \""), expect: `gaREYXRhrmhlbGxvLCBzb21lICAi`, empty: []byte{}},
-			{src: map[string]interface{}{
+			{reason: "string", src: "hello", expect: `gaREYXRhpWhlbGxv`, empty: ""},
+			{reason: "raw bytes", src: []byte("hello"), expect: `gaREYXRhpWhlbGxv`, empty: []byte{}},
+			{reason: "more raw bytes", src: []byte("hello, some  \""), expect: `gaREYXRhrmhlbGxvLCBzb21lICAi`, empty: []byte{}},
+			{reason: "map", src: map[string]interface{}{
 				"key": "value",
 			}, expect: `gaREYXRhr3sia2V5IjoidmFsdWUifQ==`, empty: map[string]interface{}{}},
-			{src: []int{1, 2, 3}, expect: `gaREYXRhp1sxLDIsM10=`, empty: []int{}},
+			{reason: "array", src: []int{1, 2, 3}, expect: `gaREYXRhp1sxLDIsM10=`, empty: []int{}},
 		}
 		for _, v := range sample {
 			d, err := proto.NewDataValue(v.src)
@@ -370,7 +370,7 @@ func TestDataValue(t *testing.T) {
 			value := Value{Data: d}
 			b, err := ablyutil.Marshal(value)
 			if err != nil {
-				ts.Fatal(err)
+				ts.Fatalf("%s %v", v.reason, err)
 			}
 			e := base64.StdEncoding.EncodeToString(b)
 			got := e
@@ -380,15 +380,14 @@ func TestDataValue(t *testing.T) {
 
 			d, err = proto.NewDataValue(v.empty)
 			if err != nil {
-				ts.Fatal(err)
+				ts.Fatalf("%s %v", v.reason, err)
 			}
 			value = Value{Data: d}
 			err = ablyutil.Unmarshal(b, &value)
 			if err != nil {
-				ts.Error(err)
+				ts.Fatalf("%s %v %v", v.reason, err, string(b))
 			}
 			if !reflect.DeepEqual(value.Data.Value, v.src) {
-				fmt.Println(string(value.Data.Value.([]byte)))
 				ts.Errorf("expected %v got %v", v.src, value.Data.Value)
 			}
 		}
