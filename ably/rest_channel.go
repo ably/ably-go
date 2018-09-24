@@ -75,6 +75,22 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 		if err != nil {
 			return err
 		}
+		if v.Data != nil {
+			// Before the data field is marshalled, we need to make sure it is encoded in
+			// the right format before going over the wire.
+			encoding := proto.ValueEncoding(c.client.opts.protocol(), v.Data.Value)
+			if encoding != "" && encoding != e {
+				stash := v.Encoding
+				// We don't pass options here because encryption must have already taken
+				// place by now.
+				err = v.EncodeData(encoding, nil)
+				if err != nil {
+					return err
+				}
+				v.Encoding = stash + "/" + encoding
+			}
+		}
+
 	}
 	res, err := c.client.post(c.baseURL+"/messages", messages, nil)
 	if err != nil {

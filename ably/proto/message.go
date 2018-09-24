@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -58,7 +59,7 @@ func ValueEncoding(protocol string, value interface{}) string {
 		case []byte:
 			return Base64
 		case string:
-			return ""
+			return UTF8
 		default:
 			return JSON
 		}
@@ -164,17 +165,51 @@ func (d DataValue) CodecEncodeSelf(e *codec.Encoder) {
 	}
 }
 
+func (d *DataValue) tryDecode(e *codec.Decoder) error {
+	opts := []interface{}{
+		"", true, 1, 0.1, []interface{}{}, map[string]interface{}{},
+	}
+	for _, v := range opts {
+		d.Value = v
+		err := wrapPanic(func() {
+			d.CodecDecodeSelf(e)
+		})
+		if err == nil {
+			return nil
+		}
+		fmt.Println(err)
+	}
+	return nil
+}
+
+func wrapPanic(fn func()) (err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("%v", e)
+		}
+	}()
+	fn()
+	return nil
+}
+
 func (d *DataValue) CodecDecodeSelf(e *codec.Decoder) {
+	if d.Value == nil {
+		err := d.tryDecode(e)
+		if err != nil {
+			log.Println(err)
+		}
+		return
+	}
+	ev := reflect.ValueOf(d.Value)
 	switch d.Value.(type) {
 	case []byte:
 		var r codec.Raw
 		e.MustDecode(&r)
 		d.Value = []byte(r[1:])
 	default:
-		ev := reflect.ValueOf(d.Value)
 		if ev.Kind() != reflect.Ptr {
 			n := reflect.New(ev.Type())
-			if ev.Kind() == reflect.String {
+			if ev.Kind() != reflect.String {
 				e.MustDecode(n.Interface())
 				d.Value = n.Elem().Interface()
 			} else {
@@ -187,7 +222,7 @@ func (d *DataValue) CodecDecodeSelf(e *codec.Decoder) {
 				d.Value = n.Elem().Interface()
 			}
 		} else {
-			if ev.Kind() == reflect.String {
+			if ev.Kind() != reflect.String {
 				e.MustDecode(ev.Interface())
 				d.Value = ev.Elem().Interface()
 			} else {
