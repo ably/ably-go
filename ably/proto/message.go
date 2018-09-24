@@ -3,10 +3,14 @@ package proto
 import (
 	"crypto/aes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/ugorji/go/codec"
 )
 
 // encodings
@@ -26,6 +30,143 @@ type Message struct {
 	Encoding     string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
 	Timestamp    int64                  `json:"timestamp" codec:"timestamp"`
 	Extras       map[string]interface{} `json:"extras" codec:"extras"`
+}
+
+type DataValue struct {
+	Value interface{}
+}
+
+func NewDataValue(v interface{}) (*DataValue, error) {
+	e := reflect.ValueOf(v)
+	if e.Kind() == reflect.Ptr {
+		e = e.Elem()
+	}
+	switch e.Kind() {
+	case reflect.String, reflect.Struct, reflect.Map, reflect.Slice:
+		return &DataValue{Value: v}, nil
+	default:
+		return nil, fmt.Errorf("ably-go: %s is not supported for data field", e.Kind())
+	}
+}
+
+func ValueEncoding(protocol string, value interface{}) string {
+	switch protocol {
+	case "application/json":
+		switch value.(type) {
+		case []byte:
+			return Base64
+		case string:
+			return ""
+		default:
+			return JSON
+		}
+	case "application/x-msgpack":
+		switch value.(type) {
+		case []byte, string:
+			return ""
+		default:
+			return JSON
+		}
+	default:
+		return ""
+	}
+}
+
+func (d DataValue) MarshalJSON() ([]byte, error) {
+	switch e := d.Value.(type) {
+	case []byte:
+		v := base64.StdEncoding.EncodeToString(e)
+		return json.Marshal(v)
+	default:
+		return json.Marshal(e)
+	}
+}
+
+func (d *DataValue) UnmarshalJSON(data []byte) error {
+	switch d.Value.(type) {
+	case []byte:
+		var s string
+		err := json.Unmarshal(data, &s)
+		if err != nil {
+			return err
+		}
+		v, err := base64.StdEncoding.DecodeString(s)
+		if err != nil {
+			return err
+		}
+		d.Value = v
+		return nil
+
+	default:
+		return d.unmarshalValue(data)
+	}
+}
+
+func (d *DataValue) unmarshalValue(data []byte) error {
+	e := reflect.ValueOf(d.Value)
+	if e.Kind() != reflect.Ptr {
+		n := reflect.New(e.Type())
+		err := json.Unmarshal(data, n.Interface())
+		if err != nil {
+			return err
+		}
+		d.Value = n.Elem().Interface()
+		return nil
+	}
+	return json.Unmarshal(data, e.Interface())
+}
+func (d DataValue) CodecEncodeSelf(e *codec.Encoder) {
+	switch v := d.Value.(type) {
+	case []byte:
+		e.MustEncode(v)
+	case string:
+		e.MustEncode(v)
+	default:
+		b, err := json.Marshal(v)
+		if err != nil {
+			panic(err)
+		}
+		e.MustEncode(string(b))
+	}
+}
+
+func (d *DataValue) CodecDecodeSelf(e *codec.Decoder) {
+	switch d.Value.(type) {
+	case []byte:
+		var r codec.Raw
+		e.MustDecode(&r)
+		d.Value = []byte(r[1:])
+	default:
+		ev := reflect.ValueOf(d.Value)
+		if ev.Kind() != reflect.Ptr {
+			n := reflect.New(ev.Type())
+			if ev.Kind() == reflect.String {
+				e.MustDecode(n.Interface())
+				d.Value = n.Elem().Interface()
+			} else {
+				var s string
+				e.MustDecode(&s)
+				err := json.Unmarshal([]byte(s), n.Interface())
+				if err != nil {
+					panic(err)
+				}
+				d.Value = n.Elem().Interface()
+			}
+		} else {
+			if ev.Kind() == reflect.String {
+				e.MustDecode(ev.Interface())
+				d.Value = ev.Elem().Interface()
+			} else {
+				var s string
+				e.MustDecode(&s)
+				err := json.Unmarshal([]byte(s), ev.Interface())
+				if err != nil {
+					panic(err)
+				}
+				d.Value = ev.Elem().Interface()
+			}
+		}
+	}
 }
 
 // MemberKey returns string that allows to uniquely identify connected clients.
