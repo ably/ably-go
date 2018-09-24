@@ -170,7 +170,7 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		if !ok {
 			done <- errors.New("did not receive published message")
 		}
-		if msg.Name != "hello" || reflect.DeepEqual(msg.Data.Value, "world") {
+		if msg.Name != "hello" || !reflect.DeepEqual(msg.Data.Value, "world") {
 			done <- fmt.Errorf(`want name="hello", data="world"; got %s, %v`, msg.Name, msg.Data.Value)
 		}
 		if _, ok = <-sub.MessageChannel(); ok {
