@@ -206,13 +206,15 @@ func (d *DataValue) CodecDecodeSelf(e *codec.Decoder) {
 		var r codec.Raw
 		e.MustDecode(&r)
 		d.Value = []byte(r[1:])
+	case string:
+		var s string
+		e.MustDecode(&s)
+		d.Value = s
 	default:
 		if ev.Kind() != reflect.Ptr {
 			n := reflect.New(ev.Type())
-			if ev.Kind() != reflect.String {
-				e.MustDecode(n.Interface())
-				d.Value = n.Elem().Interface()
-			} else {
+			switch ev.Kind() {
+			case reflect.Map, reflect.Slice, reflect.Struct:
 				var s string
 				e.MustDecode(&s)
 				err := json.Unmarshal([]byte(s), n.Interface())
@@ -220,18 +222,22 @@ func (d *DataValue) CodecDecodeSelf(e *codec.Decoder) {
 					panic(err)
 				}
 				d.Value = n.Elem().Interface()
+			default:
+				e.MustDecode(n.Interface())
+				d.Value = n.Elem().Interface()
 			}
 		} else {
-			if ev.Kind() != reflect.String {
-				e.MustDecode(ev.Interface())
-				d.Value = ev.Elem().Interface()
-			} else {
+			switch ev.Kind() {
+			case reflect.Map, reflect.Slice, reflect.Struct:
 				var s string
 				e.MustDecode(&s)
 				err := json.Unmarshal([]byte(s), ev.Interface())
 				if err != nil {
 					panic(err)
 				}
+				d.Value = ev.Elem().Interface()
+			default:
+				e.MustDecode(ev.Interface())
 				d.Value = ev.Elem().Interface()
 			}
 		}
