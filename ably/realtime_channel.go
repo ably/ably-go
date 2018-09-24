@@ -284,8 +284,13 @@ func (c *RealtimeChannel) Off(ch chan<- State, states ...StateEnum) {
 // goroutine. Publish does not block.
 //
 // This implicitly attaches the channel if it's not already attached.
-func (c *RealtimeChannel) Publish(name string, data string) (Result, error) {
-	return c.PublishAll([]*proto.Message{{Name: name, Data: data}})
+func (c *RealtimeChannel) Publish(name string, data interface{}) (Result, error) {
+	value, err := proto.NewDataValue(data)
+	if err != nil {
+		return nil, err
+	}
+	encoding := proto.ValueEncoding(c.client.rest.opts.protocol(), data)
+	return c.PublishAll([]*proto.Message{{Name: name, Data: value, Encoding: encoding}})
 }
 
 // PublishAll publishes all given messages on the channel at once.

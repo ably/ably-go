@@ -43,9 +43,14 @@ func newRestChannel(name string, client *RestClient) *RestChannel {
 	return c
 }
 
-func (c *RestChannel) Publish(name string, data string) error {
+func (c *RestChannel) Publish(name string, data interface{}) error {
+	value, err := proto.NewDataValue(data)
+	if err != nil {
+		return err
+	}
+	encoding := proto.ValueEncoding(c.client.opts.protocol(), data)
 	messages := []*proto.Message{
-		{Name: name, Data: data, Encoding: proto.UTF8},
+		{Name: name, Data: value, Encoding: encoding},
 	}
 	return c.PublishAll(messages)
 }
