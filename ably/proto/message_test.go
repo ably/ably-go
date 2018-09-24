@@ -2,9 +2,13 @@ package proto_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
 )
 
@@ -258,4 +262,98 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestDataValue(t *testing.T) {
+	type Value struct {
+		Data *proto.DataValue
+	}
+
+	t.Run("marshals/unmarshal to json", func(ts *testing.T) {
+		sample := []struct {
+			src    interface{}
+			expect string
+			empty  interface{}
+		}{
+			{src: "hello", expect: `{"Data":"hello"}`, empty: ""},
+			{src: []byte("hello"), expect: `{"Data":"aGVsbG8="}`, empty: []byte{}},
+			{src: map[string]interface{}{
+				"key": "value",
+			}, expect: `{"Data":{"key":"value"}}`, empty: map[string]interface{}{}},
+			{src: []int{1, 2, 3}, expect: `{"Data":[1,2,3]}`, empty: []int{}},
+		}
+		for _, v := range sample {
+			d, err := proto.NewDataValue(v.src)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			value := Value{Data: d}
+			b, err := json.Marshal(value)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			got := string(b)
+			if got != v.expect {
+				t.Errorf("expected %s got %s", v.expect, got)
+			}
+
+			d, err = proto.NewDataValue(v.empty)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			value = Value{Data: d}
+			err = json.Unmarshal(b, &value)
+			if err != nil {
+				ts.Error(err)
+			}
+			if !reflect.DeepEqual(value.Data.Value, v.src) {
+				ts.Errorf("expected %v got %v", v.src, value.Data.Value)
+			}
+		}
+	})
+	t.Run("marshals/unmarshal to msgpack", func(ts *testing.T) {
+		sample := []struct {
+			src    interface{}
+			expect string
+			empty  interface{}
+		}{
+			{src: "hello", expect: `gaREYXRhpWhlbGxv`, empty: ""},
+			{src: []byte("hello"), expect: `gaREYXRhpWhlbGxv`, empty: []byte{}},
+			{src: []byte("hello, some  \""), expect: `gaREYXRhrmhlbGxvLCBzb21lICAi`, empty: []byte{}},
+			{src: map[string]interface{}{
+				"key": "value",
+			}, expect: `gaREYXRhr3sia2V5IjoidmFsdWUifQ==`, empty: map[string]interface{}{}},
+			{src: []int{1, 2, 3}, expect: `gaREYXRhp1sxLDIsM10=`, empty: []int{}},
+		}
+		for _, v := range sample {
+			d, err := proto.NewDataValue(v.src)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			value := Value{Data: d}
+			b, err := ablyutil.Marshal(value)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			e := base64.StdEncoding.EncodeToString(b)
+			got := e
+			if got != v.expect {
+				t.Errorf("expected %s got %s", v.expect, got)
+			}
+
+			d, err = proto.NewDataValue(v.empty)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			value = Value{Data: d}
+			err = ablyutil.Unmarshal(b, &value)
+			if err != nil {
+				ts.Error(err)
+			}
+			if !reflect.DeepEqual(value.Data.Value, v.src) {
+				fmt.Println(string(value.Data.Value.([]byte)))
+				ts.Errorf("expected %v got %v", v.src, value.Data.Value)
+			}
+		}
+	})
 }
