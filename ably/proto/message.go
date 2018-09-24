@@ -26,7 +26,7 @@ type Message struct {
 	ClientID     string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
 	ConnectionID string                 `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
 	Name         string                 `json:"name,omitempty" codec:"name,omitempty"`
-	Data         string                 `json:"data,omitempty" codec:"data,omitempty"`
+	Data         *DataValue             `json:"data,omitempty" codec:"data,omitempty"`
 	Encoding     string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
 	Timestamp    int64                  `json:"timestamp" codec:"timestamp"`
 	Extras       map[string]interface{} `json:"extras" codec:"extras"`
@@ -36,6 +36,7 @@ type DataValue struct {
 	Value interface{}
 }
 
+// NewDataValue returns a new *DataValue instance.
 func NewDataValue(v interface{}) (*DataValue, error) {
 	e := reflect.ValueOf(v)
 	if e.Kind() == reflect.Ptr {
@@ -49,6 +50,7 @@ func NewDataValue(v interface{}) (*DataValue, error) {
 	}
 }
 
+// ValueEncoding returns encoding type forvalue based on the given protocol.
 func ValueEncoding(protocol string, value interface{}) string {
 	switch protocol {
 	case "application/json":
@@ -69,6 +71,22 @@ func ValueEncoding(protocol string, value interface{}) string {
 		}
 	default:
 		return ""
+	}
+}
+
+func (d DataValue) ToBytes() []byte {
+	return d.Value.([]byte)
+}
+
+func (d DataValue) ToString() string {
+	return d.Value.(string)
+}
+func (d DataValue) ToStringOrBytes() []byte {
+	switch e := d.Value.(type) {
+	case []byte:
+		return e
+	default:
+		return []byte(d.Value.(string))
 	}
 }
 
@@ -102,7 +120,23 @@ func (d *DataValue) UnmarshalJSON(data []byte) error {
 	}
 }
 
+func (d *DataValue) tryUnmarshal(data []byte) error {
+	opts := []interface{}{
+		"", true, 0.1, []interface{}{}, map[string]interface{}{},
+	}
+	for _, v := range opts {
+		d.Value = v
+		err := d.unmarshalValue(data)
+		if err == nil {
+			return nil
+		}
+	}
+	return nil
+}
 func (d *DataValue) unmarshalValue(data []byte) error {
+	if d.Value == nil {
+		return d.tryUnmarshal(data)
+	}
 	e := reflect.ValueOf(d.Value)
 	if e.Kind() != reflect.Ptr {
 		n := reflect.New(e.Type())
@@ -185,18 +219,22 @@ func (m *Message) MemberKey() string {
 // was encrypted.
 func (m *Message) DecodeData(opts *ChannelOptions) error {
 	// strings.Split on empty string returns []string{""}
-	if m.Encoding == "" || m.Data == "" {
+	if m.Data == nil || m.Encoding == "" {
 		return nil
 	}
 	encodings := strings.Split(m.Encoding, "/")
 	for i := len(encodings) - 1; i >= 0; i-- {
 		switch encodings[i] {
 		case Base64:
-			data, err := base64.StdEncoding.DecodeString(m.Data)
+			data, err := base64.StdEncoding.DecodeString(m.Data.ToString())
 			if err != nil {
 				return err
 			}
-			m.Data = string(data)
+			value, err := NewDataValue(data)
+			if err != nil {
+				return err
+			}
+			m.Data = value
 		case JSON, UTF8:
 		default:
 			switch {
@@ -242,7 +280,12 @@ func (m *Message) EncodeData(encoding string, opts *ChannelOptions) error {
 	for _, encoding := range strings.Split(encoding, "/") {
 		switch encoding {
 		case Base64:
-			m.Data = base64.StdEncoding.EncodeToString([]byte(m.Data))
+			data := base64.StdEncoding.EncodeToString(m.Data.ToStringOrBytes())
+			value, err := NewDataValue(data)
+			if err != nil {
+				return err
+			}
+			m.Data = value
 			m.mergeEncoding(encoding)
 			continue
 		case JSON, UTF8:
@@ -290,11 +333,15 @@ func (m *Message) decrypt(cipherStr string, opts *ChannelOptions) error {
 	if err != nil {
 		return err
 	}
-	out, err := cipher.Decrypt([]byte(m.Data))
+	out, err := cipher.Decrypt(m.Data.ToBytes())
 	if err != nil {
 		return err
 	}
-	m.Data = string(out)
+	value, err := NewDataValue(out)
+	if err != nil {
+		return err
+	}
+	m.Data = value
 	return nil
 }
 
@@ -303,11 +350,15 @@ func (m *Message) encrypt(encoding string, opts *ChannelOptions) error {
 	if err != nil {
 		return err
 	}
-	data, err := cipher.Encrypt([]byte(m.Data))
+	data, err := cipher.Encrypt(m.Data.ToStringOrBytes())
 	if err != nil {
 		return err
 	}
-	m.Data = string(data)
+	value, err := NewDataValue(data)
+	if err != nil {
+		return err
+	}
+	m.Data = value
 	if encoding != "" {
 		encoding += "/"
 	}

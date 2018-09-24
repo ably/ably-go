@@ -21,7 +21,7 @@ const (
 // client or on behalf of other client.
 type RealtimePresence struct {
 	mtx       sync.Mutex
-	data      string
+	data      *proto.DataValue
 	serial    string
 	subs      *subscriptions
 	channel   *RealtimeChannel
@@ -256,16 +256,22 @@ func (pres *RealtimePresence) Leave(data string) (Result, error) {
 
 // EnterClient announces presence of the given clientID altogether with an enter
 // message for the associated channel.
-func (pres *RealtimePresence) EnterClient(clientID, data string) (Result, error) {
+func (pres *RealtimePresence) EnterClient(clientID string, data interface{}) (Result, error) {
+	value, err := proto.NewDataValue(data)
+	if err != nil {
+		return nil, err
+	}
 	pres.mtx.Lock()
-	pres.data = data
+	pres.data = value
 	pres.state = proto.PresenceEnter
 	pres.mtx.Unlock()
+	encoding := proto.ValueEncoding(pres.channel.client.rest.opts.protocol(), data)
 	msg := &proto.PresenceMessage{
 		State: proto.PresenceEnter,
 		Message: proto.Message{
-			Data:     data,
+			Data:     value,
 			ClientID: clientID,
+			Encoding: encoding,
 		},
 	}
 	return pres.send(msg)
@@ -275,20 +281,26 @@ func (pres *RealtimePresence) EnterClient(clientID, data string) (Result, error)
 //
 // If the given clientID is not present on the channel, Update will
 // behave as Enter method.
-func (pres *RealtimePresence) UpdateClient(clientID, data string) (Result, error) {
+func (pres *RealtimePresence) UpdateClient(clientID string, data interface{}) (Result, error) {
+	value, err := proto.NewDataValue(data)
+	if err != nil {
+		return nil, err
+	}
+	encoding := proto.ValueEncoding(pres.channel.client.rest.opts.protocol(), data)
 	pres.mtx.Lock()
 	if pres.state != proto.PresenceEnter {
 		oldData := pres.data
 		pres.mtx.Unlock()
-		return pres.EnterClient(clientID, nonempty(data, oldData))
+		return pres.EnterClient(clientID, nonnil(value, oldData))
 	}
-	pres.data = data
+	pres.data = value
 	pres.mtx.Unlock()
 	msg := &proto.PresenceMessage{
 		State: proto.PresenceUpdate,
 		Message: proto.Message{
 			ClientID: clientID,
-			Data:     data,
+			Data:     value,
+			Encoding: encoding,
 		},
 	}
 	return pres.send(msg)
@@ -296,20 +308,28 @@ func (pres *RealtimePresence) UpdateClient(clientID, data string) (Result, error
 
 // LeaveClient announces the given clientID leave the associated channel altogether
 // with a leave message if data is non-empty.
-func (pres *RealtimePresence) LeaveClient(clientID, data string) (Result, error) {
+func (pres *RealtimePresence) LeaveClient(clientID string, data interface{}) (Result, error) {
+	value, err := proto.NewDataValue(data)
+	if err != nil {
+		return nil, err
+	}
 	pres.mtx.Lock()
 	if pres.state != proto.PresenceEnter {
 		pres.mtx.Unlock()
 		return nil, newError(91001, nil)
 	}
-	data = nonempty(data, pres.data)
-	pres.data = data
+	if pres.data == nil {
+		pres.data = value
+	}
 	pres.mtx.Unlock()
+
+	encoding := proto.ValueEncoding(pres.channel.client.rest.opts.protocol(), data)
 	msg := &proto.PresenceMessage{
 		State: proto.PresenceLeave,
 		Message: proto.Message{
-			Data:     data,
+			Data:     value,
 			ClientID: clientID,
+			Encoding: encoding,
 		},
 	}
 	return pres.send(msg)
