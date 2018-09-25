@@ -245,3 +245,20 @@ func NewHTTPClient() *http.Client {
 		},
 	}
 }
+
+func NewHTTPClientNoKeepAlive() *http.Client {
+	const timeout = time.Minute
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout: timeout,
+			}).Dial,
+			TLSHandshakeTimeout: timeout,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: os.Getenv("HTTP_PROXY") != "",
+			},
+		},
+	}
+}
