@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httptrace"
 	"net/url"
 	"strings"
 	"testing"
@@ -427,4 +428,45 @@ func TestRestChannels_RSN1(t *testing.T) {
 			return client.Channels.Exists(n.Name)
 		})
 	})
+}
+
+func TestFixConnLeak_ISSUE89(t *testing.T) {
+	var trackRecord []httptrace.GotConnInfo
+	trace := &httptrace.ClientTrace{
+		GotConn: func(c httptrace.GotConnInfo) {
+			trackRecord = append(trackRecord, c)
+		},
+	}
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	opts := app.Options()
+	opts.HTTPClient = ablytest.NewHTTPClientNoKeepAlive()
+	opts.Trace = trace
+	client, err := ably.NewRestClient(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	channel := client.Channels.Get("issue89", nil)
+	for i := 0; i < 10; i++ {
+		err := channel.Publish(fmt.Sprintf("msg_%d", i), fmt.Sprint(i))
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	for _, v := range trackRecord {
+		v.Conn.SetReadDeadline(time.Now())
+		if _, err := v.Conn.Read(make([]byte, 1)); err != nil {
+			if !connIsClosed(err) {
+				t.Errorf("expected conn %s to be closed", v.Conn.LocalAddr())
+			}
+		}
+	}
+}
+
+func connIsClosed(err error) bool {
+	return strings.Contains(err.Error(), "use of closed network connection")
 }
