@@ -53,8 +53,11 @@ func (c *RestChannel) Publish(name string, data string) error {
 // This is the more efficient way of transmitting a batch of messages
 // using the Rest API.
 func (c *RestChannel) PublishAll(messages []*proto.Message) error {
-	_, err := c.client.post("/channels/"+c.uriName+"/messages", messages, nil)
-	return err
+	res, err := c.client.post("/channels/"+c.uriName+"/messages", messages, nil)
+	if err != nil {
+		return err
+	}
+	return res.Body.Close()
 }
 
 // History gives the channel's message history according to the given parameters.
