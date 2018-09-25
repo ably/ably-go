@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strconv"
 	"strings"
@@ -201,6 +202,9 @@ type ClientOptions struct {
 	//
 	// If HTTPClient is nil, the http.DefaultClient is used.
 	HTTPClient *http.Client
+
+	//When provided this will be used on every request.
+	Trace *httptrace.ClientTrace
 }
 
 func NewClientOptions(key string) *ClientOptions {
