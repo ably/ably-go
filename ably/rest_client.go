@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"mime"
 	"net/http"
+	"net/http/httptrace"
 	"reflect"
 	"strings"
 	"sync"
@@ -221,6 +222,9 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 	req, err := c.NewHTTPRequest(r)
 	if err != nil {
 		return nil, err
+	}
+	if c.opts.Trace != nil {
+		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
 	}
 	resp, err := c.opts.httpclient().Do(req)
 	if err != nil {
