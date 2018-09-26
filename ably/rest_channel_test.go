@@ -23,14 +23,48 @@ func TestRestChannel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	channel := client.Channel("test_rest_channel")
-	event := "sendMessage"
-	message := "A message in a bottle"
 	t.Run("Publish", func(ts *testing.T) {
 		channel := client.Channels.Get("test_publish_channel", nil)
-		err := channel.Publish(event, message)
-		if err != nil {
-			ts.Fatal(err)
+
+		type dataSample struct {
+			encoding string
+			data     interface{}
+		}
+		m := make(map[string]dataSample)
+		if options.NoBinaryProtocol {
+			m["string"] = dataSample{
+				encoding: proto.UTF8,
+				data:     "string",
+			}
+			m["binary"] = dataSample{
+				encoding: proto.Base64,
+				data:     "string",
+			}
+			m["binary"] = dataSample{
+				encoding: proto.JSON,
+				data: map[string]interface{}{
+					"key": "value",
+				},
+			}
+		} else {
+			m["string"] = dataSample{
+				data: "string",
+			}
+			m["binary"] = dataSample{
+				data: "string",
+			}
+			m["binary"] = dataSample{
+				encoding: proto.JSON,
+				data: map[string]interface{}{
+					"key": "value",
+				},
+			}
+		}
+		for k, v := range m {
+			err := channel.Publish(k, v.data)
+			if err != nil {
+				ts.Fatal(err)
+			}
 		}
 		ts.Run("is available in the history", func(ts *testing.T) {
 			page, err := channel.History(nil)
@@ -41,20 +75,12 @@ func TestRestChannel(t *testing.T) {
 			if len(messages) == 0 {
 				ts.Fatal("expected messages")
 			}
-			m := messages[0]
-			if m.Name != event {
-				ts.Errorf("expected %s got %s", event, m.Name)
-			}
-			value := string(m.Data.ToStringOrBytes())
-			if value != message {
-				ts.Errorf("expected %s got %v", message, value)
-			}
-			encoding := proto.UTF8
-			if !options.NoBinaryProtocol {
-				encoding = ""
-			}
-			if m.Encoding != encoding {
-				ts.Errorf("expected %s got %s", encoding, m.Encoding)
+			for _, v := range messages {
+				e := m[v.Name]
+				if v.Encoding != e.encoding {
+					ts.Errorf("expected %s got %s %s", e.encoding,
+						v.Encoding, string(v.Data.ToBytes()))
+				}
 			}
 		})
 	})
