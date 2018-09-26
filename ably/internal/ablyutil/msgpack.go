@@ -9,6 +9,10 @@ import (
 
 var handle codec.MsgpackHandle
 
+func init() {
+	handle.Raw = true
+}
+
 // Unmarshal decodes the MessagePack-encoded data and stores the result in the
 // value pointed to by v.
 func Unmarshal(data []byte, v interface{}) error {
