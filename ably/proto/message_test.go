@@ -306,90 +306,177 @@ func TestDataValue(t *testing.T) {
 	}
 
 	t.Run("marshals/unmarshal to json", func(ts *testing.T) {
-		sample := []struct {
-			src    interface{}
-			expect string
-			empty  interface{}
-		}{
-			{src: "hello", expect: `{"Data":"hello"}`, empty: ""},
-			{src: []byte("hello"), expect: `{"Data":"aGVsbG8="}`, empty: []byte{}},
-			{src: map[string]interface{}{
-				"key": "value",
-			}, expect: `{"Data":{"key":"value"}}`, empty: map[string]interface{}{}},
-			{src: []int{1, 2, 3}, expect: `{"Data":[1,2,3]}`, empty: []int{}},
-		}
-		for _, v := range sample {
-			d, err := proto.NewDataValue(v.src)
-			if err != nil {
-				ts.Fatal(err)
+		ts.Run("with value hints", func(ts *testing.T) {
+			sample := []struct {
+				src    interface{}
+				expect string
+				empty  interface{}
+			}{
+				{src: "hello", expect: `{"Data":"hello"}`, empty: ""},
+				{src: []byte("hello"), expect: `{"Data":"aGVsbG8="}`, empty: []byte{}},
+				{src: map[string]interface{}{
+					"key": "value",
+				}, expect: `{"Data":{"key":"value"}}`, empty: map[string]interface{}{}},
+				{src: []int{1, 2, 3}, expect: `{"Data":[1,2,3]}`, empty: []int{}},
 			}
-			value := Value{Data: d}
-			b, err := json.Marshal(value)
-			if err != nil {
-				ts.Fatal(err)
-			}
-			got := string(b)
-			if got != v.expect {
-				t.Errorf("expected %s got %s", v.expect, got)
-			}
+			for _, v := range sample {
+				d, err := proto.NewDataValue(v.src)
+				if err != nil {
+					ts.Fatal(err)
+				}
+				value := Value{Data: d}
+				b, err := json.Marshal(value)
+				if err != nil {
+					ts.Fatal(err)
+				}
+				got := string(b)
+				if got != v.expect {
+					t.Errorf("expected %s got %s", v.expect, got)
+				}
 
-			d, err = proto.NewDataValue(v.empty)
-			if err != nil {
-				ts.Fatal(err)
+				d, err = proto.NewDataValue(v.empty)
+				if err != nil {
+					ts.Fatal(err)
+				}
+				value = Value{Data: d}
+				err = json.Unmarshal(b, &value)
+				if err != nil {
+					ts.Error(err)
+				}
+				if !reflect.DeepEqual(value.Data.Value, v.src) {
+					ts.Errorf("expected %v got %v", v.src, value.Data.Value)
+				}
 			}
-			value = Value{Data: d}
-			err = json.Unmarshal(b, &value)
-			if err != nil {
-				ts.Error(err)
+		})
+		ts.Run("with default hints", func(ts *testing.T) {
+			sample := []struct {
+				src    interface{}
+				expect string
+				empty  interface{}
+			}{
+				{src: "hello", expect: `{"Data":"hello"}`, empty: "hello"},
+				{src: []byte("hello"), expect: `{"Data":"aGVsbG8="}`, empty: "aGVsbG8="},
+				{src: map[string]interface{}{
+					"key": "value",
+				}, expect: `{"Data":{"key":"value"}}`, empty: map[string]interface{}{
+					"key": "value",
+				}},
+				{src: []int{1, 2, 3}, expect: `{"Data":[1,2,3]}`, empty: []interface{}{
+					float64(1.0),
+					float64(2.0),
+					float64(3.0),
+				}},
 			}
-			if !reflect.DeepEqual(value.Data.Value, v.src) {
-				ts.Errorf("expected %v got %v", v.src, value.Data.Value)
+			for _, v := range sample {
+				d, err := proto.NewDataValue(v.src)
+				if err != nil {
+					ts.Fatal(err)
+				}
+				value := Value{Data: d}
+				b, err := json.Marshal(value)
+				if err != nil {
+					ts.Fatal(err)
+				}
+				got := string(b)
+				if got != v.expect {
+					t.Errorf("expected %s got %s", v.expect, got)
+				}
+				value = Value{}
+				err = json.Unmarshal(b, &value)
+				if err != nil {
+					ts.Error(err)
+				}
+				if !reflect.DeepEqual(value.Data.Value, v.empty) {
+					ts.Errorf("expected %v got %v", v.empty, value.Data.Value)
+				}
 			}
-		}
+		})
 	})
 	t.Run("marshals/unmarshal to msgpack", func(ts *testing.T) {
-		sample := []struct {
-			reason string
-			src    interface{}
-			expect string
-			empty  interface{}
-		}{
-			{reason: "string", src: "hello", expect: `gaREYXRhpWhlbGxv`, empty: ""},
-			{reason: "raw bytes", src: []byte("hello"), expect: `gaREYXRhpWhlbGxv`, empty: []byte{}},
-			{reason: "more raw bytes", src: []byte("hello, some  \""), expect: `gaREYXRhrmhlbGxvLCBzb21lICAi`, empty: []byte{}},
-			{reason: "map", src: map[string]interface{}{
-				"key": "value",
-			}, expect: `gaREYXRhr3sia2V5IjoidmFsdWUifQ==`, empty: map[string]interface{}{}},
-			{reason: "array", src: []int{1, 2, 3}, expect: `gaREYXRhp1sxLDIsM10=`, empty: []int{}},
-		}
-		for _, v := range sample {
-			d, err := proto.NewDataValue(v.src)
-			if err != nil {
-				ts.Fatal(err)
+		t.Run("with type hints ", func(ts *testing.T) {
+			sample := []struct {
+				reason string
+				src    interface{}
+				expect string
+				empty  interface{}
+			}{
+				{reason: "string", src: "hello", expect: `gaREYXRhpWhlbGxv`, empty: ""},
+				{reason: "raw bytes", src: []byte("hello"), expect: `gaREYXRhpWhlbGxv`, empty: []byte{}},
+				{reason: "more raw bytes", src: []byte("hello, some  \""), expect: `gaREYXRhrmhlbGxvLCBzb21lICAi`, empty: []byte{}},
+				{reason: "map", src: map[string]interface{}{
+					"key": "value",
+				}, expect: `gaREYXRhr3sia2V5IjoidmFsdWUifQ==`, empty: map[string]interface{}{}},
+				{reason: "array", src: []int{1, 2, 3}, expect: `gaREYXRhp1sxLDIsM10=`, empty: []int{}},
 			}
-			value := Value{Data: d}
-			b, err := ablyutil.Marshal(value)
-			if err != nil {
-				ts.Fatalf("%s %v", v.reason, err)
-			}
-			e := base64.StdEncoding.EncodeToString(b)
-			got := e
-			if got != v.expect {
-				t.Errorf("expected %s got %s", v.expect, got)
-			}
+			for _, v := range sample {
+				d, err := proto.NewDataValue(v.src)
+				if err != nil {
+					ts.Fatal(err)
+				}
+				value := Value{Data: d}
+				b, err := ablyutil.Marshal(value)
+				if err != nil {
+					ts.Fatalf("%s %v", v.reason, err)
+				}
+				e := base64.StdEncoding.EncodeToString(b)
+				got := e
+				if got != v.expect {
+					t.Errorf("expected %s got %s", v.expect, got)
+				}
 
-			d, err = proto.NewDataValue(v.empty)
-			if err != nil {
-				ts.Fatalf("%s %v", v.reason, err)
+				d, err = proto.NewDataValue(v.empty)
+				if err != nil {
+					ts.Fatalf("%s %v", v.reason, err)
+				}
+				value = Value{Data: d}
+				err = ablyutil.Unmarshal(b, &value)
+				if err != nil {
+					ts.Fatalf("%s %v %v", v.reason, err, string(b))
+				}
+				if !reflect.DeepEqual(value.Data.Value, v.src) {
+					ts.Errorf("expected %v got %v", v.src, value.Data.Value)
+				}
 			}
-			value = Value{Data: d}
-			err = ablyutil.Unmarshal(b, &value)
-			if err != nil {
-				ts.Fatalf("%s %v %v", v.reason, err, string(b))
+		})
+		t.Run("with default types ", func(ts *testing.T) {
+			sample := []struct {
+				reason string
+				src    interface{}
+				expect string
+				empty  interface{}
+			}{
+				{reason: "string", src: "hello", expect: `gaREYXRhpWhlbGxv`, empty: []byte("hello")},
+				{reason: "raw bytes", src: []byte("hello"), expect: `gaREYXRhpWhlbGxv`, empty: []byte("hello")},
+				{reason: "more raw bytes", src: []byte("hello, some  \""), expect: `gaREYXRhrmhlbGxvLCBzb21lICAi`, empty: []byte("hello, some  \"")},
+				{reason: "map", src: map[string]interface{}{
+					"key": "value",
+				}, expect: `gaREYXRhr3sia2V5IjoidmFsdWUifQ==`, empty: []byte(`{"key":"value"}`)},
+				{reason: "array", src: []int{1, 2, 3}, expect: `gaREYXRhp1sxLDIsM10=`, empty: []byte(`[1,2,3]`)},
 			}
-			if !reflect.DeepEqual(value.Data.Value, v.src) {
-				ts.Errorf("expected %v got %v", v.src, value.Data.Value)
+			for _, v := range sample {
+				d, err := proto.NewDataValue(v.src)
+				if err != nil {
+					ts.Fatal(err)
+				}
+				value := Value{Data: d}
+				b, err := ablyutil.Marshal(value)
+				if err != nil {
+					ts.Fatalf("%s %v", v.reason, err)
+				}
+				e := base64.StdEncoding.EncodeToString(b)
+				got := e
+				if got != v.expect {
+					t.Errorf("expected %s got %s", v.expect, got)
+				}
+				value = Value{}
+				err = ablyutil.Unmarshal(b, &value)
+				if err != nil {
+					ts.Fatalf("%s %v %v", v.reason, err, string(b))
+				}
+				if !reflect.DeepEqual(value.Data.Value, v.empty) {
+					ts.Errorf("%s expected %v got %v", v.reason, v.empty, string(value.Data.ToBytes()))
+				}
 			}
-		}
+		})
 	})
 }
