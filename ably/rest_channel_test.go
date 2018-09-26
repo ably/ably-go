@@ -18,7 +18,8 @@ func TestRestChannel(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	client, err := ably.NewRestClient(app.Options())
+	options := app.Options()
+	client, err := ably.NewRestClient(options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,11 +45,16 @@ func TestRestChannel(t *testing.T) {
 			if m.Name != event {
 				ts.Errorf("expected %s got %s", event, m.Name)
 			}
-			if !reflect.DeepEqual(m.Data.Value, message) {
-				ts.Errorf("expected %s got %v", message, m.Data.Value)
+			value := string(m.Data.ToStringOrBytes())
+			if value != message {
+				ts.Errorf("expected %s got %v", message, value)
 			}
-			if m.Encoding != proto.UTF8 {
-				t.Errorf("expected %s got %s", proto.UTF8, m.Encoding)
+			encoding := proto.UTF8
+			if !options.NoBinaryProtocol {
+				encoding = ""
+			}
+			if m.Encoding != encoding {
+				ts.Errorf("expected %s got %s", encoding, m.Encoding)
 			}
 		})
 	})

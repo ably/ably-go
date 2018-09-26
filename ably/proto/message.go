@@ -185,11 +185,25 @@ func (d *DataValue) unmarshalValue(data []byte) error {
 	return json.Unmarshal(data, e.Interface())
 }
 
+type raw []byte
+
+func (r raw) MarshalBinary() ([]byte, error) {
+	return []byte(r), nil
+}
+
+func (r *raw) UnmarshalBinary(data []byte) error {
+	if r == nil {
+		return errors.New("raw: UnmarshalBinary on nil pointer")
+	}
+	*r = append((*r)[0:0], data...)
+	return nil
+}
+
 // CodecEncodeSelf implements codec.Selfer interface for msgpack encoding.
 func (d DataValue) CodecEncodeSelf(e *codec.Encoder) {
 	switch v := d.Value.(type) {
 	case []byte:
-		e.MustEncode(v)
+		e.MustEncode(raw(v))
 	case string:
 		e.MustEncode(v)
 	default:
@@ -203,7 +217,7 @@ func (d DataValue) CodecEncodeSelf(e *codec.Encoder) {
 
 func (d *DataValue) tryDecode(e *codec.Decoder) error {
 	opts := []interface{}{
-		"", true, 1, 0.1, []interface{}{}, map[string]interface{}{},
+		raw{},
 	}
 	for _, v := range opts {
 		d.Value = v
@@ -239,10 +253,10 @@ func (d *DataValue) CodecDecodeSelf(e *codec.Decoder) {
 	}
 	ev := reflect.ValueOf(d.Value)
 	switch d.Value.(type) {
-	case []byte:
-		var r codec.Raw
+	case []byte, raw:
+		var r raw
 		e.MustDecode(&r)
-		d.Value = []byte(r[1:])
+		d.Value = []byte(r)
 	case string:
 		var s string
 		e.MustDecode(&s)
