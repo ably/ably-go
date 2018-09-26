@@ -227,7 +227,6 @@ func (d *DataValue) tryDecode(e *codec.Decoder) error {
 		if err == nil {
 			return nil
 		}
-		fmt.Println(err)
 	}
 	return nil
 }
