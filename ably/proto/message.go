@@ -33,11 +33,18 @@ type Message struct {
 	Extras       map[string]interface{} `json:"extras" codec:"extras"`
 }
 
+// DataValue implements json.Marshaler and json.Unmarshaler and codec.Selfer
+// interface that wraps the Value field.
+//
 type DataValue struct {
+
+	// This field can either be []byte, string or any other value that can be
+	// marshalled to json string.
 	Value interface{}
 }
 
-// NewDataValue returns a new *DataValue instance.
+// NewDataValue returns a new *DataValue instance. This will return an error if
+// v is not of type string,struct,map or slice.
 func NewDataValue(v interface{}) (*DataValue, error) {
 	e := reflect.ValueOf(v)
 	if e.Kind() == reflect.Ptr {
@@ -57,17 +64,22 @@ func ValueEncoding(protocol string, value interface{}) string {
 	case "application/json":
 		switch value.(type) {
 		case []byte:
+			// references (RSL4d1)
 			return Base64
 		case string:
+			// references (RSL4d2)
 			return UTF8
 		default:
+			// references (RSL4d3)
 			return JSON
 		}
 	case "application/x-msgpack":
 		switch value.(type) {
 		case []byte, string:
+			// references (RSL4c1) and (RSL4c2)
 			return ""
 		default:
+			// references (RSL4c3)
 			return JSON
 		}
 	default:
@@ -75,13 +87,26 @@ func ValueEncoding(protocol string, value interface{}) string {
 	}
 }
 
+// ToBytes casts the Value field to []byte, use this when you are absolutely
+// sure the Value is of []byte, because if it isn't this will panic.
+//
+// For safety, you should to a safe casting like
+//	v,ok:=d.Value.([]byte)
 func (d DataValue) ToBytes() []byte {
 	return d.Value.([]byte)
 }
 
+// ToString casts Value to string. use this when you are absolutely
+// sure the Value is of string, because if it isn't this will panic.
+//
+// For safety, you should to a safe casting like
+//	v,ok:=d.Value.(string)
 func (d DataValue) ToString() string {
 	return d.Value.(string)
 }
+
+// ToStringOrBytes returns []byte, assuming the Value is a string which will be
+// casted to []byte or it is []byte which is returned as is.
 func (d DataValue) ToStringOrBytes() []byte {
 	switch e := d.Value.(type) {
 	case []byte:
@@ -91,16 +116,25 @@ func (d DataValue) ToStringOrBytes() []byte {
 	}
 }
 
+// MarshalJSON implements json.Marshaler interface.
 func (d DataValue) MarshalJSON() ([]byte, error) {
 	switch e := d.Value.(type) {
 	case []byte:
+		// references (RSL4d1)
 		v := base64.StdEncoding.EncodeToString(e)
 		return json.Marshal(v)
 	default:
+		// references (RSL4d2), (RSL4d3)
 		return json.Marshal(e)
 	}
 }
 
+// UnmarshalJSON implements json.Unmarshaler interface. This will try to
+// unmarshal the the json data to the vallue contained in the Value field.
+//
+// Note than it is not mandatory for the Value field to contain any value, this
+// is just a work around so a user can provide a hint on which value is to be
+// expected.
 func (d *DataValue) UnmarshalJSON(data []byte) error {
 	switch d.Value.(type) {
 	case []byte:
@@ -115,7 +149,6 @@ func (d *DataValue) UnmarshalJSON(data []byte) error {
 		}
 		d.Value = v
 		return nil
-
 	default:
 		return d.unmarshalValue(data)
 	}
@@ -123,7 +156,7 @@ func (d *DataValue) UnmarshalJSON(data []byte) error {
 
 func (d *DataValue) tryUnmarshal(data []byte) error {
 	opts := []interface{}{
-		"", true, 0.1, []interface{}{}, map[string]interface{}{},
+		"", true, int64(1), 0.1, []interface{}{}, map[string]interface{}{},
 	}
 	for _, v := range opts {
 		d.Value = v
@@ -134,6 +167,7 @@ func (d *DataValue) tryUnmarshal(data []byte) error {
 	}
 	return nil
 }
+
 func (d *DataValue) unmarshalValue(data []byte) error {
 	if d.Value == nil {
 		return d.tryUnmarshal(data)
@@ -150,6 +184,8 @@ func (d *DataValue) unmarshalValue(data []byte) error {
 	}
 	return json.Unmarshal(data, e.Interface())
 }
+
+// CodecEncodeSelf implements codec.Selfer interface for msgpack encoding.
 func (d DataValue) CodecEncodeSelf(e *codec.Encoder) {
 	switch v := d.Value.(type) {
 	case []byte:
@@ -192,6 +228,7 @@ func wrapPanic(fn func()) (err error) {
 	return nil
 }
 
+// CodecDecodeSelf implements codec.Selfer interface for msgpack decoding.
 func (d *DataValue) CodecDecodeSelf(e *codec.Decoder) {
 	if d.Value == nil {
 		err := d.tryDecode(e)
@@ -258,6 +295,10 @@ func (m *Message) MemberKey() string {
 //
 // If opts is not nil, it will be used to decrypt the msessage if the message
 // was encrypted.
+//
+// NOTE: This is not supposed to be called directly by the user , it is intended
+// for internal use of the library, unless you know what you are doing stay safe
+// and don't try this.
 func (m *Message) DecodeData(opts *ChannelOptions) error {
 	// strings.Split on empty string returns []string{""}
 	if m.Data == nil || m.Encoding == "" {
@@ -313,6 +354,10 @@ func (m *Message) DecodeData(opts *ChannelOptions) error {
 // 	it to encrypt the result of step 2
 //
 // Any errors encountered in any step will be returned immediately.
+//
+// NOTE: This is not supposed to be called directly by the user , it is intended
+// for internal use of the library, unless you know what you are doing stay safe
+// and don't try this.
 func (m *Message) EncodeData(encoding string, opts *ChannelOptions) error {
 	if encoding == "" {
 		return nil
