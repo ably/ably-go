@@ -33,12 +33,11 @@ func TestRestChannel(t *testing.T) {
 		m := make(map[string]dataSample)
 		if options.NoBinaryProtocol {
 			m["string"] = dataSample{
-				encoding: proto.UTF8,
-				data:     "string",
+				data: "string",
 			}
 			m["binary"] = dataSample{
 				encoding: proto.Base64,
-				data:     "string",
+				data:     []byte("string"),
 			}
 			m["json"] = dataSample{
 				encoding: proto.JSON,
@@ -78,8 +77,7 @@ func TestRestChannel(t *testing.T) {
 			for _, v := range messages {
 				e := m[v.Name]
 				if v.Encoding != e.encoding {
-					ts.Errorf("expected %s got %s %s", e.encoding,
-						v.Encoding, string(v.Data.([]byte)))
+					ts.Errorf("expected %s got %s ", e.encoding, v.Encoding)
 				}
 			}
 		})
