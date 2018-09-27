@@ -31,7 +31,7 @@ func Wait(res ably.Result, err error) error {
 // If at least ably.Result value failed, ResultGroup returns first encountered
 // error immadiately.
 type ResultGroup struct {
-	mu    sync.RWMutex
+	mu    sync.Mutex
 	wg    sync.WaitGroup
 	err   error
 	errch chan error
@@ -51,9 +51,7 @@ func (rg *ResultGroup) Add(res ably.Result, err error) {
 	if !rg.check(err) {
 		return
 	}
-	rg.mu.RLock()
 	rg.wg.Add(1)
-	rg.mu.RUnlock()
 	go func() {
 		err := res.Wait()
 		if err != nil {
