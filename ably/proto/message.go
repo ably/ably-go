@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -27,34 +25,118 @@ type Message struct {
 	ClientID     string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
 	ConnectionID string                 `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
 	Name         string                 `json:"name,omitempty" codec:"name,omitempty"`
-	Data         *DataValue             `json:"data,omitempty" codec:"data,omitempty"`
+	Data         interface{}            `json:"data,omitempty" codec:"data,omitempty"`
 	Encoding     string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
 	Timestamp    int64                  `json:"timestamp" codec:"timestamp"`
 	Extras       map[string]interface{} `json:"extras" codec:"extras"`
 }
 
-// DataValue implements json.Marshaler and json.Unmarshaler and codec.Selfer
-// interface that wraps the Value field.
-//
-type DataValue struct {
-
-	// This field can either be []byte, string or any other value that can be
-	// marshalled to json string.
-	Value interface{}
+func (m Message) MarshalJSON() ([]byte, error) {
+	ctx := make(map[string]interface{})
+	if m.ID != "" {
+		ctx["id"] = m.ID
+	}
+	if m.ClientID != "" {
+		ctx["clientId"] = m.ClientID
+	}
+	if m.ConnectionID != "" {
+		ctx["connectionId"] = m.ConnectionID
+	}
+	if m.Name != "" {
+		ctx["connectionId"] = m.Name
+	}
+	encoding := m.Encoding
+	switch e := m.Data.(type) {
+	case []byte:
+		// references (RSL4d1)
+		v := base64.StdEncoding.EncodeToString(e)
+		ctx["data"] = v
+		encoding = MergeEncoding(encoding, Base64)
+	default:
+		// references (RSL4d2), (RSL4d3)
+		ctx["data"] = e
+	}
+	if encoding != "" {
+		ctx["encoding"] = encoding
+	}
+	if m.Timestamp != 0 {
+		ctx["timestamp"] = m.Timestamp
+	}
+	if m.Extras != nil {
+		ctx["extras"] = m.Extras
+	}
+	return json.Marshal(ctx)
 }
 
-// NewDataValue returns a new *DataValue instance. This will return an error if
-// v is not of type string,struct,map or slice.
-func NewDataValue(v interface{}) (*DataValue, error) {
-	e := reflect.ValueOf(v)
-	if e.Kind() == reflect.Ptr {
-		e = e.Elem()
+func (m Message) CodecEncodeSelf(encoder *codec.Encoder) {
+	ctx := make(map[string]interface{})
+	if m.ID != "" {
+		ctx["id"] = m.ID
 	}
-	switch e.Kind() {
-	case reflect.String, reflect.Struct, reflect.Map, reflect.Slice:
-		return &DataValue{Value: v}, nil
+	if m.ClientID != "" {
+		ctx["clientId"] = m.ClientID
+	}
+	if m.ConnectionID != "" {
+		ctx["connectionId"] = m.ConnectionID
+	}
+	if m.Name != "" {
+		ctx["name"] = m.Name
+	}
+	encoding := m.Encoding
+	switch e := m.Data.(type) {
+	case []byte:
+		ctx["data"] = raw(e)
+	case string:
+		ctx["data"] = e
 	default:
-		return nil, fmt.Errorf("ably-go: %s is not supported for data field", e.Kind())
+		b, err := json.Marshal(e)
+		if err != nil {
+			panic(err)
+		}
+		ctx["data"] = string(b)
+		encoding = MergeEncoding(encoding, JSON)
+	}
+	if encoding != "" {
+		ctx["encoding"] = encoding
+	}
+	if m.Timestamp != 0 {
+		ctx["timestamp"] = m.Timestamp
+	}
+	if m.Extras != nil {
+		ctx["extras"] = m.Extras
+	}
+	encoder.MustEncode(ctx)
+}
+
+// CodecDecodeSelf implements codec.Selfer interface for msgpack decoding.
+func (m *Message) CodecDecodeSelf(decoder *codec.Decoder) {
+	ctx := make(map[string]interface{})
+	ctx["data"] = &raw{}
+	decoder.MustDecode(&ctx)
+	if v, ok := ctx["id"]; ok {
+		m.ID = string(v.([]byte))
+	}
+	if v, ok := ctx["clientId"]; ok {
+		m.ClientID = string(v.([]byte))
+	}
+	if v, ok := ctx["connectionId"]; ok {
+		m.ConnectionID = string(v.([]byte))
+	}
+	if v, ok := ctx["name"]; ok {
+		m.Name = string(v.([]byte))
+	}
+	if v, ok := ctx["encoding"]; ok {
+		m.Encoding = string(v.([]byte))
+	}
+	if v, ok := ctx["data"]; ok {
+		r := v.(*raw)
+		m.Data = []byte(*r)
+	}
+	if v, ok := ctx["timestamp"]; ok {
+		m.Timestamp = int64(v.(uint64))
+	}
+	if v, ok := ctx["extras"]; ok {
+		m.Extras = v.(map[string]interface{})
 	}
 }
 
@@ -87,102 +169,15 @@ func ValueEncoding(protocol string, value interface{}) string {
 	}
 }
 
-// ToBytes casts the Value field to []byte, use this when you are absolutely
-// sure the Value is of []byte, because if it isn't this will panic.
-//
-// For safety, you should to a safe casting like
-//	v,ok:=d.Value.([]byte)
-func (d DataValue) ToBytes() []byte {
-	return d.Value.([]byte)
-}
-
-// ToString casts Value to string. use this when you are absolutely
-// sure the Value is of string, because if it isn't this will panic.
-//
-// For safety, you should to a safe casting like
-//	v,ok:=d.Value.(string)
-func (d DataValue) ToString() string {
-	return d.Value.(string)
-}
-
 // ToStringOrBytes returns []byte, assuming the Value is a string which will be
 // casted to []byte or it is []byte which is returned as is.
-func (d DataValue) ToStringOrBytes() []byte {
-	switch e := d.Value.(type) {
+func ToStringOrBytes(v interface{}) []byte {
+	switch e := v.(type) {
 	case []byte:
 		return e
 	default:
-		return []byte(d.Value.(string))
+		return []byte(v.(string))
 	}
-}
-
-// MarshalJSON implements json.Marshaler interface.
-func (d DataValue) MarshalJSON() ([]byte, error) {
-	switch e := d.Value.(type) {
-	case []byte:
-		// references (RSL4d1)
-		v := base64.StdEncoding.EncodeToString(e)
-		return json.Marshal(v)
-	default:
-		// references (RSL4d2), (RSL4d3)
-		return json.Marshal(e)
-	}
-}
-
-// UnmarshalJSON implements json.Unmarshaler interface. This will try to
-// unmarshal the the json data to the vallue contained in the Value field.
-//
-// Note than it is not mandatory for the Value field to contain any value, this
-// is just a work around so a user can provide a hint on which value is to be
-// expected.
-func (d *DataValue) UnmarshalJSON(data []byte) error {
-	switch d.Value.(type) {
-	case []byte:
-		var s string
-		err := json.Unmarshal(data, &s)
-		if err != nil {
-			return err
-		}
-		v, err := base64.StdEncoding.DecodeString(s)
-		if err != nil {
-			return err
-		}
-		d.Value = v
-		return nil
-	default:
-		return d.unmarshalValue(data)
-	}
-}
-
-func (d *DataValue) tryUnmarshal(data []byte) error {
-	opts := []interface{}{
-		"", true, int64(1), 0.1, []interface{}{}, map[string]interface{}{},
-	}
-	for _, v := range opts {
-		d.Value = v
-		err := d.unmarshalValue(data)
-		if err == nil {
-			return nil
-		}
-	}
-	return nil
-}
-
-func (d *DataValue) unmarshalValue(data []byte) error {
-	if d.Value == nil {
-		return d.tryUnmarshal(data)
-	}
-	e := reflect.ValueOf(d.Value)
-	if e.Kind() != reflect.Ptr {
-		n := reflect.New(e.Type())
-		err := json.Unmarshal(data, n.Interface())
-		if err != nil {
-			return err
-		}
-		d.Value = n.Elem().Interface()
-		return nil
-	}
-	return json.Unmarshal(data, e.Interface())
 }
 
 type raw []byte
@@ -199,38 +194,6 @@ func (r *raw) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-// CodecEncodeSelf implements codec.Selfer interface for msgpack encoding.
-func (d DataValue) CodecEncodeSelf(e *codec.Encoder) {
-	switch v := d.Value.(type) {
-	case []byte:
-		e.MustEncode(raw(v))
-	case string:
-		e.MustEncode(v)
-	default:
-		b, err := json.Marshal(v)
-		if err != nil {
-			panic(err)
-		}
-		e.MustEncode(string(b))
-	}
-}
-
-func (d *DataValue) tryDecode(e *codec.Decoder) error {
-	opts := []interface{}{
-		raw{},
-	}
-	for _, v := range opts {
-		d.Value = v
-		err := wrapPanic(func() {
-			d.CodecDecodeSelf(e)
-		})
-		if err == nil {
-			return nil
-		}
-	}
-	return nil
-}
-
 func wrapPanic(fn func()) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -239,59 +202,6 @@ func wrapPanic(fn func()) (err error) {
 	}()
 	fn()
 	return nil
-}
-
-// CodecDecodeSelf implements codec.Selfer interface for msgpack decoding.
-func (d *DataValue) CodecDecodeSelf(e *codec.Decoder) {
-	if d.Value == nil {
-		err := d.tryDecode(e)
-		if err != nil {
-			log.Println(err)
-		}
-		return
-	}
-	ev := reflect.ValueOf(d.Value)
-	switch d.Value.(type) {
-	case []byte, raw:
-		var r raw
-		e.MustDecode(&r)
-		d.Value = []byte(r)
-	case string:
-		var s string
-		e.MustDecode(&s)
-		d.Value = s
-	default:
-		if ev.Kind() != reflect.Ptr {
-			n := reflect.New(ev.Type())
-			switch ev.Kind() {
-			case reflect.Map, reflect.Slice, reflect.Struct:
-				var s string
-				e.MustDecode(&s)
-				err := json.Unmarshal([]byte(s), n.Interface())
-				if err != nil {
-					panic(err)
-				}
-				d.Value = n.Elem().Interface()
-			default:
-				e.MustDecode(n.Interface())
-				d.Value = n.Elem().Interface()
-			}
-		} else {
-			switch ev.Kind() {
-			case reflect.Map, reflect.Slice, reflect.Struct:
-				var s string
-				e.MustDecode(&s)
-				err := json.Unmarshal([]byte(s), ev.Interface())
-				if err != nil {
-					panic(err)
-				}
-				d.Value = ev.Elem().Interface()
-			default:
-				e.MustDecode(ev.Interface())
-				d.Value = ev.Elem().Interface()
-			}
-		}
-	}
 }
 
 // MemberKey returns string that allows to uniquely identify connected clients.
@@ -321,15 +231,11 @@ func (m *Message) DecodeData(opts *ChannelOptions) error {
 	for i := len(encodings) - 1; i >= 0; i-- {
 		switch encodings[i] {
 		case Base64:
-			data, err := base64.StdEncoding.DecodeString(m.Data.ToString())
+			data, err := base64.StdEncoding.DecodeString(string(ToStringOrBytes(m.Data)))
 			if err != nil {
 				return err
 			}
-			value, err := NewDataValue(data)
-			if err != nil {
-				return err
-			}
-			m.Data = value
+			m.Data = data
 		case JSON, UTF8:
 		default:
 			switch {
@@ -379,15 +285,19 @@ func (m *Message) EncodeData(encoding string, opts *ChannelOptions) error {
 	for _, encoding := range strings.Split(encoding, "/") {
 		switch encoding {
 		case Base64:
-			data := base64.StdEncoding.EncodeToString(m.Data.ToStringOrBytes())
-			value, err := NewDataValue(data)
+			data := base64.StdEncoding.EncodeToString(ToStringOrBytes(m.Data))
+			m.Data = data
+			m.mergeEncoding(encoding)
+			continue
+		case UTF8:
+			m.mergeEncoding(encoding)
+			continue
+		case JSON:
+			v, err := json.Marshal(m.Data)
 			if err != nil {
 				return err
 			}
-			m.Data = value
-			m.mergeEncoding(encoding)
-			continue
-		case JSON, UTF8:
+			m.Data = string(v)
 			m.mergeEncoding(encoding)
 			continue
 		default:
@@ -432,15 +342,11 @@ func (m *Message) decrypt(cipherStr string, opts *ChannelOptions) error {
 	if err != nil {
 		return err
 	}
-	out, err := cipher.Decrypt(m.Data.ToBytes())
+	out, err := cipher.Decrypt(m.Data.([]byte))
 	if err != nil {
 		return err
 	}
-	value, err := NewDataValue(out)
-	if err != nil {
-		return err
-	}
-	m.Data = value
+	m.Data = out
 	return nil
 }
 
@@ -449,15 +355,11 @@ func (m *Message) encrypt(encoding string, opts *ChannelOptions) error {
 	if err != nil {
 		return err
 	}
-	data, err := cipher.Encrypt(m.Data.ToStringOrBytes())
+	data, err := cipher.Encrypt(ToStringOrBytes(m.Data))
 	if err != nil {
 		return err
 	}
-	value, err := NewDataValue(data)
-	if err != nil {
-		return err
-	}
-	m.Data = value
+	m.Data = data
 	if encoding != "" {
 		encoding += "/"
 	}
@@ -484,6 +386,13 @@ func (m *Message) mergeEncoding(encoding string) {
 	} else {
 		m.Encoding = m.Encoding + "/" + encoding
 	}
+}
+
+func MergeEncoding(base string, e ...string) string {
+	if base != "" {
+		return strings.Join(append([]string{base}, e...), "/")
+	}
+	return strings.Join(e, "/")
 }
 
 // Appends padding.

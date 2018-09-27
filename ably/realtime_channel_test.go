@@ -21,8 +21,8 @@ func expectMsg(ch <-chan *proto.Message, name string, data interface{}, t time.D
 		if msg.Name != name {
 			return fmt.Errorf("want msg.Name=%q; got %q", name, msg.Name)
 		}
-		if !reflect.DeepEqual(msg.Data.Value, data) {
-			return fmt.Errorf("want msg.Data=%v; got %v", data, msg.Data.Value)
+		if !reflect.DeepEqual(msg.Data, data) {
+			return fmt.Errorf("want msg.Data=%v; got %v", data, msg.Data)
 		}
 		return nil
 	case <-time.After(t):
@@ -170,8 +170,8 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		if !ok {
 			done <- errors.New("did not receive published message")
 		}
-		if msg.Name != "hello" || !reflect.DeepEqual(msg.Data.Value, "world") {
-			done <- fmt.Errorf(`want name="hello", data="world"; got %s, %v`, msg.Name, msg.Data.Value)
+		if msg.Name != "hello" || !reflect.DeepEqual(msg.Data, "world") {
+			done <- fmt.Errorf(`want name="hello", data="world"; got %s, %v`, msg.Name, msg.Data)
 		}
 		if _, ok = <-sub.MessageChannel(); ok {
 			done <- fmt.Errorf("expected channel to be closed")
