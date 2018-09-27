@@ -43,7 +43,7 @@ func (m Message) MarshalJSON() ([]byte, error) {
 		ctx["connectionId"] = m.ConnectionID
 	}
 	if m.Name != "" {
-		ctx["connectionId"] = m.Name
+		ctx["name"] = m.Name
 	}
 	encoding := m.Encoding
 	switch e := m.Data.(type) {
@@ -114,19 +114,19 @@ func (m *Message) CodecDecodeSelf(decoder *codec.Decoder) {
 	ctx["data"] = &raw{}
 	decoder.MustDecode(&ctx)
 	if v, ok := ctx["id"]; ok {
-		m.ID = string(v.([]byte))
+		m.ID = string(ToStringOrBytes(v))
 	}
 	if v, ok := ctx["clientId"]; ok {
-		m.ClientID = string(v.([]byte))
+		m.ClientID = string(ToStringOrBytes(v))
 	}
 	if v, ok := ctx["connectionId"]; ok {
-		m.ConnectionID = string(v.([]byte))
+		m.ConnectionID = string(ToStringOrBytes(v))
 	}
 	if v, ok := ctx["name"]; ok {
-		m.Name = string(v.([]byte))
+		m.Name = string(ToStringOrBytes(v))
 	}
 	if v, ok := ctx["encoding"]; ok {
-		m.Encoding = string(v.([]byte))
+		m.Encoding = string(ToStringOrBytes(v))
 	}
 	if v, ok := ctx["data"]; ok {
 		r := v.(*raw)
@@ -150,7 +150,7 @@ func ValueEncoding(protocol string, value interface{}) string {
 			return Base64
 		case string:
 			// references (RSL4d2)
-			return UTF8
+			return ""
 		default:
 			// references (RSL4d3)
 			return JSON
@@ -293,11 +293,15 @@ func (m *Message) EncodeData(encoding string, opts *ChannelOptions) error {
 			m.mergeEncoding(encoding)
 			continue
 		case JSON:
-			v, err := json.Marshal(m.Data)
-			if err != nil {
-				return err
+			switch m.Data.(type) {
+			case string:
+			default:
+				v, err := json.Marshal(m.Data)
+				if err != nil {
+					return err
+				}
+				m.Data = string(v)
 			}
-			m.Data = string(v)
 			m.mergeEncoding(encoding)
 			continue
 		default:
