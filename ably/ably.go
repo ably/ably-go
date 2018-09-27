@@ -5,8 +5,6 @@ package ably
 import (
 	"crypto/rand"
 	"encoding/hex"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func min(i, j int) int {
@@ -36,15 +34,6 @@ func nonempty(s ...string) string {
 	for _, s := range s {
 		if s != "" {
 			return s
-		}
-	}
-	return ""
-}
-
-func nonnil(s ...*proto.DataValue) interface{} {
-	for _, s := range s {
-		if s != nil {
-			return s.Value
 		}
 	}
 	return ""

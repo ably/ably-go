@@ -44,13 +44,9 @@ func newRestChannel(name string, client *RestClient) *RestChannel {
 }
 
 func (c *RestChannel) Publish(name string, data interface{}) error {
-	value, err := proto.NewDataValue(data)
-	if err != nil {
-		return err
-	}
 	encoding := proto.ValueEncoding(c.client.opts.protocol(), data)
 	messages := []*proto.Message{
-		{Name: name, Data: value, Encoding: encoding},
+		{Name: name, Data: data, Encoding: encoding},
 	}
 	return c.PublishAll(messages)
 }
@@ -78,7 +74,7 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 		if v.Data != nil {
 			// Before the data field is marshalled, we need to make sure it is encoded in
 			// the right format before going over the wire.
-			encoding := proto.ValueEncoding(c.client.opts.protocol(), v.Data.Value)
+			encoding := proto.ValueEncoding(c.client.opts.protocol(), v.Data)
 			if encoding != "" && encoding != e {
 				stash := v.Encoding
 				// We don't pass options here because encryption must have already taken
