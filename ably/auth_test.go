@@ -527,7 +527,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		msg := []*proto.Message{{
 			ClientID: cas.publishAs,
 			Name:     "test",
-			Data:     &proto.DataValue{Value: "payload"},
+			Data:     "payload",
 		}}
 		err = ablytest.Wait(channel.PublishAll(msg))
 		if cas.rejected {

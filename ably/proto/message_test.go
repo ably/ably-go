@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -34,9 +35,7 @@ func TestMessage_DecodeData(t *testing.T) {
 		ts.Run("it returns the same string", func(ts *testing.T) {
 			data := `{ "string": "utf-8™" }`
 			message := &proto.Message{
-				Data: &proto.DataValue{
-					Value: data,
-				},
+				Data:     data,
 				Encoding: "json/utf-8",
 			}
 			err := message.DecodeData(&proto.ChannelOptions{
@@ -50,15 +49,13 @@ func TestMessage_DecodeData(t *testing.T) {
 				ts.Fatal(err)
 			}
 			expect := `{ "string": "utf-8™" }`
-			if message.Data.ToString() != expect {
-				t.Errorf("expected %s got %s", expect, message.Data.ToString())
+			if message.Data.(string) != expect {
+				t.Errorf("expected %s got %v", expect, message.Data)
 			}
 		})
 		ts.Run("can decode data without the aes config", func(ts *testing.T) {
 			message := &proto.Message{
-				Data: &proto.DataValue{
-					Value: `{ "string": "utf-8™" }`,
-				},
+				Data:     `{ "string": "utf-8™" }`,
 				Encoding: "json/utf-8",
 			}
 			err := message.DecodeData(nil)
@@ -66,8 +63,8 @@ func TestMessage_DecodeData(t *testing.T) {
 				ts.Fatal(err)
 			}
 			expect := `{ "string": "utf-8™" }`
-			if message.Data.ToString() != expect {
-				t.Errorf("expected %s got %s", expect, message.Data.ToString())
+			if message.Data.(string) != expect {
+				t.Errorf("expected %s got %v", expect, message.Data)
 			}
 		})
 		ts.Run("leaves message intact with empty payload", func(ts *testing.T) {
@@ -85,9 +82,7 @@ func TestMessage_DecodeData(t *testing.T) {
 	t.Run("with base64", func(ts *testing.T) {
 		ts.Run("decodes it into a byte array", func(ts *testing.T) {
 			message := &proto.Message{
-				Data: &proto.DataValue{
-					Value: "dXRmLTjihKIK",
-				},
+				Data:     "dXRmLTjihKIK",
 				Encoding: "base64",
 			}
 			err := message.DecodeData(opts)
@@ -95,17 +90,14 @@ func TestMessage_DecodeData(t *testing.T) {
 				ts.Fatal(err)
 			}
 			expect := []byte("utf-8™\n")
-			got := message.Data.ToBytes()
-
+			got := message.Data.([]byte)
 			if !bytes.Equal(got, expect) {
 				t.Errorf("expected %s got %s", string(expect), string(got))
 			}
 		})
 		ts.Run("can decode data without the channel options", func(ts *testing.T) {
 			message := &proto.Message{
-				Data: &proto.DataValue{
-					Value: "dXRmLTjihKIK",
-				},
+				Data:     "dXRmLTjihKIK",
 				Encoding: "base64",
 			}
 			err := message.DecodeData(nil)
@@ -113,7 +105,7 @@ func TestMessage_DecodeData(t *testing.T) {
 				ts.Fatal(err)
 			}
 			expect := []byte("utf-8™\n")
-			got := message.Data.ToBytes()
+			got := message.Data.([]byte)
 			if !bytes.Equal(got, expect) {
 				t.Errorf("expected %s got %s", string(expect), string(got))
 			}
@@ -124,9 +116,7 @@ func TestMessage_DecodeData(t *testing.T) {
 		decodedData := "[\"example\",\"json\",\"array\"]"
 		ts.Run("decodes it into a byte array", func(ts *testing.T) {
 			message := &proto.Message{
-				Data: &proto.DataValue{
-					Value: encodedData,
-				},
+				Data:     encodedData,
 				Encoding: "json/utf-8/cipher+aes-128-cbc/base64",
 			}
 			err := message.DecodeData(opts)
@@ -134,16 +124,14 @@ func TestMessage_DecodeData(t *testing.T) {
 				ts.Fatal(err)
 			}
 			expect := []byte(decodedData)
-			got := message.Data.ToBytes()
+			got := message.Data.([]byte)
 			if !bytes.Equal(got, expect) {
 				t.Errorf("expected %s got %s", string(expect), string(got))
 			}
 		})
 		ts.Run("fails to decode data without an aes config", func(ts *testing.T) {
 			message := &proto.Message{
-				Data: &proto.DataValue{
-					Value: encodedData,
-				},
+				Data:     encodedData,
 				Encoding: "json/utf-8/cipher+aes-128-cbc/base64",
 			}
 			err := message.DecodeData(nil)
@@ -168,14 +156,12 @@ func TestMessage_DecodeData(t *testing.T) {
 
 func TestMessage_EncodeData(t *testing.T) {
 	t.Run("with a json/utf-8 encoding RSL4d3", func(ts *testing.T) {
-		message := &proto.Message{Data: &proto.DataValue{
-			Value: `{ "string": "utf-8™" }`,
-		}}
+		message := &proto.Message{Data: `{ "string": "utf-8™" }`}
 		encodeInto := "json/utf-8"
 		message.EncodeData(encodeInto, nil)
 		expect := `{ "string": "utf-8™" }`
-		if message.Data.ToString() != expect {
-			ts.Errorf("expected %s got %s", expect, message.Data.ToString())
+		if message.Data.(string) != expect {
+			ts.Errorf("expected %s got %v", expect, message.Data)
 		}
 		if message.Encoding != encodeInto {
 			t.Errorf("expected %s got %s", expect, message.Encoding)
@@ -187,15 +173,13 @@ func TestMessage_EncodeData(t *testing.T) {
 		encodeInto := "base64"
 		expect := base64.StdEncoding.EncodeToString([]byte(str))
 
-		message := &proto.Message{Data: &proto.DataValue{
-			Value: str,
-		}}
+		message := &proto.Message{Data: str}
 		err := message.EncodeData(encodeInto, nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
-		if message.Data.ToString() != expect {
-			t.Errorf("expected %s got %s", expect, message.Data.ToString())
+		if message.Data.(string) != expect {
+			t.Errorf("expected %s got %v", expect, message.Data)
 		}
 		if message.Encoding != encodeInto {
 			t.Errorf("expected %s got %s", encodeInto, message.Encoding)
@@ -222,9 +206,7 @@ func TestMessage_EncodeData(t *testing.T) {
 		encodedData := "HO4cYSP8LybPYBPZPHQOtmHItcxYdSvcNUC6kXVpMn0VFL+9z2/5tJ6WFbR0SBT1xhFRuJ+MeBGTU3yOY9P5ow=="
 		encodeInto := "utf-8/cipher+aes-128-cbc/base64"
 
-		message := &proto.Message{Data: &proto.DataValue{
-			Value: str,
-		}}
+		message := &proto.Message{Data: str}
 		err = message.EncodeData(encodeInto, opts)
 		if err != nil {
 			ts.Fatal(err)
@@ -234,9 +216,7 @@ func TestMessage_EncodeData(t *testing.T) {
 		}
 
 		ts.Run("is decode-able through the DecodeData method", func(ts *testing.T) {
-			message := &proto.Message{Data: &proto.DataValue{
-				Value: str,
-			}}
+			message := &proto.Message{Data: str}
 			err = message.EncodeData(encodeInto, opts)
 			if err != nil {
 				ts.Fatal(err)
@@ -246,8 +226,8 @@ func TestMessage_EncodeData(t *testing.T) {
 				ts.Error(err)
 			}
 		})
-		if message.Data.ToString() != encodedData {
-			t.Errorf("expected %s got %s", encodedData, message.Data.ToString())
+		if message.Data.(string) != encodedData {
+			t.Errorf("expected %s got %v", encodedData, message.Data)
 		}
 	})
 }
@@ -292,7 +272,7 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 					}
 					if !reflect.DeepEqual(item.Encoded.Data, item.Encrypted.Data) {
 						ts.Errorf("expected %s got %s :encoding %s",
-							item.Encoded.Data.Value, item.Encrypted.Data.Value, item.Encrypted.Encoding)
+							item.Encoded.Data, item.Encrypted.Data, item.Encrypted.Encoding)
 					}
 				}
 			})
@@ -301,10 +281,6 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 }
 
 func TestDataValue(t *testing.T) {
-	type Value struct {
-		Data *proto.DataValue
-	}
-
 	t.Run("marshals/unmarshal to json", func(ts *testing.T) {
 		ts.Run("with value hints", func(ts *testing.T) {
 			sample := []struct {
@@ -312,19 +288,15 @@ func TestDataValue(t *testing.T) {
 				expect string
 				empty  interface{}
 			}{
-				{src: "hello", expect: `{"Data":"hello"}`, empty: ""},
-				{src: []byte("hello"), expect: `{"Data":"aGVsbG8="}`, empty: []byte{}},
+				{src: "hello", expect: `{"data":"hello"}`, empty: ""},
+				{src: []byte("hello"), expect: `{"data":"aGVsbG8=","encoding":"base64"}`, empty: []byte{}},
 				{src: map[string]interface{}{
 					"key": "value",
-				}, expect: `{"Data":{"key":"value"}}`, empty: map[string]interface{}{}},
-				{src: []int{1, 2, 3}, expect: `{"Data":[1,2,3]}`, empty: []int{}},
+				}, expect: `{"data":{"key":"value"}}`, empty: map[string]interface{}{}},
+				{src: []int{1, 2, 3}, expect: `{"data":[1,2,3]}`, empty: []int{}},
 			}
 			for _, v := range sample {
-				d, err := proto.NewDataValue(v.src)
-				if err != nil {
-					ts.Fatal(err)
-				}
-				value := Value{Data: d}
+				value := proto.Message{Data: v.src}
 				b, err := json.Marshal(value)
 				if err != nil {
 					ts.Fatal(err)
@@ -332,62 +304,6 @@ func TestDataValue(t *testing.T) {
 				got := string(b)
 				if got != v.expect {
 					t.Errorf("expected %s got %s", v.expect, got)
-				}
-
-				d, err = proto.NewDataValue(v.empty)
-				if err != nil {
-					ts.Fatal(err)
-				}
-				value = Value{Data: d}
-				err = json.Unmarshal(b, &value)
-				if err != nil {
-					ts.Error(err)
-				}
-				if !reflect.DeepEqual(value.Data.Value, v.src) {
-					ts.Errorf("expected %v got %v", v.src, value.Data.Value)
-				}
-			}
-		})
-		ts.Run("with default hints", func(ts *testing.T) {
-			sample := []struct {
-				src    interface{}
-				expect string
-				empty  interface{}
-			}{
-				{src: "hello", expect: `{"Data":"hello"}`, empty: "hello"},
-				{src: []byte("hello"), expect: `{"Data":"aGVsbG8="}`, empty: "aGVsbG8="},
-				{src: map[string]interface{}{
-					"key": "value",
-				}, expect: `{"Data":{"key":"value"}}`, empty: map[string]interface{}{
-					"key": "value",
-				}},
-				{src: []int{1, 2, 3}, expect: `{"Data":[1,2,3]}`, empty: []interface{}{
-					float64(1.0),
-					float64(2.0),
-					float64(3.0),
-				}},
-			}
-			for _, v := range sample {
-				d, err := proto.NewDataValue(v.src)
-				if err != nil {
-					ts.Fatal(err)
-				}
-				value := Value{Data: d}
-				b, err := json.Marshal(value)
-				if err != nil {
-					ts.Fatal(err)
-				}
-				got := string(b)
-				if got != v.expect {
-					t.Errorf("expected %s got %s", v.expect, got)
-				}
-				value = Value{}
-				err = json.Unmarshal(b, &value)
-				if err != nil {
-					ts.Error(err)
-				}
-				if !reflect.DeepEqual(value.Data.Value, v.empty) {
-					ts.Errorf("expected %v got %v", v.empty, value.Data.Value)
 				}
 			}
 		})
@@ -395,25 +311,22 @@ func TestDataValue(t *testing.T) {
 	t.Run("marshals/unmarshal to msgpack", func(ts *testing.T) {
 		t.Run("with type hints ", func(ts *testing.T) {
 			sample := []struct {
-				reason string
-				src    interface{}
-				expect string
-				empty  interface{}
+				reason   string
+				src      interface{}
+				expect   string
+				decoded  interface{}
+				encoding string
 			}{
-				{reason: "string", src: "hello", expect: `gaREYXRhpWhlbGxv`, empty: ""},
-				{reason: "raw bytes", src: []byte("hello"), expect: `gaREYXRhpWhlbGxv`, empty: []byte{}},
-				{reason: "more raw bytes", src: []byte("hello, some  \""), expect: `gaREYXRhrmhlbGxvLCBzb21lICAi`, empty: []byte{}},
+				{reason: "string", src: "hello", expect: `gaRkYXRhpWhlbGxv`, decoded: []byte("hello")},
+				{reason: "raw bytes", src: []byte("hello"), expect: `gaRkYXRhpWhlbGxv`, decoded: []byte("hello")},
+				{reason: "more raw bytes", src: []byte("hello, some  \""), expect: `gaRkYXRhrmhlbGxvLCBzb21lICAi`, decoded: []byte("hello, some  \"")},
 				{reason: "map", src: map[string]interface{}{
 					"key": "value",
-				}, expect: `gaREYXRhr3sia2V5IjoidmFsdWUifQ==`, empty: map[string]interface{}{}},
-				{reason: "array", src: []int{1, 2, 3}, expect: `gaREYXRhp1sxLDIsM10=`, empty: []int{}},
+				}, expect: `gqRkYXRhr3sia2V5IjoidmFsdWUifahlbmNvZGluZ6Rqc29u`, decoded: []byte(`{"key":"value"}`), encoding: proto.JSON},
+				{reason: "array", src: []int{1, 2, 3}, expect: `gqRkYXRhp1sxLDIsM12oZW5jb2RpbmekanNvbg==`, decoded: []byte(`[1,2,3]`), encoding: proto.JSON},
 			}
 			for _, v := range sample {
-				d, err := proto.NewDataValue(v.src)
-				if err != nil {
-					ts.Fatal(err)
-				}
-				value := Value{Data: d}
+				value := proto.Message{Data: v.src}
 				b, err := ablyutil.Marshal(value)
 				if err != nil {
 					ts.Fatalf("%s %v", v.reason, err)
@@ -421,60 +334,18 @@ func TestDataValue(t *testing.T) {
 				e := base64.StdEncoding.EncodeToString(b)
 				got := e
 				if got != v.expect {
-					t.Errorf("expected %s got %s", v.expect, got)
+					ts.Errorf("%s: expected %s got %s", v.reason, v.expect, got)
 				}
 
-				d, err = proto.NewDataValue(v.empty)
-				if err != nil {
-					ts.Fatalf("%s %v", v.reason, err)
-				}
-				value = Value{Data: d}
+				value = proto.Message{}
 				err = ablyutil.Unmarshal(b, &value)
 				if err != nil {
 					ts.Fatalf("%s %v %v", v.reason, err, string(b))
 				}
-				if !reflect.DeepEqual(value.Data.Value, v.src) {
-					ts.Errorf("expected %v got %v", v.src, value.Data.Value)
-				}
-			}
-		})
-		t.Run("with default types ", func(ts *testing.T) {
-			sample := []struct {
-				reason string
-				src    interface{}
-				expect string
-				empty  interface{}
-			}{
-				{reason: "string", src: "hello", expect: `gaREYXRhpWhlbGxv`, empty: []byte("hello")},
-				{reason: "raw bytes", src: []byte("hello"), expect: `gaREYXRhpWhlbGxv`, empty: []byte("hello")},
-				{reason: "more raw bytes", src: []byte("hello, some  \""), expect: `gaREYXRhrmhlbGxvLCBzb21lICAi`, empty: []byte("hello, some  \"")},
-				{reason: "map", src: map[string]interface{}{
-					"key": "value",
-				}, expect: `gaREYXRhr3sia2V5IjoidmFsdWUifQ==`, empty: []byte(`{"key":"value"}`)},
-				{reason: "array", src: []int{1, 2, 3}, expect: `gaREYXRhp1sxLDIsM10=`, empty: []byte(`[1,2,3]`)},
-			}
-			for _, v := range sample {
-				d, err := proto.NewDataValue(v.src)
-				if err != nil {
-					ts.Fatal(err)
-				}
-				value := Value{Data: d}
-				b, err := ablyutil.Marshal(value)
-				if err != nil {
-					ts.Fatalf("%s %v", v.reason, err)
-				}
-				e := base64.StdEncoding.EncodeToString(b)
-				got := e
-				if got != v.expect {
-					t.Errorf("expected %s got %s", v.expect, got)
-				}
-				value = Value{}
-				err = ablyutil.Unmarshal(b, &value)
-				if err != nil {
-					ts.Fatalf("%s %v %v", v.reason, err, string(b))
-				}
-				if !reflect.DeepEqual(value.Data.Value, v.empty) {
-					ts.Errorf("%s expected %v got %v", v.reason, v.empty, string(value.Data.ToBytes()))
+				decoded := proto.Message{Data: v.decoded, Encoding: v.encoding}
+				if !reflect.DeepEqual(value, decoded) {
+					fmt.Println(v.reason, string(proto.ToStringOrBytes(value.Data)))
+					ts.Errorf("%s: expected %#v got %#v", v.reason, decoded, value)
 				}
 			}
 		})

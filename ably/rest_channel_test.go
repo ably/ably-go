@@ -40,7 +40,7 @@ func TestRestChannel(t *testing.T) {
 				encoding: proto.Base64,
 				data:     "string",
 			}
-			m["binary"] = dataSample{
+			m["json"] = dataSample{
 				encoding: proto.JSON,
 				data: map[string]interface{}{
 					"key": "value",
@@ -53,7 +53,7 @@ func TestRestChannel(t *testing.T) {
 			m["binary"] = dataSample{
 				data: "string",
 			}
-			m["binary"] = dataSample{
+			m["json"] = dataSample{
 				encoding: proto.JSON,
 				data: map[string]interface{}{
 					"key": "value",
@@ -79,7 +79,7 @@ func TestRestChannel(t *testing.T) {
 				e := m[v.Name]
 				if v.Encoding != e.encoding {
 					ts.Errorf("expected %s got %s %s", e.encoding,
-						v.Encoding, string(v.Data.ToBytes()))
+						v.Encoding, string(v.Data.([]byte)))
 				}
 			}
 		})
@@ -117,8 +117,8 @@ func TestRestChannel(t *testing.T) {
 	t.Run("PublishAll", func(ts *testing.T) {
 		encodingRestChannel := client.Channels.Get("this?is#an?encoding#channel", nil)
 		messages := []*proto.Message{
-			{Name: "send", Data: &proto.DataValue{Value: "test data 1"}},
-			{Name: "send", Data: &proto.DataValue{Value: "test data 2"}},
+			{Name: "send", Data: "test data 1"},
+			{Name: "send", Data: "test data 2"},
 		}
 		err := encodingRestChannel.PublishAll(messages)
 		if err != nil {
@@ -184,8 +184,8 @@ func TestRestChannel(t *testing.T) {
 			if v.Name != e.event {
 				t.Errorf("expected %s got %s", e.event, v.Name)
 			}
-			if reflect.DeepEqual(v.Data.Value, e.message) {
-				t.Errorf("expected %s got %v", e.message, v.Data.Value)
+			if reflect.DeepEqual(v.Data, e.message) {
+				t.Errorf("expected %s got %v", e.message, v.Data)
 			}
 		}
 	})
