@@ -133,7 +133,14 @@ func (m *Message) CodecDecodeSelf(decoder *codec.Decoder) {
 		m.Data = []byte(*r)
 	}
 	if v, ok := ctx["timestamp"]; ok {
-		m.Timestamp = int64(v.(uint64))
+		switch e := v.(type) {
+		case float64:
+			m.Timestamp = int64(e)
+		case uint64:
+			m.Timestamp = int64(e)
+		case int64:
+			m.Timestamp = e
+		}
 	}
 	if v, ok := ctx["extras"]; ok {
 		m.Extras = v.(map[string]interface{})
