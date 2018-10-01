@@ -664,7 +664,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 			ts.Fatalf("want len(nonce)>=16; got %d", len(req.Nonce))
 		}
 	})
-	t.Run("generate a signed request", func(ts *testing.T) {
+	t.Run("RSA9g generate a signed request", func(ts *testing.T) {
 		req, err := client.Auth.CreateTokenRequest(nil, nil)
 		if err != nil {
 			ts.Fatalf("CreateTokenRequest()=%v", err)
