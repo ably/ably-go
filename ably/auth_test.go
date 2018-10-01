@@ -616,7 +616,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		RawCapability: (ably.Capability{"presence": {"read", "write"}}).Encode(),
 	}
 	t.Run("RSA9h", func(ts *testing.T) {
-		ts.Run("paramaters are optional", func(ts *testing.T) {
+		ts.Run("parameters are optional", func(ts *testing.T) {
 			_, err := client.Auth.CreateTokenRequest(params, nil)
 			if err != nil {
 				ts.Fatalf("expected no error to occur got %v instead", err)
