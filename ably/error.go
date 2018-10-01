@@ -49,7 +49,7 @@ func newError(code int, err error) *Error {
 		return err
 	case net.Error:
 		if err.Timeout() {
-			return &Error{Code: ErrNotFound, StatusCode: 500, Err: err}
+			return &Error{Code: ErrTimeoutError, StatusCode: 500, Err: err}
 		}
 	}
 	return &Error{
