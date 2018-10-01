@@ -323,7 +323,7 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 	if r.In != nil {
 		p, err := encode(proto, r.In)
 		if err != nil {
-			return nil, newError(ErrCodeProtocol, err)
+			return nil, newError(ErrProtocolError, err)
 		}
 		body = bytes.NewReader(p)
 	}

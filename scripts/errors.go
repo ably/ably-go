@@ -123,4 +123,10 @@ const(
 	{{- range .codes}}
 	Err{{key .|normalize|split " "|map "id" "ID"|map "clientId" "clientID"|map "tls" "TLS"|title|join ""}} = {{.}}
 	{{- end}}
-)`
+)
+var errCodeText=map[int]string{
+	{{- range .codes}}
+	{{.}}:"{{key .}}",
+	{{- end}}	
+}
+`
