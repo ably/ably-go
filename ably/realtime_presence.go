@@ -263,12 +263,10 @@ func (pres *RealtimePresence) EnterClient(clientID string, data interface{}) (Re
 	pres.mtx.Unlock()
 	encoding := proto.ValueEncoding(pres.channel.client.rest.opts.protocol(), data)
 	msg := &proto.PresenceMessage{
-		State: proto.PresenceEnter,
-		Message: proto.Message{
-			Data:     data,
-			ClientID: clientID,
-			Encoding: encoding,
-		},
+		State:    proto.PresenceEnter,
+		Data:     data,
+		ClientID: clientID,
+		Encoding: encoding,
 	}
 	return pres.send(msg)
 }
@@ -295,12 +293,10 @@ func (pres *RealtimePresence) UpdateClient(clientID string, data interface{}) (R
 	pres.data = data
 	pres.mtx.Unlock()
 	msg := &proto.PresenceMessage{
-		State: proto.PresenceUpdate,
-		Message: proto.Message{
-			ClientID: clientID,
-			Data:     data,
-			Encoding: encoding,
-		},
+		State:    proto.PresenceUpdate,
+		ClientID: clientID,
+		Data:     data,
+		Encoding: encoding,
 	}
 	return pres.send(msg)
 }
@@ -320,12 +316,10 @@ func (pres *RealtimePresence) LeaveClient(clientID string, data interface{}) (Re
 
 	encoding := proto.ValueEncoding(pres.channel.client.rest.opts.protocol(), data)
 	msg := &proto.PresenceMessage{
-		State: proto.PresenceLeave,
-		Message: proto.Message{
-			Data:     data,
-			ClientID: clientID,
-			Encoding: encoding,
-		},
+		State:    proto.PresenceLeave,
+		Data:     data,
+		ClientID: clientID,
+		Encoding: encoding,
 	}
 	return pres.send(msg)
 }
