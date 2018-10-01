@@ -74,7 +74,7 @@ func newPaginatedResult(typ reflect.Type, path string, params *PaginateParams,
 func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 	nextPath, ok := p.paginationHeaders()["next"]
 	if !ok {
-		return nil, newErrorf(ErrCodeNotFound, "no next page after %q", p.path)
+		return nil, newErrorf(ErrProtocolError, "no next page after %q", p.path)
 	}
 	nextPage := p.buildPath(p.path, nextPath)
 	return newPaginatedResult(p.typ, nextPage, nil, p.query, p.logger)
