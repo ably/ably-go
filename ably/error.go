@@ -72,7 +72,7 @@ func newErrorProto(err *proto.Error) *Error {
 		return nil
 	}
 	return &Error{
-		Code:       err.Code,
+		Code:       int(err.Code),
 		StatusCode: err.StatusCode,
 		Err:        errors.New(err.Message),
 	}
@@ -104,7 +104,7 @@ func checkValidHTTPResponse(resp *http.Response) error {
 		}
 	}
 	err := &Error{
-		Code:       body.Error.Code,
+		Code:       int(body.Error.Code),
 		StatusCode: body.Error.StatusCode,
 		Server:     body.Error.Server,
 	}
