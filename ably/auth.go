@@ -360,6 +360,10 @@ func (a *Auth) Timestamp(query bool) (time.Time, error) {
 		return now, nil
 	}
 	if a.serverTimeOffset != 0 {
+		// refers to rsa10k
+		//
+		// No need to do api call for time from the server. We are calculating it
+		// using the cached offset(duration) value.
 		return now.Add(a.serverTimeOffset), nil
 	}
 	var serverTime time.Time
