@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"encoding/base64"
 )
@@ -62,6 +63,14 @@ type Auth struct {
 	params   *TokenParams // save params to use with token renewal
 	host     string       // a host part of AuthURL
 	clientID string       // clientID of the authenticated user or wildcard "*"
+
+	serverTimeOffset time.Duration
+
+	// ServerTimeHandler when provided this will be used to query server time.
+	ServerTimeHandler func() (time.Time, error)
+
+	// This provides a function that returns the current time.
+	Now func() time.Time
 }
 
 func newAuth(client *RestClient) (*Auth, error) {
@@ -300,11 +309,33 @@ func (a *Auth) setDefaults(opts *AuthOptions, req *TokenRequest) error {
 	}
 	if req.Timestamp == 0 {
 		if opts.UseQueryTime {
-			t, err := a.client.Time()
-			if err != nil {
-				return newError(ErrUnauthorized, err)
+			var now time.Time
+			if a.Now != nil {
+				now = a.Now()
+			} else {
+				now = time.Now()
 			}
-			req.Timestamp = Time(t)
+			if a.serverTimeOffset != 0 {
+				req.Timestamp = Time(now.Add(a.serverTimeOffset))
+			} else {
+				var serverTime time.Time
+				if a.ServerTimeHandler != nil {
+					t, err := a.ServerTimeHandler()
+					if err != nil {
+						return newError(ErrUnauthorized, err)
+					}
+					serverTime = t
+				} else {
+					t, err := a.client.Time()
+					if err != nil {
+						return newError(ErrUnauthorized, err)
+					}
+					serverTime = t
+				}
+				a.serverTimeOffset = serverTime.Sub(now)
+				req.Timestamp = Time(serverTime)
+			}
+
 		} else {
 			req.Timestamp = TimeNow()
 		}
