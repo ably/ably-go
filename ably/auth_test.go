@@ -208,6 +208,79 @@ func TestAuth_Authorise(t *testing.T) {
 		t.Errorf("expected %s to contain %s", txt, msg)
 	}
 }
+func TestAuth_TimestampRSA10k(t *testing.T) {
+	t.Parallel()
+	now, err := time.Parse(time.RFC822, time.RFC822)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("must use local time when UseQueryTime is false", func(ts *testing.T) {
+		a := &ably.Auth{}
+		a.Now = func() time.Time {
+			return now
+		}
+		a.ServerTimeHandler = func() (time.Time, error) {
+			return now.Add(time.Minute), nil
+		}
+		stamp, err := a.Timestamp(false)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		if !stamp.Equal(now) {
+			ts.Errorf("expected %s got %s", now, stamp)
+		}
+	})
+	t.Run("must use server time when UseQueryTime is true", func(ts *testing.T) {
+		a := &ably.Auth{}
+		a.Now = func() time.Time {
+			return now
+		}
+		a.ServerTimeHandler = func() (time.Time, error) {
+			return now.Add(time.Minute), nil
+		}
+		stamp, err := a.Timestamp(true)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		serverTime := now.Add(time.Minute)
+		if !stamp.Equal(serverTime) {
+			ts.Errorf("expected %s got %s", serverTime, stamp)
+		}
+	})
+	t.Run("must use server time offset ", func(ts *testing.T) {
+		a := &ably.Auth{}
+		a.Now = func() time.Time {
+			return now
+		}
+		a.ServerTimeHandler = func() (time.Time, error) {
+			return now.Add(time.Minute), nil
+		}
+		stamp, err := a.Timestamp(true)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		serverTime := now.Add(time.Minute)
+		if !stamp.Equal(serverTime) {
+			ts.Errorf("expected %s got %s", serverTime, stamp)
+		}
+
+		a.Now = func() time.Time {
+			return now.Add(time.Minute)
+		}
+		a.ServerTimeHandler = func() (time.Time, error) {
+			return time.Time{}, errors.New("must not be called")
+		}
+		stamp, err = a.Timestamp(true)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		serverTime = now.Add(time.Minute * 2)
+		if !stamp.Equal(serverTime) {
+			ts.Errorf("expected %s got %s", serverTime, stamp)
+		}
+	})
+}
 
 func TestAuth_TokenAuth_Renew(t *testing.T) {
 	t.Parallel()
