@@ -339,8 +339,45 @@ func (a *Auth) setDefaults(opts *AuthOptions, req *TokenRequest) error {
 		} else {
 			req.Timestamp = TimeNow()
 		}
+		ts, err := a.Timestamp(opts.UseQueryTime)
+		if err != nil {
+			return err
+		}
+		req.Timestamp = Time(ts)
 	}
 	return nil
+}
+
+//Timestamp returns the timestamp to be used in authorization request.
+func (a *Auth) Timestamp(query bool) (time.Time, error) {
+	var now time.Time
+	if a.Now != nil {
+		now = a.Now()
+	} else {
+		now = time.Now()
+	}
+	if !query {
+		return now, nil
+	}
+	if a.serverTimeOffset != 0 {
+		return now.Add(a.serverTimeOffset), nil
+	}
+	var serverTime time.Time
+	if a.ServerTimeHandler != nil {
+		t, err := a.ServerTimeHandler()
+		if err != nil {
+			return time.Time{}, newError(ErrUnauthorized, err)
+		}
+		serverTime = t
+	} else {
+		t, err := a.client.Time()
+		if err != nil {
+			return time.Time{}, newError(ErrUnauthorized, err)
+		}
+		serverTime = t
+	}
+	a.serverTimeOffset = serverTime.Sub(now)
+	return serverTime, nil
 }
 
 func (a *Auth) requestAuthURL(params *TokenParams, opts *AuthOptions) (interface{}, error) {
