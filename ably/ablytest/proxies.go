@@ -18,10 +18,10 @@ var hopHeaders = map[string]struct{}{
 	"Keep-Alive":          {},
 	"Proxy-Authenticate":  {},
 	"Proxy-Authorization": {},
-	"Te":                {},
-	"Trailers":          {},
-	"Transfer-Encoding": {},
-	"Upgrade":           {},
+	"Te":                  {},
+	"Trailers":            {},
+	"Transfer-Encoding":   {},
+	"Upgrade":             {},
 }
 
 func NewTokenParams(query url.Values) *ably.TokenParams {
@@ -167,7 +167,7 @@ func (srv *AuthReverseProxy) handleAuth(responseType string, params *ably.TokenP
 		if len(srv.TokenQueue) != 0 {
 			tok, srv.TokenQueue = srv.TokenQueue[0], srv.TokenQueue[1:]
 		} else {
-			tok, err = srv.auth.Authorise(params, &ably.AuthOptions{Force: true})
+			tok, err = srv.auth.Authorize(params, &ably.AuthOptions{Force: true})
 			if err != nil {
 				return nil, "", err
 			}

@@ -214,18 +214,22 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 	return tok, tokReqClientID, nil
 }
 
-// Authorise
 func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
+	a.logger().Print(LogWarning, "Auth.Authorise is deprecated please use Auth.Authorize \n")
+	return a.Authorize(params, opts)
+}
+
+func (a *Auth) Authorize(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	force := a.opts().Force
 	if opts != nil && opts.Force {
 		force = true
 	}
-	return a.authorise(params, opts, force)
+	return a.authorize(params, opts, force)
 }
 
-func (a *Auth) authorise(params *TokenParams, opts *AuthOptions, force bool) (*TokenDetails, error) {
+func (a *Auth) authorize(params *TokenParams, opts *AuthOptions, force bool) (*TokenDetails, error) {
 	switch tok := a.token(); {
 	case tok != nil && !force && (tok.Expires == 0 || !tok.Expired()):
 		return tok, nil
@@ -258,7 +262,7 @@ func (a *Auth) authorise(params *TokenParams, opts *AuthOptions, force bool) (*T
 func (a *Auth) reauthorise() (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	return a.authorise(a.params, nil, true)
+	return a.authorize(a.params, nil, true)
 }
 
 func (a *Auth) mergeOpts(opts *AuthOptions) *AuthOptions {
@@ -367,7 +371,7 @@ func (a *Auth) authReq(req *http.Request) error {
 	case authBasic:
 		req.SetBasicAuth(a.opts().KeyName(), a.opts().KeySecret())
 	case authToken:
-		if _, err := a.authorise(a.params, nil, false); err != nil {
+		if _, err := a.authorize(a.params, nil, false); err != nil {
 			return err
 		}
 		encToken := base64.StdEncoding.EncodeToString([]byte(a.token().Token))
@@ -383,7 +387,7 @@ func (a *Auth) authQuery(query url.Values) error {
 	case authBasic:
 		query.Set("key", a.opts().Key)
 	case authToken:
-		if _, err := a.authorise(a.params, nil, false); err != nil {
+		if _, err := a.authorize(a.params, nil, false); err != nil {
 			return err
 		}
 		query.Set("access_token", a.token().Token)
