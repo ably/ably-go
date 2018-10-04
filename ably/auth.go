@@ -256,12 +256,12 @@ func (a *Auth) authorize(params *TokenParams, opts *AuthOptions, force bool) (*T
 	// Fail if the non-empty ClientID, that was set explicitely via ClientOptions, does
 	// not match the non-wildcard ClientID returned with the token.
 	if areClientIDsSet(a.clientID, tok.ClientID) && a.clientID != tok.ClientID {
-		return nil, newError(40012, errClientIDMismatch)
+		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
 	}
 	// Fail if non-empty ClientID requested by a TokenRequest
 	// does not match the non-wildcard ClientID that arrived with the token.
 	if areClientIDsSet(tokReqClientID, tok.ClientID) && tokReqClientID != tok.ClientID {
-		return nil, newError(40012, errClientIDMismatch)
+		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
 	}
 	a.method = authToken
 	a.opts().TokenDetails = tok
