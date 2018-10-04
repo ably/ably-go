@@ -214,11 +214,22 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 	return tok, tokReqClientID, nil
 }
 
+// Authorise performs authorization with ably service and returns the
+// authorization token details.
+//
+// This method is an alias to Auth.Authorize and it is DEPRECATED use
+// Auth.Authorize instead.
+//
+// Refers to RSA10l
 func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
 	a.logger().Print(LogWarning, "Auth.Authorise is deprecated please use Auth.Authorize \n")
 	return a.Authorize(params, opts)
 }
 
+// Authorize performs authorization with ably service and returns the
+// authorization token details.
+//
+// Refers to RSA10
 func (a *Auth) Authorize(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
