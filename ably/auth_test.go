@@ -134,7 +134,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 		t.Fatalf("authValue=%v", err)
 	}
 	rec.Reset()
-	tok, err := client.Auth.Authorise(nil, nil)
+	tok, err := client.Auth.Authorize(nil, nil)
 	if err != nil {
 		t.Fatalf("Authorise()=%v", err)
 	}
@@ -181,7 +181,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	params := &ably.TokenParams{
 		TTL: ably.Duration(time.Second),
 	}
-	tok, err := client.Auth.Authorise(params, &ably.AuthOptions{Force: true})
+	tok, err := client.Auth.Authorize(params, &ably.AuthOptions{Force: true})
 	if err != nil {
 		t.Fatalf("Authorise()=%v", err)
 	}
@@ -416,7 +416,7 @@ func TestAuth_ReuseClientID(t *testing.T) {
 	params := &ably.TokenParams{
 		ClientID: "reuse-me",
 	}
-	tok, err := client.Auth.Authorise(params, nil)
+	tok, err := client.Auth.Authorize(params, nil)
 	if err != nil {
 		t.Fatalf("Authorise()=%v", err)
 	}
@@ -429,7 +429,7 @@ func TestAuth_ReuseClientID(t *testing.T) {
 	force := &ably.AuthOptions{
 		Force: true,
 	}
-	tok2, err := client.Auth.Authorise(nil, force)
+	tok2, err := client.Auth.Authorize(nil, force)
 	if err != nil {
 		t.Fatalf("Authorise()=%v", err)
 	}
@@ -467,7 +467,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		opts := &ably.AuthOptions{
 			TokenDetails: tok,
 		}
-		if _, err = client.Auth.Authorise(params, opts); err != nil {
+		if _, err = client.Auth.Authorize(params, opts); err != nil {
 			t.Errorf("%d: Authorise()=%v", i, err)
 			continue
 		}
@@ -540,7 +540,7 @@ func TestAuth_ClientID(t *testing.T) {
 	}
 	proxy.TokenQueue = append(proxy.TokenQueue, tok)
 
-	tok, err = client.Auth.Authorise(nil, nil)
+	tok, err = client.Auth.Authorize(nil, nil)
 	if err != nil {
 		t.Fatalf("Authorise()=%v", err)
 	}
@@ -570,7 +570,7 @@ func TestAuth_ClientID(t *testing.T) {
 	force := &ably.AuthOptions{
 		Force: true,
 	}
-	_, err = client.Auth.Authorise(nil, force)
+	_, err = client.Auth.Authorize(nil, force)
 	if err := checkError(40012, err); err != nil {
 		t.Fatal(err)
 	}
