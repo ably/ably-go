@@ -270,7 +270,7 @@ func (a *Auth) authorize(params *TokenParams, opts *AuthOptions, force bool) (*T
 	return tok, nil
 }
 
-func (a *Auth) reauthorise() (*TokenDetails, error) {
+func (a *Auth) reauthorize() (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	return a.authorize(a.params, nil, true)
