@@ -168,7 +168,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 	case opts.AuthCallback != nil:
 		v, err := opts.AuthCallback(params)
 		if err != nil {
-			return nil, "", newError(40170, err)
+			return nil, "", newError(ErrErrorFromClientTokenCallback, err)
 		}
 		switch v := v.(type) {
 		case *TokenRequest:
@@ -179,7 +179,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 		case string:
 			return newTokenDetails(v), "", nil
 		default:
-			return nil, "", newError(40170, errInvalidCallbackType)
+			return nil, "", newError(ErrErrorFromClientTokenCallback, errInvalidCallbackType)
 		}
 	case opts.AuthURL != "":
 		res, err := a.requestAuthURL(params, opts)
@@ -331,10 +331,10 @@ func (a *Auth) requestAuthURL(params *TokenParams, opts *AuthOptions) (interface
 	}
 	resp, err := a.opts().httpclient().Do(req)
 	if err != nil {
-		return nil, a.newError(40170, err)
+		return nil, a.newError(ErrErrorFromClientTokenCallback, err)
 	}
 	if err = checkValidHTTPResponse(resp); err != nil {
-		return nil, a.newError(40170, err)
+		return nil, a.newError(ErrErrorFromClientTokenCallback, err)
 	}
 	defer resp.Body.Close()
 	typ, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
