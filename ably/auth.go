@@ -308,37 +308,6 @@ func (a *Auth) setDefaults(opts *AuthOptions, req *TokenRequest) error {
 		req.ClientID = a.opts().ClientID
 	}
 	if req.Timestamp == 0 {
-		if opts.UseQueryTime {
-			var now time.Time
-			if a.Now != nil {
-				now = a.Now()
-			} else {
-				now = time.Now()
-			}
-			if a.serverTimeOffset != 0 {
-				req.Timestamp = Time(now.Add(a.serverTimeOffset))
-			} else {
-				var serverTime time.Time
-				if a.ServerTimeHandler != nil {
-					t, err := a.ServerTimeHandler()
-					if err != nil {
-						return newError(ErrUnauthorized, err)
-					}
-					serverTime = t
-				} else {
-					t, err := a.client.Time()
-					if err != nil {
-						return newError(ErrUnauthorized, err)
-					}
-					serverTime = t
-				}
-				a.serverTimeOffset = serverTime.Sub(now)
-				req.Timestamp = Time(serverTime)
-			}
-
-		} else {
-			req.Timestamp = TimeNow()
-		}
 		ts, err := a.Timestamp(opts.UseQueryTime)
 		if err != nil {
 			return err
