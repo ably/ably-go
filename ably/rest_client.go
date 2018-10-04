@@ -298,7 +298,7 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 				if r.NoRenew || !c.Auth.isTokenRenewable() {
 					return nil, err
 				}
-				if _, err := c.Auth.reauthorise(); err != nil {
+				if _, err := c.Auth.reauthorize(); err != nil {
 					return nil, err
 				}
 				r.NoRenew = true
