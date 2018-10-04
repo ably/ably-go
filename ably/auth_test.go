@@ -136,13 +136,13 @@ func TestAuth_TokenAuth(t *testing.T) {
 	rec.Reset()
 	tok, err := client.Auth.Authorize(nil, nil)
 	if err != nil {
-		t.Fatalf("Authorise()=%v", err)
+		t.Fatalf("Authorize()=%v", err)
 	}
-	// Call to Authorise with force set to false should not refresh the token
+	// Call to Authorize with force set to false should not refresh the token
 	// and return existing one.
 	// The following ensures no token request was made.
 	if n := rec.Len(); n != 0 {
-		t.Fatalf("Authorise() did not return existing token; want rec.Len()=0; %d", n)
+		t.Fatalf("Authorize() did not return existing token; want rec.Len()=0; %d", n)
 	}
 	if auth != tok.Token {
 		t.Fatalf("want auth=%q; got %q", tok.Token, auth)
@@ -183,7 +183,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	}
 	tok, err := client.Auth.Authorize(params, &ably.AuthOptions{Force: true})
 	if err != nil {
-		t.Fatalf("Authorise()=%v", err)
+		t.Fatalf("Authorize()=%v", err)
 	}
 	if n := rec.Len(); n != 1 {
 		t.Fatalf("want rec.Len()=1; got %d", n)
@@ -198,8 +198,8 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	}
 	// Recorded responses:
 	//
-	//   - 0: response for explicit Authorise()
-	//   - 1: response for implicit Authorise() (token renewal)
+	//   - 0: response for explicit Authorize()
+	//   - 1: response for implicit Authorize() (token renewal)
 	//   - 2: response for Stats()
 	//
 	if n := rec.Len(); n != 3 {
@@ -418,7 +418,7 @@ func TestAuth_ReuseClientID(t *testing.T) {
 	}
 	tok, err := client.Auth.Authorize(params, nil)
 	if err != nil {
-		t.Fatalf("Authorise()=%v", err)
+		t.Fatalf("Authorize()=%v", err)
 	}
 	if tok.ClientID != params.ClientID {
 		t.Fatalf("want ClientID=%q; got %q", params.ClientID, tok.ClientID)
@@ -431,7 +431,7 @@ func TestAuth_ReuseClientID(t *testing.T) {
 	}
 	tok2, err := client.Auth.Authorize(nil, force)
 	if err != nil {
-		t.Fatalf("Authorise()=%v", err)
+		t.Fatalf("Authorize()=%v", err)
 	}
 	if tok2.ClientID != params.ClientID {
 		t.Fatalf("want ClientID=%q; got %q", params.ClientID, tok2.ClientID)
@@ -468,7 +468,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			TokenDetails: tok,
 		}
 		if _, err = client.Auth.Authorize(params, opts); err != nil {
-			t.Errorf("%d: Authorise()=%v", i, err)
+			t.Errorf("%d: Authorize()=%v", i, err)
 			continue
 		}
 		if id := client.Auth.ClientID(); id != cas.clientID {
@@ -542,7 +542,7 @@ func TestAuth_ClientID(t *testing.T) {
 
 	tok, err = client.Auth.Authorize(nil, nil)
 	if err != nil {
-		t.Fatalf("Authorise()=%v", err)
+		t.Fatalf("Authorize()=%v", err)
 	}
 	connected := &proto.ProtocolMessage{
 		Action:       proto.ActionConnected,
