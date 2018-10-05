@@ -1,23 +1,17 @@
 package ably_test
 
 import (
-	"github.com/ably/ably-go/ably"
+	"testing"
 
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	"github.com/ably/ably-go/ably"
 )
 
-var _ = Describe("PaginatedResult", func() {
-	var result *ably.PaginatedResult
-
-	Describe("BuildPath", func() {
-		BeforeEach(func() {
-			result = &ably.PaginatedResult{}
-		})
-
-		It("returns a string pointing to the new path based on the given path", func() {
-			newPath := result.BuildPath("/path/to/resource?hello", "./newresource?world")
-			Expect(newPath).To(Equal("/path/to/newresource?world"))
-		})
-	})
-})
+func TestPaginatedResult(t *testing.T) {
+	t.Parallel()
+	result := &ably.PaginatedResult{}
+	newPath := result.BuildPath("/path/to/resource?hello", "./newresource?world")
+	expected := "/path/to/newresource?world"
+	if newPath != expected {
+		t.Errorf("expected %s got %s", expected, newPath)
+	}
+}
