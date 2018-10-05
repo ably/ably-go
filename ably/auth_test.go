@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -168,6 +169,45 @@ func TestAuth_TokenAuth(t *testing.T) {
 		t.Fatal("want err != nil")
 	case ably.ErrorCode(err) != 40102:
 		t.Fatalf("want code=40102; got %d", ably.ErrorCode(err))
+	}
+}
+
+type bufferLogger struct {
+	buf bytes.Buffer
+}
+
+func (b *bufferLogger) Print(level ably.LogLevel, v ...interface{}) {
+	v = append([]interface{}{level}, v...)
+	fmt.Fprint(&b.buf, v...)
+}
+func (b *bufferLogger) Printf(level ably.LogLevel, str string, v ...interface{}) {}
+
+func TestAuth_Authorise(t *testing.T) {
+	t.Parallel()
+	rec, opts := recorder()
+	defer rec.Stop()
+	log := &bufferLogger{}
+	opts.UseTokenAuth = true
+	opts.Logger.Logger = log
+	opts.Logger.Level = ably.LogWarning
+	app, client := ablytest.NewRestClient(opts)
+	defer safeclose(t, app)
+
+	params := &ably.TokenParams{
+		TTL: ably.Duration(time.Second),
+	}
+	_, err := client.Auth.Authorise(params, &ably.AuthOptions{Force: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := "Auth.Authorise is deprecated"
+	txt := log.buf.String()
+
+	// make sure deprecation warning is logged
+	//
+	// Refers to RSA10L
+	if !strings.Contains(txt, msg) {
+		t.Errorf("expected %s to contain %s", txt, msg)
 	}
 }
 
