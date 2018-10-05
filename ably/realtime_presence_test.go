@@ -40,6 +40,7 @@ var fixtureMembers = []string{
 }
 
 func TestRealtimePresence_Sync(t *testing.T) {
+	t.Parallel()
 	app, client := ablytest.NewRealtimeClient(nil)
 	defer safeclose(t, client, app)
 
@@ -53,6 +54,7 @@ func TestRealtimePresence_Sync(t *testing.T) {
 }
 
 func TestRealtimePresence_Sync250(t *testing.T) {
+	t.Parallel()
 	app, client1 := ablytest.NewRealtimeClient(nil)
 	defer safeclose(t, client1, app)
 	client2 := app.NewRealtimeClient()
@@ -101,6 +103,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 }
 
 func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
+	t.Parallel()
 	presTransitions := []ably.StateEnum{
 		ably.StateConnConnecting,
 		ably.StateConnConnected,

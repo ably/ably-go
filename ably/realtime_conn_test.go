@@ -31,6 +31,7 @@ var connTransitions = []ably.StateEnum{
 }
 
 func TestRealtimeConn_Connect(t *testing.T) {
+	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, client, app)
@@ -50,6 +51,7 @@ func TestRealtimeConn_Connect(t *testing.T) {
 }
 
 func TestRealtimeConn_NoConnect(t *testing.T) {
+	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
 	opts := &ably.ClientOptions{
 		Listener:  rec.Channel(),
@@ -82,6 +84,7 @@ var connCloseTransitions = []ably.StateEnum{
 }
 
 func TestRealtimeConn_ConnectClose(t *testing.T) {
+	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, client, app)
@@ -102,6 +105,7 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 }
 
 func TestRealtimeConn_AlreadyConnected(t *testing.T) {
+	t.Parallel()
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
 	defer safeclose(t, client, app)
 
