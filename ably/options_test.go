@@ -2,148 +2,152 @@ package ably_test
 
 import (
 	"net/url"
+	"testing"
 
 	"github.com/ably/ably-go/ably"
-
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 )
 
-var _ = Describe("ClientOptions", func() {
-	var err error
+func TestClientOptions(t *testing.T) {
+	t.Parallel()
+	t.Run("parses it into a set of known parameters", func(ts *testing.T) {
+		options := ably.NewClientOptions("name:secret")
+		_, err := ably.NewRestClient(options)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		key := "name"
+		secret := "secret"
+		if options.KeyName() != key {
+			t.Errorf("expected %s got %s", key, options.KeyName())
+		}
+		if options.KeySecret() != secret {
+			t.Errorf("expected %s got %s", secret, options.KeySecret())
+		}
+	})
+	t.Run("must return error on invalid key", func(ts *testing.T) {
+		_, err := ably.NewRestClient(ably.NewClientOptions("invalid"))
+		if err == nil {
+			ts.Error("expected an error")
+		}
+	})
+}
 
-	Context("when Key is valid", func() {
-		var options *ably.ClientOptions
-
-		BeforeEach(func() {
-			options = ably.NewClientOptions("name:secret")
-			_, err = ably.NewRestClient(options)
-		})
-
-		It("parses it into a set of known parameters", func() {
-			Expect(err).NotTo(HaveOccurred())
-			Expect(options.KeyName()).To(Equal("name"))
-			Expect(options.KeySecret()).To(Equal("secret"))
-		})
+func TestScopeParams(t *testing.T) {
+	t.Parallel()
+	t.Run("must error when given invalid range", func(ts *testing.T) {
+		params := ably.ScopeParams{
+			Start: 123,
+			End:   122,
+		}
+		err := params.EncodeValues(nil)
+		if err == nil {
+			ts.Fatal("expected an error")
+		}
 	})
 
-	Context("when Key is invalid", func() {
-		BeforeEach(func() {
-			_, err = ably.NewRestClient(ably.NewClientOptions("invalid"))
-		})
-
-		It("returns an error", func() {
-			Expect(err).To(HaveOccurred())
-		})
+	t.Run("must set url values", func(ts *testing.T) {
+		params := ably.ScopeParams{
+			Start: 122,
+			End:   123,
+		}
+		u := make(url.Values)
+		err := params.EncodeValues(&u)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		start := u.Get("start")
+		end := u.Get("end")
+		if start != "122" {
+			t.Errorf("expected 122 got %s", start)
+		}
+		if end != "123" {
+			t.Errorf("expected 123 got %s", end)
+		}
 	})
-})
+}
 
-var _ = Describe("ScopeParams", func() {
-	var (
-		params ably.ScopeParams
-		values *url.Values
-	)
-
-	Describe("Values", func() {
-		BeforeEach(func() {
-			params = ably.ScopeParams{}
-		})
-
-		Context("with an invalid range", func() {
-			BeforeEach(func() {
-				params.Start = 123
-				params.End = 122
-			})
-
-			It("returns an error", func() {
-				err := params.EncodeValues(values)
-				Expect(err).To(HaveOccurred())
-			})
-		})
-	})
-})
-
-var _ = Describe("PaginateParams", func() {
-	var (
-		params ably.PaginateParams
-		values *url.Values
-	)
-
-	BeforeEach(func() {
-		values = &url.Values{}
-		params = ably.PaginateParams{}
+func TestPaginateParams(t *testing.T) {
+	t.Parallel()
+	t.Run("returns nil with no values", func(ts *testing.T) {
+		params := ably.PaginateParams{}
+		values := make(url.Values)
+		err := params.EncodeValues(&values)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		encode := values.Encode()
+		if encode != "" {
+			t.Errorf("expected empty string got %s", encode)
+		}
 	})
 
-	Describe("Values", func() {
-		It("returns nil with no values", func() {
-			params = ably.PaginateParams{}
-			err := params.EncodeValues(values)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values.Encode()).To(Equal(""))
-		})
-
-		It("returns the full params encoded", func() {
-			params = ably.PaginateParams{
-				Limit:     1,
-				Direction: "backwards",
-				ScopeParams: ably.ScopeParams{
-					Start: 123,
-					End:   124,
-					Unit:  "hello",
-				},
-			}
-			err := params.EncodeValues(values)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values.Encode()).To(Equal("direction=backwards&end=124&limit=1&start=123&unit=hello"))
-		})
-
-		Context("with values", func() {
-			BeforeEach(func() {
-				params = ably.PaginateParams{
-					Limit:     10,
-					Direction: "backwards",
-				}
-			})
-
-			It("does not return an error", func() {
-				err := params.EncodeValues(values)
-				Expect(err).NotTo(HaveOccurred())
-			})
-		})
-
-		Context("with a value for ScopeParams", func() {
-			BeforeEach(func() {
-				params.Start = 123
-			})
-
-			It("creates a valid url", func() {
-				err := params.EncodeValues(values)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(values.Get("start")).To(Equal("123"))
-			})
-		})
-
-		Context("with invalid value for direction", func() {
-			BeforeEach(func() {
-				params.Direction = "unknown"
-			})
-
-			It("resets the value to the default", func() {
-				err := params.EncodeValues(values)
-				Expect(err).To(HaveOccurred())
-			})
-		})
-
-		Context("with invalid value for limit", func() {
-			BeforeEach(func() {
-				params.Limit = -1
-			})
-
-			It("resets the value to the default", func() {
-				err := params.EncodeValues(values)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(values.Get("limit")).To(Equal("100"))
-			})
-		})
+	t.Run("returns the full params encoded", func(ts *testing.T) {
+		params := ably.PaginateParams{
+			Limit:     1,
+			Direction: "backwards",
+			ScopeParams: ably.ScopeParams{
+				Start: 123,
+				End:   124,
+				Unit:  "hello",
+			},
+		}
+		values := make(url.Values)
+		err := params.EncodeValues(&values)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		expect := "direction=backwards&end=124&limit=1&start=123&unit=hello"
+		got := values.Encode()
+		if got != expect {
+			t.Errorf("expected %s got %s", expect, got)
+		}
 	})
-})
+
+	t.Run("with value", func(ts *testing.T) {
+		params := ably.PaginateParams{
+			Limit:     10,
+			Direction: "backwards",
+		}
+		values := make(url.Values)
+		err := params.EncodeValues(&values)
+		if err != nil {
+			ts.Fatal(err)
+		}
+	})
+
+	t.Run("with a value for ScopeParams", func(ts *testing.T) {
+		values := make(url.Values)
+		params := ably.PaginateParams{}
+		params.Start = 123
+		err := params.EncodeValues(&values)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		start := values.Get("start")
+		if start != "123" {
+			ts.Errorf("expected 123 got %s", start)
+		}
+	})
+	t.Run("with invalid value for direction", func(ts *testing.T) {
+		values := make(url.Values)
+		params := ably.PaginateParams{}
+		params.Direction = "unknown"
+		err := params.EncodeValues(&values)
+		if err == nil {
+			ts.Fatal("expected an error")
+		}
+	})
+	t.Run("with invalid value for limit", func(ts *testing.T) {
+		values := make(url.Values)
+		params := ably.PaginateParams{}
+		params.Limit = -1
+		err := params.EncodeValues(&values)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		limit := values.Get("limit")
+		if limit != "100" {
+			t.Errorf("expected 100 got %s", limit)
+		}
+	})
+}
