@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/http/httptrace"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -16,9 +17,6 @@ import (
 	"github.com/ably/ably-go/ably/ablytest"
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
-
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
 )
 
 func newHTTPClientMock(srv *httptest.Server) *http.Client {
@@ -29,173 +27,183 @@ func newHTTPClientMock(srv *httptest.Server) *http.Client {
 	}
 }
 
-var _ = Describe("RestClient", func() {
-	var (
-		server *httptest.Server
-	)
-	Context("with a failing request", func() {
-		BeforeEach(func() {
-			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(404)
-				w.Header().Set("Content-Type", "application/json")
-				fmt.Fprintf(w, `{"message":"Not Found"}`)
-			}))
-
-			options := &ably.ClientOptions{NoTLS: true, HTTPClient: newHTTPClientMock(server)}
-
-			var err error
-			client, err = ably.NewRestClient(testApp.Options(options))
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Describe("encoding messages", func() {
-		var (
-			buffer   []byte
-			server   *httptest.Server
-			client   *ably.RestClient
-			mockType string
-			mockBody []byte
-			err      error
-		)
-
-		BeforeEach(func() {
-			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestRestClient(t *testing.T) {
+	t.Parallel()
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	t.Run("encoding messages", func(ts *testing.T) {
+		ts.Run("json", func(ts *testing.T) {
+			var buffer []byte
+			mockType := "application/json"
+			mockBody := []byte("{}")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var err error
 				buffer, err = ioutil.ReadAll(r.Body)
-				Expect(err).NotTo(HaveOccurred())
-
+				if err != nil {
+					ts.Fatal(err)
+				}
 				w.Header().Set("Content-Type", mockType)
 				w.WriteHeader(200)
 				w.Write(mockBody)
 			}))
+			options := &ably.ClientOptions{
+				NoTLS:            true,
+				NoBinaryProtocol: true,
+				HTTPClient:       newHTTPClientMock(server),
+				AuthOptions: ably.AuthOptions{
+					UseTokenAuth: true,
+				},
+			}
 
+			client, err := ably.NewRestClient(app.Options(options))
+			if err != nil {
+				ts.Fatal(err)
+			}
+			err = client.Channel("test").Publish("ping", "pong")
+			if err != nil {
+				ts.Fatal(err)
+			}
+			var anyJson []map[string]interface{}
+			err = json.Unmarshal(buffer, &anyJson)
+			if err != nil {
+				ts.Error(err)
+			}
 		})
-
-		Context("with JSON encoding set up", func() {
-			BeforeEach(func() {
-				options := &ably.ClientOptions{
-					NoTLS:            true,
-					NoBinaryProtocol: true,
-					HTTPClient:       newHTTPClientMock(server),
-					AuthOptions: ably.AuthOptions{
-						UseTokenAuth: true,
-					},
+		ts.Run("msgpack", func(ts *testing.T) {
+			var buffer []byte
+			mockType := "application/x-msgpack"
+			mockBody := []byte{0x80}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var err error
+				buffer, err = ioutil.ReadAll(r.Body)
+				if err != nil {
+					ts.Fatal(err)
 				}
+				w.Header().Set("Content-Type", mockType)
+				w.WriteHeader(200)
+				w.Write(mockBody)
+			}))
+			options := &ably.ClientOptions{
+				NoTLS:            true,
+				NoBinaryProtocol: true,
+				HTTPClient:       newHTTPClientMock(server),
+				AuthOptions: ably.AuthOptions{
+					UseTokenAuth: true,
+				},
+			}
+			options = app.Options(options)
+			options.NoBinaryProtocol = false
+			client, err := ably.NewRestClient(options)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			err = client.Channel("test").Publish("ping", "pong")
+			if err != nil {
+				ts.Fatal(err)
+			}
+			var anyMsgPack []map[string]interface{}
+			err = ablyutil.Unmarshal(buffer, &anyMsgPack)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			name := anyMsgPack[0]["name"].([]byte)
+			data := anyMsgPack[0]["data"].([]byte)
 
-				mockType = "application/json"
-				mockBody = []byte("{}")
-
-				client, err = ably.NewRestClient(testApp.Options(options))
-				Expect(err).NotTo(HaveOccurred())
-
-				err := client.Channel("test").Publish("ping", "pong")
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("encode the body of the message in JSON", func() {
-				var anyJson []map[string]interface{}
-				err := json.Unmarshal(buffer, &anyJson)
-				Expect(err).NotTo(HaveOccurred())
-			})
-		})
-
-		Context("with msgpack encoding set up", func() {
-			BeforeEach(func() {
-				options := &ably.ClientOptions{
-					NoTLS:      true,
-					HTTPClient: newHTTPClientMock(server),
-					AuthOptions: ably.AuthOptions{
-						UseTokenAuth: true,
-					},
-				}
-
-				mockType = "application/x-msgpack"
-				mockBody = []byte{0x80}
-
-				options = testApp.Options(options)
-				options.NoBinaryProtocol = false
-				client, err = ably.NewRestClient(options)
-				Expect(err).NotTo(HaveOccurred())
-
-				err := client.Channel("test").Publish("ping", "pong")
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("encode the body of the message using msgpack", func() {
-				var anyMsgPack []map[string]interface{}
-				err := ablyutil.Unmarshal(buffer, &anyMsgPack)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(anyMsgPack[0]["name"]).To(Equal([]byte("ping")))
-				Expect(anyMsgPack[0]["data"]).To(Equal([]byte("pong")))
-			})
+			expectName := "ping"
+			expectData := "pong"
+			if string(name) != expectName {
+				ts.Errorf("expected %s got %s", expectName, string(name))
+			}
+			if string(data) != expectData {
+				ts.Errorf("expected %s got %s", expectData, string(data))
+			}
 		})
 	})
 
-	Describe("Time", func() {
-		It("returns srv time", func() {
-			t, err := client.Time()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(t.Unix()).To(BeNumerically("<=", time.Now().Add(2*time.Second).Unix()))
-			Expect(t.Unix()).To(BeNumerically(">=", time.Now().Add(-2*time.Second).Unix()))
-		})
+	t.Run("Time", func(ts *testing.T) {
+		client, err := ably.NewRestClient(app.Options())
+		if err != nil {
+			ts.Fatal(err)
+		}
+		t, err := client.Time()
+		if err != nil {
+			ts.Fatal(err)
+		}
+		before := time.Now().Add(2 * time.Second).Unix()
+		after := time.Now().Add(-2 * time.Second).Unix()
+		n := t.Unix()
+		if n > before {
+			ts.Errorf("expected %d <= %d", n, before)
+		}
+		if n < after {
+			ts.Errorf("expected %d >= %d", n, before)
+		}
 	})
 
-	Describe("Stats", func() {
-		var lastInterval = time.Now().Add(-365 * 24 * time.Hour)
+	t.Run("Stats", func(ts *testing.T) {
+		client, err := ably.NewRestClient(app.Options())
+		if err != nil {
+			ts.Fatal(err)
+		}
+		lastInterval := time.Now().Add(-365 * 24 * time.Hour)
 		var stats []*proto.Stats
 
 		var jsonStats = `
-			[
-				{
-					"inbound":{"realtime":{"messages":{"count":50,"data":5000}}},
-					"outbound":{"realtime":{"messages":{"count":20,"data":2000}}}
-				},
-				{
-					"inbound":{"realtime":{"messages":{"count":60,"data":6000}}},
-					"outbound":{"realtime":{"messages":{"count":10,"data":1000}}}
-				},
-				{
-					"inbound":{"realtime":{"messages":{"count":70,"data":7000}}},
-					"outbound":{"realtime":{"messages":{"count":40,"data":4000}}},
-					"persisted":{"presence":{"count":20,"data":2000}},
-					"connections":{"tls":{"peak":20,"opened":10}},
-					"channels":{"peak":50,"opened":30},
-					"apiRequests":{"succeeded":50,"failed":10},
-					"tokenRequests":{"succeeded":60,"failed":20}
-				}
-			]
-		`
+		[
+			{
+				"inbound":{"realtime":{"messages":{"count":50,"data":5000}}},
+				"outbound":{"realtime":{"messages":{"count":20,"data":2000}}}
+			},
+			{
+				"inbound":{"realtime":{"messages":{"count":60,"data":6000}}},
+				"outbound":{"realtime":{"messages":{"count":10,"data":1000}}}
+			},
+			{
+				"inbound":{"realtime":{"messages":{"count":70,"data":7000}}},
+				"outbound":{"realtime":{"messages":{"count":40,"data":4000}}},
+				"persisted":{"presence":{"count":20,"data":2000}},
+				"connections":{"tls":{"peak":20,"opened":10}},
+				"channels":{"peak":50,"opened":30},
+				"apiRequests":{"succeeded":50,"failed":10},
+				"tokenRequests":{"succeeded":60,"failed":20}
+			}
+		]
+	`
+		err = json.Unmarshal([]byte(jsonStats), &stats)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		stats[0].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-120*time.Minute), proto.StatGranularityMinute)
+		stats[1].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-60*time.Minute), proto.StatGranularityMinute)
+		stats[2].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-1*time.Minute), proto.StatGranularityMinute)
 
-		BeforeEach(func() {
-			err := json.NewDecoder(strings.NewReader(jsonStats)).Decode(&stats)
-			Expect(err).NotTo(HaveOccurred())
+		res, err := client.Post("/stats", &stats, nil)
+		if err != nil {
+			ts.Error(err)
+		}
+		res.Body.Close()
 
-			stats[0].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-120*time.Minute), proto.StatGranularityMinute)
-			stats[1].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-60*time.Minute), proto.StatGranularityMinute)
-			stats[2].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-1*time.Minute), proto.StatGranularityMinute)
-
-			res, err := client.Post("/stats", &stats, nil)
-			Expect(err).NotTo(HaveOccurred())
-			res.Body.Close()
+		longAgo := lastInterval.Add(-120 * time.Minute)
+		page, err := client.Stats(&ably.PaginateParams{
+			Limit: 1,
+			ScopeParams: ably.ScopeParams{
+				Start: ably.Time(longAgo),
+				Unit:  proto.StatGranularityMinute,
+			},
 		})
-
-		It("parses stats from the rest api", func() {
-			longAgo := lastInterval.Add(-120 * time.Minute)
-			page, err := client.Stats(&ably.PaginateParams{
-				Limit: 1,
-				ScopeParams: ably.ScopeParams{
-					Start: ably.Time(longAgo),
-					Unit:  proto.StatGranularityMinute,
-				},
-			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(page.Stats()[0].IntervalID).To(MatchRegexp("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+"))
-		})
+		if err != nil {
+			ts.Fatal(err)
+		}
+		re := regexp.MustCompile("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+")
+		interval := page.Stats()[0].IntervalID
+		if !re.MatchString(interval) {
+			ts.Errorf("got %s which is wrong interval format", interval)
+		}
 	})
-})
+}
 
 func TestRSC7(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
