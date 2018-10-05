@@ -1,70 +1,101 @@
 package ably_test
 
 import (
+	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
-
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	"github.com/ably/ably-go/ably/ablytest"
 )
 
-var _ = Describe("Presence", func() {
-	Context("tested against presence fixture data set up in test app", func() {
-		var presence *ably.RestPresence
-		var channel *ably.RestChannel
+func TestChannel_Presence(t *testing.T) {
+	t.Parallel()
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	client, err := ably.NewRestClient(app.Options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	channel := client.Channel("persisted:presence_fixtures")
+	presence := channel.Presence
 
-		BeforeEach(func() {
-			channel = client.Channel("persisted:presence_fixtures")
-			presence = channel.Presence
-		})
+	t.Run("Get", func(ts *testing.T) {
+		page, err := presence.Get(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		n := len(page.PresenceMessages())
+		expect := len(app.Config.Channels[0].Presence)
+		if n != expect {
+			t.Errorf("expected %d got %d", expect, n)
+		}
 
-		Describe("Get", func() {
-			It("returns current members on the channel", func() {
-				page, err := presence.Get(nil)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(page.PresenceMessages())).To(Equal(len(testApp.Config.Channels[0].Presence)))
-			})
+		ts.Run("With limit option", func(ts *testing.T) {
+			limit := 2
+			page1, err := presence.Get(&ably.PaginateParams{Limit: limit})
+			if err != nil {
+				ts.Fatal(err)
+			}
+			n := len(page1.PresenceMessages())
+			if n != limit {
+				t.Errorf("expected %d messages got %d", limit, n)
+			}
+			n = len(page1.Items())
+			if n != limit {
+				t.Errorf("expected %d items got %d", limit, n)
+			}
 
-			Context("with a limit option", func() {
-				It("returns a paginated response", func() {
-					page1, err := presence.Get(&ably.PaginateParams{Limit: 2})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(page1.PresenceMessages())).To(Equal(2))
-					Expect(len(page1.Items())).To(Equal(2))
+			page2, err := page1.Next()
+			if err != nil {
+				ts.Fatal(err)
+			}
+			n = len(page2.PresenceMessages())
+			if n != limit {
+				t.Errorf("expected %d messages got %d", limit, n)
+			}
+			n = len(page2.Items())
+			if n != limit {
+				t.Errorf("expected %d items got %d", limit, n)
+			}
 
-					page2, err := page1.Next()
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(page2.PresenceMessages())).To(Equal(2))
-					Expect(len(page2.Items())).To(Equal(2))
-
-					_, err = page2.Next()
-					Expect(err).To(HaveOccurred())
-				})
-			})
-		})
-
-		Describe("History", func() {
-			It("returns a list of presence messages", func() {
-				page, err := presence.History(nil)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(page.PresenceMessages())).To(Equal(len(testApp.Config.Channels[0].Presence)))
-			})
-
-			Context("with start and end time", func() {
-				It("can return older items from a certain date given a start / end timestamp", func() {
-					params := &ably.PaginateParams{
-						ScopeParams: ably.ScopeParams{
-							Start: ably.Time(time.Now().Add(-24 * time.Hour)),
-							End:   ably.Time(time.Now()),
-						},
-					}
-					page, err := presence.History(params)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(page.PresenceMessages())).To(Equal(len(testApp.Config.Channels[0].Presence)))
-				})
-			})
-
+			_, err = page2.Next()
+			if err == nil {
+				ts.Fatal("expected an error")
+			}
 		})
 	})
-})
+
+	t.Run("History", func(ts *testing.T) {
+		page, err := presence.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		n := len(page.PresenceMessages())
+		expect := len(app.Config.Channels[0].Presence)
+		if n != expect {
+			t.Errorf("expected %d got %d", expect, n)
+		}
+
+		ts.Run("with start and end time", func(ts *testing.T) {
+			params := &ably.PaginateParams{
+				ScopeParams: ably.ScopeParams{
+					Start: ably.Time(time.Now().Add(-24 * time.Hour)),
+					End:   ably.Time(time.Now()),
+				},
+			}
+			page, err := presence.History(params)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			n := len(page.PresenceMessages())
+			expect := len(app.Config.Channels[0].Presence)
+			if n != expect {
+				t.Errorf("expected %d got %d", expect, n)
+			}
+		})
+	})
+
+}
