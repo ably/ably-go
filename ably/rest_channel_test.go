@@ -1,79 +1,103 @@
 package ably_test
 
 import (
-	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/proto"
+	"testing"
 
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/ginkgo"
-	. "github.com/ably/ably-go/Godeps/_workspace/src/github.com/onsi/gomega"
+	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/proto"
 )
 
-var _ = Describe("RestChannel", func() {
-	const (
-		event   = "sendMessage"
-		message = "A message in a bottle"
-	)
+func TestRestChannel(t *testing.T) {
+	t.Parallel()
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	client, err := ably.NewRestClient(app.Options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	channel := client.Channel("test_rest_channel")
+	event := "sendMessage"
+	message := "A message in a bottle"
 
-	Describe("publishing a message", func() {
-		It("does not raise an error", func() {
-			err := channel.Publish(event, message)
-			Expect(err).NotTo(HaveOccurred())
-		})
+	t.Run("publishing a message", func(ts *testing.T) {
+		err := channel.Publish(event, message)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		page, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
 
-		It("is available in the history", func() {
-			page, err := channel.History(nil)
-			Expect(err).NotTo(HaveOccurred())
+		messages := page.Messages()
+		if len(messages) == 0 {
+			ts.Fatal("expected more messages")
+		}
+		if messages[0].Name != event {
+			ts.Errorf("expected %s got %s", event, messages[0].Name)
+		}
 
-			messages := page.Messages()
-			Expect(len(messages)).NotTo(Equal(0))
-			Expect(messages[0].Name).To(Equal(event))
-			Expect(messages[0].Data).To(Equal(message))
-		})
+		if messages[0].Data != message {
+			ts.Errorf("expected %s got %s", message, messages[0].Data)
+		}
+		if messages[0].Encoding != proto.UTF8 {
+			ts.Errorf("expected %s got %s", proto.UTF8, messages[0].Encoding)
+		}
 	})
 
-	Describe("History", func() {
-		var historyRestChannel *ably.RestChannel
+	t.Run("History", func(ts *testing.T) {
+		historyRestChannel := client.Channel("channelhistory")
 
-		BeforeEach(func() {
-			historyRestChannel = client.Channel("channelhistory")
+		for i := 0; i < 2; i++ {
+			historyRestChannel.Publish("breakingnews", "Another Shark attack!!")
+		}
 
-			for i := 0; i < 2; i++ {
-				historyRestChannel.Publish("breakingnews", "Another Shark attack!!")
-			}
-		})
+		page1, err := historyRestChannel.History(&ably.PaginateParams{Limit: 1})
+		if err != nil {
+			ts.Fatal(err)
+		}
+		if len(page1.Messages()) != 1 {
+			ts.Errorf("expected 1 message got %d", len(page1.Messages()))
+		}
+		if len(page1.Items()) != 1 {
+			ts.Errorf("expected 1 item got %d", len(page1.Items()))
+		}
 
-		It("returns a paginated result", func() {
-			page1, err := historyRestChannel.History(&ably.PaginateParams{Limit: 1})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(page1.Messages())).To(Equal(1))
-			Expect(len(page1.Items())).To(Equal(1))
-
-			page2, err := page1.Next()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(page2.Messages())).To(Equal(1))
-			Expect(len(page2.Items())).To(Equal(1))
-		})
+		page2, err := page1.Next()
+		if err != nil {
+			ts.Fatal(err)
+		}
+		if len(page2.Messages()) != 1 {
+			ts.Errorf("expected 1 message got %d", len(page2.Messages()))
+		}
+		if len(page2.Items()) != 1 {
+			ts.Errorf("expected 1 item got %d", len(page2.Items()))
+		}
 	})
 
-	Describe("PublishAll", func() {
-		var encodingRestChannel *ably.RestChannel
-
-		BeforeEach(func() {
-			encodingRestChannel = client.Channel("this?is#an?encoding#channel")
-		})
-
-		It("allows to send multiple messages at once", func() {
-			messages := []*proto.Message{
-				{Name: "send", Data: "test data 1"},
-				{Name: "send", Data: "test data 2"},
-			}
-			err := encodingRestChannel.PublishAll(messages)
-			Expect(err).NotTo(HaveOccurred())
-
-			page, err := encodingRestChannel.History(&ably.PaginateParams{Limit: 2})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(page.Messages())).To(Equal(2))
-			Expect(len(page.Items())).To(Equal(2))
-		})
+	t.Run("PublishAll", func(ts *testing.T) {
+		encodingRestChannel := client.Channel("this?is#an?encoding#channel")
+		messages := []*proto.Message{
+			{Name: "send", Data: "test data 1"},
+			{Name: "send", Data: "test data 2"},
+		}
+		err := encodingRestChannel.PublishAll(messages)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		page, err := encodingRestChannel.History(&ably.PaginateParams{Limit: 2})
+		if err != nil {
+			ts.Fatal(err)
+		}
+		if len(page.Messages()) != 2 {
+			ts.Errorf("expected 2 messages got %d", len(page.Messages()))
+		}
+		if len(page.Items()) != 2 {
+			ts.Errorf("expected 2 items got %d", len(page.Items()))
+		}
 	})
-})
+}
