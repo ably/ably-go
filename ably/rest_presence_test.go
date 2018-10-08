@@ -30,7 +30,7 @@ func TestChannel_Presence(t *testing.T) {
 		n := len(page.PresenceMessages())
 		expect := len(app.Config.Channels[0].Presence)
 		if n != expect {
-			t.Errorf("expected %d got %d", expect, n)
+			ts.Errorf("expected %d got %d", expect, n)
 		}
 
 		ts.Run("With limit option", func(ts *testing.T) {
@@ -41,11 +41,11 @@ func TestChannel_Presence(t *testing.T) {
 			}
 			n := len(page1.PresenceMessages())
 			if n != limit {
-				t.Errorf("expected %d messages got %d", limit, n)
+				ts.Errorf("expected %d messages got %d", limit, n)
 			}
 			n = len(page1.Items())
 			if n != limit {
-				t.Errorf("expected %d items got %d", limit, n)
+				ts.Errorf("expected %d items got %d", limit, n)
 			}
 
 			page2, err := page1.Next()
@@ -54,11 +54,11 @@ func TestChannel_Presence(t *testing.T) {
 			}
 			n = len(page2.PresenceMessages())
 			if n != limit {
-				t.Errorf("expected %d messages got %d", limit, n)
+				ts.Errorf("expected %d messages got %d", limit, n)
 			}
 			n = len(page2.Items())
 			if n != limit {
-				t.Errorf("expected %d items got %d", limit, n)
+				ts.Errorf("expected %d items got %d", limit, n)
 			}
 
 			_, err = page2.Next()
@@ -76,7 +76,7 @@ func TestChannel_Presence(t *testing.T) {
 		n := len(page.PresenceMessages())
 		expect := len(app.Config.Channels[0].Presence)
 		if n != expect {
-			t.Errorf("expected %d got %d", expect, n)
+			ts.Errorf("expected %d got %d", expect, n)
 		}
 
 		ts.Run("with start and end time", func(ts *testing.T) {
@@ -93,7 +93,7 @@ func TestChannel_Presence(t *testing.T) {
 			n := len(page.PresenceMessages())
 			expect := len(app.Config.Channels[0].Presence)
 			if n != expect {
-				t.Errorf("expected %d got %d", expect, n)
+				ts.Errorf("expected %d got %d", expect, n)
 			}
 		})
 	})
