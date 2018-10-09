@@ -159,15 +159,6 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if err := timeWithin(tok.ExpireTime(), beforeAuth, now); err != nil {
 		t.Fatal(err)
 	}
-	// Can't use token auth with missing token parameters.
-	opts = app.Options(opts)
-	opts.Key = ""
-	switch _, err := ably.NewRestClient(opts); {
-	case err == nil:
-		t.Fatal("want err != nil")
-	case ably.ErrorCode(err) != 40102:
-		t.Fatalf("want code=40102; got %d", ably.ErrorCode(err))
-	}
 }
 
 type bufferLogger struct {
@@ -801,6 +792,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 		NoConnect: true,
 		Dial:      rec.Dial,
 	}
+	opts.UseTokenAuth = true
 	app, client := ablytest.NewRealtimeClient(opts)
 	defer safeclose(t, app)
 
