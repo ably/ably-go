@@ -460,23 +460,18 @@ func (a *Auth) logger() *LoggerOptions {
 }
 
 func detectAuthMethod(opts *ClientOptions) (int, error) {
-	useTokenAuth := opts.UseTokenAuth || opts.ClientID != ""
 	isKeyValid := opts.KeyName() != "" && opts.KeySecret() != ""
 	isAuthExternal := opts.externalTokenAuthSupported()
-	switch {
-	case !isAuthExternal && !useTokenAuth:
-		if !isKeyValid {
-			return 0, newError(40005, errInvalidKey)
-		}
-		if opts.NoTLS {
-			return 0, newError(40103, errInsecureBasicAuth)
-		}
-		return authBasic, nil
-	case isAuthExternal || isKeyValid:
+	if opts.UseTokenAuth || isAuthExternal {
 		return authToken, nil
-	default:
-		return 0, newError(40102, errMissingTokenOpts)
 	}
+	if !isKeyValid {
+		return 0, newError(40005, errInvalidKey)
+	}
+	if opts.NoTLS {
+		return 0, newError(40103, errInsecureBasicAuth)
+	}
+	return authBasic, nil
 }
 
 func areClientIDsSet(clientIDs ...string) bool {
