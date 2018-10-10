@@ -6,8 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 type CryptoData struct {
@@ -17,8 +15,8 @@ type CryptoData struct {
 	Key       string `json:"key"`
 	IV        string `json:"iv"`
 	Items     []struct {
-		Encoded   proto.Message `json:"encoded"`
-		Encrypted proto.Message `json:"encrypted"`
+		Encoded   map[string]interface{} `json:"encoded"`
+		Encrypted map[string]interface{} `json:"encrypted"`
 	} `json:"items"`
 }
 
