@@ -44,9 +44,8 @@ func newRestChannel(name string, client *RestClient) *RestChannel {
 }
 
 func (c *RestChannel) Publish(name string, data interface{}) error {
-	encoding := proto.ValueEncoding(c.client.opts.protocol(), data)
 	messages := []*proto.Message{
-		{Name: name, Data: data, Encoding: encoding},
+		{Name: name, Data: data},
 	}
 	return c.PublishAll(messages)
 }
@@ -55,39 +54,12 @@ func (c *RestChannel) Publish(name string, data interface{}) error {
 // This is the more efficient way of transmitting a batch of messages
 // using the Rest API.
 func (c *RestChannel) PublishAll(messages []*proto.Message) error {
-	for _, v := range messages {
-		e := v.Encoding
-		if c.options != nil {
-			a, err := c.options.GetCipher()
-			if err != nil {
-				return err
-			}
-			if e != "" {
-				e += "/"
-			}
-			e += a.GetAlgorithm() + "/" + proto.Base64
+	if c.options != nil {
+		for _, v := range messages {
+			v.ChannelOptions = c.options
 		}
-		err := v.EncodeData(e, c.options)
-		if err != nil {
-			return err
-		}
-		if v.Data != nil {
-			// Before the data field is marshalled, we need to make sure it is encoded in
-			// the right format before going over the wire.
-			encoding := proto.ValueEncoding(c.client.opts.protocol(), v.Data)
-			if encoding != "" && encoding != e {
-				stash := v.Encoding
-				// We don't pass options here because encryption must have already taken
-				// place by now.
-				err = v.EncodeData(encoding, nil)
-				if err != nil {
-					return err
-				}
-				v.Encoding = stash + "/" + encoding
-			}
-		}
-
 	}
+
 	res, err := c.client.post(c.baseURL+"/messages", messages, nil)
 	if err != nil {
 		return err
@@ -103,16 +75,6 @@ func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) 
 	rst, err := newPaginatedResult(msgType, path, params, query(c.client.get), c.logger())
 	if err != nil {
 		return nil, err
-	}
-	if c.options != nil {
-		if v, ok := rst.typItems.([]*proto.Message); ok {
-			for _, msg := range v {
-				err := msg.DecodeData(c.options)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
 	}
 	return rst, nil
 }
