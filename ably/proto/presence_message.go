@@ -31,6 +31,14 @@ func (m PresenceMessage) MarshalJSON() ([]byte, error) {
 	return json.Marshal(ctx)
 }
 
+func (m *PresenceMessage) UnmarshalJSON(data []byte) error {
+	var ctx map[string]interface{}
+	if err := json.Unmarshal(data, &ctx); err != nil {
+		return err
+	}
+	return m.FromMap(ctx)
+}
+
 func (m PresenceMessage) CodecEncodeSelf(encoder *codec.Encoder) {
 	e, err := m.encode()
 	if err != nil {
@@ -51,9 +59,11 @@ func (m *PresenceMessage) CodecDecodeSelf(decoder *codec.Decoder) {
 }
 
 func (m *PresenceMessage) fromMap(ctx map[string]interface{}) error {
-	if err := m.Message.FromMap(ctx); err != nil {
+	msg := &Message{}
+	if err := msg.FromMap(ctx); err != nil {
 		return err
 	}
+	m.Message = *msg
 	if v, ok := ctx["action"]; ok {
 		m.State = PresenceState(v.(int64))
 	}
