@@ -12,7 +12,7 @@ type Error struct {
 
 func (e *Error) FromMap(ctx map[string]interface{}) {
 	if v, ok := ctx["statusCode"]; ok {
-		e.StatusCode = int(coerceInt64(v))
+		e.StatusCode = coerceInt(v)
 	}
 	if v, ok := ctx["code"]; ok {
 		e.Code = coerceInt(v)
