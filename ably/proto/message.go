@@ -33,6 +33,9 @@ type Message struct {
 }
 
 func (m *Message) maybeJSONEncode() error {
+	if m.Data == nil {
+		return nil
+	}
 	switch m.Data.(type) {
 	case json.Marshaler:
 		bs, err := m.Data.(json.Marshaler).MarshalJSON()
@@ -83,7 +86,7 @@ func (m Message) encode() (Message, error) {
 		if m.HasCipher() {
 			m.Encoding = mergeEncoding(m.Encoding, UTF8)
 		}
-	case []byte:
+	case []byte, nil:
 		// ok
 	default:
 		return Message{}, errors.New("unsupported payload type")
@@ -143,7 +146,7 @@ func coerceBytes(i interface{}) ([]byte, error) {
 	}
 }
 
-func (m Message) toMap() map[string]interface{} {
+func (m Message) ToMap() map[string]interface{} {
 	ctx := make(map[string]interface{})
 	if m.ID != "" {
 		ctx["id"] = m.ID
@@ -178,7 +181,7 @@ func (m Message) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(e.toMap())
+	return json.Marshal(e.ToMap())
 }
 
 func (m *Message) UnmarshalJSON(data []byte) error {
@@ -194,7 +197,7 @@ func (m Message) CodecEncodeSelf(encoder *codec.Encoder) {
 	if err != nil {
 		panic(err)
 	}
-	encoder.MustEncode(e.toMap())
+	encoder.MustEncode(e.ToMap())
 }
 
 // CodecDecodeSelf implements codec.Selfer interface for msgpack decoding.
