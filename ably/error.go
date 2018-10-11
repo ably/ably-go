@@ -72,7 +72,7 @@ func newErrorProto(err *proto.Error) *Error {
 		return nil
 	}
 	return &Error{
-		Code:       int(err.Code),
+		Code:       err.Code,
 		StatusCode: err.StatusCode,
 		Err:        errors.New(err.Message),
 	}
