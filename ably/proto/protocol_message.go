@@ -1,6 +1,9 @@
 package proto
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 const (
 	FlagPresence Flag = iota + 1
@@ -22,6 +25,53 @@ type ConnectionDetails struct {
 	ConnectionStateTTL int64  `json:"connectionStateTtl,omitempty" codec:"connectionStateTtl,omitempty"`
 }
 
+func (c *ConnectionDetails) FromMap(ctx map[string]interface{}) {
+	if v, ok := ctx["clientId"]; ok {
+		c.ClientID = v.(string)
+	}
+	if v, ok := ctx["connectionKey"]; ok {
+		c.ConnectionKey = v.(string)
+	}
+	if v, ok := ctx["maxMessageSize"]; ok {
+		c.MaxMessageSize = coerceInt64(v)
+	}
+	if v, ok := ctx["maxFrameSize"]; ok {
+		c.MaxFrameSize = coerceInt64(v)
+	}
+	if v, ok := ctx["maxInboundRate"]; ok {
+		c.MaxInboundRate = coerceInt64(v)
+	}
+	if v, ok := ctx["connectionStateTtl"]; ok {
+		c.ConnectionStateTTL = coerceInt64(v)
+	}
+}
+
+func coerceInt8(v interface{}) int8 {
+	switch e := v.(type) {
+	case float64:
+		return int8(e)
+	default:
+		return v.(int8)
+	}
+}
+
+func coerceInt(v interface{}) int {
+	switch e := v.(type) {
+	case float64:
+		return int(e)
+	default:
+		return v.(int)
+	}
+}
+func coerceInt64(v interface{}) int64 {
+	switch e := v.(type) {
+	case float64:
+		return int64(e)
+	default:
+		return v.(int64)
+	}
+}
+
 type ProtocolMessage struct {
 	Messages          []*Message         `json:"messages,omitempty" codec:"messages,omitempty"`
 	Presence          []*PresenceMessage `json:"presence,omitempty" codec:"presence,omitempty"`
@@ -39,6 +89,81 @@ type ProtocolMessage struct {
 	Count             int                `json:"count,omitempty" codec:"count,omitempty"`
 	Action            Action             `json:"action,omitempty" codec:"action,omitempty"`
 	Flags             Flag               `json:"flags,omitempty" codec:"flags,omitempty"`
+}
+
+func (p *ProtocolMessage) UnmarshalJSON(b []byte) error {
+	ctx := make(map[string]interface{})
+	err := json.Unmarshal(b, &ctx)
+	if err != nil {
+		return err
+	}
+	p.FromMap(ctx)
+	return nil
+}
+
+func (p *ProtocolMessage) FromMap(ctx map[string]interface{}) {
+	if v, ok := ctx["messages"]; ok {
+		i := v.([]interface{})
+		for _, v := range i {
+			msg := &Message{}
+			msg.FromMap(v.(map[string]interface{}))
+			p.Messages = append(p.Messages, msg)
+		}
+	}
+	if v, ok := ctx["presence"]; ok {
+		i := v.([]interface{})
+		for _, v := range i {
+			msg := &PresenceMessage{}
+			msg.FromMap(v.(map[string]interface{}))
+			p.Presence = append(p.Presence, msg)
+		}
+	}
+	if v, ok := ctx["id"]; ok {
+		p.ID = v.(string)
+	}
+	if v, ok := ctx["applicationId"]; ok {
+		p.ApplicationID = v.(string)
+	}
+	if v, ok := ctx["connectionId"]; ok {
+		p.ConnectionID = v.(string)
+	}
+	if v, ok := ctx["connectionKey"]; ok {
+		p.ConnectionKey = v.(string)
+	}
+	if v, ok := ctx["channel"]; ok {
+		p.Channel = v.(string)
+	}
+	if v, ok := ctx["channelSerial"]; ok {
+		p.ChannelSerial = v.(string)
+	}
+	if v, ok := ctx["connectionDetails"]; ok {
+		c := &ConnectionDetails{}
+		c.FromMap(v.(map[string]interface{}))
+		p.ConnectionDetails = c
+	}
+	if v, ok := ctx["error"]; ok {
+		c := &Error{}
+		c.FromMap(v.(map[string]interface{}))
+		p.Error = c
+	}
+	if v, ok := ctx["msgSerial"]; ok {
+		p.MsgSerial = coerceInt64(v)
+	}
+	if v, ok := ctx["connectionSerial"]; ok {
+		p.ConnectionSerial = coerceInt64(v)
+	}
+	if v, ok := ctx["timestamp"]; ok {
+		p.Timestamp = coerceInt64(v)
+	}
+	if v, ok := ctx["count"]; ok {
+		p.Count = int(coerceInt64(v))
+	}
+	if v, ok := ctx["action"]; ok {
+		p.Action = Action(coerceInt8(v))
+	}
+	if v, ok := ctx["flags"]; ok {
+		p.Flags = Flag(coerceInt64(v))
+	}
 }
 
 func (msg *ProtocolMessage) String() string {
