@@ -182,7 +182,7 @@ func TestRestChannel(t *testing.T) {
 			if v.Name != e.event {
 				t.Errorf("expected %s got %s", e.event, v.Name)
 			}
-			if reflect.DeepEqual(v.Data, e.message) {
+			if !reflect.DeepEqual(v.Data, e.message) {
 				t.Errorf("expected %s got %v", e.message, v.Data)
 			}
 		}

@@ -167,7 +167,7 @@ func (c *RestClient) Time() (time.Time, error) {
 // The returned result can be inspected for the statistics via the Stats()
 // method.
 func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
-	return newPaginatedResult(statType, "/stats", params, query(c.get), c.logger())
+	return newPaginatedResult(nil, statType, "/stats", params, query(c.get), c.logger())
 }
 
 // Request this contains fields necessary to compose http request that will be

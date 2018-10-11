@@ -32,11 +32,6 @@ type Message struct {
 	*ChannelOptions `json:"-" codec:"-"`
 }
 
-func (m Message) WithOpts(o *ChannelOptions) *Message {
-	m.ChannelOptions = o
-	return &m
-}
-
 func (m *Message) maybeJSONEncode() error {
 	switch m.Data.(type) {
 	case json.Marshaler:
@@ -284,7 +279,12 @@ func (m Message) Decrypt() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cipher.Decrypt(d)
+	v, err := cipher.Decrypt(d)
+	if err != nil {
+		fmt.Println("decrypting ", m.Encoding, len(d), len(string(d)))
+		return nil, err
+	}
+	return v, nil
 }
 
 func (m Message) decode() (Message, error) {
