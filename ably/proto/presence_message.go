@@ -26,7 +26,7 @@ func (m PresenceMessage) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx := e.toMap()
+	ctx := e.ToMap()
 	ctx["action"] = m.State
 	return json.Marshal(ctx)
 }
@@ -45,7 +45,7 @@ func (m PresenceMessage) CodecEncodeSelf(encoder *codec.Encoder) {
 	if err != nil {
 		panic(err)
 	}
-	ctx := e.toMap()
+	ctx := e.ToMap()
 	ctx["action"] = m.State
 	encoder.MustEncode(ctx)
 }
@@ -54,18 +54,24 @@ func (m PresenceMessage) CodecEncodeSelf(encoder *codec.Encoder) {
 func (m *PresenceMessage) CodecDecodeSelf(decoder *codec.Decoder) {
 	ctx := make(map[string]interface{})
 	decoder.MustDecode(&ctx)
-	if err := m.fromMap(ctx); err != nil {
+	if err := m.FromMap(ctx); err != nil {
 		panic(err)
 	}
 }
 
-func (m *PresenceMessage) fromMap(ctx map[string]interface{}) error {
+func (m *PresenceMessage) FromMap(ctx map[string]interface{}) error {
 	msg := &m.Message
 	if err := msg.FromMap(ctx); err != nil {
 		return err
 	}
 	if v, ok := ctx["action"]; ok {
-		m.State = PresenceState(v.(int64))
+		m.State = PresenceState(coerceInt64(v))
 	}
 	return nil
+}
+
+func (m PresenceMessage) ToMap() map[string]interface{} {
+	ctx := m.Message.ToMap()
+	ctx["action"] = m.State
+	return ctx
 }
