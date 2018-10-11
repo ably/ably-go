@@ -104,7 +104,7 @@ func checkValidHTTPResponse(resp *http.Response) error {
 		}
 	}
 	err := &Error{
-		Code:       int(body.Error.Code),
+		Code:       body.Error.Code,
 		StatusCode: body.Error.StatusCode,
 		Server:     body.Error.Server,
 	}
