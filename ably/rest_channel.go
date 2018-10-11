@@ -72,7 +72,7 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 // method.
 func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
 	path := c.baseURL + "/history"
-	rst, err := newPaginatedResult(msgType, path, params, query(c.client.get), c.logger())
+	rst, err := newPaginatedResult(c.options, msgType, path, params, query(c.client.get), c.logger())
 	if err != nil {
 		return nil, err
 	}
