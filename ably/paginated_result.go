@@ -62,8 +62,8 @@ func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path strin
 	defer resp.Body.Close()
 	p.path = builtPath
 	p.links = resp.Header["Link"]
-	v := reflect.New(p.typ)
-	if _, ok := v.Interface().(*[]*proto.Message); ok {
+	switch p.typ {
+	case msgType:
 		var o []map[string]interface{}
 		err = decodeResp(resp, &o)
 		if err != nil {
@@ -82,12 +82,35 @@ func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path strin
 		}
 		p.typItems = rs
 		return p, nil
+	case presMsgType:
+		var o []map[string]interface{}
+		err = decodeResp(resp, &o)
+		if err != nil {
+			return nil, err
+		}
+		rs := make([]*proto.PresenceMessage, len(o))
+		for k, v := range o {
+			m := &proto.PresenceMessage{
+				Message: proto.Message{
+					ChannelOptions: opts,
+				},
+			}
+			err = m.FromMap(v)
+			if err != nil {
+				return nil, err
+			}
+			rs[k] = m
+		}
+		p.typItems = rs
+		return p, nil
+	default:
+		v := reflect.New(p.typ)
+		if err := decodeResp(resp, v.Interface()); err != nil {
+			return nil, err
+		}
+		p.typItems = v.Elem().Interface()
+		return p, nil
 	}
-	if err := decodeResp(resp, v.Interface()); err != nil {
-		return nil, err
-	}
-	p.typItems = v.Elem().Interface()
-	return p, nil
 }
 
 // Next returns the path to the next page as found in the response headers.

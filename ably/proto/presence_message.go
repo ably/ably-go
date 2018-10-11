@@ -39,6 +39,7 @@ func (m *PresenceMessage) UnmarshalJSON(data []byte) error {
 	return m.FromMap(ctx)
 }
 
+// CodecEncodeSelf encodes PresenceMessage into a msgpack format.
 func (m PresenceMessage) CodecEncodeSelf(encoder *codec.Encoder) {
 	e, err := m.encode()
 	if err != nil {
@@ -59,11 +60,10 @@ func (m *PresenceMessage) CodecDecodeSelf(decoder *codec.Decoder) {
 }
 
 func (m *PresenceMessage) fromMap(ctx map[string]interface{}) error {
-	msg := &Message{}
+	msg := &m.Message
 	if err := msg.FromMap(ctx); err != nil {
 		return err
 	}
-	m.Message = *msg
 	if v, ok := ctx["action"]; ok {
 		m.State = PresenceState(v.(int64))
 	}
