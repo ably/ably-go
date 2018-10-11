@@ -77,6 +77,9 @@ func (m Message) HasCipher() bool {
 }
 
 func (m Message) encode() (Message, error) {
+	if m.Data == nil {
+		return m, nil
+	}
 	err := m.maybeJSONEncode()
 	if err != nil {
 		return m, err
@@ -86,7 +89,7 @@ func (m Message) encode() (Message, error) {
 		if m.HasCipher() {
 			m.Encoding = mergeEncoding(m.Encoding, UTF8)
 		}
-	case []byte, nil:
+	case []byte:
 		// ok
 	default:
 		return Message{}, errors.New("unsupported payload type")
