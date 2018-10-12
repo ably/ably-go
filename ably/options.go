@@ -118,6 +118,9 @@ type AuthOptions struct {
 	// be used to sign the TokenRequest instread of using local time.
 	UseQueryTime bool
 
+	// Spec: TO3j11
+	DefaultTokenParams *TokenParams
+
 	// UseTokenAuth makes the Rest and Realtime clients always use token
 	// authentication method.
 	UseTokenAuth bool
@@ -166,13 +169,14 @@ type ClientOptions struct {
 
 	RestHost                string // optional; overwrite endpoint hostname for REST client
 	FallbackHostsUseDefault bool
-	FallbackHosts           []string
-	RealtimeHost            string        // optional; overwrite endpoint hostname for Realtime client
-	Environment             string        // optional; prefixes both hostname with the environment string
-	ClientID                string        // optional; required for managing realtime presence of the current client
-	Recover                 string        // optional; used to recover client state
-	Logger                  LoggerOptions // optional; overwrite logging defaults
-	TransportParams         map[string]string
+
+	FallbackHosts   []string
+	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
+	Environment     string        // optional; prefixes both hostname with the environment string
+	ClientID        string        // optional; required for managing realtime presence of the current client
+	Recover         string        // optional; used to recover client state
+	Logger          LoggerOptions // optional; overwrite logging defaults
+	TransportParams map[string]string
 
 	// max number of fallback hosts to use as a fallback.
 	HTTPMaxRetryCount int
