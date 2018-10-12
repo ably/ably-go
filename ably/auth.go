@@ -29,6 +29,8 @@ var (
 	errClientIDMismatch    = errors.New("the received ClientID does not match the requested one")
 )
 
+const wildcardClientID = "*"
+
 // addParams copies each params from rhs to lhs and returns lhs.
 //
 // If param from rhs exists in lhs, it's omitted.
@@ -92,11 +94,15 @@ func newAuth(client *RestClient) (*Auth, error) {
 	if a.opts().Token != "" {
 		a.opts().TokenDetails = newTokenDetails(a.opts().Token)
 	}
-	a.clientID = a.opts().ClientID
-	if a.clientID == "*" {
-		// References RSA7c
-		return nil, newError(40102, errWildcardClientID)
+	if a.opts().ClientID != "" {
+		if a.opts().ClientID == wildcardClientID {
+			// References RSA7c
+			return nil, newError(40102, errWildcardClientID)
+		}
+		// References RSC17
+		a.clientID = a.opts().ClientID
 	}
+
 	return a, nil
 }
 
@@ -104,7 +110,7 @@ func newAuth(client *RestClient) (*Auth, error) {
 func (a *Auth) ClientID() string {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	if a.clientID != "*" {
+	if a.clientID != wildcardClientID {
 		return a.clientID
 	}
 	return ""
@@ -114,7 +120,7 @@ func (a *Auth) clientIDForCheck() string {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	if a.method == authBasic {
-		return "*" // for Basic Auth no ClientID check is performed
+		return wildcardClientID // for Basic Auth no ClientID check is performed
 	}
 	return a.clientID
 }
@@ -122,7 +128,7 @@ func (a *Auth) clientIDForCheck() string {
 func (a *Auth) updateClientID(clientID string) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	if clientID != "*" && clientID != "" {
+	if clientID != "" && clientID != wildcardClientID {
 		a.clientID = clientID
 	}
 }
@@ -478,7 +484,7 @@ func detectAuthMethod(opts *ClientOptions) (int, error) {
 func areClientIDsSet(clientIDs ...string) bool {
 	for _, s := range clientIDs {
 		switch s {
-		case "", "*":
+		case "", wildcardClientID:
 			return false
 		}
 	}
@@ -486,5 +492,5 @@ func areClientIDsSet(clientIDs ...string) bool {
 }
 
 func isClientIDAllowed(clientID, msgClientID string) bool {
-	return clientID == "*" || msgClientID == "" || clientID == msgClientID
+	return clientID == wildcardClientID || msgClientID == "" || clientID == msgClientID
 }
