@@ -94,6 +94,7 @@ func newAuth(client *RestClient) (*Auth, error) {
 	}
 	a.clientID = a.opts().ClientID
 	if a.clientID == "*" {
+		// References RSA7c
 		return nil, newError(40102, errWildcardClientID)
 	}
 	return a, nil
