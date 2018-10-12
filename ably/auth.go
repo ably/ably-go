@@ -282,7 +282,7 @@ func (a *Auth) authorize(params *TokenParams, opts *AuthOptions, force bool) (*T
 	a.method = authToken
 	a.opts().TokenDetails = tok
 	a.params = params
-	a.clientID = tok.ClientID
+	a.clientID = tok.ClientID // Spec RSA7b2
 	return tok, nil
 }
 
