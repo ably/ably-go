@@ -107,6 +107,10 @@ func (c *Conn) connect(result bool) (Result, error) {
 	if c.opts.NoBinaryProtocol {
 		query.Set("format", "json")
 	}
+	if c.opts.ClientID != "" && c.auth.method == authBasic {
+		// References RSA7e1
+		query.Set("clientId", c.opts.ClientID)
+	}
 	for k, v := range c.opts.TransportParams {
 		query.Set(k, v)
 	}
