@@ -1,16 +1,19 @@
 # Changelog
 
+## [v0.8.1](https://github.com/ably/ably-go/tree/v0.8.1) (2018-10-12)
+[Full Changelog](https://github.com/ably/ably-go/compare/v0.8.0-beta.1...v0.8.1)
+
+**Fixed bugs:**
+
+- Client appears to be leaking TCP connections/file descriptors  [\#89](https://github.com/ably/ably-go/issues/89)
+- Library not sending X-Ably-Lib header \(RSC7b\) [\#69](https://github.com/ably/ably-go/issues/69)
+
 ## [v0.8.0-beta.1](https://github.com/ably/ably-go/tree/v0.8.0-beta.1) (2018-09-05)
 [Full Changelog](https://github.com/ably/ably-go/compare/v0.8.0-beta.0...v0.8.0-beta.1)
 
 **Implemented enhancements:**
 
 - Contribution instructions out of date [\#62](https://github.com/ably/ably-go/issues/62)
-- Update section about contributing [\#63](https://github.com/ably/ably-go/pull/63) ([ORBAT](https://github.com/ORBAT))
-
-**Merged pull requests:**
-
-- use constants for message encoding strings [\#77](https://github.com/ably/ably-go/pull/77) ([gernest](https://github.com/gernest))
 
 ## [v0.8.0-beta.0](https://github.com/ably/ably-go/tree/v0.8.0-beta.0) (2017-08-26)
 **Implemented enhancements:**
