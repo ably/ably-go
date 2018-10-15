@@ -99,7 +99,7 @@ func newAuth(client *RestClient) (*Auth, error) {
 			// References RSA7c
 			return nil, newError(40102, errWildcardClientID)
 		}
-		// References RSC17
+		// References RSC17, RSA7b1
 		a.clientID = a.opts().ClientID
 	}
 
@@ -128,7 +128,8 @@ func (a *Auth) clientIDForCheck() string {
 func (a *Auth) updateClientID(clientID string) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	if clientID != "" && clientID != wildcardClientID {
+	if a.clientID == "" {
+		//Spec RSA7b3, RSA7b4, RSA12a,RSA12b, RSA7b2,
 		a.clientID = clientID
 	}
 }

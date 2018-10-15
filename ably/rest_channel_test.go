@@ -492,3 +492,46 @@ func TestIdempotent_retry(t *testing.T) {
 		})
 	})
 }
+
+func TestRSL1f1(t *testing.T) {
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	opts := app.Options()
+	// RSL1f
+	opts.UseTokenAuth = false
+	client, err := ably.NewRestClient(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	channel := client.Channels.Get("RSL1f", nil)
+	id := "any_client_id"
+	var msgs []*proto.Message
+	size := 10
+	for i := 0; i < size; i++ {
+		msgs = append(msgs, &proto.Message{
+			ClientID: id,
+			Data:     fmt.Sprint(i),
+		})
+	}
+	err = channel.PublishAll(msgs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := channel.History(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := res.Messages()
+	n := len(m)
+	if n != size {
+		t.Errorf("expected %d messages got %d", size, n)
+	}
+	for _, v := range m {
+		if v.ClientID != id {
+			t.Errorf("expected clientId %s got %s data:%v", id, v.ClientID, v.Data)
+		}
+	}
+}

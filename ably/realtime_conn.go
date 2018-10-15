@@ -369,13 +369,8 @@ func (c *Conn) eventloop() {
 			c.id = msg.ConnectionID
 			if msg.ConnectionDetails != nil {
 				c.details = *msg.ConnectionDetails
-				if c.details.ClientID != "" {
-					//Spec RSA7b3, RSA7b4
-					c.auth.updateClientID(c.details.ClientID)
-				} else {
-					// Spec RSA12a
-					c.auth.updateClientID("")
-				}
+				// Spec RSA7b3, RSA7b4, RSA12a
+				c.auth.updateClientID(c.details.ClientID)
 			}
 			c.serial = -1
 			c.msgSerial = 0
