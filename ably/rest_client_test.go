@@ -62,7 +62,7 @@ func TestRestClient(t *testing.T) {
 			if err != nil {
 				ts.Fatal(err)
 			}
-			err = client.Channel("test").Publish("ping", "pong")
+			err = client.Channels.Get("test", nil).Publish("ping", "pong")
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -100,7 +100,7 @@ func TestRestClient(t *testing.T) {
 			if err != nil {
 				ts.Fatal(err)
 			}
-			err = client.Channel("test").Publish("ping", "pong")
+			err = client.Channels.Get("test", nil).Publish("ping", "pong")
 			if err != nil {
 				ts.Fatal(err)
 			}
