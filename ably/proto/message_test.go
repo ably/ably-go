@@ -41,7 +41,7 @@ func TestMessage(t *testing.T) {
 		decoded     interface{}
 	}{
 		{
-			desc: "with a json/utf-8 encoding RSL4d3 mad data",
+			desc: "with a json encoding RSL4d3 map data",
 			data: map[string]interface{}{
 				"string": proto.UTF8,
 			},
@@ -51,7 +51,7 @@ func TestMessage(t *testing.T) {
 			encodedJSON: `{"data":"{\"string\":\"utf-8\"}","encoding":"json"}`,
 		},
 		{
-			desc: "with a json/utf-8 encoding RSL4d3 array data",
+			desc: "with a json encoding RSL4d3 array data",
 			data: []int64{1, 2, 3},
 			decoded: []interface{}{
 				float64(1.0),
@@ -61,13 +61,13 @@ func TestMessage(t *testing.T) {
 			encodedJSON: `{"data":"[1,2,3]","encoding":"json"}`,
 		},
 		{
-			desc:        "with a json/utf-8 encoding RSL4d3 json.Marshaler data",
+			desc:        "with a json encoding RSL4d3 json.Marshaler data",
 			data:        custom{},
 			encodedJSON: `{"data":"\"custom\"","encoding":"json"}`,
 			decoded:     "custom",
 		},
 		{
-			desc:        "with a json/utf-8 encoding RSL4d3 binary data",
+			desc:        "with a base64 encoding RSL4d3 binary data",
 			data:        []byte(proto.Base64),
 			decoded:     []byte(proto.Base64),
 			encodedJSON: `{"data":"YmFzZTY0","encoding":"base64"}`,
