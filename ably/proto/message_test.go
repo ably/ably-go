@@ -37,7 +37,6 @@ func TestMessage(t *testing.T) {
 		desc        string
 		data        interface{}
 		opts        *proto.ChannelOptions
-		json        bool
 		encodedJSON string
 		decoded     interface{}
 	}{
@@ -49,7 +48,6 @@ func TestMessage(t *testing.T) {
 			decoded: map[string]interface{}{
 				"string": proto.UTF8,
 			},
-			json:        true,
 			encodedJSON: `{"data":"{\"string\":\"utf-8\"}","encoding":"json"}`,
 		},
 		{
@@ -60,13 +58,11 @@ func TestMessage(t *testing.T) {
 				float64(2.0),
 				float64(3.0),
 			},
-			json:        true,
 			encodedJSON: `{"data":"[1,2,3]","encoding":"json"}`,
 		},
 		{
 			desc:        "with a json/utf-8 encoding RSL4d3 json.Marshaler data",
 			data:        custom{},
-			json:        true,
 			encodedJSON: `{"data":"\"custom\"","encoding":"json"}`,
 			decoded:     "custom",
 		},
@@ -74,7 +70,6 @@ func TestMessage(t *testing.T) {
 			desc:        "with a json/utf-8 encoding RSL4d3 binary data",
 			data:        []byte(proto.Base64),
 			decoded:     []byte(proto.Base64),
-			json:        true,
 			encodedJSON: `{"data":"YmFzZTY0","encoding":"base64"}`,
 		},
 		{
@@ -85,43 +80,37 @@ func TestMessage(t *testing.T) {
 			decoded: map[string]interface{}{
 				"string": `The quick brown fox jumped over the lazy dog`,
 			},
-			json:        true,
 			opts:        opts,
 			encodedJSON: `{"data":"HO4cYSP8LybPYBPZPHQOtlT0v5P4AF9H1o0CEftPkErqe+ebUOoIPB9eMrSy092XGb9jaq3PdU2qLwz1lRqtEuUMgX8zDmtkTkweJEpE81Y=","encoding":"json/utf-8/cipher+aes-128-cbc/base64"}`,
 		},
 	}
 
 	for _, v := range sample {
-		if v.json {
-			t.Run("json", func(ts *testing.T) {
-				ts.Run(v.desc, func(ts *testing.T) {
-					msg := &proto.Message{
-						Data:           v.data,
-						ChannelOptions: v.opts,
-					}
-					b, err := json.Marshal(msg)
-					if err != nil {
-						ts.Fatal(err)
-					}
-					got := string(b)
-					if got != v.encodedJSON {
-						ts.Errorf("expected %s got %s", v.encodedJSON, got)
-					}
+		t.Run(v.desc, func(ts *testing.T) {
+			msg := &proto.Message{
+				Data:           v.data,
+				ChannelOptions: v.opts,
+			}
+			b, err := json.Marshal(msg)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			got := string(b)
+			if got != v.encodedJSON {
+				ts.Errorf("expected %s got %s", v.encodedJSON, got)
+			}
 
-					decoded := &proto.Message{
-						ChannelOptions: v.opts,
-					}
-					err = decoded.UnmarshalJSON(b)
-					if err != nil {
-						ts.Fatal(err)
-					}
-					if !reflect.DeepEqual(decoded.Data, v.decoded) {
-						ts.Errorf("expected %#v got %v", v.decoded, decoded.Data)
-					}
-				})
-			})
-		}
-
+			decoded := &proto.Message{
+				ChannelOptions: v.opts,
+			}
+			err = decoded.UnmarshalJSON(b)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			if !reflect.DeepEqual(decoded.Data, v.decoded) {
+				ts.Errorf("expected %#v got %v", v.decoded, decoded.Data)
+			}
+		})
 	}
 }
 
