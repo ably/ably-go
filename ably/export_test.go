@@ -60,3 +60,11 @@ func (ch *Channels) GetAndAttach(name string) *RealtimeChannel {
 func (a *Auth) Timestamp(query bool) (time.Time, error) {
 	return a.timestamp(query)
 }
+
+func (a *Auth) SetNowFunc(now func() time.Time) {
+	a.now = now
+}
+
+func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
+	a.serverTimeHandler = st
+}
