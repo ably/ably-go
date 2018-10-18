@@ -97,7 +97,7 @@ func newAuth(client *RestClient) (*Auth, error) {
 	if a.opts().ClientID != "" {
 		if a.opts().ClientID == wildcardClientID {
 			// References RSA7c
-			return nil, newError(40102, errWildcardClientID)
+			return nil, newError(ErrIncompatibleCredentials, errWildcardClientID)
 		}
 		// References RSC17, RSA7b1
 		a.clientID = a.opts().ClientID
