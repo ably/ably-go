@@ -494,6 +494,7 @@ func TestIdempotent_retry(t *testing.T) {
 }
 
 func TestRSL1f1(t *testing.T) {
+	t.Parallel()
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
