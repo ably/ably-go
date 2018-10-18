@@ -1,6 +1,9 @@
 package ably
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 func (p *PaginatedResult) BuildPath(base, rel string) string {
 	return p.buildPath(base, rel)
@@ -52,4 +55,8 @@ func (ch *Channels) GetAndAttach(name string) *RealtimeChannel {
 		panic(`attach to "` + name + `" failed: ` + err.Error())
 	}
 	return channel
+}
+
+func (a *Auth) Timestamp(query bool) (time.Time, error) {
+	return a.timestamp(query)
 }
