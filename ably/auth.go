@@ -67,10 +67,10 @@ type Auth struct {
 	serverTimeOffset time.Duration
 
 	// ServerTimeHandler when provided this will be used to query server time.
-	ServerTimeHandler func() (time.Time, error)
+	serverTimeHandler func() (time.Time, error)
 
 	// This provides a function that returns the current time.
-	Now func() time.Time
+	now func() time.Time
 }
 
 func newAuth(client *RestClient) (*Auth, error) {
@@ -320,8 +320,8 @@ func (a *Auth) setDefaults(opts *AuthOptions, req *TokenRequest) error {
 //Timestamp returns the timestamp to be used in authorization request.
 func (a *Auth) timestamp(query bool) (time.Time, error) {
 	var now time.Time
-	if a.Now != nil {
-		now = a.Now()
+	if a.now != nil {
+		now = a.now()
 	} else {
 		now = time.Now()
 	}
@@ -336,8 +336,8 @@ func (a *Auth) timestamp(query bool) (time.Time, error) {
 		return now.Add(a.serverTimeOffset), nil
 	}
 	var serverTime time.Time
-	if a.ServerTimeHandler != nil {
-		t, err := a.ServerTimeHandler()
+	if a.serverTimeHandler != nil {
+		t, err := a.serverTimeHandler()
 		if err != nil {
 			return time.Time{}, newError(ErrUnauthorized, err)
 		}

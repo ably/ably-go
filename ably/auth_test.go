@@ -217,12 +217,12 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 
 	t.Run("must use local time when UseQueryTime is false", func(ts *testing.T) {
 		a := &ably.Auth{}
-		a.Now = func() time.Time {
+		a.SetNowFunc(func() time.Time {
 			return now
-		}
-		a.ServerTimeHandler = func() (time.Time, error) {
+		})
+		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
-		}
+		})
 		stamp, err := a.Timestamp(false)
 		if err != nil {
 			ts.Fatal(err)
@@ -233,12 +233,12 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 	})
 	t.Run("must use server time when UseQueryTime is true", func(ts *testing.T) {
 		a := &ably.Auth{}
-		a.Now = func() time.Time {
+		a.SetNowFunc(func() time.Time {
 			return now
-		}
-		a.ServerTimeHandler = func() (time.Time, error) {
+		})
+		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
-		}
+		})
 		stamp, err := a.Timestamp(true)
 		if err != nil {
 			ts.Fatal(err)
@@ -250,12 +250,12 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 	})
 	t.Run("must use server time offset ", func(ts *testing.T) {
 		a := &ably.Auth{}
-		a.Now = func() time.Time {
+		a.SetNowFunc(func() time.Time {
 			return now
-		}
-		a.ServerTimeHandler = func() (time.Time, error) {
+		})
+		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
-		}
+		})
 		stamp, err := a.Timestamp(true)
 		if err != nil {
 			ts.Fatal(err)
@@ -265,12 +265,12 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 			ts.Errorf("expected %s got %s", serverTime, stamp)
 		}
 
-		a.Now = func() time.Time {
+		a.SetNowFunc(func() time.Time {
 			return now.Add(time.Minute)
-		}
-		a.ServerTimeHandler = func() (time.Time, error) {
+		})
+		a.SetServerTimeFunc(func() (time.Time, error) {
 			return time.Time{}, errors.New("must not be called")
-		}
+		})
 		stamp, err = a.Timestamp(true)
 		if err != nil {
 			ts.Fatal(err)
