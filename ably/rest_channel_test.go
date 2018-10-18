@@ -536,3 +536,44 @@ func TestRSL1f1(t *testing.T) {
 		}
 	}
 }
+
+func TestRSL1g(t *testing.T) {
+	t.Parallel()
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	opts := app.Options()
+	opts.UseTokenAuth = true
+	clientID := "some_client_id"
+	opts.ClientID = clientID
+	client, err := ably.NewRestClient(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("RSL1g1b", func(ts *testing.T) {
+		channel := client.Channels.Get("RSL1g1b", nil)
+		err := channel.PublishAll([]*proto.Message{
+			{Name: "some 1"},
+			{Name: "some 2"},
+			{Name: "some 3"},
+		})
+		if err != nil {
+			ts.Fatal(err)
+		}
+		pages, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		msg := pages.Messages()
+		if len(msg) != 3 {
+			ts.Fatalf("expected 3 messages got %d", len(msg))
+		}
+		for _, m := range msg {
+			if m.ClientID != clientID {
+				ts.Errorf("expected %s got %s", clientID, m.ClientID)
+			}
+		}
+	})
+}
