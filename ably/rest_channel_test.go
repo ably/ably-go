@@ -576,4 +576,39 @@ func TestRSL1g(t *testing.T) {
 			}
 		}
 	})
+	t.Run("RSL1g2", func(ts *testing.T) {
+		channel := client.Channels.Get("RSL1g2", nil)
+		err := channel.PublishAll([]*proto.Message{
+			{Name: "1", ClientID: clientID},
+			{Name: "2", ClientID: clientID},
+			{Name: "3", ClientID: clientID},
+		})
+		if err != nil {
+			ts.Fatal(err)
+		}
+		pages, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		msg := pages.Messages()
+		if len(msg) != 3 {
+			ts.Fatalf("expected 3 messages got %d", len(msg))
+		}
+		for _, m := range msg {
+			if m.ClientID != clientID {
+				ts.Errorf("expected %s got %s", clientID, m.ClientID)
+			}
+		}
+	})
+	t.Run("RSL1g3", func(ts *testing.T) {
+		channel := client.Channels.Get("RSL1g3", nil)
+		err := channel.PublishAll([]*proto.Message{
+			{Name: "1", ClientID: clientID},
+			{Name: "2", ClientID: "other client"},
+			{Name: "3", ClientID: clientID},
+		})
+		if err == nil {
+			ts.Fatal("expected an error")
+		}
+	})
 }

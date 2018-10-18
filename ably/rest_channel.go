@@ -93,7 +93,6 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 			}
 		}
 	}
-
 	res, err := c.client.post(c.baseURL+"/messages", messages, nil)
 	if err != nil {
 		return err
