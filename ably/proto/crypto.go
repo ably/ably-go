@@ -126,6 +126,22 @@ func NewCBCCipher(opts CipherParams) (*CBCCipher, error) {
 	}, nil
 }
 
+// GenerateRandomKey returns a random key. ketLength is optional if provided it
+// should be  in bits, it defaults to DefaultKeyLength when not provided.
+//
+// Spec RSE2, RSE2a, RSE2b.
+func GenerateRandomKey(keyLength ...int) ([]byte, error) {
+	length := DefaultKeyLength
+	if len(keyLength) > 0 {
+		length = keyLength[0]
+	}
+	key := make([]byte, length/8)
+	if _, err := io.ReadFull(rand.Reader, key); err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
 // DefaultCipherParams returns CipherParams with fields set to default values.
 // This generates random secret key and iv values
 func DefaultCipherParams() (*CipherParams, error) {
