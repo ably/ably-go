@@ -82,7 +82,7 @@ type ProtocolMessage struct {
 	Channel           string             `json:"channel,omitempty" codec:"channel,omitempty"`
 	ChannelSerial     string             `json:"channelSerial,omitempty" codec:"channelSerial,omitempty"`
 	ConnectionDetails *ConnectionDetails `json:"connectionDetails,omitempty" codec:"connectionDetails,omitempty"`
-	Error             *Error             `json:"error,omitempty" codec:"error,omitempty"`
+	Error             *ErrorInfo         `json:"error,omitempty" codec:"error,omitempty"`
 	MsgSerial         int64              `json:"msgSerial,omitempty" codec:"msgSerial,omitempty"`
 	ConnectionSerial  int64              `json:"connectionSerial,omitempty" codec:"connectionSerial,omitempty"`
 	Timestamp         int64              `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
@@ -142,7 +142,7 @@ func (p *ProtocolMessage) FromMap(ctx map[string]interface{}) {
 		p.ConnectionDetails = c
 	}
 	if v, ok := ctx["error"]; ok {
-		c := &Error{}
+		c := &ErrorInfo{}
 		c.FromMap(v.(map[string]interface{}))
 		p.Error = c
 	}
