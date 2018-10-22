@@ -2,8 +2,8 @@ package proto
 
 import "fmt"
 
-// Error describes an error returned via ProtocolMessage.
-type Error struct {
+// ErrorInfo describes an error returned via ProtocolMessage.
+type ErrorInfo struct {
 	StatusCode int    `json:"statusCode,omitempty" codec:"statusCode,omitempty"`
 	Code       int    `json:"code,omitempty" codec:"code,omitempty"`
 	HRef       string `json:"href,omitempty" codec:"href,omitempty"` //spec TI4
@@ -11,7 +11,7 @@ type Error struct {
 	Server     string `json:"serverId,omitempty" codec:"serverId,omitempty"`
 }
 
-func (e *Error) FromMap(ctx map[string]interface{}) {
+func (e *ErrorInfo) FromMap(ctx map[string]interface{}) {
 	if v, ok := ctx["statusCode"]; ok {
 		e.StatusCode = coerceInt(v)
 	}
@@ -30,6 +30,6 @@ func (e *Error) FromMap(ctx map[string]interface{}) {
 }
 
 // Error implements the builtin error interface.
-func (e *Error) Error() string {
+func (e *ErrorInfo) Error() string {
 	return fmt.Sprintf("%s (status=%d, internal=%d)", e.Message, e.StatusCode, e.Code)
 }
