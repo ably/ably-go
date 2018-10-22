@@ -126,7 +126,7 @@ func NewCBCCipher(opts CipherParams) (*CBCCipher, error) {
 	}, nil
 }
 
-// GenerateRandomKey returns a random key. ketLength is optional if provided it
+// GenerateRandomKey returns a random key. keyLength is optional if provided it
 // should be  in bits, it defaults to DefaultKeyLength when not provided.
 //
 // Spec RSE2, RSE2a, RSE2b.
