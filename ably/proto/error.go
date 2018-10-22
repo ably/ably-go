@@ -46,5 +46,6 @@ func (e *ErrorInfo) Error() string {
 		// spec TI5
 		fmt.Fprintf(&buf, ": See https://help.ably.io/error/%d", e.Code)
 	}
+	buf.WriteString("]")
 	return buf.String()
 }
