@@ -1,6 +1,9 @@
 package proto
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 // ErrorInfo describes an error returned via ProtocolMessage.
 type ErrorInfo struct {
@@ -31,5 +34,17 @@ func (e *ErrorInfo) FromMap(ctx map[string]interface{}) {
 
 // Error implements the builtin error interface.
 func (e *ErrorInfo) Error() string {
-	return fmt.Sprintf("%s (status=%d, internal=%d)", e.Message, e.StatusCode, e.Code)
+	var buf bytes.Buffer
+	buf.WriteString("[ErrorInfo")
+	if e.Message != "" {
+		fmt.Fprintf(&buf, ":%s", e.Message)
+	}
+	if e.StatusCode != 0 {
+		fmt.Fprintf(&buf, ": statusCode=%d", e.StatusCode)
+	}
+	if e.Code != 0 {
+		// spec TI5
+		fmt.Fprintf(&buf, ": See https://help.ably.io/error/%d", e.Code)
+	}
+	return buf.String()
 }
