@@ -560,8 +560,13 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		{"*", "explicit", "", false},                // i=3
 		{"explicit", "different", "explicit", true}, // i=4
 	}
+
 	for i, cas := range cases {
-		client := app.NewRealtimeClient()
+		client := app.NewRealtimeClient(&ably.ClientOptions{
+			AuthOptions: ably.AuthOptions{
+				UseTokenAuth: true,
+			},
+		})
 		defer safeclose(t, client)
 		params := &ably.TokenParams{
 			ClientID: cas.authAs,
@@ -596,7 +601,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		err = ablytest.Wait(channel.PublishAll(msg))
 		if cas.rejected {
 			if err == nil {
-				t.Errorf("%d: expected message to be rejected", i)
+				t.Errorf("%d: expected message to be rejected %#v", i, cas)
 			}
 			continue
 		}

@@ -2,6 +2,7 @@ package ably
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -293,6 +294,14 @@ func (c *RealtimeChannel) Publish(name string, data interface{}) (Result, error)
 //
 // This implicitly attaches the channel if it's not already attached.
 func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) {
+	id := c.client.Auth.clientIDForCheck()
+	for _, v := range messages {
+		fmt.Println(id, "===", v.ClientID)
+		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
+			// Spec RSL1g3,RSL1g4
+			return nil, fmt.Errorf("can't publish message with clientId %s the clientId is %s", v.ClientID, id)
+		}
+	}
 	msg := &proto.ProtocolMessage{
 		Action:   proto.ActionMessage,
 		Channel:  c.state.channel,
