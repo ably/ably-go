@@ -6,6 +6,7 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/ably/ably-go/ably/proto"
@@ -38,6 +39,12 @@ type PaginatedResult struct {
 	query    QueryFunc
 	logger   *LoggerOptions
 	opts     *proto.ChannelOptions
+
+	statusCode   int
+	success      bool
+	errorCode    int
+	errorMessage string
+	respHeaders  http.Header
 }
 
 func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path string, params *PaginateParams,
@@ -60,6 +67,22 @@ func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path strin
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if p.respHeaders == nil {
+		p.respHeaders = make(http.Header)
+	}
+	p.statusCode = resp.StatusCode
+	p.success = 200 < p.statusCode && p.statusCode < 300
+	copyHeader(p.respHeaders, resp.Header)
+	if h := p.respHeaders.Get(AblyErrorCodeHeader); h != "" {
+		i, err := strconv.Atoi(h)
+		if err != nil {
+			return nil, err
+		}
+		p.errorCode = i
+	}
+	if h := p.respHeaders.Get(AblyErrormessageHeader); h != "" {
+		p.errorMessage = h
+	}
 	p.path = builtPath
 	p.links = resp.Header["Link"]
 	switch p.typ {
@@ -110,6 +133,14 @@ func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path strin
 		}
 		p.typItems = v.Elem().Interface()
 		return p, nil
+	}
+}
+
+func copyHeader(dest, src http.Header) {
+	for k, v := range src {
+		d := make([]string, len(v))
+		copy(d, v)
+		dest[k] = v
 	}
 }
 
