@@ -351,15 +351,16 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 		return nil, newError(ErrInternalError, err)
 	}
 	if body != nil {
-		req.Header.Set("Content-Type", proto)
+		req.Header.Set("Content-Type", proto) //spec RSC19c
 	}
 	if r.header != nil {
 		copyHeader(req.Header, r.header)
 	}
-	req.Header.Set("Accept", proto)
+	req.Header.Set("Accept", proto) //spec RSC19c
 	req.Header.Set(AblyVersionHeader, AblyVersion)
 	req.Header.Set(AblyLibHeader, LibraryString)
 	if !r.NoAuth {
+		//spec RSC19b
 		if err := c.Auth.authReq(req); err != nil {
 			return nil, err
 		}
