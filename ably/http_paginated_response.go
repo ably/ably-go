@@ -18,6 +18,7 @@ func newHTTPPaginatedResult(path string, params *PaginateParams,
 	if err != nil {
 		return nil, err
 	}
+	//spec RSC19d
 	return newHTTPPaginatedResultFrom(p), nil
 }
 
