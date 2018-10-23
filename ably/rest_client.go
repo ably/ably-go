@@ -186,10 +186,31 @@ type Request struct {
 
 	// when true token is not refreshed when request fails with token expired response
 	NoRenew bool
+	header  http.Header
 }
 
-func (c *RestClient) Request(method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*PaginatedResult, error) {
-
+// Request sends http request to ably.
+// spec RSC19
+func (c *RestClient) Request(method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*HTTPPaginatedResponse, error) {
+	method = strings.ToUpper(method)
+	switch method {
+	case "GET", "POST", "PUT", "PATCH": // spec RSC19a
+		return newHTTPPaginatedResult(path, params, func(p string) (*http.Response, error) {
+			req := &Request{
+				Method: method,
+				Path:   p,
+				In:     body,
+				header: headers,
+			}
+			return c.do(req)
+		}, c.logger())
+	default:
+		return nil, &proto.Error{
+			Message:    fmt.Sprintf("%s method is not supported", method),
+			Code:       ErrMethodNotAllowed,
+			StatusCode: http.StatusMethodNotAllowed,
+		}
+	}
 }
 
 func (c *RestClient) get(path string, out interface{}) (*http.Response, error) {
@@ -320,12 +341,20 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 		}
 		body = bytes.NewReader(p)
 	}
-	req, err := http.NewRequest(r.Method, c.opts.restURL()+r.Path, body)
+	path := r.Path
+	if !strings.HasPrefix(path, c.opts.restURL()) {
+		// avoid adding the rest prefix url if it was already there.
+		path = c.opts.restURL() + path
+	}
+	req, err := http.NewRequest(r.Method, path, body)
 	if err != nil {
 		return nil, newError(ErrInternalError, err)
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", proto)
+	}
+	if r.header != nil {
+		copyHeader(req.Header, r.header)
 	}
 	req.Header.Set("Accept", proto)
 	req.Header.Set(AblyVersionHeader, AblyVersion)
