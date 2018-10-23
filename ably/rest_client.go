@@ -24,16 +24,19 @@ var (
 	msgType     = reflect.TypeOf((*[]*proto.Message)(nil)).Elem()
 	statType    = reflect.TypeOf((*[]*proto.Stats)(nil)).Elem()
 	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
+	mapTyp      = reflect.TypeOf((*[]map[string]interface{})(nil)).Elem()
 )
 
 // constants for rsc7
 const (
-	AblyVersionHeader = "X-Ably-Version"
-	AblyLibHeader     = "X-Ably-Lib"
-	LibraryVersion    = "1.0"
-	LibraryName       = "ably-go"
-	LibraryString     = LibraryName + "-" + LibraryVersion
-	AblyVersion       = "1.0"
+	AblyVersionHeader      = "X-Ably-Version"
+	AblyLibHeader          = "X-Ably-Lib"
+	AblyErrorCodeHeader    = "X-Ably-Errorcode"
+	AblyErrormessageHeader = "X-Ably-Errormessage"
+	LibraryVersion         = "1.0"
+	LibraryName            = "ably-go"
+	LibraryString          = LibraryName + "-" + LibraryVersion
+	AblyVersion            = "1.0"
 )
 
 const HostHeader = "Host"
@@ -183,6 +186,10 @@ type Request struct {
 
 	// when true token is not refreshed when request fails with token expired response
 	NoRenew bool
+}
+
+func (c *RestClient) Request(method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*PaginatedResult, error) {
+
 }
 
 func (c *RestClient) get(path string, out interface{}) (*http.Response, error) {
