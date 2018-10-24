@@ -37,4 +37,23 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 			ts.Errorf("expected 1 item got %d", n)
 		}
 	})
+
+	t.Run("request_404", func(ts *testing.T) {
+		res, err := client.Request("get", "/keys/ablyjs.test/requestToken", nil, nil, nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		if res.StatusCode != http.StatusNotFound {
+			ts.Errorf("expected %d got %d", http.StatusNotFound, res.StatusCode)
+		}
+		if res.ErrorCode != ably.ErrNotFound {
+			ts.Errorf("expected %d got %d", ably.ErrNotFound, res.ErrorCode)
+		}
+		if res.Success {
+			ts.Error("expected success to be false")
+		}
+		if res.ErrorMessage == "" {
+			ts.Error("expected error message")
+		}
+	})
 }
