@@ -14,7 +14,7 @@ type HTTPPaginatedResponse struct {
 
 func newHTTPPaginatedResult(path string, params *PaginateParams,
 	query QueryFunc, log *LoggerOptions) (*HTTPPaginatedResponse, error) {
-	p, err := newPaginatedResult(nil, mapTyp, path, params, query, log)
+	p, err := newPaginatedResult(nil, arrayTyp, path, params, query, log)
 	if err != nil {
 		return nil, err
 	}
