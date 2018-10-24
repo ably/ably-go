@@ -87,7 +87,7 @@ func code(err error) int {
 	return 0
 }
 
-func checkValidHTTPResponse(resp *http.Response) error {
+func checkValidHTTPResponse(resp *http.Response) *Error {
 	type errorBody struct {
 		Error proto.ErrorInfo `json:"error,omitempty" codec:"error,omitempty"`
 	}
