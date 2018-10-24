@@ -71,7 +71,7 @@ func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path strin
 		p.respHeaders = make(http.Header)
 	}
 	p.statusCode = resp.StatusCode
-	p.success = 200 < p.statusCode && p.statusCode < 300
+	p.success = 200 <= p.statusCode && p.statusCode < 300
 	copyHeader(p.respHeaders, resp.Header)
 	if h := p.respHeaders.Get(AblyErrorCodeHeader); h != "" {
 		i, err := strconv.Atoi(h)
