@@ -24,7 +24,7 @@ var (
 	msgType     = reflect.TypeOf((*[]*proto.Message)(nil)).Elem()
 	statType    = reflect.TypeOf((*[]*proto.Stats)(nil)).Elem()
 	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
-	mapTyp      = reflect.TypeOf((*[]map[string]interface{})(nil)).Elem()
+	arrayTyp    = reflect.TypeOf((*[]interface{})(nil)).Elem()
 )
 
 // constants for rsc7
@@ -426,5 +426,8 @@ func decodeResp(resp *http.Response, out interface{}) error {
 	if err != nil {
 		return err
 	}
-	return decode(typ, resp.Body, out)
+	var buf bytes.Buffer
+	io.Copy(&buf, resp.Body)
+	fmt.Println(buf.String())
+	return decode(typ, &buf, out)
 }
