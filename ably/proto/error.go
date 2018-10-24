@@ -40,7 +40,7 @@ func (e *ErrorInfo) Error() string {
 	}
 	var see string
 	if !strings.Contains(e.Message, errorHref) {
-		see = "see " + errorHref
+		see = "See " + errorHref
 	}
 	return fmt.Sprintf("[ErrorInfo :%s code=%d statusCode=%d] %s", e.Message, e.Code, e.StatusCode, see)
 }
