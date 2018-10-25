@@ -213,7 +213,7 @@ func (c *RestClient) Request(method string, path string, params *PaginateParams,
 			})
 		}, c.logger())
 	default:
-		return nil, &proto.Error{
+		return nil, &proto.ErrorInfo{
 			Message:    fmt.Sprintf("%s method is not supported", method),
 			Code:       ErrMethodNotAllowed,
 			StatusCode: http.StatusMethodNotAllowed,
