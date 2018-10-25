@@ -48,7 +48,7 @@ type PaginatedResult struct {
 }
 
 func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path string, params *PaginateParams,
-	query QueryFunc, log *LoggerOptions) (*PaginatedResult, error) {
+	query QueryFunc, log *LoggerOptions, respCheck func(*http.Response) error) (*PaginatedResult, error) {
 	p := &PaginatedResult{
 		typ:    typ,
 		query:  query,
@@ -63,7 +63,7 @@ func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path strin
 	if err != nil {
 		return nil, err
 	}
-	if err = checkValidHTTPResponse(resp); err != nil {
+	if err = respCheck(resp); err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -85,6 +85,15 @@ func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path strin
 	}
 	p.path = builtPath
 	p.links = resp.Header["Link"]
+	if p.errorCode != 0 {
+		var o map[string]interface{}
+		err = decodeResp(resp, &o)
+		if err != nil {
+			return nil, err
+		}
+		p.typItems = []interface{}{o}
+		return p, nil
+	}
 	switch p.typ {
 	case msgType:
 		var o []map[string]interface{}
@@ -153,7 +162,7 @@ func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 		return nil, newErrorf(ErrProtocolError, "no next page after %q", p.path)
 	}
 	nextPage := p.buildPath(p.path, nextPath)
-	return newPaginatedResult(p.opts, p.typ, nextPage, nil, p.query, p.logger)
+	return newPaginatedResult(p.opts, p.typ, nextPage, nil, p.query, p.logger, checkValidHTTPResponse)
 }
 
 // Items gives a slice of results of the current page.

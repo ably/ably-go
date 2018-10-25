@@ -170,7 +170,7 @@ func (c *RestClient) Time() (time.Time, error) {
 // The returned result can be inspected for the statistics via the Stats()
 // method.
 func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
-	return newPaginatedResult(nil, statType, "/stats", params, query(c.get), c.logger())
+	return newPaginatedResult(nil, statType, "/stats", params, query(c.get), c.logger(), checkValidHTTPResponse)
 }
 
 // Request this contains fields necessary to compose http request that will be
@@ -202,7 +202,15 @@ func (c *RestClient) Request(method string, path string, params *PaginateParams,
 				In:     body,
 				header: headers,
 			}
-			return c.do(req)
+			return c.doWithHandle(req, func(resp *http.Response, out interface{}) (*http.Response, error) {
+				if out == nil {
+					return resp, nil
+				}
+				if err := decodeResp(resp, out); err != nil {
+					return nil, err
+				}
+				return resp, nil
+			})
 		}, c.logger())
 	default:
 		return nil, &proto.Error{
@@ -233,6 +241,10 @@ func (c *RestClient) post(path string, in, out interface{}) (*http.Response, err
 }
 
 func (c *RestClient) do(r *Request) (*http.Response, error) {
+	return c.doWithHandle(r, c.handleResponse)
+}
+
+func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
 	req, err := c.NewHTTPRequest(r)
 	if err != nil {
 		return nil, err
@@ -244,7 +256,7 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 	if err != nil {
 		return nil, newError(ErrInternalError, err)
 	}
-	resp, err = c.handleResponse(resp, r.Out)
+	resp, err = handle(resp, r.Out)
 	if err != nil {
 		if e, ok := err.(*Error); ok {
 			if canFallBack(e.StatusCode) &&
@@ -290,7 +302,7 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 						if err != nil {
 							return nil, newError(ErrInternalError, err)
 						}
-						resp, err = c.handleResponse(resp, r.Out)
+						resp, err = handle(resp, r.Out)
 						if err != nil {
 							if iteration == maxLimit-1 {
 								return nil, err
@@ -428,6 +440,6 @@ func decodeResp(resp *http.Response, out interface{}) error {
 	}
 	var buf bytes.Buffer
 	io.Copy(&buf, resp.Body)
-	fmt.Println(buf.String())
+	// fmt.Println(buf.String())
 	return decode(typ, &buf, out)
 }

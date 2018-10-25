@@ -14,20 +14,22 @@ type HTTPPaginatedResponse struct {
 
 func newHTTPPaginatedResult(path string, params *PaginateParams,
 	query QueryFunc, log *LoggerOptions) (*HTTPPaginatedResponse, error) {
-	p, err := newPaginatedResult(nil, arrayTyp, path, params, query, log)
+	p, err := newPaginatedResult(nil, arrayTyp, path, params, query, log, func(_ *http.Response) error {
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 	//spec RSC19d
-	return newHTTPPaginatedResultFrom(p), nil
+	return newHTTPPaginatedResultFromPaginatedResult(p), nil
 }
 
-func newHTTPPaginatedResultFrom(p *PaginatedResult) *HTTPPaginatedResponse {
+func newHTTPPaginatedResultFromPaginatedResult(p *PaginatedResult) *HTTPPaginatedResponse {
 	h := &HTTPPaginatedResponse{PaginatedResult: p}
 	h.StatusCode = p.statusCode
 	h.Success = p.success
 	h.ErrorCode = p.errorCode
-	h.errorMessage = p.errorMessage
+	h.ErrorMessage = p.errorMessage
 	return h
 }
 
@@ -38,5 +40,5 @@ func (h *HTTPPaginatedResponse) Next() (*HTTPPaginatedResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newHTTPPaginatedResultFrom(p), nil
+	return newHTTPPaginatedResultFromPaginatedResult(p), nil
 }
