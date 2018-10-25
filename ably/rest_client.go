@@ -194,7 +194,7 @@ type Request struct {
 func (c *RestClient) Request(method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*HTTPPaginatedResponse, error) {
 	method = strings.ToUpper(method)
 	switch method {
-	case "GET", "POST", "PUT", "PATCH": // spec RSC19a
+	case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
 		return newHTTPPaginatedResult(path, params, func(p string) (*http.Response, error) {
 			req := &Request{
 				Method: method,
