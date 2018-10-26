@@ -35,10 +35,8 @@ type PaginatedResult struct {
 	links    []string
 	items    []interface{}
 	typItems interface{}
-	typ      reflect.Type
-	query    QueryFunc
-	logger   *LoggerOptions
 	opts     *proto.ChannelOptions
+	req      paginatedRequest
 
 	statusCode   int
 	success      bool
@@ -110,16 +108,14 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 		req.decoder = decodePaginatedResult
 	}
 	p := &PaginatedResult{
-		typ:    req.typ,
-		query:  req.query,
-		logger: req.logger,
-		opts:   opts,
+		opts: opts,
+		req:  req,
 	}
 	builtPath, err := p.buildPaginatedPath(req.path, req.params)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := p.query(builtPath)
+	resp, err := p.req.query(builtPath)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +141,7 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 	}
 	p.path = builtPath
 	p.links = resp.Header["Link"]
-	v, err := req.decoder(opts, p.typ, resp)
+	v, err := p.req.decoder(opts, p.req.typ, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -170,8 +166,9 @@ func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 		return nil, newErrorf(ErrProtocolError, "no next page after %q", p.path)
 	}
 	nextPage := p.buildPath(p.path, nextPath)
-	return newPaginatedResult(p.opts, paginatedRequest{typ: p.typ, path: nextPage,
-		query: p.query, logger: p.logger, respCheck: checkValidHTTPResponse})
+	req := p.req
+	req.path = nextPage
+	return newPaginatedResult(p.opts, req)
 }
 
 // Items gives a slice of results of the current page.
@@ -195,7 +192,7 @@ func (p *PaginatedResult) Items() []interface{} {
 func (p *PaginatedResult) Messages() []*proto.Message {
 	items, ok := p.typItems.([]*proto.Message)
 	if !ok {
-		panic(errInvalidType{typ: p.typ})
+		panic(errInvalidType{typ: p.req.typ})
 	}
 	return items
 }
@@ -205,7 +202,7 @@ func (p *PaginatedResult) Messages() []*proto.Message {
 func (p *PaginatedResult) PresenceMessages() []*proto.PresenceMessage {
 	items, ok := p.typItems.([]*proto.PresenceMessage)
 	if !ok {
-		panic(errInvalidType{typ: p.typ})
+		panic(errInvalidType{typ: p.req.typ})
 	}
 	return items
 }
@@ -215,7 +212,7 @@ func (p *PaginatedResult) PresenceMessages() []*proto.PresenceMessage {
 func (p *PaginatedResult) Stats() []*proto.Stats {
 	items, ok := p.typItems.([]*proto.Stats)
 	if !ok {
-		panic(errInvalidType{typ: p.typ})
+		panic(errInvalidType{typ: p.req.typ})
 	}
 	return items
 }
