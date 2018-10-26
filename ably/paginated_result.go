@@ -47,15 +47,75 @@ type PaginatedResult struct {
 	respHeaders  http.Header
 }
 
-func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path string, params *PaginateParams,
-	query QueryFunc, log *LoggerOptions, respCheck func(*http.Response) error) (*PaginatedResult, error) {
+type paginatedRequest struct {
+	typ       reflect.Type
+	path      string
+	params    *PaginateParams
+	query     QueryFunc
+	logger    *LoggerOptions
+	respCheck func(*http.Response) error
+	decoder   func(*proto.ChannelOptions, reflect.Type, *http.Response) (interface{}, error)
+}
+
+func decodePaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, resp *http.Response) (interface{}, error) {
+	switch typ {
+	case msgType:
+		var o []map[string]interface{}
+		err := decodeResp(resp, &o)
+		if err != nil {
+			return nil, err
+		}
+		rs := make([]*proto.Message, len(o))
+		for k, v := range o {
+			m := &proto.Message{
+				ChannelOptions: opts,
+			}
+			err = m.FromMap(v)
+			if err != nil {
+				return nil, err
+			}
+			rs[k] = m
+		}
+		return rs, nil
+	case presMsgType:
+		var o []map[string]interface{}
+		err := decodeResp(resp, &o)
+		if err != nil {
+			return nil, err
+		}
+		rs := make([]*proto.PresenceMessage, len(o))
+		for k, v := range o {
+			m := &proto.PresenceMessage{
+				Message: proto.Message{
+					ChannelOptions: opts,
+				},
+			}
+			err = m.FromMap(v)
+			if err != nil {
+				return nil, err
+			}
+			rs[k] = m
+		}
+		return rs, nil
+	default:
+		v := reflect.New(typ)
+		if err := decodeResp(resp, v.Interface()); err != nil {
+			return nil, err
+		}
+		return v.Elem().Interface(), nil
+	}
+}
+func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*PaginatedResult, error) {
+	if req.decoder == nil {
+		req.decoder = decodePaginatedResult
+	}
 	p := &PaginatedResult{
-		typ:    typ,
-		query:  query,
-		logger: log,
+		typ:    req.typ,
+		query:  req.query,
+		logger: req.logger,
 		opts:   opts,
 	}
-	builtPath, err := p.buildPaginatedPath(path, params)
+	builtPath, err := p.buildPaginatedPath(req.path, req.params)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +123,7 @@ func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path strin
 	if err != nil {
 		return nil, err
 	}
-	if err = respCheck(resp); err != nil {
+	if err = req.respCheck(resp); err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -94,55 +154,12 @@ func newPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, path strin
 		p.typItems = []interface{}{o}
 		return p, nil
 	}
-	switch p.typ {
-	case msgType:
-		var o []map[string]interface{}
-		err = decodeResp(resp, &o)
-		if err != nil {
-			return nil, err
-		}
-		rs := make([]*proto.Message, len(o))
-		for k, v := range o {
-			m := &proto.Message{
-				ChannelOptions: opts,
-			}
-			err = m.FromMap(v)
-			if err != nil {
-				return nil, err
-			}
-			rs[k] = m
-		}
-		p.typItems = rs
-		return p, nil
-	case presMsgType:
-		var o []map[string]interface{}
-		err = decodeResp(resp, &o)
-		if err != nil {
-			return nil, err
-		}
-		rs := make([]*proto.PresenceMessage, len(o))
-		for k, v := range o {
-			m := &proto.PresenceMessage{
-				Message: proto.Message{
-					ChannelOptions: opts,
-				},
-			}
-			err = m.FromMap(v)
-			if err != nil {
-				return nil, err
-			}
-			rs[k] = m
-		}
-		p.typItems = rs
-		return p, nil
-	default:
-		v := reflect.New(p.typ)
-		if err := decodeResp(resp, v.Interface()); err != nil {
-			return nil, err
-		}
-		p.typItems = v.Elem().Interface()
-		return p, nil
+	v, err := req.decoder(opts, p.typ, resp)
+	if err != nil {
+		return nil, err
 	}
+	p.typItems = v
+	return p, nil
 }
 
 func copyHeader(dest, src http.Header) {
@@ -162,7 +179,8 @@ func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 		return nil, newErrorf(ErrProtocolError, "no next page after %q", p.path)
 	}
 	nextPage := p.buildPath(p.path, nextPath)
-	return newPaginatedResult(p.opts, p.typ, nextPage, nil, p.query, p.logger, checkValidHTTPResponse)
+	return newPaginatedResult(p.opts, paginatedRequest{typ: p.typ, path: nextPage,
+		query: p.query, logger: p.logger, respCheck: checkValidHTTPResponse})
 }
 
 // Items gives a slice of results of the current page.
