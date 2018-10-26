@@ -1,6 +1,11 @@
 package ably
 
-import "net/http"
+import (
+	"net/http"
+	"reflect"
+
+	"github.com/ably/ably-go/ably/proto"
+)
 
 // HTTPPaginatedResponse represent a response from an http request.
 type HTTPPaginatedResponse struct {
@@ -12,11 +17,20 @@ type HTTPPaginatedResponse struct {
 	Headers      http.Header //spec HP8
 }
 
+func decodeHTTPPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, resp *http.Response) (interface{}, error) {
+	var o interface{}
+	err := decodeResp(resp, &o)
+	if err != nil {
+		return nil, err
+	}
+	return o, nil
+}
+
 func newHTTPPaginatedResult(path string, params *PaginateParams,
 	query QueryFunc, log *LoggerOptions) (*HTTPPaginatedResponse, error) {
 	p, err := newPaginatedResult(nil, paginatedRequest{typ: arrayTyp, path: path, params: params, query: query, logger: log, respCheck: func(_ *http.Response) error {
 		return nil
-	}})
+	}, decoder: decodeHTTPPaginatedResult})
 	if err != nil {
 		return nil, err
 	}
