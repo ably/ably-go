@@ -203,12 +203,6 @@ func (c *RestClient) Request(method string, path string, params *PaginateParams,
 				header: headers,
 			}
 			return c.doWithHandle(req, func(resp *http.Response, out interface{}) (*http.Response, error) {
-				if out == nil {
-					return resp, nil
-				}
-				if err := decodeResp(resp, out); err != nil {
-					return nil, err
-				}
 				return resp, nil
 			})
 		}, c.logger())
