@@ -145,15 +145,6 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 	}
 	p.path = builtPath
 	p.links = resp.Header["Link"]
-	if p.errorCode != 0 {
-		var o map[string]interface{}
-		err = decodeResp(resp, &o)
-		if err != nil {
-			return nil, err
-		}
-		p.typItems = []interface{}{o}
-		return p, nil
-	}
 	v, err := req.decoder(opts, p.typ, resp)
 	if err != nil {
 		return nil, err
@@ -187,9 +178,13 @@ func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 func (p *PaginatedResult) Items() []interface{} {
 	if p.items == nil {
 		v := reflect.ValueOf(p.typItems)
-		p.items = make([]interface{}, v.Len())
-		for i := range p.items {
-			p.items[i] = v.Index(i).Interface()
+		if v.Kind() == reflect.Slice {
+			p.items = make([]interface{}, v.Len())
+			for i := range p.items {
+				p.items[i] = v.Index(i).Interface()
+			}
+		} else {
+			p.items = []interface{}{p.typItems}
 		}
 	}
 	return p.items
