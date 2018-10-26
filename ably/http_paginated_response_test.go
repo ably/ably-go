@@ -7,6 +7,7 @@ import (
 	"github.com/ably/ably-go/ably"
 
 	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/proto"
 )
 
 func TestHTTPPaginatedResponse(t *testing.T) {
@@ -17,6 +18,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 	}
 	defer app.Close()
 	opts := app.Options()
+	opts.NoBinaryProtocol = true
 	client, err := ably.NewRestClient(opts)
 	if err != nil {
 		t.Fatal(err)
@@ -55,5 +57,31 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 		if res.ErrorMessage == "" {
 			ts.Error("expected error message")
 		}
+	})
+
+	t.Run("request_post_get_messages", func(ts *testing.T) {
+		channelPath := "/channels/http-paginated-result/messages"
+		msgOne := proto.Message{
+			Name: "faye",
+			Data: "whittaker",
+		}
+
+		ts.Run("post", func(ts *testing.T) {
+			res, err := client.Request("POST", channelPath, nil, msgOne, nil)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			if res.StatusCode != http.StatusCreated {
+				ts.Errorf("expected %d got %d", http.StatusCreated, res.StatusCode)
+			}
+			if !res.Success {
+				ts.Error("expected success to be true")
+			}
+			n := len(res.Items())
+			if n != 1 {
+				ts.Errorf("expected 1 item got %d", n)
+			}
+		})
+
 	})
 }
