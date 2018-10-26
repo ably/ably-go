@@ -168,6 +168,7 @@ func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 	nextPage := p.buildPath(p.path, nextPath)
 	req := p.req
 	req.path = nextPage
+	req.params = nil
 	return newPaginatedResult(p.opts, req)
 }
 
