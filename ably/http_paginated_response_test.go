@@ -61,25 +61,27 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 	t.Run("request_post_get_messages", func(ts *testing.T) {
 		channelPath := "/channels/http-paginated-result/messages"
-		msgOne := proto.Message{
-			Name: "faye",
-			Data: "whittaker",
+		mggs := []proto.Message{
+			{Name: "faye", Data: "whittaker"},
+			{Name: "martin", Data: "reed"},
 		}
 
 		ts.Run("post", func(ts *testing.T) {
-			res, err := client.Request("POST", channelPath, nil, msgOne, nil)
-			if err != nil {
-				ts.Fatal(err)
-			}
-			if res.StatusCode != http.StatusCreated {
-				ts.Errorf("expected %d got %d", http.StatusCreated, res.StatusCode)
-			}
-			if !res.Success {
-				ts.Error("expected success to be true")
-			}
-			n := len(res.Items())
-			if n != 1 {
-				ts.Errorf("expected 1 item got %d", n)
+			for _, message := range mggs {
+				res, err := client.Request("POST", channelPath, nil, message, nil)
+				if err != nil {
+					ts.Fatal(err)
+				}
+				if res.StatusCode != http.StatusCreated {
+					ts.Errorf("expected %d got %d", http.StatusCreated, res.StatusCode)
+				}
+				if !res.Success {
+					ts.Error("expected success to be true")
+				}
+				n := len(res.Items())
+				if n != 1 {
+					ts.Errorf("expected 1 item got %d", n)
+				}
 			}
 		})
 
