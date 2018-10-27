@@ -61,13 +61,13 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 	t.Run("request_post_get_messages", func(ts *testing.T) {
 		channelPath := "/channels/http-paginated-result/messages"
-		mggs := []proto.Message{
+		msgs := []proto.Message{
 			{Name: "faye", Data: "whittaker"},
 			{Name: "martin", Data: "reed"},
 		}
 
 		ts.Run("post", func(ts *testing.T) {
-			for _, message := range mggs {
+			for _, message := range msgs {
 				res, err := client.Request("POST", channelPath, nil, message, nil)
 				if err != nil {
 					ts.Fatal(err)
@@ -82,6 +82,32 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 				if n != 1 {
 					ts.Errorf("expected 1 item got %d", n)
 				}
+			}
+		})
+
+		ts.Run("get", func(ts *testing.T) {
+			res, err := client.Request("get", channelPath, &ably.PaginateParams{
+				Limit:     1,
+				Direction: "forwards",
+			}, nil, nil)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			if res.StatusCode != http.StatusOK {
+				ts.Errorf("expected %d got %d", http.StatusOK, res.StatusCode)
+			}
+			n := len(res.Items())
+			if n != 1 {
+				ts.Fatalf("expected 1 item got %d", n)
+			}
+			m := res.Items()[0].(map[string]interface{})
+			name := m["name"].(string)
+			data := m["data"].(string)
+			if name != msgs[0].Name {
+				ts.Errorf("expected %s got %s", msgs[0].Name, name)
+			}
+			if data != msgs[0].Data.(string) {
+				ts.Errorf("expected %v got %s", msgs[0].Data, data)
 			}
 		})
 
