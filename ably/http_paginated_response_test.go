@@ -109,6 +109,25 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 			if data != msgs[0].Data.(string) {
 				ts.Errorf("expected %v got %s", msgs[0].Data, data)
 			}
+
+			res, err = res.Next()
+			if err != nil {
+				ts.Fatal(err)
+			}
+			n = len(res.Items())
+			if n != 1 {
+				ts.Fatalf("expected 1 item got %d", n)
+			}
+			m = res.Items()[0].(map[string]interface{})
+			name = m["name"].(string)
+			data = m["data"].(string)
+			if name != msgs[1].Name {
+				ts.Errorf("expected %s got %s", msgs[1].Name, name)
+			}
+			if data != msgs[1].Data.(string) {
+				ts.Errorf("expected %v got %s", msgs[1].Data, data)
+			}
+
 		})
 
 	})
