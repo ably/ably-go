@@ -149,6 +149,10 @@ func coerceBytes(i interface{}) ([]byte, error) {
 	}
 }
 
+// ToMap returns a map of all message field names to their respective value if
+// the field are set.
+//
+// Spec RSL1j
 func (m Message) ToMap() map[string]interface{} {
 	ctx := make(map[string]interface{})
 	if m.ID != "" {
