@@ -183,9 +183,12 @@ type ClientOptions struct {
 	NoQueueing       bool // when true drops messages published during regaining connection
 	NoBinaryProtocol bool // when true uses JSON for network serialization protocol instead of MsgPack
 
-	TimeoutConnect    time.Duration // time period after which connect request is failed
-	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
-	TimeoutSuspended  time.Duration // time period after which no more reconnection attempts are performed
+	// When true idempotent rest publishing will be disabled.
+	// Spec TO3n
+	NoIdempotentRestPublishing bool
+	TimeoutConnect             time.Duration // time period after which connect request is failed
+	TimeoutDisconnect          time.Duration // time period after which disconnect request is failed
+	TimeoutSuspended           time.Duration // time period after which no more reconnection attempts are performed
 
 	// Dial specifies the dial function for creating message connections used
 	// by RealtimeClient.
