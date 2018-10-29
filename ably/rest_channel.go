@@ -1,7 +1,10 @@
 package ably
 
 import (
+	"fmt"
 	"strings"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 
 	"github.com/ably/ably-go/ably/proto"
 )
@@ -57,6 +60,37 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 	if c.options != nil {
 		for _, v := range messages {
 			v.ChannelOptions = c.options
+		}
+	}
+	useIdempotent := !c.client.opts.NoIdempotentRestPublishing
+	if useIdempotent {
+		switch len(messages) {
+		case 1:
+			// spec RSL1k2 we preserve the id if we have one message and it contains the
+			// id.
+			if messages[0].ID == "" {
+				base, err := ablyutil.BaseID()
+				if err != nil {
+					return err
+				}
+				messages[0].ID = fmt.Sprintf("%s:%d", base, 0)
+			}
+		default:
+			empty := true
+			for _, v := range messages {
+				if v.ID != "" {
+					empty = false
+				}
+			}
+			if empty { // spec RSL1k3,RSL1k1
+				base, err := ablyutil.BaseID()
+				if err != nil {
+					return err
+				}
+				for k, v := range messages {
+					v.ID = fmt.Sprintf("%s:%d", base, k)
+				}
+			}
 		}
 	}
 
