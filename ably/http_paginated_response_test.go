@@ -2,6 +2,8 @@ package ably_test
 
 import (
 	"net/http"
+	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -60,7 +62,8 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 	})
 
 	t.Run("request_post_get_messages", func(ts *testing.T) {
-		channelPath := "/channels/http-paginated-result/messages"
+		channelName := "http-paginated-result"
+		channelPath := "/channels/" + channelName + "/messages"
 		msgs := []proto.Message{
 			{Name: "faye", Data: "whittaker"},
 			{Name: "martin", Data: "reed"},
@@ -130,5 +133,23 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 		})
 
+		res, err := client.Channels.Get(channelName, nil).History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		m := res.Messages()
+		sort.Slice(m, func(i, j int) bool {
+			return m[i].Name < m[j].Name
+		})
+		n := len(m)
+		if n != 2 {
+			ts.Fatalf("expected 2 item got %d", n)
+		}
+		if m[0].Name != msgs[0].Name {
+			ts.Errorf("expected %s got %s", msgs[0].Name, m[0].Name)
+		}
+		if !reflect.DeepEqual(m[0].Data, msgs[0].Data) {
+			ts.Errorf("expected %v got %s", msgs[0].Data, m[0].Data)
+		}
 	})
 }
