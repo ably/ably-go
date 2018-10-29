@@ -188,3 +188,76 @@ func TestRestChannel(t *testing.T) {
 		}
 	})
 }
+
+func TestIdempotentPublishing(t *testing.T) {
+	t.Parallel()
+	app, err := ablytest.NewSandboxWIthEnv(nil, "idempotent-dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	options := app.Options()
+	client, err := ably.NewRestClient(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("single message without id", func(ts *testing.T) {
+		channel := client.Channels.Get("single_1", nil)
+		msg := proto.Message{
+			Name: "no_id",
+			Data: "no_id",
+		}
+		err := channel.PublishAll([]*proto.Message{&msg})
+		if err != nil {
+			ts.Fatal(err)
+		}
+		if msg.ID == "" {
+			ts.Fatalf("expected a new message id to be set")
+		}
+		res, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		m := res.Messages()
+		n := len(m)
+		if n != 1 {
+			ts.Errorf("expected 1 message got %d", n)
+		}
+		// we make sure that the id we sent is the one we received.
+		if m[0].ID != msg.ID {
+			ts.Errorf("expected %s got %s", msg.ID, m[0].ID)
+		}
+	})
+
+	t.Run("single message with id", func(ts *testing.T) {
+		channel := client.Channels.Get("single_2", nil)
+		id := "some_message_id"
+		msg := proto.Message{
+			ID:   id,
+			Name: "with_id",
+			Data: "with_id",
+		}
+		err := channel.PublishAll([]*proto.Message{&msg})
+		if err != nil {
+			ts.Fatal(err)
+		}
+
+		// we make sure we don't re assign id before publishing.
+		if msg.ID != id {
+			ts.Fatalf("expected message id to be %s got %s ", id, msg.ID)
+		}
+		res, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		m := res.Messages()
+		n := len(m)
+		if n != 1 {
+			ts.Errorf("expected 1 message got %d", n)
+		}
+		// we make sure that the id we sent is the one we received.
+		if m[0].ID != msg.ID {
+			ts.Errorf("expected %s got %s", msg.ID, m[0].ID)
+		}
+	})
+}
