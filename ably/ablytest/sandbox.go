@@ -128,9 +128,13 @@ func MustSandbox(config *Config) *Sandbox {
 }
 
 func NewSandbox(config *Config) (*Sandbox, error) {
+	return NewSandboxWIthEnv(config, Environment)
+}
+
+func NewSandboxWIthEnv(config *Config, env string) (*Sandbox, error) {
 	app := &Sandbox{
 		Config:      config,
-		Environment: Environment,
+		Environment: env,
 		client:      NewHTTPClient(),
 	}
 	if app.Config == nil {
