@@ -427,8 +427,5 @@ func decodeResp(resp *http.Response, out interface{}) error {
 	if err != nil {
 		return err
 	}
-	var buf bytes.Buffer
-	io.Copy(&buf, resp.Body)
-	// fmt.Println(buf.String())
-	return decode(typ, &buf, out)
+	return decode(typ, resp.Body, out)
 }
