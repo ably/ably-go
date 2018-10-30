@@ -347,12 +347,7 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 		}
 		body = bytes.NewReader(p)
 	}
-	path := r.Path
-	if !strings.HasPrefix(path, c.opts.restURL()) {
-		// avoid adding the rest prefix url if it was already there.
-		path = c.opts.restURL() + path
-	}
-	req, err := http.NewRequest(r.Method, path, body)
+	req, err := http.NewRequest(r.Method, c.opts.restURL()+r.Path, body)
 	if err != nil {
 		return nil, newError(ErrInternalError, err)
 	}
