@@ -28,7 +28,6 @@ var _ = Describe("RestChannel", func() {
 			Expect(len(messages)).NotTo(Equal(0))
 			Expect(messages[0].Name).To(Equal(event))
 			Expect(messages[0].Data).To(Equal(message))
-			Expect(messages[0].Encoding).To(Equal(proto.UTF8))
 		})
 	})
 
