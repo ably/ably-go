@@ -225,4 +225,28 @@ func TestIdempotentPublishing(t *testing.T) {
 		}
 	})
 
+	t.Run("when ID is included (#RSL1k2, #RSL1k5)", func(ts *testing.T) {
+		channel := client.Channels.Get("idempotent_test_2", nil)
+		for range make([]struct{}, 3) {
+			err := channel.PublishAll([]*proto.Message{
+				{
+					ID:   randomStr,
+					Data: randomStr,
+				},
+			})
+			if err != nil {
+				ts.Fatal(err)
+			}
+		}
+		res, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		n := len(res.Items())
+		if n != 1 {
+			// three REST publishes result in only one message being published
+			ts.Errorf("expected %d got %d", 1, n)
+		}
+	})
+
 }
