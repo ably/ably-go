@@ -6,6 +6,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/ably/ably-go/ably/internal/ablyutil"
+
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/ablytest"
 	"github.com/ably/ably-go/ably/proto"
@@ -201,63 +203,26 @@ func TestIdempotentPublishing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Run("single message without id", func(ts *testing.T) {
-		channel := client.Channels.Get("single_1", nil)
-		msg := proto.Message{
-			Name: "no_id",
-			Data: "no_id",
-		}
-		err := channel.PublishAll([]*proto.Message{&msg})
-		if err != nil {
-			ts.Fatal(err)
-		}
-		if msg.ID == "" {
-			ts.Fatalf("expected a new message id to be set")
-		}
-		res, err := channel.History(nil)
-		if err != nil {
-			ts.Fatal(err)
-		}
-		m := res.Messages()
-		n := len(m)
-		if n != 1 {
-			ts.Errorf("expected 1 message got %d", n)
-		}
-		// we make sure that the id we sent is the one we received.
-		if m[0].ID != msg.ID {
-			ts.Errorf("expected %s got %s", msg.ID, m[0].ID)
-		}
-	})
-
-	t.Run("single message with id", func(ts *testing.T) {
-		channel := client.Channels.Get("single_2", nil)
-		id := "some_message_id"
-		msg := proto.Message{
-			ID:   id,
-			Name: "with_id",
-			Data: "with_id",
-		}
-		err := channel.PublishAll([]*proto.Message{&msg})
-		if err != nil {
-			ts.Fatal(err)
-		}
-
-		// we make sure we don't re assign id before publishing.
-		if msg.ID != id {
-			ts.Fatalf("expected message id to be %s got %s ", id, msg.ID)
+	randomStr, err := ablyutil.BaseID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("when ID is not included (#RSL1k2)", func(ts *testing.T) {
+		channel := client.Channels.Get("idempotent_test_1", nil)
+		for range make([]struct{}, 3) {
+			err := channel.Publish("", randomStr)
+			if err != nil {
+				ts.Fatal(err)
+			}
 		}
 		res, err := channel.History(nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
-		m := res.Messages()
-		n := len(m)
-		if n != 1 {
-			ts.Errorf("expected 1 message got %d", n)
-		}
-		// we make sure that the id we sent is the one we received.
-		if m[0].ID != msg.ID {
-			ts.Errorf("expected %s got %s", msg.ID, m[0].ID)
+		n := len(res.Items())
+		if n != 3 {
+			ts.Errorf("expected %d got %d", 3, n)
 		}
 	})
+
 }
