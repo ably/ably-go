@@ -2,8 +2,11 @@ package ably_test
 
 import (
 	"encoding/base64"
+	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -252,4 +255,78 @@ func TestIdempotentPublishing(t *testing.T) {
 			ts.Errorf("expected id to be %s got %s", randomStr, msg.ID)
 		}
 	})
+
+	t.Run("multiple messages in one publish operation (#RSL1k3)", func(ts *testing.T) {
+		channel := client.Channels.Get("idempotent_test_3", nil)
+		err := channel.PublishAll([]*proto.Message{
+			{
+				ID:   randomStr,
+				Data: randomStr,
+			},
+			{
+				ID:   randomStr,
+				Data: randomStr,
+			},
+			{
+				ID:   randomStr,
+				Data: randomStr,
+			},
+		})
+		if err == nil {
+			ts.Fatal("expected an error")
+		}
+		code := fmt.Sprint(ably.ErrInvalidPublishRequestInvalidClientSpecifiedID)
+		if !strings.Contains(err.Error(), code) {
+			ts.Errorf("expected error code %s got %s", code, err)
+		}
+	})
+
+	t.Run("multiple messages in one publish operation with IDs following the required format described in RSL1k1 (#RSL1k3)", func(ts *testing.T) {
+		channel := client.Channels.Get("idempotent_test_4", nil)
+		var m []*proto.Message
+		for i := 0; i < 3; i++ {
+			m = append(m, &proto.Message{
+				ID: fmt.Sprintf("%s:%d", randomStr, i),
+			})
+		}
+		err := channel.PublishAll(m)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		res, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		n := len(res.Items())
+		if n != 3 {
+			ts.Errorf("expected %d got %d", 3, n)
+		}
+		messages := res.Messages()
+
+		// we need to sort so we we can easily test the serial in order.
+		sort.Slice(messages, func(i, j int) bool {
+			p := strings.Split(messages[i].ID, ":")
+			p0 := strings.Split(messages[j].ID, ":")
+			i1, err := strconv.Atoi(p[1])
+			if err != nil {
+				ts.Fatal(err)
+			}
+			i2, err := strconv.Atoi(p0[1])
+			if err != nil {
+				ts.Fatal(err)
+			}
+			return i1 < i2
+		})
+		for k, v := range messages {
+			p := strings.Split(v.ID, ":")
+			id, err := strconv.Atoi(p[1])
+			if err != nil {
+				ts.Fatal(err)
+			}
+			if id != k {
+				ts.Errorf("expected serial to be %d got %d", k, id)
+			}
+		}
+	})
+
 }
