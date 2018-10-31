@@ -247,6 +247,9 @@ func TestIdempotentPublishing(t *testing.T) {
 			// three REST publishes result in only one message being published
 			ts.Errorf("expected %d got %d", 1, n)
 		}
+		msg := res.Messages()[0]
+		if msg.ID != randomStr {
+			ts.Errorf("expected id to be %s got %s", randomStr, msg.ID)
+		}
 	})
-
 }
