@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.8.2](https://github.com/ably/ably-go/tree/v0.8.2) (2018-11-01)
+[Full Changelog](https://github.com/ably/ably-go/compare/v0.8.1...v0.8.2)
+
+**Closed issues:**
+
+- Revert broken encoding on 0.8.1 [\#106](https://github.com/ably/ably-go/issues/106)
+
 ## [v0.8.1](https://github.com/ably/ably-go/tree/v0.8.1) (2018-10-12)
 [Full Changelog](https://github.com/ably/ably-go/compare/v0.8.0-beta.1...v0.8.1)
 
