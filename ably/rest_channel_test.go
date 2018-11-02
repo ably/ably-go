@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -192,6 +193,7 @@ func TestRestChannel(t *testing.T) {
 			}
 		}
 	})
+
 }
 
 func TestIdempotentPublishing(t *testing.T) {
@@ -329,4 +331,40 @@ func TestIdempotentPublishing(t *testing.T) {
 		}
 	})
 
+	t.Run("when there is a network failure triggering an automatic retry (#RSL1k4)", func(ts *testing.T) {
+		//TODO
+	})
+
+	t.Run("the ID is populated with a random ID and serial 0 from this lib (#RSL1k1)", func(ts *testing.T) {
+		channel := client.Channels.Get("idempotent_test_5", nil)
+		err := channel.Publish("event", "")
+		if err != nil {
+			ts.Fatal(err)
+		}
+		res, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		m := res.Messages()
+		if len(m) != 1 {
+			ts.Fatalf("expected %d got %d", 1, len(m))
+		}
+		message := m[0]
+		if message.ID == "" {
+			ts.Fatal("expected message id not to be empty")
+		}
+		pattern := `^[A-Za-z0-9\+\/]+:0$`
+		re := regexp.MustCompile(pattern)
+		if !re.MatchString(message.ID) {
+			ts.Fatalf("expected id %s to be in pattern %q", message.ID, pattern)
+		}
+		baseID := strings.Split(message.ID, ":")[0]
+		v, err := base64.StdEncoding.DecodeString(baseID)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		if len(v) != 9 {
+			ts.Errorf("expected %d bytes git %d", 9, len(v))
+		}
+	})
 }
