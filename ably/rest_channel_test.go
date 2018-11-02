@@ -474,13 +474,6 @@ func TestIdempotent_retry(t *testing.T) {
 		ts.Run("two REST publish retries result in only one message being published'", func(ts *testing.T) {
 			channel := client.Channels.Get("idempotent_test_fallback", nil)
 			err = channel.Publish("", randomStr)
-			// err = channel.PublishAll([]*proto.Message{
-			// 	{
-			// 		ID:   randomStr,
-			// 		Name: "event",
-			// 		Data: randomStr,
-			// 	},
-			// })
 			if err != nil {
 				ts.Error(err)
 			}
