@@ -199,25 +199,6 @@ func TestRestChannel(t *testing.T) {
 
 }
 
-type mockRoundTripper struct {
-	retries int
-	fake    http.RoundTripper
-	real    http.RoundTripper
-}
-
-func (m *mockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	if m.retries != 0 {
-		m.retries--
-		res, err := m.fake.RoundTrip(r)
-		if err != nil {
-			fmt.Println("Some Error here ", err)
-			return nil, err
-		}
-		return res, nil
-	}
-	return m.real.RoundTrip(r)
-}
-
 func TestIdempotentPublishing(t *testing.T) {
 	t.Parallel()
 	app, err := ablytest.NewSandboxWIthEnv(nil, "idempotent-dev")
