@@ -3,6 +3,9 @@ package ably_test
 import (
 	"encoding/base64"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"regexp"
 	"sort"
@@ -196,6 +199,25 @@ func TestRestChannel(t *testing.T) {
 
 }
 
+type mockRoundTripper struct {
+	retries int
+	fake    http.RoundTripper
+	real    http.RoundTripper
+}
+
+func (m *mockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	if m.retries != 0 {
+		m.retries--
+		res, err := m.fake.RoundTrip(r)
+		if err != nil {
+			fmt.Println("Some Error here ", err)
+			return nil, err
+		}
+		return res, nil
+	}
+	return m.real.RoundTrip(r)
+}
+
 func TestIdempotentPublishing(t *testing.T) {
 	t.Parallel()
 	app, err := ablytest.NewSandboxWIthEnv(nil, "idempotent-dev")
@@ -331,10 +353,6 @@ func TestIdempotentPublishing(t *testing.T) {
 		}
 	})
 
-	t.Run("when there is a network failure triggering an automatic retry (#RSL1k4)", func(ts *testing.T) {
-		//TODO
-	})
-
 	t.Run("the ID is populated with a random ID and serial 0 from this lib (#RSL1k1)", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_5", nil)
 		err := channel.Publish("event", "")
@@ -405,5 +423,79 @@ func TestIdempotentPublishing(t *testing.T) {
 				ts.Errorf("expected %d bytes git %d", 9, len(v))
 			}
 		}
+	})
+}
+
+func TestIdempotent_retry(t *testing.T) {
+	t.Parallel()
+	app, err := ablytest.NewSandboxWIthEnv(nil, "idempotent-dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	randomStr, err := ablyutil.BaseID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("when there is a network failure triggering an automatic retry (#RSL1k4)", func(ts *testing.T) {
+		var retryCount int
+		var hosts []string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hosts = append(hosts, r.Host)
+			retryCount++
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+
+		nopts := &ably.ClientOptions{
+			NoTLS:                   true,
+			FallbackHostsUseDefault: true,
+			AuthOptions: ably.AuthOptions{
+				UseTokenAuth: true,
+			},
+			HTTPClient: &http.Client{
+				Transport: &http.Transport{
+					Proxy: func(r *http.Request) (*url.URL, error) {
+						if strings.HasPrefix(r.URL.Path, "/channels/") {
+							if retryCount == 2 {
+								return url.Parse(fmt.Sprintf("https://%s", hosts[0]))
+							}
+							return url.Parse(server.URL)
+						}
+						return r.URL, nil
+					},
+				},
+			},
+		}
+		client, err := ably.NewRestClient(app.Options(nopts))
+		if err != nil {
+			ts.Fatal(err)
+		}
+
+		ts.Run("two REST publish retries result in only one message being published'", func(ts *testing.T) {
+			channel := client.Channels.Get("idempotent_test_fallback", nil)
+			err = channel.Publish("", randomStr)
+			// err = channel.PublishAll([]*proto.Message{
+			// 	{
+			// 		ID:   randomStr,
+			// 		Name: "event",
+			// 		Data: randomStr,
+			// 	},
+			// })
+			if err != nil {
+				ts.Error(err)
+			}
+			if retryCount != 2 {
+				ts.Errorf("expected %d retry attempts got %d %#v", 2, retryCount, hosts)
+			}
+			res, err := channel.History(nil)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			m := res.Messages()
+			if len(m) != 1 {
+				ts.Errorf("expected %d messages got %d", 1, len(m))
+			}
+		})
+
 	})
 }
