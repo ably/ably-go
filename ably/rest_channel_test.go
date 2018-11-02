@@ -470,6 +470,25 @@ func TestIdempotent_retry(t *testing.T) {
 				ts.Errorf("expected %d messages got %d", 1, len(m))
 			}
 		})
-
+		ts.Run("or multiple messages in one publish operation'", func(ts *testing.T) {
+			retryCount = 0
+			channel := client.Channels.Get("idempotent_test_fallback_1", nil)
+			msgs := []*proto.Message{
+				{Data: randomStr},
+				{Data: randomStr},
+				{Data: randomStr},
+			}
+			for range msgs {
+				channel.PublishAll(msgs)
+			}
+			res, err := channel.History(nil)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			m := res.Messages()
+			if len(m) != len(msgs) {
+				ts.Errorf("expected %d messages got %d", len(msgs), len(m))
+			}
+		})
 	})
 }
