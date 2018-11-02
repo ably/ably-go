@@ -356,7 +356,7 @@ func TestIdempotentPublishing(t *testing.T) {
 		pattern := `^[A-Za-z0-9\+\/]+:0$`
 		re := regexp.MustCompile(pattern)
 		if !re.MatchString(message.ID) {
-			ts.Fatalf("expected id %s to be in pattern %q", message.ID, pattern)
+			ts.Fatalf("expected id %s to match pattern %q", message.ID, pattern)
 		}
 		baseID := strings.Split(message.ID, ":")[0]
 		v, err := base64.StdEncoding.DecodeString(baseID)
@@ -365,6 +365,45 @@ func TestIdempotentPublishing(t *testing.T) {
 		}
 		if len(v) != 9 {
 			ts.Errorf("expected %d bytes git %d", 9, len(v))
+		}
+	})
+
+	t.Run("publishing a batch of messages", func(ts *testing.T) {
+		channel := client.Channels.Get("idempotent_test_6", nil)
+		name := "event"
+		err := channel.PublishAll([]*proto.Message{
+			{Name: name},
+			{Name: name},
+			{Name: name},
+		})
+		if err != nil {
+			ts.Fatal(err)
+		}
+		res, err := channel.History(nil)
+		if err != nil {
+			ts.Fatal(err)
+		}
+		m := res.Messages()
+		if len(m) != 3 {
+			ts.Fatalf("expected %d got %d", 1, len(m))
+		}
+		pattern := `^[A-Za-z0-9\+\/]+:\d$`
+		re := regexp.MustCompile(pattern)
+		for _, message := range m {
+			if message.ID == "" {
+				ts.Fatal("expected message id not to be empty")
+			}
+			if !re.MatchString(message.ID) {
+				ts.Fatalf("expected id %s to match pattern %q", message.ID, pattern)
+			}
+			baseID := strings.Split(message.ID, ":")[0]
+			v, err := base64.StdEncoding.DecodeString(baseID)
+			if err != nil {
+				ts.Fatal(err)
+			}
+			if len(v) != 9 {
+				ts.Errorf("expected %d bytes git %d", 9, len(v))
+			}
 		}
 	})
 }
