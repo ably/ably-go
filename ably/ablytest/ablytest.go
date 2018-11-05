@@ -15,6 +15,7 @@ var Timeout = 30 * time.Second
 var NoBinaryProtocol bool
 var DefaultLogger = ably.LoggerOptions{Level: ably.LogNone}
 var Environment = "sandbox"
+var IdempotentEnvironment = "idempotent-dev"
 
 func nonil(err ...error) error {
 	for _, err := range err {
