@@ -562,28 +562,31 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 	}
 
 	for i, cas := range cases {
-		client := app.NewRealtimeClient(&ably.ClientOptions{
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
-		})
-		defer safeclose(t, client)
+		rclient, err := ably.NewRestClient(app.Options())
+		if err != nil {
+			t.Fatal(err)
+		}
 		params := &ably.TokenParams{
 			ClientID: cas.authAs,
 		}
-		tok, err := client.Auth.RequestToken(params, nil)
+		tok, err := rclient.Auth.RequestToken(params, nil)
 		if err != nil {
 			t.Errorf("%d: CreateTokenRequest()=%v", i, err)
 			continue
 		}
-		opts := &ably.AuthOptions{
+		opts := ably.AuthOptions{
 			TokenDetails: tok,
+			UseTokenAuth: true,
 			Force:        true,
 		}
-		if _, err = client.Auth.Authorize(params, opts); err != nil {
-			t.Errorf("%d: Authorize()=%v", i, err)
-			continue
+		copts := &ably.ClientOptions{
+			AuthOptions: opts,
 		}
+		if i == 4 {
+			copts.ClientID = cas.clientID
+		}
+		client := app.NewRealtimeClient(copts)
+		defer safeclose(t, client)
 		if id := client.Auth.ClientID(); id != cas.clientID {
 			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
 			continue
