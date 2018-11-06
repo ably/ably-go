@@ -578,6 +578,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		}
 		opts := &ably.AuthOptions{
 			TokenDetails: tok,
+			Force:        true,
 		}
 		if _, err = client.Auth.Authorize(params, opts); err != nil {
 			t.Errorf("%d: Authorize()=%v", i, err)
