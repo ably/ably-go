@@ -474,10 +474,10 @@ func detectAuthMethod(opts *ClientOptions) (int, error) {
 		return authToken, nil
 	}
 	if !isKeyValid {
-		return 0, newError(40005, errInvalidKey)
+		return 0, newError(ErrInvalidCredential, errInvalidKey)
 	}
 	if opts.NoTLS {
-		return 0, newError(40103, errInsecureBasicAuth)
+		return 0, newError(ErrInvalidUseOfBasicAuthOverNonTLSTransport, errInsecureBasicAuth)
 	}
 	return authBasic, nil
 }
