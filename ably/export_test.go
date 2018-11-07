@@ -68,3 +68,7 @@ func (a *Auth) SetNowFunc(now func() time.Time) {
 func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
 }
+
+func SetSuccessFallbackHost(duration time.Duration) {
+	successFallbackHost = &fallbackCache{duration: duration}
+}

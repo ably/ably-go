@@ -2,6 +2,7 @@ package ably
 
 import (
 	"bytes"
+	"context"
 	_ "crypto/sha512"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -238,6 +240,63 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 	return c.doWithHandle(r, c.handleResponse)
 }
 
+var successFallbackHost = &fallbackCache{}
+
+// fallbackCache this caches a successful fallback host for 10 minutes.
+type fallbackCache struct {
+	runing   atomic.Value
+	host     atomic.Value
+	duration time.Duration
+	cancel   func()
+}
+
+func (f *fallbackCache) get() string {
+	if f.isRunning() {
+		h := f.host.Load()
+		return h.(string)
+	}
+	return ""
+}
+
+func (f *fallbackCache) isRunning() bool {
+	if v := f.runing.Load(); v != nil {
+		return v.(bool)
+	}
+	return false
+}
+
+func (f *fallbackCache) run() {
+	now := time.Now()
+	duration := 10 * time.Minute // spec RSC15f
+	if f.duration != 0 {
+		duration = f.duration
+	}
+	ctx, cancel := context.WithDeadline(context.Background(), now.Add(duration))
+	f.cancel = cancel
+	<-ctx.Done()
+	f.runing.Store(false)
+}
+
+func (f *fallbackCache) stop() {
+	f.cancel()
+	// we make sure we have stopped
+	for {
+		if !f.isRunning() {
+			return
+		}
+	}
+}
+
+func (f *fallbackCache) put(host string) {
+	if f.get() != host {
+		if f.isRunning() {
+			f.stop()
+		}
+		f.host.Store(host)
+		go f.run()
+	}
+}
+
 func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
 	req, err := c.NewHTTPRequest(r)
 	if err != nil {
@@ -273,18 +332,24 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 							return nil, err
 						}
 						var h string
-						if len(left) == 1 {
-							h = left[0]
+
+						fb := successFallbackHost.get()
+						if fb != "" {
+							h = fb
 						} else {
-							h = left[rand.Intn(len(left)-1)]
-						}
-						var n []string
-						for _, v := range left {
-							if v != h {
-								n = append(n, v)
+							if len(left) == 1 {
+								h = left[0]
+							} else {
+								h = left[rand.Intn(len(left)-1)]
 							}
+							var n []string
+							for _, v := range left {
+								if v != h {
+									n = append(n, v)
+								}
+							}
+							left = n
 						}
-						left = n
 						req, err := c.NewHTTPRequest(r)
 						if err != nil {
 							return nil, err
@@ -309,6 +374,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 							}
 							return nil, err
 						}
+						successFallbackHost.put(h)
 						return resp, nil
 					}
 				}
