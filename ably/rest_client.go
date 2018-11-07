@@ -16,7 +16,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -246,37 +245,46 @@ var successFallbackHost = &fallbackCache{}
 
 // fallbackCache this caches a successful fallback host for 10 minutes.
 type fallbackCache struct {
-	runing   atomic.Value
-	host     atomic.Value
+	runing   bool
+	host     string
 	duration time.Duration
 	cancel   func()
+	mu       sync.RWMutex
 }
 
 func (f *fallbackCache) get() string {
 	if f.isRunning() {
-		h := f.host.Load()
-		return h.(string)
+		f.mu.RLock()
+		h := f.host
+		f.mu.RUnlock()
+		return h
 	}
 	return ""
 }
 
 func (f *fallbackCache) isRunning() bool {
-	if v := f.runing.Load(); v != nil {
-		return v.(bool)
-	}
-	return false
+	f.mu.RLock()
+	v := f.runing
+	f.mu.RUnlock()
+	return v
 }
 
-func (f *fallbackCache) run() {
+func (f *fallbackCache) run(host string) {
+	f.mu.Lock()
 	now := time.Now()
 	duration := 10 * time.Minute // spec RSC15f
 	if f.duration != 0 {
 		duration = f.duration
 	}
 	ctx, cancel := context.WithDeadline(context.Background(), now.Add(duration))
+	f.runing = true
+	f.host = host
 	f.cancel = cancel
+	f.mu.Unlock()
 	<-ctx.Done()
-	f.runing.Store(false)
+	f.mu.Lock()
+	f.runing = false
+	f.mu.Unlock()
 }
 
 func (f *fallbackCache) stop() {
@@ -294,8 +302,7 @@ func (f *fallbackCache) put(host string) {
 		if f.isRunning() {
 			f.stop()
 		}
-		f.host.Store(host)
-		go f.run()
+		go f.run(host)
 	}
 }
 
