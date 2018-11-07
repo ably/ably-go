@@ -834,3 +834,15 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 		}
 	}
 }
+
+func TestAuth_RSA7c(t *testing.T) {
+	t.Parallel()
+	app := ablytest.MustSandbox(nil)
+	defer safeclose(t, app)
+	opts := app.Options()
+	opts.ClientID = "*"
+	_, err := ably.NewRestClient(opts)
+	if err == nil {
+		t.Error("expected an error")
+	}
+}
