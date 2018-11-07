@@ -298,7 +298,7 @@ func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) 
 	for _, v := range messages {
 		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
 			// Spec RSL1g3,RSL1g4
-			return nil, fmt.Errorf("can't publish message with clientId %s the clientId is %s", v.ClientID, id)
+			return nil, fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
 		}
 	}
 	msg := &proto.ProtocolMessage{
