@@ -318,7 +318,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 		return nil, err
 	}
 	if h := c.successFallbackHost.get(); h != "" {
-		req.URL.Host = h
+		req.URL.Host = h // RSC15f
 	}
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
