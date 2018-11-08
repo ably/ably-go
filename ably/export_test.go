@@ -69,6 +69,10 @@ func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
 }
 
-func SetSuccessFallbackHost(duration time.Duration) {
-	successFallbackHost = &fallbackCache{duration: duration}
+func (c *RestClient) SetSuccessFallbackHost(duration time.Duration) {
+	c.successFallbackHost = &fallbackCache{duration: duration}
+}
+
+func (c *RestClient) GetCachedFallbackHost() string {
+	return c.successFallbackHost.get()
 }
