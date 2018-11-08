@@ -388,6 +388,71 @@ func TestRest_hostfallback(t *testing.T) {
 	})
 }
 
+func TestRest_rememberHostFallback(t *testing.T) {
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+
+	t.Run("remember success host RSC15f", func(ts *testing.T) {
+		var retryCount int
+		var hosts []string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hosts = append(hosts, r.Host)
+			retryCount++
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		fallbacks := ably.DefaultFallbackHosts()
+		nopts := &ably.ClientOptions{
+			NoTLS:                   true,
+			FallbackHostsUseDefault: true,
+			AuthOptions: ably.AuthOptions{
+				UseTokenAuth: true,
+			},
+			HTTPClient: &http.Client{
+				Transport: &http.Transport{
+					Proxy: func(r *http.Request) (*url.URL, error) {
+						if strings.HasPrefix(r.URL.Path, "/channels/") {
+							if r.URL.Host == fallbacks[3] {
+								return url.Parse(fmt.Sprintf("https://%s", hosts[0]))
+							}
+							return url.Parse(server.URL)
+						}
+						return r.URL, nil
+					},
+				},
+			},
+		}
+		client, err := ably.NewRestClient(app.Options(nopts))
+		if err != nil {
+			ts.Fatal(err)
+		}
+		channel := client.Channels.Get("remember_fallback_host", nil)
+		err = channel.Publish("ping", "pong")
+		if err != nil {
+			ts.Fatal(err)
+		}
+		cachedHost := client.GetCachedFallbackHost()
+		if cachedHost != fallbacks[3] {
+			ts.Errorf("expected cached host to be %s got %s", fallbacks[3], cachedHost)
+		}
+		retryCount = 0
+
+		// the same cached host is used again
+		err = channel.Publish("pong", "ping")
+		if err != nil {
+			ts.Fatal(err)
+		}
+		cachedHost = client.GetCachedFallbackHost()
+		if cachedHost != fallbacks[3] {
+			ts.Errorf("expected cached host to be %s got %s", fallbacks[3], cachedHost)
+		}
+		if retryCount != 1 {
+			ts.Errorf("expected to retry only once got %d retries", retryCount)
+		}
+	})
+}
 func TestRestChannels_RSN1(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
