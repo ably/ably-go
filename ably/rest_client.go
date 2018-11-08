@@ -125,9 +125,10 @@ func (c *RestChannels) Len() (size int) {
 }
 
 type RestClient struct {
-	Auth     *Auth
-	Channels *RestChannels
-	opts     ClientOptions
+	Auth                *Auth
+	Channels            *RestChannels
+	opts                ClientOptions
+	successFallbackHost *fallbackCache
 }
 
 func NewRestClient(opts *ClientOptions) (*RestClient, error) {
@@ -239,8 +240,6 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 	return c.doWithHandle(r, c.handleResponse)
 }
 
-var successFallbackHost = &fallbackCache{}
-
 // fallbackCache this caches a successful fallback host for 10 minutes.
 type fallbackCache struct {
 	runing   bool
@@ -305,6 +304,9 @@ func (f *fallbackCache) put(host string) {
 }
 
 func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
+	if c.successFallbackHost == nil {
+		c.successFallbackHost = &fallbackCache{}
+	}
 	req, err := c.NewHTTPRequest(r)
 	if err != nil {
 		return nil, err
@@ -340,7 +342,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 						}
 						var h string
 
-						fb := successFallbackHost.get()
+						fb := c.successFallbackHost.get()
 						if fb != "" {
 							h = fb
 						} else {
@@ -381,7 +383,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 							}
 							return nil, err
 						}
-						successFallbackHost.put(h)
+						c.successFallbackHost.put(h)
 						return resp, nil
 					}
 				}
