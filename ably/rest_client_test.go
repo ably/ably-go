@@ -448,8 +448,8 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		if cachedHost != fallbacks[3] {
 			ts.Errorf("expected cached host to be %s got %s", fallbacks[3], cachedHost)
 		}
-		if retryCount != 1 {
-			ts.Errorf("expected to retry only once got %d retries", retryCount)
+		if retryCount != 0 {
+			ts.Errorf("expected to 0 retries got %d retries", retryCount)
 		}
 	})
 }

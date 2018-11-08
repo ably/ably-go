@@ -315,6 +315,9 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 	if err != nil {
 		return nil, err
 	}
+	if h := c.successFallbackHost.get(); h != "" {
+		req.URL.Host = h
+	}
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
 	}
@@ -345,24 +348,18 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 							return nil, err
 						}
 						var h string
-
-						fb := c.successFallbackHost.get()
-						if fb != "" {
-							h = fb
+						if len(left) == 1 {
+							h = left[0]
 						} else {
-							if len(left) == 1 {
-								h = left[0]
-							} else {
-								h = left[rand.Intn(len(left)-1)]
-							}
-							var n []string
-							for _, v := range left {
-								if v != h {
-									n = append(n, v)
-								}
-							}
-							left = n
+							h = left[rand.Intn(len(left)-1)]
 						}
+						var n []string
+						for _, v := range left {
+							if v != h {
+								n = append(n, v)
+							}
+						}
+						left = n
 						req, err := c.NewHTTPRequest(r)
 						if err != nil {
 							return nil, err
@@ -426,6 +423,7 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 		}
 		body = bytes.NewReader(p)
 	}
+
 	req, err := http.NewRequest(r.Method, c.opts.restURL()+r.Path, body)
 	if err != nil {
 		return nil, newError(ErrInternalError, err)
