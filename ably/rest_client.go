@@ -242,7 +242,7 @@ func (c *RestClient) do(r *Request) (*http.Response, error) {
 
 // fallbackCache this caches a successful fallback host for 10 minutes.
 type fallbackCache struct {
-	runing   bool
+	running  bool
 	host     string
 	duration time.Duration
 	cancel   func()
@@ -261,7 +261,7 @@ func (f *fallbackCache) get() string {
 
 func (f *fallbackCache) isRunning() bool {
 	f.mu.RLock()
-	v := f.runing
+	v := f.running
 	f.mu.RUnlock()
 	return v
 }
@@ -274,13 +274,13 @@ func (f *fallbackCache) run(host string) {
 		duration = f.duration
 	}
 	ctx, cancel := context.WithDeadline(context.Background(), now.Add(duration))
-	f.runing = true
+	f.running = true
 	f.host = host
 	f.cancel = cancel
 	f.mu.Unlock()
 	<-ctx.Done()
 	f.mu.Lock()
-	f.runing = false
+	f.running = false
 	f.mu.Unlock()
 }
 
