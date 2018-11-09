@@ -452,6 +452,26 @@ func TestRest_rememberHostFallback(t *testing.T) {
 			ts.Errorf("expected to 0 retries got %d retries", retryCount)
 		}
 	})
+
+	t.Run("configurable fallbackRetryTimeout", func(ts *testing.T) {
+		ts.Run("defaults to 10 minutes", func(ts *testing.T) {
+			opts := &ably.ClientOptions{}
+			expect := 10 * time.Minute
+			got := opts.GetFallbackRetryTimeout()
+			if got != expect {
+				ts.Errorf("expected %s got %s", expect, got)
+			}
+		})
+
+		ts.Run("uses FallbackRetryTimeout if set", func(ts *testing.T) {
+			expect := 10 * time.Second
+			opts := &ably.ClientOptions{FallbackRetryTimeout: expect}
+			got := opts.GetFallbackRetryTimeout()
+			if got != expect {
+				ts.Errorf("expected %s got %s", expect, got)
+			}
+		})
+	})
 }
 func TestRestChannels_RSN1(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)

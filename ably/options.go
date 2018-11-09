@@ -23,13 +23,14 @@ const (
 )
 
 var defaultOptions = &ClientOptions{
-	RestHost:          RestHost,
-	FallbackHosts:     DefaultFallbackHosts(),
-	HTTPMaxRetryCount: 3,
-	RealtimeHost:      "realtime.ably.io",
-	TimeoutConnect:    15 * time.Second,
-	TimeoutDisconnect: 30 * time.Second,
-	TimeoutSuspended:  2 * time.Minute,
+	RestHost:             RestHost,
+	FallbackHosts:        DefaultFallbackHosts(),
+	HTTPMaxRetryCount:    3,
+	RealtimeHost:         "realtime.ably.io",
+	TimeoutConnect:       15 * time.Second,
+	TimeoutDisconnect:    30 * time.Second,
+	TimeoutSuspended:     2 * time.Minute,
+	FallbackRetryTimeout: 10 * time.Minute,
 }
 
 func DefaultFallbackHosts() []string {
@@ -181,6 +182,12 @@ type ClientOptions struct {
 	// max number of fallback hosts to use as a fallback.
 	HTTPMaxRetryCount int
 
+	// The period in milliseconds before HTTP requests are retried against the
+	// default endpoint
+	//
+	// spec TO3l10
+	FallbackRetryTimeout time.Duration
+
 	NoTLS            bool // when true REST and realtime client won't use TLS
 	NoConnect        bool // when true realtime client will not attempt to connect automatically
 	NoEcho           bool // when true published messages will not be echoed back
@@ -241,6 +248,13 @@ func (opts *ClientOptions) timeoutSuspended() time.Duration {
 		return opts.TimeoutSuspended
 	}
 	return defaultOptions.TimeoutSuspended
+}
+
+func (opts *ClientOptions) fallbackRetryTimeout() time.Duration {
+	if opts.FallbackRetryTimeout != 0 {
+		return opts.FallbackRetryTimeout
+	}
+	return defaultOptions.FallbackRetryTimeout
 }
 
 func (opts *ClientOptions) restURL() string {

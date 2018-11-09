@@ -76,3 +76,7 @@ func (c *RestClient) SetSuccessFallbackHost(duration time.Duration) {
 func (c *RestClient) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
 }
+
+func (opts *ClientOptions) GetFallbackRetryTimeout() time.Duration {
+	return opts.fallbackRetryTimeout()
+}
