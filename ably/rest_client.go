@@ -40,10 +40,6 @@ const (
 	AblyVersion            = "1.0"
 )
 
-// CachedFallbackLifetime this is duration in minutes in which a successful
-// fallback host will be cached.
-const CachedFallbackLifetime = 10 * time.Minute
-
 const HostHeader = "Host"
 
 func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
@@ -273,7 +269,7 @@ func (f *fallbackCache) isRunning() bool {
 func (f *fallbackCache) run(host string) {
 	f.mu.Lock()
 	now := time.Now()
-	duration := CachedFallbackLifetime // spec RSC15f
+	duration := defaultOptions.FallbackRetryTimeout // spec RSC15f
 	if f.duration != 0 {
 		duration = f.duration
 	}
@@ -309,7 +305,9 @@ func (f *fallbackCache) put(host string) {
 
 func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
 	if c.successFallbackHost == nil {
-		c.successFallbackHost = &fallbackCache{}
+		c.successFallbackHost = &fallbackCache{
+			duration: c.opts.fallbackRetryTimeout(),
+		}
 	}
 	req, err := c.NewHTTPRequest(r)
 	if err != nil {
