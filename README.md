@@ -8,6 +8,45 @@ A Go client library for [www.ably.io](https://ably.io), the realtime messaging s
 ~ $ go get -u github.com/ably/ably-go/ably
 ```
 
+## Feature support
+
+This library implements the Ably REST and Realtime client APIs.
+
+### REST API
+
+In respect of the Ably REST API, this library targets the Ably 1.1 client library specification,
+with some omissions as follows (see [the client library specification](https://docs.ably.io/client-lib-development-guide/features/) for specification references):
+
+| Feature | Spec reference |
+| --- | --- | --- |
+| Push notifications admin API | RSH1 |
+| Push notifications target API | RSH2 |
+| JWT authentication | multiple |
+| Exception reporting | RSC20 |
+
+It is intended that this library is upgraded incrementally, with 1.1 feature support expanded in successive minor
+releases. If there are features that are currently missing that are a high priority for your use-case then please
+[contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
+
+### Realtime API
+
+In respect of the Realtime API, this is an early experimental implementation that targets the (now superseded) 0.8
+library specification. This means that there are significant shortfalls in functionality; the principal issues are:
+
+- there is no channel `suspended` state; this means that the client will not automatically reattach to channels if a
+connection becomes `suspended` and then resumes, and presence members associated with the client will not be
+automatically re-entered;
+
+- transient realtime publishing is not supported, so a call to `publish()` on a realtime channel will trigger attachment
+ of the channel;
+
+- inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
+connection.
+
+As with the REST API, it is intended that this library is upgraded incrementally and brought into line with the 1.1
+specification. If there are features that are currently missing that are a high priority for your use-case then please
+[contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
+
 ## Using the Realtime API
 
 ### Creating a client
@@ -231,8 +270,6 @@ As the library is actively developed couple of features are not there yet:
 
 This library uses [semantic versioning](http://semver.org/). For each release, the following needs to be done:
 
-
-
 * Create a branch for the release, named like `release-1.0.6`
 * Replace all references of the current version number with the new version number and commit the changes
 * Run [`github_changelog_generator`](https://github.com/skywinder/Github-Changelog-Generator) to update the [CHANGELOG](./CHANGELOG.md): `github_changelog_generator -u ably -p ably-go --header-label="# Changelog" --release-branch=release-1.0.6 --future-release=v1.0.6` 
@@ -241,7 +278,6 @@ This library uses [semantic versioning](http://semver.org/). For each release, t
 * Make a PR against `develop`
 * Once the PR is approved, merge it into `develop`
 * Fast-forward the master branch: `git checkout master && git merge --ff-only develop && git push origin master`
-
 
 ## Support and feedback
 
