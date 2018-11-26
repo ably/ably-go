@@ -143,7 +143,7 @@ if err != nil {
 	panic(err)
 }
 
-channel := client.Channel("test")
+channel := client.Channels.Get("test")
 ```
 
 ### Publishing a message to a channel
