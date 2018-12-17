@@ -62,7 +62,7 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 			v.ChannelOptions = c.options
 		}
 	}
-	useIdempotent := !c.client.opts.NoIdempotentRestPublishing
+	useIdempotent := c.client.opts.idempotentRestPublishing()
 	if useIdempotent {
 		switch len(messages) {
 		case 1:
