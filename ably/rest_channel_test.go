@@ -206,7 +206,7 @@ func TestIdempotentPublishing(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	options := app.Options()
+	options := app.Options(&ably.ClientOptions{IdempotentRestPublishing:true})
 	client, err := ably.NewRestClient(options)
 	if err != nil {
 		t.Fatal(err)
@@ -430,6 +430,7 @@ func TestIdempotent_retry(t *testing.T) {
 		nopts := &ably.ClientOptions{
 			NoTLS:                   true,
 			FallbackHostsUseDefault: true,
+			IdempotentRestPublishing: true,
 			AuthOptions: ably.AuthOptions{
 				UseTokenAuth: true,
 			},

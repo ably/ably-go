@@ -31,6 +31,7 @@ var defaultOptions = &ClientOptions{
 	TimeoutDisconnect:    30 * time.Second,
 	TimeoutSuspended:     2 * time.Minute,
 	FallbackRetryTimeout: 10 * time.Minute,
+	IdempotentRestPublishing: false,
 }
 
 func DefaultFallbackHosts() []string {
@@ -194,9 +195,9 @@ type ClientOptions struct {
 	NoQueueing       bool // when true drops messages published during regaining connection
 	NoBinaryProtocol bool // when true uses JSON for network serialization protocol instead of MsgPack
 
-	// When true idempotent rest publishing will be disabled.
+	// When true idempotent rest publishing will be enabled.
 	// Spec TO3n
-	NoIdempotentRestPublishing bool
+	IdempotentRestPublishing   bool
 	TimeoutConnect             time.Duration // time period after which connect request is failed
 	TimeoutDisconnect          time.Duration // time period after which disconnect request is failed
 	TimeoutSuspended           time.Duration // time period after which no more reconnection attempts are performed
@@ -303,6 +304,10 @@ func (opts *ClientOptions) protocol() string {
 		return protocolJSON
 	}
 	return protocolMsgPack
+}
+
+func (opts *ClientOptions) idempotentRestPublishing() bool {
+	return opts.IdempotentRestPublishing
 }
 
 // Time returns the given time as a timestamp in milliseconds since epoch.
