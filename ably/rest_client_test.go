@@ -109,15 +109,15 @@ func TestRestClient(t *testing.T) {
 			if err != nil {
 				ts.Fatal(err)
 			}
-			name := anyMsgPack[0]["name"].([]byte)
-			data := anyMsgPack[0]["data"].([]byte)
+			name := anyMsgPack[0]["name"].(string)
+			data := anyMsgPack[0]["data"].(string)
 
 			expectName := "ping"
 			expectData := "pong"
-			if string(name) != expectName {
+			if name != expectName {
 				ts.Errorf("expected %s got %s", expectName, string(name))
 			}
-			if string(data) != expectData {
+			if data != expectData {
 				ts.Errorf("expected %s got %s", expectData, string(data))
 			}
 		})
