@@ -1,0 +1,6 @@
+github.com/ably/ably-go v1.1.0 h1:L3WA+AxO4sS82gMIGg2W5c49ORj0QHEqp4N+GWzirv8=
+github.com/ably/ably-go v1.1.0/go.mod h1:YDhXHXz54Jv1ut4stKHPtLgF3Bi1KvqyKDY12MpYJLQ=
+github.com/ugorji/go/codec v0.0.0-20181209151446-772ced7fd4c2 h1:EICbibRW4JNKMcY+LsWmuwob+CRS1BmdRdjphAm9mH4=
+github.com/ugorji/go/codec v0.0.0-20181209151446-772ced7fd4c2/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
+golang.org/x/net v0.0.0-20181220203305-927f97764cc3 h1:eH6Eip3UpmR+yM/qI9Ijluzb1bNv/cAU/n+6l8tRSis=
+golang.org/x/net v0.0.0-20181220203305-927f97764cc3/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=

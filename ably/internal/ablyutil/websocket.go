@@ -6,7 +6,7 @@ import (
 
 	"github.com/ably/ably-go/ably/proto"
 
-	"github.com/ably/ably-go/Godeps/_workspace/src/golang.org/x/net/websocket"
+	"golang.org/x/net/websocket"
 )
 
 type WebsocketConn struct {
