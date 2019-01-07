@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - 1.10.3
+  - 1.11.2
 
 before_install:
   - go get -t -v ./ably/...
