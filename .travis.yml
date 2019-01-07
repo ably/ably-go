@@ -7,6 +7,7 @@ before_install:
   - go get -t -v ./ably/...
 env:
   - GOMAXPROCS=4
+  - GO111MODULE=on
 sudo: false
 script:
   - make test
