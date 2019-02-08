@@ -18,7 +18,7 @@ In respect of the Ably REST API, this library targets the Ably 1.1 client librar
 with some omissions as follows (see [the client library specification](https://docs.ably.io/client-lib-development-guide/features/) for specification references):
 
 | Feature | Spec reference |
-| --- | --- | --- |
+| --- | --- |
 | Push notifications admin API | RSH1 |
 | Push notifications target API | RSH2 |
 | JWT authentication | multiple |
