@@ -15,14 +15,12 @@ This library implements the Ably REST and Realtime client APIs.
 ### REST API
 
 In respect of the Ably REST API, this library targets the Ably 1.1 client library specification,
-with some omissions as follows (see [the client library specification](https://docs.ably.io/client-lib-development-guide/features/) for specification references):
+with some omissions as follows (see [the client library specification](https://www.ably.io/documentation/client-lib-development-guide/features) for specification references):
 
-| Feature | Spec reference |
+| Feature | Docs |
 | --- | --- |
-| Push notifications admin API | RSH1 |
-| Push notifications target API | RSH2 |
-| JWT authentication | multiple |
-| Exception reporting | RSC20 |
+| Push notifications admin API | [Push Admin](https://www.ably.io/documentation/general/push/admin) |
+| JWT authentication | [Using JWT](https://www.ably.io/documentation/core-features/authentication#ably-jwt-process) |
 
 It is intended that this library is upgraded incrementally, with 1.1 feature support expanded in successive minor
 releases. If there are features that are currently missing that are a high priority for your use-case then please
