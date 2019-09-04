@@ -29,7 +29,7 @@ func Wait(res ably.Result, err error) error {
 // ResultGroup blocks till last added ably.Result has completed successfully.
 //
 // If at least ably.Result value failed, ResultGroup returns first encountered
-// error immadiately.
+// error immediately.
 type ResultGroup struct {
 	mu    sync.Mutex
 	wg    sync.WaitGroup

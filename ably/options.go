@@ -117,7 +117,7 @@ type AuthOptions struct {
 	AuthParams url.Values
 
 	// UseQueryTime when set to true, the time queried from Ably servers will
-	// be used to sign the TokenRequest instread of using local time.
+	// be used to sign the TokenRequest instead of using local time.
 	UseQueryTime bool
 
 	// Spec: TO3j11

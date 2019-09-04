@@ -16,7 +16,7 @@ const (
 	syncComplete
 )
 
-// RealtimePresence represents a single presence map of a prarticular channel.
+// RealtimePresence represents a single presence map of a particular channel.
 // It allows entering, leaving and updating presence state for the current
 // client or on behalf of other client.
 type RealtimePresence struct {

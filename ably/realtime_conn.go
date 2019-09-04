@@ -188,7 +188,7 @@ func (c *Conn) Key() string {
 // Ping issues a ping request against configured endpoint and returns TTR times
 // for ping request and pong response.
 //
-// Ping returns non-nil error without any attemp of communication with Ably
+// Ping returns non-nil error without any attempt of communication with Ably
 // if the connection state is StateConnClosed or StateConnFailed.
 func (c *Conn) Ping() (ping, pong time.Duration, err error) {
 	return 0, 0, errors.New("TODO")
@@ -223,12 +223,12 @@ func (c *Conn) State() StateEnum {
 //
 // If no states are given, c is registered for all of them.
 // If c is nil, the method panics.
-// If c is alreadt registered, its state set is expanded.
+// If c is already registered, its state set is expanded.
 func (c *Conn) On(ch chan<- State, states ...StateEnum) {
 	c.state.on(ch, states...)
 }
 
-// Off removes c from listetning on the given connection state transitions.
+// Off removes c from listening on the given connection state transitions.
 //
 // If no states are given, c is removed for all of the connection's states.
 // If c is nil, the method panics.

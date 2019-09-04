@@ -27,7 +27,7 @@ func decodeMsg(r io.Reader, v interface{}) error {
 	return dec.Decode(v)
 }
 
-// Marshal retruns msgpack encoding of v
+// Marshal returns msgpack encoding of v
 func Marshal(v interface{}) ([]byte, error) {
 	var buf bytes.Buffer
 	err := encodeMsg(&buf, v)

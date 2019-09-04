@@ -47,7 +47,7 @@ func newHTTPPaginatedResultFromPaginatedResult(p *PaginatedResult) *HTTPPaginate
 	return h
 }
 
-// Next overides PaginatedResult.Next
+// Next overrides PaginatedResult.Next
 // spec HP2
 func (h *HTTPPaginatedResponse) Next() (*HTTPPaginatedResponse, error) {
 	p, err := h.PaginatedResult.Next()
