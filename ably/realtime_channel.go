@@ -222,7 +222,7 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 	return res, nil
 }
 
-// Closes initiaties closing sequence for the channel; it waits until the
+// Closes initiates closing sequence for the channel; it waits until the
 // operation is complete.
 //
 // If connection is already closed, this method is a nop.

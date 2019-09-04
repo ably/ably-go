@@ -211,7 +211,7 @@ func (rec *StateRecorder) Channel() chan<- ably.State {
 	return rec.ch
 }
 
-// Stop stops separate recording gorouting and waits until it terminates.
+// Stop stops separate recording goroutine and waits until it terminates.
 func (rec *StateRecorder) Stop() {
 	close(rec.done)
 	rec.wg.Wait()

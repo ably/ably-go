@@ -175,7 +175,7 @@ func stateError(state StateEnum, err error) error {
 }
 
 // State describes a single state transition of either realtime connection or channel
-// that occured due to some external condition (dropped connection, retried etc.).
+// that occurred due to some external condition (dropped connection, retried etc.).
 //
 // Each realtime connection and channel maintains its state to ensure high availability
 // and resilience, which is inherently asynchronous. In order to listen to transition

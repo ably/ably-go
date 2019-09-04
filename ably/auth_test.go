@@ -761,7 +761,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 				ts.Errorf("expected error code %d got %d", ably.ErrInvalidCredentials, e.Code)
 			}
 
-			// overide with bad key
+			// override with bad key
 			opts.Key = "some bad key"
 			_, err = client.Auth.CreateTokenRequest(params, opts)
 			if err == nil {

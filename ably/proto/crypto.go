@@ -9,7 +9,7 @@ import (
 	"io"
 )
 
-// CipherAlgorithm algorithms used for channel enccryption.
+// CipherAlgorithm algorithms used for channel encryption.
 type CipherAlgorithm uint
 
 const (
@@ -77,7 +77,7 @@ type ChannelOptions struct {
 	cipher ChannelCipher
 }
 
-// GetCipher retruns a ChannelCipher based on the algorithms set in the
+// GetCipher returns a ChannelCipher based on the algorithms set in the
 // ChannelOptions.CipherParams.
 func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
 	if c.cipher != nil {
