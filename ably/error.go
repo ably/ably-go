@@ -1,9 +1,11 @@
 package ably
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"mime"
 	"net"
 	"net/http"
 
@@ -87,6 +89,14 @@ func code(err error) int {
 	return 0
 }
 
+func errFromUnprocessableBody(r io.Reader) error {
+	errMsg, err := ioutil.ReadAll(r)
+	if err == nil {
+		err = errors.New(string(errMsg))
+	}
+	return newError(40000, err)
+}
+
 func checkValidHTTPResponse(resp *http.Response) error {
 	type errorBody struct {
 		Error proto.ErrorInfo `json:"error,omitempty" codec:"error,omitempty"`
@@ -95,14 +105,23 @@ func checkValidHTTPResponse(resp *http.Response) error {
 		return nil
 	}
 	defer resp.Body.Close()
+	typ, _, mimeErr := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	if mimeErr != nil {
+		return newError(50000, mimeErr)
+	}
+	if typ != protocolJSON && typ != protocolMsgPack {
+		return errFromUnprocessableBody(resp.Body)
+	}
+
 	body := &errorBody{}
-	if e := json.NewDecoder(resp.Body).Decode(body); e != nil {
+	if err := decode(typ, resp.Body, &body); err != nil {
 		return &Error{
 			Code:       50000,
 			StatusCode: resp.StatusCode,
 			Err:        genericError(errors.New(http.StatusText(resp.StatusCode))),
 		}
 	}
+
 	err := &Error{
 		Code:       body.Error.Code,
 		StatusCode: body.Error.StatusCode,
