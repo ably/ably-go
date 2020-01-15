@@ -175,6 +175,8 @@ type ClientOptions struct {
 	FallbackHosts   []string
 	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
 	Environment     string        // optional; prefixes both hostname with the environment string
+	Port            int           // optional: port to use for non-TLS connections and requests
+	TLSPort         int           // optional: port to use for TLS connections and requests
 	ClientID        string        // optional; required for managing realtime presence of the current client
 	Recover         string        // optional; used to recover client state
 	Logger          LoggerOptions // optional; overwrite logging defaults
@@ -266,16 +268,19 @@ func (opts *ClientOptions) restURL() string {
 			host = opts.Environment + "-" + host
 		}
 	}
-	return opts.scheme() + host
-}
-
-// This returns http scheme to use . http if NoTLS is true otherwise defaults to
-// https.
-func (opts *ClientOptions) scheme() string {
 	if opts.NoTLS {
-		return "http://"
+		port := opts.Port
+		if port == 0 {
+			port = 80
+		}
+		return "http://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
+	} else {
+		port := opts.Port
+		if port == 0 {
+			port = 443
+		}
+		return "https://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	}
-	return "https://"
 }
 
 func (opts *ClientOptions) realtimeURL() string {
@@ -287,9 +292,18 @@ func (opts *ClientOptions) realtimeURL() string {
 		}
 	}
 	if opts.NoTLS {
-		return "ws://" + net.JoinHostPort(host, "80")
+		port := opts.Port
+		if port == 0 {
+			port = 80
+		}
+		return "ws://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
+	} else {
+		port := opts.Port
+		if port == 0 {
+			port = 443
+		}
+		return "wss://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	}
-	return "wss://" + net.JoinHostPort(host, "443")
 }
 
 func (opts *ClientOptions) httpclient() *http.Client {
