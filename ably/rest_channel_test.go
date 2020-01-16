@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -206,7 +207,7 @@ func TestIdempotentPublishing(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	options := app.Options(&ably.ClientOptions{IdempotentRestPublishing:true})
+	options := app.Options(&ably.ClientOptions{IdempotentRestPublishing: true})
 	client, err := ably.NewRestClient(options)
 	if err != nil {
 		t.Fatal(err)
@@ -420,34 +421,52 @@ func TestIdempotent_retry(t *testing.T) {
 	}
 	t.Run("when there is a network failure triggering an automatic retry (#RSL1k4)", func(ts *testing.T) {
 		var retryCount int
-		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			hosts = append(hosts, r.Host)
 			retryCount++
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
+		defer server.Close()
 
+		// set up the proxy to forward the second retry to the correct endpoint,
+		// failing all others via the test server
+		fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
 		nopts := &ably.ClientOptions{
-			NoTLS:                   true,
-			FallbackHostsUseDefault: true,
+			Environment:              ablytest.Environment,
+			NoTLS:                    true,
+			FallbackHosts:            fallbackHosts,
 			IdempotentRestPublishing: true,
 			AuthOptions: ably.AuthOptions{
 				UseTokenAuth: true,
 			},
-			HTTPClient: &http.Client{
-				Transport: &http.Transport{
-					Proxy: func(r *http.Request) (*url.URL, error) {
-						if strings.HasPrefix(r.URL.Path, "/channels/") {
-							if retryCount == 2 {
-								return url.Parse(fmt.Sprintf("https://%s", hosts[0]))
-							}
-							return url.Parse(server.URL)
-						}
-						return r.URL, nil
-					},
-				},
+		}
+
+		serverURL, _ := url.Parse(server.URL)
+		defaultURL, _ := url.Parse(nopts.RestURL())
+		proxy := func(r *http.Request) (*url.URL, error) {
+			if !strings.HasPrefix(r.URL.Path, "/channels/") {
+				// this is to handle token requests
+				// set the Host in the request to the intended destination
+				r.Host = defaultURL.Hostname()
+				return defaultURL, nil
+			}
+			if retryCount < 2 {
+				// ensure initial requests fail
+				return serverURL, nil
+			} else {
+				// allow subsequent requests tos ucceed
+				// set the Host in the request to the intended destination
+				r.Host = defaultURL.Hostname()
+				return defaultURL, nil
+			}
+		}
+
+		nopts.HTTPClient = &http.Client{
+			Transport: &http.Transport{
+				Proxy:        proxy,
+				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
 			},
 		}
+
 		client, err := ably.NewRestClient(app.Options(nopts))
 		if err != nil {
 			ts.Fatal(err)
@@ -460,7 +479,7 @@ func TestIdempotent_retry(t *testing.T) {
 				ts.Error(err)
 			}
 			if retryCount != 2 {
-				ts.Errorf("expected %d retry attempts got %d %#v", 2, retryCount, hosts)
+				ts.Errorf("expected %d retry attempts got %d", 2, retryCount)
 			}
 			res, err := channel.History(nil)
 			if err != nil {

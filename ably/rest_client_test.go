@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -395,33 +396,45 @@ func TestRest_rememberHostFallback(t *testing.T) {
 	}
 	defer app.Close()
 
+	fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
+	var nopts *ably.ClientOptions
+
 	t.Run("remember success host RSC15f", func(ts *testing.T) {
 		var retryCount int
-		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			hosts = append(hosts, r.Host)
 			retryCount++
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
-		fallbacks := ably.DefaultFallbackHosts()
-		nopts := &ably.ClientOptions{
-			NoTLS:                   true,
-			FallbackHostsUseDefault: true,
+		defer server.Close()
+
+		nopts = &ably.ClientOptions{
+			Environment:   ablytest.Environment,
+			NoTLS:         true,
+			FallbackHosts: fallbackHosts,
 			AuthOptions: ably.AuthOptions{
 				UseTokenAuth: true,
 			},
-			HTTPClient: &http.Client{
-				Transport: &http.Transport{
-					Proxy: func(r *http.Request) (*url.URL, error) {
-						if strings.HasPrefix(r.URL.Path, "/channels/") {
-							if r.URL.Host == fallbacks[3] {
-								return url.Parse(fmt.Sprintf("https://%s", hosts[0]))
-							}
-							return url.Parse(server.URL)
-						}
-						return r.URL, nil
-					},
-				},
+		}
+
+		// set up the proxy to forward all requests except a specific fallback to the server,
+		// whilst that fallback goes to the regular endpoint
+		serverURL, _ := url.Parse(server.URL)
+		defaultURL, _ := url.Parse(nopts.RestURL())
+
+		proxy := func(r *http.Request) (*url.URL, error) {
+			if r.URL.Hostname() == "fallback2" {
+				// set the Host in the request to the intended destination
+				r.Host = defaultURL.Hostname()
+				return defaultURL, nil
+			} else {
+				return serverURL, nil
+			}
+		}
+
+		nopts.HTTPClient = &http.Client{
+			Transport: &http.Transport{
+				Proxy: proxy,
+				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
 			},
 		}
 		client, err := ably.NewRestClient(app.Options(nopts))
@@ -434,8 +447,8 @@ func TestRest_rememberHostFallback(t *testing.T) {
 			ts.Fatal(err)
 		}
 		cachedHost := client.GetCachedFallbackHost()
-		if cachedHost != fallbacks[3] {
-			ts.Errorf("expected cached host to be %s got %s", fallbacks[3], cachedHost)
+		if cachedHost != fallbackHosts[2] {
+			ts.Errorf("expected cached host to be %s got %s", fallbackHosts[2], cachedHost)
 		}
 		retryCount = 0
 
@@ -445,8 +458,8 @@ func TestRest_rememberHostFallback(t *testing.T) {
 			ts.Fatal(err)
 		}
 		cachedHost = client.GetCachedFallbackHost()
-		if cachedHost != fallbacks[3] {
-			ts.Errorf("expected cached host to be %s got %s", fallbacks[3], cachedHost)
+		if cachedHost != fallbackHosts[2] {
+			ts.Errorf("expected cached host to be %s got %s", fallbackHosts[2], cachedHost)
 		}
 		if retryCount != 0 {
 			ts.Errorf("expected 0 retries got %d retries", retryCount)
