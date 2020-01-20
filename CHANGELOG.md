@@ -1,5 +1,19 @@
 # Change Log
 
+## [v1.1.2](https://github.com/ably/ably-go/tree/v1.1.2)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.1.1...v1.1.2)
+
+**Fixed bugs:**
+
+- Unhelpful error message when failing to parse an HTTP response [\#127](https://github.com/ably/ably-go/issues/127)
+
+**Merged pull requests:**
+
+- REST client tests: a few fixes for test regressions [\#130](https://github.com/ably/ably-go/pull/130) ([paddybyers](https://github.com/paddybyers))
+- First fix for issue 127 [\#129](https://github.com/ably/ably-go/pull/129) ([paddybyers](https://github.com/paddybyers))
+- Fixed some typos in comments [\#124](https://github.com/ably/ably-go/pull/124) ([Jmgr](https://github.com/Jmgr))
+
 ## [v1.1.1](https://github.com/ably/ably-go/tree/v1.1.1) (2019-02-06)
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.1.0...v1.1.1)
 
