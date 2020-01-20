@@ -330,7 +330,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 		if e, ok := err.(*Error); ok {
 			if canFallBack(e.StatusCode) &&
 				(c.opts.FallbackHostsUseDefault ||
-					strings.HasSuffix(req.URL.Host, defaultOptions.RestHost) ||
+					strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
 					c.opts.FallbackHosts != nil) {
 				fallback := defaultOptions.FallbackHosts
 				if c.opts.FallbackHosts != nil {

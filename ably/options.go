@@ -264,6 +264,9 @@ func (opts *ClientOptions) restURL() string {
 	host := opts.RestHost
 	if host == "" {
 		host = defaultOptions.RestHost
+		if opts.Environment == "production" {
+			opts.Environment = ""
+		}
 		if opts.Environment != "" {
 			host = opts.Environment + "-" + host
 		}
@@ -287,6 +290,9 @@ func (opts *ClientOptions) realtimeURL() string {
 	host := opts.RealtimeHost
 	if host == "" {
 		host = defaultOptions.RealtimeHost
+		if opts.Environment == "production" {
+			opts.Environment = ""
+		}
 		if opts.Environment != "" {
 			host = opts.Environment + "-" + host
 		}
