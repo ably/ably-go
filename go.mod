@@ -2,7 +2,7 @@ module github.com/ably/ably-go
 
 require (
 	github.com/stretchr/testify v1.4.0
-	github.com/ugorji/go/codec v0.0.0-20181209151446-772ced7fd4c2
+	github.com/ugorji/go/codec v1.1.7
 	golang.org/x/net v0.0.0-20190110200230-915654e7eabc
 )
 
