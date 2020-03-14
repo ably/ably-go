@@ -108,7 +108,7 @@ func TestRealtimeClient_multiple(t *testing.T) {
 			defer wg.Done()
 			opts := app.Options(nil)
 			opts.ClientID = fmt.Sprintf("client/%d", i)
-			opts.NoConnect = true
+			opts.AutoConnect = false
 			c, err := ably.NewRealtimeClient(opts)
 			if err != nil {
 				all.Add(nil, err)
@@ -162,7 +162,7 @@ func TestRealtimeClient_multiple(t *testing.T) {
 
 func TestRealtimeClient_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{AutoConnect: false})
 	defer safeclose(t, app)
 
 	if err := checkError(80002, client.Close()); err != nil {

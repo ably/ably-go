@@ -46,7 +46,7 @@ func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
 	if opts.Listener != nil {
 		c.On(opts.Listener)
 	}
-	if !opts.NoConnect {
+	if opts.AutoConnect {
 		if _, err := c.connect(false); err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func (c *Conn) connect(result bool) (Result, error) {
 		"echo":      []string{"true"},
 		"format":    []string{"msgpack"},
 	}
-	if c.opts.NoEcho {
+	if !c.opts.EchoMessages {
 		query.Set("echo", "false")
 	}
 	if c.opts.NoBinaryProtocol {

@@ -23,14 +23,14 @@ const (
 )
 
 var defaultOptions = &ClientOptions{
-	RestHost:             RestHost,
-	FallbackHosts:        DefaultFallbackHosts(),
-	HTTPMaxRetryCount:    3,
-	RealtimeHost:         "realtime.ably.io",
-	TimeoutConnect:       15 * time.Second,
-	TimeoutDisconnect:    30 * time.Second,
-	TimeoutSuspended:     2 * time.Minute,
-	FallbackRetryTimeout: 10 * time.Minute,
+	RestHost:                 RestHost,
+	FallbackHosts:            DefaultFallbackHosts(),
+	HTTPMaxRetryCount:        3,
+	RealtimeHost:             "realtime.ably.io",
+	TimeoutConnect:           15 * time.Second,
+	TimeoutDisconnect:        30 * time.Second,
+	TimeoutSuspended:         2 * time.Minute,
+	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
 }
 
@@ -166,8 +166,18 @@ func (opts *AuthOptions) KeySecret() string {
 	return ""
 }
 
+// ClientOptions configures a RestClient or RealtimeClient. Use NewClientOptions
+// to get sensible defaults.
 type ClientOptions struct {
 	AuthOptions
+
+	// In realtime connections, whether publishes are sent back to the
+	// publishing connection.
+	EchoMessages bool
+
+	// In realtime connections, whether the instance should connect right after
+	// being created, without an explicit call to the Connect method.
+	AutoConnect bool
 
 	RestHost                string // optional; overwrite endpoint hostname for REST client
 	FallbackHostsUseDefault bool
@@ -192,17 +202,15 @@ type ClientOptions struct {
 	FallbackRetryTimeout time.Duration
 
 	NoTLS            bool // when true REST and realtime client won't use TLS
-	NoConnect        bool // when true realtime client will not attempt to connect automatically
-	NoEcho           bool // when true published messages will not be echoed back
 	NoQueueing       bool // when true drops messages published during regaining connection
 	NoBinaryProtocol bool // when true uses JSON for network serialization protocol instead of MsgPack
 
 	// When true idempotent rest publishing will be enabled.
 	// Spec TO3n
-	IdempotentRestPublishing   bool
-	TimeoutConnect             time.Duration // time period after which connect request is failed
-	TimeoutDisconnect          time.Duration // time period after which disconnect request is failed
-	TimeoutSuspended           time.Duration // time period after which no more reconnection attempts are performed
+	IdempotentRestPublishing bool
+	TimeoutConnect           time.Duration // time period after which connect request is failed
+	TimeoutDisconnect        time.Duration // time period after which disconnect request is failed
+	TimeoutSuspended         time.Duration // time period after which no more reconnection attempts are performed
 
 	// Dial specifies the dial function for creating message connections used
 	// by RealtimeClient.
@@ -224,11 +232,10 @@ type ClientOptions struct {
 	Trace *httptrace.ClientTrace
 }
 
-func NewClientOptions(key string) *ClientOptions {
+func NewClientOptions() *ClientOptions {
 	return &ClientOptions{
-		AuthOptions: AuthOptions{
-			Key: key,
-		},
+		EchoMessages: true,
+		AutoConnect:  true,
 	}
 }
 

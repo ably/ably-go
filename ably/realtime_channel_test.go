@@ -48,9 +48,9 @@ func TestRealtimeChannel_Failed(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewStateChanRecorder(5)
 	opts := &ably.ClientOptions{
-		NoConnect:  true,
-		NoQueueing: true,
-		Listener:   rec.Channel(),
+		AutoConnect: false,
+		NoQueueing:  true,
+		Listener:    rec.Channel(),
 	}
 	app, client := ablytest.NewRealtimeClient(opts)
 	defer safeclose(t, client, app)
@@ -89,7 +89,7 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	t.Parallel()
 	app, client1 := ablytest.NewRealtimeClient(nil)
 	defer safeclose(t, client1, app)
-	client2 := app.NewRealtimeClient(&ably.ClientOptions{NoEcho: true})
+	client2 := app.NewRealtimeClient(&ably.ClientOptions{EchoMessages: false})
 	defer safeclose(t, client2)
 
 	channel1 := client1.Channels.Get("test")

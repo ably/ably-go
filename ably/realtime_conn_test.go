@@ -54,8 +54,8 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
 	opts := &ably.ClientOptions{
-		Listener:  rec.Channel(),
-		NoConnect: true,
+		Listener:    rec.Channel(),
+		AutoConnect: false,
 	}
 	app, client := ablytest.NewRealtimeClient(opts)
 	defer safeclose(t, client, app)
@@ -106,7 +106,7 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 
 func TestRealtimeConn_AlreadyConnected(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{AutoConnect: false})
 	defer safeclose(t, client, app)
 
 	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
@@ -123,7 +123,7 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 			Key:          "abc:abc",
 			UseTokenAuth: true,
 		},
-		NoConnect: true,
+		AutoConnect: false,
 	}
 	client, err := ably.NewRealtimeClient(opts)
 	if err != nil {

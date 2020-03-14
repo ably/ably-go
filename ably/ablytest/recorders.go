@@ -431,7 +431,7 @@ func NewRecorder(httpClient *http.Client) *HostRecorder {
 func (hr *HostRecorder) Options(host string) *ably.ClientOptions {
 	return &ably.ClientOptions{
 		RealtimeHost: host,
-		NoConnect:    true,
+		AutoConnect:  false,
 		HTTPClient:   hr.httpClient,
 		Dial:         hr.dialWS,
 	}

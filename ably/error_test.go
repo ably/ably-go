@@ -13,7 +13,8 @@ import (
 )
 
 func TestErrorResponseWithInvalidKey(t *testing.T) {
-	opts := ably.NewClientOptions(":")
+	opts := ably.NewClientOptions()
+	opts.Key = ":"
 	_, e := ably.NewRestClient(opts)
 	if e == nil {
 		t.Fatal("NewRestClient(): expected err != nil")
@@ -41,7 +42,8 @@ func TestIssue127ErrorResponse(t *testing.T) {
 
 	endpointURL, err := url.Parse(server.URL)
 	assert.Nil(t, err)
-	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz")
+	opts := ably.NewClientOptions()
+	opts.Key = "xxxxxxx.yyyyyyy:zzzzzzz"
 	opts.NoTLS = true
 	opts.UseTokenAuth = true
 	opts.RestHost = endpointURL.Hostname()

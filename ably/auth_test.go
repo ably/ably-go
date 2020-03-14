@@ -646,8 +646,8 @@ func TestAuth_ClientID(t *testing.T) {
 			UseTokenAuth: true,
 			Force:        true,
 		},
-		Dial:      ablytest.MessagePipe(in, out),
-		NoConnect: true,
+		Dial:        ablytest.MessagePipe(in, out),
+		AutoConnect: false,
 	}
 	client := app.NewRealtimeClient(opts) // no client.Close as the connection is mocked
 
@@ -808,9 +808,9 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewMessageRecorder()
 	opts := &ably.ClientOptions{
-		ClientID:  "explicit",
-		NoConnect: true,
-		Dial:      rec.Dial,
+		ClientID:    "explicit",
+		AutoConnect: false,
+		Dial:        rec.Dial,
 	}
 	opts.UseTokenAuth = true
 	app, client := ablytest.NewRealtimeClient(opts)
