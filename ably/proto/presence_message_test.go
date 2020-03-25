@@ -18,6 +18,8 @@ func TestPresenceMessage(t *testing.T) {
 	}
 
 	for _, a := range actions {
+		// pin
+		a := a
 		id := fmt.Sprint(a)
 		m := proto.PresenceMessage{
 			Message: proto.Message{
