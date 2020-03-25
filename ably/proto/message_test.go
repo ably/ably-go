@@ -86,6 +86,8 @@ func TestMessage(t *testing.T) {
 	}
 
 	for _, v := range sample {
+		// pin
+		v := v
 		t.Run(v.desc, func(ts *testing.T) {
 			msg := &proto.Message{
 				Data:           v.data,
@@ -124,6 +126,8 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 	}
 
 	for _, fixture := range fixtures {
+		// pin
+		fixture := fixture
 		t.Run(fixture.desc, func(ts *testing.T) {
 			test, key, iv, err := ablytest.LoadCryptoData(fixture.file)
 			if err != nil {
