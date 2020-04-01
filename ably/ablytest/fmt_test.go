@@ -12,7 +12,7 @@ func ExampleFmtFunc_Wrap() {
 	})
 
 	id := 42
-	wrapped := println.Wrap("for ID %d: %s", id)
+	wrapped := println.Wrap(nil, "for ID %d: %s", id)
 
 	wrapped("everything's OK")
 

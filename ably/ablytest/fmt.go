@@ -1,6 +1,9 @@
 package ablytest
 
-import "fmt"
+import (
+	"fmt"
+	"testing"
+)
 
 // A FmtFunc is a non-failing function analogous to fmt.Printf.
 type FmtFunc func(format string, args ...interface{})
@@ -12,8 +15,11 @@ type FmtFunc func(format string, args ...interface{})
 //
 // It's useful to have some fixed context on everything that is formatted with
 // a FmtFunc, e. g. test scope context.
-func (f FmtFunc) Wrap(format string, args ...interface{}) FmtFunc {
+func (f FmtFunc) Wrap(t *testing.T, format string, args ...interface{}) FmtFunc {
 	return func(wrappedFormat string, wrappedArgs ...interface{}) {
+		if t != nil {
+			t.Helper()
+		}
 		f(fmt.Sprintf(format, append(args, wrappedFormat)...), wrappedArgs...)
 	}
 }
