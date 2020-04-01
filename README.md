@@ -272,9 +272,9 @@ This library uses [semantic versioning](http://semver.org/). For each release, t
 * Replace all references of the current version number with the new version number and commit the changes
 * Run [`github_changelog_generator`](https://github.com/skywinder/Github-Changelog-Generator) to update the [CHANGELOG](./CHANGELOG.md): `github_changelog_generator -u ably -p ably-go --header-label="# Changelog" --release-branch=release-1.1.3 --future-release=v1.1.3`
 * Commit [CHANGELOG](./CHANGELOG.md)
-* Add a tag and push to origin such as `git tag v1.1.3; git push origin v1.1.3`
 * Make a PR against `master`
 * Once the PR is approved, merge it into `master`
+* Add a tag to the new `master` head commit and push to origin such as `git tag v1.1.3; git push origin v1.1.3`
 
 ## Support and feedback
 
