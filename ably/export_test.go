@@ -80,3 +80,7 @@ func (c *RestClient) GetCachedFallbackHost() string {
 func (opts *ClientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }
+
+var NewEventEmitter = newEventEmitter
+
+type EventEmitter = eventEmitter
