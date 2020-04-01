@@ -93,13 +93,21 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	defer safeclose(t, client2)
 
 	channel1 := client1.Channels.Get("test")
+	channel2 := client2.Channels.Get("test")
+
+	if err := ablytest.Wait(channel1.Attach()); err != nil {
+		t.Fatalf("client1: Attach()=%v", err)
+	}
+	if err := ablytest.Wait(channel2.Attach()); err != nil {
+		t.Fatalf("client2: Attach()=%v", err)
+	}
+
 	sub1, err := channel1.Subscribe()
 	if err != nil {
 		t.Fatalf("client1: Subscribe()=%v", err)
 	}
 	defer sub1.Close()
 
-	channel2 := client2.Channels.Get("test")
 	sub2, err := channel2.Subscribe()
 	if err != nil {
 		t.Fatalf("client2: Subscribe()=%v", err)

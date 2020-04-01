@@ -691,19 +691,30 @@ func TestAuth_ClientID(t *testing.T) {
 	if err := checkError(40012, err); err != nil {
 		t.Fatal(err)
 	}
-	closed := &proto.ProtocolMessage{
-		Action: proto.ActionClosed,
-	}
-	in <- closed
-	if err := client.Close(); err != nil {
-		t.Fatalf("Close()=%v", err)
-	}
-	time.Sleep(2 * time.Second) // wait for token to expire
-	in <- connected
-	proxy.TokenQueue = append(proxy.TokenQueue, tok)
+
+	time.Sleep(time.Duration(params.TTL) * time.Millisecond)
+	tokenExpiredAt := time.Now()
+
 	failed := make(chan ably.State, 1)
 	client.Connection.On(failed, ably.StateConnFailed)
-	err = ablytest.Wait(client.Connection.Connect())
+
+	// Allow some extra time for the server to reject our token.
+	err = nil
+	tokenErrorDeadline := tokenExpiredAt.Add(5 * time.Second)
+	for err == nil && time.Now().Before(tokenErrorDeadline) {
+		time.Sleep(100 * time.Millisecond)
+		closed := &proto.ProtocolMessage{
+			Action: proto.ActionClosed,
+		}
+		in <- closed
+		if err := client.Close(); err != nil {
+			t.Fatalf("Close()=%v", err)
+		}
+
+		in <- connected
+		proxy.TokenQueue = append(proxy.TokenQueue, tok)
+		err = ablytest.Wait(client.Connection.Connect())
+	}
 	if err = checkError(40012, err); err != nil {
 		t.Fatal(err)
 	}
