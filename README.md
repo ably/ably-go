@@ -294,7 +294,3 @@ Because this package uses `internal` packages, all fork development has to happe
 6. ensure you have added suitable tests and the test suite is passing: `make test`
 7. push to the branch: `git push fork my-new-feature`
 8. create a new Pull Request
-
-## License
-
-Copyright (c) 2016-2020 Ably Real-time Ltd, Licensed under the Apache License, Version 2.0.  Refer to [LICENSE](LICENSE) for the license terms.
