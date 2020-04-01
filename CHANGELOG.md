@@ -1,5 +1,25 @@
 # Change Log
 
+## [v1.1.3](https://github.com/ably/ably-go/tree/v1.1.3) (2020-04-01)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.1.2...v1.1.3)
+
+**Fixed bugs:**
+
+- Drop dependency on subpackage [\#134](https://github.com/ably/ably-go/issues/134)
+
+**Closed issues:**
+
+- Ambiguous import - found go-codec in multiple modules [\#135](https://github.com/ably/ably-go/issues/135)
+- Remove develop branch [\#128](https://github.com/ably/ably-go/issues/128)
+
+**Merged pull requests:**
+
+- Fix flaky tests [\#139](https://github.com/ably/ably-go/pull/139) ([tcard](https://github.com/tcard))
+- bug: TestRestClient Stats failure due to race cond with sandbox [\#138](https://github.com/ably/ably-go/pull/138) ([audiolion](https://github.com/audiolion))
+- bug: unpinned range scope variables in tests [\#137](https://github.com/ably/ably-go/pull/137) ([audiolion](https://github.com/audiolion))
+- Update github.com/ugorji/go/codec to v1.1.7 [\#136](https://github.com/ably/ably-go/pull/136) ([lmars](https://github.com/lmars))
+
 ## [v1.1.2](https://github.com/ably/ably-go/tree/v1.1.2)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.1.1...v1.1.2)
