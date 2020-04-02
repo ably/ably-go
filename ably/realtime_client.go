@@ -11,7 +11,7 @@ import (
 type RealtimeClient struct {
 	Auth       *Auth
 	Channels   *Channels
-	Connection *Conn
+	Connection *ConnectionV12
 
 	chansMtx sync.RWMutex
 	chans    map[string]*RealtimeChannel

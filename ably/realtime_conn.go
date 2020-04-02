@@ -16,6 +16,10 @@ var (
 	errCloseInactive = errors.New("attempted to close inactive connection")
 )
 
+// ConnectionV12 represents a single connection RealtimeClient instantiates for
+// communication with Ably servers.
+type ConnectionV12 = Conn
+
 // Conn represents a single connection RealtimeClient instantiates for
 // communication with Ably servers.
 type Conn struct {
