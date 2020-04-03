@@ -198,6 +198,8 @@ type stateEmitter struct {
 	current   StateEnum
 	typ       StateType
 	logger    *LoggerOptions
+
+	changesEmitter *eventEmitter
 }
 
 func newStateEmitter(typ StateType, startState StateEnum, channel string, log *LoggerOptions) *stateEmitter {
@@ -211,14 +213,17 @@ func newStateEmitter(typ StateType, startState StateEnum, channel string, log *L
 		current:   startState,
 		typ:       typ,
 		logger:    log,
+
+		changesEmitter: newEventEmitter(log),
 	}
 }
 
 func (s *stateEmitter) set(state StateEnum, err error) error {
-	doemit := s.current != state
+	previous := mapOldToNewConnState(s.current)
+	changed := s.current != state
 	s.current = state
 	s.err = stateError(state, err)
-	if doemit {
+	if changed {
 		s.emit(State{
 			Channel: s.channel,
 			Err:     s.err,
@@ -226,6 +231,19 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 			Type:    s.typ,
 		})
 	}
+
+	change := ConnectionStateChangeV12{
+		Current:  mapOldToNewConnState(s.current),
+		Previous: previous,
+		Reason:   errorToErrorInfo(s.err),
+	}
+	if !changed {
+		change.Event = ConnectionEventUpdatedV12
+	} else {
+		change.Event = (*ConnectionEventV12)(change.Current)
+	}
+	s.changesEmitter.Emit(change.Event, change)
+
 	return s.err
 }
 
@@ -531,4 +549,82 @@ func (res *stateResult) Wait() error {
 		res.listen = nil
 	}
 	return res.err
+}
+
+// A ConnectionStateV12 identifies the state of an Ably realtime connection.
+type ConnectionStateV12 struct {
+	name string
+}
+
+var (
+	ConnectionStateInitializedV12  = &ConnectionStateV12{name: "INITIALIZED"}
+	ConnectionStateConnectingV12   = &ConnectionStateV12{name: "CONNECTING"}
+	ConnectionStateConnectedV12    = &ConnectionStateV12{name: "CONNECTED"}
+	ConnectionStateDisconnectedV12 = &ConnectionStateV12{name: "DISCONNECTED"}
+	ConnectionStateSuspendedV12    = &ConnectionStateV12{name: "SUSPENDED"}
+	ConnectionStateClosingV12      = &ConnectionStateV12{name: "CLOSING"}
+	ConnectionStateClosedV12       = &ConnectionStateV12{name: "CLOSED"}
+	ConnectionStateFailedV12       = &ConnectionStateV12{name: "FAILED"}
+)
+
+func (e ConnectionStateV12) String() string {
+	return e.name
+}
+
+// A ConnectionEventV12 identifies an event in the lifetime of an Ably realtime
+// connection.
+type ConnectionEventV12 struct {
+	name string
+}
+
+var (
+	ConnectionEventInitializedV12  = (*ConnectionEventV12)(ConnectionStateInitializedV12)
+	ConnectionEventConnectingV12   = (*ConnectionEventV12)(ConnectionStateConnectingV12)
+	ConnectionEventConnectedV12    = (*ConnectionEventV12)(ConnectionStateConnectedV12)
+	ConnectionEventDisconnectedV12 = (*ConnectionEventV12)(ConnectionStateDisconnectedV12)
+	ConnectionEventSuspendedV12    = (*ConnectionEventV12)(ConnectionStateSuspendedV12)
+	ConnectionEventClosingV12      = (*ConnectionEventV12)(ConnectionStateClosingV12)
+	ConnectionEventClosedV12       = (*ConnectionEventV12)(ConnectionStateClosedV12)
+	ConnectionEventFailedV12       = (*ConnectionEventV12)(ConnectionStateFailedV12)
+	ConnectionEventUpdatedV12      = &ConnectionEventV12{name: "UPDATED"}
+)
+
+func (e ConnectionEventV12) String() string {
+	return e.name
+}
+
+// A ConnectionStateChangeV12 is the data associated with a ConnectionEventV12.
+//
+// If the Event is a ConnectionEventUpdatedV12, Current and Previous are the
+// the same. Otherwise, the event is a state transition from Previous to
+// Current.
+type ConnectionStateChangeV12 struct {
+	Current  *ConnectionStateV12
+	Event    *ConnectionEventV12
+	Previous *ConnectionStateV12
+	// Reason, if any, is an error that caused the state change.
+	Reason *ErrorInfoV12
+}
+
+func mapOldToNewConnState(old StateEnum) *ConnectionStateV12 {
+	switch old {
+	case StateConnInitialized:
+		return ConnectionStateInitializedV12
+	case StateConnConnecting:
+		return ConnectionStateConnectingV12
+	case StateConnConnected:
+		return ConnectionStateConnectedV12
+	case StateConnDisconnected:
+		return ConnectionStateDisconnectedV12
+	case StateConnSuspended:
+		return ConnectionStateSuspendedV12
+	case StateConnClosing:
+		return ConnectionStateClosingV12
+	case StateConnClosed:
+		return ConnectionStateClosedV12
+	case StateConnFailed:
+		return ConnectionStateFailedV12
+	default:
+		panic(fmt.Errorf("unexpected StateEnum: %v", old))
+	}
 }

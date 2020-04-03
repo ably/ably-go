@@ -78,6 +78,18 @@ func (c *Conn) Connect() (Result, error) {
 	return c.connect(true)
 }
 
+// ConnectV12 attempts to move the connection to the CONNECTED state, if it
+// can and if it isn't already.
+func (c *Conn) ConnectV12() {
+	c.connect(false)
+}
+
+// ConnectV12 attempts to move the connection to the CLOSED state, if it
+// can and if it isn't already.
+func (c *Conn) CloseV12() {
+	c.close()
+}
+
 var connectResultStates = []StateEnum{
 	StateConnConnected, // expected state
 	StateConnFailed,
@@ -232,6 +244,24 @@ func (c *Conn) On(ch chan<- State, states ...StateEnum) {
 	c.state.on(ch, states...)
 }
 
+// OnV12 registers an event handler for connection events.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *Conn) OnV12(e *ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
+	return c.state.changesEmitter.On(e, func(change interface{}) {
+		handle(change.(ConnectionStateChangeV12))
+	})
+}
+
+// OnceV12 registers an one-off event handler for connection events.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *Conn) OnceV12(e *ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
+	return c.state.changesEmitter.On(e, func(change interface{}) {
+		handle(change.(ConnectionStateChangeV12))
+	})
+}
+
 // Off removes c from listening on the given connection state transitions.
 //
 // If no states are given, c is removed for all of the connection's states.
@@ -239,6 +269,13 @@ func (c *Conn) On(ch chan<- State, states ...StateEnum) {
 // If c was not registered or is already removed, the method is a nop.
 func (c *Conn) Off(ch chan<- State, states ...StateEnum) {
 	c.state.off(ch, states...)
+}
+
+// OffV12 deregisters event handlers for connection events.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *Conn) OffV12(e *ConnectionEventV12) {
+	c.state.changesEmitter.Off(e)
 }
 
 func (c *Conn) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {

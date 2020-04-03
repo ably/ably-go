@@ -54,6 +54,16 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 	return c, nil
 }
 
+// ConnectV12 is the same as Connection.Connect.
+func (c *RealtimeClient) ConnectV12() {
+	c.Connection.ConnectV12()
+}
+
+// CloseV12 is the same as Connection.Close.
+func (c *RealtimeClient) CloseV12() {
+	c.Connection.CloseV12()
+}
+
 // Close
 func (c *RealtimeClient) Close() error {
 	return c.Connection.Close()
