@@ -248,7 +248,7 @@ func (c *Conn) On(ch chan<- State, states ...StateEnum) {
 //
 // See package-level documentation on Event Emitter for details.
 func (c *Conn) OnV12(e *ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
-	return c.state.changesEmitter.On(e, func(change interface{}) {
+	return c.state.eventEmitter.On(e, func(change interface{}) {
 		handle(change.(ConnectionStateChangeV12))
 	})
 }
@@ -257,7 +257,7 @@ func (c *Conn) OnV12(e *ConnectionEventV12, handle func(ConnectionStateChangeV12
 //
 // See package-level documentation on Event Emitter for details.
 func (c *Conn) OnceV12(e *ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
-	return c.state.changesEmitter.On(e, func(change interface{}) {
+	return c.state.eventEmitter.On(e, func(change interface{}) {
 		handle(change.(ConnectionStateChangeV12))
 	})
 }
@@ -275,7 +275,7 @@ func (c *Conn) Off(ch chan<- State, states ...StateEnum) {
 //
 // See package-level documentation on Event Emitter for details.
 func (c *Conn) OffV12(e *ConnectionEventV12) {
-	c.state.changesEmitter.Off(e)
+	c.state.eventEmitter.Off(e)
 }
 
 func (c *Conn) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {

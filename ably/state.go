@@ -199,7 +199,7 @@ type stateEmitter struct {
 	typ       StateType
 	logger    *LoggerOptions
 
-	changesEmitter *eventEmitter
+	eventEmitter *eventEmitter
 }
 
 func newStateEmitter(typ StateType, startState StateEnum, channel string, log *LoggerOptions) *stateEmitter {
@@ -214,12 +214,12 @@ func newStateEmitter(typ StateType, startState StateEnum, channel string, log *L
 		typ:       typ,
 		logger:    log,
 
-		changesEmitter: newEventEmitter(log),
+		eventEmitter: newEventEmitter(log),
 	}
 }
 
 func (s *stateEmitter) set(state StateEnum, err error) error {
-	previous := mapOldToNewConnState(s.current)
+	previous := s.current
 	changed := s.current != state
 	s.current = state
 	s.err = stateError(state, err)
@@ -232,17 +232,20 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 		})
 	}
 
-	change := ConnectionStateChangeV12{
-		Current:  mapOldToNewConnState(s.current),
-		Previous: previous,
-		Reason:   errorToErrorInfo(s.err),
+	if StateConn.Contains(state) {
+		previous := mapOldToNewConnState(previous)
+		change := ConnectionStateChangeV12{
+			Current:  mapOldToNewConnState(s.current),
+			Previous: previous,
+			Reason:   errorToErrorInfo(s.err),
+		}
+		if !changed {
+			change.Event = ConnectionEventUpdatedV12
+		} else {
+			change.Event = (*ConnectionEventV12)(change.Current)
+		}
+		s.eventEmitter.Emit(change.Event, change)
 	}
-	if !changed {
-		change.Event = ConnectionEventUpdatedV12
-	} else {
-		change.Event = (*ConnectionEventV12)(change.Current)
-	}
-	s.changesEmitter.Emit(change.Event, change)
 
 	return s.err
 }
