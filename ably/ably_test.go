@@ -34,7 +34,6 @@ func safeclose(t *testing.T, closers ...io.Closer) {
 		for _, err := range errors {
 			t.Logf("safeclose %d: failed to close %T: %s", err.i, err.c, err.err)
 		}
-		t.FailNow()
 	}
 }
 
