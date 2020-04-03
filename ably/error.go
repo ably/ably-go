@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/ably/ably-go/ably/proto"
 )
@@ -134,4 +135,56 @@ func checkValidHTTPResponse(resp *http.Response) error {
 		err.Code, err.StatusCode = resp.StatusCode*100, resp.StatusCode
 	}
 	return err
+}
+
+// ErrorInfoV12 is an error produced by the Ably library.
+type ErrorInfoV12 struct {
+	StatusCode int
+	Code       int
+	HRef       string
+	Message    string
+	Server     string
+}
+
+// Error implements the builtin error interface.
+func (e ErrorInfoV12) Error() string {
+	errorHref := e.HRef
+	if errorHref == "" && e.Code != 0 {
+		errorHref = fmt.Sprintf("https://help.ably.io/error/%d", e.Code)
+	}
+	var see string
+	if !strings.Contains(e.Message, errorHref) {
+		see = "See " + errorHref
+	}
+	return fmt.Sprintf("[ErrorInfo :%s code=%d statusCode=%d] %s", e.Message, e.Code, e.StatusCode, see)
+}
+
+func errorToErrorInfo(err error) *ErrorInfoV12 {
+	switch err := err.(type) {
+	case nil:
+		return nil
+	case *proto.ErrorInfo:
+		return (*ErrorInfoV12)(err)
+	case ErrorInfoV12:
+		return &err
+	case *ErrorInfoV12:
+		return err
+	case *Error:
+		var msg string
+		if err.Err != nil {
+			msg = err.Err.Error()
+		} else {
+			msg = err.Error()
+		}
+		return &ErrorInfoV12{
+			Code:       err.Code,
+			StatusCode: err.StatusCode,
+			Message:    msg,
+			Server:     err.Server,
+		}
+	default:
+		return &ErrorInfoV12{
+			Message: err.Error(),
+		}
+	}
 }
