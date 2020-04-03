@@ -2,6 +2,7 @@ package ablytest
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -449,4 +450,105 @@ func (hr *HostRecorder) addHost(host string) {
 
 func body(p []byte) io.ReadCloser {
 	return ioutil.NopCloser(bytes.NewReader(p))
+}
+
+// SetFakeDisconnect wraps the Dial option so that calling the returned
+// disconnect function forcibly closes the connection to the server and fakes
+// a DISCONNECT message from the server to the client.
+//
+// Only a single connection gets the disconnect signal, so don't reuse the
+// ClientOptions.
+func SetFakeDisconnect(opts *ably.ClientOptions) (disconnect func() error) {
+	dial := opts.Dial
+	if dial == nil {
+		dial = func(proto string, url *url.URL) (proto.Conn, error) {
+			return ablyutil.DialWebsocket(proto, url)
+		}
+	}
+
+	disconnectReq := make(chan chan<- error, 1)
+
+	opts.Dial = func(proto string, url *url.URL) (proto.Conn, error) {
+		conn, err := dial(proto, url)
+		if err != nil {
+			return nil, err
+		}
+
+		return connWithFakeDisconnect{
+			conn:          conn,
+			disconnectReq: disconnectReq,
+			closed:        make(chan struct{}),
+		}, nil
+	}
+
+	return func() error {
+		err := make(chan error)
+		disconnectReq <- err
+		return <-err
+	}
+}
+
+type connWithFakeDisconnect struct {
+	conn          proto.Conn
+	disconnectReq <-chan chan<- error
+	closed        chan struct{}
+}
+
+func (c connWithFakeDisconnect) Send(m *proto.ProtocolMessage) error {
+	return c.conn.Send(m)
+}
+
+func (c connWithFakeDisconnect) Receive() (*proto.ProtocolMessage, error) {
+	// Call the real Receive while waiting for a fake disconnection request.
+	// The first wins. After a disconnection request, the connection is closed,
+	// the ongoing real Receive is ignored and subsequent calls to Receive
+	// fail.
+
+	select {
+	case <-c.closed:
+		return nil, errors.New("called Receive on closed connection")
+	default:
+	}
+
+	type receiveResult struct {
+		m   *proto.ProtocolMessage
+		err error
+	}
+	realReceive := make(chan receiveResult, 1)
+	go func() {
+		m, err := c.conn.Receive()
+		select {
+		case <-c.closed:
+		case realReceive <- receiveResult{m: m, err: err}:
+		}
+	}()
+
+	select {
+	case r := <-realReceive:
+		return r.m, r.err
+
+	case errCh := <-c.disconnectReq:
+		err := c.Close()
+		errCh <- err
+		if err != nil {
+			return nil, err
+		}
+
+		return &proto.ProtocolMessage{
+			Action: proto.ActionDisconnected,
+			Error:  &proto.ErrorInfo{Message: "fake disconnection"},
+		}, nil
+	}
+}
+
+func (c connWithFakeDisconnect) Close() error {
+	select {
+	case <-c.closed:
+		// Already closed.
+		return nil
+	default:
+	}
+
+	close(c.closed)
+	return c.conn.Close()
 }

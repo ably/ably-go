@@ -39,7 +39,28 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateDisconnectedV12), func(t *testing.T) {
 		t.Parallel()
 
-		t.Fatalf("no way of faking a disconnection yet")
+		options := &ably.ClientOptions{NoConnect: true}
+		disconnect := ablytest.SetFakeDisconnect(options)
+		app, realtime := ablytest.NewRealtimeClient(options)
+		defer safeclose(t, app)
+		defer realtime.CloseV12()
+
+		connectAndWait(t, realtime)
+
+		changes := make(chan ably.ConnectionStateChangeV12)
+		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+		realtime.Connection.OnV12(ably.ConnectionEventDisconnectedV12, func(change ably.ConnectionStateChangeV12) {
+			changes <- change
+		})
+
+		err := disconnect()
+		if err != nil {
+			t.Fatalf("fake disconnection failed: %v", err)
+		}
+
+		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateSuspendedV12), func(t *testing.T) {
