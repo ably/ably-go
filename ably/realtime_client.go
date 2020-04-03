@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+// The RealtimeV12 libraries establish and maintain a persistent connection
+// to Ably enabling extremely low latency broadcasting of messages and presence
+// state.
+type RealtimeV12 = RealtimeClient
+
 // The RealtimeClient libraries establish and maintain a persistent connection
 // to Ably enabling extremely low latency broadcasting of messages and presence
 // state.
@@ -17,6 +22,11 @@ type RealtimeClient struct {
 	chans    map[string]*RealtimeChannel
 	rest     *RestClient
 	err      chan error
+}
+
+// NewRealtimeV12 constructs a new RealtimeV12.
+func NewRealtimeV12(opts *ClientOptions) (*RealtimeV12, error) {
+	return NewRealtimeClient(opts)
 }
 
 // NewRealtimeClient
