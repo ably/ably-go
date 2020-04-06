@@ -1,6 +1,6 @@
 // Package ably is the official Ably client library for Go.
 //
-// Get started at https://ably.io.
+// Get started at https://github.com/ably/ably-go#using-the-realtime-api.
 //
 // Event Emitters
 //
