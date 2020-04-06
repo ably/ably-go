@@ -109,6 +109,26 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateFailedV12), func(t *testing.T) {
 		t.Parallel()
+
+		var options ably.ClientOptions
+		options.Environment = "sandbox"
+		options.NoConnect = true
+		options.Key = "made:up"
+
+		realtime, err := ably.NewRealtimeClient(&options)
+		if err != nil {
+			t.Fatalf("unexpected err: %s", err)
+		}
+
+		changes := make(chan ably.ConnectionStateChangeV12)
+		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+		realtime.Connection.OnV12(ably.ConnectionEventFailedV12, func(change ably.ConnectionStateChangeV12) {
+			changes <- change
+		})
+
+		realtime.ConnectV12()
+		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 	})
 }
 
