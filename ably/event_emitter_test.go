@@ -18,7 +18,7 @@ func TestEventEmitterConcurrency(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		i := i
-		em.On(nil, func(interface{}) {
+		em.OnAll(func(interface{}) {
 			c := called{i: i, goOn: make(chan struct{})}
 			calls <- c
 			<-c.goOn
@@ -28,7 +28,7 @@ func TestEventEmitterConcurrency(t *testing.T) {
 	// Emit, and, since handlers are concurrent, expect a call per handler to
 	// be initiated.
 
-	em.Emit(nil, nil)
+	em.Emit("foo", nil)
 
 	var ongoingCalls []called
 
@@ -42,7 +42,7 @@ func TestEventEmitterConcurrency(t *testing.T) {
 	// While the last event is still being handled by each handler, a new event
 	// should be enqueued.
 
-	em.Emit(nil, nil)
+	em.Emit("foo", nil)
 
 	ablytest.Instantly.NoRecv(t, nil, calls, t.Fatalf)
 
@@ -67,7 +67,7 @@ func TestEventEmitterConcurrency(t *testing.T) {
 
 	// Make sure things still work after emptying the queues.
 
-	em.Emit(nil, nil)
+	em.Emit("foo", nil)
 	for i := 0; i < 2; i++ {
 		ablytest.Instantly.Recv(t, &call, calls, t.Fatalf)
 		close(call.goOn)

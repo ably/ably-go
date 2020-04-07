@@ -36,7 +36,7 @@ func Test_RTE3_EventEmitter_On(t *testing.T) {
 				"bar": make(chan interface{}, 999),
 			}
 
-			em.On(nil, func(v interface{}) {
+			em.OnAll(func(v interface{}) {
 				received["*"] <- v
 			})
 
@@ -156,7 +156,7 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 
 		em = ably.NewEventEmitter(ablytest.DiscardLogger)
 
-		allOff = em.On(nil, func(v interface{}) {
+		allOff = em.OnAll(func(v interface{}) {
 			received["*"] <- v
 		})
 
@@ -253,7 +253,7 @@ func Test_RTE6_EventEmitter_EmitPanic(t *testing.T) {
 
 	shouldPanic := true
 	called := make(chan struct{}, 999)
-	em.On(nil, func(interface{}) {
+	em.OnAll(func(interface{}) {
 		if shouldPanic {
 			panic("aaah")
 		}
@@ -291,14 +291,14 @@ func Test_RTE6a_EventEmitter_EmitToFixedListenersCollection(t *testing.T) {
 		// Shuffle the order in which we register the listeners for extra
 		// exhaustiveness.
 		ons := []func(){func() {
-			off = em.On(nil, func(interface{}) {
+			off = em.OnAll(func(interface{}) {
 				close(removedCalled)
 			})
 		}, func() {
-			em.On(nil, func(interface{}) {
+			em.OnAll(func(interface{}) {
 				off()
 
-				em.On(nil, func(interface{}) {
+				em.OnAll(func(interface{}) {
 					close(addedCalled)
 				})
 			})

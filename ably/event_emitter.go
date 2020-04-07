@@ -85,18 +85,28 @@ func newEventEmitter(logger Logger) *eventEmitter {
 	}
 }
 
-// On registers an event listener. If event is nil, all events will trigger
-// the listener. Otherwise, it must be comparable to the eventEmitter's event
-// type, and only events equal to it will trigger the listener.
+// On registers an event listener. The event must be comparable to the
+// eventEmitter's event type, and only events equal to it will trigger the
+// listener.
 //
 // It returns a function to deregister the listener.
 func (em *eventEmitter) On(event emitterEvent, handle func(emitterData)) (off func()) {
 	return em.on(event, handle, false)
 }
 
+// OnAll is like On, except the listener is triggered by all events.
+func (em *eventEmitter) OnAll(handle func(emitterData)) (off func()) {
+	return em.on(nil, handle, false)
+}
+
 // Once is like On, except the listener is deregistered once first triggered.
 func (em *eventEmitter) Once(event emitterEvent, handle func(emitterData)) (off func()) {
 	return em.on(event, handle, true)
+}
+
+// OnceAll is like Once, except the listener is triggered by all events.
+func (em *eventEmitter) OnceAll(handle func(emitterData)) (off func()) {
+	return em.on(nil, handle, true)
 }
 
 func (em *eventEmitter) on(event emitterEvent, handle func(emitterData), once bool) (off func()) {
@@ -127,11 +137,19 @@ func (em *eventEmitter) on(event emitterEvent, handle func(emitterData), once bo
 	}
 }
 
-// Off deregisters event listeners. If event is nil, all event listeners are
-// deregistered. Otherwise, it must be comparable to the eventEmitter's event
-// type, and only listeners that were associated with that event will be
-// removed.
+// Off deregisters event listeners. The event must be comparable to the
+// eventEmitter's event type, and only listeners that were associated with that
+// event will be removed.
 func (em *eventEmitter) Off(event emitterEvent) {
+	em.off(event)
+}
+
+// OffAll is like Off, except is deregisters all event listeners.
+func (em *eventEmitter) OffAll() {
+	em.off(nil)
+}
+
+func (em *eventEmitter) off(event emitterEvent) {
 	em.Lock()
 	defer em.Unlock()
 

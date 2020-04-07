@@ -242,7 +242,7 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 		if !changed {
 			change.Event = ConnectionEventUpdatedV12
 		} else {
-			change.Event = (*ConnectionEventV12)(change.Current)
+			change.Event = ConnectionEventV12(change.Current)
 		}
 		s.eventEmitter.Emit(change.Event, change)
 	}
@@ -560,14 +560,14 @@ type ConnectionStateV12 struct {
 }
 
 var (
-	ConnectionStateInitializedV12  = &ConnectionStateV12{name: "INITIALIZED"}
-	ConnectionStateConnectingV12   = &ConnectionStateV12{name: "CONNECTING"}
-	ConnectionStateConnectedV12    = &ConnectionStateV12{name: "CONNECTED"}
-	ConnectionStateDisconnectedV12 = &ConnectionStateV12{name: "DISCONNECTED"}
-	ConnectionStateSuspendedV12    = &ConnectionStateV12{name: "SUSPENDED"}
-	ConnectionStateClosingV12      = &ConnectionStateV12{name: "CLOSING"}
-	ConnectionStateClosedV12       = &ConnectionStateV12{name: "CLOSED"}
-	ConnectionStateFailedV12       = &ConnectionStateV12{name: "FAILED"}
+	ConnectionStateInitializedV12  = ConnectionStateV12{name: "INITIALIZED"}
+	ConnectionStateConnectingV12   = ConnectionStateV12{name: "CONNECTING"}
+	ConnectionStateConnectedV12    = ConnectionStateV12{name: "CONNECTED"}
+	ConnectionStateDisconnectedV12 = ConnectionStateV12{name: "DISCONNECTED"}
+	ConnectionStateSuspendedV12    = ConnectionStateV12{name: "SUSPENDED"}
+	ConnectionStateClosingV12      = ConnectionStateV12{name: "CLOSING"}
+	ConnectionStateClosedV12       = ConnectionStateV12{name: "CLOSED"}
+	ConnectionStateFailedV12       = ConnectionStateV12{name: "FAILED"}
 )
 
 func (e ConnectionStateV12) String() string {
@@ -581,15 +581,15 @@ type ConnectionEventV12 struct {
 }
 
 var (
-	ConnectionEventInitializedV12  = (*ConnectionEventV12)(ConnectionStateInitializedV12)
-	ConnectionEventConnectingV12   = (*ConnectionEventV12)(ConnectionStateConnectingV12)
-	ConnectionEventConnectedV12    = (*ConnectionEventV12)(ConnectionStateConnectedV12)
-	ConnectionEventDisconnectedV12 = (*ConnectionEventV12)(ConnectionStateDisconnectedV12)
-	ConnectionEventSuspendedV12    = (*ConnectionEventV12)(ConnectionStateSuspendedV12)
-	ConnectionEventClosingV12      = (*ConnectionEventV12)(ConnectionStateClosingV12)
-	ConnectionEventClosedV12       = (*ConnectionEventV12)(ConnectionStateClosedV12)
-	ConnectionEventFailedV12       = (*ConnectionEventV12)(ConnectionStateFailedV12)
-	ConnectionEventUpdatedV12      = &ConnectionEventV12{name: "UPDATED"}
+	ConnectionEventInitializedV12  = ConnectionEventV12(ConnectionStateInitializedV12)
+	ConnectionEventConnectingV12   = ConnectionEventV12(ConnectionStateConnectingV12)
+	ConnectionEventConnectedV12    = ConnectionEventV12(ConnectionStateConnectedV12)
+	ConnectionEventDisconnectedV12 = ConnectionEventV12(ConnectionStateDisconnectedV12)
+	ConnectionEventSuspendedV12    = ConnectionEventV12(ConnectionStateSuspendedV12)
+	ConnectionEventClosingV12      = ConnectionEventV12(ConnectionStateClosingV12)
+	ConnectionEventClosedV12       = ConnectionEventV12(ConnectionStateClosedV12)
+	ConnectionEventFailedV12       = ConnectionEventV12(ConnectionStateFailedV12)
+	ConnectionEventUpdatedV12      = ConnectionEventV12{name: "UPDATED"}
 )
 
 func (e ConnectionEventV12) String() string {
@@ -602,14 +602,14 @@ func (e ConnectionEventV12) String() string {
 // the same. Otherwise, the event is a state transition from Previous to
 // Current.
 type ConnectionStateChangeV12 struct {
-	Current  *ConnectionStateV12
-	Event    *ConnectionEventV12
-	Previous *ConnectionStateV12
+	Current  ConnectionStateV12
+	Event    ConnectionEventV12
+	Previous ConnectionStateV12
 	// Reason, if any, is an error that caused the state change.
 	Reason *ErrorInfoV12
 }
 
-func mapOldToNewConnState(old StateEnum) *ConnectionStateV12 {
+func mapOldToNewConnState(old StateEnum) ConnectionStateV12 {
 	switch old {
 	case StateConnInitialized:
 		return ConnectionStateInitializedV12
