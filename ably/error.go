@@ -139,6 +139,8 @@ func checkValidHTTPResponse(resp *http.Response) error {
 
 // ErrorInfoV12 is an error produced by the Ably library.
 type ErrorInfoV12 struct {
+	// TODO: remove duplication with proto.ErrorInfo
+
 	StatusCode int
 	Code       int
 	HRef       string
