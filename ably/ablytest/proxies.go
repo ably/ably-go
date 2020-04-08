@@ -2,6 +2,7 @@ package ablytest
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -118,8 +119,8 @@ func (srv *AuthReverseProxy) URL(responseType string) string {
 
 // Callback gives new AuthCallback. Available response types are the same
 // as for URL method.
-func (srv *AuthReverseProxy) Callback(responseType string) func(*ably.TokenParams) (interface{}, error) {
-	return func(params *ably.TokenParams) (interface{}, error) {
+func (srv *AuthReverseProxy) Callback(responseType string) func(context.Context, ably.TokenParamsV12) (ably.TokenLikeV12, error) {
+	return func(ctx context.Context, params ably.TokenParamsV12) (ably.TokenLikeV12, error) {
 		token, _, err := srv.handleAuth(responseType, params)
 		return token, err
 	}
@@ -137,7 +138,7 @@ func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	token, contentType, err := srv.handleAuth(req.URL.Path[1:], NewTokenParams(query))
+	token, contentType, err := srv.handleAuth(req.URL.Path[1:], *NewTokenParams(query))
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -160,24 +161,24 @@ func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	}
 }
 
-func (srv *AuthReverseProxy) handleAuth(responseType string, params *ably.TokenParams) (token interface{}, typ string, err error) {
+func (srv *AuthReverseProxy) handleAuth(responseType string, params ably.TokenParams) (token ably.TokenLikeV12, typ string, err error) {
 	switch responseType {
 	case "token", "details":
 		var tok *ably.TokenDetails
 		if len(srv.TokenQueue) != 0 {
 			tok, srv.TokenQueue = srv.TokenQueue[0], srv.TokenQueue[1:]
 		} else {
-			tok, err = srv.auth.Authorize(params, &ably.AuthOptions{Force: true})
+			tok, err = srv.auth.Authorize(&params, &ably.AuthOptions{Force: true})
 			if err != nil {
 				return nil, "", err
 			}
 		}
 		if responseType == "token" {
-			return tok.Token, "text/plain", nil
+			return ably.TokenStringV12(tok.Token), "text/plain", nil
 		}
 		return tok, srv.proto, nil
 	case "request":
-		tokReq, err := srv.auth.CreateTokenRequest(params, nil)
+		tokReq, err := srv.auth.CreateTokenRequest(&params, nil)
 		if err != nil {
 			return nil, "", err
 		}

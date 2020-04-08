@@ -2,7 +2,9 @@ package ably
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -183,20 +185,21 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 	var tokReq *TokenRequest
 	switch {
 	case opts.AuthCallback != nil:
-		v, err := opts.AuthCallback(params)
+		// TODO: Pass a real context.
+		v, err := opts.AuthCallback(context.Background(), *params)
 		if err != nil {
 			return nil, "", newError(ErrErrorFromClientTokenCallback, err)
 		}
 		switch v := v.(type) {
-		case *TokenRequest:
-			tokReq = v
+		case TokenRequest:
+			tokReq = &v
 			tokReqClientID = tokReq.ClientID
-		case *TokenDetails:
-			return v, "", nil
-		case string:
-			return newTokenDetails(v), "", nil
+		case TokenDetails:
+			return &v, "", nil
+		case TokenStringV12:
+			return newTokenDetails(string(v)), "", nil
 		default:
-			return nil, "", newError(ErrErrorFromClientTokenCallback, errInvalidCallbackType)
+			panic(fmt.Errorf("unhandled TokenLike: %T", v))
 		}
 	case opts.AuthURL != "":
 		res, err := a.requestAuthURL(params, opts)

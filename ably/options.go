@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -23,14 +24,14 @@ const (
 )
 
 var defaultOptions = &ClientOptions{
-	RestHost:             RestHost,
-	FallbackHosts:        DefaultFallbackHosts(),
-	HTTPMaxRetryCount:    3,
-	RealtimeHost:         "realtime.ably.io",
-	TimeoutConnect:       15 * time.Second,
-	TimeoutDisconnect:    30 * time.Second,
-	TimeoutSuspended:     2 * time.Minute,
-	FallbackRetryTimeout: 10 * time.Minute,
+	RestHost:                 RestHost,
+	FallbackHosts:            DefaultFallbackHosts(),
+	HTTPMaxRetryCount:        3,
+	RealtimeHost:             "realtime.ably.io",
+	TimeoutConnect:           15 * time.Second,
+	TimeoutDisconnect:        30 * time.Second,
+	TimeoutSuspended:         2 * time.Minute,
+	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
 }
 
@@ -54,15 +55,7 @@ type AuthOptions struct {
 	//
 	// This enables a client to obtain token requests from another entity,
 	// so tokens can be renewed without the client requiring access to keys.
-	//
-	// The returned value of the token is expected to be one of the following
-	// types:
-	//
-	//   - string, which is then used as token string
-	//   - *ably.TokenRequest, which is then used as an already signed request
-	//   - *ably.TokenDetails, which is then used as a token
-	//
-	AuthCallback func(params *TokenParams) (token interface{}, err error)
+	AuthCallback func(context.Context, TokenParams) (TokenLikeV12, error)
 
 	// URL which is queried to obtain a signed token request.
 	//
@@ -199,10 +192,10 @@ type ClientOptions struct {
 
 	// When true idempotent rest publishing will be enabled.
 	// Spec TO3n
-	IdempotentRestPublishing   bool
-	TimeoutConnect             time.Duration // time period after which connect request is failed
-	TimeoutDisconnect          time.Duration // time period after which disconnect request is failed
-	TimeoutSuspended           time.Duration // time period after which no more reconnection attempts are performed
+	IdempotentRestPublishing bool
+	TimeoutConnect           time.Duration // time period after which connect request is failed
+	TimeoutDisconnect        time.Duration // time period after which disconnect request is failed
+	TimeoutSuspended         time.Duration // time period after which no more reconnection attempts are performed
 
 	// Dial specifies the dial function for creating message connections used
 	// by RealtimeClient.
@@ -392,4 +385,24 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 	}
 	p.ScopeParams.EncodeValues(out)
 	return nil
+}
+
+type ClientOptionsV12 []func(*ClientOptions)
+
+// TokenLikeV12 is something that can be interpreted as a TokenDetails.
+type TokenLikeV12 interface {
+	IsTokenLikeV12()
+	isTokenLikeV12()
+}
+
+// A TokenStringV12 is the string representation of an authentication token.
+type TokenStringV12 string
+
+func (TokenStringV12) IsTokenLikeV12() {}
+func (TokenStringV12) isTokenLikeV12() {}
+
+func (os ClientOptionsV12) AuthCallback(authCallback func(context.Context, TokenParams) (TokenLikeV12, error)) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.AuthCallback = authCallback
+	})
 }
