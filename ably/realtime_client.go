@@ -27,9 +27,7 @@ type RealtimeClient struct {
 // NewRealtimeV12 constructs a new RealtimeV12.
 func NewRealtimeV12(options ClientOptionsV12) (*RealtimeV12, error) {
 	var o ClientOptions
-	for _, setOption := range options {
-		setOption(&o)
-	}
+	options.applyWithDefaults(&o)
 	return NewRealtimeClient(&o)
 }
 
@@ -38,6 +36,10 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 	if opts == nil {
 		panic("called NewRealtimeClient with nil ClientOptions")
 	}
+
+	// Temporarily set defaults here in case this wasn't called from NewRealtimeV12.
+	ClientOptionsV12{}.applyWithDefaults(opts)
+
 	c := &RealtimeClient{
 		err:   make(chan error),
 		chans: make(map[string]*RealtimeChannel),

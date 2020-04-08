@@ -126,6 +126,8 @@ func (c *RestChannels) Len() (size int) {
 	return
 }
 
+type RESTV12 = RestClient
+
 type RestClient struct {
 	Auth                *Auth
 	Channels            *RestChannels
@@ -133,10 +135,21 @@ type RestClient struct {
 	successFallbackHost *fallbackCache
 }
 
+// NewRESTV12 constructs a new RESTV12.
+func NewRESTV12(options ClientOptionsV12) (*RESTV12, error) {
+	var o ClientOptions
+	options.applyWithDefaults(&o)
+	return NewRestClient(&o)
+}
+
 func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 	if opts == nil {
 		panic("called NewRealtimeClient with nil ClientOptions")
 	}
+
+	// Temporarily set defaults here in case this wasn't called from NewRESTV12.
+	ClientOptionsV12{}.applyWithDefaults(opts)
+
 	c := &RestClient{
 		opts: *opts,
 	}

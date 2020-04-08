@@ -406,3 +406,21 @@ func (os ClientOptionsV12) AuthCallback(authCallback func(context.Context, Token
 		os.AuthCallback = authCallback
 	})
 }
+
+func (os ClientOptionsV12) DefaultTokenParams(params TokenParams) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.DefaultTokenParams = &params
+	})
+}
+
+func (os ClientOptionsV12) applyWithDefaults(to *ClientOptions) {
+	for _, set := range os {
+		set(to)
+	}
+
+	if to.DefaultTokenParams == nil {
+		to.DefaultTokenParams = &TokenParams{
+			TTL: int64(60 * time.Minute / time.Millisecond),
+		}
+	}
+}

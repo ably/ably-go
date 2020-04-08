@@ -181,6 +181,9 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 	case opts != nil && opts.TokenDetails != nil:
 		return opts.TokenDetails, "", nil
 	}
+	if params == nil {
+		params = a.opts().DefaultTokenParams
+	}
 	opts = a.mergeOpts(opts)
 	var tokReq *TokenRequest
 	switch {
