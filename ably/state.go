@@ -580,6 +580,8 @@ type ConnectionEventV12 struct {
 	name string
 }
 
+func (ConnectionEventV12) isEmitterEvent() {}
+
 var (
 	ConnectionEventInitializedV12  = ConnectionEventV12(ConnectionStateInitializedV12)
 	ConnectionEventConnectingV12   = ConnectionEventV12(ConnectionStateConnectingV12)
@@ -608,6 +610,8 @@ type ConnectionStateChangeV12 struct {
 	// Reason, if any, is an error that caused the state change.
 	Reason *ErrorInfoV12
 }
+
+func (ConnectionStateChangeV12) isEmitterData() {}
 
 func mapOldToNewConnState(old StateEnum) ConnectionStateV12 {
 	switch old {

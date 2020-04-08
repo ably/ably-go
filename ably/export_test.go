@@ -84,3 +84,10 @@ func (opts *ClientOptions) GetFallbackRetryTimeout() time.Duration {
 var NewEventEmitter = newEventEmitter
 
 type EventEmitter = eventEmitter
+type EmitterEvent = emitterEvent
+type EmitterData = emitterData
+
+type EmitterString string
+
+func (EmitterString) isEmitterEvent() {}
+func (EmitterString) isEmitterData()  {}

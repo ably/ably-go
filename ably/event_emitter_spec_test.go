@@ -12,43 +12,43 @@ import (
 
 func Test_RTE3_EventEmitter_On(t *testing.T) {
 	for _, tc := range []struct {
-		event      string
-		data       interface{}
-		expectRecv []string
+		event      ably.EmitterString
+		data       ably.EmitterData
+		expectRecv []ably.EmitterString
 	}{{
-		"qux", 42,
-		[]string{"*"},
+		"qux", ably.EmitterString("42"),
+		[]ably.EmitterString{"*"},
 	}, {
-		"foo", 42,
-		[]string{"*", "foo"},
+		"foo", ably.EmitterString("42"),
+		[]ably.EmitterString{"*", "foo"},
 	}, {
-		"bar", 42,
-		[]string{"*", "bar", "bar"},
+		"bar", ably.EmitterString("42"),
+		[]ably.EmitterString{"*", "bar", "bar"},
 	}} {
 		t.Run(fmt.Sprintf("event: %s, data: %v", tc.event, tc.data), func(t *testing.T) {
 			t.Parallel()
 
 			em := ably.NewEventEmitter(ablytest.DiscardLogger)
 
-			received := map[string]chan interface{}{
-				"*":   make(chan interface{}, 999),
-				"foo": make(chan interface{}, 999),
-				"bar": make(chan interface{}, 999),
+			received := map[ably.EmitterString]chan ably.EmitterData{
+				"*":   make(chan ably.EmitterData, 999),
+				"foo": make(chan ably.EmitterData, 999),
+				"bar": make(chan ably.EmitterData, 999),
 			}
 
-			em.OnAll(func(v interface{}) {
+			em.OnAll(func(v ably.EmitterData) {
 				received["*"] <- v
 			})
 
-			em.On("foo", func(v interface{}) {
+			em.On(ably.EmitterString("foo"), func(v ably.EmitterData) {
 				received["foo"] <- v
 			})
 
-			em.On("bar", func(v interface{}) {
+			em.On(ably.EmitterString("bar"), func(v ably.EmitterData) {
 				received["bar"] <- v
 			})
 
-			em.On("bar", func(v interface{}) {
+			em.On(ably.EmitterString("bar"), func(v ably.EmitterData) {
 				received["bar"] <- v
 			})
 
@@ -57,7 +57,7 @@ func Test_RTE3_EventEmitter_On(t *testing.T) {
 			for _, name := range tc.expectRecv {
 				fatalf := ablytest.FmtFunc.Wrap(t.Fatalf, t, "received to %q: %s", name)
 
-				var recv interface{}
+				var recv ably.EmitterData
 				ablytest.Instantly.Recv(t, &recv, received[name], fatalf)
 
 				if !reflect.DeepEqual(tc.data, recv) {
@@ -72,43 +72,43 @@ func Test_RTE3_EventEmitter_On(t *testing.T) {
 
 func Test_RTE4_EventEmitter_Once(t *testing.T) {
 	for _, tc := range []struct {
-		event      string
-		data       interface{}
-		expectRecv []string
+		event      ably.EmitterString
+		data       ably.EmitterData
+		expectRecv []ably.EmitterString
 	}{{
-		"qux", 42,
-		[]string{"*"},
+		"qux", ably.EmitterString("42"),
+		[]ably.EmitterString{"*"},
 	}, {
-		"foo", 42,
-		[]string{"*", "foo"},
+		"foo", ably.EmitterString("42"),
+		[]ably.EmitterString{"*", "foo"},
 	}, {
-		"bar", 42,
-		[]string{"*", "bar", "bar"},
+		"bar", ably.EmitterString("42"),
+		[]ably.EmitterString{"*", "bar", "bar"},
 	}} {
 		t.Run(fmt.Sprintf("event: %s, data: %v", tc.event, tc.data), func(t *testing.T) {
 			t.Parallel()
 
 			em := ably.NewEventEmitter(ablytest.DiscardLogger)
 
-			received := map[string]chan interface{}{
-				"*":   make(chan interface{}, 999),
-				"foo": make(chan interface{}, 999),
-				"bar": make(chan interface{}, 999),
+			received := map[ably.EmitterString]chan ably.EmitterData{
+				"*":   make(chan ably.EmitterData, 999),
+				"foo": make(chan ably.EmitterData, 999),
+				"bar": make(chan ably.EmitterData, 999),
 			}
 
-			em.Once(nil, func(v interface{}) {
+			em.Once(nil, func(v ably.EmitterData) {
 				received["*"] <- v
 			})
 
-			em.Once("foo", func(v interface{}) {
+			em.Once(ably.EmitterString("foo"), func(v ably.EmitterData) {
 				received["foo"] <- v
 			})
 
-			em.Once("bar", func(v interface{}) {
+			em.Once(ably.EmitterString("bar"), func(v ably.EmitterData) {
 				received["bar"] <- v
 			})
 
-			em.Once("bar", func(v interface{}) {
+			em.Once(ably.EmitterString("bar"), func(v ably.EmitterData) {
 				received["bar"] <- v
 			})
 
@@ -117,7 +117,7 @@ func Test_RTE4_EventEmitter_Once(t *testing.T) {
 			for _, name := range tc.expectRecv {
 				fatalf := ablytest.FmtFunc.Wrap(t.Fatalf, t, "received to %q: %s", name)
 
-				var recv interface{}
+				var recv ably.EmitterData
 				ablytest.Instantly.Recv(t, &recv, received[name], fatalf)
 
 				if !reflect.DeepEqual(tc.data, recv) {
@@ -144,31 +144,31 @@ func Test_RTE4_EventEmitter_Once(t *testing.T) {
 
 func Test_RTE5_EventEmitter_Off(t *testing.T) {
 	setUp := func() (
-		received map[string]chan interface{},
+		received map[ably.EmitterString]chan ably.EmitterData,
 		em *ably.EventEmitter,
 		allOff, fooOff, barOff1, barOff2 func(),
 	) {
-		received = map[string]chan interface{}{
-			"*":   make(chan interface{}, 999),
-			"foo": make(chan interface{}, 999),
-			"bar": make(chan interface{}, 999),
+		received = map[ably.EmitterString]chan ably.EmitterData{
+			"*":   make(chan ably.EmitterData, 999),
+			"foo": make(chan ably.EmitterData, 999),
+			"bar": make(chan ably.EmitterData, 999),
 		}
 
 		em = ably.NewEventEmitter(ablytest.DiscardLogger)
 
-		allOff = em.OnAll(func(v interface{}) {
+		allOff = em.OnAll(func(v ably.EmitterData) {
 			received["*"] <- v
 		})
 
-		fooOff = em.On("foo", func(v interface{}) {
+		fooOff = em.On(ably.EmitterString("foo"), func(v ably.EmitterData) {
 			received["foo"] <- v
 		})
 
-		barOff1 = em.On("bar", func(v interface{}) {
+		barOff1 = em.On(ably.EmitterString("bar"), func(v ably.EmitterData) {
 			received["bar"] <- v
 		})
 
-		barOff2 = em.On("bar", func(v interface{}) {
+		barOff2 = em.On(ably.EmitterString("bar"), func(v ably.EmitterData) {
 			received["bar"] <- v
 		})
 
@@ -182,19 +182,19 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 		defer assertNoFurtherReceives(t, received)
 
 		barOff1()
-		em.Emit("bar", nil)
+		em.Emit(ably.EmitterString("bar"), nil)
 
 		// The other listeners work.
 		ablytest.Instantly.Recv(t, nil, received["bar"], t.Fatalf)
 		ablytest.Instantly.Recv(t, nil, received["*"], t.Fatalf)
 
 		// Other specific listeners unaffected.
-		em.Emit("foo", nil)
+		em.Emit(ably.EmitterString("foo"), nil)
 		ablytest.Instantly.Recv(t, nil, received["foo"], t.Fatalf)
 		ablytest.Instantly.Recv(t, nil, received["*"], t.Fatalf)
 
 		fooOff()
-		em.Emit("foo", nil)
+		em.Emit(ably.EmitterString("foo"), nil)
 
 		// Only matching listener affected.
 		ablytest.Instantly.NoRecv(t, nil, received["foo"], t.Fatalf)
@@ -207,8 +207,8 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 		received, em, _, _, _, _ := setUp()
 		defer assertNoFurtherReceives(t, received)
 
-		em.Off("bar")
-		em.Emit("bar", nil)
+		em.Off(ably.EmitterString("bar"))
+		em.Emit(ably.EmitterString("bar"), nil)
 
 		// Event-specific listeners affected.
 		ablytest.Instantly.NoRecv(t, nil, received["bar"], t.Fatalf)
@@ -217,12 +217,12 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 		ablytest.Instantly.Recv(t, nil, received["*"], t.Fatalf)
 
 		// Other specific listeners unaffected.
-		em.Emit("foo", nil)
+		em.Emit(ably.EmitterString("foo"), nil)
 		ablytest.Instantly.Recv(t, nil, received["foo"], t.Fatalf)
 		ablytest.Instantly.Recv(t, nil, received["*"], t.Fatalf)
 
-		em.Off("foo")
-		em.Emit("foo", nil)
+		em.Off(ably.EmitterString("foo"))
+		em.Emit(ably.EmitterString("foo"), nil)
 
 		// Only matching listener affected.
 		ablytest.Instantly.NoRecv(t, nil, received["foo"], t.Fatalf)
@@ -236,9 +236,9 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 
 		em.Off(nil)
 
-		em.Emit("foo", nil)
-		em.Emit("bar", nil)
-		em.Emit("qux", nil)
+		em.Emit(ably.EmitterString("foo"), nil)
+		em.Emit(ably.EmitterString("bar"), nil)
+		em.Emit(ably.EmitterString("qux"), nil)
 
 		// Nothing gets delivered.
 		assertNoFurtherReceives(t, received)
@@ -253,7 +253,7 @@ func Test_RTE6_EventEmitter_EmitPanic(t *testing.T) {
 
 	shouldPanic := true
 	called := make(chan struct{}, 999)
-	em.OnAll(func(interface{}) {
+	em.OnAll(func(ably.EmitterData) {
 		if shouldPanic {
 			panic("aaah")
 		}
@@ -291,14 +291,14 @@ func Test_RTE6a_EventEmitter_EmitToFixedListenersCollection(t *testing.T) {
 		// Shuffle the order in which we register the listeners for extra
 		// exhaustiveness.
 		ons := []func(){func() {
-			off = em.OnAll(func(interface{}) {
+			off = em.OnAll(func(ably.EmitterData) {
 				close(removedCalled)
 			})
 		}, func() {
-			em.OnAll(func(interface{}) {
+			em.OnAll(func(ably.EmitterData) {
 				off()
 
-				em.OnAll(func(interface{}) {
+				em.OnAll(func(ably.EmitterData) {
 					close(addedCalled)
 				})
 			})
@@ -317,7 +317,7 @@ func Test_RTE6a_EventEmitter_EmitToFixedListenersCollection(t *testing.T) {
 	}
 }
 
-func assertNoFurtherReceives(t *testing.T, received map[string]chan interface{}) {
+func assertNoFurtherReceives(t *testing.T, received map[ably.EmitterString]chan ably.EmitterData) {
 	t.Helper()
 	for name, ch := range received {
 		fatalf := ablytest.FmtFunc.Wrap(t.Fatalf, t, "received to %q: %s", name)

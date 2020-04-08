@@ -11,8 +11,13 @@ type eventEmitter struct {
 	logger    Logger
 }
 
-type emitterEvent = interface{}
-type emitterData = interface{}
+type emitterEvent interface {
+	isEmitterEvent()
+}
+
+type emitterData interface {
+	isEmitterData()
+}
 
 type listenersForEvent map[emitterEvent]listenerSet
 type listenerSet map[*eventListener]struct{}

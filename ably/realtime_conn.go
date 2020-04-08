@@ -248,7 +248,7 @@ func (c *Conn) On(ch chan<- State, states ...StateEnum) {
 //
 // See package-level documentation on Event Emitter for details.
 func (c *Conn) OnV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
-	return c.state.eventEmitter.On(e, func(change interface{}) {
+	return c.state.eventEmitter.On(e, func(change emitterData) {
 		handle(change.(ConnectionStateChangeV12))
 	})
 }
@@ -257,7 +257,7 @@ func (c *Conn) OnV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)
 //
 // See package-level documentation on Event Emitter for details.
 func (c *Conn) OnAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
-	return c.state.eventEmitter.OnAll(func(change interface{}) {
+	return c.state.eventEmitter.OnAll(func(change emitterData) {
 		handle(change.(ConnectionStateChangeV12))
 	})
 }
@@ -266,7 +266,7 @@ func (c *Conn) OnAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
 //
 // See package-level documentation on Event Emitter for details.
 func (c *Conn) OnceV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
-	return c.state.eventEmitter.On(e, func(change interface{}) {
+	return c.state.eventEmitter.On(e, func(change emitterData) {
 		handle(change.(ConnectionStateChangeV12))
 	})
 }
@@ -275,7 +275,7 @@ func (c *Conn) OnceV12(e ConnectionEventV12, handle func(ConnectionStateChangeV1
 //
 // See package-level documentation on Event Emitter for details.
 func (c *Conn) OnceAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
-	return c.state.eventEmitter.OnceAll(func(change interface{}) {
+	return c.state.eventEmitter.OnceAll(func(change emitterData) {
 		handle(change.(ConnectionStateChangeV12))
 	})
 }
