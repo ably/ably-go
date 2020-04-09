@@ -193,8 +193,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 			return nil, "", newError(ErrErrorFromClientTokenCallback, err)
 		}
 
-		// Pointers to these types implicitly implement TokenLike, so we can't
-		// avoid possibly getting them.
+		// Simplify the switch below by removing the pointer-to-TokenLike cases.
 		switch p := v.(type) {
 		case *TokenRequest:
 			v = *p
