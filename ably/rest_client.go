@@ -203,8 +203,39 @@ type Request struct {
 	header  http.Header
 }
 
-// Request sends http request to ably.
-// spec RSC19
+// Request sends an authenticated HTTP request to Ably's REST API.
+//
+// Most of the time, users will prefer to use methods that map directly to an
+// API endpoint; this is intended as a fallback for missing methods.
+//
+// The body must be a value encodable as MessagePack and/or JSON, depending
+// on the UseBinaryProtocol option.
+func (c *RESTV12) RequestV12(
+	ctx context.Context,
+	method string,
+	path string,
+	params map[string]string,
+	body interface{},
+	headers http.Header,
+) (*HTTPPaginatedResponse, error) {
+	ctx = context.TODO()
+
+	// TODO: Handle arbitrary parameters, as per the spec. This is a hack to
+	// map to the already implemented capabilities while exposing the final
+	// API.
+	var pagParams *PaginateParams
+	jsonParams, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("encoding params as JSON: %w", err)
+	}
+	err = json.Unmarshal(jsonParams, &pagParams)
+	if err != nil {
+		return nil, fmt.Errorf("decoding params as *PaginateParams: %w", err)
+	}
+
+	return c.Request(method, path, pagParams, body, headers)
+}
+
 func (c *RestClient) Request(method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*HTTPPaginatedResponse, error) {
 	method = strings.ToUpper(method)
 	switch method {
