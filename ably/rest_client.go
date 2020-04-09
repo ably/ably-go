@@ -126,6 +126,8 @@ func (c *RestChannels) Len() (size int) {
 	return
 }
 
+type RESTV12 = RestClient
+
 type RestClient struct {
 	Auth                *Auth
 	Channels            *RestChannels
