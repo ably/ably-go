@@ -50,6 +50,8 @@ func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
 	}
 }
 
+type RESTChannelsV12 = RestChannels
+
 // RestChannels provides an API for managing collection of RestChannel. This is
 // safe for concurrent use.
 type RestChannels struct {
@@ -129,8 +131,8 @@ func (c *RestChannels) Len() (size int) {
 type RESTV12 = RestClient
 
 type RestClient struct {
-	Channels            *RestChannels
 	Auth                *AuthV12
+	Channels            *RESTChannelsV12
 	opts                ClientOptions
 	successFallbackHost *fallbackCache
 }
