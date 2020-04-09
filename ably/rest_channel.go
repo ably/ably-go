@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -46,11 +47,32 @@ func newRestChannel(name string, client *RestClient) *RestChannel {
 	return c
 }
 
+// PublishV12 publishes a message on the channel.
+func (c *RestChannel) PublishV12(ctx context.Context, name string, data interface{}, params ...map[string]string) error {
+	return c.PublishAllV12(ctx, []Message{
+		{Name: name, Data: data},
+	}, params...)
+}
+
 func (c *RestChannel) Publish(name string, data interface{}) error {
 	messages := []*proto.Message{
 		{Name: name, Data: data},
 	}
 	return c.PublishAll(messages)
+}
+
+// Message is what Ably channels send and receive.
+type Message proto.Message
+
+// PublishAllV12 publishes multiple messages in a batch.
+func (c *RestChannel) PublishAllV12(ctx context.Context, messages []Message, params ...map[string]string) error {
+	ctx = context.TODO()
+	msgPtrs := make([]*proto.Message, 0, len(messages))
+	for _, m := range messages {
+		msgPtrs = append(msgPtrs, (*proto.Message)(&m))
+	}
+	// TODO: Merge params together and actually use them.
+	return c.PublishAll(msgPtrs)
 }
 
 // PublishAll sends multiple messages in the same http call.
