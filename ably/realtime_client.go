@@ -10,7 +10,7 @@ import (
 // to Ably enabling extremely low latency broadcasting of messages and presence
 // state.
 type RealtimeClient struct {
-	Auth       *Auth
+	Auth       *AuthV12
 	Channels   *Channels
 	Connection *Conn
 
