@@ -156,6 +156,12 @@ func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 	return c, nil
 }
 
+// TimeV12 returns the server time.
+func (c *RESTV12) TimeV12(ctx context.Context) (time.Time, error) {
+	ctx = context.TODO()
+	return c.Time()
+}
+
 func (c *RestClient) Time() (time.Time, error) {
 	var times []int64
 	r := &Request{

@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -54,6 +55,11 @@ func (c *RealtimeClient) Close() error {
 // method.
 func (c *RealtimeClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
 	return c.rest.Stats(params)
+}
+
+// TimeV12 returns the server time.
+func (c *RealtimeClient) TimeV12(ctx context.Context) (time.Time, error) {
+	return c.rest.TimeV12(ctx)
 }
 
 // Time
