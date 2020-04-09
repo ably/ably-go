@@ -129,8 +129,8 @@ func (c *RestChannels) Len() (size int) {
 type RESTV12 = RestClient
 
 type RestClient struct {
-	Auth                *Auth
 	Channels            *RestChannels
+	Auth                *AuthV12
 	opts                ClientOptions
 	successFallbackHost *fallbackCache
 }

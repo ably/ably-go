@@ -57,6 +57,8 @@ func addHeaders(lhs, rhs http.Header) http.Header {
 	return lhs
 }
 
+type AuthV12 = Auth
+
 // Auth
 type Auth struct {
 	mtx      sync.Mutex
