@@ -188,8 +188,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 	var tokReq *TokenRequest
 	switch {
 	case opts.AuthCallback != nil:
-		// TODO: Pass a real context.
-		v, err := opts.AuthCallback(context.Background(), *params)
+		v, err := opts.AuthCallback(context.TODO(), *params)
 		if err != nil {
 			return nil, "", newError(ErrErrorFromClientTokenCallback, err)
 		}
