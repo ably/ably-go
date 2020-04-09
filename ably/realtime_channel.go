@@ -36,6 +36,41 @@ func newChannels(client *Realtime) *Channels {
 	}
 }
 
+// ChannelOptionsV12 is a set of options for a channel.
+type ChannelOptionsV12 []ChannelOptionV12
+
+// A ChannelOptionV12 configures a channel. Options are set by calling methods
+// on ChannelOptionsV12.
+type ChannelOptionV12 func(*channelOptions)
+
+// channelOptions wraps proto.ChannelOptions. It exists so that users can't
+// implement their own ChannelOptionV12.
+type channelOptions proto.ChannelOptions
+
+// CipherKeyV12 is like CipherV12 with an AES algorithm and CBC mode.
+func (o ChannelOptionsV12) CipherKeyV12(key []byte) ChannelOptionsV12 {
+	return append(o, func(o *channelOptions) {
+		o.Cipher = proto.CipherParams{
+			Algorithm: proto.DefaultCipherAlgorithm,
+			Key:       key,
+			KeyLength: proto.DefaultKeyLength,
+			Mode:      proto.DefaultCipherMode,
+		}
+	})
+}
+
+// CipherV12 sets cipher parameters for encrypting messages on a channel.
+func (o ChannelOptionsV12) CipherV12(params proto.CipherParams) ChannelOptionsV12 {
+	return append(o, func(o *channelOptions) {
+		o.Cipher = params
+	})
+}
+
+func (ch *Channels) GetV12(name string, options ...ChannelOptionV12) *RealtimeChannel {
+	// TODO: options
+	return ch.Get(name)
+}
+
 // Get looks up a channel given by the name and creates it if it does not exist
 // already.
 //

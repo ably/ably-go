@@ -88,6 +88,14 @@ func (c *RestChannels) Exists(name string) bool {
 	return ok
 }
 
+func (c *RestChannels) GetV12(name string, options ...ChannelOptionV12) *RestChannel {
+	var o channelOptions
+	for _, set := range options {
+		set(&o)
+	}
+	return c.Get(name, (*proto.ChannelOptions)(&o))
+}
+
 // Get returns an existing channel or creates a new one if it doesn't exist.
 //
 // RSN3a: you can optionally pass ChannelOptions, if the channel exists it will
