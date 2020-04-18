@@ -141,7 +141,6 @@ var stateMasks = map[StateType]StateEnum{
 }
 
 var (
-	errClosed         = newErrorf(10000, "Connection closed by client")
 	errDisconnected   = newErrorf(80003, "Connection temporarily unavailable")
 	errSuspended      = newErrorf(80002, "Connection unavailable")
 	errFailed         = newErrorf(80000, "Connection failed")
@@ -150,12 +149,9 @@ var (
 
 var stateErrors = map[StateEnum]Error{
 	StateConnInitialized:  *errNeverConnected,
-	StateConnClosed:       *errClosed,
-	StateConnClosing:      *errClosed,
 	StateConnDisconnected: *errDisconnected,
 	StateConnFailed:       *errFailed,
 	StateConnSuspended:    *errSuspended,
-	StateChanClosed:       *errClosed,
 	StateChanFailed:       *errFailed,
 }
 
