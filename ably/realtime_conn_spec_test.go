@@ -13,7 +13,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		t.Parallel()
 
 		app, realtime := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
-		defer safeclose(t, realtime, app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		changes := make(chan ably.ConnectionStateChangeV12)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
@@ -31,7 +31,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		t.Parallel()
 
 		app, realtime := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
-		defer safeclose(t, realtime, app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		connectAndWait(t, realtime)
 	})
@@ -43,7 +43,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		disconnect := ablytest.SetFakeDisconnect(options)
 		app, realtime := ablytest.NewRealtimeClient(options)
 		defer safeclose(t, app)
-		defer realtime.CloseV12()
+		defer realtime.Close()
 
 		connectAndWait(t, realtime)
 
@@ -73,7 +73,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		t.Parallel()
 
 		app, realtime := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
-		defer safeclose(t, realtime, app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		connectAndWait(t, realtime)
 
@@ -84,7 +84,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 			changes <- change
 		})
 
-		realtime.CloseV12()
+		realtime.Close()
 		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 	})
 
@@ -92,7 +92,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		t.Parallel()
 
 		app, realtime := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
-		defer safeclose(t, realtime, app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		connectAndWait(t, realtime)
 
@@ -103,7 +103,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 			changes <- change
 		})
 
-		realtime.CloseV12()
+		realtime.Close()
 		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 	})
 

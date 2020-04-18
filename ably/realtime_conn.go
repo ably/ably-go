@@ -84,9 +84,9 @@ func (c *Conn) ConnectV12() {
 	c.connect(false)
 }
 
-// ConnectV12 attempts to move the connection to the CLOSED state, if it
-// can and if it isn't already.
-func (c *Conn) CloseV12() {
+// Close attempts to move the connection to the CLOSED state, if it can and if
+// it isn't already.
+func (c *Conn) Close() {
 	c.close()
 }
 
@@ -146,41 +146,36 @@ func (c *Conn) connect(result bool) (Result, error) {
 	return res, nil
 }
 
-// Close initiates closing sequence for the connection; it waits until the
-// operation is complete.
-//
-// If connection is already closed, this method is a nop.
-func (c *Conn) Close() error {
-	err := wait(c.close())
-	if c.conn != nil {
-		c.conn.Close()
-	}
-	if err != nil {
-		return c.state.syncSet(StateConnFailed, err)
-	}
-	return nil
-}
-
 var closeResultStates = []StateEnum{
 	StateConnClosed, // expected state
 	StateConnFailed,
 	StateConnDisconnected,
 }
 
-func (c *Conn) close() (Result, error) {
+func (c *Conn) close() {
 	c.state.Lock()
 	defer c.state.Unlock()
 	switch c.state.current {
-	case StateConnClosing, StateConnClosed:
-		return nopResult, nil
-	case StateConnInitialized, StateConnFailed, StateConnDisconnected:
-		return nil, stateError(c.state.current, errCloseInactive)
+	case
+		StateConnClosing,
+		StateConnClosed,
+		StateConnInitialized,
+		StateConnFailed,
+		StateConnDisconnected:
+
+		return
 	}
-	res := c.state.listenResult(closeResultStates...)
 	c.state.set(StateConnClosing, nil)
 	msg := &proto.ProtocolMessage{Action: proto.ActionClose}
 	c.updateSerial(msg, nil)
-	return res, c.conn.Send(msg)
+
+	// TODO: handle error. If you can't send a message, the fail-fast way to
+	// deal with it is to discard the WebSocket and perform a normal
+	// reconnection. We could also have a retry loop, but in any case, it should
+	// be dealt with centrally, so Send shouldn't return the error but handle
+	// it in some way. The caller isn't responsible for recovering from realtime
+	// connection transient errors.
+	_ = c.conn.Send(msg)
 }
 
 // ID gives unique ID string obtained from Ably upon successful connection.
@@ -210,9 +205,9 @@ func (c *Conn) Ping() (ping, pong time.Duration, err error) {
 	return 0, 0, errors.New("TODO")
 }
 
-// Reason gives last known error that caused connection transit to
+// ErrorReason gives last known error that caused connection transit to
 // StateConnFailed state.
-func (c *Conn) Reason() error {
+func (c *Conn) ErrorReason() error {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.state.err
@@ -429,6 +424,9 @@ func (c *Conn) eventloop() {
 			c.state.set(StateConnFailed, newErrorProto(msg.Error))
 			c.state.Unlock()
 			c.queue.Fail(newErrorProto(msg.Error))
+			if c.conn != nil {
+				c.conn.Close()
+			}
 		case proto.ActionConnected:
 			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
 			c.state.Lock()
@@ -453,6 +451,9 @@ func (c *Conn) eventloop() {
 			c.id = ""
 			c.state.set(StateConnClosed, nil)
 			c.state.Unlock()
+			if c.conn != nil {
+				c.conn.Close()
+			}
 		default:
 			c.msgCh <- msg
 		}

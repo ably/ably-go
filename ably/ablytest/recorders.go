@@ -2,6 +2,7 @@ package ablytest
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -551,4 +552,59 @@ func (c connWithFakeDisconnect) Close() error {
 
 	close(c.closed)
 	return c.conn.Close()
+}
+
+// FullRealtimeCloser returns an io.Closer that, on Close, calls Close on the
+// Realtime instance and waits for its effects.
+func FullRealtimeCloser(c *ably.RealtimeClient) io.Closer {
+	return realtimeIOCloser{c: c}
+}
+
+type realtimeIOCloser struct {
+	c *ably.RealtimeClient
+}
+
+func (c realtimeIOCloser) Close() error {
+	switch c.c.Connection.State() {
+	case
+		ably.StateConnInitialized,
+		ably.StateConnClosed,
+		ably.StateConnFailed:
+
+		return c.c.Connection.ErrorReason()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+
+	var off func()
+	off = c.c.Connection.OnAllV12(func(c ably.ConnectionStateChangeV12) {
+		switch c.Current {
+		default:
+			return
+		case
+			ably.ConnectionStateClosedV12,
+			ably.ConnectionStateFailedV12:
+		}
+
+		off()
+
+		var err error
+		if c.Reason != nil {
+			err = *c.Reason
+		}
+		errCh <- err
+	})
+
+	c.c.Close()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		off()
+		return ctx.Err()
+	}
 }

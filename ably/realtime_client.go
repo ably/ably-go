@@ -59,14 +59,9 @@ func (c *RealtimeClient) ConnectV12() {
 	c.Connection.ConnectV12()
 }
 
-// CloseV12 is the same as Connection.Close.
-func (c *RealtimeClient) CloseV12() {
-	c.Connection.CloseV12()
-}
-
-// Close
-func (c *RealtimeClient) Close() error {
-	return c.Connection.Close()
+// Close is the same as Connection.Close.
+func (c *RealtimeClient) Close() {
+	c.Connection.Close()
 }
 
 // Stats gives the clients metrics according to the given parameters. The

@@ -42,7 +42,7 @@ var fixtureMembers = []string{
 func TestRealtimePresence_Sync(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtimeClient(nil)
-	defer safeclose(t, client, app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	members, err := client.Channels.GetAndAttach("persisted:presence_fixtures").Presence.Get(true)
 	if err != nil {
@@ -56,10 +56,10 @@ func TestRealtimePresence_Sync(t *testing.T) {
 func TestRealtimePresence_Sync250(t *testing.T) {
 	t.Parallel()
 	app, client1 := ablytest.NewRealtimeClient(nil)
-	defer safeclose(t, client1, app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 	client2 := app.NewRealtimeClient()
 	client3 := app.NewRealtimeClient()
-	defer safeclose(t, client2, client3)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client2), ablytest.FullRealtimeCloser(client3))
 
 	channel1 := client1.Channels.GetAndAttach("sync250")
 	channel2 := client2.Channels.GetAndAttach("sync250")
@@ -116,7 +116,7 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 		NoConnect: true,
 	}
 	app, client := ablytest.NewRealtimeClient(opts)
-	defer safeclose(t, client, app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 	channel := client.Channels.Get("persisted:presence_fixtures")
 	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
 		t.Fatal(err)

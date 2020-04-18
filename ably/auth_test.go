@@ -586,7 +586,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			copts.ClientID = cas.clientID
 		}
 		client := app.NewRealtimeClient(copts)
-		defer safeclose(t, client)
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 		if id := client.Auth.ClientID(); id != cas.clientID {
 			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
 			continue
@@ -707,7 +707,7 @@ func TestAuth_ClientID(t *testing.T) {
 			Action: proto.ActionClosed,
 		}
 		in <- closed
-		if err := client.Close(); err != nil {
+		if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
 			t.Fatalf("Close()=%v", err)
 		}
 
@@ -825,7 +825,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	if clientID := client.Auth.ClientID(); clientID != opts.ClientID {
 		t.Fatalf("want ClientID=%q; got %q", opts.ClientID, clientID)
 	}
-	if err := client.Close(); err != nil {
+	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
 		t.Fatalf("Close()=%v", err)
 	}
 	urls := rec.URL()
