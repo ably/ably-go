@@ -604,7 +604,7 @@ type ConnectionStateChangeV12 struct {
 	Event    ConnectionEventV12
 	Previous ConnectionStateV12
 	// Reason, if any, is an error that caused the state change.
-	Reason *ErrorInfoV12
+	Reason *ErrorInfo
 }
 
 func (ConnectionStateChangeV12) isEmitterData() {}
