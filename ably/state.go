@@ -439,10 +439,10 @@ type msgch struct {
 type msgQueue struct {
 	mtx   sync.Mutex
 	queue []msgch
-	conn  *Conn
+	conn  *Connection
 }
 
-func newMsgQueue(conn *Conn) *msgQueue {
+func newMsgQueue(conn *Connection) *msgQueue {
 	return &msgQueue{
 		conn: conn,
 	}

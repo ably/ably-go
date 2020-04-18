@@ -16,13 +16,9 @@ var (
 	errCloseInactive = errors.New("attempted to close inactive connection")
 )
 
-// ConnectionV12 represents a single connection Realtime instantiates for
+// Connection represents a single connection Realtime instantiates for
 // communication with Ably servers.
-type ConnectionV12 = Conn
-
-// Conn represents a single connection Realtime instantiates for
-// communication with Ably servers.
-type Conn struct {
+type Connection struct {
 	details   proto.ConnectionDetails
 	id        string
 	serial    int64
@@ -38,8 +34,8 @@ type Conn struct {
 	auth      *Auth
 }
 
-func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
-	c := &Conn{
+func newConn(opts *ClientOptions, auth *Auth) (*Connection, error) {
+	c := &Connection{
 		opts:    opts,
 		msgCh:   make(chan *proto.ProtocolMessage),
 		state:   newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
@@ -58,7 +54,7 @@ func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
 	return c, nil
 }
 
-func (c *Conn) dial(proto string, u *url.URL) (proto.Conn, error) {
+func (c *Connection) dial(proto string, u *url.URL) (proto.Conn, error) {
 	if c.opts.Dial != nil {
 		return c.opts.Dial(proto, u)
 	}
@@ -74,19 +70,19 @@ func (c *Conn) dial(proto string, u *url.URL) (proto.Conn, error) {
 // is non-nil.
 // If authorization succeeds, the returned Result value can be used to wait
 // until connection confirmation is received from a server.
-func (c *Conn) Connect() (Result, error) {
+func (c *Connection) Connect() (Result, error) {
 	return c.connect(true)
 }
 
 // ConnectV12 attempts to move the connection to the CONNECTED state, if it
 // can and if it isn't already.
-func (c *Conn) ConnectV12() {
+func (c *Connection) ConnectV12() {
 	c.connect(false)
 }
 
 // Close attempts to move the connection to the CLOSED state, if it can and if
 // it isn't already.
-func (c *Conn) Close() {
+func (c *Connection) Close() {
 	c.close()
 }
 
@@ -96,7 +92,7 @@ var connectResultStates = []StateEnum{
 	StateConnDisconnected,
 }
 
-func (c *Conn) connect(result bool) (Result, error) {
+func (c *Connection) connect(result bool) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	if c.isActive() {
@@ -152,7 +148,7 @@ var closeResultStates = []StateEnum{
 	StateConnDisconnected,
 }
 
-func (c *Conn) close() {
+func (c *Connection) close() {
 	c.state.Lock()
 	defer c.state.Unlock()
 	switch c.state.current {
@@ -181,7 +177,7 @@ func (c *Conn) close() {
 // ID gives unique ID string obtained from Ably upon successful connection.
 // The ID may change due to reconnection and recovery; on every received
 // StateConnConnected event previously obtained ID is no longer valid.
-func (c *Conn) ID() string {
+func (c *Connection) ID() string {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.id
@@ -190,7 +186,7 @@ func (c *Conn) ID() string {
 // Key gives unique key string obtained from Ably upon successful connection.
 // The key may change due to reconnection and recovery; on every received
 // StatConnConnected event previously obtained Key is no longer valid.
-func (c *Conn) Key() string {
+func (c *Connection) Key() string {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.details.ConnectionKey
@@ -201,13 +197,13 @@ func (c *Conn) Key() string {
 //
 // Ping returns non-nil error without any attempt of communication with Ably
 // if the connection state is StateConnClosed or StateConnFailed.
-func (c *Conn) Ping() (ping, pong time.Duration, err error) {
+func (c *Connection) Ping() (ping, pong time.Duration, err error) {
 	return 0, 0, errors.New("TODO")
 }
 
 // ErrorReason gives last known error that caused connection transit to
 // StateConnFailed state.
-func (c *Conn) ErrorReason() error {
+func (c *Connection) ErrorReason() error {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.state.err
@@ -215,14 +211,14 @@ func (c *Conn) ErrorReason() error {
 
 // Serial gives serial number of a message received most recently. Last known
 // serial number is used when recovering connection state.
-func (c *Conn) Serial() int64 {
+func (c *Connection) Serial() int64 {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.serial
 }
 
 // State returns current state of the connection.
-func (c *Conn) State() StateEnum {
+func (c *Connection) State() StateEnum {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.state.current
@@ -235,14 +231,14 @@ func (c *Conn) State() StateEnum {
 // If no states are given, c is registered for all of them.
 // If c is nil, the method panics.
 // If c is already registered, its state set is expanded.
-func (c *Conn) On(ch chan<- State, states ...StateEnum) {
+func (c *Connection) On(ch chan<- State, states ...StateEnum) {
 	c.state.on(ch, states...)
 }
 
 // OnV12 registers an event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Conn) OnV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
+func (c *Connection) OnV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
 	return c.state.eventEmitter.On(e, func(change emitterData) {
 		handle(change.(ConnectionStateChangeV12))
 	})
@@ -251,7 +247,7 @@ func (c *Conn) OnV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)
 // OnAllV12 registers an event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Conn) OnAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
+func (c *Connection) OnAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
 	return c.state.eventEmitter.OnAll(func(change emitterData) {
 		handle(change.(ConnectionStateChangeV12))
 	})
@@ -260,7 +256,7 @@ func (c *Conn) OnAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
 // OnceV12 registers an one-off event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Conn) OnceV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
+func (c *Connection) OnceV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
 	return c.state.eventEmitter.On(e, func(change emitterData) {
 		handle(change.(ConnectionStateChangeV12))
 	})
@@ -269,7 +265,7 @@ func (c *Conn) OnceV12(e ConnectionEventV12, handle func(ConnectionStateChangeV1
 // OnceAllV12 registers an one-off event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Conn) OnceAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
+func (c *Connection) OnceAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
 	return c.state.eventEmitter.OnceAll(func(change emitterData) {
 		handle(change.(ConnectionStateChangeV12))
 	})
@@ -280,25 +276,25 @@ func (c *Conn) OnceAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
 // If no states are given, c is removed for all of the connection's states.
 // If c is nil, the method panics.
 // If c was not registered or is already removed, the method is a nop.
-func (c *Conn) Off(ch chan<- State, states ...StateEnum) {
+func (c *Connection) Off(ch chan<- State, states ...StateEnum) {
 	c.state.off(ch, states...)
 }
 
 // OffV12 deregisters event handlers for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Conn) OffV12(e ConnectionEventV12) {
+func (c *Connection) OffV12(e ConnectionEventV12) {
 	c.state.eventEmitter.Off(e)
 }
 
 // OffV12 deregisters all event handlers.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Conn) OffAllV12() {
+func (c *Connection) OffAllV12() {
 	c.state.eventEmitter.OffAll()
 }
 
-func (c *Conn) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {
+func (c *Connection) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {
 	const maxint64 = 1<<63 - 1
 	msg.MsgSerial = c.msgSerial
 	c.msgSerial = (c.msgSerial + 1) % maxint64
@@ -307,7 +303,7 @@ func (c *Conn) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {
 	}
 }
 
-func (c *Conn) send(msg *proto.ProtocolMessage, listen chan<- error) error {
+func (c *Connection) send(msg *proto.ProtocolMessage, listen chan<- error) error {
 	c.state.Lock()
 	switch state := c.state.current; state {
 	case StateConnInitialized, StateConnConnecting, StateConnDisconnected:
@@ -337,7 +333,7 @@ func (c *Conn) send(msg *proto.ProtocolMessage, listen chan<- error) error {
 //
 // If both user was not authenticated with a wildcard ClientID and the one
 // being sent does not match it, the method return non-nil error.
-func (c *Conn) verifyAndUpdateMessages(msg *proto.ProtocolMessage) (err error) {
+func (c *Connection) verifyAndUpdateMessages(msg *proto.ProtocolMessage) (err error) {
 	clientID := c.auth.clientIDForCheck()
 	connectionID := c.id
 	switch msg.Action {
@@ -367,26 +363,26 @@ func (c *Conn) verifyAndUpdateMessages(msg *proto.ProtocolMessage) (err error) {
 	return nil
 }
 
-func (c *Conn) isActive() bool {
+func (c *Connection) isActive() bool {
 	return c.state.current == StateConnConnecting || c.state.current == StateConnConnected
 }
 
-func (c *Conn) lockIsActive() bool {
+func (c *Connection) lockIsActive() bool {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.isActive()
 }
 
-func (c *Conn) setConn(conn proto.Conn) {
+func (c *Connection) setConn(conn proto.Conn) {
 	c.conn = conn
 	go c.eventloop()
 }
 
-func (c *Conn) logger() *LoggerOptions {
+func (c *Connection) logger() *LoggerOptions {
 	return c.auth.logger()
 }
 
-func (c *Conn) eventloop() {
+func (c *Connection) eventloop() {
 	for {
 		msg, err := c.conn.Receive()
 		if err != nil {
