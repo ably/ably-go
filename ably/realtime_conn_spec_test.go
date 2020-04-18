@@ -66,7 +66,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateSuspendedV12), func(t *testing.T) {
 		t.Parallel()
 
-		t.Fatalf("SUSPENDED not yet implemented")
+		t.Skip("SUSPENDED not yet implemented")
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosingV12), func(t *testing.T) {
