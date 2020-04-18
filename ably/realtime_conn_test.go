@@ -33,7 +33,7 @@ var connTransitions = []ably.StateEnum{
 func TestRealtimeConn_Connect(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
@@ -57,7 +57,7 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 		Listener:  rec.Channel(),
 		NoConnect: true,
 	}
-	app, client := ablytest.NewRealtimeClient(opts)
+	app, client := ablytest.NewRealtime(opts)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	client.Connection.On(rec.Channel())
@@ -86,7 +86,7 @@ var connCloseTransitions = []ably.StateEnum{
 func TestRealtimeConn_ConnectClose(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{Listener: rec.Channel()})
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
@@ -106,7 +106,7 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 
 func TestRealtimeConn_AlreadyConnected(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
@@ -125,9 +125,9 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 		},
 		NoConnect: true,
 	}
-	client, err := ably.NewRealtimeClient(opts)
+	client, err := ably.NewRealtime(opts)
 	if err != nil {
-		t.Fatalf("NewRealtimeClient()=%v", err)
+		t.Fatalf("NewRealtime()=%v", err)
 	}
 	if err = ablytest.Wait(client.Connection.Connect()); err == nil {
 		t.Fatal("Connect(): want err != nil")

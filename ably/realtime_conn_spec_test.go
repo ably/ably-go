@@ -12,7 +12,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnectingV12), func(t *testing.T) {
 		t.Parallel()
 
-		app, realtime := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
+		app, realtime := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		changes := make(chan ably.ConnectionStateChangeV12)
@@ -30,7 +30,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnectedV12), func(t *testing.T) {
 		t.Parallel()
 
-		app, realtime := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
+		app, realtime := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		connectAndWait(t, realtime)
@@ -41,7 +41,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 
 		options := &ably.ClientOptions{NoConnect: true}
 		disconnect := ablytest.SetFakeDisconnect(options)
-		app, realtime := ablytest.NewRealtimeClient(options)
+		app, realtime := ablytest.NewRealtime(options)
 		defer safeclose(t, app)
 		defer realtime.Close()
 
@@ -72,7 +72,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosingV12), func(t *testing.T) {
 		t.Parallel()
 
-		app, realtime := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
+		app, realtime := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		connectAndWait(t, realtime)
@@ -91,7 +91,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosedV12), func(t *testing.T) {
 		t.Parallel()
 
-		app, realtime := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
+		app, realtime := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		connectAndWait(t, realtime)
@@ -115,7 +115,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		options.NoConnect = true
 		options.Key = "made:up"
 
-		realtime, err := ably.NewRealtimeClient(&options)
+		realtime, err := ably.NewRealtime(&options)
 		if err != nil {
 			t.Fatalf("unexpected err: %s", err)
 		}
@@ -132,7 +132,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	})
 }
 
-func connectAndWait(t *testing.T, realtime *ably.RealtimeV12) {
+func connectAndWait(t *testing.T, realtime *ably.Realtime) {
 	t.Helper()
 
 	changes := make(chan ably.ConnectionStateChangeV12)

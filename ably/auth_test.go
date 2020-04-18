@@ -485,7 +485,7 @@ func TestAuth_RequestToken(t *testing.T) {
 		optsURL.AuthOptions = ably.AuthOptions{Token: tokURL.Token}
 		c, err := ably.NewRestClient(optsURL)
 		if err != nil {
-			t.Errorf("NewRealtimeClient()=%v", err)
+			t.Errorf("NewRealtime()=%v", err)
 			continue
 		}
 		if _, err = c.Stats(single()); err != nil {
@@ -503,7 +503,7 @@ func TestAuth_ClientID_Error(t *testing.T) {
 			UseTokenAuth: true,
 		},
 	}
-	_, err := ably.NewRealtimeClient(opts)
+	_, err := ably.NewRealtime(opts)
 	if err := checkError(40102, err); err != nil {
 		t.Fatal(err)
 	}
@@ -585,7 +585,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		if i == 4 {
 			copts.ClientID = cas.clientID
 		}
-		client := app.NewRealtimeClient(copts)
+		client := app.NewRealtime(copts)
 		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 		if id := client.Auth.ClientID(); id != cas.clientID {
 			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
@@ -649,7 +649,7 @@ func TestAuth_ClientID(t *testing.T) {
 		Dial:      ablytest.MessagePipe(in, out),
 		NoConnect: true,
 	}
-	client := app.NewRealtimeClient(opts) // no client.Close as the connection is mocked
+	client := app.NewRealtime(opts) // no client.Close as the connection is mocked
 
 	tok, err := client.Auth.RequestToken(params, nil)
 	if err != nil {
@@ -813,7 +813,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 		Dial:      rec.Dial,
 	}
 	opts.UseTokenAuth = true
-	app, client := ablytest.NewRealtimeClient(opts)
+	app, client := ablytest.NewRealtime(opts)
 	defer safeclose(t, app)
 
 	if err := ablytest.Wait(client.Connection.Connect()); err != nil {

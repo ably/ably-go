@@ -135,7 +135,7 @@ type RestClient struct {
 
 func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 	if opts == nil {
-		panic("called NewRealtimeClient with nil ClientOptions")
+		panic("called NewRealtime with nil ClientOptions")
 	}
 	c := &RestClient{
 		opts: *opts,

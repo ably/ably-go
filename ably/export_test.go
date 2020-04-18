@@ -38,11 +38,11 @@ func ErrorCode(err error) int {
 	return code(err)
 }
 
-// MustRealtimeClient is like NewRealtimeClient, but panics on error.
-func MustRealtimeClient(opts *ClientOptions) *RealtimeClient {
-	client, err := NewRealtimeClient(opts)
+// MustRealtime is like NewRealtime, but panics on error.
+func MustRealtime(opts *ClientOptions) *Realtime {
+	client, err := NewRealtime(opts)
 	if err != nil {
-		panic("ably.NewRealtimeClient failed: " + err.Error())
+		panic("ably.NewRealtime failed: " + err.Error())
 	}
 	return client
 }

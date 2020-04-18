@@ -556,12 +556,12 @@ func (c connWithFakeDisconnect) Close() error {
 
 // FullRealtimeCloser returns an io.Closer that, on Close, calls Close on the
 // Realtime instance and waits for its effects.
-func FullRealtimeCloser(c *ably.RealtimeClient) io.Closer {
+func FullRealtimeCloser(c *ably.Realtime) io.Closer {
 	return realtimeIOCloser{c: c}
 }
 
 type realtimeIOCloser struct {
-	c *ably.RealtimeClient
+	c *ably.Realtime
 }
 
 func (c realtimeIOCloser) Close() error {
