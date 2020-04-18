@@ -81,6 +81,10 @@ func (opts *ClientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }
 
+func NewErrorInfo(code int, err error) *ErrorInfo {
+	return newError(code, err)
+}
+
 var NewEventEmitter = newEventEmitter
 
 type EventEmitter = eventEmitter

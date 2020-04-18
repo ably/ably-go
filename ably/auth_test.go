@@ -767,7 +767,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 			if err == nil {
 				ts.Fatal("expected an error")
 			}
-			e := err.(*ably.Error)
+			e := err.(*ably.ErrorInfo)
 			if e.Code != ably.ErrInvalidCredentials {
 				ts.Errorf("expected error code %d got %d", ably.ErrInvalidCredentials, e.Code)
 			}
@@ -778,7 +778,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 			if err == nil {
 				ts.Fatal("expected an error")
 			}
-			e = err.(*ably.Error)
+			e = err.(*ably.ErrorInfo)
 			if e.Code != ably.ErrIncompatibleCredentials {
 				ts.Errorf("expected error code %d got %d", ably.ErrIncompatibleCredentials, e.Code)
 			}

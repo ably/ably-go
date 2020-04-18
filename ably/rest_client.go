@@ -211,11 +211,11 @@ func (c *RestClient) Request(method string, path string, params *PaginateParams,
 			})
 		}, c.logger())
 	default:
-		return nil, &proto.ErrorInfo{
+		return nil, newErrorProto(&proto.ErrorInfo{
 			Message:    fmt.Sprintf("%s method is not supported", method),
 			Code:       ErrMethodNotAllowed,
 			StatusCode: http.StatusMethodNotAllowed,
-		}
+		})
 	}
 }
 
@@ -327,7 +327,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 	}
 	resp, err = handle(resp, r.Out)
 	if err != nil {
-		if e, ok := err.(*Error); ok {
+		if e, ok := err.(*ErrorInfo); ok {
 			if canFallBack(e.StatusCode) &&
 				(c.opts.FallbackHostsUseDefault ||
 					strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
@@ -376,7 +376,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 							if iteration == maxLimit-1 {
 								return nil, err
 							}
-							if ev, ok := err.(*Error); ok {
+							if ev, ok := err.(*ErrorInfo); ok {
 								if canFallBack(ev.StatusCode) {
 									iteration++
 									continue

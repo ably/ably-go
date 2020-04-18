@@ -147,7 +147,7 @@ var (
 	errNeverConnected = newErrorf(80002, "Unable to establish connection")
 )
 
-var stateErrors = map[StateEnum]Error{
+var stateErrors = map[StateEnum]ErrorInfo{
 	StateConnInitialized:  *errNeverConnected,
 	StateConnDisconnected: *errDisconnected,
 	StateConnFailed:       *errFailed,
@@ -157,13 +157,13 @@ var stateErrors = map[StateEnum]Error{
 
 func stateError(state StateEnum, err error) error {
 	// Set default error information associated with the target state.
-	e, ok := err.(*Error)
+	e, ok := err.(*ErrorInfo)
 	if ok {
 		return e
 	}
 	if e, ok := stateErrors[state]; ok {
 		if err != nil {
-			e.Err = err
+			e.err = err
 		}
 		err = &e
 	}
@@ -233,7 +233,7 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 		change := ConnectionStateChangeV12{
 			Current:  mapOldToNewConnState(s.current),
 			Previous: previous,
-			Reason:   errorToErrorInfo(s.err),
+			Reason:   newError(0, err),
 		}
 		if !changed {
 			change.Event = ConnectionEventUpdatedV12
@@ -540,10 +540,7 @@ func (res *stateResult) Wait() error {
 			if state.Type == StateConn {
 				code = 50002
 			}
-			res.err = &Error{
-				Code: code,
-				Err:  fmt.Errorf("failed %s state: %s", state.Type, state.State),
-			}
+			res.err = newError(code, fmt.Errorf("failed %s state: %s", state.Type, state.State))
 		}
 		res.listen = nil
 	}

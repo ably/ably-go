@@ -327,7 +327,7 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 		return res, nil
 	case StateChanAttached:
 	default:
-		return nil, &Error{Code: 90001}
+		return nil, &ErrorInfo{Code: 90001}
 	}
 	if err := c.client.Connection.send(msg, listen); err != nil {
 		return nil, err

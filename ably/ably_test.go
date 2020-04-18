@@ -38,7 +38,7 @@ func safeclose(t *testing.T, closers ...io.Closer) {
 }
 
 func checkError(code int, err error) error {
-	switch e, ok := err.(*ably.Error); {
+	switch e, ok := err.(*ably.ErrorInfo); {
 	case !ok:
 		return fmt.Errorf("want err to be *ably.Error; was %T: %v", err, err)
 	case e.Code != code:
