@@ -63,17 +63,11 @@ func (e ErrorInfo) Message() string {
 	return e.err.Error()
 }
 
-func newError(code int, err error) *ErrorInfo {
+func newError(defaultCode int, err error) *ErrorInfo {
 	switch err := err.(type) {
 	case nil:
 		return nil
 	case *ErrorInfo:
-		if _, ok := err.err.(genericError); ok {
-			// If err was returned from http.Response but we were unable to
-			// parse the internal error code, we overwrite it here.
-			err.Code = code
-			return err
-		}
 		return err
 	case net.Error:
 		if err.Timeout() {
@@ -81,19 +75,15 @@ func newError(code int, err error) *ErrorInfo {
 		}
 	}
 	return &ErrorInfo{
-		Code:       code,
-		StatusCode: toStatusCode(code),
+		Code:       defaultCode,
+		StatusCode: toStatusCode(defaultCode),
 
 		err: err,
 	}
 }
 
 func newErrorf(code int, format string, v ...interface{}) *ErrorInfo {
-	return &ErrorInfo{
-		Code:       code,
-		StatusCode: toStatusCode(code),
-		err:        fmt.Errorf(format, v...),
-	}
+	return newError(code, fmt.Errorf(format, v...))
 }
 
 func newErrorProto(err *proto.ErrorInfo) *ErrorInfo {
@@ -107,8 +97,6 @@ func newErrorProto(err *proto.ErrorInfo) *ErrorInfo {
 		err:        errors.New(err.Message),
 	}
 }
-
-type genericError error
 
 func code(err error) int {
 	if e, ok := err.(*ErrorInfo); ok {
@@ -143,11 +131,7 @@ func checkValidHTTPResponse(resp *http.Response) error {
 
 	body := &errorBody{}
 	if err := decode(typ, resp.Body, &body); err != nil {
-		return &ErrorInfo{
-			Code:       50000,
-			StatusCode: resp.StatusCode,
-			err:        genericError(errors.New(http.StatusText(resp.StatusCode))),
-		}
+		return newError(resp.StatusCode*100, errors.New(http.StatusText(resp.StatusCode)))
 	}
 
 	err := &ErrorInfo{
