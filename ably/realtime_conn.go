@@ -326,8 +326,14 @@ func (c *Conn) logger() *LoggerOptions {
 }
 
 func (c *Conn) eventloop() {
+	var receiveTimeout time.Duration
+
 	for {
-		msg, err := c.conn.Receive()
+		var deadline time.Time
+		if receiveTimeout != 0 {
+			deadline = time.Now().Add(receiveTimeout) // RTN23a
+		}
+		msg, err := c.conn.Receive(deadline)
 		if err != nil {
 			c.state.Lock()
 			if c.state.current == StateConnClosed {
@@ -371,6 +377,9 @@ func (c *Conn) eventloop() {
 				c.details = *msg.ConnectionDetails
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(c.details.ClientID)
+
+				maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
+				receiveTimeout = c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
 			}
 			c.serial = -1
 			c.msgSerial = 0
@@ -403,8 +412,8 @@ func (vc verboseConn) Send(msg *proto.ProtocolMessage) error {
 	return vc.conn.Send(msg)
 }
 
-func (vc verboseConn) Receive() (*proto.ProtocolMessage, error) {
-	msg, err := vc.conn.Receive()
+func (vc verboseConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	msg, err := vc.conn.Receive(deadline)
 	if err != nil {
 		return nil, err
 	}
