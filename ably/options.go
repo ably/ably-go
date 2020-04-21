@@ -29,6 +29,7 @@ var defaultOptions = &ClientOptions{
 	RealtimeHost:             "realtime.ably.io",
 	TimeoutDisconnect:        30 * time.Second,
 	RealtimeRequestTimeout:   10 * time.Second, // DF1b
+	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
 	TimeoutSuspended:         2 * time.Minute,
 	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
@@ -212,6 +213,10 @@ type ClientOptions struct {
 	// and each subsequent operation.
 	RealtimeRequestTimeout time.Duration
 
+	// DisconnectedRetryTimeout is the time to wait after a disconnection before
+	// attempting an automatic reconnection, if still disconnected.
+	DisconnectedRetryTimeout time.Duration
+
 	// Dial specifies the dial function for creating message connections used
 	// by RealtimeClient.
 	//
@@ -273,6 +278,13 @@ func (opts *ClientOptions) realtimeRequestTimeout() time.Duration {
 		return opts.RealtimeRequestTimeout
 	}
 	return defaultOptions.RealtimeRequestTimeout
+}
+
+func (opts *ClientOptions) disconnectedRetryTimeout() time.Duration {
+	if opts.DisconnectedRetryTimeout != 0 {
+		return opts.DisconnectedRetryTimeout
+	}
+	return defaultOptions.DisconnectedRetryTimeout
 }
 
 func (opts *ClientOptions) restURL() string {

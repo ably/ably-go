@@ -3,6 +3,8 @@ package ably
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/url"
 	"strconv"
 	"time"
@@ -80,6 +82,18 @@ var connectResultStates = []StateEnum{
 }
 
 func (c *Conn) connect(result bool) (Result, error) {
+	return c.connectWithRecovery(result, "", 0)
+}
+
+func (c *Conn) reconnect(result bool) (Result, error) {
+	c.state.Lock()
+	connKey := c.details.ConnectionKey
+	connSerial := c.serial
+	c.state.Unlock()
+	return c.connectWithRecovery(result, connKey, connSerial)
+}
+
+func (c *Conn) connectWithRecovery(result bool, connKey string, connSerial int64) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	if c.isActive() {
@@ -115,6 +129,10 @@ func (c *Conn) connect(result bool) (Result, error) {
 	}
 	if err := c.auth.authQuery(query); err != nil {
 		return nil, c.state.set(StateConnFailed, err)
+	}
+	if connKey != "" {
+		query.Set("resume", connKey)
+		query.Set("connectionSerial", fmt.Sprint(connSerial))
 	}
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)
@@ -342,6 +360,14 @@ func (c *Conn) eventloop() {
 				c.state.Unlock()
 				return
 			}
+
+			if errors.Is(err, io.EOF) || errors.As(err, new(net.Error)) {
+				c.state.set(StateConnDisconnected, err)
+				c.state.Unlock()
+				c.reconnect(false)
+				return
+			}
+
 			c.state.set(StateConnFailed, err)
 			c.state.Unlock()
 			return // TODO recovery
