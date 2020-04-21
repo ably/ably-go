@@ -18,28 +18,30 @@ var (
 // Conn represents a single connection RealtimeClient instantiates for
 // communication with Ably servers.
 type Conn struct {
-	details      proto.ConnectionDetails
-	id           string
-	serial       int64
-	msgSerial    int64
-	err          error
-	conn         proto.Conn
-	opts         *ClientOptions
-	state        *stateEmitter
-	stateCh      chan State
-	pending      pendingEmitter
-	queue        *msgQueue
-	auth         *Auth
-	onChannelMsg func(*proto.ProtocolMessage)
+	details       proto.ConnectionDetails
+	id            string
+	serial        int64
+	msgSerial     int64
+	err           error
+	conn          proto.Conn
+	opts          *ClientOptions
+	state         *stateEmitter
+	stateCh       chan State
+	pending       pendingEmitter
+	queue         *msgQueue
+	auth          *Auth
+	onChannelMsg  func(*proto.ProtocolMessage)
+	onStateChange func(State)
 }
 
-func newConn(opts *ClientOptions, auth *Auth, onChannelMsg func(*proto.ProtocolMessage)) (*Conn, error) {
+func newConn(opts *ClientOptions, auth *Auth, onChannelMsg func(*proto.ProtocolMessage), onStateChange func(State)) (*Conn, error) {
 	c := &Conn{
-		opts:         opts,
-		state:        newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
-		pending:      newPendingEmitter(auth.logger()),
-		auth:         auth,
-		onChannelMsg: onChannelMsg,
+		opts:          opts,
+		state:         newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
+		pending:       newPendingEmitter(auth.logger()),
+		auth:          auth,
+		onChannelMsg:  onChannelMsg,
+		onStateChange: onStateChange,
 	}
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
@@ -85,10 +87,10 @@ func (c *Conn) connect(result bool) (Result, error) {
 	if c.isActive() {
 		return nopResult, nil
 	}
-	c.state.set(StateConnConnecting, nil)
+	c.setState(StateConnConnecting, nil)
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
-		return nil, c.state.set(StateConnFailed, err)
+		return nil, c.setState(StateConnFailed, err)
 	}
 	var res Result
 	if result {
@@ -114,12 +116,12 @@ func (c *Conn) connect(result bool) (Result, error) {
 		query.Set(k, v)
 	}
 	if err := c.auth.authQuery(query); err != nil {
-		return nil, c.state.set(StateConnFailed, err)
+		return nil, c.setState(StateConnFailed, err)
 	}
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)
 	if err != nil {
-		return nil, c.state.set(StateConnFailed, err)
+		return nil, c.setState(StateConnFailed, err)
 	}
 	if c.logger().Is(LogVerbose) {
 		c.setConn(verboseConn{conn: conn, logger: c.logger()})
@@ -163,7 +165,7 @@ func (c *Conn) close() (Result, error) {
 		return nopResult, nil
 	}
 	res := c.state.listenResult(closeResultStates...)
-	c.state.set(StateConnClosing, nil)
+	c.setState(StateConnClosing, nil)
 	msg := &proto.ProtocolMessage{Action: proto.ActionClose}
 	c.updateSerial(msg, nil)
 	return res, c.conn.Send(msg)
@@ -342,7 +344,7 @@ func (c *Conn) eventloop() {
 				c.state.Unlock()
 				return
 			}
-			c.state.set(StateConnFailed, err)
+			c.setState(StateConnFailed, err)
 			c.state.Unlock()
 			return // TODO recovery
 		}
@@ -368,7 +370,7 @@ func (c *Conn) eventloop() {
 				break
 			}
 			c.state.Lock()
-			c.state.set(StateConnFailed, newErrorProto(msg.Error))
+			c.setState(StateConnFailed, newErrorProto(msg.Error))
 			c.state.Unlock()
 			c.queue.Fail(newErrorProto(msg.Error))
 		case proto.ActionConnected:
@@ -385,23 +387,35 @@ func (c *Conn) eventloop() {
 			}
 			c.serial = -1
 			c.msgSerial = 0
-			c.state.set(StateConnConnected, nil)
+			c.setState(StateConnConnected, nil)
 			c.state.Unlock()
 			c.queue.Flush()
 		case proto.ActionDisconnected:
 			c.state.Lock()
 			c.id = ""
-			c.state.set(StateConnDisconnected, nil)
+			c.setState(StateConnDisconnected, nil)
 			c.state.Unlock()
 		case proto.ActionClosed:
 			c.state.Lock()
 			c.id = ""
-			c.state.set(StateConnClosed, nil)
+			c.setState(StateConnClosed, nil)
 			c.state.Unlock()
 		default:
 			c.onChannelMsg(msg)
 		}
 	}
+}
+
+func (c *Conn) setState(state StateEnum, err error) error {
+	// TODO: Tempporary hack to fix https://github.com/ably/ably-go/issues/68.
+	//
+	// The proper way of propagating state changes is through the new
+	// EventEmitter at https://github.com/ably/ably-go/pull/144.
+	ch := make(chan State, 1)
+	c.state.once(ch)
+	go func() { c.onStateChange(<-ch) }()
+
+	return c.state.set(state, err)
 }
 
 type verboseConn struct {
