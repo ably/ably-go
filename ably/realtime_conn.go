@@ -330,7 +330,7 @@ func (c *Conn) logger() *LoggerOptions {
 func (c *Conn) eventloop() {
 	var receiveTimeout time.Duration
 
-	for {
+	for c.lockIsActive() {
 		var deadline time.Time
 		if receiveTimeout != 0 {
 			deadline = time.Now().Add(receiveTimeout) // RTN23a
