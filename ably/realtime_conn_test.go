@@ -130,14 +130,12 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRealtimeClient()=%v", err)
 	}
+	defer safeclose(t, client)
 	if err = ablytest.Wait(client.Connection.Connect()); err == nil {
 		t.Fatal("Connect(): want err != nil")
 	}
 	if state := client.Connection.State(); state != ably.StateConnFailed {
 		t.Fatalf("want state=%s; got %s", ably.StateConnFailed, state)
-	}
-	if err = client.Close(); err == nil {
-		t.Fatal("Close(): want err != nil")
 	}
 }
 

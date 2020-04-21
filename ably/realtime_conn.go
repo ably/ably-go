@@ -12,8 +12,7 @@ import (
 )
 
 var (
-	errQueueing      = errors.New("unable to send messages in current state with disabled queueing")
-	errCloseInactive = errors.New("attempted to close inactive connection")
+	errQueueing = errors.New("unable to send messages in current state with disabled queueing")
 )
 
 // Conn represents a single connection RealtimeClient instantiates for
@@ -155,10 +154,13 @@ func (c *Conn) close() (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	switch c.state.current {
-	case StateConnClosing, StateConnClosed:
+	case
+		StateConnClosing,
+		StateConnClosed,
+		StateConnInitialized,
+		StateConnFailed,
+		StateConnDisconnected:
 		return nopResult, nil
-	case StateConnInitialized, StateConnFailed, StateConnDisconnected:
-		return nil, stateError(c.state.current, errCloseInactive)
 	}
 	res := c.state.listenResult(closeResultStates...)
 	c.state.set(StateConnClosing, nil)
