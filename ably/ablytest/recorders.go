@@ -306,9 +306,22 @@ func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
 	return nil
 }
 
-func (pc pipeConn) Receive() (*proto.ProtocolMessage, error) {
-	return <-pc.in, nil
+func (pc pipeConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	select {
+	case m := <-pc.in:
+		return m, nil
+	case <-time.After(time.Until(deadline)):
+		return nil, errTimeout{}
+	}
 }
+
+type errTimeout struct{}
+
+func (errTimeout) Error() string   { return "timeout" }
+func (errTimeout) Temporary() bool { return true }
+func (errTimeout) Timeout() bool   { return true }
+
+var _ net.Error = errTimeout{}
 
 func (pc pipeConn) Close() error {
 	return nil
@@ -387,8 +400,8 @@ func (c recConn) Send(msg *proto.ProtocolMessage) error {
 	return nil
 }
 
-func (c recConn) Receive() (*proto.ProtocolMessage, error) {
-	msg, err := c.conn.Receive()
+func (c recConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	msg, err := c.conn.Receive(deadline)
 	if err != nil {
 		return nil, err
 	}

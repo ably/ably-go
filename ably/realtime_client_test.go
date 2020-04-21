@@ -45,7 +45,7 @@ func TestRealtimeClient_RealtimeHost(t *testing.T) {
 			t.Errorf("want state=%v; got %s", ably.StateConnFailed, state)
 			continue
 		}
-		if err := checkError(80000, client.Close()); err != nil {
+		if err := client.Close(); err != nil {
 			t.Errorf("%s (host=%s)", err, host)
 			continue
 		}
@@ -163,9 +163,5 @@ func TestRealtimeClient_multiple(t *testing.T) {
 func TestRealtimeClient_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
-	defer safeclose(t, app)
-
-	if err := checkError(80002, client.Close()); err != nil {
-		t.Fatal(err)
-	}
+	defer safeclose(t, app, client)
 }

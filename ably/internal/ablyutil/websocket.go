@@ -3,6 +3,7 @@ package ablyutil
 import (
 	"errors"
 	"net/url"
+	"time"
 
 	"github.com/ably/ably-go/ably/proto"
 
@@ -18,8 +19,14 @@ func (ws *WebsocketConn) Send(msg *proto.ProtocolMessage) error {
 	return ws.codec.Send(ws.conn, msg)
 }
 
-func (ws *WebsocketConn) Receive() (*proto.ProtocolMessage, error) {
+func (ws *WebsocketConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
 	msg := &proto.ProtocolMessage{}
+	if !deadline.IsZero() {
+		err := ws.conn.SetReadDeadline(deadline)
+		if err != nil {
+			return nil, err
+		}
+	}
 	err := ws.codec.Receive(ws.conn, &msg)
 	if err != nil {
 		return nil, err
