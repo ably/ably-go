@@ -168,7 +168,7 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 	defer safeclose(t, app)
 
 	states := make(chan ably.State, 10)
-	client.Connection.On(states, ably.StateConnConnected, ably.StateConnFailed)
+	client.Connection.On(states, ably.StateConnConnected, ably.StateConnDisconnected)
 
 	client.Connection.Connect()
 
@@ -191,9 +191,7 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 		t.Fatal("didn't receive state change event")
 	}
 
-	// TODO: Should be Disconnected, not Failed
-	// Part of https://ably.atlassian.net/browse/FEA-391
-	if expected, got := ably.StateConnFailed, state.State; expected != got {
+	if expected, got := ably.StateConnDisconnected, state.State; expected != got {
 		t.Fatalf("expected %v, got %v", expected, got)
 	}
 }
