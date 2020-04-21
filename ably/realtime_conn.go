@@ -3,8 +3,6 @@ package ably
 import (
 	"errors"
 	"fmt"
-	"io"
-	"net"
 	"net/url"
 	"strconv"
 	"time"
@@ -361,16 +359,10 @@ func (c *Conn) eventloop() {
 				return
 			}
 
-			if errors.Is(err, io.EOF) || errors.As(err, new(net.Error)) {
-				c.state.set(StateConnDisconnected, err)
-				c.state.Unlock()
-				c.reconnect(false)
-				return
-			}
-
-			c.state.set(StateConnFailed, err)
+			c.state.set(StateConnDisconnected, err)
 			c.state.Unlock()
-			return // TODO recovery
+			c.reconnect(false)
+			return
 		}
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
