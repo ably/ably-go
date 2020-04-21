@@ -291,7 +291,6 @@ func (m Message) Decrypt() (interface{}, error) {
 	}
 	v, err := cipher.Decrypt(d)
 	if err != nil {
-		fmt.Println("decrypting ", m.Encoding, len(d), len(string(d)))
 		return nil, err
 	}
 	return v, nil

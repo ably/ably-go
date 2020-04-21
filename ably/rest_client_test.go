@@ -226,7 +226,6 @@ func TestRestClient(t *testing.T) {
 
 		select {
 		case pageStats := <-statsCh:
-			fmt.Println(pageStats)
 			re := regexp.MustCompile("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+")
 			interval := pageStats[0].IntervalID
 			if !re.MatchString(interval) {
@@ -300,7 +299,7 @@ func TestRest_hostfallback(t *testing.T) {
 	t.Run("RSC15d RSC15a must use alternative host", func(ts *testing.T) {
 		options := &ably.ClientOptions{
 			FallbackHostsUseDefault: true,
-			NoTLS: true,
+			NoTLS:                   true,
 			AuthOptions: ably.AuthOptions{
 				UseTokenAuth: true,
 			},
@@ -392,7 +391,7 @@ func TestRest_hostfallback(t *testing.T) {
 	t.Run("RSC15e must start with default host", func(ts *testing.T) {
 		options := &ably.ClientOptions{
 			Environment: "production",
-			NoTLS: true,
+			NoTLS:       true,
 			AuthOptions: ably.AuthOptions{
 				UseTokenAuth: true,
 			},
@@ -403,7 +402,7 @@ func TestRest_hostfallback(t *testing.T) {
 		}
 		firstHostCalled := hosts[0]
 		restURL, _ := url.Parse(options.RestURL())
-		if  !strings.HasPrefix(firstHostCalled, restURL.Hostname()) {
+		if !strings.HasPrefix(firstHostCalled, restURL.Hostname()) {
 			ts.Errorf("expected primary host got %s", firstHostCalled)
 		}
 	})
@@ -468,7 +467,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 
 		nopts.HTTPClient = &http.Client{
 			Transport: &http.Transport{
-				Proxy: proxy,
+				Proxy:        proxy,
 				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
 			},
 		}
