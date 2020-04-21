@@ -3,6 +3,8 @@ package ably
 import (
 	"sync"
 	"time"
+
+	"github.com/ably/ably-go/ably/proto"
 )
 
 // The RealtimeClient libraries establish and maintain a persistent connection
@@ -33,14 +35,13 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 		return nil, err
 	}
 	c.rest = rest
-	conn, err := newConn(c.opts(), rest.Auth)
+	c.Auth = rest.Auth
+	c.Channels = newChannels(c)
+	conn, err := newConn(c.opts(), rest.Auth, c.onChannelMsg, c.onConnStateChange)
 	if err != nil {
 		return nil, err
 	}
-	c.Auth = rest.Auth
-	c.Channels = newChannels(c)
 	c.Connection = conn
-	go c.dispatchloop()
 	return c, nil
 }
 
@@ -61,10 +62,13 @@ func (c *RealtimeClient) Time() (time.Time, error) {
 	return c.rest.Time()
 }
 
-func (c *RealtimeClient) dispatchloop() {
-	for msg := range c.Connection.msgCh {
-		c.Channels.Get(msg.Channel).notify(msg)
-	}
+func (c *RealtimeClient) onChannelMsg(msg *proto.ProtocolMessage) {
+	c.Channels.Get(msg.Channel).notify(msg)
+}
+
+func (c *RealtimeClient) onConnStateChange(state State) {
+	// TODO: Replace with EventEmitter https://github.com/ably/ably-go/pull/144
+	c.Channels.broadcastConnStateChange(state)
 }
 
 func (c *RealtimeClient) opts() *ClientOptions {
