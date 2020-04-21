@@ -191,6 +191,7 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 	}
 
 	// TODO: Should be Disconnected, not Failed
+	// Part of https://ably.atlassian.net/browse/FEA-391
 	if expected, got := ably.StateConnFailed, state.State; expected != got {
 		t.Fatalf("expected %v, got %v", expected, got)
 	}
