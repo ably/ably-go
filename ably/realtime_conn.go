@@ -312,7 +312,9 @@ func (c *Conn) isActive() bool {
 	return c.state.current == StateConnConnecting || c.state.current == StateConnConnected
 }
 
-func (c *Conn) canReceiveMessages() bool {
+func (c *Conn) lockCanReceiveMessages() bool {
+	c.state.Lock()
+	defer c.state.Unlock()
 	return c.state.current == StateConnConnecting || c.state.current == StateConnConnected || c.state.current == StateConnClosing
 }
 
@@ -334,7 +336,7 @@ func (c *Conn) logger() *LoggerOptions {
 func (c *Conn) eventloop() {
 	var receiveTimeout time.Duration
 
-	for c.canReceiveMessages() {
+	for c.lockCanReceiveMessages() {
 		var deadline time.Time
 		if receiveTimeout != 0 {
 			deadline = time.Now().Add(receiveTimeout) // RTN23a
