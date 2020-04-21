@@ -18,28 +18,28 @@ var (
 // Conn represents a single connection RealtimeClient instantiates for
 // communication with Ably servers.
 type Conn struct {
-	details   proto.ConnectionDetails
-	id        string
-	serial    int64
-	msgSerial int64
-	err       error
-	conn      proto.Conn
-	msgCh     chan *proto.ProtocolMessage
-	opts      *ClientOptions
-	state     *stateEmitter
-	stateCh   chan State
-	pending   pendingEmitter
-	queue     *msgQueue
-	auth      *Auth
+	details      proto.ConnectionDetails
+	id           string
+	serial       int64
+	msgSerial    int64
+	err          error
+	conn         proto.Conn
+	opts         *ClientOptions
+	state        *stateEmitter
+	stateCh      chan State
+	pending      pendingEmitter
+	queue        *msgQueue
+	auth         *Auth
+	onChannelMsg func(*proto.ProtocolMessage)
 }
 
-func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
+func newConn(opts *ClientOptions, auth *Auth, onChannelMsg func(*proto.ProtocolMessage)) (*Conn, error) {
 	c := &Conn{
-		opts:    opts,
-		msgCh:   make(chan *proto.ProtocolMessage),
-		state:   newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
-		pending: newPendingEmitter(auth.logger()),
-		auth:    auth,
+		opts:         opts,
+		state:        newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
+		pending:      newPendingEmitter(auth.logger()),
+		auth:         auth,
+		onChannelMsg: onChannelMsg,
 	}
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
@@ -364,7 +364,7 @@ func (c *Conn) eventloop() {
 			c.state.Unlock()
 		case proto.ActionError:
 			if msg.Channel != "" {
-				c.msgCh <- msg
+				c.onChannelMsg(msg)
 				break
 			}
 			c.state.Lock()
@@ -399,7 +399,7 @@ func (c *Conn) eventloop() {
 			c.state.set(StateConnClosed, nil)
 			c.state.Unlock()
 		default:
-			c.msgCh <- msg
+			c.onChannelMsg(msg)
 		}
 	}
 }
