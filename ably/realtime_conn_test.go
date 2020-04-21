@@ -194,3 +194,49 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 		t.Fatalf("expected %v, got %v", expected, got)
 	}
 }
+
+func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
+	t.Parallel()
+
+	for _, action := range []proto.Action{
+		proto.ActionDisconnect,
+		proto.ActionError,
+		proto.ActionClosed,
+	} {
+		t.Run(action.String(), func(t *testing.T) {
+			t.Parallel()
+			in := make(chan *proto.ProtocolMessage)
+			out := make(chan *proto.ProtocolMessage, 16)
+
+			app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
+				Dial: ablytest.MessagePipe(in, out),
+			})
+			defer safeclose(t, app, client)
+
+			connected := &proto.ProtocolMessage{
+				Action:            proto.ActionConnected,
+				ConnectionID:      "connection-id",
+				ConnectionDetails: &proto.ConnectionDetails{},
+			}
+			select {
+			case in <- connected:
+			case <-time.After(10 * time.Millisecond):
+				t.Fatal("didn't receive incoming protocol message")
+			}
+
+			select {
+			case in <- &proto.ProtocolMessage{
+				Action: action,
+			}:
+			case <-time.After(10 * time.Millisecond):
+				t.Fatal("didn't receive incoming protocol message")
+			}
+
+			select {
+			case in <- &proto.ProtocolMessage{}:
+				t.Fatal("called Receive again; expected end of connection loop")
+			case <-time.After(10 * time.Millisecond):
+			}
+		})
+	}
+}
