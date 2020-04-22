@@ -196,7 +196,7 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 	}
 }
 
-func TestRealtimeConn_ReconnectOnEOF(t *testing.T) {
+func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
@@ -214,6 +214,17 @@ func TestRealtimeConn_ReconnectOnEOF(t *testing.T) {
 		t.Fatalf("Connect=%s", err)
 	}
 
+	channel := client.Channels.Get("channel")
+
+	if err := ablytest.Wait(channel.Attach()); err != nil {
+		t.Fatal(err)
+	}
+
+	sub, err := channel.Subscribe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	stateChanges := make(chan ably.State, 16)
 	client.Connection.On(stateChanges)
 
@@ -229,6 +240,18 @@ func TestRealtimeConn_ReconnectOnEOF(t *testing.T) {
 
 	if expected, got := ably.StateConnDisconnected, state; expected != got.State {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+
+	// Publish a message to the channel through REST. If connection recovery
+	// succeeds, we should then receive it without reattaching.
+
+	rest, err := ably.NewRestClient(app.Options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	select {
@@ -249,6 +272,15 @@ func TestRealtimeConn_ReconnectOnEOF(t *testing.T) {
 
 	if expected, got := ably.StateConnConnected, state; expected != got.State {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+
+	select {
+	case msg := <-sub.MessageChannel():
+		if expected, got := "data", msg.Data; expected != got {
+			t.Fatalf("expected message with data %v, got %v", expected, got)
+		}
+	case <-time.After(ablytest.Timeout):
+		t.Fatal("expected message after connection recovery; got none")
 	}
 }
 
