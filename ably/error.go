@@ -3,7 +3,6 @@ package ably
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"mime"
 	"net"
@@ -89,12 +88,12 @@ func code(err error) int {
 	return 0
 }
 
-func errFromUnprocessableBody(r io.Reader) error {
-	errMsg, err := ioutil.ReadAll(r)
+func errFromUnprocessableBody(resp *http.Response) error {
+	errMsg, err := ioutil.ReadAll(resp.Body)
 	if err == nil {
 		err = errors.New(string(errMsg))
 	}
-	return newError(40000, err)
+	return &Error{Code: 40000, StatusCode: resp.StatusCode, Err: err}
 }
 
 func checkValidHTTPResponse(resp *http.Response) error {
@@ -107,10 +106,14 @@ func checkValidHTTPResponse(resp *http.Response) error {
 	defer resp.Body.Close()
 	typ, _, mimeErr := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if mimeErr != nil {
-		return newError(50000, mimeErr)
+		return &Error{
+			Code:       50000,
+			StatusCode: resp.StatusCode,
+			Err:        mimeErr,
+		}
 	}
 	if typ != protocolJSON && typ != protocolMsgPack {
-		return errFromUnprocessableBody(resp.Body)
+		return errFromUnprocessableBody(resp)
 	}
 
 	body := &errorBody{}

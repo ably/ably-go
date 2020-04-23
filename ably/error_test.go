@@ -54,3 +54,28 @@ func TestIssue127ErrorResponse(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), errMsg)
 }
+func TestIssue_154(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "text/html")
+		rw.WriteHeader(http.StatusMethodNotAllowed)
+	}))
+	defer server.Close()
+
+	endpointURL, err := url.Parse(server.URL)
+	assert.Nil(t, err)
+	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz")
+	opts.NoTLS = true
+	opts.UseTokenAuth = true
+	opts.RestHost = endpointURL.Hostname()
+	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
+	opts.Port = int(port)
+	client, e := ably.NewRestClient(opts)
+	assert.Nil(t, e)
+
+	_, err = client.Time()
+	assert.NotNil(t, err)
+	et := err.(*ably.Error)
+	if et.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected %d got %d", http.StatusMethodNotAllowed, et.StatusCode)
+	}
+}
