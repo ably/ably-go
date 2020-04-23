@@ -305,7 +305,7 @@ func (opts *ClientOptions) restURL() string {
 		}
 		return "http://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	} else {
-		port := opts.Port
+		port := opts.TLSPort
 		if port == 0 {
 			port = 443
 		}
@@ -331,7 +331,7 @@ func (opts *ClientOptions) realtimeURL() string {
 		}
 		return "ws://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	} else {
-		port := opts.Port
+		port := opts.TLSPort
 		if port == 0 {
 			port = 443
 		}
