@@ -1,5 +1,33 @@
 # Change Log
 
+## [v1.1.4](https://github.com/ably/ably-go/tree/v1.1.4) (2020-04-24)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.1.3...v1.1.4)
+
+**Implemented enhancements:**
+
+- Implement host fallback [\#53](https://github.com/ably/ably-go/issues/53)
+
+**Fixed bugs:**
+
+- Lib failing to retrying on 5xx if it can't parse the body [\#154](https://github.com/ably/ably-go/issues/154)
+- Flaky TestAuth\_ClientID test [\#80](https://github.com/ably/ably-go/issues/80)
+- Likely leaking goroutines in multiple places [\#68](https://github.com/ably/ably-go/issues/68)
+
+**Closed issues:**
+
+- Implementing reauthentication before or after token expires [\#153](https://github.com/ably/ably-go/issues/153)
+
+**Merged pull requests:**
+
+- Properly set  Error.StatusCode [\#157](https://github.com/ably/ably-go/pull/157) ([gernest](https://github.com/gernest))
+- Use ClientOptions.TLSPort for tls connections [\#156](https://github.com/ably/ably-go/pull/156) ([gernest](https://github.com/gernest))
+- RTN15a: Reconnect after networking error. [\#152](https://github.com/ably/ably-go/pull/152) ([tcard](https://github.com/tcard))
+- Fix goroutine leaks [\#151](https://github.com/ably/ably-go/pull/151) ([tcard](https://github.com/tcard))
+- Remove fmt.Println leftovers. [\#150](https://github.com/ably/ably-go/pull/150) ([tcard](https://github.com/tcard))
+- Don't read from connection on inactive state. [\#149](https://github.com/ably/ably-go/pull/149) ([tcard](https://github.com/tcard))
+- RTN23a: Receive from WebSocket with a timeout. [\#148](https://github.com/ably/ably-go/pull/148) ([tcard](https://github.com/tcard))
+
 ## [v1.1.3](https://github.com/ably/ably-go/tree/v1.1.3) (2020-04-01)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.1.2...v1.1.3)
