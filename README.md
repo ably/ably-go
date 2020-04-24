@@ -270,7 +270,12 @@ This library uses [semantic versioning](http://semver.org/). For each release, t
 
 * Create a branch for the release, named like `release/1.1.5`
 * Replace all references of the current version number with the new version number and commit the changes
-* Run [`github_changelog_generator`](https://github.com/skywinder/Github-Changelog-Generator) to update the [CHANGELOG](./CHANGELOG.md): `github_changelog_generator -u ably -p ably-go --header-label="# Changelog" --release-branch=release/1.1.5 --future-release=v1.1.5`
+* Run [`github_changelog_generator`](https://github.com/github-changelog-generator/github-changelog-generator) to automate the update of the [CHANGELOG](./CHANGELOG.md). This may require some manual intervention, both in terms of how the command is run and how the change log file is modified. Your mileage may vary:
+    * The command you will need to run will look something like this: `github_changelog_generator -u ably -p ably-go --since-tag v1.1.4 --output delta.md`
+    * Using the command above, `--output delta.md` writes changes made after `--since-tag` to a new file
+    * The contents of that new file (`delta.md`) then need to be manually inserted at the top of the `CHANGELOG.md`, changing the "Unreleased" heading and linking with the current version numbers
+    * Also ensure that the "Full Changelog" link points to the new version tag instead of the `HEAD`
+    * Commit this change: `git add CHANGELOG.md && git commit -m "Update change log."`
 * Commit [CHANGELOG](./CHANGELOG.md)
 * Make a PR against `master`
 * Once the PR is approved, merge it into `master`
