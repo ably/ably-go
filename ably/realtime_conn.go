@@ -32,6 +32,10 @@ type Conn struct {
 	auth          *Auth
 	onChannelMsg  func(*proto.ProtocolMessage)
 	onStateChange func(State)
+	// This tracks if we have issued reconnection quest. If we receive any message
+	// with this set to true then its the first message/response after issuing the
+	// reconnection request.
+	reconnecting bool
 }
 
 func newConn(opts *ClientOptions, auth *Auth, onChannelMsg func(*proto.ProtocolMessage), onStateChange func(State)) (*Conn, error) {
@@ -89,6 +93,7 @@ func (c *Conn) reconnect(result bool) (Result, error) {
 	c.state.Lock()
 	connKey := c.details.ConnectionKey
 	connSerial := c.serial
+	c.reconnecting = true
 	c.state.Unlock()
 	return c.connectWithRecovery(result, connKey, connSerial)
 }
@@ -371,6 +376,30 @@ func (c *Conn) eventloop() {
 			c.state.Unlock()
 			c.reconnect(false)
 			return
+		}
+		if c.reconnecting {
+			// We have already issued the reconnecting request. So we are in the
+			// (RTN15c)  territory now.
+			c.reconnecting = false
+			switch msg.Action {
+			case proto.ActionConnected:
+				if c.id == msg.ConnectionID {
+					if msg.Error != nil {
+						// (RTN15c2)
+						continue
+					}
+					// (RTN15c1)
+					continue
+				}
+				if msg.Error != nil {
+					// (RTN15c3)
+					continue
+				}
+			case proto.ActionError:
+				// (RTN15c5)
+				// (RTN15c4) ?
+			}
+
 		}
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
