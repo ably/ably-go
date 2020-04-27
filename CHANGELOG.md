@@ -4,10 +4,6 @@
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.1.3...v1.1.4)
 
-**Implemented enhancements:**
-
-- Implement host fallback [\#53](https://github.com/ably/ably-go/issues/53)
-
 **Fixed bugs:**
 
 - Lib failing to retrying on 5xx if it can't parse the body [\#154](https://github.com/ably/ably-go/issues/154)
