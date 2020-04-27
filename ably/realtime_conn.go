@@ -93,8 +93,10 @@ func (c *Conn) reconnect(result bool) (Result, error) {
 	c.state.Lock()
 	connKey := c.details.ConnectionKey
 	connSerial := c.serial
-	c.reconnecting = true
 	c.state.Unlock()
+	defer func() {
+		c.reconnecting = true
+	}()
 	return c.connectWithRecovery(result, connKey, connSerial)
 }
 
