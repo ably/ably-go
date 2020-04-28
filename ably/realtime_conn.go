@@ -32,7 +32,7 @@ type Conn struct {
 	auth          *Auth
 	onChannelMsg  func(*proto.ProtocolMessage)
 	onStateChange func(State)
-	// This tracks if we have issued reconnection quest. If we receive any message
+	// reconnecting tracks if we have issued a reconnection request. If we receive any message
 	// with this set to true then its the first message/response after issuing the
 	// reconnection request.
 	reconnecting bool
