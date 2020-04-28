@@ -393,6 +393,21 @@ func (c *Conn) eventloop() {
 				if c.id == msg.ConnectionID {
 					if msg.Error != nil {
 						// (RTN15c2)
+						c.state.Lock()
+						c.setState(StateConnConnected, msg.Error)
+
+						// According to the spec we need to set Connection#errorReason but Conn
+						// doesn't have errorReason field.However it has Reason method that
+						// returns the last know error which in our case will be be msg.Error so
+						// it it be conforming to spec.
+						//
+						// Adding Conn.errorReason won't work in our case as it will be private
+						// according to Go conventions. So, I'm choosing to only set state with
+						// appropriate reason and assuming users will use Conn.Reason to access
+						// the error.
+						//
+						// TODO: Add Conn.ErrorReason  field.
+						c.state.Unlock()
 						continue
 					}
 					// (RTN15c1)
