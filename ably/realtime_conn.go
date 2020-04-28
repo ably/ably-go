@@ -405,6 +405,8 @@ func (c *Conn) eventloop() {
 			case proto.ActionError:
 				// (RTN15c5)
 				// (RTN15c4) ?
+			default:
+				// We have received unexpected message here. We are in failure state
 			}
 
 		}
