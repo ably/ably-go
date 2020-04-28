@@ -399,7 +399,7 @@ func (c *Conn) eventloop() {
 						// According to the spec we need to set Connection#errorReason but Conn
 						// doesn't have errorReason field.However it has Reason method that
 						// returns the last know error which in our case will be be msg.Error so
-						// it it be conforming to spec.
+						// it will be conforming to spec.
 						//
 						// Adding Conn.errorReason won't work in our case as it will be private
 						// according to Go conventions. So, I'm choosing to only set state with
