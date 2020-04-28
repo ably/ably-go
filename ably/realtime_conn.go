@@ -94,10 +94,15 @@ func (c *Conn) reconnect(result bool) (Result, error) {
 	connKey := c.details.ConnectionKey
 	connSerial := c.serial
 	c.state.Unlock()
-	defer func() {
-		c.reconnecting = true
-	}()
-	return c.connectWithRecovery(result, connKey, connSerial)
+	r, err := c.connectWithRecovery(result, connKey, connSerial)
+	if err != nil {
+		return nil, err
+	}
+	// We have successfully dialed reconnection request. We need to set this so
+	// when the next message arrives it will be treated as the response to
+	// reconnection request.
+	c.reconnecting = true
+	return r, nil
 }
 
 func (c *Conn) connectWithRecovery(result bool, connKey string, connSerial int64) (Result, error) {
