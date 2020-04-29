@@ -37,7 +37,7 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 	c.rest = rest
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
-	conn, err := newConn(c.opts(), rest.Auth, c.onChannelMsg, c.onConnStateChange)
+	conn, err := newConn(c.opts(), rest.Auth, c.onChannelMsg, c.onReconnectMsg, c.onConnStateChange)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +64,44 @@ func (c *RealtimeClient) Time() (time.Time, error) {
 
 func (c *RealtimeClient) onChannelMsg(msg *proto.ProtocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
+}
+
+func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
+	switch msg.Action {
+	case proto.ActionConnected:
+		if c.Connection.id == msg.ConnectionID {
+			if msg.Error != nil {
+				// (RTN15c2)
+				c.Connection.state.Lock()
+				c.Connection.setState(StateConnConnected, msg.Error)
+
+				// According to the spec we need to set Connection#errorReason but Conn
+				// doesn't have errorReason field.However it has Reason method that
+				// returns the last know error which in our case will be be msg.Error so
+				// it will be conforming to spec.
+				//
+				// Adding Conn.errorReason won't work in our case as it will be private
+				// according to Go conventions. So, I'm choosing to only set state with
+				// appropriate reason and assuming users will use Conn.Reason to access
+				// the error.
+				//
+				// TODO: Add Conn.ErrorReason  field.
+				c.Connection.state.Unlock()
+				return
+			}
+			// (RTN15c1)
+			return
+		}
+		if msg.Error != nil {
+			// (RTN15c3)
+			return
+		}
+	case proto.ActionError:
+		// (RTN15c5)
+		// (RTN15c4) ?
+	default:
+		// We have received unexpected message here. We are in failure state
+	}
 }
 
 func (c *RealtimeClient) onConnStateChange(state State) {

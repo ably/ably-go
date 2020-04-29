@@ -18,27 +18,32 @@ var (
 // Conn represents a single connection RealtimeClient instantiates for
 // communication with Ably servers.
 type Conn struct {
-	details       proto.ConnectionDetails
-	id            string
-	serial        int64
-	msgSerial     int64
-	err           error
-	conn          proto.Conn
-	opts          *ClientOptions
-	state         *stateEmitter
-	stateCh       chan State
-	pending       pendingEmitter
-	queue         *msgQueue
-	auth          *Auth
-	onChannelMsg  func(*proto.ProtocolMessage)
-	onStateChange func(State)
+	details      proto.ConnectionDetails
+	id           string
+	serial       int64
+	msgSerial    int64
+	err          error
+	conn         proto.Conn
+	opts         *ClientOptions
+	state        *stateEmitter
+	stateCh      chan State
+	pending      pendingEmitter
+	queue        *msgQueue
+	auth         *Auth
+	onChannelMsg func(*proto.ProtocolMessage)
+	// This callback is called when we get a response from reconnect request. We
+	// move this up because some implementation details for (RTN15c) requires
+	// access to Channels and we dont have it here so we let RealtimeClient do the
+	// work.
+	onReconnectMsg func(*proto.ProtocolMessage)
+	onStateChange  func(State)
 	// reconnecting tracks if we have issued a reconnection request. If we receive any message
 	// with this set to true then its the first message/response after issuing the
 	// reconnection request.
 	reconnecting bool
 }
 
-func newConn(opts *ClientOptions, auth *Auth, onChannelMsg func(*proto.ProtocolMessage), onStateChange func(State)) (*Conn, error) {
+func newConn(opts *ClientOptions, auth *Auth, onChannelMsg, onReconnectMsg func(*proto.ProtocolMessage), onStateChange func(State)) (*Conn, error) {
 	c := &Conn{
 		opts:          opts,
 		state:         newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
@@ -388,42 +393,10 @@ func (c *Conn) eventloop() {
 			// We have already issued the reconnecting request. So we are in the
 			// (RTN15c)  territory now.
 			c.reconnecting = false
-			switch msg.Action {
-			case proto.ActionConnected:
-				if c.id == msg.ConnectionID {
-					if msg.Error != nil {
-						// (RTN15c2)
-						c.state.Lock()
-						c.setState(StateConnConnected, msg.Error)
-
-						// According to the spec we need to set Connection#errorReason but Conn
-						// doesn't have errorReason field.However it has Reason method that
-						// returns the last know error which in our case will be be msg.Error so
-						// it will be conforming to spec.
-						//
-						// Adding Conn.errorReason won't work in our case as it will be private
-						// according to Go conventions. So, I'm choosing to only set state with
-						// appropriate reason and assuming users will use Conn.Reason to access
-						// the error.
-						//
-						// TODO: Add Conn.ErrorReason  field.
-						c.state.Unlock()
-						continue
-					}
-					// (RTN15c1)
-					continue
-				}
-				if msg.Error != nil {
-					// (RTN15c3)
-					continue
-				}
-			case proto.ActionError:
-				// (RTN15c5)
-				// (RTN15c4) ?
-			default:
-				// We have received unexpected message here. We are in failure state
+			if c.onReconnectMsg != nil {
+				c.onReconnectMsg(msg)
 			}
-
+			return
 		}
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
