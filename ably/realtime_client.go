@@ -94,6 +94,8 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 		}
 		if msg.Error != nil {
 			// (RTN15c3)
+			// process all queued messages. No state changes here.
+			c.Channels.client.Connection.queue.Flush()
 			return
 		}
 	case proto.ActionError:
