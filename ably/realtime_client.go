@@ -72,37 +72,42 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 		if c.Connection.id == msg.ConnectionID {
 			if msg.Error != nil {
 				// (RTN15c2)
+
+				// I'm a bit confused here as the spec says to set CONNECTED event but
+				// there is no event mechanism only state changes and we are not supposed to
+				// change the state here.
 				c.Connection.state.Lock()
 				c.Connection.setState(StateConnConnected, msg.Error)
-
-				// According to the spec we need to set Connection#errorReason but Conn
-				// doesn't have errorReason field.However it has Reason method that
-				// returns the last know error which in our case will be be msg.Error so
-				// it will be conforming to spec.
-				//
-				// Adding Conn.errorReason won't work in our case as it will be private
-				// according to Go conventions. So, I'm choosing to only set state with
-				// appropriate reason and assuming users will use Conn.Reason to access
-				// the error.
-				//
-				// TODO: Add Conn.ErrorReason  field.
 				c.Connection.state.Unlock()
+				c.Connection.queue.Flush()
 				return
 			}
 			// (RTN15c1)
+			c.Connection.queue.Flush()
 			return
 		}
 		if msg.Error != nil {
 			// (RTN15c3)
-			// process all queued messages. No state changes here.
-			c.Channels.client.Connection.queue.Flush()
-			return
+			for _, ch := range c.Channels.All() {
+				ch.state.Lock()
+				current := ch.state.current
+				ch.state.Unlock()
+				switch current {
+				case StateConnSuspended, StateChanAttaching, StateChanAttached:
+					// The spec doesn't say we should wait for response.
+					ch.attach(false)
+				}
+			}
+			c.Connection.state.Lock()
+			c.Connection.msgSerial = 0
+			c.Connection.state.Unlock()
 		}
-	case proto.ActionError:
-		// (RTN15c5)
-		// (RTN15c4) ?
 	default:
-		// We have received unexpected message here. We are in failure state
+		// (RTN15c5)
+		// (RTN15c4)
+		c.Connection.state.Lock()
+		c.Connection.setState(StateConnFailed, msg.Error)
+		c.Connection.state.Unlock()
 	}
 }
 
