@@ -406,7 +406,6 @@ func (c *Conn) eventloop() {
 			}
 			return
 		}
-		c.state.Unlock()
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
 			c.serial = msg.ConnectionSerial
