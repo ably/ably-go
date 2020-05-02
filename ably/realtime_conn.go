@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -40,7 +41,14 @@ type Conn struct {
 	// reconnecting tracks if we have issued a reconnection request. If we receive any message
 	// with this set to true then its the first message/response after issuing the
 	// reconnection request.
-	reconnecting bool
+	reconnecting atomic.Value
+}
+
+func (c *Conn) isReconnecting() bool {
+	if v := c.reconnecting.Load(); v != nil {
+		return v.(bool)
+	}
+	return false
 }
 
 func newConn(opts *ClientOptions, auth *Auth, onChannelMsg, onReconnectMsg func(*proto.ProtocolMessage), onStateChange func(State)) (*Conn, error) {
@@ -106,7 +114,7 @@ func (c *Conn) reconnect(result bool) (Result, error) {
 	// We have successfully dialed reconnection request. We need to set this so
 	// when the next message arrives it will be treated as the response to
 	// reconnection request.
-	c.reconnecting = true
+	c.reconnecting.Store(true)
 	return r, nil
 }
 
@@ -389,15 +397,16 @@ func (c *Conn) eventloop() {
 			c.reconnect(false)
 			return
 		}
-		if c.reconnecting {
+		if c.isReconnecting() {
 			// We have already issued the reconnecting request. So we are in the
 			// (RTN15c)  territory now.
-			c.reconnecting = false
+			c.reconnecting.Store(false)
 			if c.onReconnectMsg != nil {
 				c.onReconnectMsg(msg)
 			}
 			return
 		}
+		c.state.Unlock()
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
 			c.serial = msg.ConnectionSerial
