@@ -207,7 +207,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 			tokReqClientID = tokReq.ClientID
 		case TokenDetails:
 			return &v, "", nil
-		case TokenStringV12:
+		case TokenString:
 			return newTokenDetails(string(v)), "", nil
 		default:
 			panic(fmt.Errorf("unhandled TokenLike: %T", v))

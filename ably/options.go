@@ -395,11 +395,11 @@ type Tokener interface {
 	isTokener()
 }
 
-// A TokenStringV12 is the string representation of an authentication token.
-type TokenStringV12 string
+// A TokenString is the string representation of an authentication token.
+type TokenString string
 
-func (TokenStringV12) IsTokener() {}
-func (TokenStringV12) isTokener() {}
+func (TokenString) IsTokener() {}
+func (TokenString) isTokener() {}
 
 func (os ClientOptionsV12) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOptionsV12 {
 	return append(os, func(os *ClientOptions) {
