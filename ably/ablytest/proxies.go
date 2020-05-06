@@ -119,8 +119,8 @@ func (srv *AuthReverseProxy) URL(responseType string) string {
 
 // Callback gives new AuthCallback. Available response types are the same
 // as for URL method.
-func (srv *AuthReverseProxy) Callback(responseType string) func(context.Context, ably.TokenParamsV12) (ably.TokenLikeV12, error) {
-	return func(ctx context.Context, params ably.TokenParamsV12) (ably.TokenLikeV12, error) {
+func (srv *AuthReverseProxy) Callback(responseType string) func(context.Context, ably.TokenParamsV12) (ably.Tokener, error) {
+	return func(ctx context.Context, params ably.TokenParamsV12) (ably.Tokener, error) {
 		token, _, err := srv.handleAuth(responseType, params)
 		return token, err
 	}
@@ -161,7 +161,7 @@ func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	}
 }
 
-func (srv *AuthReverseProxy) handleAuth(responseType string, params ably.TokenParams) (token ably.TokenLikeV12, typ string, err error) {
+func (srv *AuthReverseProxy) handleAuth(responseType string, params ably.TokenParams) (token ably.Tokener, typ string, err error) {
 	switch responseType {
 	case "token", "details":
 		var tok *ably.TokenDetails
@@ -174,7 +174,7 @@ func (srv *AuthReverseProxy) handleAuth(responseType string, params ably.TokenPa
 			}
 		}
 		if responseType == "token" {
-			return ably.TokenStringV12(tok.Token), "text/plain", nil
+			return ably.TokenString(tok.Token), "text/plain", nil
 		}
 		return tok, srv.proto, nil
 	case "request":

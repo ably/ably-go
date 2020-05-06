@@ -93,8 +93,8 @@ type TokenRequest struct {
 	Mac     string `json:"mac,omitempty" codec:"mac,omitempty"`     // message authentication code for the request
 }
 
-func (TokenRequestV12) IsTokenLikeV12() {}
-func (TokenRequestV12) isTokenLikeV12() {}
+func (TokenRequestV12) IsTokener() {}
+func (TokenRequestV12) isTokener() {}
 
 func (req *TokenRequest) sign(secret []byte) {
 	mac := hmac.New(sha256.New, secret)
@@ -130,8 +130,8 @@ type TokenDetails struct {
 	RawCapability string `json:"capability,omitempty" codec:"capability,omitempty"`
 }
 
-func (TokenDetailsV12) IsTokenLikeV12() {}
-func (TokenDetailsV12) isTokenLikeV12() {}
+func (TokenDetailsV12) IsTokener() {}
+func (TokenDetailsV12) isTokener() {}
 
 // Capability
 func (tok *TokenDetails) Capability() Capability {

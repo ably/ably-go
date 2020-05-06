@@ -55,7 +55,7 @@ type AuthOptions struct {
 	//
 	// This enables a client to obtain token requests from another entity,
 	// so tokens can be renewed without the client requiring access to keys.
-	AuthCallback func(context.Context, TokenParams) (TokenLikeV12, error)
+	AuthCallback func(context.Context, TokenParams) (Tokener, error)
 
 	// URL which is queried to obtain a signed token request.
 	//
@@ -389,19 +389,19 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 
 type ClientOptionsV12 []func(*ClientOptions)
 
-// TokenLikeV12 is something that can be interpreted as a TokenDetails.
-type TokenLikeV12 interface {
-	IsTokenLikeV12()
-	isTokenLikeV12()
+// A Tokener is or can be used to get a TokenDetails.
+type Tokener interface {
+	IsTokener()
+	isTokener()
 }
 
 // A TokenStringV12 is the string representation of an authentication token.
 type TokenStringV12 string
 
-func (TokenStringV12) IsTokenLikeV12() {}
-func (TokenStringV12) isTokenLikeV12() {}
+func (TokenStringV12) IsTokener() {}
+func (TokenStringV12) isTokener() {}
 
-func (os ClientOptionsV12) AuthCallback(authCallback func(context.Context, TokenParams) (TokenLikeV12, error)) ClientOptionsV12 {
+func (os ClientOptionsV12) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOptionsV12 {
 	return append(os, func(os *ClientOptions) {
 		os.AuthCallback = authCallback
 	})
