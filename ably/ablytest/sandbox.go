@@ -101,7 +101,7 @@ type Sandbox struct {
 	client *http.Client
 }
 
-func NewRealtimeClient(opts *ably.ClientOptions) (*Sandbox, *ably.RealtimeClient) {
+func NewRealtimeClient(opts *ably.ClientOptions) (*Sandbox, *ably.Realtime) {
 	app := MustSandbox(nil)
 	client, err := ably.NewRealtimeClient(app.Options(opts))
 	if err != nil {
@@ -185,7 +185,7 @@ func (app *Sandbox) Close() error {
 	return nil
 }
 
-func (app *Sandbox) NewRealtimeClient(opts ...*ably.ClientOptions) *ably.RealtimeClient {
+func (app *Sandbox) NewRealtimeClient(opts ...*ably.ClientOptions) *ably.Realtime {
 	client, err := ably.NewRealtimeClient(app.Options(opts...))
 	if err != nil {
 		panic("ably.NewRealtimeClient failed: " + err.Error())
