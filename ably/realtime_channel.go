@@ -110,7 +110,7 @@ func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 	if c.opts().Listener != nil {
 		c.On(c.opts().Listener)
 	}
-	c.client.Connection.On(c.listen, StateConnFailed, StateConnClosed)
+	c.client.Connection.onState(c.listen, StateConnFailed, StateConnClosed)
 	go c.listenLoop()
 	return c
 }

@@ -696,7 +696,7 @@ func TestAuth_ClientID(t *testing.T) {
 	tokenExpiredAt := time.Now()
 
 	failed := make(chan ably.State, 1)
-	client.Connection.On(failed, ably.StateConnFailed)
+	client.Connection.OnState(failed, ably.StateConnFailed)
 
 	// Allow some extra time for the server to reject our token.
 	err = nil

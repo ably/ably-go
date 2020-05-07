@@ -18,7 +18,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventConnecting, func(change ably.ConnectionStateChange) {
+		realtime.Connection.On(ably.ConnectionEventConnecting, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -50,7 +50,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventDisconnected, func(change ably.ConnectionStateChange) {
+		realtime.Connection.On(ably.ConnectionEventDisconnected, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -80,7 +80,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventClosing, func(change ably.ConnectionStateChange) {
+		realtime.Connection.On(ably.ConnectionEventClosing, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -99,7 +99,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventClosed, func(change ably.ConnectionStateChange) {
+		realtime.Connection.On(ably.ConnectionEventClosed, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -123,7 +123,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventFailed, func(change ably.ConnectionStateChange) {
+		realtime.Connection.On(ably.ConnectionEventFailed, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -138,7 +138,7 @@ func connectAndWait(t *testing.T, realtime *ably.Realtime) {
 	changes := make(chan ably.ConnectionStateChange)
 	defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-	realtime.Connection.OnceV12(ably.ConnectionEventConnected, func(change ably.ConnectionStateChange) {
+	realtime.Connection.Once(ably.ConnectionEventConnected, func(change ably.ConnectionStateChange) {
 		changes <- change
 	})
 

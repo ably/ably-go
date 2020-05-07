@@ -95,3 +95,14 @@ type EmitterString string
 
 func (EmitterString) isEmitterEvent() {}
 func (EmitterString) isEmitterData()  {}
+
+// TODO: Once channels have also an EventEmitter, refactor tests to use
+// EventEmitters for both connection and channels.
+
+func (c *Connection) OnState(ch chan<- State, states ...StateEnum) {
+	c.onState(ch, states...)
+}
+
+func (c *Connection) OffState(ch chan<- State, states ...StateEnum) {
+	c.offState(ch, states...)
+}

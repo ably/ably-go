@@ -84,7 +84,7 @@ func (rg *ResultGroup) Wait() error {
 
 func ConnWaiter(client *ably.Realtime, do func(), expectedEvent ...ably.ConnectionEvent) ably.Result {
 	change := make(chan ably.ConnectionStateChange, 1)
-	off := client.Connection.OnAllV12(func(ev ably.ConnectionStateChange) {
+	off := client.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 		change <- ev
 	})
 	do()

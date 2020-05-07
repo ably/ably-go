@@ -60,7 +60,7 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 	app, client := ablytest.NewRealtime(opts)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	client.Connection.On(rec.Channel())
+	client.Connection.OnState(rec.Channel())
 	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}

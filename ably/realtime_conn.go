@@ -44,7 +44,7 @@ func newConn(opts *ClientOptions, auth *Auth) (*Connection, error) {
 	}
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
-		c.On(opts.Listener)
+		c.onState(opts.Listener)
 	}
 	if !opts.NoConnect {
 		if _, err := c.connect(false); err != nil {
@@ -211,73 +211,73 @@ func (c *Connection) State() StateEnum {
 	return c.state.current
 }
 
-// On relays request connection states to the given channel; on state transition
+// onState relays request connection states to the given channel; onState state transition
 // connection will not block sending to c - the caller must ensure the incoming
 // values are read at proper pace or the c is sufficiently buffered.
 //
 // If no states are given, c is registered for all of them.
 // If c is nil, the method panics.
 // If c is already registered, its state set is expanded.
-func (c *Connection) On(ch chan<- State, states ...StateEnum) {
+func (c *Connection) onState(ch chan<- State, states ...StateEnum) {
 	c.state.on(ch, states...)
 }
 
-// OnV12 registers an event handler for connection events of a specific kind.
+// On registers an event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OnV12(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
+func (c *Connection) On(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
 	return c.state.eventEmitter.On(e, func(change emitterData) {
 		handle(change.(ConnectionStateChange))
 	})
 }
 
-// OnAllV12 registers an event handler for all connection events.
+// OnAll registers an event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OnAllV12(handle func(ConnectionStateChange)) (off func()) {
+func (c *Connection) OnAll(handle func(ConnectionStateChange)) (off func()) {
 	return c.state.eventEmitter.OnAll(func(change emitterData) {
 		handle(change.(ConnectionStateChange))
 	})
 }
 
-// OnceV12 registers an one-off event handler for connection events of a specific kind.
+// Once registers an one-off event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OnceV12(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
+func (c *Connection) Once(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
 	return c.state.eventEmitter.On(e, func(change emitterData) {
 		handle(change.(ConnectionStateChange))
 	})
 }
 
-// OnceAllV12 registers an one-off event handler for all connection events.
+// OnceAll registers an one-off event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OnceAllV12(handle func(ConnectionStateChange)) (off func()) {
+func (c *Connection) OnceAll(handle func(ConnectionStateChange)) (off func()) {
 	return c.state.eventEmitter.OnceAll(func(change emitterData) {
 		handle(change.(ConnectionStateChange))
 	})
 }
 
-// Off removes c from listening on the given connection state transitions.
+// offState removes c from listening on the given connection state transitions.
 //
 // If no states are given, c is removed for all of the connection's states.
 // If c is nil, the method panics.
 // If c was not registered or is already removed, the method is a nop.
-func (c *Connection) Off(ch chan<- State, states ...StateEnum) {
+func (c *Connection) offState(ch chan<- State, states ...StateEnum) {
 	c.state.off(ch, states...)
 }
 
-// OffV12 deregisters event handlers for connection events of a specific kind.
+// Off deregisters event handlers for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OffV12(e ConnectionEvent) {
+func (c *Connection) Off(e ConnectionEvent) {
 	c.state.eventEmitter.Off(e)
 }
 
-// OffV12 deregisters all event handlers.
+// Off deregisters all event handlers.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OffAllV12() {
+func (c *Connection) OffAll() {
 	c.state.eventEmitter.OffAll()
 }
 
