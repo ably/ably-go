@@ -155,7 +155,7 @@ var stateErrors = map[StateEnum]ErrorInfo{
 	StateChanFailed:       *errFailed,
 }
 
-func stateError(state StateEnum, err error) error {
+func stateError(state StateEnum, err error) *ErrorInfo {
 	// Set default error information associated with the target state.
 	e, ok := err.(*ErrorInfo)
 	if ok {
@@ -167,7 +167,7 @@ func stateError(state StateEnum, err error) error {
 		}
 		err = &e
 	}
-	return err
+	return newError(0, err)
 }
 
 // State describes a single state transition of either realtime connection or channel
@@ -190,7 +190,7 @@ type stateEmitter struct {
 	channel   string
 	listeners map[StateEnum]map[chan<- State]struct{}
 	onetime   map[StateEnum]map[chan<- State]struct{}
-	err       error
+	err       *ErrorInfo
 	current   StateEnum
 	typ       StateType
 	logger    *LoggerOptions
@@ -233,7 +233,7 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 		change := ConnectionStateChangeV12{
 			Current:  mapOldToNewConnState(s.current),
 			Previous: previous,
-			Reason:   newError(0, err),
+			Reason:   s.err,
 		}
 		if !changed {
 			change.Event = ConnectionEventUpdatedV12
