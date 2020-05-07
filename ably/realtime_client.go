@@ -1,7 +1,6 @@
 package ably
 
 import (
-	"sync"
 	"time"
 
 	"github.com/ably/ably-go/ably/proto"
@@ -15,10 +14,7 @@ type RealtimeClient struct {
 	Channels   *Channels
 	Connection *Conn
 
-	chansMtx sync.RWMutex
-	chans    map[string]*RealtimeChannel
-	rest     *RestClient
-	err      chan error
+	rest *RestClient
 }
 
 // NewRealtimeClient
@@ -26,10 +22,7 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 	if opts == nil {
 		panic("called NewRealtimeClient with nil ClientOptions")
 	}
-	c := &RealtimeClient{
-		err:   make(chan error),
-		chans: make(map[string]*RealtimeChannel),
-	}
+	c := &RealtimeClient{}
 	rest, err := NewRestClient(opts)
 	if err != nil {
 		return nil, err
