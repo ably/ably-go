@@ -9,16 +9,16 @@ import (
 )
 
 func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
-	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnectingV12), func(t *testing.T) {
+	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnecting), func(t *testing.T) {
 		t.Parallel()
 
 		app, realtime := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
-		changes := make(chan ably.ConnectionStateChangeV12)
+		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventConnectingV12, func(change ably.ConnectionStateChangeV12) {
+		realtime.Connection.OnV12(ably.ConnectionEventConnecting, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -27,7 +27,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 	})
 
-	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnectedV12), func(t *testing.T) {
+	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnected), func(t *testing.T) {
 		t.Parallel()
 
 		app, realtime := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
@@ -36,7 +36,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		connectAndWait(t, realtime)
 	})
 
-	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateDisconnectedV12), func(t *testing.T) {
+	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateDisconnected), func(t *testing.T) {
 		t.Parallel()
 
 		options := &ably.ClientOptions{NoConnect: true}
@@ -47,10 +47,10 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 
 		connectAndWait(t, realtime)
 
-		changes := make(chan ably.ConnectionStateChangeV12)
+		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventDisconnectedV12, func(change ably.ConnectionStateChangeV12) {
+		realtime.Connection.OnV12(ably.ConnectionEventDisconnected, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -63,13 +63,13 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 
 	})
 
-	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateSuspendedV12), func(t *testing.T) {
+	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateSuspended), func(t *testing.T) {
 		t.Parallel()
 
 		t.Skip("SUSPENDED not yet implemented")
 	})
 
-	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosingV12), func(t *testing.T) {
+	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosing), func(t *testing.T) {
 		t.Parallel()
 
 		app, realtime := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
@@ -77,10 +77,10 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 
 		connectAndWait(t, realtime)
 
-		changes := make(chan ably.ConnectionStateChangeV12)
+		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventClosingV12, func(change ably.ConnectionStateChangeV12) {
+		realtime.Connection.OnV12(ably.ConnectionEventClosing, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -88,7 +88,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 	})
 
-	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosedV12), func(t *testing.T) {
+	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosed), func(t *testing.T) {
 		t.Parallel()
 
 		app, realtime := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
@@ -96,10 +96,10 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 
 		connectAndWait(t, realtime)
 
-		changes := make(chan ably.ConnectionStateChangeV12)
+		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventClosedV12, func(change ably.ConnectionStateChangeV12) {
+		realtime.Connection.OnV12(ably.ConnectionEventClosed, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -107,7 +107,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 	})
 
-	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateFailedV12), func(t *testing.T) {
+	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateFailed), func(t *testing.T) {
 		t.Parallel()
 
 		var options ably.ClientOptions
@@ -120,10 +120,10 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 			t.Fatalf("unexpected err: %s", err)
 		}
 
-		changes := make(chan ably.ConnectionStateChangeV12)
+		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		realtime.Connection.OnV12(ably.ConnectionEventFailedV12, func(change ably.ConnectionStateChangeV12) {
+		realtime.Connection.OnV12(ably.ConnectionEventFailed, func(change ably.ConnectionStateChange) {
 			changes <- change
 		})
 
@@ -135,10 +135,10 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 func connectAndWait(t *testing.T, realtime *ably.Realtime) {
 	t.Helper()
 
-	changes := make(chan ably.ConnectionStateChangeV12)
+	changes := make(chan ably.ConnectionStateChange)
 	defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-	realtime.Connection.OnceV12(ably.ConnectionEventConnectedV12, func(change ably.ConnectionStateChangeV12) {
+	realtime.Connection.OnceV12(ably.ConnectionEventConnected, func(change ably.ConnectionStateChange) {
 		changes <- change
 	})
 

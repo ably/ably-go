@@ -580,13 +580,13 @@ func (c realtimeIOCloser) Close() error {
 	errCh := make(chan error, 1)
 
 	var off func()
-	off = c.c.Connection.OnAllV12(func(c ably.ConnectionStateChangeV12) {
+	off = c.c.Connection.OnAllV12(func(c ably.ConnectionStateChange) {
 		switch c.Current {
 		default:
 			return
 		case
-			ably.ConnectionStateClosedV12,
-			ably.ConnectionStateFailedV12:
+			ably.ConnectionStateClosed,
+			ably.ConnectionStateFailed:
 		}
 
 		off()

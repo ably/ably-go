@@ -225,36 +225,36 @@ func (c *Connection) On(ch chan<- State, states ...StateEnum) {
 // OnV12 registers an event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OnV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
+func (c *Connection) OnV12(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
 	return c.state.eventEmitter.On(e, func(change emitterData) {
-		handle(change.(ConnectionStateChangeV12))
+		handle(change.(ConnectionStateChange))
 	})
 }
 
 // OnAllV12 registers an event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OnAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
+func (c *Connection) OnAllV12(handle func(ConnectionStateChange)) (off func()) {
 	return c.state.eventEmitter.OnAll(func(change emitterData) {
-		handle(change.(ConnectionStateChangeV12))
+		handle(change.(ConnectionStateChange))
 	})
 }
 
 // OnceV12 registers an one-off event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OnceV12(e ConnectionEventV12, handle func(ConnectionStateChangeV12)) (off func()) {
+func (c *Connection) OnceV12(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
 	return c.state.eventEmitter.On(e, func(change emitterData) {
-		handle(change.(ConnectionStateChangeV12))
+		handle(change.(ConnectionStateChange))
 	})
 }
 
 // OnceAllV12 registers an one-off event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OnceAllV12(handle func(ConnectionStateChangeV12)) (off func()) {
+func (c *Connection) OnceAllV12(handle func(ConnectionStateChange)) (off func()) {
 	return c.state.eventEmitter.OnceAll(func(change emitterData) {
-		handle(change.(ConnectionStateChangeV12))
+		handle(change.(ConnectionStateChange))
 	})
 }
 
@@ -270,7 +270,7 @@ func (c *Connection) Off(ch chan<- State, states ...StateEnum) {
 // OffV12 deregisters event handlers for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *Connection) OffV12(e ConnectionEventV12) {
+func (c *Connection) OffV12(e ConnectionEvent) {
 	c.state.eventEmitter.Off(e)
 }
 
