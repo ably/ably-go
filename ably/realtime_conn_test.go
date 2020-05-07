@@ -112,9 +112,14 @@ func TestRealtimeConn_AlreadyConnected(t *testing.T) {
 	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
-		t.Fatalf("Connect=%s", err)
-	}
+
+	changes := make(chan ably.ConnectionStateChange, 1)
+	off := client.Connection.OnceAll(func(change ably.ConnectionStateChange) {
+		changes <- change
+	})
+	defer off()
+
+	ablytest.Before(100*time.Millisecond).NoRecv(t, nil, changes, t.Fatalf)
 }
 
 func TestRealtimeConn_AuthError(t *testing.T) {
