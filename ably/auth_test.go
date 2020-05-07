@@ -703,17 +703,27 @@ func TestAuth_ClientID(t *testing.T) {
 	tokenErrorDeadline := tokenExpiredAt.Add(5 * time.Second)
 	for err == nil && time.Now().Before(tokenErrorDeadline) {
 		time.Sleep(100 * time.Millisecond)
-		closed := &proto.ProtocolMessage{
-			Action: proto.ActionClosed,
-		}
-		in <- closed
-		if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
+
+		err = ablytest.Wait(ablytest.ConnWaiter(client, client.Close, ably.ConnectionEventClosing), nil)
+		if err != nil {
 			t.Fatalf("Close()=%v", err)
 		}
 
-		in <- connected
+		err = ablytest.Wait(ablytest.ConnWaiter(client, func() {
+			closed := &proto.ProtocolMessage{
+				Action: proto.ActionClosed,
+			}
+			in <- closed
+		}, ably.ConnectionEventClosed), nil)
+		if err != nil {
+			t.Fatalf("waiting for close: %v", err)
+		}
+
 		proxy.TokenQueue = append(proxy.TokenQueue, tok)
-		err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
+		err = ablytest.Wait(ablytest.ConnWaiter(client, client.Connect,
+			ably.ConnectionEventConnected,
+			ably.ConnectionEventFailed,
+		), nil)
 	}
 	if err = checkError(40012, err); err != nil {
 		t.Fatal(err)
