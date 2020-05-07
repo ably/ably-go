@@ -579,8 +579,8 @@ func (c realtimeIOCloser) Close() error {
 
 	errCh := make(chan error, 1)
 
-	var off func()
-	off = c.c.Connection.OnAll(func(c ably.ConnectionStateChange) {
+	off := make(chan func(), 1)
+	off <- c.c.Connection.OnAll(func(c ably.ConnectionStateChange) {
 		switch c.Current {
 		default:
 			return
@@ -589,7 +589,7 @@ func (c realtimeIOCloser) Close() error {
 			ably.ConnectionStateFailed:
 		}
 
-		off()
+		(<-off)()
 
 		var err error
 		if c.Reason != nil {
@@ -604,7 +604,6 @@ func (c realtimeIOCloser) Close() error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
-		off()
 		return ctx.Err()
 	}
 }
