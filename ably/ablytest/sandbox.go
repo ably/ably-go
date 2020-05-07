@@ -110,7 +110,7 @@ func NewRealtimeClient(opts *ably.ClientOptions) (*Sandbox, *ably.Realtime) {
 	return app, client
 }
 
-func NewRestClient(opts *ably.ClientOptions) (*Sandbox, *ably.RestClient) {
+func NewRestClient(opts *ably.ClientOptions) (*Sandbox, *ably.REST) {
 	app := MustSandbox(nil)
 	client, err := ably.NewRestClient(app.Options(opts))
 	if err != nil {

@@ -17,7 +17,7 @@ func (opts *ClientOptions) RealtimeURL() string {
 	return opts.realtimeURL()
 }
 
-func (c *RestClient) Post(path string, in, out interface{}) (*http.Response, error) {
+func (c *REST) Post(path string, in, out interface{}) (*http.Response, error) {
 	return c.post(path, in, out)
 }
 
@@ -69,11 +69,11 @@ func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
 }
 
-func (c *RestClient) SetSuccessFallbackHost(duration time.Duration) {
+func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
 	c.successFallbackHost = &fallbackCache{duration: duration}
 }
 
-func (c *RestClient) GetCachedFallbackHost() string {
+func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
 }
 

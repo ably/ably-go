@@ -15,7 +15,7 @@ type Realtime struct {
 
 	chansMtx sync.RWMutex
 	chans    map[string]*RealtimeChannel
-	rest     *RestClient
+	rest     *REST
 	err      chan error
 }
 

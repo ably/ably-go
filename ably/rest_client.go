@@ -55,7 +55,7 @@ func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
 type RestChannels struct {
 	cache  map[string]*RestChannel
 	mu     sync.RWMutex
-	client *RestClient
+	client *REST
 }
 
 // Range iterates over the channels calling fn on every iteration. If fn returns
@@ -126,23 +126,23 @@ func (c *RestChannels) Len() (size int) {
 	return
 }
 
-type RESTV12 = RestClient
-
-type RestClient struct {
+type REST struct {
 	Auth                *Auth
 	Channels            *RestChannels
 	opts                ClientOptions
 	successFallbackHost *fallbackCache
 }
 
-// NewRESTV12 constructs a new RESTV12.
-func NewRESTV12(options ClientOptionsV12) (*RESTV12, error) {
+var NewRestClient = newREST // TODO: remove once tests use functional ClientOptions
+
+// NewREST constructs a new RESTV12.
+func NewREST(options ClientOptionsV12) (*REST, error) {
 	var o ClientOptions
 	options.applyWithDefaults(&o)
-	return NewRestClient(&o)
+	return newREST(&o)
 }
 
-func NewRestClient(opts *ClientOptions) (*RestClient, error) {
+func newREST(opts *ClientOptions) (*REST, error) {
 	if opts == nil {
 		panic("called NewRealtimeClient with nil ClientOptions")
 	}
@@ -150,7 +150,7 @@ func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 	// Temporarily set defaults here in case this wasn't called from NewRESTV12.
 	ClientOptionsV12{}.applyWithDefaults(opts)
 
-	c := &RestClient{
+	c := &REST{
 		opts: *opts,
 	}
 	auth, err := newAuth(c)
@@ -165,7 +165,7 @@ func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 	return c, nil
 }
 
-func (c *RestClient) Time() (time.Time, error) {
+func (c *REST) Time() (time.Time, error) {
 	var times []int64
 	r := &Request{
 		Method: "GET",
@@ -186,7 +186,7 @@ func (c *RestClient) Time() (time.Time, error) {
 // Stats gives the channel's metrics according to the given parameters.
 // The returned result can be inspected for the statistics via the Stats()
 // method.
-func (c *RestClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
+func (c *REST) Stats(params *PaginateParams) (*PaginatedResult, error) {
 	return newPaginatedResult(nil, paginatedRequest{typ: statType, path: "/stats", params: params, query: query(c.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
 }
 
@@ -208,7 +208,7 @@ type Request struct {
 
 // Request sends http request to ably.
 // spec RSC19
-func (c *RestClient) Request(method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*HTTPPaginatedResponse, error) {
+func (c *REST) Request(method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*HTTPPaginatedResponse, error) {
 	method = strings.ToUpper(method)
 	switch method {
 	case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
@@ -232,7 +232,7 @@ func (c *RestClient) Request(method string, path string, params *PaginateParams,
 	}
 }
 
-func (c *RestClient) get(path string, out interface{}) (*http.Response, error) {
+func (c *REST) get(path string, out interface{}) (*http.Response, error) {
 	r := &Request{
 		Method: "GET",
 		Path:   path,
@@ -241,7 +241,7 @@ func (c *RestClient) get(path string, out interface{}) (*http.Response, error) {
 	return c.do(r)
 }
 
-func (c *RestClient) post(path string, in, out interface{}) (*http.Response, error) {
+func (c *REST) post(path string, in, out interface{}) (*http.Response, error) {
 	r := &Request{
 		Method: "POST",
 		Path:   path,
@@ -251,7 +251,7 @@ func (c *RestClient) post(path string, in, out interface{}) (*http.Response, err
 	return c.do(r)
 }
 
-func (c *RestClient) do(r *Request) (*http.Response, error) {
+func (c *REST) do(r *Request) (*http.Response, error) {
 	return c.doWithHandle(r, c.handleResponse)
 }
 
@@ -318,7 +318,7 @@ func (f *fallbackCache) put(host string) {
 	}
 }
 
-func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
+func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
 	if c.successFallbackHost == nil {
 		c.successFallbackHost = &fallbackCache{
 			duration: c.opts.fallbackRetryTimeout(),
@@ -426,7 +426,7 @@ func canFallBack(code int) bool {
 
 // NewHTTPRequest creates a new http.Request that can be sent to ably endpoints.
 // This makes sure necessary headers are set.
-func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
+func (c *REST) NewHTTPRequest(r *Request) (*http.Request, error) {
 	var body io.Reader
 	var proto = c.opts.protocol()
 	if r.In != nil {
@@ -464,7 +464,7 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 	return req, nil
 }
 
-func (c *RestClient) handleResponse(resp *http.Response, out interface{}) (*http.Response, error) {
+func (c *REST) handleResponse(resp *http.Response, out interface{}) (*http.Response, error) {
 	if err := checkValidHTTPResponse(resp); err != nil {
 		return nil, err
 	}
@@ -477,7 +477,7 @@ func (c *RestClient) handleResponse(resp *http.Response, out interface{}) (*http
 	return resp, nil
 }
 
-func (c *RestClient) logger() *LoggerOptions {
+func (c *REST) logger() *LoggerOptions {
 	return &c.opts.Logger
 }
 

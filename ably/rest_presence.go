@@ -1,7 +1,7 @@
 package ably
 
 type RestPresence struct {
-	client  *RestClient
+	client  *REST
 	channel *RestChannel
 }
 

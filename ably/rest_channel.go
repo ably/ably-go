@@ -28,12 +28,12 @@ type RestChannel struct {
 	Name     string
 	Presence *RestPresence
 
-	client  *RestClient
+	client  *REST
 	baseURL string
 	options *proto.ChannelOptions
 }
 
-func newRestChannel(name string, client *RestClient) *RestChannel {
+func newRestChannel(name string, client *REST) *RestChannel {
 	c := &RestChannel{
 		Name:    name,
 		client:  client,

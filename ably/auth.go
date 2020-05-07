@@ -63,7 +63,7 @@ func addHeaders(lhs, rhs http.Header) http.Header {
 type Auth struct {
 	mtx      sync.Mutex
 	method   int
-	client   *RestClient
+	client   *REST
 	params   *TokenParams // save params to use with token renewal
 	host     string       // a host part of AuthURL
 	clientID string       // clientID of the authenticated user or wildcard "*"
@@ -77,7 +77,7 @@ type Auth struct {
 	now func() time.Time
 }
 
-func newAuth(client *RestClient) (*Auth, error) {
+func newAuth(client *REST) (*Auth, error) {
 	a := &Auth{
 		client: client,
 	}
