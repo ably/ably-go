@@ -44,9 +44,9 @@ func NewRealtime(opts *ClientOptions) (*Realtime, error) {
 	return c, nil
 }
 
-// ConnectV12 is the same as Connection.Connect.
-func (c *Realtime) ConnectV12() {
-	c.Connection.ConnectV12()
+// Connect is the same as Connection.Connect.
+func (c *Realtime) Connect() {
+	c.Connection.Connect()
 }
 
 // Close is the same as Connection.Close.

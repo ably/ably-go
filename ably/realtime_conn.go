@@ -61,22 +61,9 @@ func (c *Connection) dial(proto string, u *url.URL) (proto.Conn, error) {
 	return ablyutil.DialWebsocket(proto, u)
 }
 
-// Connect is used to connect to Ably servers manually, when the client owning
-// the connection was created with NoConnect option. The connect request is
-// being processed on a separate goroutine.
-//
-// If client is already connected, this method is a nop.
-// If connecting fail due to authorization error, the returned error value
-// is non-nil.
-// If authorization succeeds, the returned Result value can be used to wait
-// until connection confirmation is received from a server.
-func (c *Connection) Connect() (Result, error) {
-	return c.connect(true)
-}
-
-// ConnectV12 attempts to move the connection to the CONNECTED state, if it
+// Connect attempts to move the connection to the CONNECTED state, if it
 // can and if it isn't already.
-func (c *Connection) ConnectV12() {
+func (c *Connection) Connect() {
 	c.connect(false)
 }
 

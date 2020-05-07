@@ -673,7 +673,7 @@ func TestAuth_ClientID(t *testing.T) {
 	if id := client.Auth.ClientID(); id != "" {
 		t.Fatalf("want clientID to be empty; got %q", id)
 	}
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	if id := client.Auth.ClientID(); id != connected.ConnectionDetails.ClientID {
@@ -713,7 +713,7 @@ func TestAuth_ClientID(t *testing.T) {
 
 		in <- connected
 		proxy.TokenQueue = append(proxy.TokenQueue, tok)
-		err = ablytest.Wait(client.Connection.Connect())
+		err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
 	}
 	if err = checkError(40012, err); err != nil {
 		t.Fatal(err)
@@ -816,7 +816,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	app, client := ablytest.NewRealtime(opts)
 	defer safeclose(t, app)
 
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	if err := ablytest.Wait(client.Channels.Get("test").Publish("name", "value")); err != nil {

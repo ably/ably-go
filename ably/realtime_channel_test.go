@@ -55,7 +55,7 @@ func TestRealtimeChannel_Failed(t *testing.T) {
 	app, client := ablytest.NewRealtime(opts)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	channel := client.Channels.GetAndAttach("test")

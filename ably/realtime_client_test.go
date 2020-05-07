@@ -37,7 +37,7 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 			t.Errorf("want state=%v; got %s", ably.StateConnInitialized, state)
 			continue
 		}
-		if err := checkError(80000, ablytest.Wait(client.Connection.Connect())); err != nil {
+		if err := checkError(80000, ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnectedV12).Wait()); err != nil {
 			t.Errorf("%s (host=%s)", err, host)
 			continue
 		}
@@ -115,7 +115,7 @@ func TestRealtime_multiple(t *testing.T) {
 				return
 			}
 			var rg ablytest.ResultGroup
-			rg.Add(c.Connection.Connect())
+			rg.Add(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnectedV12), nil)
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
 				rg.Add(channel.Attach())

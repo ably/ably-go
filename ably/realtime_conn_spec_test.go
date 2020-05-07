@@ -22,7 +22,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 			changes <- change
 		})
 
-		realtime.ConnectV12()
+		realtime.Connect()
 
 		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 	})
@@ -127,7 +127,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 			changes <- change
 		})
 
-		realtime.ConnectV12()
+		realtime.Connect()
 		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 	})
 }
@@ -142,6 +142,6 @@ func connectAndWait(t *testing.T, realtime *ably.Realtime) {
 		changes <- change
 	})
 
-	realtime.ConnectV12()
+	realtime.Connect()
 	ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 }

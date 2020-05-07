@@ -118,7 +118,7 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	app, client := ablytest.NewRealtime(opts)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 	channel := client.Channels.Get("persisted:presence_fixtures")
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatal(err)
 	}
 	if err := rec.WaitFor(presTransitions[:2]); err != nil {
