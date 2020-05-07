@@ -242,8 +242,8 @@ func (rec *StateRecorder) States() []ably.StateEnum {
 // Errors gives copy of the error that recorded events hold. It returns only
 // non-nil errors. If none of the recorded states contained an error, the
 // method returns nil.
-func (rec *StateRecorder) Errors() []error {
-	var errors []error
+func (rec *StateRecorder) Errors() []*ably.ErrorInfo {
+	var errors []*ably.ErrorInfo
 	rec.mtx.Lock()
 	defer rec.mtx.Unlock()
 	for _, state := range rec.states {

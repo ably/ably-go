@@ -179,10 +179,10 @@ func stateError(state StateEnum, err error) *ErrorInfo {
 // a channel, which will get notified with single State value for each transition
 // than takes place.
 type State struct {
-	Channel string    // channel name or empty if Type is StateConn
-	Err     error     // eventual error value associated with transition
-	State   StateEnum // state which connection or channel has transitioned to
-	Type    StateType // whether transition happened on connection or channel
+	Channel string     // channel name or empty if Type is StateConn
+	Err     *ErrorInfo // eventual error value associated with transition
+	State   StateEnum  // state which connection or channel has transitioned to
+	Type    StateType  // whether transition happened on connection or channel
 }
 
 type stateEmitter struct {
