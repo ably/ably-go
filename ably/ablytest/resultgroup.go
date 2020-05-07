@@ -2,6 +2,7 @@ package ablytest
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -79,4 +80,45 @@ func (rg *ResultGroup) Wait() error {
 	case err := <-rg.errch:
 		return err
 	}
+}
+
+func ConnWaiter(client *ably.Realtime, do func(), expectedEvent ...ably.ConnectionEvent) ably.Result {
+	change := make(chan ably.ConnectionStateChange, 1)
+	off := client.Connection.OnAll(func(ev ably.ConnectionStateChange) {
+		change <- ev
+	})
+	do()
+	return ResultFunc(func() error {
+		defer off()
+		timer := time.After(Timeout)
+
+		for {
+			select {
+			case <-timer:
+				return fmt.Errorf("timeout waiting for event %v", expectedEvent)
+
+			case change := <-change:
+				if change.Reason != nil {
+					return change.Reason
+				}
+
+				if len(expectedEvent) > 0 {
+					for _, ev := range expectedEvent {
+						if ev == change.Event {
+							return nil
+						}
+					}
+					continue
+				}
+
+				return nil
+			}
+		}
+	})
+}
+
+type ResultFunc func() error
+
+func (f ResultFunc) Wait() error {
+	return f()
 }

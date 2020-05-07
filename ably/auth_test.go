@@ -485,7 +485,7 @@ func TestAuth_RequestToken(t *testing.T) {
 		optsURL.AuthOptions = ably.AuthOptions{Token: tokURL.Token}
 		c, err := ably.NewRestClient(optsURL)
 		if err != nil {
-			t.Errorf("NewRealtimeClient()=%v", err)
+			t.Errorf("NewRealtime()=%v", err)
 			continue
 		}
 		if _, err = c.Stats(single()); err != nil {
@@ -503,7 +503,7 @@ func TestAuth_ClientID_Error(t *testing.T) {
 			UseTokenAuth: true,
 		},
 	}
-	_, err := ably.NewRealtimeClient(opts)
+	_, err := ably.NewRealtime(opts)
 	if err := checkError(40102, err); err != nil {
 		t.Fatal(err)
 	}
@@ -585,8 +585,8 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		if i == 4 {
 			copts.ClientID = cas.clientID
 		}
-		client := app.NewRealtimeClient(copts)
-		defer safeclose(t, client)
+		client := app.NewRealtime(copts)
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 		if id := client.Auth.ClientID(); id != cas.clientID {
 			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
 			continue
@@ -649,7 +649,7 @@ func TestAuth_ClientID(t *testing.T) {
 		Dial:      ablytest.MessagePipe(in, out),
 		NoConnect: true,
 	}
-	client := app.NewRealtimeClient(opts) // no client.Close as the connection is mocked
+	client := app.NewRealtime(opts) // no client.Close as the connection is mocked
 
 	tok, err := client.Auth.RequestToken(params, nil)
 	if err != nil {
@@ -673,7 +673,7 @@ func TestAuth_ClientID(t *testing.T) {
 	if id := client.Auth.ClientID(); id != "" {
 		t.Fatalf("want clientID to be empty; got %q", id)
 	}
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	if id := client.Auth.ClientID(); id != connected.ConnectionDetails.ClientID {
@@ -696,24 +696,34 @@ func TestAuth_ClientID(t *testing.T) {
 	tokenExpiredAt := time.Now()
 
 	failed := make(chan ably.State, 1)
-	client.Connection.On(failed, ably.StateConnFailed)
+	client.Connection.OnState(failed, ably.StateConnFailed)
 
 	// Allow some extra time for the server to reject our token.
 	err = nil
 	tokenErrorDeadline := tokenExpiredAt.Add(5 * time.Second)
 	for err == nil && time.Now().Before(tokenErrorDeadline) {
 		time.Sleep(100 * time.Millisecond)
-		closed := &proto.ProtocolMessage{
-			Action: proto.ActionClosed,
-		}
-		in <- closed
-		if err := client.Close(); err != nil {
+
+		err = ablytest.Wait(ablytest.ConnWaiter(client, client.Close, ably.ConnectionEventClosing), nil)
+		if err != nil {
 			t.Fatalf("Close()=%v", err)
 		}
 
-		in <- connected
+		err = ablytest.Wait(ablytest.ConnWaiter(client, func() {
+			closed := &proto.ProtocolMessage{
+				Action: proto.ActionClosed,
+			}
+			in <- closed
+		}, ably.ConnectionEventClosed), nil)
+		if err != nil {
+			t.Fatalf("waiting for close: %v", err)
+		}
+
 		proxy.TokenQueue = append(proxy.TokenQueue, tok)
-		err = ablytest.Wait(client.Connection.Connect())
+		err = ablytest.Wait(ablytest.ConnWaiter(client, client.Connect,
+			ably.ConnectionEventConnected,
+			ably.ConnectionEventFailed,
+		), nil)
 	}
 	if err = checkError(40012, err); err != nil {
 		t.Fatal(err)
@@ -767,7 +777,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 			if err == nil {
 				ts.Fatal("expected an error")
 			}
-			e := err.(*ably.Error)
+			e := err.(*ably.ErrorInfo)
 			if e.Code != ably.ErrInvalidCredentials {
 				ts.Errorf("expected error code %d got %d", ably.ErrInvalidCredentials, e.Code)
 			}
@@ -778,7 +788,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 			if err == nil {
 				ts.Fatal("expected an error")
 			}
-			e = err.(*ably.Error)
+			e = err.(*ably.ErrorInfo)
 			if e.Code != ably.ErrIncompatibleCredentials {
 				ts.Errorf("expected error code %d got %d", ably.ErrIncompatibleCredentials, e.Code)
 			}
@@ -813,10 +823,10 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 		Dial:      rec.Dial,
 	}
 	opts.UseTokenAuth = true
-	app, client := ablytest.NewRealtimeClient(opts)
+	app, client := ablytest.NewRealtime(opts)
 	defer safeclose(t, app)
 
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	if err := ablytest.Wait(client.Channels.Get("test").Publish("name", "value")); err != nil {
@@ -825,7 +835,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	if clientID := client.Auth.ClientID(); clientID != opts.ClientID {
 		t.Fatalf("want ClientID=%q; got %q", opts.ClientID, clientID)
 	}
-	if err := client.Close(); err != nil {
+	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
 		t.Fatalf("Close()=%v", err)
 	}
 	urls := rec.URL()

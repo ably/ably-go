@@ -65,11 +65,7 @@ func encode(typ string, in interface{}) ([]byte, error) {
 	case "text/plain":
 		return []byte(fmt.Sprintf("%v", in)), nil
 	default:
-		return nil, &ably.Error{
-			StatusCode: 400,
-			Code:       40000,
-			Err:        fmt.Errorf("encoding error: unrecognized Content-Type: %q", typ),
-		}
+		return nil, fmt.Errorf("encoding error: unrecognized Content-Type: %q", typ)
 	}
 }
 

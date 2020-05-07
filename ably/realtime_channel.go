@@ -25,11 +25,11 @@ func (ch chanSlice) Sort()              { sort.Sort(ch) }
 // for creating, deleting and iterating over existing channels.
 type Channels struct {
 	mtx    sync.Mutex
-	client *RealtimeClient
+	client *Realtime
 	chans  map[string]*RealtimeChannel
 }
 
-func newChannels(client *RealtimeClient) *Channels {
+func newChannels(client *Realtime) *Channels {
 	return &Channels{
 		client: client,
 		chans:  make(map[string]*RealtimeChannel),
@@ -90,14 +90,14 @@ type RealtimeChannel struct {
 	Name     string            // name used to create the channel
 	Presence *RealtimePresence //
 
-	client *RealtimeClient
+	client *Realtime
 	state  *stateEmitter
 	subs   *subscriptions
 	queue  *msgQueue
 	listen chan State
 }
 
-func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
+func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 	c := &RealtimeChannel{
 		Name:   name,
 		client: client,
@@ -110,7 +110,7 @@ func newRealtimeChannel(name string, client *RealtimeClient) *RealtimeChannel {
 	if c.opts().Listener != nil {
 		c.On(c.opts().Listener)
 	}
-	c.client.Connection.On(c.listen, StateConnFailed, StateConnClosed)
+	c.client.Connection.onState(c.listen, StateConnFailed, StateConnClosed)
 	go c.listenLoop()
 	return c
 }
@@ -327,7 +327,7 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 		return res, nil
 	case StateChanAttached:
 	default:
-		return nil, &Error{Code: 90001}
+		return nil, &ErrorInfo{Code: 90001}
 	}
 	if err := c.client.Connection.send(msg, listen); err != nil {
 		return nil, err

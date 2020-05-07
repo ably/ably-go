@@ -1,10 +1,5 @@
 package proto
 
-import (
-	"fmt"
-	"strings"
-)
-
 // ErrorInfo describes an error returned via ProtocolMessage.
 type ErrorInfo struct {
 	StatusCode int    `json:"statusCode,omitempty" codec:"statusCode,omitempty"`
@@ -30,17 +25,4 @@ func (e *ErrorInfo) FromMap(ctx map[string]interface{}) {
 	if v, ok := ctx["serverId"]; ok {
 		e.Server = v.(string)
 	}
-}
-
-// Error implements the builtin error interface.
-func (e *ErrorInfo) Error() string {
-	errorHref := e.HRef
-	if errorHref == "" && e.Code != 0 {
-		errorHref = fmt.Sprintf("https://help.ably.io/error/%d", e.Code)
-	}
-	var see string
-	if !strings.Contains(e.Message, errorHref) {
-		see = "See " + errorHref
-	}
-	return fmt.Sprintf("[ErrorInfo :%s code=%d statusCode=%d] %s", e.Message, e.Code, e.StatusCode, see)
 }

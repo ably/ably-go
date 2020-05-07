@@ -50,7 +50,7 @@ specification. If there are features that are currently missing that are a high 
 ### Creating a client
 
 ```go
-client, err := ably.NewRealtimeClient(ably.NewClientOptions("xxx:xxx"))
+client, err := ably.NewRealtime(ably.NewClientOptions("xxx:xxx"))
 if err != nil {
 	panic(err)
 }

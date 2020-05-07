@@ -5,13 +5,13 @@ import (
 	"time"
 )
 
-// The RealtimeClient libraries establish and maintain a persistent connection
+// The Realtime libraries establish and maintain a persistent connection
 // to Ably enabling extremely low latency broadcasting of messages and presence
 // state.
-type RealtimeClient struct {
+type Realtime struct {
 	Auth       *Auth
 	Channels   *Channels
-	Connection *Conn
+	Connection *Connection
 
 	chansMtx sync.RWMutex
 	chans    map[string]*RealtimeChannel
@@ -19,12 +19,12 @@ type RealtimeClient struct {
 	err      chan error
 }
 
-// NewRealtimeClient
-func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
+// NewRealtime constructs a new Realtime.
+func NewRealtime(opts *ClientOptions) (*Realtime, error) {
 	if opts == nil {
-		panic("called NewRealtimeClient with nil ClientOptions")
+		panic("called NewRealtime with nil ClientOptions")
 	}
-	c := &RealtimeClient{
+	c := &Realtime{
 		err:   make(chan error),
 		chans: make(map[string]*RealtimeChannel),
 	}
@@ -44,33 +44,38 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 	return c, nil
 }
 
-// Close
-func (c *RealtimeClient) Close() error {
-	return c.Connection.Close()
+// Connect is the same as Connection.Connect.
+func (c *Realtime) Connect() {
+	c.Connection.Connect()
+}
+
+// Close is the same as Connection.Close.
+func (c *Realtime) Close() {
+	c.Connection.Close()
 }
 
 // Stats gives the clients metrics according to the given parameters. The
 // returned result can be inspected for the statistics via the Stats()
 // method.
-func (c *RealtimeClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
+func (c *Realtime) Stats(params *PaginateParams) (*PaginatedResult, error) {
 	return c.rest.Stats(params)
 }
 
 // Time
-func (c *RealtimeClient) Time() (time.Time, error) {
+func (c *Realtime) Time() (time.Time, error) {
 	return c.rest.Time()
 }
 
-func (c *RealtimeClient) dispatchloop() {
+func (c *Realtime) dispatchloop() {
 	for msg := range c.Connection.msgCh {
 		c.Channels.Get(msg.Channel).notify(msg)
 	}
 }
 
-func (c *RealtimeClient) opts() *ClientOptions {
+func (c *Realtime) opts() *ClientOptions {
 	return &c.rest.opts
 }
 
-func (c *RealtimeClient) logger() *LoggerOptions {
+func (c *Realtime) logger() *LoggerOptions {
 	return c.rest.logger()
 }

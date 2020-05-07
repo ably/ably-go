@@ -23,14 +23,14 @@ const (
 )
 
 var defaultOptions = &ClientOptions{
-	RestHost:             RestHost,
-	FallbackHosts:        DefaultFallbackHosts(),
-	HTTPMaxRetryCount:    3,
-	RealtimeHost:         "realtime.ably.io",
-	TimeoutConnect:       15 * time.Second,
-	TimeoutDisconnect:    30 * time.Second,
-	TimeoutSuspended:     2 * time.Minute,
-	FallbackRetryTimeout: 10 * time.Minute,
+	RestHost:                 RestHost,
+	FallbackHosts:            DefaultFallbackHosts(),
+	HTTPMaxRetryCount:        3,
+	RealtimeHost:             "realtime.ably.io",
+	TimeoutConnect:           15 * time.Second,
+	TimeoutDisconnect:        30 * time.Second,
+	TimeoutSuspended:         2 * time.Minute,
+	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
 }
 
@@ -199,13 +199,13 @@ type ClientOptions struct {
 
 	// When true idempotent rest publishing will be enabled.
 	// Spec TO3n
-	IdempotentRestPublishing   bool
-	TimeoutConnect             time.Duration // time period after which connect request is failed
-	TimeoutDisconnect          time.Duration // time period after which disconnect request is failed
-	TimeoutSuspended           time.Duration // time period after which no more reconnection attempts are performed
+	IdempotentRestPublishing bool
+	TimeoutConnect           time.Duration // time period after which connect request is failed
+	TimeoutDisconnect        time.Duration // time period after which disconnect request is failed
+	TimeoutSuspended         time.Duration // time period after which no more reconnection attempts are performed
 
 	// Dial specifies the dial function for creating message connections used
-	// by RealtimeClient.
+	// by Realtime.
 	//
 	// If Dial is nil, the default websocket connection is used.
 	Dial func(protocol string, u *url.URL) (proto.Conn, error)

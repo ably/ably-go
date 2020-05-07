@@ -34,14 +34,13 @@ func safeclose(t *testing.T, closers ...io.Closer) {
 		for _, err := range errors {
 			t.Logf("safeclose %d: failed to close %T: %s", err.i, err.c, err.err)
 		}
-		t.FailNow()
 	}
 }
 
 func checkError(code int, err error) error {
-	switch e, ok := err.(*ably.Error); {
+	switch e, ok := err.(*ably.ErrorInfo); {
 	case !ok:
-		return fmt.Errorf("want err to be *ably.Error; was %T: %v", err, err)
+		return fmt.Errorf("want err to be *ably.ErrorInfo; was %T: %v", err, err)
 	case e.Code != code:
 		return fmt.Errorf("want e.Code=%d; got %d: %s", code, e.Code, err)
 	default:

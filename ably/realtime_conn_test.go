@@ -33,8 +33,8 @@ var connTransitions = []ably.StateEnum{
 func TestRealtimeConn_Connect(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
-	defer safeclose(t, client, app)
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{Listener: rec.Channel()})
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
 		t.Fatal(err)
@@ -42,8 +42,8 @@ func TestRealtimeConn_Connect(t *testing.T) {
 	if serial := client.Connection.Serial(); serial != -1 {
 		t.Fatalf("want serial=-1; got %d", serial)
 	}
-	if err := client.Close(); err != nil {
-		t.Fatalf("client.Close()=%v", err)
+	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
+		t.Fatalf("ablytest.FullRealtimeCloser(client).Close()=%v", err)
 	}
 	if err := rec.WaitFor(connTransitions); err != nil {
 		t.Fatal(err)
@@ -57,18 +57,18 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 		Listener:  rec.Channel(),
 		NoConnect: true,
 	}
-	app, client := ablytest.NewRealtimeClient(opts)
-	defer safeclose(t, client, app)
+	app, client := ablytest.NewRealtime(opts)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	client.Connection.On(rec.Channel())
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+	client.Connection.OnState(rec.Channel())
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	if serial := client.Connection.Serial(); serial != -1 {
 		t.Fatalf("want serial=-1; got %d", serial)
 	}
-	if err := client.Close(); err != nil {
-		t.Fatalf("client.Close()=%v", err)
+	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
+		t.Fatalf("ablytest.FullRealtimeCloser(client).Close()=%v", err)
 	}
 	rec.Stop()
 	if err := rec.WaitFor(connTransitions); err != nil {
@@ -86,14 +86,14 @@ var connCloseTransitions = []ably.StateEnum{
 func TestRealtimeConn_ConnectClose(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
-	defer safeclose(t, client, app)
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{Listener: rec.Channel()})
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.Close(); err != nil {
-		t.Fatalf("client.Close()=%v", err)
+	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
+		t.Fatalf("ablytest.FullRealtimeCloser(client).Close()=%v", err)
 	}
 	if err := await(client.Connection.State, ably.StateConnClosed); err != nil {
 		t.Fatal(err)
@@ -106,15 +106,20 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 
 func TestRealtimeConn_AlreadyConnected(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
-	defer safeclose(t, client, app)
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
-		t.Fatalf("Connect=%s", err)
-	}
+
+	changes := make(chan ably.ConnectionStateChange, 1)
+	off := client.Connection.OnceAll(func(change ably.ConnectionStateChange) {
+		changes <- change
+	})
+	defer off()
+
+	ablytest.Before(100*time.Millisecond).NoRecv(t, nil, changes, t.Fatalf)
 }
 
 func TestRealtimeConn_AuthError(t *testing.T) {
@@ -125,17 +130,17 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 		},
 		NoConnect: true,
 	}
-	client, err := ably.NewRealtimeClient(opts)
+	client, err := ably.NewRealtime(opts)
 	if err != nil {
-		t.Fatalf("NewRealtimeClient()=%v", err)
+		t.Fatalf("NewRealtime()=%v", err)
 	}
-	if err = ablytest.Wait(client.Connection.Connect()); err == nil {
+	if err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err == nil {
 		t.Fatal("Connect(): want err != nil")
 	}
 	if state := client.Connection.State(); state != ably.StateConnFailed {
 		t.Fatalf("want state=%s; got %s", ably.StateConnFailed, state)
 	}
-	if err = client.Close(); err == nil {
+	if err = ablytest.FullRealtimeCloser(client).Close(); err == nil {
 		t.Fatal("Close(): want err != nil")
 	}
 }
