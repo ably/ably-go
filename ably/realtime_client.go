@@ -18,26 +18,10 @@ type Realtime struct {
 	rest *REST
 }
 
-var DeprecatedNewRealtime = newRealtime // TODO: remove once tests use functional ClientOptions
-
 // NewRealtime constructs a new RealtimeV12.
 func NewRealtime(options ClientOptionsV12) (*Realtime, error) {
-	var o ClientOptions
-	options.applyWithDefaults(&o)
-	return newRealtime(&o)
-}
-
-// newRealtime
-func newRealtime(opts *ClientOptions) (*Realtime, error) {
-	if opts == nil {
-		panic("called DeprecatedNewRealtime with nil ClientOptions")
-	}
-
-	// Temporarily set defaults here in case this wasn't called from NewRealtimeV12.
-	ClientOptionsV12{}.applyWithDefaults(opts)
-
 	c := &Realtime{}
-	rest, err := NewRestClient(opts)
+	rest, err := NewREST(options)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +98,7 @@ func (c *Realtime) onConnStateChange(state State) {
 }
 
 func (c *Realtime) opts() *ClientOptions {
-	return &c.rest.opts
+	return c.rest.opts
 }
 
 func (c *Realtime) logger() *LoggerOptions {

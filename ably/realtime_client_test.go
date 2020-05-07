@@ -26,9 +26,9 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 	}
 	stateRec := ablytest.NewStateRecorder(len(hosts))
 	for _, host := range hosts {
-		opts := rec.Options(host)
-		opts.Listener = stateRec.Channel()
-		client, err := ably.DeprecatedNewRealtime(app.Options(opts))
+		opts := rec.Options(nil, host)
+		opts = opts.Listener(stateRec.Channel())
+		client, err := ably.NewRealtime(app.Options(opts))
 		if err != nil {
 			t.Errorf("NewRealtime=%s (host=%s)", err, host)
 			continue
@@ -107,9 +107,9 @@ func TestRealtime_multiple(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			opts := app.Options(nil)
-			opts.ClientID = fmt.Sprintf("client/%d", i)
-			opts.NoConnect = true
-			c, err := ably.DeprecatedNewRealtime(opts)
+			opts = opts.ClientID(fmt.Sprintf("client/%d", i))
+			opts.AutoConnect(false)
+			c, err := ably.NewRealtime(opts)
 			if err != nil {
 				all.Add(nil, err)
 				return
@@ -162,6 +162,6 @@ func TestRealtime_multiple(t *testing.T) {
 
 func TestRealtime_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtime(&ably.ClientOptions{NoConnect: true})
+	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.AutoConnect(false))
 	defer safeclose(t, app, ablytest.FullRealtimeCloser(client))
 }

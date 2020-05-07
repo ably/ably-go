@@ -137,10 +137,14 @@ func (a *Auth) updateClientID(clientID string) {
 }
 
 // CreateTokenRequest
-func (a *Auth) CreateTokenRequest(params *TokenParams, opts *AuthOptions) (*TokenRequest, error) {
+func (a *Auth) CreateTokenRequest(params *TokenParams, opts AuthOptionsV12) (*TokenRequest, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	return a.createTokenRequest(params, opts)
+	var o *AuthOptions
+	if opts != nil {
+		o = opts.ApplyWithDefaults()
+	}
+	return a.createTokenRequest(params, o)
 }
 
 func (a *Auth) createTokenRequest(params *TokenParams, opts *AuthOptions) (*TokenRequest, error) {
@@ -167,10 +171,14 @@ func (a *Auth) createTokenRequest(params *TokenParams, opts *AuthOptions) (*Toke
 }
 
 // RequestToken
-func (a *Auth) RequestToken(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
+func (a *Auth) RequestToken(params *TokenParams, opts AuthOptionsV12) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	tok, _, err := a.requestToken(params, opts)
+	var o *AuthOptions
+	if opts != nil {
+		o = opts.ApplyWithDefaults()
+	}
+	tok, _, err := a.requestToken(params, o)
 	return tok, err
 }
 
@@ -464,7 +472,7 @@ func (a *Auth) authQuery(query url.Values) error {
 }
 
 func (a *Auth) opts() *ClientOptions {
-	return &a.client.opts
+	return a.client.opts
 }
 
 func (a *Auth) token() *TokenDetails {

@@ -2,6 +2,7 @@ package ably
 
 import (
 	"net/http"
+	"net/http/httptrace"
 	"time"
 )
 
@@ -36,15 +37,6 @@ func DecodeResp(resp *http.Response, out interface{}) error {
 
 func ErrorCode(err error) int {
 	return code(err)
-}
-
-// MustRealtime is like NewRealtime, but panics on error.
-func MustRealtime(opts *ClientOptions) *Realtime {
-	client, err := newRealtime(opts)
-	if err != nil {
-		panic("ably.NewRealtime failed: " + err.Error())
-	}
-	return client
 }
 
 // GetAndAttach is a helper method, which returns attached channel or panics if
@@ -105,4 +97,22 @@ func (c *Connection) OnState(ch chan<- State, states ...StateEnum) {
 
 func (c *Connection) OffState(ch chan<- State, states ...StateEnum) {
 	c.offState(ch, states...)
+}
+
+func (os ClientOptionsV12) Listener(ch chan<- State) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.Listener = ch
+	})
+}
+
+func (os ClientOptionsV12) RealtimeRequestTimeout(d time.Duration) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.RealtimeRequestTimeout = d
+	})
+}
+
+func (os ClientOptionsV12) Trace(trace *httptrace.ClientTrace) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.Trace = trace
+	})
 }

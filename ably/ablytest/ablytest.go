@@ -42,18 +42,12 @@ func init() {
 	}
 }
 
-func MergeOptions(opts ...*ably.ClientOptions) *ably.ClientOptions {
-	switch len(opts) {
-	case 0:
-		return nil
-	case 1:
-		return opts[0]
+func MergeOptions(opts ...ably.ClientOptionsV12) ably.ClientOptionsV12 {
+	var merged ably.ClientOptionsV12
+	for _, opt := range opts {
+		merged = append(merged, opt...)
 	}
-	mergedOpts := opts[0]
-	for _, opt := range opts[1:] {
-		mergedOpts = mergeOpts(mergedOpts, opt)
-	}
-	return mergedOpts
+	return merged
 }
 
 func encode(typ string, in interface{}) ([]byte, error) {
@@ -69,19 +63,9 @@ func encode(typ string, in interface{}) ([]byte, error) {
 	}
 }
 
-func mergeOpts(opts, extra *ably.ClientOptions) *ably.ClientOptions {
-	if extra == nil {
-		return opts
+func protocol(opts ably.ClientOptionsV12) string {
+	if opts.ApplyWithDefaults().NoBinaryProtocol {
+		return "application/x-msgpack"
 	}
-	ablyutil.Merge(opts, extra, false)
-	ablyutil.Merge(&opts.AuthOptions, &extra.AuthOptions, false)
-	ablyutil.Merge(&opts.Logger, &extra.Logger, false)
-	return opts
-}
-
-func protocol(opts *ably.ClientOptions) string {
-	if opts.NoBinaryProtocol {
-		return "application/json"
-	}
-	return "application/x-msgpack"
+	return "application/json"
 }

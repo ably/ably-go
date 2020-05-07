@@ -9,23 +9,8 @@ import (
 
 func TestClientOptions(t *testing.T) {
 	t.Parallel()
-	t.Run("parses it into a set of known parameters", func(ts *testing.T) {
-		options := ably.NewClientOptions("name:secret")
-		_, err := ably.NewRestClient(options)
-		if err != nil {
-			ts.Fatal(err)
-		}
-		key := "name"
-		secret := "secret"
-		if options.KeyName() != key {
-			t.Errorf("expected %s got %s", key, options.KeyName())
-		}
-		if options.KeySecret() != secret {
-			t.Errorf("expected %s got %s", secret, options.KeySecret())
-		}
-	})
 	t.Run("must return error on invalid key", func(ts *testing.T) {
-		_, err := ably.NewRestClient(ably.NewClientOptions("invalid"))
+		_, err := ably.NewREST(ably.NewClientOptionsV12("invalid"))
 		if err == nil {
 			ts.Error("expected an error")
 		}

@@ -19,9 +19,8 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	opts := app.Options()
-	opts.NoBinaryProtocol = true
-	client, err := ably.NewRestClient(opts)
+	opts := app.Options(ably.ClientOptionsV12{}.UseBinaryProtocol(false))
+	client, err := ably.NewREST(opts)
 	if err != nil {
 		t.Fatal(err)
 	}

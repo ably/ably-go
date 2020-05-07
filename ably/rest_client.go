@@ -129,29 +129,14 @@ func (c *RestChannels) Len() (size int) {
 type REST struct {
 	Auth                *Auth
 	Channels            *RestChannels
-	opts                ClientOptions
+	opts                *ClientOptions
 	successFallbackHost *fallbackCache
 }
 
-var NewRestClient = newREST // TODO: remove once tests use functional ClientOptions
-
 // NewREST constructs a new RESTV12.
 func NewREST(options ClientOptionsV12) (*REST, error) {
-	var o ClientOptions
-	options.applyWithDefaults(&o)
-	return newREST(&o)
-}
-
-func newREST(opts *ClientOptions) (*REST, error) {
-	if opts == nil {
-		panic("called NewRealtime with nil ClientOptions")
-	}
-
-	// Temporarily set defaults here in case this wasn't called from NewRESTV12.
-	ClientOptionsV12{}.applyWithDefaults(opts)
-
 	c := &REST{
-		opts: *opts,
+		opts: options.ApplyWithDefaults(),
 	}
 	auth, err := newAuth(c)
 	if err != nil {
@@ -342,10 +327,9 @@ func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{})
 	if err != nil {
 		if e, ok := err.(*ErrorInfo); ok {
 			if canFallBack(e.StatusCode) &&
-				(c.opts.FallbackHostsUseDefault ||
-					strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
+				(strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
 					c.opts.FallbackHosts != nil) {
-				fallback := defaultOptions.FallbackHosts
+				fallback := DefaultFallbackHosts()
 				if c.opts.FallbackHosts != nil {
 					fallback = c.opts.FallbackHosts
 				}

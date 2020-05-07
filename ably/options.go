@@ -23,9 +23,8 @@ const (
 	RestHost = "rest.ably.io"
 )
 
-var defaultOptions = &ClientOptions{
+var defaultOptions = ClientOptions{
 	RestHost:                 RestHost,
-	FallbackHosts:            DefaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
 	RealtimeHost:             "realtime.ably.io",
 	TimeoutDisconnect:        30 * time.Second,
@@ -34,6 +33,8 @@ var defaultOptions = &ClientOptions{
 	TimeoutSuspended:         2 * time.Minute,
 	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
+	Port:                     80,
+	TLSPort:                  443,
 }
 
 func DefaultFallbackHosts() []string {
@@ -157,8 +158,7 @@ func (opts *AuthOptions) KeySecret() string {
 type ClientOptions struct {
 	AuthOptions
 
-	RestHost                string // optional; overwrite endpoint hostname for REST client
-	FallbackHostsUseDefault bool
+	RestHost string // optional; overwrite endpoint hostname for REST client
 
 	FallbackHosts   []string
 	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
@@ -401,6 +401,14 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 
 type ClientOptionsV12 []func(*ClientOptions)
 
+func NewClientOptionsV12(key string) ClientOptionsV12 {
+	return ClientOptionsV12{func(os *ClientOptions) {
+		os.Key = key
+	}}
+}
+
+type AuthOptionsV12 []func(*AuthOptions)
+
 // A Tokener is or can be used to get a TokenDetails.
 type Tokener interface {
 	IsTokener()
@@ -413,9 +421,99 @@ type TokenString string
 func (TokenString) IsTokener() {}
 func (TokenString) isTokener() {}
 
+func (os AuthOptionsV12) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.AuthCallback = authCallback
+	})
+}
+
+func (os AuthOptionsV12) AuthParams(params url.Values) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.AuthParams = params
+	})
+}
+
+func (os AuthOptionsV12) AuthURL(url string) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.AuthURL = url
+	})
+}
+
+func (os AuthOptionsV12) AuthMethod(url string) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.AuthMethod = url
+	})
+}
+
+func (os AuthOptionsV12) AuthHeaders(headers http.Header) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.AuthHeaders = headers
+	})
+}
+
+func (os AuthOptionsV12) DefaultTokenParams(params TokenParams) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.DefaultTokenParams = &params
+	})
+}
+
+func (os AuthOptionsV12) Key(key string) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.Key = key
+	})
+}
+
+func (os AuthOptionsV12) QueryTime(queryTime bool) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.UseQueryTime = queryTime
+	})
+}
+
+func (os AuthOptionsV12) Token(token string) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.Token = token
+	})
+}
+
+func (os AuthOptionsV12) TokenDetails(details *TokenDetails) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.TokenDetails = details
+	})
+}
+
+func (os AuthOptionsV12) UseTokenAuth(use bool) AuthOptionsV12 {
+	return append(os, func(os *AuthOptions) {
+		os.UseTokenAuth = use
+	})
+}
+
 func (os ClientOptionsV12) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOptionsV12 {
 	return append(os, func(os *ClientOptions) {
 		os.AuthCallback = authCallback
+	})
+}
+
+func (os ClientOptionsV12) AuthParams(params url.Values) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.AuthParams = params
+	})
+}
+
+func (os ClientOptionsV12) AuthURL(url string) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.AuthURL = url
+	})
+}
+
+func (os ClientOptionsV12) AuthMethod(url string) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.AuthMethod = url
+	})
+}
+
+func (os ClientOptionsV12) AuthHeaders(headers http.Header) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.AuthHeaders = headers
 	})
 }
 
@@ -425,9 +523,137 @@ func (os ClientOptionsV12) DefaultTokenParams(params TokenParams) ClientOptionsV
 	})
 }
 
-func (os ClientOptionsV12) applyWithDefaults(to *ClientOptions) {
+func (os ClientOptionsV12) EchoMessages(echo bool) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.NoEcho = !echo
+	})
+}
+
+func (os ClientOptionsV12) Key(key string) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.Key = key
+	})
+}
+
+func (os ClientOptionsV12) QueryTime(queryTime bool) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.UseQueryTime = queryTime
+	})
+}
+
+func (os ClientOptionsV12) Token(token string) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.Token = token
+	})
+}
+
+func (os ClientOptionsV12) TokenDetails(details *TokenDetails) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.TokenDetails = details
+	})
+}
+
+func (os ClientOptionsV12) UseTokenAuth(use bool) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.UseTokenAuth = use
+	})
+}
+
+func (os ClientOptionsV12) AutoConnect(autoConnect bool) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.NoConnect = !autoConnect
+	})
+}
+
+func (os ClientOptionsV12) ClientID(clientID string) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.ClientID = clientID
+	})
+}
+
+func (os ClientOptionsV12) Environment(env string) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.Environment = env
+	})
+}
+
+func (os ClientOptionsV12) Port(port int) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.Port = port
+	})
+}
+
+func (os ClientOptionsV12) QueueMessages(queue bool) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.NoQueueing = !queue
+	})
+}
+
+func (os ClientOptionsV12) RESTHost(host string) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.RestHost = host
+	})
+}
+
+func (os ClientOptionsV12) RealtimeHost(host string) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.RealtimeHost = host
+	})
+}
+
+func (os ClientOptionsV12) UseBinaryProtocol(use bool) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.NoBinaryProtocol = !use
+	})
+}
+
+func (os ClientOptionsV12) HTTPClient(client *http.Client) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.HTTPClient = client
+	})
+}
+
+func (os ClientOptionsV12) Dial(dial func(protocol string, u *url.URL) (proto.Conn, error)) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.Dial = dial
+	})
+}
+
+func (os ClientOptionsV12) LogHandler(handler Logger) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.Logger.Logger = handler
+	})
+}
+
+func (os ClientOptionsV12) LogLevel(level LogLevel) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.Logger.Level = level
+	})
+}
+
+func (os ClientOptionsV12) FallbackHosts(hosts []string) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.FallbackHosts = hosts
+	})
+}
+
+func (os ClientOptionsV12) TLS(tls bool) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.NoTLS = !tls
+	})
+}
+
+func (os ClientOptionsV12) IdempotentRESTPublishing(idempotent bool) ClientOptionsV12 {
+	return append(os, func(os *ClientOptions) {
+		os.IdempotentRestPublishing = idempotent
+	})
+}
+
+func (os ClientOptionsV12) ApplyWithDefaults() *ClientOptions {
+	to := defaultOptions
+
 	for _, set := range os {
-		set(to)
+		set(&to)
 	}
 
 	if to.DefaultTokenParams == nil {
@@ -435,4 +661,22 @@ func (os ClientOptionsV12) applyWithDefaults(to *ClientOptions) {
 			TTL: int64(60 * time.Minute / time.Millisecond),
 		}
 	}
+
+	return &to
+}
+
+func (os AuthOptionsV12) ApplyWithDefaults() *AuthOptions {
+	to := defaultOptions.AuthOptions
+
+	for _, set := range os {
+		set(&to)
+	}
+
+	if to.DefaultTokenParams == nil {
+		to.DefaultTokenParams = &TokenParams{
+			TTL: int64(60 * time.Minute / time.Millisecond),
+		}
+	}
+
+	return &to
 }

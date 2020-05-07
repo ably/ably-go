@@ -28,8 +28,8 @@ func TestRestChannel(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	options := app.Options()
-	client, err := ably.NewRestClient(options)
+	options := app.Options(nil)
+	client, err := ably.NewREST(options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestRestChannel(t *testing.T) {
 			data     interface{}
 		}
 		m := make(map[string]dataSample)
-		if options.NoBinaryProtocol {
+		if ablytest.NoBinaryProtocol {
 			m["string"] = dataSample{
 				data: "string",
 			}
@@ -207,8 +207,8 @@ func TestIdempotentPublishing(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	options := app.Options(&ably.ClientOptions{IdempotentRestPublishing: true})
-	client, err := ably.NewRestClient(options)
+	options := app.Options(ably.ClientOptionsV12{}.IdempotentRESTPublishing(true))
+	client, err := ably.NewREST(options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,18 +430,15 @@ func TestIdempotent_retry(t *testing.T) {
 		// set up the proxy to forward the second retry to the correct endpoint,
 		// failing all others via the test server
 		fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
-		nopts := &ably.ClientOptions{
-			Environment:              ablytest.Environment,
-			NoTLS:                    true,
-			FallbackHosts:            fallbackHosts,
-			IdempotentRestPublishing: true,
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
-		}
+		nopts := ably.ClientOptionsV12{}.
+			Environment(ablytest.Environment).
+			TLS(false).
+			FallbackHosts(fallbackHosts).
+			IdempotentRESTPublishing(true).
+			UseTokenAuth(true)
 
 		serverURL, _ := url.Parse(server.URL)
-		defaultURL, _ := url.Parse(nopts.RestURL())
+		defaultURL, _ := url.Parse(nopts.ApplyWithDefaults().RestURL())
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if !strings.HasPrefix(r.URL.Path, "/channels/") {
 				// this is to handle token requests
@@ -459,15 +456,14 @@ func TestIdempotent_retry(t *testing.T) {
 				return defaultURL, nil
 			}
 		}
-
-		nopts.HTTPClient = &http.Client{
+		nopts = nopts.HTTPClient(&http.Client{
 			Transport: &http.Transport{
 				Proxy:        proxy,
 				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
 			},
-		}
+		})
 
-		client, err := ably.NewRestClient(app.Options(nopts))
+		client, err := ably.NewREST(app.Options(nopts))
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -520,10 +516,10 @@ func TestRSL1f1(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	opts := app.Options()
+	opts := app.Options(nil)
 	// RSL1f
-	opts.UseTokenAuth = false
-	client, err := ably.NewRestClient(opts)
+	opts = opts.UseTokenAuth(false)
+	client, err := ably.NewREST(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -564,11 +560,11 @@ func TestRSL1g(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	opts := app.Options()
-	opts.UseTokenAuth = true
+	opts := app.Options(nil).
+		UseTokenAuth(true)
 	clientID := "some_client_id"
-	opts.ClientID = clientID
-	client, err := ably.NewRestClient(opts)
+	opts = opts.ClientID(clientID)
+	client, err := ably.NewREST(opts)
 	if err != nil {
 		t.Fatal(err)
 	}

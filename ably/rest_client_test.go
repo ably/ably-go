@@ -51,16 +51,13 @@ func TestRestClient(t *testing.T) {
 				w.WriteHeader(200)
 				w.Write(mockBody)
 			}))
-			options := &ably.ClientOptions{
-				NoTLS:            true,
-				NoBinaryProtocol: true,
-				HTTPClient:       newHTTPClientMock(server),
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
-			}
+			options := ably.ClientOptionsV12{}.
+				TLS(false).
+				UseTokenAuth(true).
+				UseBinaryProtocol(false).
+				HTTPClient(newHTTPClientMock(server))
 
-			client, err := ably.NewRestClient(app.Options(options))
+			client, err := ably.NewREST(app.Options(options))
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -88,17 +85,13 @@ func TestRestClient(t *testing.T) {
 				w.WriteHeader(200)
 				w.Write(mockBody)
 			}))
-			options := &ably.ClientOptions{
-				NoTLS:            true,
-				NoBinaryProtocol: true,
-				HTTPClient:       newHTTPClientMock(server),
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
-			}
-			options = app.Options(options)
-			options.NoBinaryProtocol = false
-			client, err := ably.NewRestClient(options)
+			options := ably.ClientOptionsV12{}.
+				TLS(false).
+				UseTokenAuth(true).
+				UseBinaryProtocol(true).
+				HTTPClient(newHTTPClientMock(server))
+
+			client, err := ably.NewREST(app.Options(options))
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -126,7 +119,7 @@ func TestRestClient(t *testing.T) {
 	})
 
 	t.Run("Time", func(ts *testing.T) {
-		client, err := ably.NewRestClient(app.Options())
+		client, err := ably.NewREST(app.Options(nil))
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -146,7 +139,7 @@ func TestRestClient(t *testing.T) {
 	})
 
 	t.Run("Stats", func(ts *testing.T) {
-		client, err := ably.NewRestClient(app.Options())
+		client, err := ably.NewREST(app.Options(nil))
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -244,7 +237,7 @@ func TestRSC7(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	c, err := ably.NewRestClient(app.Options())
+	c, err := ably.NewREST(app.Options(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +269,7 @@ func TestRest_hostfallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	runTestServer := func(ts *testing.T, options *ably.ClientOptions) (int, []string) {
+	runTestServer := func(ts *testing.T, options ably.ClientOptionsV12) (int, []string) {
 		var retryCount int
 		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -285,8 +278,7 @@ func TestRest_hostfallback(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
-		options.HTTPClient = newHTTPClientMock(server)
-		client, err := ably.NewRestClient(app.Options(options))
+		client, err := ably.NewREST(app.Options(options.HTTPClient(newHTTPClientMock(server))))
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -297,13 +289,10 @@ func TestRest_hostfallback(t *testing.T) {
 		return retryCount, hosts
 	}
 	t.Run("RSC15d RSC15a must use alternative host", func(ts *testing.T) {
-		options := &ably.ClientOptions{
-			FallbackHostsUseDefault: true,
-			NoTLS:                   true,
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
-		}
+		options := ably.ClientOptionsV12{}.
+			FallbackHosts(ably.DefaultFallbackHosts()).
+			TLS(false).
+			UseTokenAuth(true)
 		retryCount, hosts := runTestServer(ts, options)
 		if retryCount != 4 {
 			ts.Fatalf("expected 4 http calls got %d", retryCount)
@@ -330,13 +319,10 @@ func TestRest_hostfallback(t *testing.T) {
 	t.Run("rsc15b", func(ts *testing.T) {
 		ts.Run("must not occur when default  rest.ably.io is overriden", func(ts *testing.T) {
 			customHost := "example.com"
-			options := &ably.ClientOptions{
-				NoTLS:    true,
-				RestHost: customHost,
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
-			}
+			options := ably.ClientOptionsV12{}.
+				TLS(false).
+				RESTHost(customHost).
+				UseTokenAuth(true)
 			retryCount, hosts := runTestServer(ts, options)
 			if retryCount != 1 {
 				ts.Fatalf("expected 1 http call got %d", retryCount)
@@ -348,14 +334,11 @@ func TestRest_hostfallback(t *testing.T) {
 		})
 		ts.Run("must occur when fallbackHostsUseDefault is true", func(ts *testing.T) {
 			customHost := "example.com"
-			options := &ably.ClientOptions{
-				NoTLS:                   true,
-				RestHost:                customHost,
-				FallbackHostsUseDefault: true,
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
-			}
+			options := ably.ClientOptionsV12{}.
+				TLS(false).
+				RESTHost(customHost).
+				FallbackHosts(ably.DefaultFallbackHosts()).
+				UseTokenAuth(true)
 			retryCount, hosts := runTestServer(ts, options)
 			if retryCount != 4 {
 				ts.Fatalf("expected 4 http call got %d", retryCount)
@@ -370,14 +353,11 @@ func TestRest_hostfallback(t *testing.T) {
 		ts.Run("must occur when fallbackHosts is set", func(ts *testing.T) {
 			customHost := "example.com"
 			fallback := "a.example.com"
-			options := &ably.ClientOptions{
-				NoTLS:         true,
-				RestHost:      customHost,
-				FallbackHosts: []string{fallback},
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
-			}
+			options := ably.ClientOptionsV12{}.
+				TLS(false).
+				RESTHost(customHost).
+				FallbackHosts([]string{fallback}).
+				UseTokenAuth(true)
 			retryCount, hosts := runTestServer(ts, options)
 			if retryCount != 2 {
 				ts.Fatalf("expected 2 http call got %d", retryCount)
@@ -389,33 +369,27 @@ func TestRest_hostfallback(t *testing.T) {
 		})
 	})
 	t.Run("RSC15e must start with default host", func(ts *testing.T) {
-		options := &ably.ClientOptions{
-			Environment: "production",
-			NoTLS:       true,
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
-		}
+		options := ably.ClientOptionsV12{}.
+			Environment("production").
+			TLS(false).
+			UseTokenAuth(true)
 		retryCount, hosts := runTestServer(ts, options)
 		if retryCount != 4 {
 			ts.Fatalf("expected 4 http calls got %d", retryCount)
 		}
 		firstHostCalled := hosts[0]
-		restURL, _ := url.Parse(options.RestURL())
+		restURL, _ := url.Parse(options.ApplyWithDefaults().RestURL())
 		if !strings.HasPrefix(firstHostCalled, restURL.Hostname()) {
 			ts.Errorf("expected primary host got %s", firstHostCalled)
 		}
 	})
 	t.Run("must not occur when FallbackHosts is an empty array", func(ts *testing.T) {
 		customHost := "example.com"
-		options := &ably.ClientOptions{
-			NoTLS:         true,
-			RestHost:      customHost,
-			FallbackHosts: []string{},
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
-		}
+		options := ably.ClientOptionsV12{}.
+			TLS(false).
+			RESTHost(customHost).
+			FallbackHosts([]string{}).
+			UseTokenAuth(true)
 		retryCount, _ := runTestServer(ts, options)
 		if retryCount != 1 {
 			ts.Fatalf("expected 1 http calls got %d", retryCount)
@@ -431,7 +405,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 	defer app.Close()
 
 	fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
-	var nopts *ably.ClientOptions
+	var nopts ably.ClientOptionsV12
 
 	t.Run("remember success host RSC15f", func(ts *testing.T) {
 		var retryCount int
@@ -441,19 +415,16 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		}))
 		defer server.Close()
 
-		nopts = &ably.ClientOptions{
-			Environment:   ablytest.Environment,
-			NoTLS:         true,
-			FallbackHosts: fallbackHosts,
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
-		}
+		nopts = ably.ClientOptionsV12{}.
+			Environment(ablytest.Environment).
+			TLS(false).
+			FallbackHosts(fallbackHosts).
+			UseTokenAuth(true)
 
 		// set up the proxy to forward all requests except a specific fallback to the server,
 		// whilst that fallback goes to the regular endpoint
 		serverURL, _ := url.Parse(server.URL)
-		defaultURL, _ := url.Parse(nopts.RestURL())
+		defaultURL, _ := url.Parse(nopts.ApplyWithDefaults().RestURL())
 
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if r.URL.Hostname() == "fallback2" {
@@ -464,14 +435,14 @@ func TestRest_rememberHostFallback(t *testing.T) {
 				return serverURL, nil
 			}
 		}
-
-		nopts.HTTPClient = &http.Client{
+		nopts = nopts.HTTPClient(&http.Client{
 			Transport: &http.Transport{
 				Proxy:        proxy,
 				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
 			},
-		}
-		client, err := ably.NewRestClient(app.Options(nopts))
+		})
+
+		client, err := ably.NewREST(app.Options(nopts))
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -499,26 +470,6 @@ func TestRest_rememberHostFallback(t *testing.T) {
 			ts.Errorf("expected 0 retries got %d retries", retryCount)
 		}
 	})
-
-	t.Run("configurable fallbackRetryTimeout", func(ts *testing.T) {
-		ts.Run("defaults to 10 minutes", func(ts *testing.T) {
-			opts := &ably.ClientOptions{}
-			expect := 10 * time.Minute
-			got := opts.GetFallbackRetryTimeout()
-			if got != expect {
-				ts.Errorf("expected %s got %s", expect, got)
-			}
-		})
-
-		ts.Run("uses FallbackRetryTimeout if set", func(ts *testing.T) {
-			expect := 10 * time.Second
-			opts := &ably.ClientOptions{FallbackRetryTimeout: expect}
-			got := opts.GetFallbackRetryTimeout()
-			if got != expect {
-				ts.Errorf("expected %s got %s", expect, got)
-			}
-		})
-	})
 }
 func TestRestChannels_RSN1(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
@@ -526,7 +477,7 @@ func TestRestChannels_RSN1(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	client, err := ably.NewRestClient(app.Options())
+	client, err := ably.NewREST(app.Options(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -583,10 +534,9 @@ func TestFixConnLeak_ISSUE89(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	opts := app.Options()
-	opts.HTTPClient = ablytest.NewHTTPClientNoKeepAlive()
-	opts.Trace = trace
-	client, err := ably.NewRestClient(opts)
+	opts := app.Options(ably.ClientOptionsV12{}.HTTPClient(ablytest.NewHTTPClientNoKeepAlive()))
+	opts = opts.Trace(trace)
+	client, err := ably.NewREST(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
