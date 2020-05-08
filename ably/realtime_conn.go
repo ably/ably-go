@@ -32,7 +32,7 @@ type Conn struct {
 	queue        *msgQueue
 	auth         *Auth
 	onChannelMsg func(*proto.ProtocolMessage)
-	// This callback is called when we get a response from reconnect request. We
+	// onReconnectMsg is called when we get a response from reconnect request. We
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels and we dont have it here so we let RealtimeClient do the
 	// work.
