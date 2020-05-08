@@ -85,6 +85,11 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 		}
 		if msg.Error != nil {
 			// (RTN15c3)
+			c.Connection.state.Lock()
+			c.Connection.setState(StateConnConnected, msg.Error)
+			c.Connection.msgSerial = 0
+			c.Connection.state.Unlock()
+
 			for _, ch := range c.Channels.All() {
 				ch.state.Lock()
 				current := ch.state.current
@@ -95,9 +100,6 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 					ch.attach(false)
 				}
 			}
-			c.Connection.state.Lock()
-			c.Connection.msgSerial = 0
-			c.Connection.state.Unlock()
 		}
 	default:
 		// (RTN15c5)
