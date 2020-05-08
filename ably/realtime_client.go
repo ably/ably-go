@@ -87,6 +87,7 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 			// (RTN15c3)
 			c.Connection.state.Lock()
 			c.Connection.setState(StateConnConnected, msg.Error)
+			//TODO (gernest): add Conn.ErrorReason
 			c.Connection.msgSerial = 0
 			c.Connection.state.Unlock()
 
