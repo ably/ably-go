@@ -405,7 +405,7 @@ func (c *Conn) eventloop() {
 			// We have already issued the reconnecting request. So we are in the
 			// (RTN15c)  territory now.
 			c.state.Lock()
-			c.reconnecting = true
+			c.reconnecting = false
 			c.state.Unlock()
 			if c.callbacks.onReconnectMsg != nil {
 				c.callbacks.onReconnectMsg(msg)
