@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -32,14 +31,14 @@ type Conn struct {
 	queue        *msgQueue
 	auth         *Auth
 	callbacks    connCallbacks
-	reconnecting atomic.Value
+	reconnecting bool
 }
 
 func (c *Conn) isReconnecting() bool {
-	if v := c.reconnecting.Load(); v != nil {
-		return v.(bool)
-	}
-	return false
+	c.state.Lock()
+	ok := c.reconnecting
+	c.state.Unlock()
+	return ok
 }
 
 type connCallbacks struct {
@@ -117,7 +116,9 @@ func (c *Conn) reconnect(result bool) (Result, error) {
 	// We have successfully dialed reconnection request. We need to set this so
 	// when the next message arrives it will be treated as the response to
 	// reconnection request.
-	c.reconnecting.Store(true)
+	c.state.Lock()
+	c.reconnecting = true
+	c.state.Unlock()
 	return r, nil
 }
 
@@ -403,7 +404,9 @@ func (c *Conn) eventloop() {
 		if c.isReconnecting() {
 			// We have already issued the reconnecting request. So we are in the
 			// (RTN15c)  territory now.
-			c.reconnecting.Store(false)
+			c.state.Lock()
+			c.reconnecting = true
+			c.state.Unlock()
 			if c.callbacks.onReconnectMsg != nil {
 				c.callbacks.onReconnectMsg(msg)
 			}
