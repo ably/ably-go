@@ -72,16 +72,15 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionConnected:
 		if c.Connection.id == msg.ConnectionID {
+			c.Connection.queue.Flush()
 			if msg.Error != nil {
 				// (RTN15c2)
 				c.Connection.state.Lock()
 				c.Connection.setState(StateConnConnected, msg.Error)
 				c.Connection.state.Unlock()
-				c.Connection.queue.Flush()
 				return
 			}
 			// (RTN15c1)
-			c.Connection.queue.Flush()
 			return
 		}
 		if msg.Error != nil {
