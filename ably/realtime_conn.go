@@ -31,16 +31,7 @@ type Conn struct {
 	pending      pendingEmitter
 	queue        *msgQueue
 	auth         *Auth
-	onChannelMsg func(*proto.ProtocolMessage)
-	// onReconnectMsg is called when we get a response from reconnect request. We
-	// move this up because some implementation details for (RTN15c) requires
-	// access to Channels and we dont have it here so we let RealtimeClient do the
-	// work.
-	onReconnectMsg func(*proto.ProtocolMessage)
-	onStateChange  func(State)
-	// reconnecting tracks if we have issued a reconnection request. If we receive any message
-	// with this set to true then its the first message/response after issuing the
-	// reconnection request.
+	callbacks    connCallbacks
 	reconnecting atomic.Value
 }
 
@@ -51,14 +42,26 @@ func (c *Conn) isReconnecting() bool {
 	return false
 }
 
-func newConn(opts *ClientOptions, auth *Auth, onChannelMsg, onReconnectMsg func(*proto.ProtocolMessage), onStateChange func(State)) (*Conn, error) {
+type connCallbacks struct {
+	onChannelMsg func(*proto.ProtocolMessage)
+	// onReconnectMsg is called when we get a response from reconnect request. We
+	// move this up because some implementation details for (RTN15c) requires
+	// access to Channels and we dont have it here so we let RealtimeClient do the
+	// work.
+	onReconnectMsg func(*proto.ProtocolMessage)
+	onStateChange  func(State)
+	// reconnecting tracks if we have issued a reconnection request. If we receive any message
+	// with this set to true then its the first message/response after issuing the
+	// reconnection request.
+}
+
+func newConn(opts *ClientOptions, auth *Auth, callbacks connCallbacks) (*Conn, error) {
 	c := &Conn{
-		opts:          opts,
-		state:         newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
-		pending:       newPendingEmitter(auth.logger()),
-		auth:          auth,
-		onChannelMsg:  onChannelMsg,
-		onStateChange: onStateChange,
+		opts:      opts,
+		state:     newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
+		pending:   newPendingEmitter(auth.logger()),
+		auth:      auth,
+		callbacks: callbacks,
 	}
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
@@ -401,8 +404,8 @@ func (c *Conn) eventloop() {
 			// We have already issued the reconnecting request. So we are in the
 			// (RTN15c)  territory now.
 			c.reconnecting.Store(false)
-			if c.onReconnectMsg != nil {
-				c.onReconnectMsg(msg)
+			if c.callbacks.onReconnectMsg != nil {
+				c.callbacks.onReconnectMsg(msg)
 			}
 			return
 		}
@@ -424,7 +427,7 @@ func (c *Conn) eventloop() {
 			c.state.Unlock()
 		case proto.ActionError:
 			if msg.Channel != "" {
-				c.onChannelMsg(msg)
+				c.callbacks.onChannelMsg(msg)
 				break
 			}
 			c.state.Lock()
@@ -459,7 +462,7 @@ func (c *Conn) eventloop() {
 			c.setState(StateConnClosed, nil)
 			c.state.Unlock()
 		default:
-			c.onChannelMsg(msg)
+			c.callbacks.onChannelMsg(msg)
 		}
 	}
 }
@@ -471,7 +474,7 @@ func (c *Conn) setState(state StateEnum, err error) error {
 	// EventEmitter at https://github.com/ably/ably-go/pull/144.
 	ch := make(chan State, 1)
 	c.state.once(ch)
-	go func() { c.onStateChange(<-ch) }()
+	go func() { c.callbacks.onStateChange(<-ch) }()
 
 	return c.state.set(state, err)
 }

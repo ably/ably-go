@@ -37,7 +37,9 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 	c.rest = rest
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
-	conn, err := newConn(c.opts(), rest.Auth, c.onChannelMsg, c.onReconnectMsg, c.onConnStateChange)
+	conn, err := newConn(c.opts(), rest.Auth, connCallbacks{
+		c.onChannelMsg, c.onReconnectMsg, c.onConnStateChange,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -72,10 +74,6 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 		if c.Connection.id == msg.ConnectionID {
 			if msg.Error != nil {
 				// (RTN15c2)
-
-				// I'm a bit confused here as the spec says to set CONNECTED event but
-				// there is no event mechanism only state changes and we are not supposed to
-				// change the state here.
 				c.Connection.state.Lock()
 				c.Connection.setState(StateConnConnected, msg.Error)
 				c.Connection.state.Unlock()
