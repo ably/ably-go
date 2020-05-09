@@ -452,6 +452,7 @@ func (c *Conn) eventloop() {
 					c.callbacks.onReconnectMsg(msg)
 				}
 			} else {
+				// preserve old bahavior.
 				c.setState(StateConnConnected, nil)
 			}
 			c.state.Unlock()
