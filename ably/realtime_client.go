@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"net/http"
 	"sync"
 	"time"
 
@@ -71,26 +72,8 @@ func (c *RealtimeClient) onChannelMsg(msg *proto.ProtocolMessage) {
 func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionConnected:
-		if c.Connection.id == msg.ConnectionID {
-			c.Connection.queue.Flush()
-			if msg.Error != nil {
-				// (RTN15c2)
-				c.Connection.state.Lock()
-				c.Connection.setState(StateConnConnected, msg.Error)
-				c.Connection.state.Unlock()
-				return
-			}
-			// (RTN15c1)
-			return
-		}
 		if msg.Error != nil {
 			// (RTN15c3)
-			c.Connection.state.Lock()
-			c.Connection.setState(StateConnConnected, msg.Error)
-			//TODO (gernest): add Conn.ErrorReason
-			c.Connection.msgSerial = 0
-			c.Connection.state.Unlock()
-
 			for _, ch := range c.Channels.All() {
 				ch.state.Lock()
 				current := ch.state.current
@@ -102,13 +85,20 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 				}
 			}
 		}
-	default:
-		// (RTN15c5)
+	case proto.ActionError:
 		// (RTN15c4)
-		c.Connection.state.Lock()
-		c.Connection.setState(StateConnFailed, msg.Error)
-		c.Connection.state.Unlock()
+		for _, ch := range c.Channels.All() {
+			ch.state.Lock()
+			if ch.state.current == StateChanAttached {
+				ch.state.set(StateChanFailed, msg.Error)
+			}
+			ch.state.Unlock()
+		}
 	}
+}
+
+func tokenError(err *proto.ErrorInfo) bool {
+	return err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
 }
 
 func (c *RealtimeClient) onConnStateChange(state State) {

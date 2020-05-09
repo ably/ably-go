@@ -34,13 +34,6 @@ type Conn struct {
 	reconnecting bool
 }
 
-func (c *Conn) isReconnecting() bool {
-	c.state.Lock()
-	ok := c.reconnecting
-	c.state.Unlock()
-	return ok
-}
-
 type connCallbacks struct {
 	onChannelMsg func(*proto.ProtocolMessage)
 	// onReconnectMsg is called when we get a response from reconnect request. We
@@ -401,17 +394,6 @@ func (c *Conn) eventloop() {
 			c.reconnect(false)
 			return
 		}
-		if c.isReconnecting() {
-			// We have already issued the reconnecting request. So we are in the
-			// (RTN15c)  territory now.
-			c.state.Lock()
-			c.reconnecting = true
-			c.state.Unlock()
-			if c.callbacks.onReconnectMsg != nil {
-				c.callbacks.onReconnectMsg(msg)
-			}
-			return
-		}
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
 			c.serial = msg.ConnectionSerial
@@ -434,6 +416,16 @@ func (c *Conn) eventloop() {
 				break
 			}
 			c.state.Lock()
+			if c.reconnecting {
+				c.reconnecting = false
+				if tokenError(msg.Error) {
+					// (RTN15c5)
+					// TODO: (gernest) implement (RTN15h) This can be done as a separate task?
+				} else {
+					// (RTN15c4)
+					c.callbacks.onReconnectMsg(msg)
+				}
+			}
 			c.setState(StateConnFailed, newErrorProto(msg.Error))
 			c.state.Unlock()
 			c.queue.Fail(newErrorProto(msg.Error))
@@ -451,7 +443,17 @@ func (c *Conn) eventloop() {
 			}
 			c.serial = -1
 			c.msgSerial = 0
-			c.setState(StateConnConnected, nil)
+			if c.reconnecting {
+				c.reconnecting = false
+				// (RTN15c1) (RTN15c2)
+				c.setState(StateConnConnected, msg.Error)
+				if c.id != msg.ConnectionID {
+					// (RTN15c3)
+					c.callbacks.onReconnectMsg(msg)
+				}
+			} else {
+				c.setState(StateConnConnected, nil)
+			}
 			c.state.Unlock()
 			c.queue.Flush()
 		case proto.ActionDisconnected:
