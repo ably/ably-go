@@ -267,3 +267,80 @@ func recent(msgs []*proto.ProtocolMessage, action proto.Action) *proto.ProtocolM
 	}
 	return nil
 }
+
+func TestRealtimeConn_RTN15c1(t *testing.T) {
+	t.Parallel()
+
+	doEOF := make(chan struct{}, 1)
+
+	type meta struct {
+		dial     *url.URL
+		messages []*proto.ProtocolMessage
+	}
+
+	var metaList []*meta
+
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
+		NoConnect: true,
+		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
+			m := &meta{dial: u}
+			metaList = append(metaList, m)
+			c, err := ablyutil.DialWebsocket(protocol, u)
+			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
+				m.messages = append(m.messages, msg)
+			}}, err
+		},
+	})
+	defer safeclose(t, client, app)
+
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+		t.Fatalf("Connect=%s", err)
+	}
+
+	channel := client.Channels.Get("channel")
+
+	if err := ablytest.Wait(channel.Attach()); err != nil {
+		t.Fatal(err)
+	}
+	chanStateChanges := make(chan ably.State)
+	channel.On(chanStateChanges)
+
+	stateChanges := make(chan ably.State, 16)
+	client.Connection.On(stateChanges)
+
+	doEOF <- struct{}{}
+
+	var state ably.State
+
+	select {
+	case state = <-stateChanges:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("didn't transition on EOF")
+	}
+	if expected, got := ably.StateConnDisconnected, state; expected != got.State {
+		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+	rest, err := ably.NewRestClient(app.Options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case state = <-stateChanges:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("didn't reconnect")
+	}
+	if expected, got := ably.StateConnConnecting, state; expected != got.State {
+		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+	select {
+	case state = <-chanStateChanges:
+		t.Fatal("expected no channel state changes")
+	case <-time.After(50 * time.Millisecond):
+		// (RTN15c1) no channel state changes happened.
+	}
+}
