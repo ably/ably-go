@@ -326,6 +326,17 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	case state = <-chanStateChanges:
 		t.Fatal("expected no channel state changes")
 	case <-time.After(50 * time.Millisecond):
-		// (RTN15c1) no channel state changes happened.
+		// (RTN15c1)
+		//
+		// - current connectionId == resume message connectionId
+		// - resume message has no error
+		// - no channel state changes happened.
+		if client.Connection.ID() != metaList[1].messages[0].ConnectionID {
+			t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].messages[0].ConnectionID)
+		}
+		if metaList[1].messages[0].Error != nil {
+			t.Error("expected resume error to be nil")
+		}
 	}
+
 }
