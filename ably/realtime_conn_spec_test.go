@@ -283,10 +283,15 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	}
 
 	channel := client.Channels.Get("channel")
-
 	if err := ablytest.Wait(channel.Attach()); err != nil {
 		t.Fatal(err)
 	}
+
+	sub, err := channel.Subscribe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	chanStateChanges := make(chan ably.State)
 	channel.On(chanStateChanges)
 
@@ -322,6 +327,15 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	if expected, got := ably.StateConnConnecting, state; expected != got.State {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
+	select {
+	case msg := <-sub.MessageChannel():
+		if expected, got := "data", msg.Data; expected != got {
+			t.Fatalf("expected message with data %v, got %v", expected, got)
+		}
+	case <-time.After(ablytest.Timeout):
+		t.Fatal("expected message after connection recovery; got none")
+	}
+
 	select {
 	case state = <-chanStateChanges:
 		t.Fatal("expected no channel state changes")
@@ -375,12 +389,16 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	}
 
 	channel := client.Channels.Get("channel")
-
 	if err := ablytest.Wait(channel.Attach()); err != nil {
 		t.Fatal(err)
 	}
 	chanStateChanges := make(chan ably.State)
 	channel.On(chanStateChanges)
+
+	sub, err := channel.Subscribe()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	stateChanges := make(chan ably.State, 16)
 	client.Connection.On(stateChanges)
@@ -414,6 +432,16 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	if expected, got := ably.StateConnConnecting, state; expected != got.State {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
+
+	select {
+	case msg := <-sub.MessageChannel():
+		if expected, got := "data", msg.Data; expected != got {
+			t.Fatalf("expected message with data %v, got %v", expected, got)
+		}
+	case <-time.After(ablytest.Timeout):
+		t.Fatal("expected message after connection recovery; got none")
+	}
+
 	select {
 	case state = <-chanStateChanges:
 		t.Fatal("expected no channel state changes")
