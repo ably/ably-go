@@ -340,3 +340,103 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	}
 
 }
+func TestRealtimeConn_RTN15c2(t *testing.T) {
+	t.Parallel()
+
+	doEOF := make(chan struct{}, 1)
+
+	type meta struct {
+		dial     *url.URL
+		messages []*proto.ProtocolMessage
+	}
+
+	var metaList []*meta
+	errInfo := &proto.ErrorInfo{
+		StatusCode: 401,
+	}
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
+		NoConnect: true,
+		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
+			m := &meta{dial: u}
+			metaList = append(metaList, m)
+			c, err := ablyutil.DialWebsocket(protocol, u)
+			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
+				if len(metaList) == 2 && len(m.messages) == 0 {
+					msg.Error = errInfo
+				}
+				m.messages = append(m.messages, msg)
+			}}, err
+		},
+	})
+	defer safeclose(t, client, app)
+
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+		t.Fatalf("Connect=%s", err)
+	}
+
+	channel := client.Channels.Get("channel")
+
+	if err := ablytest.Wait(channel.Attach()); err != nil {
+		t.Fatal(err)
+	}
+	chanStateChanges := make(chan ably.State)
+	channel.On(chanStateChanges)
+
+	stateChanges := make(chan ably.State, 16)
+	client.Connection.On(stateChanges)
+
+	doEOF <- struct{}{}
+
+	var state ably.State
+
+	select {
+	case state = <-stateChanges:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("didn't transition on EOF")
+	}
+	if expected, got := ably.StateConnDisconnected, state; expected != got.State {
+		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+	rest, err := ably.NewRestClient(app.Options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case state = <-stateChanges:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("didn't reconnect")
+	}
+	if expected, got := ably.StateConnConnecting, state; expected != got.State {
+		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+	select {
+	case state = <-chanStateChanges:
+		t.Fatal("expected no channel state changes")
+	case <-time.After(50 * time.Millisecond):
+		// (RTN15c1)
+		//
+		// - current connectionId == resume message connectionId
+		// - resume message has an error
+		// - Conn.Reqson == message resume error
+		// - no channel state changes happened.
+		if client.Connection.ID() != metaList[1].messages[0].ConnectionID {
+			t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].messages[0].ConnectionID)
+		}
+		if metaList[1].messages[0].Error == nil {
+			t.Error("expected resume error")
+		}
+		err = client.Connection.Reason()
+		if err == nil {
+			t.Fatal("expected reason to be set")
+		}
+		reason := err.(*proto.ErrorInfo)
+		if reason.StatusCode != errInfo.StatusCode {
+			t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
+		}
+	}
+}
