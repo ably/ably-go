@@ -167,11 +167,6 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sub, err := channel.Subscribe()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	stateChanges := make(chan ably.State, 16)
 	client.Connection.On(stateChanges)
 
@@ -220,16 +215,6 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	if expected, got := ably.StateConnConnected, state; expected != got.State {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
-
-	select {
-	case msg := <-sub.MessageChannel():
-		if expected, got := "data", msg.Data; expected != got {
-			t.Fatalf("expected message with data %v, got %v", expected, got)
-		}
-	case <-time.After(ablytest.Timeout):
-		t.Fatal("expected message after connection recovery; got none")
-	}
-
 	if len(metaList) != 2 {
 		t.Fatalf("expected 2 connection dialing got %d", len(metaList))
 	}
