@@ -79,12 +79,12 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 
 	case proto.ActionError:
 		// (RTN15c4)
+
 		for _, ch := range c.Channels.All() {
-			ch.state.Lock()
-			if ch.state.current == StateChanAttached {
-				ch.state.set(StateChanFailed, msg.Error)
+			if ch.State() == StateChanAttached {
+				ch.state.syncSet(StateChanFailed, msg.Error)
 			}
-			ch.state.Unlock()
+
 		}
 	}
 }
