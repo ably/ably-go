@@ -17,6 +17,23 @@ func nonil(err ...error) error {
 	return nil
 }
 
+type closeClient struct {
+	io.Closer
+	skip []int
+}
+
+func (c *closeClient) Close() error {
+	e := c.Closer.Close()
+	if a, ok := e.(*ably.Error); ok {
+		for _, v := range c.skip {
+			if a.StatusCode == v {
+				return nil
+			}
+		}
+	}
+	return e
+}
+
 func safeclose(t *testing.T, closers ...io.Closer) {
 	type failed struct {
 		i   int

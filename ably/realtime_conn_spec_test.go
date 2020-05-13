@@ -593,7 +593,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 			}}, err
 		},
 	})
-	defer safeclose(t, client, app)
+	defer safeclose(t, &closeClient{Closer: client, skip: []int{http.StatusBadRequest}}, app)
 
 	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
 		t.Fatalf("Connect=%s", err)
@@ -603,7 +603,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	if err := ablytest.Wait(channel.Attach()); err != nil {
 		t.Fatal(err)
 	}
-	chanStateChanges := make(chan ably.State, 18)
+	chanStateChanges := make(chan ably.State, 1)
 	channel.On(chanStateChanges, ably.StateChanFailed)
 
 	stateChanges := make(chan ably.State, 16)
