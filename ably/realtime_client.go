@@ -68,16 +68,15 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 		if msg.Error != nil {
 			// (RTN15c3)
 			for _, ch := range c.Channels.All() {
-				ch.state.Lock()
-				current := ch.state.current
-				ch.state.Unlock()
-				switch current {
-				case StateConnSuspended, StateChanAttaching, StateChanAttached:
-					// The spec doesn't say we should wait for response.
+				switch ch.State() {
+				case StateConnSuspended:
 					ch.attach(false)
+				case StateChanAttaching, StateChanAttached:
+					ch.mayAttach(false, false)
 				}
 			}
 		}
+
 	case proto.ActionError:
 		// (RTN15c4)
 		for _, ch := range c.Channels.All() {

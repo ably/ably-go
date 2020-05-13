@@ -431,30 +431,46 @@ func (c *Conn) eventloop() {
 			c.queue.Fail(newErrorProto(msg.Error))
 		case proto.ActionConnected:
 			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
-			c.state.Lock()
-			c.id = msg.ConnectionID
 			if msg.ConnectionDetails != nil {
+				c.state.Lock()
 				c.details = *msg.ConnectionDetails
+				c.state.Unlock()
+
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(c.details.ClientID)
 
 				maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
 				receiveTimeout = c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
 			}
-			c.serial = -1
-			c.msgSerial = 0
-			if c.reconnecting {
+			c.state.Lock()
+			reconnecting := c.reconnecting
+			if reconnecting {
 				c.reconnecting = false
+			}
+			c.state.Unlock()
+			if reconnecting {
 				// (RTN15c1) (RTN15c2)
+				c.state.Lock()
 				c.setState(StateConnConnected, msg.Error)
-				if c.id != msg.ConnectionID {
+				id := c.id
+				c.state.Unlock()
+				if id != msg.ConnectionID {
 					// (RTN15c3)
+					// we are calling this outside of locks to avoid deadlock because in the
+					// RealtimeClient client where this callback is implemented we do some ops
+					// with this Conn where we re acquire Conn.state.Lock again.
 					c.callbacks.onReconnectMsg(msg)
 				}
 			} else {
 				// preserve old bahavior.
+				c.state.Lock()
 				c.setState(StateConnConnected, nil)
+				c.state.Unlock()
 			}
+			c.state.Lock()
+			c.id = msg.ConnectionID
+			c.serial = -1
+			c.msgSerial = 0
 			c.state.Unlock()
 			c.queue.Flush()
 		case proto.ActionDisconnected:
