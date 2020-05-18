@@ -144,12 +144,17 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	}
 
 	var metaList []*meta
-
+	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
 		NoConnect: true,
 		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
+			if len(metaList) > 1 {
+				goOn := make(chan struct{})
+				gotDial <- goOn
+				<-goOn
+			}
 			c, err := ablyutil.DialWebsocket(protocol, u)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				m.messages = append(m.messages, msg)
@@ -192,10 +197,12 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	goOn := <-gotDial
 	err = rest.Channels.Get("channel", nil).Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
+	close(goOn)
 
 	select {
 	case state = <-stateChanges:
@@ -265,12 +272,18 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	}
 
 	var metaList []*meta
+	gotDial := make(chan chan struct{})
 
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
 		NoConnect: true,
 		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
+			if len(metaList) > 1 {
+				goOn := make(chan struct{})
+				gotDial <- goOn
+				<-goOn
+			}
 			c, err := ablyutil.DialWebsocket(protocol, u)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				m.messages = append(m.messages, msg)
@@ -315,10 +328,12 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	goOn := <-gotDial
 	err = rest.Channels.Get("channel", nil).Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
+	close(goOn)
 
 	select {
 	case state = <-stateChanges:
@@ -369,11 +384,18 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	errInfo := &proto.ErrorInfo{
 		StatusCode: 401,
 	}
+
+	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
 		NoConnect: true,
 		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
+			if len(metaList) > 1 {
+				goOn := make(chan struct{})
+				gotDial <- goOn
+				<-goOn
+			}
 			c, err := ablyutil.DialWebsocket(protocol, u)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				if len(metaList) == 2 && len(m.messages) == 0 {
@@ -420,10 +442,12 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	goOn := <-gotDial
 	err = rest.Channels.Get("channel", nil).Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
+	close(goOn)
 
 	select {
 	case state = <-stateChanges:
@@ -484,11 +508,17 @@ func TestRealtimeConn_RTN15c3(t *testing.T) {
 		StatusCode: 401,
 	}
 	connID := "new-conn-id"
+	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
 		NoConnect: true,
 		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
+			if len(metaList) > 1 {
+				goOn := make(chan struct{})
+				gotDial <- goOn
+				<-goOn
+			}
 			c, err := ablyutil.DialWebsocket(protocol, u)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				if len(metaList) == 2 && len(m.messages) == 0 {
@@ -531,10 +561,12 @@ func TestRealtimeConn_RTN15c3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	goOn := <-gotDial
 	err = rest.Channels.Get("channel", nil).Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
+	close(goOn)
 
 	select {
 	case state = <-stateChanges:
@@ -578,11 +610,17 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	errInfo := &proto.ErrorInfo{
 		StatusCode: http.StatusBadRequest,
 	}
+	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
 		NoConnect: true,
 		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
+			if len(metaList) > 1 {
+				goOn := make(chan struct{})
+				gotDial <- goOn
+				<-goOn
+			}
 			c, err := ablyutil.DialWebsocket(protocol, u)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				if len(metaList) == 2 && len(m.messages) == 0 {
@@ -625,10 +663,12 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	goOn := <-gotDial
 	err = rest.Channels.Get("channel", nil).Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
+	close(goOn)
 
 	select {
 	case state = <-stateChanges:
