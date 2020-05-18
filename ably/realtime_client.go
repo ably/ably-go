@@ -81,10 +81,7 @@ func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
 		// (RTN15c4)
 
 		for _, ch := range c.Channels.All() {
-			if ch.State() == StateChanAttached {
-				ch.state.syncSet(StateChanFailed, msg.Error)
-			}
-
+			ch.state.syncSet(StateChanFailed, msg.Error)
 		}
 	}
 }
