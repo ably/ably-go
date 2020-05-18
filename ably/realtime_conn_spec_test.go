@@ -467,6 +467,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 		t.Fatal("expected message after connection recovery; got none")
 	}
 
+	<-stateChanges
 	select {
 	case state = <-chanStateChanges:
 		t.Fatal("expected no channel state changes")
@@ -576,9 +577,11 @@ func TestRealtimeConn_RTN15c3(t *testing.T) {
 	if expected, got := ably.StateConnConnecting, state; expected != got.State {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
+
+	<-stateChanges
 	select {
 	case state = <-chanStateChanges:
-	case <-time.After(80 * time.Millisecond):
+	case <-time.After(50 * time.Millisecond):
 		t.Fatal("didn't change state")
 	}
 	// we are testing to make sure we have initiated a new attach for channels
@@ -678,9 +681,10 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	if expected, got := ably.StateConnConnecting, state; expected != got.State {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
+	<-stateChanges
 	select {
 	case state = <-chanStateChanges:
-	case <-time.After(80 * time.Millisecond):
+	case <-time.After(50 * time.Millisecond):
 		t.Fatal("didn't change state")
 	}
 	if expected, got := ably.StateChanFailed, state; expected != got.State {
