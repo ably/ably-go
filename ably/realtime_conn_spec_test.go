@@ -494,7 +494,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 		}
 	}
 }
-func TestRealtimeConn_RTN15c3(t *testing.T) {
+func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
@@ -585,8 +585,110 @@ func TestRealtimeConn_RTN15c3(t *testing.T) {
 		t.Fatal("didn't change state")
 	}
 	// we are testing to make sure we have initiated a new attach for channels
-	// ATTACHING or ATTACHED state.
+	// in ATTACHED state.
 	if expected, got := ably.StateChanAttaching, state; expected != got.State {
+		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+	err = client.Connection.Reason()
+	if err == nil {
+		t.Fatal("expected reason to be set")
+	}
+	reason := err.(*proto.ErrorInfo)
+	if reason.StatusCode != errInfo.StatusCode {
+		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
+	}
+}
+
+func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
+	t.Parallel()
+
+	doEOF := make(chan struct{}, 1)
+
+	type meta struct {
+		dial     *url.URL
+		messages []*proto.ProtocolMessage
+	}
+
+	var metaList []*meta
+	errInfo := &proto.ErrorInfo{
+		StatusCode: 401,
+	}
+	connID := "new-conn-id"
+	gotDial := make(chan chan struct{})
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
+		NoConnect: true,
+		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
+			m := &meta{dial: u}
+			metaList = append(metaList, m)
+			if len(metaList) > 1 {
+				goOn := make(chan struct{})
+				gotDial <- goOn
+				<-goOn
+			}
+			c, err := ablyutil.DialWebsocket(protocol, u)
+			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
+				if len(metaList) == 2 && len(m.messages) == 0 {
+					msg.Error = errInfo
+					msg.ConnectionID = connID
+				}
+				if len(metaList) == 1 && msg.Action == proto.ActionAttached {
+					msg.Action = proto.ActionHeartbeat
+				}
+				m.messages = append(m.messages, msg)
+			}}, err
+		},
+	})
+	defer safeclose(t, client, app)
+
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+		t.Fatalf("Connect=%s", err)
+	}
+
+	channel := client.Channels.Get("channel")
+	if _, err := channel.Attach(); err != nil {
+		t.Fatal(err)
+	}
+
+	stateChanges := make(chan ably.State, 16)
+	client.Connection.On(stateChanges)
+
+	doEOF <- struct{}{}
+
+	var state ably.State
+
+	select {
+	case state = <-stateChanges:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("didn't transition on EOF")
+	}
+	if expected, got := ably.StateConnDisconnected, state; expected != got.State {
+		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+	rest, err := ably.NewRestClient(app.Options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	goOn := <-gotDial
+	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	close(goOn)
+
+	select {
+	case state = <-stateChanges:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("didn't reconnect")
+	}
+	if expected, got := ably.StateConnConnecting, state; expected != got.State {
+		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+
+	<-stateChanges
+
+	// we are testing to make sure we have initiated a new attach for channels
+	// in ATTACHING  state.
+	if expected, got := ably.StateChanAttaching, channel.State(); expected != got {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
 	err = client.Connection.Reason()
