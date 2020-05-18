@@ -698,4 +698,8 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	if reason.StatusCode != errInfo.StatusCode {
 		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
 	}
+	// The client should transition to the FAILED state
+	if expected, got := ably.StateConnFailed, client.Connection.State(); expected != got {
+		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
 }
