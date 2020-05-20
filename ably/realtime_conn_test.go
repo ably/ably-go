@@ -7,6 +7,7 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/proto"
 )
 
 func await(fn func() ably.StateEnum, state ably.StateEnum) error {
@@ -140,7 +141,104 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 	if state := client.Connection.State(); state != ably.StateConnFailed {
 		t.Fatalf("want state=%s; got %s", ably.StateConnFailed, state)
 	}
-	if err = ablytest.FullRealtimeCloser(client).Close(); err == nil {
-		t.Fatal("Close(): want err != nil")
+}
+
+func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
+	t.Parallel()
+
+	const maxIdleInterval = 20
+	const realtimeRequestTimeout = 10 * time.Millisecond
+
+	in := make(chan *proto.ProtocolMessage, 16)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	connected := &proto.ProtocolMessage{
+		Action:       proto.ActionConnected,
+		ConnectionID: "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{
+			MaxIdleInterval: maxIdleInterval,
+		},
+	}
+	in <- connected
+
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{
+		Dial:                   ablytest.MessagePipe(in, out),
+		RealtimeRequestTimeout: 10 * time.Millisecond,
+		NoConnect:              true,
+	})
+	defer safeclose(t, app)
+
+	states := make(chan ably.State, 10)
+	client.Connection.OnState(states, ably.StateConnConnected, ably.StateConnDisconnected)
+
+	client.Connection.Connect()
+
+	var state ably.State
+
+	select {
+	case state = <-states:
+	case <-time.After(10 * time.Millisecond):
+		t.Fatal("didn't receive state change event")
+	}
+
+	if expected, got := ably.StateConnConnected, state.State; expected != got {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+
+	leeway := 10 * time.Millisecond
+	select {
+	case state = <-states:
+	case <-time.After(realtimeRequestTimeout + time.Duration(maxIdleInterval)*time.Millisecond + leeway):
+		t.Fatal("didn't receive state change event")
+	}
+
+	if expected, got := ably.StateConnDisconnected, state.State; expected != got {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+}
+
+func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
+	t.Parallel()
+
+	for _, action := range []proto.Action{
+		proto.ActionDisconnect,
+		proto.ActionError,
+		proto.ActionClosed,
+	} {
+		t.Run(action.String(), func(t *testing.T) {
+			t.Parallel()
+			in := make(chan *proto.ProtocolMessage)
+			out := make(chan *proto.ProtocolMessage, 16)
+
+			app, client := ablytest.NewRealtime(&ably.ClientOptions{
+				Dial: ablytest.MessagePipe(in, out),
+			})
+			defer safeclose(t, app, ablytest.FullRealtimeCloser(client))
+
+			connected := &proto.ProtocolMessage{
+				Action:            proto.ActionConnected,
+				ConnectionID:      "connection-id",
+				ConnectionDetails: &proto.ConnectionDetails{},
+			}
+			select {
+			case in <- connected:
+			case <-time.After(10 * time.Millisecond):
+				t.Fatal("didn't receive incoming protocol message")
+			}
+
+			select {
+			case in <- &proto.ProtocolMessage{
+				Action: action,
+			}:
+			case <-time.After(10 * time.Millisecond):
+				t.Fatal("didn't receive incoming protocol message")
+			}
+
+			select {
+			case in <- &proto.ProtocolMessage{}:
+				t.Fatal("called Receive again; expected end of connection loop")
+			case <-time.After(10 * time.Millisecond):
+			}
+		})
 	}
 }

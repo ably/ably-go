@@ -27,8 +27,9 @@ var defaultOptions = &ClientOptions{
 	FallbackHosts:            DefaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
 	RealtimeHost:             "realtime.ably.io",
-	TimeoutConnect:           15 * time.Second,
 	TimeoutDisconnect:        30 * time.Second,
+	RealtimeRequestTimeout:   10 * time.Second, // DF1b
+	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
 	TimeoutSuspended:         2 * time.Minute,
 	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
@@ -200,9 +201,21 @@ type ClientOptions struct {
 	// When true idempotent rest publishing will be enabled.
 	// Spec TO3n
 	IdempotentRestPublishing bool
-	TimeoutConnect           time.Duration // time period after which connect request is failed
-	TimeoutDisconnect        time.Duration // time period after which disconnect request is failed
-	TimeoutSuspended         time.Duration // time period after which no more reconnection attempts are performed
+
+	// TimeoutConnect is the time period after which connect request is failed.
+	//
+	// Deprecated: use RealtimeRequestTimeout instead.
+	TimeoutConnect    time.Duration
+	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
+	TimeoutSuspended  time.Duration // time period after which no more reconnection attempts are performed
+
+	// RealtimeRequestTimeout is the timeout for realtime connection establishment
+	// and each subsequent operation.
+	RealtimeRequestTimeout time.Duration
+
+	// DisconnectedRetryTimeout is the time to wait after a disconnection before
+	// attempting an automatic reconnection, if still disconnected.
+	DisconnectedRetryTimeout time.Duration
 
 	// Dial specifies the dial function for creating message connections used
 	// by Realtime.
@@ -236,7 +249,7 @@ func (opts *ClientOptions) timeoutConnect() time.Duration {
 	if opts.TimeoutConnect != 0 {
 		return opts.TimeoutConnect
 	}
-	return defaultOptions.TimeoutConnect
+	return defaultOptions.RealtimeRequestTimeout
 }
 
 func (opts *ClientOptions) timeoutDisconnect() time.Duration {
@@ -260,6 +273,20 @@ func (opts *ClientOptions) fallbackRetryTimeout() time.Duration {
 	return defaultOptions.FallbackRetryTimeout
 }
 
+func (opts *ClientOptions) realtimeRequestTimeout() time.Duration {
+	if opts.RealtimeRequestTimeout != 0 {
+		return opts.RealtimeRequestTimeout
+	}
+	return defaultOptions.RealtimeRequestTimeout
+}
+
+func (opts *ClientOptions) disconnectedRetryTimeout() time.Duration {
+	if opts.DisconnectedRetryTimeout != 0 {
+		return opts.DisconnectedRetryTimeout
+	}
+	return defaultOptions.DisconnectedRetryTimeout
+}
+
 func (opts *ClientOptions) restURL() string {
 	host := opts.RestHost
 	if host == "" {
@@ -278,7 +305,7 @@ func (opts *ClientOptions) restURL() string {
 		}
 		return "http://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	} else {
-		port := opts.Port
+		port := opts.TLSPort
 		if port == 0 {
 			port = 443
 		}
@@ -304,7 +331,7 @@ func (opts *ClientOptions) realtimeURL() string {
 		}
 		return "ws://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	} else {
-		port := opts.Port
+		port := opts.TLSPort
 		if port == 0 {
 			port = 443
 		}

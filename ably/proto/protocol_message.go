@@ -3,6 +3,7 @@ package proto
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 const (
@@ -23,6 +24,7 @@ type ConnectionDetails struct {
 	MaxFrameSize       int64  `json:"maxFrameSize,omitempty" codec:"maxFrameSize,omitempty"`
 	MaxInboundRate     int64  `json:"maxInboundRate,omitempty" codec:"maxInboundRate,omitempty"`
 	ConnectionStateTTL int64  `json:"connectionStateTtl,omitempty" codec:"connectionStateTtl,omitempty"`
+	MaxIdleInterval    int64  `json:"maxIdleInterval,omitempty" codec:"maxIdleInterval,omitempty"`
 }
 
 func (c *ConnectionDetails) FromMap(ctx map[string]interface{}) {
@@ -213,7 +215,10 @@ type Conn interface {
 
 	// Receive reads ProtocolMessage from the connection.
 	// It is expected to block until whole message is read.
-	Receive() (*ProtocolMessage, error)
+	//
+	// If the deadline is greater than zero and no message is received before
+	// then, a net.Error with Timeout() == true is returned.
+	Receive(deadline time.Time) (*ProtocolMessage, error)
 
 	// Close closes the connection.
 	Close() error

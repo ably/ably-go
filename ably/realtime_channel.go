@@ -85,6 +85,14 @@ func (ch *Channels) Release(name string) error {
 	return nil
 }
 
+func (ch *Channels) broadcastConnStateChange(state State) {
+	ch.mtx.Lock()
+	defer ch.mtx.Unlock()
+	for _, c := range ch.chans {
+		c.onConnState(state)
+	}
+}
+
 // RealtimeChannel represents a single named message channel.
 type RealtimeChannel struct {
 	Name     string            // name used to create the channel
@@ -110,25 +118,21 @@ func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 	if c.opts().Listener != nil {
 		c.On(c.opts().Listener)
 	}
-	c.client.Connection.onState(c.listen, StateConnFailed, StateConnClosed)
-	go c.listenLoop()
 	return c
 }
 
-func (c *RealtimeChannel) listenLoop() {
-	for state := range c.listen {
-		c.state.Lock()
-		active := c.isActive()
-		c.state.Unlock()
-		switch state.State {
-		case StateConnFailed:
-			if active {
-				c.state.syncSet(StateChanFailed, state.Err)
-			}
-		case StateConnClosed:
-			if active {
-				c.state.syncSet(StateChanClosed, state.Err)
-			}
+func (c *RealtimeChannel) onConnState(state State) {
+	c.state.Lock()
+	active := c.isActive()
+	c.state.Unlock()
+	switch state.State {
+	case StateConnFailed:
+		if active {
+			c.state.syncSet(StateChanFailed, state.Err)
+		}
+	case StateConnClosed:
+		if active {
+			c.state.syncSet(StateChanClosed, state.Err)
 		}
 	}
 }
@@ -152,10 +156,16 @@ var attachResultStates = []StateEnum{
 }
 
 func (c *RealtimeChannel) attach(result bool) (Result, error) {
+	return c.mayAttach(result, true)
+}
+
+func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
-	if c.isActive() {
-		return nopResult, nil
+	if checkActive {
+		if c.isActive() {
+			return nopResult, nil
+		}
 	}
 	if !c.client.Connection.lockIsActive() {
 		return nil, c.state.set(StateChanFailed, errAttach)

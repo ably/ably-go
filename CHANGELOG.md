@@ -1,5 +1,49 @@
 # Change Log
 
+## [v1.1.4](https://github.com/ably/ably-go/tree/v1.1.4) (2020-04-24)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.1.3...v1.1.4)
+
+**Fixed bugs:**
+
+- Lib failing to retrying on 5xx if it can't parse the body [\#154](https://github.com/ably/ably-go/issues/154)
+- Flaky TestAuth\_ClientID test [\#80](https://github.com/ably/ably-go/issues/80)
+- Likely leaking goroutines in multiple places [\#68](https://github.com/ably/ably-go/issues/68)
+
+**Closed issues:**
+
+- Implementing reauthentication before or after token expires [\#153](https://github.com/ably/ably-go/issues/153)
+
+**Merged pull requests:**
+
+- Properly set  Error.StatusCode [\#157](https://github.com/ably/ably-go/pull/157) ([gernest](https://github.com/gernest))
+- Use ClientOptions.TLSPort for tls connections [\#156](https://github.com/ably/ably-go/pull/156) ([gernest](https://github.com/gernest))
+- RTN15a: Reconnect after networking error. [\#152](https://github.com/ably/ably-go/pull/152) ([tcard](https://github.com/tcard))
+- Fix goroutine leaks [\#151](https://github.com/ably/ably-go/pull/151) ([tcard](https://github.com/tcard))
+- Remove fmt.Println leftovers. [\#150](https://github.com/ably/ably-go/pull/150) ([tcard](https://github.com/tcard))
+- Don't read from connection on inactive state. [\#149](https://github.com/ably/ably-go/pull/149) ([tcard](https://github.com/tcard))
+- RTN23a: Receive from WebSocket with a timeout. [\#148](https://github.com/ably/ably-go/pull/148) ([tcard](https://github.com/tcard))
+
+## [v1.1.3](https://github.com/ably/ably-go/tree/v1.1.3) (2020-04-01)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.1.2...v1.1.3)
+
+**Fixed bugs:**
+
+- Drop dependency on subpackage [\#134](https://github.com/ably/ably-go/issues/134)
+
+**Closed issues:**
+
+- Ambiguous import - found go-codec in multiple modules [\#135](https://github.com/ably/ably-go/issues/135)
+- Remove develop branch [\#128](https://github.com/ably/ably-go/issues/128)
+
+**Merged pull requests:**
+
+- Fix flaky tests [\#139](https://github.com/ably/ably-go/pull/139) ([tcard](https://github.com/tcard))
+- bug: TestRestClient Stats failure due to race cond with sandbox [\#138](https://github.com/ably/ably-go/pull/138) ([audiolion](https://github.com/audiolion))
+- bug: unpinned range scope variables in tests [\#137](https://github.com/ably/ably-go/pull/137) ([audiolion](https://github.com/audiolion))
+- Update github.com/ugorji/go/codec to v1.1.7 [\#136](https://github.com/ably/ably-go/pull/136) ([lmars](https://github.com/lmars))
+
 ## [v1.1.2](https://github.com/ably/ably-go/tree/v1.1.2)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.1.1...v1.1.2)

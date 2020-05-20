@@ -3,6 +3,7 @@ package ably_test
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -187,21 +188,51 @@ func TestRestClient(t *testing.T) {
 		}
 		res.Body.Close()
 
-		longAgo := lastInterval.Add(-120 * time.Minute)
-		page, err := client.Stats(&ably.PaginateParams{
-			Limit: 1,
-			ScopeParams: ably.ScopeParams{
-				Start: ably.Time(longAgo),
-				Unit:  proto.StatGranularityMinute,
-			},
-		})
-		if err != nil {
+		statsCh := make(chan []*proto.Stats, 1)
+		errCh := make(chan error, 1)
+
+		go func() {
+			longAgo := lastInterval.Add(-120 * time.Minute)
+
+			timeout := time.After(time.Second * 10)
+			tick := time.Tick(time.Millisecond * 500)
+
+			// keep trying until we get a pagination result, error, or timeout
+			for {
+				select {
+				case <-timeout:
+					errCh <- errors.New("timeout waiting for client.Stats to return nonempty value")
+					return
+				case <-tick:
+					page, err := client.Stats(&ably.PaginateParams{
+						Limit: 1,
+						ScopeParams: ably.ScopeParams{
+							Start: ably.Time(longAgo),
+							Unit:  proto.StatGranularityMinute,
+						},
+					})
+					if err != nil {
+						errCh <- err
+						return
+					}
+
+					if stats := page.Stats(); len(stats) != 0 {
+						statsCh <- stats
+						return
+					}
+				}
+			}
+		}()
+
+		select {
+		case pageStats := <-statsCh:
+			re := regexp.MustCompile("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+")
+			interval := pageStats[0].IntervalID
+			if !re.MatchString(interval) {
+				ts.Errorf("got %s which is wrong interval format", interval)
+			}
+		case err := <-errCh:
 			ts.Fatal(err)
-		}
-		re := regexp.MustCompile("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+")
-		interval := page.Stats()[0].IntervalID
-		if !re.MatchString(interval) {
-			ts.Errorf("got %s which is wrong interval format", interval)
 		}
 	})
 }
@@ -268,7 +299,7 @@ func TestRest_hostfallback(t *testing.T) {
 	t.Run("RSC15d RSC15a must use alternative host", func(ts *testing.T) {
 		options := &ably.ClientOptions{
 			FallbackHostsUseDefault: true,
-			NoTLS: true,
+			NoTLS:                   true,
 			AuthOptions: ably.AuthOptions{
 				UseTokenAuth: true,
 			},
@@ -360,7 +391,7 @@ func TestRest_hostfallback(t *testing.T) {
 	t.Run("RSC15e must start with default host", func(ts *testing.T) {
 		options := &ably.ClientOptions{
 			Environment: "production",
-			NoTLS: true,
+			NoTLS:       true,
 			AuthOptions: ably.AuthOptions{
 				UseTokenAuth: true,
 			},
@@ -371,7 +402,7 @@ func TestRest_hostfallback(t *testing.T) {
 		}
 		firstHostCalled := hosts[0]
 		restURL, _ := url.Parse(options.RestURL())
-		if  !strings.HasPrefix(firstHostCalled, restURL.Hostname()) {
+		if !strings.HasPrefix(firstHostCalled, restURL.Hostname()) {
 			ts.Errorf("expected primary host got %s", firstHostCalled)
 		}
 	})
@@ -436,7 +467,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 
 		nopts.HTTPClient = &http.Client{
 			Transport: &http.Transport{
-				Proxy: proxy,
+				Proxy:        proxy,
 				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
 			},
 		}
