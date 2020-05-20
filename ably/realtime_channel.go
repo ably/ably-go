@@ -156,10 +156,16 @@ var attachResultStates = []StateEnum{
 }
 
 func (c *RealtimeChannel) attach(result bool) (Result, error) {
+	return c.mayAttach(result, true)
+}
+
+func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
-	if c.isActive() {
-		return nopResult, nil
+	if checkActive {
+		if c.isActive() {
+			return nopResult, nil
+		}
 	}
 	if !c.client.Connection.lockIsActive() {
 		return nil, c.state.set(StateChanFailed, errAttach)

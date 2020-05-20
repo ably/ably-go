@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/ably/ably-go/ably/proto"
@@ -30,7 +31,9 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 	c.rest = rest
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
-	conn, err := newConn(c.opts(), rest.Auth, c.onChannelMsg, c.onConnStateChange)
+	conn, err := newConn(c.opts(), rest.Auth, connCallbacks{
+		c.onChannelMsg, c.onReconnectMsg, c.onConnStateChange,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +60,34 @@ func (c *RealtimeClient) Time() (time.Time, error) {
 
 func (c *RealtimeClient) onChannelMsg(msg *proto.ProtocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
+}
+
+func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
+	switch msg.Action {
+	case proto.ActionConnected:
+		if msg.Error != nil {
+			// (RTN15c3)
+			for _, ch := range c.Channels.All() {
+				switch ch.State() {
+				case StateConnSuspended:
+					ch.attach(false)
+				case StateChanAttaching, StateChanAttached:
+					ch.mayAttach(false, false)
+				}
+			}
+		}
+
+	case proto.ActionError:
+		// (RTN15c4)
+
+		for _, ch := range c.Channels.All() {
+			ch.state.syncSet(StateChanFailed, msg.Error)
+		}
+	}
+}
+
+func tokenError(err *proto.ErrorInfo) bool {
+	return err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
 }
 
 func (c *RealtimeClient) onConnStateChange(state State) {

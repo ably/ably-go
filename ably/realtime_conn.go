@@ -18,30 +18,42 @@ var (
 // Conn represents a single connection RealtimeClient instantiates for
 // communication with Ably servers.
 type Conn struct {
-	details       proto.ConnectionDetails
-	id            string
-	serial        int64
-	msgSerial     int64
-	err           error
-	conn          proto.Conn
-	opts          *ClientOptions
-	state         *stateEmitter
-	stateCh       chan State
-	pending       pendingEmitter
-	queue         *msgQueue
-	auth          *Auth
-	onChannelMsg  func(*proto.ProtocolMessage)
-	onStateChange func(State)
+	details      proto.ConnectionDetails
+	id           string
+	serial       int64
+	msgSerial    int64
+	err          error
+	conn         proto.Conn
+	opts         *ClientOptions
+	state        *stateEmitter
+	stateCh      chan State
+	pending      pendingEmitter
+	queue        *msgQueue
+	auth         *Auth
+	callbacks    connCallbacks
+	reconnecting bool
 }
 
-func newConn(opts *ClientOptions, auth *Auth, onChannelMsg func(*proto.ProtocolMessage), onStateChange func(State)) (*Conn, error) {
+type connCallbacks struct {
+	onChannelMsg func(*proto.ProtocolMessage)
+	// onReconnectMsg is called when we get a response from reconnect request. We
+	// move this up because some implementation details for (RTN15c) requires
+	// access to Channels and we dont have it here so we let RealtimeClient do the
+	// work.
+	onReconnectMsg func(*proto.ProtocolMessage)
+	onStateChange  func(State)
+	// reconnecting tracks if we have issued a reconnection request. If we receive any message
+	// with this set to true then its the first message/response after issuing the
+	// reconnection request.
+}
+
+func newConn(opts *ClientOptions, auth *Auth, callbacks connCallbacks) (*Conn, error) {
 	c := &Conn{
-		opts:          opts,
-		state:         newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
-		pending:       newPendingEmitter(auth.logger()),
-		auth:          auth,
-		onChannelMsg:  onChannelMsg,
-		onStateChange: onStateChange,
+		opts:      opts,
+		state:     newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
+		pending:   newPendingEmitter(auth.logger()),
+		auth:      auth,
+		callbacks: callbacks,
 	}
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
@@ -90,7 +102,17 @@ func (c *Conn) reconnect(result bool) (Result, error) {
 	connKey := c.details.ConnectionKey
 	connSerial := c.serial
 	c.state.Unlock()
-	return c.connectWithRecovery(result, connKey, connSerial)
+	r, err := c.connectWithRecovery(result, connKey, connSerial)
+	if err != nil {
+		return nil, err
+	}
+	// We have successfully dialed reconnection request. We need to set this so
+	// when the next message arrives it will be treated as the response to
+	// reconnection request.
+	c.state.Lock()
+	c.reconnecting = true
+	c.state.Unlock()
+	return r, nil
 }
 
 func (c *Conn) connectWithRecovery(result bool, connKey string, connSerial int64) (Result, error) {
@@ -390,28 +412,65 @@ func (c *Conn) eventloop() {
 			c.state.Unlock()
 		case proto.ActionError:
 			if msg.Channel != "" {
-				c.onChannelMsg(msg)
+				c.callbacks.onChannelMsg(msg)
 				break
 			}
 			c.state.Lock()
+			if c.reconnecting {
+				c.reconnecting = false
+				if tokenError(msg.Error) {
+					// (RTN15c5)
+					// TODO: (gernest) implement (RTN15h) This can be done as a separate task?
+				} else {
+					// (RTN15c4)
+					c.callbacks.onReconnectMsg(msg)
+				}
+			}
 			c.setState(StateConnFailed, newErrorProto(msg.Error))
 			c.state.Unlock()
 			c.queue.Fail(newErrorProto(msg.Error))
 		case proto.ActionConnected:
 			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
-			c.state.Lock()
-			c.id = msg.ConnectionID
 			if msg.ConnectionDetails != nil {
+				c.state.Lock()
 				c.details = *msg.ConnectionDetails
+				c.state.Unlock()
+
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(c.details.ClientID)
 
 				maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
 				receiveTimeout = c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
 			}
+			c.state.Lock()
+			reconnecting := c.reconnecting
+			if reconnecting {
+				c.reconnecting = false
+			}
+			c.state.Unlock()
+			if reconnecting {
+				// (RTN15c1) (RTN15c2)
+				c.state.Lock()
+				c.setState(StateConnConnected, msg.Error)
+				id := c.id
+				c.state.Unlock()
+				if id != msg.ConnectionID {
+					// (RTN15c3)
+					// we are calling this outside of locks to avoid deadlock because in the
+					// RealtimeClient client where this callback is implemented we do some ops
+					// with this Conn where we re acquire Conn.state.Lock again.
+					c.callbacks.onReconnectMsg(msg)
+				}
+			} else {
+				// preserve old behavior.
+				c.state.Lock()
+				c.setState(StateConnConnected, nil)
+				c.state.Unlock()
+			}
+			c.state.Lock()
+			c.id = msg.ConnectionID
 			c.serial = -1
 			c.msgSerial = 0
-			c.setState(StateConnConnected, nil)
 			c.state.Unlock()
 			c.queue.Flush()
 		case proto.ActionDisconnected:
@@ -425,7 +484,7 @@ func (c *Conn) eventloop() {
 			c.setState(StateConnClosed, nil)
 			c.state.Unlock()
 		default:
-			c.onChannelMsg(msg)
+			c.callbacks.onChannelMsg(msg)
 		}
 	}
 }
@@ -437,7 +496,7 @@ func (c *Conn) setState(state StateEnum, err error) error {
 	// EventEmitter at https://github.com/ably/ably-go/pull/144.
 	ch := make(chan State, 1)
 	c.state.once(ch)
-	go func() { c.onStateChange(<-ch) }()
+	go func() { c.callbacks.onStateChange(<-ch) }()
 
 	return c.state.set(state, err)
 }
