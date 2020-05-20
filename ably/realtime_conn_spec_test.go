@@ -631,7 +631,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 					msg.Error = errInfo
 					msg.ConnectionID = connID
 				}
-				if len(metaList) == 1 && msg.Action == proto.ActionAttached {
+				if msg.Action == proto.ActionAttached {
 					msg.Action = proto.ActionHeartbeat
 				}
 				m.messages = append(m.messages, msg)
