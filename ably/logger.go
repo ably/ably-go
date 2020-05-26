@@ -62,7 +62,7 @@ func (l LoggerOptions) GetLogger() Logger {
 }
 
 func (l LoggerOptions) Sugar() *SugaredLogger {
-	return &SugaredLogger{Logger: l.GetLogger()}
+	return &SugaredLogger{LoggerOptions: l}
 }
 
 // Logger is an interface for ably loggers.
@@ -88,7 +88,7 @@ func (s *StdLogger) Print(level LogLevel, v ...interface{}) {
 }
 
 type SugaredLogger struct {
-	Logger
+	LoggerOptions
 }
 
 func (s SugaredLogger) Error(v ...interface{}) {
@@ -119,7 +119,7 @@ func (s SugaredLogger) Verbose(v ...interface{}) {
 	s.Print(LogVerbose, v...)
 }
 
-func (s SugaredLogger) Verboseff(fmt string, v ...interface{}) {
+func (s SugaredLogger) Verbosef(fmt string, v ...interface{}) {
 	s.Printf(LogVerbose, fmt, v...)
 }
 
