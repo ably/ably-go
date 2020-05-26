@@ -13,6 +13,7 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptrace"
+	"net/http/httputil"
 	"reflect"
 	"strings"
 	"sync"
@@ -306,10 +307,12 @@ func (f *fallbackCache) put(host string) {
 }
 
 func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
+	log := c.opts.Logger.Sugar()
 	if c.successFallbackHost == nil {
 		c.successFallbackHost = &fallbackCache{
 			duration: c.opts.fallbackRetryTimeout(),
 		}
+		log.Verbosef("setup fallback duration to %v", c.successFallbackHost.duration)
 	}
 	req, err := c.NewHTTPRequest(r)
 	if err != nil {
@@ -317,16 +320,35 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 	}
 	if h := c.successFallbackHost.get(); h != "" {
 		req.URL.Host = h // RSC15f
+		log.Verbosef("setting URL.Host=%q", h)
 	}
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
+		log.Verbose("enabling httptrace")
+	}
+	if log.Is(LogVerbose) {
+		b, err := httputil.DumpRequest(req, false)
+		if err != nil {
+			log.Error("error trying to dump request: ", err)
+		} else {
+			log.Verbose("SENDING: ", string(b))
+		}
 	}
 	resp, err := c.opts.httpclient().Do(req)
 	if err != nil {
 		return nil, newError(ErrInternalError, err)
 	}
+	if log.Is(LogVerbose) {
+		b, err := httputil.DumpResponse(resp, false)
+		if err != nil {
+			log.Error("error trying to dump response: ", err)
+		} else {
+			log.Verbose("RECEIVED: ", string(b))
+		}
+	}
 	resp, err = handle(resp, r.Out)
 	if err != nil {
+		log.Error(err)
 		if e, ok := err.(*Error); ok {
 			if canFallBack(e.StatusCode) &&
 				(c.opts.FallbackHostsUseDefault ||
@@ -336,6 +358,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 				if c.opts.FallbackHosts != nil {
 					fallback = c.opts.FallbackHosts
 				}
+				log.Info("trying to fallback with hosts=%v", fallback)
 				if len(fallback) > 0 {
 					left := fallback
 					iteration := 0
@@ -367,12 +390,21 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 						req.URL.Host = h
 						req.Host = ""
 						req.Header.Set(HostHeader, h)
+						if log.Is(LogVerbose) {
+							b, err := httputil.DumpRequest(req, true)
+							if err != nil {
+								log.Error("error trying to dump request: ", err)
+							} else {
+								log.Verbose("SENDING TO FALLBACK HOST: ", string(b))
+							}
+						}
 						resp, err := c.opts.httpclient().Do(req)
 						if err != nil {
 							return nil, newError(ErrInternalError, err)
 						}
 						resp, err = handle(resp, r.Out)
 						if err != nil {
+							log.Error(err)
 							if iteration == maxLimit-1 {
 								return nil, err
 							}
@@ -383,6 +415,14 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 								}
 							}
 							return nil, err
+						}
+						if log.Is(LogVerbose) {
+							b, err := httputil.DumpResponse(resp, true)
+							if err != nil {
+								log.Error("error trying to dump response: ", err)
+							} else {
+								log.Verbose("RECEIVED FROM FALLBACK HOST: ", string(b))
+							}
 						}
 						c.successFallbackHost.put(h)
 						return resp, nil
@@ -452,13 +492,18 @@ func (c *RestClient) NewHTTPRequest(r *Request) (*http.Request, error) {
 }
 
 func (c *RestClient) handleResponse(resp *http.Response, out interface{}) (*http.Response, error) {
+	log := c.opts.Logger.Sugar()
+	log.Info("checking valid http response")
 	if err := checkValidHTTPResponse(resp); err != nil {
+		log.Error("failed to check valid http response ", err)
 		return nil, err
 	}
 	if out == nil {
 		return resp, nil
 	}
+	log.Info("decoding response")
 	if err := decodeResp(resp, out); err != nil {
+		log.Error("failed to decode response ", err)
 		return nil, err
 	}
 	return resp, nil
