@@ -324,7 +324,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 	}
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
-		log.Verbose("enabling httptrace")
+		log.Verbose("RestClient: enabling httptrace")
 	}
 	if log.Is(LogVerbose) {
 		b, err := httputil.DumpRequest(req, false)
