@@ -141,37 +141,33 @@ var stateMasks = map[StateType]StateEnum{
 }
 
 var (
-	errClosed         = newErrorf(10000, "Connection closed by client")
 	errDisconnected   = newErrorf(80003, "Connection temporarily unavailable")
 	errSuspended      = newErrorf(80002, "Connection unavailable")
 	errFailed         = newErrorf(80000, "Connection failed")
 	errNeverConnected = newErrorf(80002, "Unable to establish connection")
 )
 
-var stateErrors = map[StateEnum]Error{
+var stateErrors = map[StateEnum]ErrorInfo{
 	StateConnInitialized:  *errNeverConnected,
-	StateConnClosed:       *errClosed,
-	StateConnClosing:      *errClosed,
 	StateConnDisconnected: *errDisconnected,
 	StateConnFailed:       *errFailed,
 	StateConnSuspended:    *errSuspended,
-	StateChanClosed:       *errClosed,
 	StateChanFailed:       *errFailed,
 }
 
-func stateError(state StateEnum, err error) error {
+func stateError(state StateEnum, err error) *ErrorInfo {
 	// Set default error information associated with the target state.
-	e, ok := err.(*Error)
+	e, ok := err.(*ErrorInfo)
 	if ok {
 		return e
 	}
 	if e, ok := stateErrors[state]; ok {
 		if err != nil {
-			e.Err = err
+			e.err = err
 		}
 		err = &e
 	}
-	return err
+	return newError(0, err)
 }
 
 // State describes a single state transition of either realtime connection or channel
@@ -183,10 +179,10 @@ func stateError(state StateEnum, err error) error {
 // a channel, which will get notified with single State value for each transition
 // than takes place.
 type State struct {
-	Channel string    // channel name or empty if Type is StateConn
-	Err     error     // eventual error value associated with transition
-	State   StateEnum // state which connection or channel has transitioned to
-	Type    StateType // whether transition happened on connection or channel
+	Channel string     // channel name or empty if Type is StateConn
+	Err     *ErrorInfo // eventual error value associated with transition
+	State   StateEnum  // state which connection or channel has transitioned to
+	Type    StateType  // whether transition happened on connection or channel
 }
 
 type stateEmitter struct {
@@ -194,10 +190,12 @@ type stateEmitter struct {
 	channel   string
 	listeners map[StateEnum]map[chan<- State]struct{}
 	onetime   map[StateEnum]map[chan<- State]struct{}
-	err       error
+	err       *ErrorInfo
 	current   StateEnum
 	typ       StateType
 	logger    *LoggerOptions
+
+	eventEmitter *eventEmitter
 }
 
 func newStateEmitter(typ StateType, startState StateEnum, channel string, log *LoggerOptions) *stateEmitter {
@@ -211,14 +209,17 @@ func newStateEmitter(typ StateType, startState StateEnum, channel string, log *L
 		current:   startState,
 		typ:       typ,
 		logger:    log,
+
+		eventEmitter: newEventEmitter(log),
 	}
 }
 
 func (s *stateEmitter) set(state StateEnum, err error) error {
-	doemit := s.current != state
+	previous := s.current
+	changed := s.current != state
 	s.current = state
 	s.err = stateError(state, err)
-	if doemit {
+	if changed {
 		s.emit(State{
 			Channel: s.channel,
 			Err:     s.err,
@@ -226,6 +227,22 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 			Type:    s.typ,
 		})
 	}
+
+	if StateConn.Contains(state) {
+		previous := mapOldToNewConnState(previous)
+		change := ConnectionStateChange{
+			Current:  mapOldToNewConnState(s.current),
+			Previous: previous,
+			Reason:   s.err,
+		}
+		if !changed {
+			change.Event = ConnectionEventUpdated
+		} else {
+			change.Event = ConnectionEvent(change.Current)
+		}
+		s.eventEmitter.Emit(change.Event, change)
+	}
+
 	return s.err
 }
 
@@ -422,10 +439,10 @@ type msgch struct {
 type msgQueue struct {
 	mtx   sync.Mutex
 	queue []msgch
-	conn  *Conn
+	conn  *Connection
 }
 
-func newMsgQueue(conn *Conn) *msgQueue {
+func newMsgQueue(conn *Connection) *msgQueue {
 	return &msgQueue{
 		conn: conn,
 	}
@@ -523,12 +540,91 @@ func (res *stateResult) Wait() error {
 			if state.Type == StateConn {
 				code = 50002
 			}
-			res.err = &Error{
-				Code: code,
-				Err:  fmt.Errorf("failed %s state: %s", state.Type, state.State),
-			}
+			res.err = newError(code, fmt.Errorf("failed %s state: %s", state.Type, state.State))
 		}
 		res.listen = nil
 	}
 	return res.err
+}
+
+// A ConnectionState identifies the state of an Ably realtime connection.
+type ConnectionState struct {
+	name string
+}
+
+var (
+	ConnectionStateInitialized  = ConnectionState{name: "INITIALIZED"}
+	ConnectionStateConnecting   = ConnectionState{name: "CONNECTING"}
+	ConnectionStateConnected    = ConnectionState{name: "CONNECTED"}
+	ConnectionStateDisconnected = ConnectionState{name: "DISCONNECTED"}
+	ConnectionStateSuspended    = ConnectionState{name: "SUSPENDED"}
+	ConnectionStateClosing      = ConnectionState{name: "CLOSING"}
+	ConnectionStateClosed       = ConnectionState{name: "CLOSED"}
+	ConnectionStateFailed       = ConnectionState{name: "FAILED"}
+)
+
+func (e ConnectionState) String() string {
+	return e.name
+}
+
+// A ConnectionEvent identifies an event in the lifetime of an Ably realtime
+// connection.
+type ConnectionEvent struct {
+	name string
+}
+
+func (ConnectionEvent) isEmitterEvent() {}
+
+var (
+	ConnectionEventInitialized  = ConnectionEvent(ConnectionStateInitialized)
+	ConnectionEventConnecting   = ConnectionEvent(ConnectionStateConnecting)
+	ConnectionEventConnected    = ConnectionEvent(ConnectionStateConnected)
+	ConnectionEventDisconnected = ConnectionEvent(ConnectionStateDisconnected)
+	ConnectionEventSuspended    = ConnectionEvent(ConnectionStateSuspended)
+	ConnectionEventClosing      = ConnectionEvent(ConnectionStateClosing)
+	ConnectionEventClosed       = ConnectionEvent(ConnectionStateClosed)
+	ConnectionEventFailed       = ConnectionEvent(ConnectionStateFailed)
+	ConnectionEventUpdated      = ConnectionEvent{name: "UPDATED"}
+)
+
+func (e ConnectionEvent) String() string {
+	return e.name
+}
+
+// A ConnectionStateChange is the data associated with a ConnectionEvent.
+//
+// If the Event is a ConnectionEventUpdated, Current and Previous are the
+// the same. Otherwise, the event is a state transition from Previous to
+// Current.
+type ConnectionStateChange struct {
+	Current  ConnectionState
+	Event    ConnectionEvent
+	Previous ConnectionState
+	// Reason, if any, is an error that caused the state change.
+	Reason *ErrorInfo
+}
+
+func (ConnectionStateChange) isEmitterData() {}
+
+func mapOldToNewConnState(old StateEnum) ConnectionState {
+	switch old {
+	case StateConnInitialized:
+		return ConnectionStateInitialized
+	case StateConnConnecting:
+		return ConnectionStateConnecting
+	case StateConnConnected:
+		return ConnectionStateConnected
+	case StateConnDisconnected:
+		return ConnectionStateDisconnected
+	case StateConnSuspended:
+		return ConnectionStateSuspended
+	case StateConnClosing:
+		return ConnectionStateClosing
+	case StateConnClosed:
+		return ConnectionStateClosed
+	case StateConnFailed:
+		return ConnectionStateFailed
+	default:
+		panic(fmt.Errorf("unexpected StateEnum: %v", old))
+	}
 }

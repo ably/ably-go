@@ -50,7 +50,7 @@ specification. If there are features that are currently missing that are a high 
 ### Creating a client
 
 ```go
-client, err := ably.NewRealtimeClient(ably.NewClientOptions("xxx:xxx"))
+client, err := ably.NewRealtime(ably.NewClientOptions("xxx:xxx"))
 if err != nil {
 	panic(err)
 }
@@ -268,13 +268,18 @@ As the library is actively developed couple of features are not there yet:
 
 This library uses [semantic versioning](http://semver.org/). For each release, the following needs to be done:
 
-* Create a branch for the release, named like `release-1.1.3`
+* Create a branch for the release, named like `release/1.1.5`
 * Replace all references of the current version number with the new version number and commit the changes
-* Run [`github_changelog_generator`](https://github.com/skywinder/Github-Changelog-Generator) to update the [CHANGELOG](./CHANGELOG.md): `github_changelog_generator -u ably -p ably-go --header-label="# Changelog" --release-branch=release-1.1.3 --future-release=v1.1.3`
+* Run [`github_changelog_generator`](https://github.com/github-changelog-generator/github-changelog-generator) to automate the update of the [CHANGELOG](./CHANGELOG.md). This may require some manual intervention, both in terms of how the command is run and how the change log file is modified. Your mileage may vary:
+    * The command you will need to run will look something like this: `github_changelog_generator -u ably -p ably-go --since-tag v1.1.4 --output delta.md`
+    * Using the command above, `--output delta.md` writes changes made after `--since-tag` to a new file
+    * The contents of that new file (`delta.md`) then need to be manually inserted at the top of the `CHANGELOG.md`, changing the "Unreleased" heading and linking with the current version numbers
+    * Also ensure that the "Full Changelog" link points to the new version tag instead of the `HEAD`
+    * Commit this change: `git add CHANGELOG.md && git commit -m "Update change log."`
 * Commit [CHANGELOG](./CHANGELOG.md)
-* Add a tag and push to origin such as `git tag v1.1.3; git push origin v1.1.3`
 * Make a PR against `master`
 * Once the PR is approved, merge it into `master`
+* Add a tag to the new `master` head commit and push to origin such as `git tag v1.1.5 && git push origin v1.1.5`
 
 ## Support and feedback
 
@@ -294,7 +299,3 @@ Because this package uses `internal` packages, all fork development has to happe
 6. ensure you have added suitable tests and the test suite is passing: `make test`
 7. push to the branch: `git push fork my-new-feature`
 8. create a new Pull Request
-
-## License
-
-Copyright (c) 2016-2020 Ably Real-time Ltd, Licensed under the Apache License, Version 2.0.  Refer to [LICENSE](LICENSE) for the license terms.

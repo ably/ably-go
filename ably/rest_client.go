@@ -35,7 +35,7 @@ const (
 	AblyLibHeader          = "X-Ably-Lib"
 	AblyErrorCodeHeader    = "X-Ably-Errorcode"
 	AblyErrormessageHeader = "X-Ably-Errormessage"
-	LibraryVersion         = "1.1.2"
+	LibraryVersion         = "1.1.4"
 	LibraryName            = "ably-go"
 	LibraryString          = LibraryName + "-" + LibraryVersion
 	AblyVersion            = "1.0"
@@ -144,7 +144,7 @@ func NewREST(options ClientOptionsV12) (*REST, error) {
 
 func newREST(opts *ClientOptions) (*REST, error) {
 	if opts == nil {
-		panic("called NewRealtimeClient with nil ClientOptions")
+		panic("called NewRealtime with nil ClientOptions")
 	}
 
 	// Temporarily set defaults here in case this wasn't called from NewRESTV12.
@@ -224,11 +224,11 @@ func (c *REST) Request(method string, path string, params *PaginateParams, body 
 			})
 		}, c.logger())
 	default:
-		return nil, &proto.ErrorInfo{
+		return nil, newErrorProto(&proto.ErrorInfo{
 			Message:    fmt.Sprintf("%s method is not supported", method),
 			Code:       ErrMethodNotAllowed,
 			StatusCode: http.StatusMethodNotAllowed,
-		}
+		})
 	}
 }
 
@@ -340,7 +340,7 @@ func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{})
 	}
 	resp, err = handle(resp, r.Out)
 	if err != nil {
-		if e, ok := err.(*Error); ok {
+		if e, ok := err.(*ErrorInfo); ok {
 			if canFallBack(e.StatusCode) &&
 				(c.opts.FallbackHostsUseDefault ||
 					strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
@@ -389,7 +389,7 @@ func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{})
 							if iteration == maxLimit-1 {
 								return nil, err
 							}
-							if ev, ok := err.(*Error); ok {
+							if ev, ok := err.(*ErrorInfo); ok {
 								if canFallBack(ev.StatusCode) {
 									iteration++
 									continue

@@ -101,9 +101,9 @@ type Sandbox struct {
 	client *http.Client
 }
 
-func NewRealtimeClient(opts *ably.ClientOptions) (*Sandbox, *ably.Realtime) {
+func NewRealtime(opts *ably.ClientOptions) (*Sandbox, *ably.Realtime) {
 	app := MustSandbox(nil)
-	client, err := ably.NewRealtimeClient(app.Options(opts))
+	client, err := ably.DeprecatedNewRealtime(app.Options(opts))
 	if err != nil {
 		panic(nonil(err, app.Close()))
 	}
@@ -185,10 +185,10 @@ func (app *Sandbox) Close() error {
 	return nil
 }
 
-func (app *Sandbox) NewRealtimeClient(opts ...*ably.ClientOptions) *ably.Realtime {
-	client, err := ably.NewRealtimeClient(app.Options(opts...))
+func (app *Sandbox) NewRealtime(opts ...*ably.ClientOptions) *ably.Realtime {
+	client, err := ably.DeprecatedNewRealtime(app.Options(opts...))
 	if err != nil {
-		panic("ably.NewRealtimeClient failed: " + err.Error())
+		panic("ably.NewRealtime failed: " + err.Error())
 	}
 	return client
 }

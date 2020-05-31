@@ -435,9 +435,7 @@ func (a *Auth) isTokenRenewable() bool {
 }
 
 func (a *Auth) newError(code int, err error) error {
-	e := newError(code, err)
-	e.Server = a.host
-	return e
+	return newError(code, err)
 }
 
 func (a *Auth) authReq(req *http.Request) error {

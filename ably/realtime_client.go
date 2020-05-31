@@ -1,8 +1,10 @@
 package ably
 
 import (
-	"sync"
+	"net/http"
 	"time"
+
+	"github.com/ably/ably-go/ably/proto"
 )
 
 // The Realtime libraries establish and maintain a persistent connection
@@ -11,15 +13,12 @@ import (
 type Realtime struct {
 	Auth       *Auth
 	Channels   *Channels
-	Connection *Conn
+	Connection *Connection
 
-	chansMtx sync.RWMutex
-	chans    map[string]*RealtimeChannel
-	rest     *REST
-	err      chan error
+	rest *REST
 }
 
-var NewRealtimeClient = newRealtime // TODO: remove once tests use functional ClientOptions
+var DeprecatedNewRealtime = newRealtime // TODO: remove once tests use functional ClientOptions
 
 // NewRealtime constructs a new RealtimeV12.
 func NewRealtime(options ClientOptionsV12) (*Realtime, error) {
@@ -31,35 +30,38 @@ func NewRealtime(options ClientOptionsV12) (*Realtime, error) {
 // newRealtime
 func newRealtime(opts *ClientOptions) (*Realtime, error) {
 	if opts == nil {
-		panic("called NewRealtimeClient with nil ClientOptions")
+		panic("called DeprecatedNewRealtime with nil ClientOptions")
 	}
 
 	// Temporarily set defaults here in case this wasn't called from NewRealtimeV12.
 	ClientOptionsV12{}.applyWithDefaults(opts)
 
-	c := &Realtime{
-		err:   make(chan error),
-		chans: make(map[string]*RealtimeChannel),
-	}
+	c := &Realtime{}
 	rest, err := NewRestClient(opts)
 	if err != nil {
 		return nil, err
 	}
 	c.rest = rest
-	conn, err := newConn(c.opts(), rest.Auth)
+	c.Auth = rest.Auth
+	c.Channels = newChannels(c)
+	conn, err := newConn(c.opts(), rest.Auth, connCallbacks{
+		c.onChannelMsg, c.onReconnectMsg, c.onConnStateChange,
+	})
 	if err != nil {
 		return nil, err
 	}
-	c.Auth = rest.Auth
-	c.Channels = newChannels(c)
 	c.Connection = conn
-	go c.dispatchloop()
 	return c, nil
 }
 
-// Close
-func (c *Realtime) Close() error {
-	return c.Connection.Close()
+// Connect is the same as Connection.Connect.
+func (c *Realtime) Connect() {
+	c.Connection.Connect()
+}
+
+// Close is the same as Connection.Close.
+func (c *Realtime) Close() {
+	c.Connection.Close()
 }
 
 // Stats gives the clients metrics according to the given parameters. The
@@ -74,10 +76,41 @@ func (c *Realtime) Time() (time.Time, error) {
 	return c.rest.Time()
 }
 
-func (c *Realtime) dispatchloop() {
-	for msg := range c.Connection.msgCh {
-		c.Channels.Get(msg.Channel).notify(msg)
+func (c *Realtime) onChannelMsg(msg *proto.ProtocolMessage) {
+	c.Channels.Get(msg.Channel).notify(msg)
+}
+
+func (c *Realtime) onReconnectMsg(msg *proto.ProtocolMessage) {
+	switch msg.Action {
+	case proto.ActionConnected:
+		if msg.Error != nil {
+			// (RTN15c3)
+			for _, ch := range c.Channels.All() {
+				switch ch.State() {
+				case StateConnSuspended:
+					ch.attach(false)
+				case StateChanAttaching, StateChanAttached:
+					ch.mayAttach(false, false)
+				}
+			}
+		}
+
+	case proto.ActionError:
+		// (RTN15c4)
+
+		for _, ch := range c.Channels.All() {
+			ch.state.syncSet(StateChanFailed, newErrorProto(msg.Error))
+		}
 	}
+}
+
+func tokenError(err *proto.ErrorInfo) bool {
+	return err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
+}
+
+func (c *Realtime) onConnStateChange(state State) {
+	// TODO: Replace with EventEmitter https://github.com/ably/ably-go/pull/144
+	c.Channels.broadcastConnStateChange(state)
 }
 
 func (c *Realtime) opts() *ClientOptions {

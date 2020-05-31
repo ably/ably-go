@@ -17,6 +17,23 @@ func nonil(err ...error) error {
 	return nil
 }
 
+type closeClient struct {
+	io.Closer
+	skip []int
+}
+
+func (c *closeClient) Close() error {
+	e := c.Closer.Close()
+	if a, ok := e.(*ably.ErrorInfo); ok {
+		for _, v := range c.skip {
+			if a.StatusCode == v {
+				return nil
+			}
+		}
+	}
+	return e
+}
+
 func safeclose(t *testing.T, closers ...io.Closer) {
 	type failed struct {
 		i   int
@@ -34,14 +51,13 @@ func safeclose(t *testing.T, closers ...io.Closer) {
 		for _, err := range errors {
 			t.Logf("safeclose %d: failed to close %T: %s", err.i, err.c, err.err)
 		}
-		t.FailNow()
 	}
 }
 
 func checkError(code int, err error) error {
-	switch e, ok := err.(*ably.Error); {
+	switch e, ok := err.(*ably.ErrorInfo); {
 	case !ok:
-		return fmt.Errorf("want err to be *ably.Error; was %T: %v", err, err)
+		return fmt.Errorf("want err to be *ably.ErrorInfo; was %T: %v", err, err)
 	case e.Code != code:
 		return fmt.Errorf("want e.Code=%d; got %d: %s", code, e.Code, err)
 	default:

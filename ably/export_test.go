@@ -38,11 +38,11 @@ func ErrorCode(err error) int {
 	return code(err)
 }
 
-// MustRealtimeClient is like NewRealtimeClient, but panics on error.
-func MustRealtimeClient(opts *ClientOptions) *Realtime {
+// MustRealtime is like NewRealtime, but panics on error.
+func MustRealtime(opts *ClientOptions) *Realtime {
 	client, err := newRealtime(opts)
 	if err != nil {
-		panic("ably.NewRealtimeClient failed: " + err.Error())
+		panic("ably.NewRealtime failed: " + err.Error())
 	}
 	return client
 }
@@ -79,4 +79,30 @@ func (c *REST) GetCachedFallbackHost() string {
 
 func (opts *ClientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
+}
+
+func NewErrorInfo(code int, err error) *ErrorInfo {
+	return newError(code, err)
+}
+
+var NewEventEmitter = newEventEmitter
+
+type EventEmitter = eventEmitter
+type EmitterEvent = emitterEvent
+type EmitterData = emitterData
+
+type EmitterString string
+
+func (EmitterString) isEmitterEvent() {}
+func (EmitterString) isEmitterData()  {}
+
+// TODO: Once channels have also an EventEmitter, refactor tests to use
+// EventEmitters for both connection and channels.
+
+func (c *Connection) OnState(ch chan<- State, states ...StateEnum) {
+	c.onState(ch, states...)
+}
+
+func (c *Connection) OffState(ch chan<- State, states ...StateEnum) {
+	c.offState(ch, states...)
 }

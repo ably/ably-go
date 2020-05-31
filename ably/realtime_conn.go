@@ -12,13 +12,12 @@ import (
 )
 
 var (
-	errQueueing      = errors.New("unable to send messages in current state with disabled queueing")
-	errCloseInactive = errors.New("attempted to close inactive connection")
+	errQueueing = errors.New("unable to send messages in current state with disabled queueing")
 )
 
-// Conn represents a single connection RealtimeClient instantiates for
+// Connection represents a single connection Realtime instantiates for
 // communication with Ably servers.
-type Conn struct {
+type Connection struct {
 	details   proto.ConnectionDetails
 	id        string
 	serial    int64
@@ -32,19 +31,35 @@ type Conn struct {
 	pending   pendingEmitter
 	queue     *msgQueue
 	auth      *Auth
+
+	callbacks    connCallbacks
+	reconnecting bool
+}
+type connCallbacks struct {
+	onChannelMsg func(*proto.ProtocolMessage)
+	// onReconnectMsg is called when we get a response from reconnect request. We
+	// move this up because some implementation details for (RTN15c) requires
+	// access to Channels and we dont have it here so we let RealtimeClient do the
+	// work.
+	onReconnectMsg func(*proto.ProtocolMessage)
+	onStateChange  func(State)
+	// reconnecting tracks if we have issued a reconnection request. If we receive any message
+	// with this set to true then its the first message/response after issuing the
+	// reconnection request.
 }
 
-func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
-	c := &Conn{
-		opts:    opts,
-		msgCh:   make(chan *proto.ProtocolMessage),
-		state:   newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
-		pending: newPendingEmitter(auth.logger()),
-		auth:    auth,
+func newConn(opts *ClientOptions, auth *Auth, callbacks connCallbacks) (*Connection, error) {
+	c := &Connection{
+		opts:      opts,
+		msgCh:     make(chan *proto.ProtocolMessage),
+		state:     newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
+		pending:   newPendingEmitter(auth.logger()),
+		auth:      auth,
+		callbacks: callbacks,
 	}
 	c.queue = newMsgQueue(c)
 	if opts.Listener != nil {
-		c.On(opts.Listener)
+		c.onState(opts.Listener)
 	}
 	if !opts.NoConnect {
 		if _, err := c.connect(false); err != nil {
@@ -54,24 +69,23 @@ func newConn(opts *ClientOptions, auth *Auth) (*Conn, error) {
 	return c, nil
 }
 
-func (c *Conn) dial(proto string, u *url.URL) (proto.Conn, error) {
+func (c *Connection) dial(proto string, u *url.URL) (proto.Conn, error) {
 	if c.opts.Dial != nil {
 		return c.opts.Dial(proto, u)
 	}
 	return ablyutil.DialWebsocket(proto, u)
 }
 
-// Connect is used to connect to Ably servers manually, when the client owning
-// the connection was created with NoConnect option. The connect request is
-// being processed on a separate goroutine.
-//
-// If client is already connected, this method is a nop.
-// If connecting fail due to authorization error, the returned error value
-// is non-nil.
-// If authorization succeeds, the returned Result value can be used to wait
-// until connection confirmation is received from a server.
-func (c *Conn) Connect() (Result, error) {
-	return c.connect(true)
+// Connect attempts to move the connection to the CONNECTED state, if it
+// can and if it isn't already.
+func (c *Connection) Connect() {
+	c.connect(false)
+}
+
+// Close attempts to move the connection to the CLOSED state, if it can and if
+// it isn't already.
+func (c *Connection) Close() {
+	c.close()
 }
 
 var connectResultStates = []StateEnum{
@@ -80,16 +94,38 @@ var connectResultStates = []StateEnum{
 	StateConnDisconnected,
 }
 
-func (c *Conn) connect(result bool) (Result, error) {
+func (c *Connection) connect(result bool) (Result, error) {
+	return c.connectWithRecovery(result, "", 0)
+}
+
+func (c *Connection) reconnect(result bool) (Result, error) {
+	c.state.Lock()
+	connKey := c.details.ConnectionKey
+	connSerial := c.serial
+	c.state.Unlock()
+	r, err := c.connectWithRecovery(result, connKey, connSerial)
+	if err != nil {
+		return nil, err
+	}
+	// We have successfully dialed reconnection request. We need to set this so
+	// when the next message arrives it will be treated as the response to
+	// reconnection request.
+	c.state.Lock()
+	c.reconnecting = true
+	c.state.Unlock()
+	return r, nil
+}
+
+func (c *Connection) connectWithRecovery(result bool, connKey string, connSerial int64) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	if c.isActive() {
 		return nopResult, nil
 	}
-	c.state.set(StateConnConnecting, nil)
+	c.setState(StateConnConnecting, nil)
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
-		return nil, c.state.set(StateConnFailed, err)
+		return nil, c.setState(StateConnFailed, err)
 	}
 	var res Result
 	if result {
@@ -115,12 +151,16 @@ func (c *Conn) connect(result bool) (Result, error) {
 		query.Set(k, v)
 	}
 	if err := c.auth.authQuery(query); err != nil {
-		return nil, c.state.set(StateConnFailed, err)
+		return nil, c.setState(StateConnFailed, err)
+	}
+	if connKey != "" {
+		query.Set("resume", connKey)
+		query.Set("connectionSerial", fmt.Sprint(connSerial))
 	}
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)
 	if err != nil {
-		return nil, c.state.set(StateConnFailed, err)
+		return nil, c.setState(StateConnFailed, err)
 	}
 	if c.logger().Is(LogVerbose) {
 		c.setConn(verboseConn{conn: conn, logger: c.logger()})
@@ -130,47 +170,43 @@ func (c *Conn) connect(result bool) (Result, error) {
 	return res, nil
 }
 
-// Close initiates closing sequence for the connection; it waits until the
-// operation is complete.
-//
-// If connection is already closed, this method is a nop.
-func (c *Conn) Close() error {
-	err := wait(c.close())
-	if c.conn != nil {
-		c.conn.Close()
-	}
-	if err != nil {
-		return c.state.syncSet(StateConnFailed, err)
-	}
-	return nil
-}
-
 var closeResultStates = []StateEnum{
 	StateConnClosed, // expected state
 	StateConnFailed,
 	StateConnDisconnected,
 }
 
-func (c *Conn) close() (Result, error) {
+func (c *Connection) close() {
 	c.state.Lock()
 	defer c.state.Unlock()
 	switch c.state.current {
-	case StateConnClosing, StateConnClosed:
-		return nopResult, nil
-	case StateConnInitialized, StateConnFailed, StateConnDisconnected:
-		return nil, stateError(c.state.current, errCloseInactive)
+	case
+		StateConnClosing,
+		StateConnClosed,
+		StateConnInitialized,
+		StateConnFailed,
+		StateConnDisconnected:
+
+		return
 	}
-	res := c.state.listenResult(closeResultStates...)
+
 	c.state.set(StateConnClosing, nil)
 	msg := &proto.ProtocolMessage{Action: proto.ActionClose}
 	c.updateSerial(msg, nil)
-	return res, c.conn.Send(msg)
+
+	// TODO: handle error. If you can't send a message, the fail-fast way to
+	// deal with it is to discard the WebSocket and perform a normal
+	// reconnection. We could also have a retry loop, but in any case, it should
+	// be dealt with centrally, so Send shouldn't return the error but handle
+	// it in some way. The caller isn't responsible for recovering from realtime
+	// connection transient errors.
+	_ = c.conn.Send(msg)
 }
 
 // ID gives unique ID string obtained from Ably upon successful connection.
 // The ID may change due to reconnection and recovery; on every received
 // StateConnConnected event previously obtained ID is no longer valid.
-func (c *Conn) ID() string {
+func (c *Connection) ID() string {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.id
@@ -179,7 +215,7 @@ func (c *Conn) ID() string {
 // Key gives unique key string obtained from Ably upon successful connection.
 // The key may change due to reconnection and recovery; on every received
 // StatConnConnected event previously obtained Key is no longer valid.
-func (c *Conn) Key() string {
+func (c *Connection) Key() string {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.details.ConnectionKey
@@ -190,13 +226,13 @@ func (c *Conn) Key() string {
 //
 // Ping returns non-nil error without any attempt of communication with Ably
 // if the connection state is StateConnClosed or StateConnFailed.
-func (c *Conn) Ping() (ping, pong time.Duration, err error) {
+func (c *Connection) Ping() (ping, pong time.Duration, err error) {
 	return 0, 0, errors.New("TODO")
 }
 
-// Reason gives last known error that caused connection transit to
+// ErrorReason gives last known error that caused connection transit to
 // StateConnFailed state.
-func (c *Conn) Reason() error {
+func (c *Connection) ErrorReason() *ErrorInfo {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.state.err
@@ -204,40 +240,90 @@ func (c *Conn) Reason() error {
 
 // Serial gives serial number of a message received most recently. Last known
 // serial number is used when recovering connection state.
-func (c *Conn) Serial() int64 {
+func (c *Connection) Serial() int64 {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.serial
 }
 
 // State returns current state of the connection.
-func (c *Conn) State() StateEnum {
+func (c *Connection) State() StateEnum {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.state.current
 }
 
-// On relays request connection states to the given channel; on state transition
+// onState relays request connection states to the given channel; onState state transition
 // connection will not block sending to c - the caller must ensure the incoming
 // values are read at proper pace or the c is sufficiently buffered.
 //
 // If no states are given, c is registered for all of them.
 // If c is nil, the method panics.
 // If c is already registered, its state set is expanded.
-func (c *Conn) On(ch chan<- State, states ...StateEnum) {
+func (c *Connection) onState(ch chan<- State, states ...StateEnum) {
 	c.state.on(ch, states...)
 }
 
-// Off removes c from listening on the given connection state transitions.
+// On registers an event handler for connection events of a specific kind.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *Connection) On(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
+	return c.state.eventEmitter.On(e, func(change emitterData) {
+		handle(change.(ConnectionStateChange))
+	})
+}
+
+// OnAll registers an event handler for all connection events.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *Connection) OnAll(handle func(ConnectionStateChange)) (off func()) {
+	return c.state.eventEmitter.OnAll(func(change emitterData) {
+		handle(change.(ConnectionStateChange))
+	})
+}
+
+// Once registers an one-off event handler for connection events of a specific kind.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *Connection) Once(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
+	return c.state.eventEmitter.On(e, func(change emitterData) {
+		handle(change.(ConnectionStateChange))
+	})
+}
+
+// OnceAll registers an one-off event handler for all connection events.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *Connection) OnceAll(handle func(ConnectionStateChange)) (off func()) {
+	return c.state.eventEmitter.OnceAll(func(change emitterData) {
+		handle(change.(ConnectionStateChange))
+	})
+}
+
+// offState removes c from listening on the given connection state transitions.
 //
 // If no states are given, c is removed for all of the connection's states.
 // If c is nil, the method panics.
 // If c was not registered or is already removed, the method is a nop.
-func (c *Conn) Off(ch chan<- State, states ...StateEnum) {
+func (c *Connection) offState(ch chan<- State, states ...StateEnum) {
 	c.state.off(ch, states...)
 }
 
-func (c *Conn) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {
+// Off deregisters event handlers for connection events of a specific kind.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *Connection) Off(e ConnectionEvent) {
+	c.state.eventEmitter.Off(e)
+}
+
+// Off deregisters all event handlers.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *Connection) OffAll() {
+	c.state.eventEmitter.OffAll()
+}
+
+func (c *Connection) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {
 	const maxint64 = 1<<63 - 1
 	msg.MsgSerial = c.msgSerial
 	c.msgSerial = (c.msgSerial + 1) % maxint64
@@ -246,7 +332,7 @@ func (c *Conn) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {
 	}
 }
 
-func (c *Conn) send(msg *proto.ProtocolMessage, listen chan<- error) error {
+func (c *Connection) send(msg *proto.ProtocolMessage, listen chan<- error) error {
 	c.state.Lock()
 	switch state := c.state.current; state {
 	case StateConnInitialized, StateConnConnecting, StateConnDisconnected:
@@ -276,7 +362,7 @@ func (c *Conn) send(msg *proto.ProtocolMessage, listen chan<- error) error {
 //
 // If both user was not authenticated with a wildcard ClientID and the one
 // being sent does not match it, the method return non-nil error.
-func (c *Conn) verifyAndUpdateMessages(msg *proto.ProtocolMessage) (err error) {
+func (c *Connection) verifyAndUpdateMessages(msg *proto.ProtocolMessage) (err error) {
 	clientID := c.auth.clientIDForCheck()
 	connectionID := c.id
 	switch msg.Action {
@@ -306,37 +392,51 @@ func (c *Conn) verifyAndUpdateMessages(msg *proto.ProtocolMessage) (err error) {
 	return nil
 }
 
-func (c *Conn) isActive() bool {
+func (c *Connection) isActive() bool {
 	return c.state.current == StateConnConnecting || c.state.current == StateConnConnected
 }
 
-func (c *Conn) lockIsActive() bool {
+func (c *Connection) lockCanReceiveMessages() bool {
+	c.state.Lock()
+	defer c.state.Unlock()
+	return c.state.current == StateConnConnecting || c.state.current == StateConnConnected || c.state.current == StateConnClosing
+}
+
+func (c *Connection) lockIsActive() bool {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.isActive()
 }
 
-func (c *Conn) setConn(conn proto.Conn) {
+func (c *Connection) setConn(conn proto.Conn) {
 	c.conn = conn
 	go c.eventloop()
 }
 
-func (c *Conn) logger() *LoggerOptions {
+func (c *Connection) logger() *LoggerOptions {
 	return c.auth.logger()
 }
 
-func (c *Conn) eventloop() {
-	for {
-		msg, err := c.conn.Receive()
+func (c *Connection) eventloop() {
+	var receiveTimeout time.Duration
+
+	for c.lockCanReceiveMessages() {
+		var deadline time.Time
+		if receiveTimeout != 0 {
+			deadline = time.Now().Add(receiveTimeout) // RTN23a
+		}
+		msg, err := c.conn.Receive(deadline)
 		if err != nil {
 			c.state.Lock()
 			if c.state.current == StateConnClosed {
 				c.state.Unlock()
 				return
 			}
-			c.state.set(StateConnFailed, err)
+
+			c.setState(StateConnDisconnected, err)
 			c.state.Unlock()
-			return // TODO recovery
+			c.reconnect(false)
+			return
 		}
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
@@ -356,41 +456,99 @@ func (c *Conn) eventloop() {
 			c.state.Unlock()
 		case proto.ActionError:
 			if msg.Channel != "" {
-				c.msgCh <- msg
+				c.callbacks.onChannelMsg(msg)
 				break
 			}
 			c.state.Lock()
-			c.state.set(StateConnFailed, newErrorProto(msg.Error))
+			if c.reconnecting {
+				c.reconnecting = false
+				if tokenError(msg.Error) {
+					// (RTN15c5)
+					// TODO: (gernest) implement (RTN15h) This can be done as a separate task?
+				} else {
+					// (RTN15c4)
+					c.callbacks.onReconnectMsg(msg)
+				}
+			}
+			c.setState(StateConnFailed, newErrorProto(msg.Error))
 			c.state.Unlock()
 			c.queue.Fail(newErrorProto(msg.Error))
+			if c.conn != nil {
+				c.conn.Close()
+			}
 		case proto.ActionConnected:
 			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
-			c.state.Lock()
-			c.id = msg.ConnectionID
 			if msg.ConnectionDetails != nil {
+				c.state.Lock()
 				c.details = *msg.ConnectionDetails
+				c.state.Unlock()
+
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(c.details.ClientID)
+
+				maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
+				receiveTimeout = c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
 			}
+			c.state.Lock()
+			reconnecting := c.reconnecting
+			if reconnecting {
+				c.reconnecting = false
+			}
+			c.state.Unlock()
+			if reconnecting {
+				// (RTN15c1) (RTN15c2)
+				c.state.Lock()
+				c.setState(StateConnConnected, newErrorProto(msg.Error))
+				id := c.id
+				c.state.Unlock()
+				if id != msg.ConnectionID {
+					// (RTN15c3)
+					// we are calling this outside of locks to avoid deadlock because in the
+					// RealtimeClient client where this callback is implemented we do some ops
+					// with this Conn where we re acquire Conn.state.Lock again.
+					c.callbacks.onReconnectMsg(msg)
+				}
+			} else {
+				// preserve old behavior.
+				c.state.Lock()
+				c.setState(StateConnConnected, nil)
+				c.state.Unlock()
+			}
+			c.state.Lock()
+			c.id = msg.ConnectionID
 			c.serial = -1
 			c.msgSerial = 0
-			c.state.set(StateConnConnected, nil)
 			c.state.Unlock()
 			c.queue.Flush()
 		case proto.ActionDisconnected:
 			c.state.Lock()
 			c.id = ""
-			c.state.set(StateConnDisconnected, nil)
+			c.setState(StateConnDisconnected, nil)
 			c.state.Unlock()
 		case proto.ActionClosed:
 			c.state.Lock()
 			c.id = ""
-			c.state.set(StateConnClosed, nil)
+			c.setState(StateConnClosed, nil)
 			c.state.Unlock()
+			if c.conn != nil {
+				c.conn.Close()
+			}
 		default:
-			c.msgCh <- msg
+			c.callbacks.onChannelMsg(msg)
 		}
 	}
+}
+
+func (c *Connection) setState(state StateEnum, err error) error {
+	// TODO: Tempporary hack to fix https://github.com/ably/ably-go/issues/68.
+	//
+	// The proper way of propagating state changes is through the new
+	// EventEmitter at https://github.com/ably/ably-go/pull/144.
+	ch := make(chan State, 1)
+	c.state.once(ch)
+	go func() { c.callbacks.onStateChange(<-ch) }()
+
+	return c.state.set(state, err)
 }
 
 type verboseConn struct {
@@ -403,8 +561,8 @@ func (vc verboseConn) Send(msg *proto.ProtocolMessage) error {
 	return vc.conn.Send(msg)
 }
 
-func (vc verboseConn) Receive() (*proto.ProtocolMessage, error) {
-	msg, err := vc.conn.Receive()
+func (vc verboseConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	msg, err := vc.conn.Receive(deadline)
 	if err != nil {
 		return nil, err
 	}
