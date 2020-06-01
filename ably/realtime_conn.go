@@ -32,7 +32,10 @@ type Connection struct {
 	queue     *msgQueue
 	auth      *Auth
 
-	callbacks    connCallbacks
+	callbacks connCallbacks
+	// reconnecting tracks if we have issued a reconnection request. If we receive any message
+	// with this set to true then its the first message/response after issuing the
+	// reconnection request.
 	reconnecting bool
 }
 type connCallbacks struct {
