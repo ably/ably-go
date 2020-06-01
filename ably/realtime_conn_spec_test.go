@@ -141,15 +141,31 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 func connectAndWait(t *testing.T, realtime *ably.Realtime) {
 	t.Helper()
 
-	changes := make(chan ably.ConnectionStateChange)
+	changes := make(chan ably.ConnectionStateChange, 2)
 	defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-	realtime.Connection.Once(ably.ConnectionEventConnected, func(change ably.ConnectionStateChange) {
-		changes <- change
-	})
+	{
+		off := realtime.Connection.Once(ably.ConnectionEventConnected, func(change ably.ConnectionStateChange) {
+			changes <- change
+		})
+		defer off()
+	}
+
+	{
+		off := realtime.Connection.Once(ably.ConnectionEventFailed, func(change ably.ConnectionStateChange) {
+			changes <- change
+		})
+		defer off()
+	}
 
 	realtime.Connect()
-	ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+
+	var change ably.ConnectionStateChange
+	ablytest.Soon.Recv(t, &change, changes, t.Fatalf)
+
+	if change.Current != ably.ConnectionStateConnected {
+		t.Fatalf("unexpected FAILED event: %s", change.Reason)
+	}
 }
 
 func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
