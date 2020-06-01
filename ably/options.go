@@ -281,16 +281,7 @@ func (opts *ClientOptions) disconnectedRetryTimeout() time.Duration {
 }
 
 func (opts *ClientOptions) restURL() string {
-	host := opts.RestHost
-	if host == "" {
-		host = defaultOptions.RestHost
-		if opts.Environment == "production" {
-			opts.Environment = ""
-		}
-		if opts.Environment != "" {
-			host = opts.Environment + "-" + host
-		}
-	}
+	host := resolveHost(opts.RestHost, opts.Environment, defaultOptions.RestHost)
 	if opts.NoTLS {
 		port := opts.Port
 		if port == 0 {
@@ -307,16 +298,7 @@ func (opts *ClientOptions) restURL() string {
 }
 
 func (opts *ClientOptions) realtimeURL() string {
-	host := opts.RealtimeHost
-	if host == "" {
-		host = defaultOptions.RealtimeHost
-		if opts.Environment == "production" {
-			opts.Environment = ""
-		}
-		if opts.Environment != "" {
-			host = opts.Environment + "-" + host
-		}
-	}
+	host := resolveHost(opts.RealtimeHost, opts.Environment, defaultOptions.RealtimeHost)
 	if opts.NoTLS {
 		port := opts.Port
 		if port == 0 {
@@ -332,6 +314,15 @@ func (opts *ClientOptions) realtimeURL() string {
 	}
 }
 
+func resolveHost(host, environment, defaultHost string) string {
+	if host == "" {
+		host = defaultHost
+	}
+	if host == defaultHost && environment != "" && environment != "production" {
+		host = environment + "-" + host
+	}
+	return host
+}
 func (opts *ClientOptions) httpclient() *http.Client {
 	if opts.HTTPClient != nil {
 		return opts.HTTPClient
