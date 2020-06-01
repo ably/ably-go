@@ -264,11 +264,7 @@ func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions) (*TokenDetails,
 func (a *Auth) Authorize(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	force := a.opts().Force
-	if opts != nil && opts.Force {
-		force = true
-	}
-	return a.authorize(params, opts, force)
+	return a.authorize(params, opts, true)
 }
 
 func (a *Auth) authorize(params *TokenParams, opts *AuthOptions, force bool) (*TokenDetails, error) {

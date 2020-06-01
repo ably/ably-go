@@ -128,23 +128,14 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if url.Scheme != "http" {
 		t.Fatalf("want url.Scheme=http; got %s", url.Scheme)
 	}
-	auth, err := authValue(rec.Request(3))
-	if err != nil {
-		t.Fatalf("authValue=%v", err)
-	}
 	rec.Reset()
 	tok, err := client.Auth.Authorize(nil, nil)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
-	// Call to Authorize with force set to false should not refresh the token
-	// and return existing one.
-	// The following ensures no token request was made.
-	if n := rec.Len(); n != 0 {
-		t.Fatalf("Authorize() did not return existing token; want rec.Len()=0; %d", n)
-	}
-	if auth != tok.Token {
-		t.Fatalf("want auth=%q; got %q", tok.Token, auth)
+	// Call to Authorize should always refresh the token.
+	if n := rec.Len(); n != 1 {
+		t.Fatalf("Authorize() did not return new token; want rec.Len()=1; %d", n)
 	}
 	if defaultCap := (ably.Capability{"*": {"*"}}); tok.RawCapability != defaultCap.Encode() {
 		t.Fatalf("want tok.Capability=%v; got %v", defaultCap, tok.Capability())
