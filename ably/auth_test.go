@@ -444,6 +444,7 @@ func TestAuth_RequestToken(t *testing.T) {
 		params := &ably.TokenParams{
 			ClientID: "test",
 		}
+
 		tokURL, err := client.Auth.RequestToken(params, authOpts)
 		if err != nil {
 			t.Fatalf("RequestToken()=%v (method=%s)", err, method)

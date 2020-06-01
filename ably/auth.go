@@ -311,7 +311,7 @@ func (a *Auth) mergeOpts(opts *AuthOptions) *AuthOptions {
 	if opts == nil {
 		opts = &a.opts().AuthOptions
 	} else {
-		opts.merge(&a.opts().AuthOptions, false)
+		a.opts().AuthOptions.merge(opts, false)
 	}
 	return opts
 }
