@@ -10,11 +10,11 @@ func (p *PaginatedResult) BuildPath(base, rel string) string {
 	return p.buildPath(base, rel)
 }
 
-func (opts *ClientOptions) RestURL() string {
+func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }
 
-func (opts *ClientOptions) RealtimeURL() string {
+func (opts *clientOptions) RealtimeURL() string {
 	return opts.realtimeURL()
 }
 
@@ -69,7 +69,7 @@ func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
 }
 
-func (opts *ClientOptions) GetFallbackRetryTimeout() time.Duration {
+func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }
 
@@ -99,20 +99,24 @@ func (c *Connection) OffState(ch chan<- State, states ...StateEnum) {
 	c.offState(ch, states...)
 }
 
-func (os ClientOptionsV12) Listener(ch chan<- State) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) Listener(ch chan<- State) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.Listener = ch
 	})
 }
 
-func (os ClientOptionsV12) RealtimeRequestTimeout(d time.Duration) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) RealtimeRequestTimeout(d time.Duration) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.RealtimeRequestTimeout = d
 	})
 }
 
-func (os ClientOptionsV12) Trace(trace *httptrace.ClientTrace) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) Trace(trace *httptrace.ClientTrace) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.Trace = trace
 	})
+}
+
+func (os ClientOptions) ApplyWithDefaults() *clientOptions {
+	return os.applyWithDefaults()
 }

@@ -34,7 +34,7 @@ var connTransitions = []ably.StateEnum{
 func TestRealtimeConn_Connect(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.Listener(rec.Channel()))
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.Listener(rec.Channel()))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
@@ -54,7 +54,7 @@ func TestRealtimeConn_Connect(t *testing.T) {
 func TestRealtimeConn_NoConnect(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
-	opts := ably.ClientOptionsV12{}.
+	opts := ably.ClientOptions{}.
 		Listener(rec.Channel()).
 		AutoConnect(false)
 	app, client := ablytest.NewRealtime(opts)
@@ -86,7 +86,7 @@ var connCloseTransitions = []ably.StateEnum{
 func TestRealtimeConn_ConnectClose(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewStateRecorder(4)
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.Listener(rec.Channel()))
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.Listener(rec.Channel()))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := await(client.Connection.State, ably.StateConnConnected); err != nil {
@@ -106,7 +106,7 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 
 func TestRealtimeConn_AlreadyConnected(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.AutoConnect(false))
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
@@ -123,7 +123,7 @@ func TestRealtimeConn_AlreadyConnected(t *testing.T) {
 }
 
 func TestRealtimeConn_AuthError(t *testing.T) {
-	opts := ably.ClientOptionsV12{}.
+	opts := ably.ClientOptions{}.
 		Key("abc:abc").
 		UseTokenAuth(true).
 		AutoConnect(false)
@@ -157,7 +157,7 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 	}
 	in <- connected
 
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		Dial(ablytest.MessagePipe(in, out)).
 		RealtimeRequestTimeout(10 * time.Millisecond).
 		AutoConnect(false))
@@ -205,7 +205,7 @@ func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 			in := make(chan *proto.ProtocolMessage)
 			out := make(chan *proto.ProtocolMessage, 16)
 
-			app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.
+			app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 				Dial(ablytest.MessagePipe(in, out)))
 			defer safeclose(t, app, ablytest.FullRealtimeCloser(client))
 

@@ -33,8 +33,6 @@ func (c Capability) Encode() string {
 	return string(p)
 }
 
-type TokenParamsV12 = TokenParams
-
 // TokenParams
 type TokenParams struct {
 	// TTL is a requested time to live for the token. If the token request
@@ -82,8 +80,6 @@ func (params *TokenParams) Query() url.Values {
 	return q
 }
 
-type TokenRequestV12 = TokenRequest
-
 // TokenRequest
 type TokenRequest struct {
 	TokenParams `codec:",inline"`
@@ -93,8 +89,8 @@ type TokenRequest struct {
 	Mac     string `json:"mac,omitempty" codec:"mac,omitempty"`     // message authentication code for the request
 }
 
-func (TokenRequestV12) IsTokener() {}
-func (TokenRequestV12) isTokener() {}
+func (TokenRequest) IsTokener() {}
+func (TokenRequest) isTokener() {}
 
 func (req *TokenRequest) sign(secret []byte) {
 	mac := hmac.New(sha256.New, secret)
@@ -106,8 +102,6 @@ func (req *TokenRequest) sign(secret []byte) {
 	fmt.Fprintln(mac, req.Nonce)
 	req.Mac = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
-
-type TokenDetailsV12 = TokenDetails
 
 // TokenDetails
 type TokenDetails struct {
@@ -130,8 +124,8 @@ type TokenDetails struct {
 	RawCapability string `json:"capability,omitempty" codec:"capability,omitempty"`
 }
 
-func (TokenDetailsV12) IsTokener() {}
-func (TokenDetailsV12) isTokener() {}
+func (TokenDetails) IsTokener() {}
+func (TokenDetails) isTokener() {}
 
 // Capability
 func (tok *TokenDetails) Capability() Capability {

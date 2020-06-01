@@ -25,7 +25,7 @@ type Connection struct {
 	err       error
 	conn      proto.Conn
 	msgCh     chan *proto.ProtocolMessage
-	opts      *ClientOptions
+	opts      *clientOptions
 	state     *stateEmitter
 	stateCh   chan State
 	pending   pendingEmitter
@@ -51,7 +51,7 @@ type connCallbacks struct {
 	// reconnection request.
 }
 
-func newConn(opts *ClientOptions, auth *Auth, callbacks connCallbacks) (*Connection, error) {
+func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) (*Connection, error) {
 	c := &Connection{
 		opts:      opts,
 		msgCh:     make(chan *proto.ProtocolMessage),

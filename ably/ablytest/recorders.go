@@ -142,7 +142,7 @@ type StateRecorder struct {
 }
 
 // NewStateRecorder gives new recorder which purpose is to record states via
-// (*ClientOptions).Listener channel.
+// (*clientOptions).Listener channel.
 //
 // If buffer is > 0, the recorder will use it as a buffer to ensure all states
 // transitions are received.
@@ -340,7 +340,7 @@ type MessageRecorder struct {
 // NewMessageRecorder gives new spy value that records incoming and outgoing
 // ProtocolMessages and dialed endpoints.
 //
-// For use with Dial field of ClientOptions.
+// For use with Dial field of clientOptions.
 func NewMessageRecorder() *MessageRecorder {
 	return &MessageRecorder{}
 }
@@ -443,7 +443,7 @@ func NewRecorder(httpClient *http.Client) *HostRecorder {
 	return hr
 }
 
-func (hr *HostRecorder) Options(opts ably.ClientOptionsV12, host string) ably.ClientOptionsV12 {
+func (hr *HostRecorder) Options(opts ably.ClientOptions, host string) ably.ClientOptions {
 	return opts.
 		RealtimeHost(host).
 		AutoConnect(false).
@@ -470,7 +470,7 @@ func body(p []byte) io.ReadCloser {
 // a DISCONNECT message from the server to the client.
 //
 // Only a single connection gets the disconnect signal, so don't reuse the
-// ClientOptions.
+// clientOptions.
 func DialFakeDisconnect(dial DialFunc) (_ DialFunc, disconnect func() error) {
 	if dial == nil {
 		dial = func(proto string, url *url.URL) (proto.Conn, error) {

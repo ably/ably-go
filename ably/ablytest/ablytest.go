@@ -3,6 +3,7 @@ package ablytest
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -42,8 +43,8 @@ func init() {
 	}
 }
 
-func MergeOptions(opts ...ably.ClientOptionsV12) ably.ClientOptionsV12 {
-	var merged ably.ClientOptionsV12
+func MergeOptions(opts ...ably.ClientOptions) ably.ClientOptions {
+	var merged ably.ClientOptions
 	for _, opt := range opts {
 		merged = append(merged, opt...)
 	}
@@ -63,8 +64,13 @@ func encode(typ string, in interface{}) ([]byte, error) {
 	}
 }
 
-func protocol(opts ably.ClientOptionsV12) string {
-	if opts.ApplyWithDefaults().NoBinaryProtocol {
+var ClientOptionsInspector struct {
+	UseBinaryProtocol func(ably.ClientOptions) bool
+	HTTPClient        func(ably.ClientOptions) *http.Client
+}
+
+func protocol(opts ably.ClientOptions) string {
+	if ClientOptionsInspector.UseBinaryProtocol(opts) {
 		return "application/x-msgpack"
 	}
 	return "application/json"

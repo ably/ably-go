@@ -18,7 +18,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnecting), func(t *testing.T) {
 		t.Parallel()
 
-		app, realtime := ablytest.NewRealtime(ably.ClientOptionsV12{}.AutoConnect(false))
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		changes := make(chan ably.ConnectionStateChange)
@@ -36,7 +36,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnected), func(t *testing.T) {
 		t.Parallel()
 
-		app, realtime := ablytest.NewRealtime(ably.ClientOptionsV12{}.AutoConnect(false))
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		connectAndWait(t, realtime)
@@ -46,7 +46,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		t.Parallel()
 
 		dial, disconnect := ablytest.DialFakeDisconnect(nil)
-		options := ably.ClientOptionsV12{}.
+		options := ably.ClientOptions{}.
 			AutoConnect(false).
 			Dial(dial)
 		app, realtime := ablytest.NewRealtime(options)
@@ -80,7 +80,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosing), func(t *testing.T) {
 		t.Parallel()
 
-		app, realtime := ablytest.NewRealtime(ably.ClientOptionsV12{}.AutoConnect(false))
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		connectAndWait(t, realtime)
@@ -99,7 +99,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosed), func(t *testing.T) {
 		t.Parallel()
 
-		app, realtime := ablytest.NewRealtime(ably.ClientOptionsV12{}.AutoConnect(false))
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 		connectAndWait(t, realtime)
@@ -118,7 +118,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateFailed), func(t *testing.T) {
 		t.Parallel()
 
-		options := ably.ClientOptionsV12{}.
+		options := ably.ClientOptions{}.
 			Environment("sandbox").
 			AutoConnect(false).
 			Key("made:up")
@@ -175,7 +175,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
 		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
 			c, err := ablyutil.DialWebsocket(protocol, u)
@@ -302,7 +302,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 
 	var metaList []*meta
 	gotDial := make(chan chan struct{})
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
 		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
@@ -432,7 +432,7 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	var metaList []*meta
 	gotDial := make(chan chan struct{})
 
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
 		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
@@ -545,7 +545,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	}
 
 	gotDial := make(chan chan struct{})
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
 		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
@@ -670,7 +670,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	}
 	connID := "new-conn-id"
 	gotDial := make(chan chan struct{})
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
 		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
@@ -777,7 +777,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 	}
 	connID := "new-conn-id"
 	gotDial := make(chan chan struct{})
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
 		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}
@@ -878,7 +878,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 		StatusCode: http.StatusBadRequest,
 	}
 	gotDial := make(chan chan struct{})
-	app, client := ablytest.NewRealtime(ably.ClientOptionsV12{}.
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
 		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
 			m := &meta{dial: u}

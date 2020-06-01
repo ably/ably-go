@@ -23,7 +23,7 @@ const (
 	RestHost = "rest.ably.io"
 )
 
-var defaultOptions = ClientOptions{
+var defaultOptions = clientOptions{
 	RestHost:                 RestHost,
 	HTTPMaxRetryCount:        3,
 	RealtimeHost:             "realtime.ably.io",
@@ -52,7 +52,7 @@ const (
 	authToken
 )
 
-type AuthOptions struct {
+type authOptions struct {
 	// AuthCallback is called in order to obtain a signed token request.
 	//
 	// This enables a client to obtain token requests from another entity,
@@ -123,16 +123,16 @@ type AuthOptions struct {
 	UseTokenAuth bool
 }
 
-func (opts *AuthOptions) externalTokenAuthSupported() bool {
+func (opts *authOptions) externalTokenAuthSupported() bool {
 	return !(opts.Token == "" && opts.TokenDetails == nil && opts.AuthCallback == nil && opts.AuthURL == "")
 }
 
-func (opts *AuthOptions) merge(extra *AuthOptions, defaults bool) *AuthOptions {
+func (opts *authOptions) merge(extra *authOptions, defaults bool) *authOptions {
 	ablyutil.Merge(opts, extra, defaults)
 	return opts
 }
 
-func (opts *AuthOptions) authMethod() string {
+func (opts *authOptions) authMethod() string {
 	if opts.AuthMethod != "" {
 		return opts.AuthMethod
 	}
@@ -140,7 +140,7 @@ func (opts *AuthOptions) authMethod() string {
 }
 
 // KeyName gives the key name parsed from the Key field.
-func (opts *AuthOptions) KeyName() string {
+func (opts *authOptions) KeyName() string {
 	if i := strings.IndexRune(opts.Key, ':'); i != -1 {
 		return opts.Key[:i]
 	}
@@ -148,15 +148,15 @@ func (opts *AuthOptions) KeyName() string {
 }
 
 // KeySecret gives the key secret parsed from the Key field.
-func (opts *AuthOptions) KeySecret() string {
+func (opts *authOptions) KeySecret() string {
 	if i := strings.IndexRune(opts.Key, ':'); i != -1 {
 		return opts.Key[i+1:]
 	}
 	return ""
 }
 
-type ClientOptions struct {
-	AuthOptions
+type clientOptions struct {
+	authOptions
 
 	RestHost string // optional; overwrite endpoint hostname for REST client
 
@@ -224,57 +224,49 @@ type ClientOptions struct {
 	Trace *httptrace.ClientTrace
 }
 
-func NewClientOptions(key string) *ClientOptions {
-	return &ClientOptions{
-		AuthOptions: AuthOptions{
-			Key: key,
-		},
-	}
-}
-
-func (opts *ClientOptions) timeoutConnect() time.Duration {
+func (opts *clientOptions) timeoutConnect() time.Duration {
 	if opts.TimeoutConnect != 0 {
 		return opts.TimeoutConnect
 	}
 	return defaultOptions.RealtimeRequestTimeout
 }
 
-func (opts *ClientOptions) timeoutDisconnect() time.Duration {
+func (opts *clientOptions) timeoutDisconnect() time.Duration {
 	if opts.TimeoutDisconnect != 0 {
 		return opts.TimeoutDisconnect
 	}
 	return defaultOptions.TimeoutDisconnect
 }
 
-func (opts *ClientOptions) timeoutSuspended() time.Duration {
+func (opts *clientOptions) timeoutSuspended() time.Duration {
 	if opts.TimeoutSuspended != 0 {
 		return opts.TimeoutSuspended
 	}
 	return defaultOptions.TimeoutSuspended
 }
 
-func (opts *ClientOptions) fallbackRetryTimeout() time.Duration {
+func (opts *clientOptions) fallbackRetryTimeout() time.Duration {
 	if opts.FallbackRetryTimeout != 0 {
 		return opts.FallbackRetryTimeout
 	}
 	return defaultOptions.FallbackRetryTimeout
 }
 
-func (opts *ClientOptions) realtimeRequestTimeout() time.Duration {
+func (opts *clientOptions) realtimeRequestTimeout() time.Duration {
 	if opts.RealtimeRequestTimeout != 0 {
 		return opts.RealtimeRequestTimeout
 	}
 	return defaultOptions.RealtimeRequestTimeout
 }
 
-func (opts *ClientOptions) disconnectedRetryTimeout() time.Duration {
+func (opts *clientOptions) disconnectedRetryTimeout() time.Duration {
 	if opts.DisconnectedRetryTimeout != 0 {
 		return opts.DisconnectedRetryTimeout
 	}
 	return defaultOptions.DisconnectedRetryTimeout
 }
 
-func (opts *ClientOptions) restURL() string {
+func (opts *clientOptions) restURL() string {
 	host := resolveHost(opts.RestHost, opts.Environment, defaultOptions.RestHost)
 	if opts.NoTLS {
 		port := opts.Port
@@ -291,7 +283,7 @@ func (opts *ClientOptions) restURL() string {
 	}
 }
 
-func (opts *ClientOptions) realtimeURL() string {
+func (opts *clientOptions) realtimeURL() string {
 	host := resolveHost(opts.RealtimeHost, opts.Environment, defaultOptions.RealtimeHost)
 	if opts.NoTLS {
 		port := opts.Port
@@ -317,21 +309,21 @@ func resolveHost(host, environment, defaultHost string) string {
 	}
 	return host
 }
-func (opts *ClientOptions) httpclient() *http.Client {
+func (opts *clientOptions) httpclient() *http.Client {
 	if opts.HTTPClient != nil {
 		return opts.HTTPClient
 	}
 	return http.DefaultClient
 }
 
-func (opts *ClientOptions) protocol() string {
+func (opts *clientOptions) protocol() string {
 	if opts.NoBinaryProtocol {
 		return protocolJSON
 	}
 	return protocolMsgPack
 }
 
-func (opts *ClientOptions) idempotentRestPublishing() bool {
+func (opts *clientOptions) idempotentRestPublishing() bool {
 	return opts.IdempotentRestPublishing
 }
 
@@ -399,15 +391,15 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 	return nil
 }
 
-type ClientOptionsV12 []func(*ClientOptions)
+type ClientOptions []func(*clientOptions)
 
-func NewClientOptionsV12(key string) ClientOptionsV12 {
-	return ClientOptionsV12{func(os *ClientOptions) {
+func NewClientOptions(key string) ClientOptions {
+	return ClientOptions{func(os *clientOptions) {
 		os.Key = key
 	}}
 }
 
-type AuthOptionsV12 []func(*AuthOptions)
+type AuthOptions []func(*authOptions)
 
 // A Tokener is or can be used to get a TokenDetails.
 type Tokener interface {
@@ -421,235 +413,235 @@ type TokenString string
 func (TokenString) IsTokener() {}
 func (TokenString) isTokener() {}
 
-func (os AuthOptionsV12) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.AuthCallback = authCallback
 	})
 }
 
-func (os AuthOptionsV12) AuthParams(params url.Values) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) AuthParams(params url.Values) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.AuthParams = params
 	})
 }
 
-func (os AuthOptionsV12) AuthURL(url string) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) AuthURL(url string) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.AuthURL = url
 	})
 }
 
-func (os AuthOptionsV12) AuthMethod(url string) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) AuthMethod(url string) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.AuthMethod = url
 	})
 }
 
-func (os AuthOptionsV12) AuthHeaders(headers http.Header) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) AuthHeaders(headers http.Header) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.AuthHeaders = headers
 	})
 }
 
-func (os AuthOptionsV12) DefaultTokenParams(params TokenParams) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) DefaultTokenParams(params TokenParams) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.DefaultTokenParams = &params
 	})
 }
 
-func (os AuthOptionsV12) Key(key string) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) Key(key string) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.Key = key
 	})
 }
 
-func (os AuthOptionsV12) QueryTime(queryTime bool) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) QueryTime(queryTime bool) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.UseQueryTime = queryTime
 	})
 }
 
-func (os AuthOptionsV12) Token(token string) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) Token(token string) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.Token = token
 	})
 }
 
-func (os AuthOptionsV12) TokenDetails(details *TokenDetails) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) TokenDetails(details *TokenDetails) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.TokenDetails = details
 	})
 }
 
-func (os AuthOptionsV12) UseTokenAuth(use bool) AuthOptionsV12 {
-	return append(os, func(os *AuthOptions) {
+func (os AuthOptions) UseTokenAuth(use bool) AuthOptions {
+	return append(os, func(os *authOptions) {
 		os.UseTokenAuth = use
 	})
 }
 
-func (os ClientOptionsV12) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.AuthCallback = authCallback
 	})
 }
 
-func (os ClientOptionsV12) AuthParams(params url.Values) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) AuthParams(params url.Values) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.AuthParams = params
 	})
 }
 
-func (os ClientOptionsV12) AuthURL(url string) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) AuthURL(url string) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.AuthURL = url
 	})
 }
 
-func (os ClientOptionsV12) AuthMethod(url string) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) AuthMethod(url string) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.AuthMethod = url
 	})
 }
 
-func (os ClientOptionsV12) AuthHeaders(headers http.Header) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) AuthHeaders(headers http.Header) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.AuthHeaders = headers
 	})
 }
 
-func (os ClientOptionsV12) DefaultTokenParams(params TokenParams) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) DefaultTokenParams(params TokenParams) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.DefaultTokenParams = &params
 	})
 }
 
-func (os ClientOptionsV12) EchoMessages(echo bool) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) EchoMessages(echo bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.NoEcho = !echo
 	})
 }
 
-func (os ClientOptionsV12) Key(key string) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) Key(key string) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.Key = key
 	})
 }
 
-func (os ClientOptionsV12) QueryTime(queryTime bool) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) QueryTime(queryTime bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.UseQueryTime = queryTime
 	})
 }
 
-func (os ClientOptionsV12) Token(token string) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) Token(token string) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.Token = token
 	})
 }
 
-func (os ClientOptionsV12) TokenDetails(details *TokenDetails) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) TokenDetails(details *TokenDetails) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.TokenDetails = details
 	})
 }
 
-func (os ClientOptionsV12) UseTokenAuth(use bool) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) UseTokenAuth(use bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.UseTokenAuth = use
 	})
 }
 
-func (os ClientOptionsV12) AutoConnect(autoConnect bool) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) AutoConnect(autoConnect bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.NoConnect = !autoConnect
 	})
 }
 
-func (os ClientOptionsV12) ClientID(clientID string) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) ClientID(clientID string) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.ClientID = clientID
 	})
 }
 
-func (os ClientOptionsV12) Environment(env string) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) Environment(env string) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.Environment = env
 	})
 }
 
-func (os ClientOptionsV12) Port(port int) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) Port(port int) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.Port = port
 	})
 }
 
-func (os ClientOptionsV12) QueueMessages(queue bool) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) QueueMessages(queue bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.NoQueueing = !queue
 	})
 }
 
-func (os ClientOptionsV12) RESTHost(host string) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) RESTHost(host string) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.RestHost = host
 	})
 }
 
-func (os ClientOptionsV12) RealtimeHost(host string) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) RealtimeHost(host string) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.RealtimeHost = host
 	})
 }
 
-func (os ClientOptionsV12) UseBinaryProtocol(use bool) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) UseBinaryProtocol(use bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.NoBinaryProtocol = !use
 	})
 }
 
-func (os ClientOptionsV12) HTTPClient(client *http.Client) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) HTTPClient(client *http.Client) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.HTTPClient = client
 	})
 }
 
-func (os ClientOptionsV12) Dial(dial func(protocol string, u *url.URL) (proto.Conn, error)) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) Dial(dial func(protocol string, u *url.URL) (proto.Conn, error)) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.Dial = dial
 	})
 }
 
-func (os ClientOptionsV12) LogHandler(handler Logger) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) LogHandler(handler Logger) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.Logger.Logger = handler
 	})
 }
 
-func (os ClientOptionsV12) LogLevel(level LogLevel) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) LogLevel(level LogLevel) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.Logger.Level = level
 	})
 }
 
-func (os ClientOptionsV12) FallbackHosts(hosts []string) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) FallbackHosts(hosts []string) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.FallbackHosts = hosts
 	})
 }
 
-func (os ClientOptionsV12) TLS(tls bool) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) TLS(tls bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.NoTLS = !tls
 	})
 }
 
-func (os ClientOptionsV12) IdempotentRESTPublishing(idempotent bool) ClientOptionsV12 {
-	return append(os, func(os *ClientOptions) {
+func (os ClientOptions) IdempotentRESTPublishing(idempotent bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
 		os.IdempotentRestPublishing = idempotent
 	})
 }
 
-func (os ClientOptionsV12) ApplyWithDefaults() *ClientOptions {
+func (os ClientOptions) applyWithDefaults() *clientOptions {
 	to := defaultOptions
 
 	for _, set := range os {
@@ -665,8 +657,8 @@ func (os ClientOptionsV12) ApplyWithDefaults() *ClientOptions {
 	return &to
 }
 
-func (os AuthOptionsV12) ApplyWithDefaults() *AuthOptions {
-	to := defaultOptions.AuthOptions
+func (os AuthOptions) applyWithDefaults() *authOptions {
+	to := defaultOptions.authOptions
 
 	for _, set := range os {
 		set(&to)

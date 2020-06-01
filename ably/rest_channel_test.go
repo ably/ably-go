@@ -207,7 +207,7 @@ func TestIdempotentPublishing(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	options := app.Options(ably.ClientOptionsV12{}.IdempotentRESTPublishing(true))
+	options := app.Options(ably.ClientOptions{}.IdempotentRESTPublishing(true))
 	client, err := ably.NewREST(options)
 	if err != nil {
 		t.Fatal(err)
@@ -430,7 +430,7 @@ func TestIdempotent_retry(t *testing.T) {
 		// set up the proxy to forward the second retry to the correct endpoint,
 		// failing all others via the test server
 		fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
-		nopts := ably.ClientOptionsV12{}.
+		nopts := ably.ClientOptions{}.
 			Environment(ablytest.Environment).
 			TLS(false).
 			FallbackHosts(fallbackHosts).

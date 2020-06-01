@@ -111,7 +111,7 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 		ably.StateChanAttached,
 	}
 	rec := ablytest.NewStateRecorder(4)
-	opts := ably.ClientOptionsV12{}.
+	opts := ably.ClientOptions{}.
 		Listener(rec.Channel()).
 		AutoConnect(false)
 	app, client := ablytest.NewRealtime(opts)

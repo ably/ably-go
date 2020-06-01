@@ -129,14 +129,14 @@ func (c *RestChannels) Len() (size int) {
 type REST struct {
 	Auth                *Auth
 	Channels            *RestChannels
-	opts                *ClientOptions
+	opts                *clientOptions
 	successFallbackHost *fallbackCache
 }
 
-// NewREST constructs a new RESTV12.
-func NewREST(options ClientOptionsV12) (*REST, error) {
+// NewREST constructs a new REST.
+func NewREST(options ClientOptions) (*REST, error) {
 	c := &REST{
-		opts: options.ApplyWithDefaults(),
+		opts: options.applyWithDefaults(),
 	}
 	auth, err := newAuth(c)
 	if err != nil {

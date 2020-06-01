@@ -78,7 +78,7 @@ type AuthReverseProxy struct {
 
 // NewAuthReverseProxy creates new auth reverse proxy. The given opts
 // are used to create a Auth client, used to reverse proxying token requests.
-func NewAuthReverseProxy(opts ably.ClientOptionsV12) (*AuthReverseProxy, error) {
+func NewAuthReverseProxy(opts ably.ClientOptions) (*AuthReverseProxy, error) {
 	client, err := ably.NewREST(opts.
 		UseTokenAuth(true))
 	if err != nil {
@@ -98,7 +98,7 @@ func NewAuthReverseProxy(opts ably.ClientOptionsV12) (*AuthReverseProxy, error) 
 }
 
 // MustAuthReverseProxy panics when creating the proxy fails.
-func MustAuthReverseProxy(opts ably.ClientOptionsV12) *AuthReverseProxy {
+func MustAuthReverseProxy(opts ably.ClientOptions) *AuthReverseProxy {
 	srv, err := NewAuthReverseProxy(opts)
 	if err != nil {
 		panic(err)
@@ -119,8 +119,8 @@ func (srv *AuthReverseProxy) URL(responseType string) string {
 
 // Callback gives new AuthCallback. Available response types are the same
 // as for URL method.
-func (srv *AuthReverseProxy) Callback(responseType string) func(context.Context, ably.TokenParamsV12) (ably.Tokener, error) {
-	return func(ctx context.Context, params ably.TokenParamsV12) (ably.Tokener, error) {
+func (srv *AuthReverseProxy) Callback(responseType string) func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+	return func(ctx context.Context, params ably.TokenParams) (ably.Tokener, error) {
 		token, _, err := srv.handleAuth(responseType, params)
 		return token, err
 	}

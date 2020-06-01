@@ -18,8 +18,8 @@ type Realtime struct {
 	rest *REST
 }
 
-// NewRealtime constructs a new RealtimeV12.
-func NewRealtime(options ClientOptionsV12) (*Realtime, error) {
+// NewRealtime constructs a new Realtime.
+func NewRealtime(options ClientOptions) (*Realtime, error) {
 	c := &Realtime{}
 	rest, err := NewREST(options)
 	if err != nil {
@@ -97,7 +97,7 @@ func (c *Realtime) onConnStateChange(state State) {
 	c.Channels.broadcastConnStateChange(state)
 }
 
-func (c *Realtime) opts() *ClientOptions {
+func (c *Realtime) opts() *clientOptions {
 	return c.rest.opts
 }
 

@@ -137,19 +137,19 @@ func (a *Auth) updateClientID(clientID string) {
 }
 
 // CreateTokenRequest
-func (a *Auth) CreateTokenRequest(params *TokenParams, opts AuthOptionsV12) (*TokenRequest, error) {
+func (a *Auth) CreateTokenRequest(params *TokenParams, opts AuthOptions) (*TokenRequest, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	var o *AuthOptions
+	var o *authOptions
 	if opts != nil {
-		o = opts.ApplyWithDefaults()
+		o = opts.applyWithDefaults()
 	}
 	return a.createTokenRequest(params, o)
 }
 
-func (a *Auth) createTokenRequest(params *TokenParams, opts *AuthOptions) (*TokenRequest, error) {
+func (a *Auth) createTokenRequest(params *TokenParams, opts *authOptions) (*TokenRequest, error) {
 	if opts == nil {
-		opts = &a.opts().AuthOptions
+		opts = &a.opts().authOptions
 	}
 	keySecret := opts.KeySecret()
 	req := &TokenRequest{KeyName: opts.KeyName()}
@@ -171,18 +171,18 @@ func (a *Auth) createTokenRequest(params *TokenParams, opts *AuthOptions) (*Toke
 }
 
 // RequestToken
-func (a *Auth) RequestToken(params *TokenParams, opts AuthOptionsV12) (*TokenDetails, error) {
+func (a *Auth) RequestToken(params *TokenParams, opts AuthOptions) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	var o *AuthOptions
+	var o *authOptions
 	if opts != nil {
-		o = opts.ApplyWithDefaults()
+		o = opts.applyWithDefaults()
 	}
 	tok, _, err := a.requestToken(params, o)
 	return tok, err
 }
 
-func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenDetails, tokReqClientID string, err error) {
+func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenDetails, tokReqClientID string, err error) {
 	switch {
 	case opts != nil && opts.Token != "":
 		return newTokenDetails(opts.Token), "", nil
@@ -260,7 +260,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *AuthOptions) (tok *TokenD
 // Auth.Authorize instead.
 //
 // Refers to RSA10l
-func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
+func (a *Auth) Authorise(params *TokenParams, opts *authOptions) (*TokenDetails, error) {
 	a.logger().Print(LogWarning, "Auth.Authorise is deprecated please use Auth.Authorize \n")
 	return a.Authorize(params, opts)
 }
@@ -269,13 +269,13 @@ func (a *Auth) Authorise(params *TokenParams, opts *AuthOptions) (*TokenDetails,
 // authorization token details.
 //
 // Refers to RSA10
-func (a *Auth) Authorize(params *TokenParams, opts *AuthOptions) (*TokenDetails, error) {
+func (a *Auth) Authorize(params *TokenParams, opts *authOptions) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	return a.authorize(params, opts, true)
 }
 
-func (a *Auth) authorize(params *TokenParams, opts *AuthOptions, force bool) (*TokenDetails, error) {
+func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*TokenDetails, error) {
 	switch tok := a.token(); {
 	case tok != nil && !force && (tok.Expires == 0 || !tok.Expired()):
 		return tok, nil
@@ -288,7 +288,7 @@ func (a *Auth) authorize(params *TokenParams, opts *AuthOptions, force bool) (*T
 	if err != nil {
 		return nil, err
 	}
-	// Fail if the non-empty ClientID, that was set explicitely via ClientOptions, does
+	// Fail if the non-empty ClientID, that was set explicitely via clientOptions, does
 	// not match the non-wildcard ClientID returned with the token.
 	if areClientIDsSet(a.clientID, tok.ClientID) && a.clientID != tok.ClientID {
 		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
@@ -311,16 +311,16 @@ func (a *Auth) reauthorize() (*TokenDetails, error) {
 	return a.authorize(a.params, nil, true)
 }
 
-func (a *Auth) mergeOpts(opts *AuthOptions) *AuthOptions {
+func (a *Auth) mergeOpts(opts *authOptions) *authOptions {
 	if opts == nil {
-		opts = &a.opts().AuthOptions
+		opts = &a.opts().authOptions
 	} else {
-		a.opts().AuthOptions.merge(opts, false)
+		a.opts().authOptions.merge(opts, false)
 	}
 	return opts
 }
 
-func (a *Auth) setDefaults(opts *AuthOptions, req *TokenRequest) error {
+func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 	if req.Nonce == "" {
 		req.Nonce = randomString(32)
 	}
@@ -379,7 +379,7 @@ func (a *Auth) timestamp(query bool) (time.Time, error) {
 	return serverTime, nil
 }
 
-func (a *Auth) requestAuthURL(params *TokenParams, opts *AuthOptions) (interface{}, error) {
+func (a *Auth) requestAuthURL(params *TokenParams, opts *authOptions) (interface{}, error) {
 	req, err := http.NewRequest(opts.authMethod(), opts.AuthURL, nil)
 	if err != nil {
 		return nil, a.newError(40000, err)
@@ -471,7 +471,7 @@ func (a *Auth) authQuery(query url.Values) error {
 	return nil
 }
 
-func (a *Auth) opts() *ClientOptions {
+func (a *Auth) opts() *clientOptions {
 	return a.client.opts
 }
 
@@ -483,7 +483,7 @@ func (a *Auth) logger() *LoggerOptions {
 	return a.client.logger()
 }
 
-func detectAuthMethod(opts *ClientOptions) (int, error) {
+func detectAuthMethod(opts *clientOptions) (int, error) {
 	isKeyValid := opts.KeyName() != "" && opts.KeySecret() != ""
 	isAuthExternal := opts.externalTokenAuthSupported()
 	if opts.UseTokenAuth || isAuthExternal {

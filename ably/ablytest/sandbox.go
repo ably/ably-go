@@ -101,7 +101,7 @@ type Sandbox struct {
 	client *http.Client
 }
 
-func NewRealtime(opts ...ably.ClientOptionsV12) (*Sandbox, *ably.Realtime) {
+func NewRealtime(opts ...ably.ClientOptions) (*Sandbox, *ably.Realtime) {
 	app := MustSandbox(nil)
 	client, err := ably.NewRealtime(app.Options(opts...))
 	if err != nil {
@@ -110,7 +110,7 @@ func NewRealtime(opts ...ably.ClientOptionsV12) (*Sandbox, *ably.Realtime) {
 	return app, client
 }
 
-func NewREST(opts ...ably.ClientOptionsV12) (*Sandbox, *ably.REST) {
+func NewREST(opts ...ably.ClientOptions) (*Sandbox, *ably.REST) {
 	app := MustSandbox(nil)
 	client, err := ably.NewREST(app.Options(opts...))
 	if err != nil {
@@ -185,7 +185,7 @@ func (app *Sandbox) Close() error {
 	return nil
 }
 
-func (app *Sandbox) NewRealtime(opts ...ably.ClientOptionsV12) *ably.Realtime {
+func (app *Sandbox) NewRealtime(opts ...ably.ClientOptions) *ably.Realtime {
 	client, err := ably.NewRealtime(app.Options(opts...))
 	if err != nil {
 		panic("ably.NewRealtime failed: " + err.Error())
@@ -202,12 +202,12 @@ func (app *Sandbox) Key() string {
 	return name + ":" + secret
 }
 
-func (app *Sandbox) Options(opts ...ably.ClientOptionsV12) ably.ClientOptionsV12 {
+func (app *Sandbox) Options(opts ...ably.ClientOptions) ably.ClientOptions {
 	type transportHijacker interface {
 		Hijack(http.RoundTripper) http.RoundTripper
 	}
 	appHTTPClient := NewHTTPClient()
-	appOpts := ably.NewClientOptionsV12(app.Key()).
+	appOpts := ably.NewClientOptions(app.Key()).
 		Environment(app.Environment).
 		LogHandler(DefaultLogger.GetLogger()).
 		LogLevel(DefaultLogger.Level).
@@ -216,7 +216,7 @@ func (app *Sandbox) Options(opts ...ably.ClientOptionsV12) ably.ClientOptionsV12
 	// If opts want to record round trips inject the recording transport
 	// via TransportHijacker interface.
 	opt := MergeOptions(opts...)
-	if httpClient := opt.ApplyWithDefaults().HTTPClient; httpClient != nil {
+	if httpClient := ClientOptionsInspector.HTTPClient(opt); httpClient != nil {
 		if hijacker, ok := httpClient.Transport.(transportHijacker); ok {
 			appHTTPClient.Transport = hijacker.Hijack(appHTTPClient.Transport)
 			opt = opt.HTTPClient(appHTTPClient)
