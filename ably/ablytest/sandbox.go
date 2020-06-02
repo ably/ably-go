@@ -209,6 +209,7 @@ func (app *Sandbox) Options(opts ...ably.ClientOptions) ably.ClientOptions {
 	appHTTPClient := NewHTTPClient()
 	appOpts := ably.NewClientOptions(app.Key()).
 		Environment(app.Environment).
+		UseBinaryProtocol(!NoBinaryProtocol).
 		LogHandler(DefaultLogger.GetLogger()).
 		LogLevel(DefaultLogger.Level).
 		HTTPClient(appHTTPClient)
