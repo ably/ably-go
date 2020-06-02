@@ -434,12 +434,6 @@ func (os AuthOptions) AuthHeaders(headers http.Header) AuthOptions {
 	})
 }
 
-func (os AuthOptions) DefaultTokenParams(params TokenParams) AuthOptions {
-	return append(os, func(os *authOptions) {
-		os.DefaultTokenParams = &params
-	})
-}
-
 func (os AuthOptions) Key(key string) AuthOptions {
 	return append(os, func(os *authOptions) {
 		os.Key = key
@@ -500,18 +494,6 @@ func (os ClientOptions) AuthHeaders(headers http.Header) ClientOptions {
 	})
 }
 
-func (os ClientOptions) DefaultTokenParams(params TokenParams) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.DefaultTokenParams = &params
-	})
-}
-
-func (os ClientOptions) EchoMessages(echo bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.NoEcho = !echo
-	})
-}
-
 func (os ClientOptions) Key(key string) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.Key = key
@@ -554,9 +536,33 @@ func (os ClientOptions) ClientID(clientID string) ClientOptions {
 	})
 }
 
+func (os AuthOptions) DefaultTokenParams(params TokenParams) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.DefaultTokenParams = &params
+	})
+}
+
+func (os ClientOptions) EchoMessages(echo bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.NoEcho = !echo
+	})
+}
+
 func (os ClientOptions) Environment(env string) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.Environment = env
+	})
+}
+
+func (os ClientOptions) LogHandler(handler Logger) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Logger.Logger = handler
+	})
+}
+
+func (os ClientOptions) LogLevel(level LogLevel) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Logger.Level = level
 	})
 }
 
@@ -584,9 +590,57 @@ func (os ClientOptions) RealtimeHost(host string) ClientOptions {
 	})
 }
 
+func (os ClientOptions) FallbackHosts(hosts []string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.FallbackHosts = hosts
+	})
+}
+
+func (os ClientOptions) Recover(key string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Recover = key
+	})
+}
+
+func (os ClientOptions) TLS(tls bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.NoTLS = !tls
+	})
+}
+
+func (os ClientOptions) TLSPort(port int) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.TLSPort = port
+	})
+}
+
 func (os ClientOptions) UseBinaryProtocol(use bool) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.NoBinaryProtocol = !use
+	})
+}
+
+func (os ClientOptions) TransportParams(params url.Values) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.TransportParams = params
+	})
+}
+
+func (os ClientOptions) DisconnectedRetryTimeout(d time.Duration) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.DisconnectedRetryTimeout = d
+	})
+}
+
+func (os ClientOptions) HTTPMaxRetryCount(count int) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.HTTPMaxRetryCount = count
+	})
+}
+
+func (os ClientOptions) IdempotentRESTPublishing(idempotent bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.IdempotentRestPublishing = idempotent
 	})
 }
 
@@ -599,36 +653,6 @@ func (os ClientOptions) HTTPClient(client *http.Client) ClientOptions {
 func (os ClientOptions) Dial(dial func(protocol string, u *url.URL) (proto.Conn, error)) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.Dial = dial
-	})
-}
-
-func (os ClientOptions) LogHandler(handler Logger) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.Logger.Logger = handler
-	})
-}
-
-func (os ClientOptions) LogLevel(level LogLevel) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.Logger.Level = level
-	})
-}
-
-func (os ClientOptions) FallbackHosts(hosts []string) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.FallbackHosts = hosts
-	})
-}
-
-func (os ClientOptions) TLS(tls bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.NoTLS = !tls
-	})
-}
-
-func (os ClientOptions) IdempotentRESTPublishing(idempotent bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.IdempotentRestPublishing = idempotent
 	})
 }
 
