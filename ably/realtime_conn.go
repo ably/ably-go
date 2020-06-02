@@ -151,7 +151,7 @@ func (c *Connection) connectWithRecovery(result bool, connKey string, connSerial
 		query.Set("clientId", c.opts.ClientID)
 	}
 	for k, v := range c.opts.TransportParams {
-		query.Set(k, v)
+		query[k] = v
 	}
 	if err := c.auth.authQuery(query); err != nil {
 		return nil, c.setState(StateConnFailed, err)

@@ -168,7 +168,7 @@ type clientOptions struct {
 	ClientID        string        // optional; required for managing realtime presence of the current client
 	Recover         string        // optional; used to recover client state
 	Logger          LoggerOptions // optional; overwrite logging defaults
-	TransportParams map[string]string
+	TransportParams url.Values
 
 	// max number of fallback hosts to use as a fallback.
 	HTTPMaxRetryCount int
