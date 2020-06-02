@@ -30,7 +30,6 @@ var defaultOptions = clientOptions{
 	TimeoutDisconnect:        30 * time.Second,
 	RealtimeRequestTimeout:   10 * time.Second, // DF1b
 	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
-	TimeoutSuspended:         2 * time.Minute,
 	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
 	Port:                     80,
@@ -194,7 +193,6 @@ type clientOptions struct {
 	// Deprecated: use RealtimeRequestTimeout instead.
 	TimeoutConnect    time.Duration
 	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
-	TimeoutSuspended  time.Duration // time period after which no more reconnection attempts are performed
 
 	// RealtimeRequestTimeout is the timeout for realtime connection establishment
 	// and each subsequent operation.
@@ -236,13 +234,6 @@ func (opts *clientOptions) timeoutDisconnect() time.Duration {
 		return opts.TimeoutDisconnect
 	}
 	return defaultOptions.TimeoutDisconnect
-}
-
-func (opts *clientOptions) timeoutSuspended() time.Duration {
-	if opts.TimeoutSuspended != 0 {
-		return opts.TimeoutSuspended
-	}
-	return defaultOptions.TimeoutSuspended
 }
 
 func (opts *clientOptions) fallbackRetryTimeout() time.Duration {
