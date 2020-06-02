@@ -36,19 +36,19 @@ func newChannels(client *Realtime) *Channels {
 	}
 }
 
-// ChannelOptionsV12 is a set of options for a channel.
-type ChannelOptionsV12 []ChannelOptionV12
+// ChannelOptions is a set of options for a channel.
+type ChannelOptions []ChannelOption
 
-// A ChannelOptionV12 configures a channel. Options are set by calling methods
-// on ChannelOptionsV12.
-type ChannelOptionV12 func(*channelOptions)
+// A ChannelOption configures a channel. Options are set by calling methods
+// on ChannelOptions.
+type ChannelOption func(*channelOptions)
 
 // channelOptions wraps proto.ChannelOptions. It exists so that users can't
-// implement their own ChannelOptionV12.
+// implement their own ChannelOption.
 type channelOptions proto.ChannelOptions
 
-// CipherKeyV12 is like CipherV12 with an AES algorithm and CBC mode.
-func (o ChannelOptionsV12) CipherKeyV12(key []byte) ChannelOptionsV12 {
+// CipherKey is like Cipher with an AES algorithm and CBC mode.
+func (o ChannelOptions) CipherKey(key []byte) ChannelOptions {
 	return append(o, func(o *channelOptions) {
 		o.Cipher = proto.CipherParams{
 			Algorithm: proto.DefaultCipherAlgorithm,
@@ -59,16 +59,11 @@ func (o ChannelOptionsV12) CipherKeyV12(key []byte) ChannelOptionsV12 {
 	})
 }
 
-// CipherV12 sets cipher parameters for encrypting messages on a channel.
-func (o ChannelOptionsV12) CipherV12(params proto.CipherParams) ChannelOptionsV12 {
+// Cipher sets cipher parameters for encrypting messages on a channel.
+func (o ChannelOptions) Cipher(params proto.CipherParams) ChannelOptions {
 	return append(o, func(o *channelOptions) {
 		o.Cipher = params
 	})
-}
-
-func (ch *Channels) GetV12(name string, options ...ChannelOptionV12) *RealtimeChannel {
-	// TODO: options
-	return ch.Get(name)
 }
 
 // Get looks up a channel given by the name and creates it if it does not exist
@@ -77,7 +72,8 @@ func (ch *Channels) GetV12(name string, options ...ChannelOptionV12) *RealtimeCh
 // It is safe to call Get from multiple goroutines - a single channel is
 // guaranteed to be created only once for multiple calls to Get from different
 // goroutines.
-func (ch *Channels) Get(name string) *RealtimeChannel {
+func (ch *Channels) Get(name string, options ...ChannelOption) *RealtimeChannel {
+	// TODO: options
 	ch.mtx.Lock()
 	c, ok := ch.chans[name]
 	if !ok {
