@@ -523,7 +523,7 @@ func (c *Connection) eventloop() {
 			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
 			if msg.ConnectionDetails != nil {
 				c.state.Lock()
-				c.key = msg.ConnectionDetails.ConnectionKey
+				c.key = msg.ConnectionDetails.ConnectionKey //(RTN15e) (RTN16d)
 				c.state.Unlock()
 
 				// Spec RSA7b3, RSA7b4, RSA12a
@@ -538,13 +538,13 @@ func (c *Connection) eventloop() {
 				// reset the mode
 				c.mode = NormalMode
 			}
+			id := c.id
 			c.state.Unlock()
 			switch mode {
 			case ResumeMode:
 				// (RTN15c1) (RTN15c2)
 				c.state.Lock()
 				c.setState(StateConnConnected, newErrorProto(msg.Error))
-				id := c.id
 				c.state.Unlock()
 				if id != msg.ConnectionID {
 					// (RTN15c3)
@@ -553,6 +553,14 @@ func (c *Connection) eventloop() {
 					// with this Conn where we re acquire Conn.state.Lock again.
 					c.callbacks.onReconnectMsg(msg)
 				}
+			case RecoveryMode:
+				// (RTN16d)
+				if id != msg.ConnectionID {
+					// TODO: error?
+				}
+				c.state.Lock()
+				c.setState(StateConnConnected, nil)
+				c.state.Unlock()
 			default:
 				// preserve old behavior.
 				c.state.Lock()
