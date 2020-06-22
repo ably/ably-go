@@ -220,6 +220,7 @@ var closeResultStates = []StateEnum{
 
 func (c *Connection) close() {
 	c.state.Lock()
+	c.recoveryKey = "" //(RTN16c)
 	defer c.state.Unlock()
 	switch c.state.current {
 	case
@@ -571,7 +572,9 @@ func (c *Connection) eventloop() {
 			c.state.Unlock()
 		case proto.ActionClosed:
 			c.state.Lock()
-			c.id = ""
+			c.id = ""          //(RTN16c)
+			c.recoveryKey = "" //(RTN16c)
+			c.key = ""         //(RTN16c)
 			c.setState(StateConnClosed, nil)
 			c.state.Unlock()
 			if c.conn != nil {
