@@ -18,19 +18,20 @@ var (
 // Connection represents a single connection Realtime instantiates for
 // communication with Ably servers.
 type Connection struct {
-	details   proto.ConnectionDetails
-	id        string
-	serial    int64
-	msgSerial int64
-	err       error
-	conn      proto.Conn
-	msgCh     chan *proto.ProtocolMessage
-	opts      *ClientOptions
-	state     *stateEmitter
-	stateCh   chan State
-	pending   pendingEmitter
-	queue     *msgQueue
-	auth      *Auth
+	id          string
+	key         string
+	recoveryKey string
+	serial      int64
+	msgSerial   int64
+	err         error
+	conn        proto.Conn
+	msgCh       chan *proto.ProtocolMessage
+	opts        *ClientOptions
+	state       *stateEmitter
+	stateCh     chan State
+	pending     pendingEmitter
+	queue       *msgQueue
+	auth        *Auth
 
 	callbacks    connCallbacks
 	reconnecting bool
@@ -100,7 +101,7 @@ func (c *Connection) connect(result bool) (Result, error) {
 
 func (c *Connection) reconnect(result bool) (Result, error) {
 	c.state.Lock()
-	connKey := c.details.ConnectionKey
+	connKey := c.key
 	connSerial := c.serial
 	c.state.Unlock()
 	r, err := c.connectWithRecovery(result, connKey, connSerial)
@@ -218,7 +219,7 @@ func (c *Connection) ID() string {
 func (c *Connection) Key() string {
 	c.state.Lock()
 	defer c.state.Unlock()
-	return c.details.ConnectionKey
+	return c.key
 }
 
 // Ping issues a ping request against configured endpoint and returns TTR times
@@ -480,11 +481,11 @@ func (c *Connection) eventloop() {
 			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
 			if msg.ConnectionDetails != nil {
 				c.state.Lock()
-				c.details = *msg.ConnectionDetails
+				c.key = msg.ConnectionDetails.ConnectionKey
 				c.state.Unlock()
 
 				// Spec RSA7b3, RSA7b4, RSA12a
-				c.auth.updateClientID(c.details.ClientID)
+				c.auth.updateClientID(msg.ConnectionDetails.ClientID)
 
 				maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
 				receiveTimeout = c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
