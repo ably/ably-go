@@ -106,3 +106,15 @@ func (c *Connection) OnState(ch chan<- State, states ...StateEnum) {
 func (c *Connection) OffState(ch chan<- State, states ...StateEnum) {
 	c.offState(ch, states...)
 }
+
+func (c *Connection) RecoveryKey() string {
+	c.state.Lock()
+	defer c.state.Unlock()
+	return c.recoveryKey
+}
+
+func (c *Connection) RemoveKey() {
+	c.state.Lock()
+	defer c.state.Unlock()
+	c.key = ""
+}

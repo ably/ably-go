@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -955,5 +956,103 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	// The client should transition to the FAILED state
 	if expected, got := ably.StateConnFailed, client.Connection.State(); expected != got {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+}
+
+func TestRealtimeConn_RTN16(t *testing.T) {
+	t.Parallel()
+
+	doEOF := make(chan struct{}, 1)
+
+	type meta struct {
+		dial     *url.URL
+		messages []*proto.ProtocolMessage
+	}
+	recoverKey := "fakeKey:25:4"
+	var metaList []*meta
+	gotDial := make(chan chan struct{})
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{
+		Recover:   recoverKey,
+		NoConnect: true,
+		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
+			m := &meta{dial: u}
+			metaList = append(metaList, m)
+			if len(metaList) > 1 {
+				goOn := make(chan struct{})
+				gotDial <- goOn
+				<-goOn
+			}
+			c, err := ablyutil.DialWebsocket(protocol, u)
+			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
+				m.messages = append(m.messages, msg)
+			}}, err
+		},
+	})
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatalf("Connect=%s", err)
+	}
+
+	channel := client.Channels.Get("channel")
+
+	if err := ablytest.Wait(channel.Attach()); err != nil {
+		t.Fatal(err)
+	}
+
+	stateChanges := make(chan ably.ConnectionStateChange, 16)
+	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
+		stateChanges <- c
+	})
+	// This is necessary because if key is present then we will send resume param
+	// instead of recover
+	client.Connection.RemoveKey()
+	doEOF <- struct{}{}
+
+	var state ably.ConnectionStateChange
+
+	select {
+	case state = <-stateChanges:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("didn't transition on EOF")
+	}
+
+	if expected, got := ably.ConnectionStateDisconnected, state; expected != got.Current {
+		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+
+	goOn := <-gotDial
+	u := metaList[1].dial
+	recover := u.Query().Get("recover")
+	if recover == "" {
+		t.Fatal("expected resume query param to be set")
+	}
+	parts := strings.Split(recoverKey, ":")
+	if recover != parts[0] {
+		t.Errorf("resume: expected %q got %q", parts[0], recover)
+	}
+	serial := u.Query().Get("connectionSerial")
+	if serial == "" {
+		t.Fatal("expected connectionSerial query param to be set")
+	}
+	if serial != parts[1] {
+		t.Errorf("connectionSerial: expected %q got %q", parts[1], serial)
+	}
+	goOn <- struct{}{}
+	close(goOn)
+
+	{ //(RTN16c)
+		client.Close()
+		if key := client.Connection.Key(); key != "" {
+			t.Errorf("expected key to be empty got %q instead", key)
+		}
+
+		if recover := client.Connection.RecoveryKey(); recover != "" {
+			t.Errorf("expected recovery key to be empty got %q instead", recover)
+		}
+		if id := client.Connection.ID(); id != "" {
+			t.Errorf("expected id to be empty got %q instead", id)
+		}
+
 	}
 }

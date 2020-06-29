@@ -220,7 +220,7 @@ var closeResultStates = []StateEnum{
 
 func (c *Connection) close() {
 	c.state.Lock()
-	c.recoveryKey = "" //(RTN16c)
+	c.recoveryKey, c.key, c.id = "", "", "" //(RTN16c)
 	defer c.state.Unlock()
 	switch c.state.current {
 	case
