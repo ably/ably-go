@@ -375,6 +375,9 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 		c.state.syncSet(StateChanFailed, newErrorProto(msg.Error))
 		c.queue.Fail(newErrorProto(msg.Error))
 	case proto.ActionMessage:
+		for _, m := range msg.Messages {
+			m.Timestamp = msg.Timestamp
+		}
 		c.subs.messageEnqueue(msg)
 	default:
 	}
