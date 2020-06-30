@@ -1086,6 +1086,7 @@ func TestRealtimeConn_RTN16_unrecoverable(t *testing.T) {
 		t.Errorf("expected -1 got %d", serial)
 	}
 	if serial := client.Connection.MsgSerial(); serial != 0 {
+		// (RTN16f)
 		// verify msgSerial is 0 (new connection), not 3
 		t.Errorf("expected 0 got %d", serial)
 	}
