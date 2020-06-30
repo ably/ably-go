@@ -551,11 +551,15 @@ func (c *Connection) eventloop() {
 				c.setState(StateConnConnected, newErrorProto(msg.Error))
 				c.state.Unlock()
 				if id != msg.ConnectionID {
-					// (RTN15c3)
-					// we are calling this outside of locks to avoid deadlock because in the
-					// RealtimeClient client where this callback is implemented we do some ops
-					// with this Conn where we re acquire Conn.state.Lock again.
-					c.callbacks.onReconnectMsg(msg)
+					// (RTN16a) its up to client to explicitly attach channels when in
+					// RecoveryMode
+					if mode == ResumeMode {
+						// (RTN15c3)
+						// we are calling this outside of locks to avoid deadlock because in the
+						// RealtimeClient client where this callback is implemented we do some ops
+						// with this Conn where we re acquire Conn.state.Lock again.
+						c.callbacks.onReconnectMsg(msg)
+					}
 				}
 			default:
 				// preserve old behavior.
