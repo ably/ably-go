@@ -1058,7 +1058,9 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN16_unrecoverable(t *testing.T) {
-	fakeRecoveryKey := "_____!ablyjs_test_fake-key____:5:3"
+	// This test was adopted from the ably-js project
+	// https://github.com/ably/ably-js/blob/340e5ce31dc9d7434a06ae4e1eec32bdacc9c6c5/spec/realtime/connection.test.js#L119
+	fakeRecoveryKey := "_____!ablygo_test_fake-key____:5:3"
 	app, client := ablytest.NewRealtime(&ably.ClientOptions{
 		Recover: fakeRecoveryKey,
 	})
@@ -1078,5 +1080,18 @@ func TestRealtimeConn_RTN16_unrecoverable(t *testing.T) {
 	if reason.Code != code {
 		// verify unrecoverable-connection error set in connection.errorReason
 		t.Errorf("expected 80000 got %d", reason.Code)
+	}
+	if serial := client.Connection.Serial(); serial != -1 {
+		// verify serial is -1 (new connection), not 5
+		t.Errorf("expected -1 got %d", serial)
+	}
+	if serial := client.Connection.MsgSerial(); serial != 0 {
+		// verify msgSerial is 0 (new connection), not 3
+		t.Errorf("expected 0 got %d", serial)
+	}
+	fake := "ablygo_test_fake"
+	if key := client.Connection.Key(); strings.Contains(key, fake) {
+		// verify connection using a new connectionkey
+		t.Errorf("expected %q not to contain %q", key, fake)
 	}
 }

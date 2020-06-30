@@ -118,3 +118,9 @@ func (c *Connection) RemoveKey() {
 	defer c.state.Unlock()
 	c.key = ""
 }
+
+func (c *Connection) MsgSerial() int64 {
+	c.state.Lock()
+	defer c.state.Unlock()
+	return c.msgSerial
+}
