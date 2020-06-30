@@ -111,7 +111,10 @@ var connectResultStates = []StateEnum{
 }
 
 func (c *Connection) connect(result bool) (Result, error) {
-	return c.connectWith(result, NormalMode)
+	c.state.Lock()
+	mode := c.getMode()
+	c.state.Unlock()
+	return c.connectWith(result, mode)
 }
 
 func (c *Connection) reconnect(result bool) (Result, error) {
@@ -209,6 +212,7 @@ func (c *Connection) connectWith(result bool, mode ConnectionMode) (Result, erro
 	} else {
 		c.setConn(conn)
 	}
+	c.mode = mode
 	return res, nil
 }
 
@@ -541,8 +545,8 @@ func (c *Connection) eventloop() {
 			id := c.id
 			c.state.Unlock()
 			switch mode {
-			case ResumeMode:
-				// (RTN15c1) (RTN15c2)
+			case ResumeMode, RecoveryMode:
+				// (RTN15c1) (RTN15c2) (RTN16e)
 				c.state.Lock()
 				c.setState(StateConnConnected, newErrorProto(msg.Error))
 				c.state.Unlock()
@@ -553,14 +557,6 @@ func (c *Connection) eventloop() {
 					// with this Conn where we re acquire Conn.state.Lock again.
 					c.callbacks.onReconnectMsg(msg)
 				}
-			case RecoveryMode:
-				// (RTN16d)
-				if id != msg.ConnectionID {
-					// TODO: error?
-				}
-				c.state.Lock()
-				c.setState(StateConnConnected, nil)
-				c.state.Unlock()
 			default:
 				// preserve old behavior.
 				c.state.Lock()

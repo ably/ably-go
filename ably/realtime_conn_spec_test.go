@@ -1056,3 +1056,27 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 
 	}
 }
+
+func TestRealtimeConn_RTN16_unrecoverable(t *testing.T) {
+	fakeRecoveryKey := "_____!ablyjs_test_fake-key____:5:3"
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{
+		Recover: fakeRecoveryKey,
+	})
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+	err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
+	if err == nil {
+		t.Fatal("expected reason to be set")
+	}
+	info := err.(*ably.ErrorInfo)
+	code := 80008
+	if info.Code != code {
+		// verify unrecoverable-connection error set in stateChange.reason
+		t.Errorf("expected 80000 got %d", info.Code)
+	}
+	reason := client.Connection.ErrorReason()
+	if reason.Code != code {
+		// verify unrecoverable-connection error set in connection.errorReason
+		t.Errorf("expected 80000 got %d", reason.Code)
+	}
+}
