@@ -464,6 +464,12 @@ func (c *Connection) logger() *LoggerOptions {
 	return c.auth.logger()
 }
 
+func (c *Connection) setSerial(serial int64) {
+	c.serial = serial
+	// (RTN16b)
+	c.recoveryKey = strings.Join([]string{c.key, fmt.Sprint(c.serial), fmt.Sprint(c.msgSerial)}, ":")
+}
+
 func (c *Connection) eventloop() {
 	var receiveTimeout time.Duration
 
@@ -487,7 +493,7 @@ func (c *Connection) eventloop() {
 		}
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
-			c.serial = msg.ConnectionSerial
+			c.setSerial(msg.ConnectionSerial)
 			c.state.Unlock()
 		}
 		switch msg.Action {
@@ -495,7 +501,7 @@ func (c *Connection) eventloop() {
 		case proto.ActionAck:
 			c.state.Lock()
 			c.pending.Ack(msg.MsgSerial, msg.Count, newErrorProto(msg.Error))
-			c.serial++
+			c.setSerial(c.serial + 1)
 			c.state.Unlock()
 		case proto.ActionNack:
 			c.state.Lock()
@@ -569,8 +575,8 @@ func (c *Connection) eventloop() {
 			}
 			c.state.Lock()
 			c.id = msg.ConnectionID
-			c.serial = -1
 			c.msgSerial = 0
+			c.setSerial(-1)
 			c.state.Unlock()
 			c.queue.Flush()
 		case proto.ActionDisconnected:

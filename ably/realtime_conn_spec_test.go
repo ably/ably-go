@@ -1096,3 +1096,26 @@ func TestRealtimeConn_RTN16_unrecoverable(t *testing.T) {
 		t.Errorf("expected %q not to contain %q", key, fake)
 	}
 }
+func TestRealtimeConn_RTN16_recoveryKey(t *testing.T) {
+	app, client := ablytest.NewRealtime(&ably.ClientOptions{})
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+	err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := client.Connection.RecoveryKey()
+	if key == "" {
+		t.Fatal("expected recoveryKey to be set")
+	}
+	match := strings.Join(
+		[]string{
+			client.Connection.Key(),
+			fmt.Sprint(client.Connection.Serial()),
+			fmt.Sprint(client.Connection.MsgSerial()),
+		},
+		":")
+	if match != key {
+		t.Errorf("expected %q == %q", key, match)
+	}
+}
