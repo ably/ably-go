@@ -586,9 +586,7 @@ func (c *Connection) eventloop() {
 			c.state.Unlock()
 		case proto.ActionClosed:
 			c.state.Lock()
-			c.id = ""          //(RTN16c)
-			c.recoveryKey = "" //(RTN16c)
-			c.key = ""         //(RTN16c)
+			c.id, c.recoveryKey, c.key = "", "", "" //(RTN16c)
 			c.setState(StateConnClosed, nil)
 			c.state.Unlock()
 			if c.conn != nil {
