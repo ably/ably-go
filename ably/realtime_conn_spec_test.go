@@ -960,27 +960,36 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN16(t *testing.T) {
-	app, client := ablytest.NewRealtime(&ably.ClientOptions{})
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	app, c := ablytest.NewRealtime(&ably.ClientOptions{})
+	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
 
-	err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	channel := c.Channels.Get("channel")
+	if err := ablytest.Wait(channel.Attach()); err != nil {
+		t.Fatal(err)
+	}
+	if err := ablytest.Wait(channel.Publish("name", "data")); err != nil {
+		t.Fatal(err)
+	}
+
+	key := strings.Join([]string{
+		c.Connection.Key(),
+		fmt.Sprint(c.Connection.Serial()),
+		fmt.Sprint(c.Connection.MsgSerial()),
+	}, ":")
+	client := app.NewRealtime(&ably.ClientOptions{
+		Recover: key,
+	})
+	err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
 	if err != nil {
 		t.Fatal(err)
 	}
 	{ //RTN16b
-		key := client.Connection.RecoveryKey()
-		if key == "" {
-			t.Fatal("expected recoveryKey to be set")
-		}
-		match := strings.Join(
-			[]string{
-				client.Connection.Key(),
-				fmt.Sprint(client.Connection.Serial()),
-				fmt.Sprint(client.Connection.MsgSerial()),
-			},
-			":")
-		if match != key {
-			t.Errorf("expected %q == %q", key, match)
+		if !sameConnection(client.Connection.Key(), c.Connection.Key()) {
+			t.Errorf("expected the same connection")
 		}
 	}
 
@@ -1002,16 +1011,13 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		// https://github.com/ably/ably-js/blob/340e5ce31dc9d7434a06ae4e1eec32bdacc9c6c5/spec/realtime/connection.test.js#L119
 		var query url.Values
 		fakeRecoveryKey := "_____!ablygo_test_fake-key____:5:3"
-		client2, err := ably.NewRealtime(app.Options(&ably.ClientOptions{
+		client2 := app.NewRealtime(&ably.ClientOptions{
 			Recover: fakeRecoveryKey,
 			Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
 				query = u.Query()
 				return ablyutil.DialWebsocket(protocol, u)
 			},
-		}))
-		if err == nil {
-			t.Fatal("expected")
-		}
+		})
 		defer safeclose(t, ablytest.FullRealtimeCloser(client2))
 		err = ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait()
 		if err == nil {
@@ -1062,4 +1068,8 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 			}
 		}
 	}
+}
+
+func sameConnection(a, b string) bool {
+	return strings.Split(a, "-")[0] == strings.Split(b, "-")[0]
 }

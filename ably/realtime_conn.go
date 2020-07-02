@@ -466,8 +466,6 @@ func (c *Connection) logger() *LoggerOptions {
 
 func (c *Connection) setSerial(serial int64) {
 	c.serial = serial
-	// (RTN16b)
-	c.recoveryKey = strings.Join([]string{c.key, fmt.Sprint(c.serial), fmt.Sprint(c.msgSerial)}, ":")
 }
 
 func (c *Connection) eventloop() {
