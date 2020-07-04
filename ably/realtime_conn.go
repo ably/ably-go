@@ -70,6 +70,10 @@ func newConn(opts *ClientOptions, auth *Auth, callbacks connCallbacks) (*Connect
 }
 
 func (c *Connection) dial(proto string, u *url.URL) (proto.Conn, error) {
+	// (RTN23b)
+	query := u.Query()
+	query.Add("heartbeats", "true")
+	u.RawQuery = query.Encode()
 	if c.opts.Dial != nil {
 		return c.opts.Dial(proto, u)
 	}
@@ -419,7 +423,6 @@ func (c *Connection) logger() *LoggerOptions {
 
 func (c *Connection) eventloop() {
 	var receiveTimeout time.Duration
-
 	for c.lockCanReceiveMessages() {
 		var deadline time.Time
 		if receiveTimeout != 0 {
