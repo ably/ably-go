@@ -260,7 +260,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 // Auth.Authorize instead.
 //
 // Refers to RSA10l
-func (a *Auth) Authorise(params *TokenParams, opts *authOptions) (*TokenDetails, error) {
+func (a *Auth) Authorise(params *TokenParams, opts AuthOptions) (*TokenDetails, error) {
 	a.logger().Print(LogWarning, "Auth.Authorise is deprecated please use Auth.Authorize \n")
 	return a.Authorize(params, opts)
 }
@@ -269,7 +269,11 @@ func (a *Auth) Authorise(params *TokenParams, opts *authOptions) (*TokenDetails,
 // authorization token details.
 //
 // Refers to RSA10
-func (a *Auth) Authorize(params *TokenParams, opts *authOptions) (*TokenDetails, error) {
+func (a *Auth) Authorize(params *TokenParams, setOpts AuthOptions) (*TokenDetails, error) {
+	var opts *authOptions
+	if setOpts != nil {
+		opts = setOpts.applyWithDefaults()
+	}
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	return a.authorize(params, opts, true)
