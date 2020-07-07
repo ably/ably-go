@@ -227,6 +227,12 @@ func (c *Conn) Key() string {
 	return c.details.ConnectionKey
 }
 
+func (c *Conn) ServerID() string {
+	c.state.Lock()
+	defer c.state.Unlock()
+	return c.details.ServerID
+}
+
 // Ping issues a ping request against configured endpoint and returns TTR times
 // for ping request and pong response.
 //

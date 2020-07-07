@@ -19,6 +19,7 @@ func (f Flag) Has(flag Flag) bool {
 
 type ConnectionDetails struct {
 	ClientID           string `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	ServerID string `json:"serverId,omitempty" codec:"serverId,omitempty"`
 	ConnectionKey      string `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
 	MaxMessageSize     int64  `json:"maxMessageSize,omitempty" codec:"maxMessageSize,omitempty"`
 	MaxFrameSize       int64  `json:"maxFrameSize,omitempty" codec:"maxFrameSize,omitempty"`
@@ -28,6 +29,9 @@ type ConnectionDetails struct {
 }
 
 func (c *ConnectionDetails) FromMap(ctx map[string]interface{}) {
+	if v, ok := ctx["serverID"]; ok {
+		c.ServerID = v.(string)
+	}
 	if v, ok := ctx["clientId"]; ok {
 		c.ClientID = v.(string)
 	}
