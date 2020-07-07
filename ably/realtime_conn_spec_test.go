@@ -975,21 +975,25 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	key := strings.Join([]string{
-		c.Connection.Key(),
-		fmt.Sprint(c.Connection.Serial()),
-		fmt.Sprint(c.Connection.MsgSerial()),
-	}, ":")
 	client := app.NewRealtime(&ably.ClientOptions{
-		Recover: key,
+		Recover: c.Connection.RecoveryKey(),
 	})
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
+
 	err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
 	if err != nil {
 		t.Fatal(err)
 	}
-	{ //RTN16b
+	{ //RTN16b, RTN16f
 		if !sameConnection(client.Connection.Key(), c.Connection.Key()) {
 			t.Errorf("expected the same connection")
+		}
+
+		if client.Connection.MsgSerial() != c.Connection.MsgSerial() {
+			t.Errorf("expected %d got %d", c.Connection.MsgSerial(), client.Connection.MsgSerial())
+		}
+		if true {
+			return
 		}
 	}
 
