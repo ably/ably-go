@@ -1078,3 +1078,26 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 func sameConnection(a, b string) bool {
 	return strings.Split(a, "-")[0] == strings.Split(b, "-")[0]
 }
+
+func TestRealtimeConn_RTN23(t *testing.T) {
+	t.Parallel()
+	var query url.Values
+	app, c := ablytest.NewRealtime(&ably.ClientOptions{
+		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
+			query = u.Query()
+			return ablyutil.DialWebsocket(protocol, u)
+		},
+	})
+	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	{ // RTN23b
+		h := query.Get("heartbeats")
+		if h != "true" {
+			t.Errorf("expected heartbeats query param to be true got %q", h)
+		}
+	}
+}
