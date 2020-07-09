@@ -960,6 +960,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN16(t *testing.T) {
+	t.Parallel()
 	app, c := ablytest.NewRealtime(&ably.ClientOptions{})
 	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
 

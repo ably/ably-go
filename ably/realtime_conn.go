@@ -16,16 +16,16 @@ var (
 	errQueueing = errors.New("unable to send messages in current state with disabled queueing")
 )
 
-// ConnectionMode is the mode in which the connection is operating
-type ConnectionMode uint
+// connectionMode is the mode in which the connection is operating
+type connectionMode uint
 
 const (
-	// NormalMode this is set when the Connection operating normally
-	NormalMode ConnectionMode = iota
-	// ResumeMode this is set when the Connection is trying to resume
-	ResumeMode
-	// RecoveryMode this is set when the Connection is trying to recover
-	RecoveryMode
+	// normalMode this is set when the Connection operating normally
+	normalMode connectionMode = iota
+	// resumeMode this is set when the Connection is trying to resume
+	resumeMode
+	// recoveryMode this is set when the Connection is trying to recover
+	recoveryMode
 )
 
 // Connection represents a single connection Realtime instantiates for
@@ -132,17 +132,17 @@ func (c *Connection) reconnect(result bool) (Result, error) {
 	return r, nil
 }
 
-func (c *Connection) getMode() ConnectionMode {
+func (c *Connection) getMode() connectionMode {
 	if c.key != "" {
-		return ResumeMode
+		return resumeMode
 	}
 	if c.opts.Recover != "" {
-		return RecoveryMode
+		return recoveryMode
 	}
-	return NormalMode
+	return normalMode
 }
 
-func (c *Connection) params(mode ConnectionMode) (url.Values, error) {
+func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	query := url.Values{
 		"timestamp": []string{strconv.FormatInt(TimeNow(), 10)},
 		"echo":      []string{"true"},
@@ -165,10 +165,10 @@ func (c *Connection) params(mode ConnectionMode) (url.Values, error) {
 		return nil, err
 	}
 	switch mode {
-	case ResumeMode:
+	case resumeMode:
 		query.Set("resume", c.key)
 		query.Set("connectionSerial", fmt.Sprint(c.serial))
-	case RecoveryMode:
+	case recoveryMode:
 		m := strings.Split(c.opts.Recover, ":")
 		if len(m) != 3 {
 			return nil, errors.New("conn: Invalid recovery key")
@@ -179,7 +179,7 @@ func (c *Connection) params(mode ConnectionMode) (url.Values, error) {
 	return query, nil
 }
 
-func (c *Connection) connectWith(result bool, mode ConnectionMode) (Result, error) {
+func (c *Connection) connectWith(result bool, mode connectionMode) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
 	if c.isActive() {
@@ -209,7 +209,7 @@ func (c *Connection) connectWith(result bool, mode ConnectionMode) (Result, erro
 	} else {
 		c.setConn(conn)
 	}
-	c.reconnecting = mode == RecoveryMode || mode == ResumeMode
+	c.reconnecting = mode == recoveryMode || mode == resumeMode
 	return res, nil
 }
 
@@ -580,7 +580,7 @@ func (c *Connection) eventloop() {
 			c.state.Lock()
 			c.id = msg.ConnectionID
 			c.msgSerial = 0
-			if reconnecting && mode == RecoveryMode {
+			if reconnecting && mode == recoveryMode {
 				// we are setting msgSerial as per (RTN16f)
 				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
 				if err != nil {
