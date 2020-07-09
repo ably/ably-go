@@ -1081,24 +1081,19 @@ func sameConnection(a, b string) bool {
 
 type wrapProtoMessage struct {
 	proto.Conn
-	ok chan *messageWithDeadline
-}
-
-type messageWithDeadline struct {
-	msg      *proto.ProtocolMessage
-	deadline time.Time
+	ok chan *proto.ProtocolMessage
 }
 
 func (w *wrapProtoMessage) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
 	msg, err := w.Conn.Receive(deadline)
-	w.ok <- &messageWithDeadline{msg: msg, deadline: deadline}
+	w.ok <- msg
 	return msg, err
 }
 
 func TestRealtimeConn_RTN23(t *testing.T) {
 	t.Parallel()
 	var query url.Values
-	ok := make(chan *messageWithDeadline, 2)
+	ok := make(chan *proto.ProtocolMessage, 2)
 	timeout := 30 * time.Millisecond
 	app, c := ablytest.NewRealtime(&ably.ClientOptions{
 		RealtimeRequestTimeout: timeout,
@@ -1117,8 +1112,8 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := <-ok // consume the connect message
-	maxIdleInterval := time.Duration(v.msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
+	msg := <-ok // consume the connect message
+	maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
 	receiveTimeout := timeout + maxIdleInterval
 
 	{ // RTN23b
@@ -1129,15 +1124,15 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	}
 	{ //RTN23a
 		select {
-		case v := <-ok:
+		case msg := <-ok:
 			// The test here is ensuring we receive a heartbeat within the timeout bounds
 			// as per rtn23a because the connection is idle since receiving connection
 			// message from ably.
-			if v.msg == nil {
+			if msg == nil {
 				t.Fatal("expected to receive heartbeat message")
 			}
-			if v.msg.Action != proto.ActionHeartbeat {
-				t.Errorf("expected action %v got %v", proto.ActionHeartbeat, v.msg.Action)
+			if msg.Action != proto.ActionHeartbeat {
+				t.Errorf("expected action %v got %v", proto.ActionHeartbeat, msg.Action)
 			}
 		case <-time.After(receiveTimeout):
 			t.Error("no heartbeat was sent by ably")
