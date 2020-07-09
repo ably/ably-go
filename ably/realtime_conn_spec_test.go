@@ -1079,13 +1079,36 @@ func sameConnection(a, b string) bool {
 	return strings.Split(a, "-")[0] == strings.Split(b, "-")[0]
 }
 
+type wrapProtoMessage struct {
+	proto.Conn
+	ok chan *messageWithDeadline
+}
+
+type messageWithDeadline struct {
+	msg      *proto.ProtocolMessage
+	deadline time.Time
+}
+
+func (w *wrapProtoMessage) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	msg, err := w.Conn.Receive(deadline)
+	w.ok <- &messageWithDeadline{msg: msg, deadline: deadline}
+	return msg, err
+}
+
 func TestRealtimeConn_RTN23(t *testing.T) {
 	t.Parallel()
 	var query url.Values
+	ok := make(chan *messageWithDeadline, 2)
+	timeout := 30 * time.Millisecond
 	app, c := ablytest.NewRealtime(&ably.ClientOptions{
+		RealtimeRequestTimeout: timeout,
 		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
 			query = u.Query()
-			return ablyutil.DialWebsocket(protocol, u)
+			conn, err := ablyutil.DialWebsocket(protocol, u)
+			if err != nil {
+				return nil, err
+			}
+			return &wrapProtoMessage{ok: ok, Conn: conn}, nil
 		},
 	})
 	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
@@ -1094,10 +1117,30 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	v := <-ok // consume the connect message
+	maxIdleInterval := time.Duration(v.msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
+	receiveTimeout := timeout + maxIdleInterval
+
 	{ // RTN23b
 		h := query.Get("heartbeats")
 		if h != "true" {
 			t.Errorf("expected heartbeats query param to be true got %q", h)
+		}
+	}
+	{ //RTN23a
+		select {
+		case v := <-ok:
+			// The test here is ensuring we receive a heartbeat within the timeout bounds
+			// as per rtn23a because the connection is idle since receiving connection
+			// message from ably.
+			if v.msg == nil {
+				t.Fatal("expected to receive heartbeat message")
+			}
+			if v.msg.Action != proto.ActionHeartbeat {
+				t.Errorf("expected action %v got %v", proto.ActionHeartbeat, v.msg.Action)
+			}
+		case <-time.After(receiveTimeout):
+			t.Error("no heartbeat was sent by ably")
 		}
 	}
 }
