@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -15,11 +16,23 @@ var (
 	errQueueing = errors.New("unable to send messages in current state with disabled queueing")
 )
 
+// connectionMode is the mode in which the connection is operating
+type connectionMode uint
+
+const (
+	// normalMode this is set when the Connection operating normally
+	normalMode connectionMode = iota
+	// resumeMode this is set when the Connection is trying to resume
+	resumeMode
+	// recoveryMode this is set when the Connection is trying to recover
+	recoveryMode
+)
+
 // Connection represents a single connection Realtime instantiates for
 // communication with Ably servers.
 type Connection struct {
-	details   proto.ConnectionDetails
 	id        string
+	key       string
 	serial    int64
 	msgSerial int64
 	err       error
@@ -35,6 +48,7 @@ type Connection struct {
 	callbacks    connCallbacks
 	reconnecting bool
 }
+
 type connCallbacks struct {
 	onChannelMsg func(*proto.ProtocolMessage)
 	// onReconnectMsg is called when we get a response from reconnect request. We
@@ -99,15 +113,17 @@ var connectResultStates = []StateEnum{
 }
 
 func (c *Connection) connect(result bool) (Result, error) {
-	return c.connectWithRecovery(result, "", 0)
+	c.state.Lock()
+	mode := c.getMode()
+	c.state.Unlock()
+	return c.connectWith(result, mode)
 }
 
 func (c *Connection) reconnect(result bool) (Result, error) {
 	c.state.Lock()
-	connKey := c.details.ConnectionKey
-	connSerial := c.serial
+	mode := c.getMode()
 	c.state.Unlock()
-	r, err := c.connectWithRecovery(result, connKey, connSerial)
+	r, err := c.connectWith(result, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -120,22 +136,17 @@ func (c *Connection) reconnect(result bool) (Result, error) {
 	return r, nil
 }
 
-func (c *Connection) connectWithRecovery(result bool, connKey string, connSerial int64) (Result, error) {
-	c.state.Lock()
-	defer c.state.Unlock()
-	if c.isActive() {
-		return nopResult, nil
+func (c *Connection) getMode() connectionMode {
+	if c.key != "" {
+		return resumeMode
 	}
-	c.setState(StateConnConnecting, nil)
-	u, err := url.Parse(c.opts.realtimeURL())
-	if err != nil {
-		return nil, c.setState(StateConnFailed, err)
+	if c.opts.Recover != "" {
+		return recoveryMode
 	}
-	var res Result
-	if result {
-		res = c.state.listenResult(connectResultStates...)
-	}
-	proto := c.opts.protocol()
+	return normalMode
+}
+
+func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	query := url.Values{
 		"timestamp": []string{strconv.FormatInt(TimeNow(), 10)},
 		"echo":      []string{"true"},
@@ -155,13 +166,44 @@ func (c *Connection) connectWithRecovery(result bool, connKey string, connSerial
 		query.Set(k, v)
 	}
 	if err := c.auth.authQuery(query); err != nil {
+		return nil, err
+	}
+	switch mode {
+	case resumeMode:
+		query.Set("resume", c.key)
+		query.Set("connectionSerial", fmt.Sprint(c.serial))
+	case recoveryMode:
+		m := strings.Split(c.opts.Recover, ":")
+		if len(m) != 3 {
+			return nil, errors.New("conn: Invalid recovery key")
+		}
+		query.Set("recover", m[0])
+		query.Set("connectionSerial", m[1])
+	}
+	return query, nil
+}
+
+func (c *Connection) connectWith(result bool, mode connectionMode) (Result, error) {
+	c.state.Lock()
+	defer c.state.Unlock()
+	if c.isActive() {
+		return nopResult, nil
+	}
+	c.setState(StateConnConnecting, nil)
+	u, err := url.Parse(c.opts.realtimeURL())
+	if err != nil {
 		return nil, c.setState(StateConnFailed, err)
 	}
-	if connKey != "" {
-		query.Set("resume", connKey)
-		query.Set("connectionSerial", fmt.Sprint(connSerial))
+	var res Result
+	if result {
+		res = c.state.listenResult(connectResultStates...)
+	}
+	query, err := c.params(mode)
+	if err != nil {
+		return nil, c.setState(StateConnFailed, err)
 	}
 	u.RawQuery = query.Encode()
+	proto := c.opts.protocol()
 	conn, err := c.dial(proto, u)
 	if err != nil {
 		return nil, c.setState(StateConnFailed, err)
@@ -171,6 +213,7 @@ func (c *Connection) connectWithRecovery(result bool, connKey string, connSerial
 	} else {
 		c.setConn(conn)
 	}
+	c.reconnecting = mode == recoveryMode || mode == resumeMode
 	return res, nil
 }
 
@@ -182,6 +225,7 @@ var closeResultStates = []StateEnum{
 
 func (c *Connection) close() {
 	c.state.Lock()
+	c.key, c.id = "", "" //(RTN16c)
 	defer c.state.Unlock()
 	switch c.state.current {
 	case
@@ -222,7 +266,7 @@ func (c *Connection) ID() string {
 func (c *Connection) Key() string {
 	c.state.Lock()
 	defer c.state.Unlock()
-	return c.details.ConnectionKey
+	return c.key
 }
 
 // Ping issues a ping request against configured endpoint and returns TTR times
@@ -240,6 +284,15 @@ func (c *Connection) ErrorReason() *ErrorInfo {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.state.err
+}
+
+func (c *Connection) RecoveryKey() string {
+	c.state.Lock()
+	defer c.state.Unlock()
+	if c.key == "" {
+		return ""
+	}
+	return strings.Join([]string{c.key, fmt.Sprint(c.serial), fmt.Sprint(c.msgSerial)}, ":")
 }
 
 // Serial gives serial number of a message received most recently. Last known
@@ -421,6 +474,10 @@ func (c *Connection) logger() *LoggerOptions {
 	return c.auth.logger()
 }
 
+func (c *Connection) setSerial(serial int64) {
+	c.serial = serial
+}
+
 func (c *Connection) eventloop() {
 	var receiveTimeout time.Duration
 	for c.lockCanReceiveMessages() {
@@ -443,7 +500,7 @@ func (c *Connection) eventloop() {
 		}
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
-			c.serial = msg.ConnectionSerial
+			c.setSerial(msg.ConnectionSerial)
 			c.state.Unlock()
 		}
 		switch msg.Action {
@@ -451,7 +508,7 @@ func (c *Connection) eventloop() {
 		case proto.ActionAck:
 			c.state.Lock()
 			c.pending.Ack(msg.MsgSerial, msg.Count, newErrorProto(msg.Error))
-			c.serial++
+			c.setSerial(c.serial + 1)
 			c.state.Unlock()
 		case proto.ActionNack:
 			c.state.Lock()
@@ -481,13 +538,18 @@ func (c *Connection) eventloop() {
 			}
 		case proto.ActionConnected:
 			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
+			c.state.Lock()
+			// we need to get this before we set c.key so as to be sure if we were
+			// resuming or recovering the connection.
+			mode := c.getMode()
+			c.state.Unlock()
 			if msg.ConnectionDetails != nil {
 				c.state.Lock()
-				c.details = *msg.ConnectionDetails
+				c.key = msg.ConnectionDetails.ConnectionKey //(RTN15e) (RTN16d)
 				c.state.Unlock()
 
 				// Spec RSA7b3, RSA7b4, RSA12a
-				c.auth.updateClientID(c.details.ClientID)
+				c.auth.updateClientID(msg.ConnectionDetails.ClientID)
 
 				maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
 				receiveTimeout = c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
@@ -495,14 +557,15 @@ func (c *Connection) eventloop() {
 			c.state.Lock()
 			reconnecting := c.reconnecting
 			if reconnecting {
+				// reset the mode
 				c.reconnecting = false
 			}
+			id := c.id
 			c.state.Unlock()
 			if reconnecting {
 				// (RTN15c1) (RTN15c2)
 				c.state.Lock()
 				c.setState(StateConnConnected, newErrorProto(msg.Error))
-				id := c.id
 				c.state.Unlock()
 				if id != msg.ConnectionID {
 					// (RTN15c3)
@@ -519,8 +582,16 @@ func (c *Connection) eventloop() {
 			}
 			c.state.Lock()
 			c.id = msg.ConnectionID
-			c.serial = -1
 			c.msgSerial = 0
+			if reconnecting && mode == recoveryMode {
+				// we are setting msgSerial as per (RTN16f)
+				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
+				if err != nil {
+					//TODO: how to handle this? Panic?
+				}
+				c.msgSerial = msgSerial
+			}
+			c.setSerial(-1)
 			c.state.Unlock()
 			c.queue.Flush()
 		case proto.ActionDisconnected:
@@ -530,7 +601,7 @@ func (c *Connection) eventloop() {
 			c.state.Unlock()
 		case proto.ActionClosed:
 			c.state.Lock()
-			c.id = ""
+			c.id, c.key = "", "" //(RTN16c)
 			c.setState(StateConnClosed, nil)
 			c.state.Unlock()
 			if c.conn != nil {

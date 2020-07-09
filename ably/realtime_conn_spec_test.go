@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -957,25 +958,123 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
 }
-func TestRealtimeConn_RTN23(t *testing.T) {
+
+func TestRealtimeConn_RTN16(t *testing.T) {
 	t.Parallel()
-	var query url.Values
-	app, c := ablytest.NewRealtime(&ably.ClientOptions{
-		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
-			query = u.Query()
-			return ablyutil.DialWebsocket(protocol, u)
-		},
-	})
+	app, c := ablytest.NewRealtime(&ably.ClientOptions{})
 	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
 
 	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
 	if err != nil {
 		t.Fatal(err)
 	}
-	{ // RTN23b
-		h := query.Get("heartbeats")
-		if h != "true" {
-			t.Errorf("expected heartbeats query param to be true got %q", h)
+	channel := c.Channels.Get("channel")
+	if err := ablytest.Wait(channel.Attach()); err != nil {
+		t.Fatal(err)
+	}
+	if err := ablytest.Wait(channel.Publish("name", "data")); err != nil {
+		t.Fatal(err)
+	}
+
+	client := app.NewRealtime(&ably.ClientOptions{
+		Recover: c.Connection.RecoveryKey(),
+	})
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
+
+	err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	{ //RTN16b, RTN16f
+		if !sameConnection(client.Connection.Key(), c.Connection.Key()) {
+			t.Errorf("expected the same connection")
+		}
+
+		if client.Connection.MsgSerial() != c.Connection.MsgSerial() {
+			t.Errorf("expected %d got %d", c.Connection.MsgSerial(), client.Connection.MsgSerial())
+		}
+		if true {
+			return
 		}
 	}
+
+	{ //(RTN16c)
+		client.Close()
+		if key := client.Connection.Key(); key != "" {
+			t.Errorf("expected key to be empty got %q instead", key)
+		}
+
+		if recover := client.Connection.RecoveryKey(); recover != "" {
+			t.Errorf("expected recovery key to be empty got %q instead", recover)
+		}
+		if id := client.Connection.ID(); id != "" {
+			t.Errorf("expected id to be empty got %q instead", id)
+		}
+	}
+	{ //(RTN16e)
+		// This test was adopted from the ably-js project
+		// https://github.com/ably/ably-js/blob/340e5ce31dc9d7434a06ae4e1eec32bdacc9c6c5/spec/realtime/connection.test.js#L119
+		var query url.Values
+		fakeRecoveryKey := "_____!ablygo_test_fake-key____:5:3"
+		client2 := app.NewRealtime(&ably.ClientOptions{
+			Recover: fakeRecoveryKey,
+			Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
+				query = u.Query()
+				return ablyutil.DialWebsocket(protocol, u)
+			},
+		})
+		defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+		err = ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait()
+		if err == nil {
+			t.Fatal("expected reason to be set")
+		}
+		{ // (RTN16a)
+			recover := query.Get("recover")
+			if recover == "" {
+				t.Fatal("expected resume query param to be set")
+			}
+			parts := strings.Split(fakeRecoveryKey, ":")
+			if recover != parts[0] {
+				t.Errorf("resume: expected %q got %q", parts[0], recover)
+			}
+			serial := query.Get("connectionSerial")
+			if serial == "" {
+				t.Fatal("expected connectionSerial query param to be set")
+			}
+			if serial != parts[1] {
+				t.Errorf("connectionSerial: expected %q got %q", parts[1], serial)
+			}
+		}
+		{ //(RTN16e)
+			info := err.(*ably.ErrorInfo)
+			code := 80008
+			if info.Code != code {
+				// verify unrecoverable-connection error set in stateChange.reason
+				t.Errorf("expected 80000 got %d", info.Code)
+			}
+			reason := client2.Connection.ErrorReason()
+			if reason.Code != code {
+				// verify unrecoverable-connection error set in connection.errorReason
+				t.Errorf("expected 80000 got %d", reason.Code)
+			}
+			if serial := client2.Connection.Serial(); serial != -1 {
+				// verify serial is -1 (new connection), not 5
+				t.Errorf("expected -1 got %d", serial)
+			}
+			if serial := client2.Connection.MsgSerial(); serial != 0 {
+				// (RTN16f)
+				// verify msgSerial is 0 (new connection), not 3
+				t.Errorf("expected 0 got %d", serial)
+			}
+			fake := "ablygo_test_fake"
+			if key := client2.Connection.Key(); strings.Contains(key, fake) {
+				// verify connection using a new connectionkey
+				t.Errorf("expected %q not to contain %q", key, fake)
+			}
+		}
+	}
+}
+
+func sameConnection(a, b string) bool {
+	return strings.Split(a, "-")[0] == strings.Split(b, "-")[0]
 }
