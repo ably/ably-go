@@ -1079,12 +1079,12 @@ func sameConnection(a, b string) bool {
 	return strings.Split(a, "-")[0] == strings.Split(b, "-")[0]
 }
 
-type wrapProtoMessage struct {
+type protoConnWithReceiveHook struct {
 	proto.Conn
 	ok chan *proto.ProtocolMessage
 }
 
-func (w *wrapProtoMessage) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+func (w *protoConnWithReceiveHook) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
 	msg, err := w.Conn.Receive(deadline)
 	w.ok <- msg
 	return msg, err
@@ -1103,7 +1103,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return &wrapProtoMessage{ok: ok, Conn: conn}, nil
+			return &protoConnWithReceiveHook{ok: ok, Conn: conn}, nil
 		},
 	})
 	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
