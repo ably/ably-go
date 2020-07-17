@@ -1078,3 +1078,64 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 func sameConnection(a, b string) bool {
 	return strings.Split(a, "-")[0] == strings.Split(b, "-")[0]
 }
+
+type protoConnWithReceiveHook struct {
+	proto.Conn
+	ok chan *proto.ProtocolMessage
+}
+
+func (w *protoConnWithReceiveHook) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	msg, err := w.Conn.Receive(deadline)
+	w.ok <- msg
+	return msg, err
+}
+
+func TestRealtimeConn_RTN23(t *testing.T) {
+	t.Parallel()
+	var query url.Values
+	ok := make(chan *proto.ProtocolMessage, 2)
+	timeout := 30 * time.Millisecond
+	app, c := ablytest.NewRealtime(&ably.ClientOptions{
+		RealtimeRequestTimeout: timeout,
+		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
+			query = u.Query()
+			conn, err := ablyutil.DialWebsocket(protocol, u)
+			if err != nil {
+				return nil, err
+			}
+			return &protoConnWithReceiveHook{ok: ok, Conn: conn}, nil
+		},
+	})
+	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := <-ok // consume the connect message
+	maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
+	receiveTimeout := timeout + maxIdleInterval
+
+	{ // RTN23b
+		h := query.Get("heartbeats")
+		if h != "true" {
+			t.Errorf("expected heartbeats query param to be true got %q", h)
+		}
+	}
+	{ //RTN23a
+		select {
+		case msg := <-ok:
+			// The test here is ensuring we receive a heartbeat within the timeout bounds
+			// as per rtn23a because the connection is idle since receiving connection
+			// message from ably.
+			if msg == nil {
+				t.Fatal("expected to receive heartbeat message")
+			}
+			if msg.Action != proto.ActionHeartbeat {
+				t.Errorf("expected action %v got %v", proto.ActionHeartbeat, msg.Action)
+			}
+		case <-time.After(receiveTimeout):
+			t.Error("no heartbeat was sent by ably")
+		}
+	}
+}
