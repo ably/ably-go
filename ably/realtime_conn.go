@@ -37,10 +37,8 @@ type Connection struct {
 	msgSerial int64
 	err       error
 	conn      proto.Conn
-	msgCh     chan *proto.ProtocolMessage
 	opts      *ClientOptions
 	state     *stateEmitter
-	stateCh   chan State
 	pending   pendingEmitter
 	queue     *msgQueue
 	auth      *Auth
@@ -65,7 +63,6 @@ type connCallbacks struct {
 func newConn(opts *ClientOptions, auth *Auth, callbacks connCallbacks) (*Connection, error) {
 	c := &Connection{
 		opts:      opts,
-		msgCh:     make(chan *proto.ProtocolMessage),
 		state:     newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
 		pending:   newPendingEmitter(auth.logger()),
 		auth:      auth,
