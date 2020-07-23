@@ -153,16 +153,14 @@ func TestRestChannel(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		opts := &proto.ChannelOptions{
-			Cipher: proto.CipherParams{
-				Key:       key,
-				KeyLength: 128,
-				IV:        iv,
-				Algorithm: proto.AES,
-			},
-		}
+		opts := ably.ChannelOptions{}.Cipher(proto.CipherParams{
+			Key:       key,
+			KeyLength: 128,
+			IV:        iv,
+			Algorithm: proto.AES,
+		})
 		channelName := "encrypted_channel"
-		channel := client.Channels.Get(channelName, opts)
+		channel := client.Channels.Get(channelName, opts...)
 		sample := []struct {
 			event, message string
 		}{

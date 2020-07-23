@@ -45,6 +45,7 @@ func (c CipherMode) String() string {
 const (
 	DefaultKeyLength       = 256
 	DefaultCipherAlgorithm = AES
+	DefaultCipherMode      = CBC
 )
 
 // CipherParams  provides parameters for configuring encryption  for channels.

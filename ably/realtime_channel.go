@@ -36,13 +36,44 @@ func newChannels(client *Realtime) *Channels {
 	}
 }
 
+// ChannelOptions is a set of options for a channel.
+type ChannelOptions []ChannelOption
+
+// A ChannelOption configures a channel. Options are set by calling methods
+// on ChannelOptions.
+type ChannelOption func(*channelOptions)
+
+// channelOptions wraps proto.ChannelOptions. It exists so that users can't
+// implement their own ChannelOption.
+type channelOptions proto.ChannelOptions
+
+// CipherKey is like Cipher with an AES algorithm and CBC mode.
+func (o ChannelOptions) CipherKey(key []byte) ChannelOptions {
+	return append(o, func(o *channelOptions) {
+		o.Cipher = proto.CipherParams{
+			Algorithm: proto.DefaultCipherAlgorithm,
+			Key:       key,
+			KeyLength: proto.DefaultKeyLength,
+			Mode:      proto.DefaultCipherMode,
+		}
+	})
+}
+
+// Cipher sets cipher parameters for encrypting messages on a channel.
+func (o ChannelOptions) Cipher(params proto.CipherParams) ChannelOptions {
+	return append(o, func(o *channelOptions) {
+		o.Cipher = params
+	})
+}
+
 // Get looks up a channel given by the name and creates it if it does not exist
 // already.
 //
 // It is safe to call Get from multiple goroutines - a single channel is
 // guaranteed to be created only once for multiple calls to Get from different
 // goroutines.
-func (ch *Channels) Get(name string) *RealtimeChannel {
+func (ch *Channels) Get(name string, options ...ChannelOption) *RealtimeChannel {
+	// TODO: options
 	ch.mtx.Lock()
 	c, ok := ch.chans[name]
 	if !ok {
