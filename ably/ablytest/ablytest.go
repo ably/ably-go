@@ -3,6 +3,7 @@ package ablytest
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -42,18 +43,12 @@ func init() {
 	}
 }
 
-func MergeOptions(opts ...*ably.ClientOptions) *ably.ClientOptions {
-	switch len(opts) {
-	case 0:
-		return nil
-	case 1:
-		return opts[0]
+func MergeOptions(opts ...ably.ClientOptions) ably.ClientOptions {
+	var merged ably.ClientOptions
+	for _, opt := range opts {
+		merged = append(merged, opt...)
 	}
-	mergedOpts := opts[0]
-	for _, opt := range opts[1:] {
-		mergedOpts = mergeOpts(mergedOpts, opt)
-	}
-	return mergedOpts
+	return merged
 }
 
 func encode(typ string, in interface{}) ([]byte, error) {
@@ -69,19 +64,14 @@ func encode(typ string, in interface{}) ([]byte, error) {
 	}
 }
 
-func mergeOpts(opts, extra *ably.ClientOptions) *ably.ClientOptions {
-	if extra == nil {
-		return opts
-	}
-	ablyutil.Merge(opts, extra, false)
-	ablyutil.Merge(&opts.AuthOptions, &extra.AuthOptions, false)
-	ablyutil.Merge(&opts.Logger, &extra.Logger, false)
-	return opts
+var ClientOptionsInspector struct {
+	UseBinaryProtocol func(ably.ClientOptions) bool
+	HTTPClient        func(ably.ClientOptions) *http.Client
 }
 
-func protocol(opts *ably.ClientOptions) string {
-	if opts.NoBinaryProtocol {
-		return "application/json"
+func protocol(opts ably.ClientOptions) string {
+	if ClientOptionsInspector.UseBinaryProtocol(opts) {
+		return "application/x-msgpack"
 	}
-	return "application/x-msgpack"
+	return "application/json"
 }

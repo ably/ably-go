@@ -175,7 +175,7 @@ for msg := range sub.PresenceChannel() {
 All examples assume a client and/or channel has been created as follows:
 
 ```go
-client, err := ably.NewRestClient(ably.NewClientOptions("xxx:xxx"))
+client, err := ably.NewREST(ably.NewClientOptions("xxx:xxx"))
 if err != nil {
 	panic(err)
 }

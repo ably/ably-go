@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,17 +23,17 @@ const (
 	RestHost = "rest.ably.io"
 )
 
-var defaultOptions = &ClientOptions{
+var defaultOptions = clientOptions{
 	RestHost:                 RestHost,
-	FallbackHosts:            DefaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
 	RealtimeHost:             "realtime.ably.io",
 	TimeoutDisconnect:        30 * time.Second,
 	RealtimeRequestTimeout:   10 * time.Second, // DF1b
 	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
-	TimeoutSuspended:         2 * time.Minute,
 	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
+	Port:                     80,
+	TLSPort:                  443,
 }
 
 func DefaultFallbackHosts() []string {
@@ -50,20 +51,12 @@ const (
 	authToken
 )
 
-type AuthOptions struct {
+type authOptions struct {
 	// AuthCallback is called in order to obtain a signed token request.
 	//
 	// This enables a client to obtain token requests from another entity,
 	// so tokens can be renewed without the client requiring access to keys.
-	//
-	// The returned value of the token is expected to be one of the following
-	// types:
-	//
-	//   - string, which is then used as token string
-	//   - *ably.TokenRequest, which is then used as an already signed request
-	//   - *ably.TokenDetails, which is then used as a token
-	//
-	AuthCallback func(params *TokenParams) (token interface{}, err error)
+	AuthCallback func(context.Context, TokenParams) (Tokener, error)
 
 	// URL which is queried to obtain a signed token request.
 	//
@@ -127,24 +120,18 @@ type AuthOptions struct {
 	// UseTokenAuth makes the Rest and Realtime clients always use token
 	// authentication method.
 	UseTokenAuth bool
-
-	// Force when true makes the client request new token unconditionally.
-	//
-	// By default the client does not request new token if the current one
-	// is still valid.
-	Force bool
 }
 
-func (opts *AuthOptions) externalTokenAuthSupported() bool {
+func (opts *authOptions) externalTokenAuthSupported() bool {
 	return !(opts.Token == "" && opts.TokenDetails == nil && opts.AuthCallback == nil && opts.AuthURL == "")
 }
 
-func (opts *AuthOptions) merge(extra *AuthOptions, defaults bool) *AuthOptions {
+func (opts *authOptions) merge(extra *authOptions, defaults bool) *authOptions {
 	ablyutil.Merge(opts, extra, defaults)
 	return opts
 }
 
-func (opts *AuthOptions) authMethod() string {
+func (opts *authOptions) authMethod() string {
 	if opts.AuthMethod != "" {
 		return opts.AuthMethod
 	}
@@ -152,7 +139,7 @@ func (opts *AuthOptions) authMethod() string {
 }
 
 // KeyName gives the key name parsed from the Key field.
-func (opts *AuthOptions) KeyName() string {
+func (opts *authOptions) KeyName() string {
 	if i := strings.IndexRune(opts.Key, ':'); i != -1 {
 		return opts.Key[:i]
 	}
@@ -160,18 +147,17 @@ func (opts *AuthOptions) KeyName() string {
 }
 
 // KeySecret gives the key secret parsed from the Key field.
-func (opts *AuthOptions) KeySecret() string {
+func (opts *authOptions) KeySecret() string {
 	if i := strings.IndexRune(opts.Key, ':'); i != -1 {
 		return opts.Key[i+1:]
 	}
 	return ""
 }
 
-type ClientOptions struct {
-	AuthOptions
+type clientOptions struct {
+	authOptions
 
-	RestHost                string // optional; overwrite endpoint hostname for REST client
-	FallbackHostsUseDefault bool
+	RestHost string // optional; overwrite endpoint hostname for REST client
 
 	FallbackHosts   []string
 	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
@@ -181,7 +167,7 @@ type ClientOptions struct {
 	ClientID        string        // optional; required for managing realtime presence of the current client
 	Recover         string        // optional; used to recover client state
 	Logger          LoggerOptions // optional; overwrite logging defaults
-	TransportParams map[string]string
+	TransportParams url.Values
 
 	// max number of fallback hosts to use as a fallback.
 	HTTPMaxRetryCount int
@@ -207,7 +193,6 @@ type ClientOptions struct {
 	// Deprecated: use RealtimeRequestTimeout instead.
 	TimeoutConnect    time.Duration
 	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
-	TimeoutSuspended  time.Duration // time period after which no more reconnection attempts are performed
 
 	// RealtimeRequestTimeout is the timeout for realtime connection establishment
 	// and each subsequent operation.
@@ -237,67 +222,43 @@ type ClientOptions struct {
 	Trace *httptrace.ClientTrace
 }
 
-func NewClientOptions(key string) *ClientOptions {
-	return &ClientOptions{
-		AuthOptions: AuthOptions{
-			Key: key,
-		},
-	}
-}
-
-func (opts *ClientOptions) timeoutConnect() time.Duration {
+func (opts *clientOptions) timeoutConnect() time.Duration {
 	if opts.TimeoutConnect != 0 {
 		return opts.TimeoutConnect
 	}
 	return defaultOptions.RealtimeRequestTimeout
 }
 
-func (opts *ClientOptions) timeoutDisconnect() time.Duration {
+func (opts *clientOptions) timeoutDisconnect() time.Duration {
 	if opts.TimeoutDisconnect != 0 {
 		return opts.TimeoutDisconnect
 	}
 	return defaultOptions.TimeoutDisconnect
 }
 
-func (opts *ClientOptions) timeoutSuspended() time.Duration {
-	if opts.TimeoutSuspended != 0 {
-		return opts.TimeoutSuspended
-	}
-	return defaultOptions.TimeoutSuspended
-}
-
-func (opts *ClientOptions) fallbackRetryTimeout() time.Duration {
+func (opts *clientOptions) fallbackRetryTimeout() time.Duration {
 	if opts.FallbackRetryTimeout != 0 {
 		return opts.FallbackRetryTimeout
 	}
 	return defaultOptions.FallbackRetryTimeout
 }
 
-func (opts *ClientOptions) realtimeRequestTimeout() time.Duration {
+func (opts *clientOptions) realtimeRequestTimeout() time.Duration {
 	if opts.RealtimeRequestTimeout != 0 {
 		return opts.RealtimeRequestTimeout
 	}
 	return defaultOptions.RealtimeRequestTimeout
 }
 
-func (opts *ClientOptions) disconnectedRetryTimeout() time.Duration {
+func (opts *clientOptions) disconnectedRetryTimeout() time.Duration {
 	if opts.DisconnectedRetryTimeout != 0 {
 		return opts.DisconnectedRetryTimeout
 	}
 	return defaultOptions.DisconnectedRetryTimeout
 }
 
-func (opts *ClientOptions) restURL() string {
-	host := opts.RestHost
-	if host == "" {
-		host = defaultOptions.RestHost
-		if opts.Environment == "production" {
-			opts.Environment = ""
-		}
-		if opts.Environment != "" {
-			host = opts.Environment + "-" + host
-		}
-	}
+func (opts *clientOptions) restURL() string {
+	host := resolveHost(opts.RestHost, opts.Environment, defaultOptions.RestHost)
 	if opts.NoTLS {
 		port := opts.Port
 		if port == 0 {
@@ -313,17 +274,8 @@ func (opts *ClientOptions) restURL() string {
 	}
 }
 
-func (opts *ClientOptions) realtimeURL() string {
-	host := opts.RealtimeHost
-	if host == "" {
-		host = defaultOptions.RealtimeHost
-		if opts.Environment == "production" {
-			opts.Environment = ""
-		}
-		if opts.Environment != "" {
-			host = opts.Environment + "-" + host
-		}
-	}
+func (opts *clientOptions) realtimeURL() string {
+	host := resolveHost(opts.RealtimeHost, opts.Environment, defaultOptions.RealtimeHost)
 	if opts.NoTLS {
 		port := opts.Port
 		if port == 0 {
@@ -339,21 +291,30 @@ func (opts *ClientOptions) realtimeURL() string {
 	}
 }
 
-func (opts *ClientOptions) httpclient() *http.Client {
+func resolveHost(host, environment, defaultHost string) string {
+	if host == "" {
+		host = defaultHost
+	}
+	if host == defaultHost && environment != "" && environment != "production" {
+		host = environment + "-" + host
+	}
+	return host
+}
+func (opts *clientOptions) httpclient() *http.Client {
 	if opts.HTTPClient != nil {
 		return opts.HTTPClient
 	}
 	return http.DefaultClient
 }
 
-func (opts *ClientOptions) protocol() string {
+func (opts *clientOptions) protocol() string {
 	if opts.NoBinaryProtocol {
 		return protocolJSON
 	}
 	return protocolMsgPack
 }
 
-func (opts *ClientOptions) idempotentRestPublishing() bool {
+func (opts *clientOptions) idempotentRestPublishing() bool {
 	return opts.IdempotentRestPublishing
 }
 
@@ -419,4 +380,310 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 	}
 	p.ScopeParams.EncodeValues(out)
 	return nil
+}
+
+type ClientOptions []func(*clientOptions)
+
+func NewClientOptions(key string) ClientOptions {
+	return ClientOptions{func(os *clientOptions) {
+		os.Key = key
+	}}
+}
+
+type AuthOptions []func(*authOptions)
+
+// A Tokener is or can be used to get a TokenDetails.
+type Tokener interface {
+	IsTokener()
+	isTokener()
+}
+
+// A TokenString is the string representation of an authentication token.
+type TokenString string
+
+func (TokenString) IsTokener() {}
+func (TokenString) isTokener() {}
+
+func (os AuthOptions) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.AuthCallback = authCallback
+	})
+}
+
+func (os AuthOptions) AuthParams(params url.Values) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.AuthParams = params
+	})
+}
+
+func (os AuthOptions) AuthURL(url string) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.AuthURL = url
+	})
+}
+
+func (os AuthOptions) AuthMethod(url string) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.AuthMethod = url
+	})
+}
+
+func (os AuthOptions) AuthHeaders(headers http.Header) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.AuthHeaders = headers
+	})
+}
+
+func (os AuthOptions) Key(key string) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.Key = key
+	})
+}
+
+func (os AuthOptions) QueryTime(queryTime bool) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.UseQueryTime = queryTime
+	})
+}
+
+func (os AuthOptions) Token(token string) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.Token = token
+	})
+}
+
+func (os AuthOptions) TokenDetails(details *TokenDetails) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.TokenDetails = details
+	})
+}
+
+func (os AuthOptions) UseTokenAuth(use bool) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.UseTokenAuth = use
+	})
+}
+
+func (os ClientOptions) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.AuthCallback = authCallback
+	})
+}
+
+func (os ClientOptions) AuthParams(params url.Values) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.AuthParams = params
+	})
+}
+
+func (os ClientOptions) AuthURL(url string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.AuthURL = url
+	})
+}
+
+func (os ClientOptions) AuthMethod(url string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.AuthMethod = url
+	})
+}
+
+func (os ClientOptions) AuthHeaders(headers http.Header) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.AuthHeaders = headers
+	})
+}
+
+func (os ClientOptions) Key(key string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Key = key
+	})
+}
+
+func (os ClientOptions) QueryTime(queryTime bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.UseQueryTime = queryTime
+	})
+}
+
+func (os ClientOptions) Token(token string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Token = token
+	})
+}
+
+func (os ClientOptions) TokenDetails(details *TokenDetails) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.TokenDetails = details
+	})
+}
+
+func (os ClientOptions) UseTokenAuth(use bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.UseTokenAuth = use
+	})
+}
+
+func (os ClientOptions) AutoConnect(autoConnect bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.NoConnect = !autoConnect
+	})
+}
+
+func (os ClientOptions) ClientID(clientID string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.ClientID = clientID
+	})
+}
+
+func (os AuthOptions) DefaultTokenParams(params TokenParams) AuthOptions {
+	return append(os, func(os *authOptions) {
+		os.DefaultTokenParams = &params
+	})
+}
+
+func (os ClientOptions) EchoMessages(echo bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.NoEcho = !echo
+	})
+}
+
+func (os ClientOptions) Environment(env string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Environment = env
+	})
+}
+
+func (os ClientOptions) LogHandler(handler Logger) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Logger.Logger = handler
+	})
+}
+
+func (os ClientOptions) LogLevel(level LogLevel) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Logger.Level = level
+	})
+}
+
+func (os ClientOptions) Port(port int) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Port = port
+	})
+}
+
+func (os ClientOptions) QueueMessages(queue bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.NoQueueing = !queue
+	})
+}
+
+func (os ClientOptions) RESTHost(host string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.RestHost = host
+	})
+}
+
+func (os ClientOptions) RealtimeHost(host string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.RealtimeHost = host
+	})
+}
+
+func (os ClientOptions) FallbackHosts(hosts []string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.FallbackHosts = hosts
+	})
+}
+
+func (os ClientOptions) Recover(key string) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Recover = key
+	})
+}
+
+func (os ClientOptions) TLS(tls bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.NoTLS = !tls
+	})
+}
+
+func (os ClientOptions) TLSPort(port int) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.TLSPort = port
+	})
+}
+
+func (os ClientOptions) UseBinaryProtocol(use bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.NoBinaryProtocol = !use
+	})
+}
+
+func (os ClientOptions) TransportParams(params url.Values) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.TransportParams = params
+	})
+}
+
+func (os ClientOptions) DisconnectedRetryTimeout(d time.Duration) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.DisconnectedRetryTimeout = d
+	})
+}
+
+func (os ClientOptions) HTTPMaxRetryCount(count int) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.HTTPMaxRetryCount = count
+	})
+}
+
+func (os ClientOptions) IdempotentRESTPublishing(idempotent bool) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.IdempotentRestPublishing = idempotent
+	})
+}
+
+func (os ClientOptions) HTTPClient(client *http.Client) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.HTTPClient = client
+	})
+}
+
+func (os ClientOptions) Dial(dial func(protocol string, u *url.URL) (proto.Conn, error)) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Dial = dial
+	})
+}
+
+func (os ClientOptions) applyWithDefaults() *clientOptions {
+	to := defaultOptions
+
+	for _, set := range os {
+		set(&to)
+	}
+
+	if to.DefaultTokenParams == nil {
+		to.DefaultTokenParams = &TokenParams{
+			TTL: int64(60 * time.Minute / time.Millisecond),
+		}
+	}
+
+	return &to
+}
+
+func (os AuthOptions) applyWithDefaults() *authOptions {
+	to := defaultOptions.authOptions
+
+	for _, set := range os {
+		set(&to)
+	}
+
+	if to.DefaultTokenParams == nil {
+		to.DefaultTokenParams = &TokenParams{
+			TTL: int64(60 * time.Minute / time.Millisecond),
+		}
+	}
+
+	return &to
 }

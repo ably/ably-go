@@ -16,9 +16,9 @@ import (
 
 func TestErrorResponseWithInvalidKey(t *testing.T) {
 	opts := ably.NewClientOptions(":")
-	_, e := ably.NewRestClient(opts)
+	_, e := ably.NewREST(opts)
 	if e == nil {
-		t.Fatal("NewRestClient(): expected err != nil")
+		t.Fatal("NewREST(): expected err != nil")
 	}
 	err, ok := e.(*ably.ErrorInfo)
 	assert.True(t, ok, fmt.Sprintf("want e be *ably.Error; was %T", e))
@@ -43,13 +43,13 @@ func TestIssue127ErrorResponse(t *testing.T) {
 
 	endpointURL, err := url.Parse(server.URL)
 	assert.Nil(t, err)
-	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz")
-	opts.NoTLS = true
-	opts.UseTokenAuth = true
-	opts.RestHost = endpointURL.Hostname()
+	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz").
+		TLS(false).
+		UseTokenAuth(true).
+		RESTHost(endpointURL.Hostname())
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
-	opts.Port = int(port)
-	client, e := ably.NewRestClient(opts)
+	opts = opts.Port(int(port))
+	client, e := ably.NewREST(opts)
 	assert.Nil(t, e)
 
 	_, err = client.Time()
@@ -132,19 +132,19 @@ func TestIssue_154(t *testing.T) {
 
 	endpointURL, err := url.Parse(server.URL)
 	assert.Nil(t, err)
-	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz")
-	opts.NoTLS = true
-	opts.UseTokenAuth = true
-	opts.RestHost = endpointURL.Hostname()
+	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz").
+		TLS(false).
+		UseTokenAuth(true).
+		RESTHost(endpointURL.Hostname())
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
-	opts.Port = int(port)
-	client, e := ably.NewRestClient(opts)
+	opts = opts.Port(int(port))
+	client, e := ably.NewREST(opts)
 	assert.Nil(t, e)
 
 	_, err = client.Time()
 	assert.NotNil(t, err)
 	et := err.(*ably.ErrorInfo)
 	if et.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("expected %d got %d", http.StatusMethodNotAllowed, et.StatusCode)
+		t.Errorf("expected %d got %d: %v", http.StatusMethodNotAllowed, et.StatusCode, err)
 	}
 }

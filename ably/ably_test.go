@@ -3,9 +3,11 @@ package ably_test
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/ablytest"
 )
 
 func nonil(err ...error) error {
@@ -62,5 +64,14 @@ func checkError(code int, err error) error {
 		return fmt.Errorf("want e.Code=%d; got %d: %s", code, e.Code, err)
 	default:
 		return nil
+	}
+}
+
+func init() {
+	ablytest.ClientOptionsInspector.UseBinaryProtocol = func(o ably.ClientOptions) bool {
+		return !o.ApplyWithDefaults().NoBinaryProtocol
+	}
+	ablytest.ClientOptionsInspector.HTTPClient = func(o ably.ClientOptions) *http.Client {
+		return o.ApplyWithDefaults().HTTPClient
 	}
 }

@@ -2,6 +2,7 @@ package ably
 
 import (
 	"net/http"
+	"net/http/httptrace"
 	"time"
 )
 
@@ -9,15 +10,15 @@ func (p *PaginatedResult) BuildPath(base, rel string) string {
 	return p.buildPath(base, rel)
 }
 
-func (opts *ClientOptions) RestURL() string {
+func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }
 
-func (opts *ClientOptions) RealtimeURL() string {
+func (opts *clientOptions) RealtimeURL() string {
 	return opts.realtimeURL()
 }
 
-func (c *RestClient) Post(path string, in, out interface{}) (*http.Response, error) {
+func (c *REST) Post(path string, in, out interface{}) (*http.Response, error) {
 	return c.post(path, in, out)
 }
 
@@ -36,15 +37,6 @@ func DecodeResp(resp *http.Response, out interface{}) error {
 
 func ErrorCode(err error) int {
 	return code(err)
-}
-
-// MustRealtime is like NewRealtime, but panics on error.
-func MustRealtime(opts *ClientOptions) *Realtime {
-	client, err := NewRealtime(opts)
-	if err != nil {
-		panic("ably.NewRealtime failed: " + err.Error())
-	}
-	return client
 }
 
 // GetAndAttach is a helper method, which returns attached channel or panics if
@@ -69,15 +61,15 @@ func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
 }
 
-func (c *RestClient) SetSuccessFallbackHost(duration time.Duration) {
+func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
 	c.successFallbackHost = &fallbackCache{duration: duration}
 }
 
-func (c *RestClient) GetCachedFallbackHost() string {
+func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
 }
 
-func (opts *ClientOptions) GetFallbackRetryTimeout() time.Duration {
+func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }
 
@@ -117,4 +109,26 @@ func (c *Connection) MsgSerial() int64 {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.msgSerial
+}
+
+func (os ClientOptions) Listener(ch chan<- State) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Listener = ch
+	})
+}
+
+func (os ClientOptions) RealtimeRequestTimeout(d time.Duration) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.RealtimeRequestTimeout = d
+	})
+}
+
+func (os ClientOptions) Trace(trace *httptrace.ClientTrace) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Trace = trace
+	})
+}
+
+func (os ClientOptions) ApplyWithDefaults() *clientOptions {
+	return os.applyWithDefaults()
 }

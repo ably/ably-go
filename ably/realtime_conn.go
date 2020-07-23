@@ -37,13 +37,16 @@ type Connection struct {
 	msgSerial int64
 	err       error
 	conn      proto.Conn
-	opts      *ClientOptions
+	opts      *clientOptions
 	state     *stateEmitter
 	pending   pendingEmitter
 	queue     *msgQueue
 	auth      *Auth
 
-	callbacks    connCallbacks
+	callbacks connCallbacks
+	// reconnecting tracks if we have issued a reconnection request. If we receive any message
+	// with this set to true then its the first message/response after issuing the
+	// reconnection request.
 	reconnecting bool
 }
 
@@ -60,7 +63,7 @@ type connCallbacks struct {
 	// reconnection request.
 }
 
-func newConn(opts *ClientOptions, auth *Auth, callbacks connCallbacks) (*Connection, error) {
+func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) (*Connection, error) {
 	c := &Connection{
 		opts:      opts,
 		state:     newStateEmitter(StateConn, StateConnInitialized, "", auth.logger()),
@@ -160,7 +163,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 		query.Set("clientId", c.opts.ClientID)
 	}
 	for k, v := range c.opts.TransportParams {
-		query.Set(k, v)
+		query[k] = v
 	}
 	if err := c.auth.authQuery(query); err != nil {
 		return nil, err

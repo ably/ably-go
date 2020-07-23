@@ -15,16 +15,13 @@ type Realtime struct {
 	Channels   *Channels
 	Connection *Connection
 
-	rest *RestClient
+	rest *REST
 }
 
 // NewRealtime constructs a new Realtime.
-func NewRealtime(opts *ClientOptions) (*Realtime, error) {
-	if opts == nil {
-		panic("called NewRealtime with nil ClientOptions")
-	}
+func NewRealtime(options ClientOptions) (*Realtime, error) {
 	c := &Realtime{}
-	rest, err := NewRestClient(opts)
+	rest, err := NewREST(options)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +97,8 @@ func (c *Realtime) onConnStateChange(state State) {
 	c.Channels.broadcastConnStateChange(state)
 }
 
-func (c *Realtime) opts() *ClientOptions {
-	return &c.rest.opts
+func (c *Realtime) opts() *clientOptions {
+	return c.rest.opts
 }
 
 func (c *Realtime) logger() *LoggerOptions {

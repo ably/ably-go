@@ -142,7 +142,7 @@ type StateRecorder struct {
 }
 
 // NewStateRecorder gives new recorder which purpose is to record states via
-// (*ClientOptions).Listener channel.
+// (*clientOptions).Listener channel.
 //
 // If buffer is > 0, the recorder will use it as a buffer to ensure all states
 // transitions are received.
@@ -340,7 +340,7 @@ type MessageRecorder struct {
 // NewMessageRecorder gives new spy value that records incoming and outgoing
 // ProtocolMessages and dialed endpoints.
 //
-// For use with Dial field of ClientOptions.
+// For use with Dial field of clientOptions.
 func NewMessageRecorder() *MessageRecorder {
 	return &MessageRecorder{}
 }
@@ -443,13 +443,12 @@ func NewRecorder(httpClient *http.Client) *HostRecorder {
 	return hr
 }
 
-func (hr *HostRecorder) Options(host string) *ably.ClientOptions {
-	return &ably.ClientOptions{
-		RealtimeHost: host,
-		NoConnect:    true,
-		HTTPClient:   hr.httpClient,
-		Dial:         hr.dialWS,
-	}
+func (hr *HostRecorder) Options(opts ably.ClientOptions, host string) ably.ClientOptions {
+	return opts.
+		RealtimeHost(host).
+		AutoConnect(false).
+		Dial(hr.dialWS).
+		HTTPClient(hr.httpClient)
 }
 
 func (hr *HostRecorder) addHost(host string) {
@@ -466,14 +465,13 @@ func body(p []byte) io.ReadCloser {
 	return ioutil.NopCloser(bytes.NewReader(p))
 }
 
-// SetFakeDisconnect wraps the Dial option so that calling the returned
+// DialFakeDisconnect wraps a Dial function such that calling the returned
 // disconnect function forcibly closes the connection to the server and fakes
 // a DISCONNECT message from the server to the client.
 //
 // Only a single connection gets the disconnect signal, so don't reuse the
-// ClientOptions.
-func SetFakeDisconnect(opts *ably.ClientOptions) (disconnect func() error) {
-	dial := opts.Dial
+// clientOptions.
+func DialFakeDisconnect(dial DialFunc) (_ DialFunc, disconnect func() error) {
 	if dial == nil {
 		dial = func(proto string, url *url.URL) (proto.Conn, error) {
 			return ablyutil.DialWebsocket(proto, url)
@@ -482,25 +480,25 @@ func SetFakeDisconnect(opts *ably.ClientOptions) (disconnect func() error) {
 
 	disconnectReq := make(chan chan<- error, 1)
 
-	opts.Dial = func(proto string, url *url.URL) (proto.Conn, error) {
-		conn, err := dial(proto, url)
-		if err != nil {
-			return nil, err
+	return func(proto string, url *url.URL) (proto.Conn, error) {
+			conn, err := dial(proto, url)
+			if err != nil {
+				return nil, err
+			}
+
+			return connWithFakeDisconnect{
+				conn:          conn,
+				disconnectReq: disconnectReq,
+				closed:        make(chan struct{}),
+			}, nil
+		}, func() error {
+			err := make(chan error)
+			disconnectReq <- err
+			return <-err
 		}
-
-		return connWithFakeDisconnect{
-			conn:          conn,
-			disconnectReq: disconnectReq,
-			closed:        make(chan struct{}),
-		}, nil
-	}
-
-	return func() error {
-		err := make(chan error)
-		disconnectReq <- err
-		return <-err
-	}
 }
+
+type DialFunc func(proto string, url *url.URL) (proto.Conn, error)
 
 type connWithFakeDisconnect struct {
 	conn          proto.Conn

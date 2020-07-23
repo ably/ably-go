@@ -415,7 +415,7 @@ func (c *RealtimeChannel) isActive() bool {
 	return c.state.current == StateChanAttaching || c.state.current == StateChanAttached
 }
 
-func (c *RealtimeChannel) opts() *ClientOptions {
+func (c *RealtimeChannel) opts() *clientOptions {
 	return c.client.opts()
 }
 
