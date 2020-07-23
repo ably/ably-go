@@ -210,7 +210,7 @@ type clientOptions struct {
 	// by Realtime.
 	//
 	// If Dial is nil, the default websocket connection is used.
-	Dial func(protocol string, u *url.URL) (proto.Conn, error)
+	Dial func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error)
 
 	// Listener if set, will be automatically registered with On method for every
 	// realtime connection and realtime channel created by realtime client.

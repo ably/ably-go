@@ -370,11 +370,11 @@ func NewMessageRecorder() *MessageRecorder {
 }
 
 // Dial
-func (rec *MessageRecorder) Dial(proto string, u *url.URL) (proto.Conn, error) {
+func (rec *MessageRecorder) Dial(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 	rec.mu.Lock()
 	rec.url = append(rec.url, u)
 	rec.mu.Unlock()
-	conn, err := ablyutil.DialWebsocket(proto, u)
+	conn, err := ablyutil.DialWebsocket(proto, u, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +446,7 @@ type HostRecorder struct {
 
 	mu         sync.Mutex
 	httpClient *http.Client
-	dialWS     func(string, *url.URL) (proto.Conn, error)
+	dialWS     func(string, *url.URL, time.Duration) (proto.Conn, error)
 }
 
 func NewRecorder(httpClient *http.Client) *HostRecorder {
@@ -460,9 +460,9 @@ func NewRecorder(httpClient *http.Client) *HostRecorder {
 		hr.addHost(addr)
 		return dial(network, addr)
 	}
-	hr.dialWS = func(proto string, u *url.URL) (proto.Conn, error) {
+	hr.dialWS = func(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 		hr.addHost(u.Host)
-		return ablyutil.DialWebsocket(proto, u)
+		return ablyutil.DialWebsocket(proto, u, timeout)
 	}
 	return hr
 }
@@ -497,8 +497,8 @@ func body(p []byte) io.ReadCloser {
 // clientOptions.
 func DialFakeDisconnect(dial DialFunc) (_ DialFunc, disconnect func() error) {
 	if dial == nil {
-		dial = func(proto string, url *url.URL) (proto.Conn, error) {
-			return ablyutil.DialWebsocket(proto, url)
+		dial = func(proto string, url *url.URL, timeout time.Duration) (proto.Conn, error) {
+			return ablyutil.DialWebsocket(proto, url, timeout)
 		}
 	}
 

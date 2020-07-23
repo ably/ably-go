@@ -2,6 +2,7 @@ package ablyutil
 
 import (
 	"errors"
+	"net"
 	"net/url"
 	"time"
 
@@ -38,7 +39,7 @@ func (ws *WebsocketConn) Close() error {
 	return ws.conn.Close()
 }
 
-func DialWebsocket(proto string, u *url.URL) (*WebsocketConn, error) {
+func DialWebsocket(proto string, u *url.URL, timeout time.Duration) (*WebsocketConn, error) {
 	ws := &WebsocketConn{}
 	switch proto {
 	case "application/json":
@@ -48,12 +49,27 @@ func DialWebsocket(proto string, u *url.URL) (*WebsocketConn, error) {
 	default:
 		return nil, errors.New(`invalid protocol "` + proto + `"`)
 	}
-	conn, err := websocket.Dial(u.String(), "", "https://"+u.Host)
+	conn, err := dialWebsocketTimeout(u.String(), "", "https://"+u.Host, timeout)
 	if err != nil {
 		return nil, err
 	}
 	ws.conn = conn
 	return ws, nil
+}
+
+// dialWebsocketTimeout dials the websocket with a timeout.
+func dialWebsocketTimeout(uri, protocol, origin string, timeout time.Duration) (*websocket.Conn, error) {
+	config, err := websocket.NewConfig(uri, origin)
+	if err != nil {
+		return nil, err
+	}
+	if protocol != "" {
+		config.Protocol = []string{protocol}
+	}
+	config.Dialer = &net.Dialer{
+		Timeout: timeout,
+	}
+	return websocket.DialConfig(config)
 }
 
 var msgpackCodec = websocket.Codec{

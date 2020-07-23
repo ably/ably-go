@@ -316,7 +316,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 				gotDial <- goOn
 				<-goOn
 			}
-			c, err := ablyutil.DialWebsocket(protocol, u)
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				m.messages = append(m.messages, msg)
 			}}, err
@@ -446,7 +446,7 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 				gotDial <- goOn
 				<-goOn
 			}
-			c, err := ablyutil.DialWebsocket(protocol, u)
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				m.messages = append(m.messages, msg)
 			}}, err
@@ -559,7 +559,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 				gotDial <- goOn
 				<-goOn
 			}
-			c, err := ablyutil.DialWebsocket(protocol, u)
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				if len(metaList) == 2 && len(m.messages) == 0 {
 					msg.Error = errInfo
@@ -684,7 +684,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 				gotDial <- goOn
 				<-goOn
 			}
-			c, err := ablyutil.DialWebsocket(protocol, u)
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				if len(metaList) == 2 && len(m.messages) == 0 {
 					msg.Error = errInfo
@@ -791,7 +791,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 				gotDial <- goOn
 				<-goOn
 			}
-			c, err := ablyutil.DialWebsocket(protocol, u)
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				if len(metaList) == 2 && len(m.messages) == 0 {
 					msg.Error = errInfo
@@ -892,7 +892,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 				gotDial <- goOn
 				<-goOn
 			}
-			c, err := ablyutil.DialWebsocket(protocol, u)
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *proto.ProtocolMessage) {
 				if len(metaList) == 2 && len(m.messages) == 0 {
 					msg.Action = proto.ActionError
@@ -1700,5 +1700,32 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	// make sure the reason is timeout
 	if !strings.Contains(reason.Error(), "timeout") {
 		t.Errorf("expected %q to contain timeout", reason.Error())
+	}
+}
+
+func TestRealtimeConn_RTN14(t *testing.T) {
+	t.Parallel()
+	app := ablytest.MustSandbox(nil)
+
+	defer safeclose(t, app)
+	{
+		//(RTN14c)
+		var connTimeout time.Duration
+		client, err := ably.NewRealtime(app.Options(&ably.ClientOptions{
+			Dial: func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				connTimeout = timeout
+				return ablyutil.DialWebsocket(protocol, u, timeout)
+			},
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.Close()
+
+		// Check if we passed default request timeout
+		expect := 10 * time.Second
+		if connTimeout != expect {
+			t.Errorf("expected %v got %v", expect, connTimeout)
+		}
 	}
 }
