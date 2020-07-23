@@ -90,10 +90,18 @@ func (c *RestChannels) Exists(name string) bool {
 
 // Get returns an existing channel or creates a new one if it doesn't exist.
 //
-// RSN3a: you can optionally pass ChannelOptions, if the channel exists it will
+// You can optionally pass ChannelOptions, if the channel exists it will
 // updated with the options and when it doesn't a new channel will be created
 // with the given options.
-func (c *RestChannels) Get(name string, opts *proto.ChannelOptions) *RestChannel {
+func (c *RestChannels) Get(name string, options ...ChannelOption) *RestChannel {
+	var o channelOptions
+	for _, set := range options {
+		set(&o)
+	}
+	return c.get(name, (*proto.ChannelOptions)(&o))
+}
+
+func (c *RestChannels) get(name string, opts *proto.ChannelOptions) *RestChannel {
 	c.mu.RLock()
 	v, ok := c.cache[name]
 	c.mu.RUnlock()
