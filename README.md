@@ -277,9 +277,9 @@ This library uses [semantic versioning](http://semver.org/). For each release, t
     * Also ensure that the "Full Changelog" link points to the new version tag instead of the `HEAD`
     * Commit this change: `git add CHANGELOG.md && git commit -m "Update change log."`
 * Commit [CHANGELOG](./CHANGELOG.md)
-* Make a PR against `master`
-* Once the PR is approved, merge it into `master`
-* Add a tag to the new `master` head commit and push to origin such as `git tag v1.1.6 && git push origin v1.1.6`
+* Make a PR against `main`
+* Once the PR is approved, merge it into `main`
+* Add a tag to the new `main` head commit and push to origin such as `git tag v1.1.6 && git push origin v1.1.6`
 
 ## Support and feedback
 
