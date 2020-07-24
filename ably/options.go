@@ -660,7 +660,9 @@ func (os ClientOptions) applyWithDefaults() *clientOptions {
 	to := defaultOptions
 
 	for _, set := range os {
-		set(&to)
+		if set != nil {
+			set(&to)
+		}
 	}
 
 	if to.DefaultTokenParams == nil {
@@ -676,7 +678,9 @@ func (os AuthOptions) applyWithDefaults() *authOptions {
 	to := defaultOptions.authOptions
 
 	for _, set := range os {
-		set(&to)
+		if set != nil {
+			set(&to)
+		}
 	}
 
 	if to.DefaultTokenParams == nil {
