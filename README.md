@@ -180,7 +180,7 @@ if err != nil {
 	panic(err)
 }
 
-channel := client.Channels.Get("test", nil)
+channel := client.Channels.Get("test")
 ```
 
 ### Publishing a message to a channel

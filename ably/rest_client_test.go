@@ -61,7 +61,7 @@ func TestRestClient(t *testing.T) {
 			if err != nil {
 				ts.Fatal(err)
 			}
-			err = client.Channels.Get("test", nil).Publish("ping", "pong")
+			err = client.Channels.Get("test").Publish("ping", "pong")
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -95,7 +95,7 @@ func TestRestClient(t *testing.T) {
 			if err != nil {
 				ts.Fatal(err)
 			}
-			err = client.Channels.Get("test", nil).Publish("ping", "pong")
+			err = client.Channels.Get("test").Publish("ping", "pong")
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -282,7 +282,7 @@ func TestRest_hostfallback(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		err = client.Channels.Get("test", nil).Publish("ping", "pong")
+		err = client.Channels.Get("test").Publish("ping", "pong")
 		if err == nil {
 			ts.Error("expected an error")
 		}
@@ -446,7 +446,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		channel := client.Channels.Get("remember_fallback_host", nil)
+		channel := client.Channels.Get("remember_fallback_host")
 		err = channel.Publish("ping", "pong")
 		if err != nil {
 			ts.Fatal(err)
@@ -494,7 +494,7 @@ func TestRestChannels_RSN1(t *testing.T) {
 
 	t.Run("RSN3 RSN3a  must create new channels when they don't exist", func(ts *testing.T) {
 		for _, v := range sample {
-			client.Channels.Get(v.name, nil)
+			client.Channels.Get(v.name)
 		}
 		size := client.Channels.Len()
 		if size != len(sample) {
@@ -503,7 +503,7 @@ func TestRestChannels_RSN1(t *testing.T) {
 	})
 	t.Run("RSN4 RSN4a must release channels", func(ts *testing.T) {
 		for _, v := range sample {
-			ch := client.Channels.Get(v.name, nil)
+			ch := client.Channels.Get(v.name)
 			client.Channels.Release(ch)
 		}
 		size := client.Channels.Len()
@@ -513,10 +513,10 @@ func TestRestChannels_RSN1(t *testing.T) {
 	})
 	t.Run("ensure no deadlock in Range", func(ts *testing.T) {
 		for _, v := range sample {
-			client.Channels.Get(v.name, nil)
+			client.Channels.Get(v.name)
 		}
 		client.Channels.Range(func(name string, _ *ably.RestChannel) bool {
-			n := client.Channels.Get(name+"_range", nil)
+			n := client.Channels.Get(name + "_range")
 			return client.Channels.Exists(n.Name)
 		})
 	})
@@ -540,7 +540,7 @@ func TestFixConnLeak_ISSUE89(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	channel := client.Channels.Get("issue89", nil)
+	channel := client.Channels.Get("issue89")
 	for i := 0; i < 10; i++ {
 		err := channel.Publish(fmt.Sprintf("msg_%d", i), fmt.Sprint(i))
 		if err != nil {

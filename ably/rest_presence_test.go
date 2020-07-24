@@ -19,7 +19,7 @@ func TestChannel_Presence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	channel := client.Channels.Get("persisted:presence_fixtures", nil)
+	channel := client.Channels.Get("persisted:presence_fixtures")
 	presence := channel.Presence
 
 	t.Run("Get", func(ts *testing.T) {
