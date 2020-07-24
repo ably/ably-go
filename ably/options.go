@@ -647,7 +647,7 @@ func (os ClientOptions) HTTPClient(client *http.Client) ClientOptions {
 	})
 }
 
-func (os ClientOptions) Dial(dial func(protocol string, u *url.URL) (proto.Conn, error)) ClientOptions {
+func (os ClientOptions) Dial(dial func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error)) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.Dial = dial
 	})
