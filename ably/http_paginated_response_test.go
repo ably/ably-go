@@ -132,7 +132,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 		})
 
-		res, err := client.Channels.Get(channelName, nil).History(nil)
+		res, err := client.Channels.Get(channelName).History(nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
