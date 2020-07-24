@@ -15,9 +15,9 @@ func init() {
 	handle.RawToString = true
 }
 
-// Unmarshal decodes the MessagePack-encoded data and stores the result in the
+// UnmarshalMsgpack decodes the MessagePack-encoded data and stores the result in the
 // value pointed to by v.
-func Unmarshal(data []byte, v interface{}) error {
+func UnmarshalMsgpack(data []byte, v interface{}) error {
 	return decodeMsg(bytes.NewReader(data), v)
 }
 
@@ -27,8 +27,8 @@ func decodeMsg(r io.Reader, v interface{}) error {
 	return dec.Decode(v)
 }
 
-// Marshal returns msgpack encoding of v
-func Marshal(v interface{}) ([]byte, error) {
+// MarshalMsgpack returns msgpack encoding of v
+func MarshalMsgpack(v interface{}) ([]byte, error) {
 	var buf bytes.Buffer
 	err := encodeMsg(&buf, v)
 	if err != nil {
