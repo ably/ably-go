@@ -18,13 +18,13 @@ func (f Flag) Has(flag Flag) bool {
 }
 
 type ConnectionDetails struct {
-	ClientID           string `json:"clientId,omitempty" codec:"clientId,omitempty"`
-	ConnectionKey      string `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
-	MaxMessageSize     int64  `json:"maxMessageSize,omitempty" codec:"maxMessageSize,omitempty"`
-	MaxFrameSize       int64  `json:"maxFrameSize,omitempty" codec:"maxFrameSize,omitempty"`
-	MaxInboundRate     int64  `json:"maxInboundRate,omitempty" codec:"maxInboundRate,omitempty"`
-	ConnectionStateTTL int64  `json:"connectionStateTtl,omitempty" codec:"connectionStateTtl,omitempty"`
-	MaxIdleInterval    int64  `json:"maxIdleInterval,omitempty" codec:"maxIdleInterval,omitempty"`
+	ClientID           string            `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	ConnectionKey      string            `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
+	MaxMessageSize     int64             `json:"maxMessageSize,omitempty" codec:"maxMessageSize,omitempty"`
+	MaxFrameSize       int64             `json:"maxFrameSize,omitempty" codec:"maxFrameSize,omitempty"`
+	MaxInboundRate     int64             `json:"maxInboundRate,omitempty" codec:"maxInboundRate,omitempty"`
+	ConnectionStateTTL DurationFromMsecs `json:"connectionStateTtl,omitempty" codec:"connectionStateTtl,omitempty"`
+	MaxIdleInterval    DurationFromMsecs `json:"maxIdleInterval,omitempty" codec:"maxIdleInterval,omitempty"`
 }
 
 func (c *ConnectionDetails) FromMap(ctx map[string]interface{}) {
@@ -44,7 +44,7 @@ func (c *ConnectionDetails) FromMap(ctx map[string]interface{}) {
 		c.MaxInboundRate = coerceInt64(v)
 	}
 	if v, ok := ctx["connectionStateTtl"]; ok {
-		c.ConnectionStateTTL = coerceInt64(v)
+		c.ConnectionStateTTL = DurationFromMsecs(coerceInt64(v) * int64(time.Millisecond))
 	}
 }
 
