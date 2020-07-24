@@ -96,7 +96,9 @@ func (c *RestChannels) Exists(name string) bool {
 func (c *RestChannels) Get(name string, options ...ChannelOption) *RestChannel {
 	var o channelOptions
 	for _, set := range options {
-		set(&o)
+		if set != nil {
+			set(&o)
+		}
 	}
 	return c.get(name, (*proto.ChannelOptions)(&o))
 }
