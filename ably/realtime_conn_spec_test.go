@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -1013,6 +1014,57 @@ func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {
 
 	if errInfo.StatusCode != tokenErr.StatusCode || errInfo.Code != tokenErr.Code {
 		t.Fatalf("expected the token error as FAILED state change reason; got: %s", err)
+	}
+}
+
+func TestRealtimeConn_RTN15h2_ReauthFails(t *testing.T) {
+	t.Parallel()
+
+	authErr := fmt.Errorf("reauth error")
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	authCallbackCalled := false
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		AutoConnect(false).
+		Token("fake:token").
+		AuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+			if authCallbackCalled {
+				t.Errorf("expected a single attempt to reauth")
+			}
+			authCallbackCalled = true
+			return nil, authErr
+		}).
+		Dial(ablytest.MessagePipe(in, out)))
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tokenErr := proto.ErrorInfo{
+		StatusCode: 401,
+		Code:       40141,
+		Message:    "fake token error",
+	}
+
+	err = ablytest.ConnWaiter(c, func() {
+		in <- &proto.ProtocolMessage{
+			Action: proto.ActionDisconnected,
+			Error:  &tokenErr,
+		}
+	}, ably.ConnectionEventDisconnected).Wait()
+
+	if !errors.Is(err, authErr) {
+		t.Fatalf("expected the auth error as DISCONNECTED state change reason; got: %s", err)
 	}
 }
 

@@ -593,6 +593,16 @@ func (c *Connection) eventloop() {
 			}
 
 			// RTN15h2
+			c.state.Lock()
+			_, err := c.auth.reauthorize()
+			if err != nil {
+				c.setState(StateConnDisconnected, err)
+				c.state.Unlock()
+				c.reconnect(false)
+				return
+			}
+
+			panic("TODO: reconnect with token")
 		case proto.ActionClosed:
 			c.state.Lock()
 			c.id, c.key = "", "" //(RTN16c)
