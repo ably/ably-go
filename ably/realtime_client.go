@@ -29,7 +29,10 @@ func NewRealtime(options ClientOptions) (*Realtime, error) {
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
 	conn, err := newConn(c.opts(), rest.Auth, connCallbacks{
-		c.onChannelMsg, c.onReconnectMsg, c.onConnStateChange,
+		c.onChannelMsg,
+		c.onReconnected,
+		c.onReconnectionFailed,
+		c.onConnStateChange,
 	})
 	if err != nil {
 		return nil, err
@@ -64,27 +67,25 @@ func (c *Realtime) onChannelMsg(msg *proto.ProtocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
 }
 
-func (c *Realtime) onReconnectMsg(msg *proto.ProtocolMessage) {
-	switch msg.Action {
-	case proto.ActionConnected:
-		if msg.Error != nil {
-			// (RTN15c3)
-			for _, ch := range c.Channels.All() {
-				switch ch.State() {
-				case StateConnSuspended:
-					ch.attach(false)
-				case StateChanAttaching, StateChanAttached:
-					ch.mayAttach(false, false)
-				}
-			}
-		}
+func (c *Realtime) onReconnected(err *proto.ErrorInfo) {
+	if err == nil {
+		return
+	}
 
-	case proto.ActionError:
-		// (RTN15c4)
-
-		for _, ch := range c.Channels.All() {
-			ch.state.syncSet(StateChanFailed, newErrorProto(msg.Error))
+	// (RTN15c3)
+	for _, ch := range c.Channels.All() {
+		switch ch.State() {
+		case StateConnSuspended:
+			ch.attach(false)
+		case StateChanAttaching, StateChanAttached:
+			ch.mayAttach(false, false)
 		}
+	}
+}
+
+func (c *Realtime) onReconnectionFailed(err *proto.ErrorInfo) {
+	for _, ch := range c.Channels.All() {
+		ch.state.syncSet(StateChanFailed, newErrorProto(err))
 	}
 }
 

@@ -52,15 +52,15 @@ type Connection struct {
 
 type connCallbacks struct {
 	onChannelMsg func(*proto.ProtocolMessage)
-	// onReconnectMsg is called when we get a response from reconnect request. We
+	// onReconnected is called when we get a CONNECTED response from reconnect request. We
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels and we dont have it here so we let RealtimeClient do the
 	// work.
-	onReconnectMsg func(*proto.ProtocolMessage)
-	onStateChange  func(State)
-	// reconnecting tracks if we have issued a reconnection request. If we receive any message
-	// with this set to true then its the first message/response after issuing the
+	onReconnected func(*proto.ErrorInfo)
+	// onReconnectionFailed is called when we get a FAILED response from a
 	// reconnection request.
+	onReconnectionFailed func(*proto.ErrorInfo)
+	onStateChange        func(State)
 }
 
 func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) (*Connection, error) {
@@ -519,23 +519,7 @@ func (c *Connection) eventloop() {
 				c.callbacks.onChannelMsg(msg)
 				break
 			}
-			c.state.Lock()
-			if c.reconnecting {
-				c.reconnecting = false
-				if isTokenError(msg.Error) {
-					// (RTN15c5)
-					// TODO: (gernest) implement (RTN15h) This can be done as a separate task?
-				} else {
-					// (RTN15c4)
-					c.callbacks.onReconnectMsg(msg)
-				}
-			}
-			c.setState(StateConnFailed, newErrorProto(msg.Error))
-			c.state.Unlock()
-			c.queue.Fail(newErrorProto(msg.Error))
-			if c.conn != nil {
-				c.conn.Close()
-			}
+			c.failedConnSideEffects(msg.Error)
 		case proto.ActionConnected:
 			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
 			c.state.Lock()
@@ -572,7 +556,7 @@ func (c *Connection) eventloop() {
 					// we are calling this outside of locks to avoid deadlock because in the
 					// RealtimeClient client where this callback is implemented we do some ops
 					// with this Conn where we re acquire Conn.state.Lock again.
-					c.callbacks.onReconnectMsg(msg)
+					c.callbacks.onReconnected(msg.Error)
 				}
 			} else {
 				// preserve old behavior.
@@ -623,6 +607,26 @@ func (c *Connection) setState(state StateEnum, err error) error {
 	go func() { c.callbacks.onStateChange(<-ch) }()
 
 	return c.state.set(state, err)
+}
+
+func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
+	c.state.Lock()
+	if c.reconnecting {
+		c.reconnecting = false
+		if isTokenError(err) {
+			// (RTN15c5)
+			// TODO: (gernest) implement (RTN15h) This can be done as a separate task?
+		} else {
+			// (RTN15c4)
+			c.callbacks.onReconnectionFailed(err)
+		}
+	}
+	c.setState(StateConnFailed, newErrorProto(err))
+	c.state.Unlock()
+	c.queue.Fail(newErrorProto(err))
+	if c.conn != nil {
+		c.conn.Close()
+	}
 }
 
 type verboseConn struct {
