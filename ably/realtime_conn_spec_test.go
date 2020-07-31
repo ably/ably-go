@@ -1101,13 +1101,13 @@ func (w *protoConnWithReceiveHook) Receive(deadline time.Time) (*proto.ProtocolM
 
 func TestRealtimeConn_RTN23(t *testing.T) {
 	t.Parallel()
-	var query url.Values
+	query := make(chan url.Values, 1)
 	ok := make(chan *proto.ProtocolMessage, 2)
 	timeout := 30 * time.Millisecond
 	app, c := ablytest.NewRealtime(ably.ClientOptions{}.
 		RealtimeRequestTimeout(timeout).
 		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
-			query = u.Query()
+			query <- u.Query()
 			conn, err := ablyutil.DialWebsocket(protocol, u)
 			if err != nil {
 				return nil, err
@@ -1125,7 +1125,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	receiveTimeout := timeout + maxIdleInterval
 
 	{ // RTN23b
-		h := query.Get("heartbeats")
+		h := (<-query).Get("heartbeats")
 		if h != "true" {
 			t.Errorf("expected heartbeats query param to be true got %q", h)
 		}
