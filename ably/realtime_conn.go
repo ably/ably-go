@@ -100,6 +100,12 @@ func (c *Connection) dial(proto string, u *url.URL) (proto.Conn, error) {
 // Connect attempts to move the connection to the CONNECTED state, if it
 // can and if it isn't already.
 func (c *Connection) Connect() {
+	c.state.Lock()
+	isActive := c.isActive()
+	c.state.Unlock()
+	if isActive {
+		return
+	}
 	c.connect(false)
 }
 
