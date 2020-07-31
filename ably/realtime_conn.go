@@ -48,6 +48,9 @@ type Connection struct {
 	// with this set to true then its the first message/response after issuing the
 	// reconnection request.
 	reconnecting bool
+	// reauthorizing tracks if the current reconnection attempt is happening
+	// after a reauthorization, to avoid re-reauthorizing.
+	reauthorizing bool
 }
 
 type connCallbacks struct {
@@ -186,10 +189,9 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 func (c *Connection) connectWith(result bool, mode connectionMode) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
-	if c.isActive() {
-		return nopResult, nil
+	if !c.isActive() {
+		c.setState(StateConnConnecting, nil)
 	}
-	c.setState(StateConnConnecting, nil)
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
 		return nil, c.setState(StateConnFailed, err)
@@ -519,6 +521,21 @@ func (c *Connection) eventloop() {
 				c.callbacks.onChannelMsg(msg)
 				break
 			}
+
+			c.state.Lock()
+			reauthorizing := c.reauthorizing
+			c.reauthorizing = false
+			if isTokenError(msg.Error) {
+				if reauthorizing {
+					c.lockedReauthorizationFailed(newErrorProto(msg.Error))
+					c.state.Unlock()
+					return
+				} else {
+					// TODO: RTN14b; may reuse c.reauthorize from RTN15h2.
+				}
+			}
+			c.state.Unlock()
+
 			c.failedConnSideEffects(msg.Error)
 		case proto.ActionConnected:
 			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
@@ -543,6 +560,7 @@ func (c *Connection) eventloop() {
 			if reconnecting {
 				// reset the mode
 				c.reconnecting = false
+				c.reauthorizing = true
 			}
 			id := c.id
 			c.state.Unlock()
@@ -593,16 +611,8 @@ func (c *Connection) eventloop() {
 			}
 
 			// RTN15h2
-			c.state.Lock()
-			_, err := c.auth.reauthorize()
-			if err != nil {
-				c.setState(StateConnDisconnected, err)
-				c.state.Unlock()
-				c.reconnect(false)
-				return
-			}
-
-			panic("TODO: reconnect with token")
+			c.reauthorize()
+			return
 		case proto.ActionClosed:
 			c.state.Lock()
 			c.id, c.key = "", "" //(RTN16c)
@@ -633,6 +643,7 @@ func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
 	c.state.Lock()
 	if c.reconnecting {
 		c.reconnecting = false
+		c.reauthorizing = false
 		c.callbacks.onReconnectionFailed(err)
 	}
 	c.setState(StateConnFailed, newErrorProto(err))
@@ -641,6 +652,27 @@ func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
 	if c.conn != nil {
 		c.conn.Close()
 	}
+}
+
+func (c *Connection) reauthorize() {
+	c.state.Lock()
+	_, err := c.auth.reauthorize()
+	if err != nil {
+		c.lockedReauthorizationFailed(err)
+		c.state.Unlock()
+		return
+	}
+
+	// The reauthorize above will have set the new token in c.auth, so
+	// reconnecting will use the new token.
+	c.reauthorizing = true
+	c.state.Unlock()
+	c.reconnect(false)
+}
+
+func (c *Connection) lockedReauthorizationFailed(err error) {
+	c.setState(StateConnDisconnected, err)
+	// TODO: RTN14d
 }
 
 type verboseConn struct {
