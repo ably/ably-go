@@ -43,7 +43,7 @@ var _ interface {
 } = (*DurationFromMsecs)(nil)
 
 func (t DurationFromMsecs) asMsecs() int64 {
-	return int64(time.Duration(t) / time.Millisecond)
+	return time.Duration(t).Milliseconds()
 }
 
 func (t *DurationFromMsecs) setFromMsecs(ms int64) {
