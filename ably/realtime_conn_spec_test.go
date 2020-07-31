@@ -1121,8 +1121,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 		t.Fatal(err)
 	}
 	msg := <-ok // consume the connect message
-	maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
-	receiveTimeout := timeout + maxIdleInterval
+	receiveTimeout := timeout + time.Duration(msg.ConnectionDetails.MaxIdleInterval)
 
 	{ // RTN23b
 		h := query.Get("heartbeats")

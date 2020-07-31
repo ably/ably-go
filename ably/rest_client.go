@@ -478,7 +478,7 @@ func encode(typ string, in interface{}) ([]byte, error) {
 	case "application/json":
 		return json.Marshal(in)
 	case "application/x-msgpack":
-		return ablyutil.Marshal(in)
+		return ablyutil.MarshalMsgpack(in)
 	case "text/plain":
 		return []byte(fmt.Sprintf("%v", in)), nil
 	default:
@@ -495,7 +495,7 @@ func decode(typ string, r io.Reader, out interface{}) error {
 		if err != nil {
 			return err
 		}
-		return ablyutil.Unmarshal(b, out)
+		return ablyutil.UnmarshalMsgpack(b, out)
 	case "text/plain":
 		p, err := ioutil.ReadAll(r)
 		if err != nil {

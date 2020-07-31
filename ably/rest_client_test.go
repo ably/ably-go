@@ -100,7 +100,7 @@ func TestRestClient(t *testing.T) {
 				ts.Fatal(err)
 			}
 			var anyMsgPack []map[string]interface{}
-			err = ablyutil.Unmarshal(buffer, &anyMsgPack)
+			err = ablyutil.UnmarshalMsgpack(buffer, &anyMsgPack)
 			if err != nil {
 				ts.Fatal(err)
 			}
