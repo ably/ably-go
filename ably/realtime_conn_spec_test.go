@@ -225,7 +225,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -489,7 +489,7 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -604,7 +604,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -725,7 +725,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -833,7 +833,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -933,7 +933,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel", nil).Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish("name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
