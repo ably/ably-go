@@ -586,7 +586,13 @@ func (c *Connection) eventloop() {
 				continue
 			}
 
-			// TODO: RTN15h
+			if !c.auth.isTokenRenewable() {
+				// RTN15h1
+				c.failedConnSideEffects(msg.Error)
+				return
+			}
+
+			// RTN15h2
 		case proto.ActionClosed:
 			c.state.Lock()
 			c.id, c.key = "", "" //(RTN16c)

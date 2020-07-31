@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -967,6 +968,51 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	// The client should transition to the FAILED state
 	if expected, got := ably.StateConnFailed, client.Connection.State(); expected != got {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+}
+
+func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		AutoConnect(false).
+		Token("fake:token").
+		Dial(ablytest.MessagePipe(in, out)))
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tokenErr := proto.ErrorInfo{
+		StatusCode: 401,
+		Code:       40141,
+		Message:    "fake token error",
+	}
+
+	err = ablytest.ConnWaiter(c, func() {
+		in <- &proto.ProtocolMessage{
+			Action: proto.ActionDisconnected,
+			Error:  &tokenErr,
+		}
+	}, ably.ConnectionEventFailed).Wait()
+
+	var errInfo *ably.ErrorInfo
+	if !errors.As(err, &errInfo) {
+		t.Fatal(err)
+	}
+
+	if errInfo.StatusCode != tokenErr.StatusCode || errInfo.Code != tokenErr.Code {
+		t.Fatalf("expected the token error as FAILED state change reason; got: %s", err)
 	}
 }
 
