@@ -1100,6 +1100,8 @@ func (w *protoConnWithReceiveHook) Receive(deadline time.Time) (*proto.ProtocolM
 }
 
 func TestRealtimeConn_RTN23(t *testing.T) {
+	t.Skip("Temporarily disabled; see https://github.com/ably/ably-go/pull/169#discussion_r463656583")
+
 	t.Parallel()
 	var query url.Values
 	ok := make(chan *proto.ProtocolMessage, 2)
