@@ -579,10 +579,14 @@ func (c *Connection) eventloop() {
 			c.state.Unlock()
 			c.queue.Flush()
 		case proto.ActionDisconnected:
-			c.state.Lock()
-			c.id = ""
-			c.setState(StateConnDisconnected, nil)
-			c.state.Unlock()
+			if !isTokenError(msg.Error) {
+				// The spec doesn't say what to do in this case, so do nothing.
+				// Ably is supposed to then close the transport, which will
+				// trigger a transition to DISCONNECTED.
+				continue
+			}
+
+			// TODO: RTN15h
 		case proto.ActionClosed:
 			c.state.Lock()
 			c.id, c.key = "", "" //(RTN16c)
@@ -613,13 +617,7 @@ func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
 	c.state.Lock()
 	if c.reconnecting {
 		c.reconnecting = false
-		if isTokenError(err) {
-			// (RTN15c5)
-			// TODO: (gernest) implement (RTN15h) This can be done as a separate task?
-		} else {
-			// (RTN15c4)
-			c.callbacks.onReconnectionFailed(err)
-		}
+		c.callbacks.onReconnectionFailed(err)
 	}
 	c.setState(StateConnFailed, newErrorProto(err))
 	c.state.Unlock()
