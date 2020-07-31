@@ -522,7 +522,7 @@ func (c *Connection) eventloop() {
 			c.state.Lock()
 			if c.reconnecting {
 				c.reconnecting = false
-				if tokenError(msg.Error) {
+				if isTokenError(msg.Error) {
 					// (RTN15c5)
 					// TODO: (gernest) implement (RTN15h) This can be done as a separate task?
 				} else {

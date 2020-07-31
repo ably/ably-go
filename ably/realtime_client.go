@@ -88,7 +88,7 @@ func (c *Realtime) onReconnectMsg(msg *proto.ProtocolMessage) {
 	}
 }
 
-func tokenError(err *proto.ErrorInfo) bool {
+func isTokenError(err *proto.ErrorInfo) bool {
 	return err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
 }
 
