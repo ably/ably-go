@@ -46,12 +46,12 @@ func TestPresenceMessage(t *testing.T) {
 			}
 		})
 		t.Run("msgpack", func(ts *testing.T) {
-			b, err := ablyutil.Marshal(m)
+			b, err := ablyutil.MarshalMsgpack(m)
 			if err != nil {
 				ts.Fatal(err)
 			}
 			msg := proto.PresenceMessage{}
-			err = ablyutil.Unmarshal(b, &msg)
+			err = ablyutil.UnmarshalMsgpack(b, &msg)
 			if err != nil {
 				ts.Fatal(err)
 			}

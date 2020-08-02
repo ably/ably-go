@@ -1100,6 +1100,8 @@ func (w *protoConnWithReceiveHook) Receive(deadline time.Time) (*proto.ProtocolM
 }
 
 func TestRealtimeConn_RTN23(t *testing.T) {
+	t.Skip("Temporarily disabled; see https://github.com/ably/ably-go/pull/169#discussion_r463656583")
+
 	t.Parallel()
 	query := make(chan url.Values, 1)
 	ok := make(chan *proto.ProtocolMessage, 2)
@@ -1121,8 +1123,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 		t.Fatal(err)
 	}
 	msg := <-ok // consume the connect message
-	maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
-	receiveTimeout := timeout + maxIdleInterval
+	receiveTimeout := timeout + time.Duration(msg.ConnectionDetails.MaxIdleInterval)
 
 	{ // RTN23b
 		h := (<-query).Get("heartbeats")

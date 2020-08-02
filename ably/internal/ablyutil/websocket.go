@@ -58,10 +58,10 @@ func DialWebsocket(proto string, u *url.URL) (*WebsocketConn, error) {
 
 var msgpackCodec = websocket.Codec{
 	Marshal: func(v interface{}) ([]byte, byte, error) {
-		p, err := Marshal(v)
+		p, err := MarshalMsgpack(v)
 		return p, websocket.BinaryFrame, err
 	},
 	Unmarshal: func(p []byte, _ byte, v interface{}) error {
-		return Unmarshal(p, v)
+		return UnmarshalMsgpack(p, v)
 	},
 }

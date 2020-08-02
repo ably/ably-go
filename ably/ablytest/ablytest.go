@@ -56,7 +56,7 @@ func encode(typ string, in interface{}) ([]byte, error) {
 	case "application/json":
 		return json.Marshal(in)
 	case "application/x-msgpack":
-		return ablyutil.Marshal(in)
+		return ablyutil.MarshalMsgpack(in)
 	case "text/plain":
 		return []byte(fmt.Sprintf("%v", in)), nil
 	default:
