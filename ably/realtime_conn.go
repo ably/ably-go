@@ -148,7 +148,7 @@ func (c *Connection) getMode() connectionMode {
 
 func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	query := url.Values{
-		"timestamp": []string{strconv.FormatInt(TimeNow(), 10)},
+		"timestamp": []string{strconv.FormatInt(unixMilli(time.Now()), 10)},
 		"echo":      []string{"true"},
 		"format":    []string{"msgpack"},
 	}

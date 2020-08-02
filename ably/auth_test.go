@@ -172,7 +172,7 @@ func TestAuth_Authorise(t *testing.T) {
 	defer safeclose(t, app)
 
 	params := &ably.TokenParams{
-		TTL: ably.Duration(time.Second),
+		TTL: time.Second.Milliseconds(),
 	}
 	_, err := client.Auth.Authorise(params, nil)
 	if err != nil {
@@ -271,7 +271,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	defer safeclose(t, app)
 
 	params := &ably.TokenParams{
-		TTL: ably.Duration(time.Second),
+		TTL: time.Second.Milliseconds(),
 	}
 	tok, err := client.Auth.Authorize(params, nil)
 	if err != nil {
@@ -608,7 +608,7 @@ func TestAuth_ClientID(t *testing.T) {
 	proxy := ablytest.MustAuthReverseProxy(app.Options(opts))
 	defer safeclose(t, proxy)
 	params := &ably.TokenParams{
-		TTL: ably.Duration(time.Second),
+		TTL: time.Second.Milliseconds(),
 	}
 	opts = ably.ClientOptions{}.
 		AuthURL(proxy.URL("details")).
@@ -713,7 +713,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		QueryTime(true).
 		Key(app.Key())
 	params := &ably.TokenParams{
-		TTL:           ably.Duration(5 * time.Second),
+		TTL:           (5 * time.Second).Milliseconds(),
 		RawCapability: (ably.Capability{"presence": {"read", "write"}}).Encode(),
 	}
 	t.Run("RSA9h", func(ts *testing.T) {

@@ -342,19 +342,14 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 		if err != nil {
 			return err
 		}
-		req.Timestamp = Time(ts)
+		req.Timestamp = unixMilli(ts)
 	}
 	return nil
 }
 
 //Timestamp returns the timestamp to be used in authorization request.
 func (a *Auth) timestamp(query bool) (time.Time, error) {
-	var now time.Time
-	if a.now != nil {
-		now = a.now()
-	} else {
-		now = time.Now()
-	}
+	now := a.client.opts.Now()
 	if !query {
 		return now, nil
 	}

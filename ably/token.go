@@ -135,7 +135,7 @@ func (tok *TokenDetails) Capability() Capability {
 
 // Expired
 func (tok *TokenDetails) Expired() bool {
-	return tok.Expires != 0 && tok.Expires <= TimeNow()
+	return tok.Expires != 0 && tok.Expires <= unixMilli(time.Now())
 }
 
 func (tok *TokenDetails) IssueTime() time.Time {

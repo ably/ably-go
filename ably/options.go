@@ -318,38 +318,23 @@ func (opts *clientOptions) idempotentRestPublishing() bool {
 	return opts.IdempotentRestPublishing
 }
 
-// Time returns the given time as a timestamp in milliseconds since epoch.
-func Time(t time.Time) int64 {
-	return t.UnixNano() / int64(time.Millisecond)
-}
-
-// TimeNow returns current time as a timestamp in milliseconds since epoch.
-func TimeNow() int64 {
-	return Time(time.Now())
-}
-
-// Duration returns converts the given duration to milliseconds.
-func Duration(d time.Duration) int64 {
-	return int64(d / time.Millisecond)
-}
-
-// This needs to use a timestamp in millisecond
-// Use the previous function to generate them from a time.Time struct.
 type ScopeParams struct {
-	Start int64
-	End   int64
+	Start time.Time
+	End   time.Time
 	Unit  string
 }
 
-func (s *ScopeParams) EncodeValues(out *url.Values) error {
-	if s.Start != 0 && s.End != 0 && s.Start > s.End {
+func (s ScopeParams) EncodeValues(out *url.Values) error {
+	start := unixMilli(s.Start)
+	end := unixMilli(s.End)
+	if start != 0 && end != 0 && start > end {
 		return fmt.Errorf("start must be before end")
 	}
-	if s.Start != 0 {
-		out.Set("start", strconv.FormatInt(s.Start, 10))
+	if start != 0 {
+		out.Set("start", strconv.FormatInt(start, 10))
 	}
-	if s.End != 0 {
-		out.Set("end", strconv.FormatInt(s.End, 10))
+	if end != 0 {
+		out.Set("end", strconv.FormatInt(end, 10))
 	}
 	if s.Unit != "" {
 		out.Set("unit", s.Unit)
