@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -967,6 +968,93 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	// The client should transition to the FAILED state
 	if expected, got := ably.StateConnFailed, client.Connection.State(); expected != got {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+}
+
+func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
+	t.Parallel()
+
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	now, setNow := func() (func() time.Time, func(time.Time)) {
+		now := time.Now()
+
+		var mtx sync.Mutex
+		return func() time.Time {
+				mtx.Lock()
+				defer mtx.Unlock()
+				return now
+			}, func(t time.Time) {
+				mtx.Lock()
+				defer mtx.Unlock()
+				now = t
+			}
+	}()
+
+	connDetails := proto.ConnectionDetails{
+		ConnectionKey:      "foo",
+		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 2),
+		MaxIdleInterval:    proto.DurationFromMsecs(time.Second),
+	}
+
+	dials := make(chan *url.URL, 1)
+	var breakConn func()
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		AutoConnect(false).
+		Token("fake:token").
+		Now(now).
+		Dial(func(p string, u *url.URL) (proto.Conn, error) {
+			in := make(chan *proto.ProtocolMessage, 1)
+			in <- &proto.ProtocolMessage{
+				Action:            proto.ActionConnected,
+				ConnectionID:      "connection-id",
+				ConnectionDetails: &connDetails,
+			}
+			breakConn = func() { close(in) }
+			dials <- u
+			return ablytest.MessagePipe(in, out)(p, u)
+		}))
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf) // discard first URL; we're interested in reconnections
+
+	discardStateTTL := time.Duration(connDetails.ConnectionStateTTL + connDetails.MaxIdleInterval)
+
+	// Simulate a broken connection. Before that, set the current time to a point
+	// in the future just before connectionStateTTL + maxIdleInterval. So we still
+	// attempt a resume.
+
+	setNow(now().Add(discardStateTTL - 1))
+	breakConn()
+
+	var dialed *url.URL
+	ablytest.Instantly.Recv(t, &dialed, dials, t.Fatalf)
+	if resume := dialed.Query().Get("resume"); resume == "" {
+		t.Fatalf("expected a resume key; got %v", dialed)
+	}
+
+	err = ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Now do the same, but past connectionStateTTL + maxIdleInterval. This
+	// should make a fresh connection.
+
+	setNow(now().Add(discardStateTTL + 1))
+	breakConn()
+
+	ablytest.Instantly.Recv(t, &dialed, dials, t.Fatalf)
+	if resume := dialed.Query().Get("resume"); resume != "" {
+		t.Fatalf("didn't expect a resume key; got %v", dialed)
+	}
+	if recover := dialed.Query().Get("recover"); recover != "" {
+		t.Fatalf("didn't expect a recover key; got %v", dialed)
 	}
 }
 

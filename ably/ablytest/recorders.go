@@ -310,7 +310,10 @@ func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
 
 func (pc pipeConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
 	select {
-	case m := <-pc.in:
+	case m, ok := <-pc.in:
+		if !ok {
+			return nil, io.EOF
+		}
 		return m, nil
 	case <-time.After(time.Until(deadline)):
 		return nil, errTimeout{}
