@@ -53,10 +53,6 @@ func (a *Auth) Timestamp(query bool) (time.Time, error) {
 	return a.timestamp(query)
 }
 
-func (a *Auth) SetNowFunc(now func() time.Time) {
-	a.now = now
-}
-
 func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
 }
@@ -126,6 +122,12 @@ func (os ClientOptions) RealtimeRequestTimeout(d time.Duration) ClientOptions {
 func (os ClientOptions) Trace(trace *httptrace.ClientTrace) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.Trace = trace
+	})
+}
+
+func (os ClientOptions) Now(now func() time.Time) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.Now = now
 	})
 }
 

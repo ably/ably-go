@@ -483,7 +483,7 @@ func (c *Connection) eventloop() {
 	for c.lockCanReceiveMessages() {
 		var deadline time.Time
 		if receiveTimeout != 0 {
-			deadline = time.Now().Add(receiveTimeout) // RTN23a
+			deadline = c.opts.Now().Add(receiveTimeout) // RTN23a
 		}
 		msg, err := c.conn.Receive(deadline)
 		if err != nil {

@@ -34,6 +34,7 @@ var defaultOptions = clientOptions{
 	IdempotentRestPublishing: false,
 	Port:                     80,
 	TLSPort:                  443,
+	Now:                      time.Now,
 }
 
 func DefaultFallbackHosts() []string {
@@ -220,6 +221,9 @@ type clientOptions struct {
 
 	//When provided this will be used on every request.
 	Trace *httptrace.ClientTrace
+
+	// Now returns the time the library should take as current.
+	Now func() time.Time
 }
 
 func (opts *clientOptions) timeoutConnect() time.Duration {

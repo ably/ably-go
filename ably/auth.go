@@ -72,9 +72,6 @@ type Auth struct {
 
 	// ServerTimeHandler when provided this will be used to query server time.
 	serverTimeHandler func() (time.Time, error)
-
-	// This provides a function that returns the current time.
-	now func() time.Time
 }
 
 func newAuth(client *REST) (*Auth, error) {
