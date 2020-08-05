@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -967,6 +968,80 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	// The client should transition to the FAILED state
 	if expected, got := ably.StateConnFailed, client.Connection.State(); expected != got {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
+	}
+}
+
+func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		Token("fake:token").
+		AutoConnect(false).
+		Dial(ablytest.MessagePipe(in, out)))
+
+	// Get the connection to CONNECTED.
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get a channel to ATTACHED.
+
+	channel := c.Channels.Get("test")
+	attachWaiter, err := channel.Attach()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = <-out // consume ATTACH
+
+	in <- &proto.ProtocolMessage{
+		Action:  proto.ActionAttached,
+		Channel: "test",
+	}
+
+	ablytest.Wait(attachWaiter, err)
+
+	// Send a fake ERROR; expect a transition to FAILED.
+
+	errorCode := 50123
+
+	err = ablytest.ConnWaiter(c, func() {
+		in <- &proto.ProtocolMessage{
+			Action: proto.ActionError,
+			Error: &proto.ErrorInfo{
+				StatusCode: 500,
+				Code:       errorCode,
+				Message:    "fake error",
+			},
+		}
+	}, ably.ConnectionEventFailed).Wait()
+
+	var errorInfo *ably.ErrorInfo
+	if !errors.As(err, &errorInfo) {
+		t.Fatal(err)
+	}
+	if expected, got := errorCode, errorInfo.Code; expected != got {
+		t.Fatalf("expected error code %d; got %v", expected, errorInfo)
+	}
+
+	if expected, got := errorInfo, c.Connection.ErrorReason(); got == nil || *expected != *got {
+		t.Fatalf("expected %v; got %v", expected, got)
+	}
+
+	// The channel should have been moved to FAILED too.
+	if expected, got := ably.StateChanFailed, channel.State(); expected != got {
+		t.Fatalf("expected channel in state %v; got %v", expected, got)
 	}
 }
 
