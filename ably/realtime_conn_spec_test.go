@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -1058,6 +1059,80 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	}
 }
 
+func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		Token("fake:token").
+		AutoConnect(false).
+		Dial(ablytest.MessagePipe(in, out)))
+
+	// Get the connection to CONNECTED.
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get a channel to ATTACHED.
+
+	channel := c.Channels.Get("test")
+	attachWaiter, err := channel.Attach()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = <-out // consume ATTACH
+
+	in <- &proto.ProtocolMessage{
+		Action:  proto.ActionAttached,
+		Channel: "test",
+	}
+
+	ablytest.Wait(attachWaiter, err)
+
+	// Send a fake ERROR; expect a transition to FAILED.
+
+	errorCode := 50123
+
+	err = ablytest.ConnWaiter(c, func() {
+		in <- &proto.ProtocolMessage{
+			Action: proto.ActionError,
+			Error: &proto.ErrorInfo{
+				StatusCode: 500,
+				Code:       errorCode,
+				Message:    "fake error",
+			},
+		}
+	}, ably.ConnectionEventFailed).Wait()
+
+	var errorInfo *ably.ErrorInfo
+	if !errors.As(err, &errorInfo) {
+		t.Fatal(err)
+	}
+	if expected, got := errorCode, errorInfo.Code; expected != got {
+		t.Fatalf("expected error code %d; got %v", expected, errorInfo)
+	}
+
+	if expected, got := errorInfo, c.Connection.ErrorReason(); got == nil || *expected != *got {
+		t.Fatalf("expected %v; got %v", expected, got)
+	}
+
+	// The channel should have been moved to FAILED too.
+	if expected, got := ably.StateChanFailed, channel.State(); expected != got {
+		t.Fatalf("expected channel in state %v; got %v", expected, got)
+	}
+}
+
 func TestRealtimeConn_RTN16(t *testing.T) {
 	t.Parallel()
 	app, c := ablytest.NewRealtime(ably.ClientOptions{})
@@ -1191,13 +1266,13 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	t.Skip("Temporarily disabled; see https://github.com/ably/ably-go/pull/169#discussion_r463656583")
 
 	t.Parallel()
-	var query url.Values
+	query := make(chan url.Values, 1)
 	ok := make(chan *proto.ProtocolMessage, 2)
 	timeout := 30 * time.Millisecond
 	app, c := ablytest.NewRealtime(ably.ClientOptions{}.
 		RealtimeRequestTimeout(timeout).
 		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
-			query = u.Query()
+			query <- u.Query()
 			conn, err := ablyutil.DialWebsocket(protocol, u)
 			if err != nil {
 				return nil, err
@@ -1214,7 +1289,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	receiveTimeout := timeout + time.Duration(msg.ConnectionDetails.MaxIdleInterval)
 
 	{ // RTN23b
-		h := query.Get("heartbeats")
+		h := (<-query).Get("heartbeats")
 		if h != "true" {
 			t.Errorf("expected heartbeats query param to be true got %q", h)
 		}
