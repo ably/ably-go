@@ -110,10 +110,15 @@ func (ch *Channels) All() []*RealtimeChannel {
 func (ch *Channels) Release(name string) error {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
-	if c, ok := ch.chans[name]; ok {
-		delete(ch.chans, name)
-		return c.Close()
+	c, ok := ch.chans[name]
+	if !ok {
+		return nil
 	}
+	err := wait(c.Detach())
+	if err != nil {
+		return err
+	}
+	delete(ch.chans, name)
 	return nil
 }
 
@@ -162,10 +167,6 @@ func (c *RealtimeChannel) onConnState(state State) {
 		if active {
 			c.state.syncSet(StateChanFailed, state.Err)
 		}
-	case StateConnClosed:
-		if active {
-			c.state.syncSet(StateChanClosed, state.Err)
-		}
 	}
 }
 
@@ -182,8 +183,6 @@ func (c *RealtimeChannel) Attach() (Result, error) {
 
 var attachResultStates = []StateEnum{
 	StateChanAttached, // expected state
-	StateChanClosing,
-	StateChanClosed,
 	StateChanFailed,
 }
 
@@ -235,8 +234,6 @@ func (c *RealtimeChannel) Detach() (Result, error) {
 
 var detachResultStates = []StateEnum{
 	StateChanDetached, // expected state
-	StateChanClosing,
-	StateChanClosed,
 	StateChanFailed,
 }
 
@@ -266,20 +263,6 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 		return nil, c.state.set(StateChanFailed, err)
 	}
 	return res, nil
-}
-
-// Closes initiates closing sequence for the channel; it waits until the
-// operation is complete.
-//
-// If connection is already closed, this method is a nop.
-// If sending close message succeeds, it closes and unsubscribes all channels.
-func (c *RealtimeChannel) Close() error {
-	err := wait(c.Detach())
-	c.subs.close()
-	if err != nil {
-		return c.state.syncSet(StateChanClosed, err)
-	}
-	return nil
 }
 
 // Subscribe subscribes to a realtime channel, which makes any newly received

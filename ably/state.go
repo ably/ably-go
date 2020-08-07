@@ -68,8 +68,6 @@ const (
 	StateChanAttached
 	StateChanDetaching
 	StateChanDetached
-	StateChanClosing
-	StateChanClosed
 	StateChanFailed
 )
 
@@ -102,8 +100,6 @@ var stateText = map[StateEnum]string{
 	StateChanAttached:     "ably.StateChanAttached",
 	StateChanDetaching:    "ably.StateChanDetaching",
 	StateChanDetached:     "ably.StateChanDetached",
-	StateChanClosing:      "ably.StateChanClosing",
-	StateChanClosed:       "ably.StateChanClosed",
 	StateChanFailed:       "ably.StateChanFailed",
 }
 
@@ -124,7 +120,6 @@ var stateAll = map[StateType][]StateEnum{
 		StateChanAttaching,
 		StateChanAttached,
 		StateChanDetaching,
-		StateChanClosed,
 		StateChanDetached,
 		StateChanFailed,
 	},
@@ -136,8 +131,7 @@ var stateMasks = map[StateType]StateEnum{
 		StateConnDisconnected | StateConnSuspended | StateConnClosing | StateConnClosed |
 		StateConnFailed,
 	StateChan: StateChanInitialized | StateChanAttaching | StateChanAttached |
-		StateChanDetaching | StateChanDetached | StateChanClosing | StateChanClosed |
-		StateChanFailed,
+		StateChanDetaching | StateChanDetached | StateChanFailed,
 }
 
 var (

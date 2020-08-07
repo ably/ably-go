@@ -116,10 +116,9 @@ var chanCloseTransitions = [][]ably.StateEnum{{
 	ably.StateConnClosed,
 }}
 
-func TestRealtimeChannel_Close(t *testing.T) {
+func TestRealtimeChannel_Detach(t *testing.T) {
 	t.Parallel()
-	rec := ablytest.NewStateRecorder(8)
-	app, client := ablytest.NewRealtime(ably.ClientOptions{}.Listener(rec.Channel()))
+	app, client := ablytest.NewRealtime(ably.ClientOptions{})
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	channel := client.Channels.Get("test")
@@ -140,16 +139,13 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		if msg.Name != "hello" || !reflect.DeepEqual(msg.Data, "world") {
 			done <- fmt.Errorf(`want name="hello", data="world"; got %s, %v`, msg.Name, msg.Data)
 		}
-		if _, ok = <-sub.MessageChannel(); ok {
-			done <- fmt.Errorf("expected channel to be closed")
-		}
 		done <- nil
 	}()
 	if state := channel.State(); state != ably.StateChanAttached {
 		t.Fatalf("want state=%v; got %v", ably.StateChanAttached, state)
 	}
-	if err := channel.Close(); err != nil {
-		t.Fatalf("channel.Close()=%v", err)
+	if err := ablytest.Wait(channel.Detach()); err != nil {
+		t.Fatalf("channel.Detach()=%v", err)
 	}
 	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
 		t.Fatalf("ablytest.FullRealtimeCloser(client).Close()=%v", err)
@@ -162,11 +158,4 @@ func TestRealtimeChannel_Close(t *testing.T) {
 	case <-time.After(ablytest.Timeout):
 		t.Fatalf("waiting on subscribed channel close timed out after %v", ablytest.Timeout)
 	}
-	rec.Stop()
-	for _, expected := range chanCloseTransitions {
-		if err = rec.WaitFor(expected); err != nil {
-			return
-		}
-	}
-	t.Error(err)
 }
