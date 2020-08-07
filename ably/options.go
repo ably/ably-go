@@ -329,16 +329,14 @@ type ScopeParams struct {
 }
 
 func (s ScopeParams) EncodeValues(out *url.Values) error {
-	start := unixMilli(s.Start)
-	end := unixMilli(s.End)
-	if start != 0 && end != 0 && start > end {
-		return fmt.Errorf("start must be before end")
+	if !s.Start.IsZero() && !s.End.IsZero() && s.Start.After(s.End) {
+		return fmt.Errorf("start mzust be before end")
 	}
-	if start != 0 {
-		out.Set("start", strconv.FormatInt(start, 10))
+	if !s.Start.IsZero() {
+		out.Set("start", strconv.FormatInt(unixMilli(s.Start), 10))
 	}
-	if end != 0 {
-		out.Set("end", strconv.FormatInt(end, 10))
+	if !s.End.IsZero() {
+		out.Set("end", strconv.FormatInt(unixMilli(s.End), 10))
 	}
 	if s.Unit != "" {
 		out.Set("unit", s.Unit)
