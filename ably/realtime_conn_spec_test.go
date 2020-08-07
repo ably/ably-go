@@ -1031,6 +1031,12 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	// attempt a resume.
 
 	setNow(now().Add(discardStateTTL - 1))
+
+	connected := make(chan struct{})
+	c.Connection.Once(ably.ConnectionEventConnected, func(ably.ConnectionStateChange) {
+		close(connected)
+	})
+
 	breakConn()
 
 	var dialed *url.URL
@@ -1039,13 +1045,10 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 		t.Fatalf("expected a resume key; got %v", dialed)
 	}
 
-	err = ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// Now do the same, but past connectionStateTTL + maxIdleInterval. This
 	// should make a fresh connection.
+
+	ablytest.Instantly.Recv(t, nil, connected, t.Fatalf) // wait for CONNECTED before disconnecting again
 
 	setNow(now().Add(discardStateTTL + 1))
 	breakConn()
