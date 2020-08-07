@@ -973,6 +973,90 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	}
 }
 
+func TestRealtimeConn_RTN15f_NackOnDisconnect(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		Token("fake:token").
+		AutoConnect(false).
+		Dial(ablytest.MessagePipe(in, out)))
+
+	// Get the connection to CONNECTED.
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get a channel to ATTACHED.
+
+	channel := c.Channels.Get("test")
+	attachWaiter, err := channel.Attach()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = <-out // consume ATTACH
+
+	in <- &proto.ProtocolMessage{
+		Action:  proto.ActionAttached,
+		Channel: "test",
+	}
+
+	ablytest.Wait(attachWaiter, err)
+
+	// Publish some messages, but don't ACK nor NACK them.
+
+	publishErrs := make(chan error, 3)
+
+	for i := 0; i < cap(publishErrs); i++ {
+		go func() {
+			res, err := channel.Publish("foo", nil)
+			if err != nil {
+				publishErrs <- err
+				return
+			}
+			publishErrs <- res.Wait()
+		}()
+	}
+
+	for i := 0; i < cap(publishErrs); i++ {
+		msg := <-out
+		if expected, got := proto.ActionMessage, msg.Action; expected != got {
+			t.Fatalf("expected %v, got %v", expected, got)
+		}
+	}
+
+	// No more outgoing messages expected.
+	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+
+	// The publishes should be blocking waiting for an ACK or NACK.
+	ablytest.Instantly.NoRecv(t, nil, publishErrs, t.Fatalf)
+
+	// Break the connection by closing the in pipe. Expect all pending publishes
+	// to fail.
+
+	close(in)
+
+	for i := 0; i < cap(publishErrs); i++ {
+		var err error
+		ablytest.Instantly.Recv(t, &err, publishErrs, t.Fatalf)
+
+		if !errors.Is(err, io.EOF) { // Caused by breaking the connection.
+			t.Fatalf("expected %v, got %v", io.EOF, err)
+		}
+	}
+}
+
 func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	t.Parallel()
 

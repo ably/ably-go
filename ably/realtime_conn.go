@@ -500,7 +500,11 @@ func (c *Connection) setSerial(serial int64) {
 	c.serial = serial
 }
 
-func (c *Connection) eventloop() {
+func (c *Connection) eventloop() (err error) {
+	defer func() {
+		c.forciblyNackPendingMessages(err)
+	}()
+
 	var lastActivityAt time.Time
 	var connDetails *proto.ConnectionDetails
 	for c.lockCanReceiveMessages() {
@@ -515,14 +519,14 @@ func (c *Connection) eventloop() {
 			c.state.Lock()
 			if c.state.current == StateConnClosed {
 				c.state.Unlock()
-				return
+				return err
 			}
 
 			// RTN23a
 			c.setState(StateConnDisconnected, err)
 			c.state.Unlock()
 			c.reconnect(lastActivityAt, connDetails, false)
-			return
+			return err
 		}
 		lastActivityAt = c.opts.Now()
 		if msg.ConnectionSerial != 0 {
@@ -552,9 +556,10 @@ func (c *Connection) eventloop() {
 			c.reauthorizing = false
 			if isTokenError(msg.Error) {
 				if reauthorizing {
-					c.lockedReauthorizationFailed(newErrorProto(msg.Error))
+					err := newErrorProto(msg.Error)
+					c.lockedReauthorizationFailed(err)
 					c.state.Unlock()
-					return
+					return err
 				} else {
 					// TODO: RTN14b; may reuse c.reauthorize from RTN15h2.
 				}
@@ -620,15 +625,17 @@ func (c *Connection) eventloop() {
 				continue
 			}
 
+			err := newErrorProto(msg.Error)
+
 			if !c.auth.isTokenRenewable() {
 				// RTN15h1
 				c.failedConnSideEffects(msg.Error)
-				return
+				return err
 			}
 
 			// RTN15h2
 			c.reauthorize(lastActivityAt, connDetails)
-			return
+			return err
 		case proto.ActionClosed:
 			c.state.Lock()
 			c.id, c.key = "", "" //(RTN16c)
@@ -641,6 +648,14 @@ func (c *Connection) eventloop() {
 			c.callbacks.onChannelMsg(msg)
 		}
 	}
+
+	return nil
+}
+
+func (c *Connection) forciblyNackPendingMessages(err error) {
+	c.state.Lock()
+	defer c.state.Unlock()
+	c.pending.NackAll(err)
 }
 
 func (c *Connection) setState(state StateEnum, err error) error {

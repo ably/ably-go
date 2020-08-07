@@ -431,6 +431,17 @@ func (q *pendingEmitter) Nack(serial int64, count int, err error) {
 	q.queue = q.queue[nack:]
 }
 
+func (q *pendingEmitter) NackAll(err error) {
+	if err == nil {
+		err = newError(50000, err)
+	}
+	for _, sch := range q.queue {
+		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
+		sch.ch <- err
+	}
+	q.queue = nil
+}
+
 type msgch struct {
 	msg *proto.ProtocolMessage
 	ch  chan<- error
