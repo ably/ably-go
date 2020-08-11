@@ -64,15 +64,14 @@ func (c *Realtime) onChannelMsg(msg *proto.ProtocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
 }
 
-func (c *Realtime) onReconnectMsg(msg *proto.ProtocolMessage) {
+func (c *Realtime) onReconnectMsg(msg *proto.ProtocolMessage, isNewID bool) {
 	switch msg.Action {
 	case proto.ActionConnected:
-		if msg.Error != nil {
-			// (RTN15c3)
+		if msg.Error != nil || // RTN15c3
+			isNewID { // RTN15g3
 			for _, ch := range c.Channels.All() {
 				switch ch.State() {
-				case StateConnSuspended:
-					ch.attach(false)
+				// TODO: SUSPENDED
 				case StateChanAttaching, StateChanAttached:
 					ch.mayAttach(false, false)
 				}

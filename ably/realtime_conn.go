@@ -56,7 +56,7 @@ type connCallbacks struct {
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels and we dont have it here so we let RealtimeClient do the
 	// work.
-	onReconnectMsg func(*proto.ProtocolMessage)
+	onReconnectMsg func(_ *proto.ProtocolMessage, isNewID bool)
 	onStateChange  func(State)
 	// reconnecting tracks if we have issued a reconnection request. If we receive any message
 	// with this set to true then its the first message/response after issuing the
@@ -545,7 +545,7 @@ func (c *Connection) eventloop() {
 					// TODO: (gernest) implement (RTN15h) This can be done as a separate task?
 				} else {
 					// (RTN15c4)
-					c.callbacks.onReconnectMsg(msg)
+					c.callbacks.onReconnectMsg(msg, false)
 				}
 			}
 			c.setState(StateConnFailed, newErrorProto(msg.Error))
@@ -588,7 +588,7 @@ func (c *Connection) eventloop() {
 					// we are calling this outside of locks to avoid deadlock because in the
 					// RealtimeClient client where this callback is implemented we do some ops
 					// with this Conn where we re acquire Conn.state.Lock again.
-					c.callbacks.onReconnectMsg(msg)
+					c.callbacks.onReconnectMsg(msg, true)
 				}
 			} else {
 				// preserve old behavior.
