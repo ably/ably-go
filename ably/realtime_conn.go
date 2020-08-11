@@ -566,7 +566,7 @@ func (c *Connection) eventloop() {
 			if reconnecting {
 				// reset the mode
 				c.reconnecting = false
-				c.reauthorizing = true
+				c.reauthorizing = false
 			}
 			id := c.id
 			c.state.Unlock()
