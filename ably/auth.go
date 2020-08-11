@@ -278,7 +278,7 @@ func (a *Auth) Authorize(params *TokenParams, setOpts AuthOptions) (*TokenDetail
 
 func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*TokenDetails, error) {
 	switch tok := a.token(); {
-	case tok != nil && !force && (tok.Expires == 0 || !tok.Expired()):
+	case tok != nil && !force && (tok.Expires == 0 || !tok.expired(a.opts().Now())):
 		return tok, nil
 	case params != nil && params.ClientID == "":
 		params.ClientID = a.clientID
