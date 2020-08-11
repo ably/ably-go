@@ -153,7 +153,7 @@ func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
 	if c.opts().Listener != nil {
-		c.On(c.opts().Listener)
+		c.onState(c.opts().Listener)
 	}
 	return c
 }
@@ -291,23 +291,73 @@ func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
 	c.subs.unsubscribe(true, sub, namesToKeys(names)...)
 }
 
-// On relays request channel states to c; on state transition
+// onState relays request channel states to c; on state transition
 // connection will not block sending to c - the caller must ensure the incoming
 // values are read at proper pace or the c is sufficiently buffered.
 //
 // If no states are given, c is registered for all of them.
 // If c is nil, the method panics.
 // If c is already registered, its state set is expanded.
-func (c *RealtimeChannel) On(ch chan<- State, states ...StateEnum) {
+func (c *RealtimeChannel) onState(ch chan<- State, states ...StateEnum) {
 	c.state.on(ch, states...)
 }
 
-// Off removes c from listening on the given channel state transitions.
+// On registers an event handler for connection events of a specific kind.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *RealtimeChannel) On(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
+	return c.state.eventEmitter.On(e, func(change emitterData) {
+		handle(change.(ChannelStateChange))
+	})
+}
+
+// OnAll registers an event handler for all connection events.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *RealtimeChannel) OnAll(handle func(ChannelStateChange)) (off func()) {
+	return c.state.eventEmitter.OnAll(func(change emitterData) {
+		handle(change.(ChannelStateChange))
+	})
+}
+
+// Once registers an one-off event handler for connection events of a specific kind.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *RealtimeChannel) Once(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
+	return c.state.eventEmitter.On(e, func(change emitterData) {
+		handle(change.(ChannelStateChange))
+	})
+}
+
+// OnceAll registers an one-off event handler for all connection events.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *RealtimeChannel) OnceAll(handle func(ChannelStateChange)) (off func()) {
+	return c.state.eventEmitter.OnceAll(func(change emitterData) {
+		handle(change.(ChannelStateChange))
+	})
+}
+
+// offState removes c from listening on the given channel state transitions.
 //
 // If no states are given, c is removed for all of the connection's states.
 // If c is nil, the method panics.
-func (c *RealtimeChannel) Off(ch chan<- State, states ...StateEnum) {
+func (c *RealtimeChannel) offState(ch chan<- State, states ...StateEnum) {
 	c.state.off(ch, states...)
+}
+
+// Off deregisters event handlers for connection events of a specific kind.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *RealtimeChannel) Off(e ChannelEvent) {
+	c.state.eventEmitter.Off(e)
+}
+
+// Off deregisters all event handlers.
+//
+// See package-level documentation on Event Emitter for details.
+func (c *RealtimeChannel) OffAll() {
+	c.state.eventEmitter.OffAll()
 }
 
 // Publish publishes a message on the channel, which is send on separate
@@ -351,10 +401,10 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 	}
 	res, listen := newErrResult()
 	switch c.State() {
-	case StateChanInitialized, StateChanAttaching:
+	case ChannelStateInitialized, ChannelStateAttaching:
 		c.queue.Enqueue(msg, listen)
 		return res, nil
-	case StateChanAttached:
+	case ChannelStateAttached:
 	default:
 		return nil, &ErrorInfo{Code: 90001}
 	}
@@ -364,11 +414,11 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 	return res, nil
 }
 
-// State gives current state of the channel.
-func (c *RealtimeChannel) State() StateEnum {
+// State gives the current state of the channel.
+func (c *RealtimeChannel) State() ChannelState {
 	c.state.Lock()
 	defer c.state.Unlock()
-	return c.state.current
+	return mapOldToNewChanState(c.state.current)
 }
 
 // Reason gives the last error that caused channel transition to failed state.

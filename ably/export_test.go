@@ -96,7 +96,21 @@ func (c *Connection) OffState(ch chan<- State, states ...StateEnum) {
 	c.offState(ch, states...)
 }
 
+func (c *RealtimeChannel) OnState(ch chan<- State, states ...StateEnum) {
+	c.onState(ch, states...)
+}
+
+func (c *RealtimeChannel) OffState(ch chan<- State, states ...StateEnum) {
+	c.offState(ch, states...)
+}
+
 func (c *Connection) StateEnum() StateEnum {
+	c.state.Lock()
+	defer c.state.Unlock()
+	return c.state.current
+}
+
+func (c *RealtimeChannel) StateEnum() StateEnum {
 	c.state.Lock()
 	defer c.state.Unlock()
 	return c.state.current

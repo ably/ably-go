@@ -141,7 +141,7 @@ func TestRealtimeChannel_Detach(t *testing.T) {
 		}
 		done <- nil
 	}()
-	if state := channel.State(); state != ably.StateChanAttached {
+	if state := channel.StateEnum(); state != ably.StateChanAttached {
 		t.Fatalf("want state=%v; got %v", ably.StateChanAttached, state)
 	}
 	if err := ablytest.Wait(channel.Detach()); err != nil {

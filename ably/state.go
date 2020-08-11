@@ -235,6 +235,19 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 			change.Event = ConnectionEvent(change.Current)
 		}
 		s.eventEmitter.Emit(change.Event, change)
+	} else if StateChan.Contains(state) {
+		previous := mapOldToNewChanState(previous)
+		change := ChannelStateChange{
+			Current:  mapOldToNewChanState(s.current),
+			Previous: previous,
+			Reason:   s.err,
+		}
+		if !changed {
+			change.Event = ChannelEventUpdated
+		} else {
+			change.Event = ChannelEvent(change.Current)
+		}
+		s.eventEmitter.Emit(change.Event, change)
 	}
 
 	return s.err
@@ -618,6 +631,86 @@ func mapOldToNewConnState(old StateEnum) ConnectionState {
 		return ConnectionStateClosed
 	case StateConnFailed:
 		return ConnectionStateFailed
+	default:
+		panic(fmt.Errorf("unexpected StateEnum: %v", old))
+	}
+}
+
+// A ChannelState identifies the state of an Ably realtime channel.
+type ChannelState struct {
+	name string
+}
+
+var (
+	ChannelStateInitialized = ChannelState{name: "INITIALIZED"}
+	ChannelStateAttaching   = ChannelState{name: "ATTACHING"}
+	ChannelStateAttached    = ChannelState{name: "ATTACHED"}
+	ChannelStateDetaching   = ChannelState{name: "DETACHING"}
+	ChannelStateDetached    = ChannelState{name: "DETACHED"}
+	ChannelStateSuspended   = ChannelState{name: "SUSPENDED"}
+	ChannelStateFailed      = ChannelState{name: "FAILED"}
+)
+
+func (e ChannelState) String() string {
+	return e.name
+}
+
+// A ChannelEvent identifies an event in the lifetime of an Ably realtime
+// channel.
+type ChannelEvent struct {
+	name string
+}
+
+func (ChannelEvent) isEmitterEvent() {}
+
+var (
+	ChannelEventInitialized = ChannelEvent(ChannelStateInitialized)
+	ChannelEventAttaching   = ChannelEvent(ChannelStateAttaching)
+	ChannelEventAttached    = ChannelEvent(ChannelStateAttached)
+	ChannelEventDetaching   = ChannelEvent(ChannelStateDetaching)
+	ChannelEventDetached    = ChannelEvent(ChannelStateDetached)
+	ChannelEventSuspended   = ChannelEvent(ChannelStateSuspended)
+	ChannelEventFailed      = ChannelEvent(ChannelStateFailed)
+	ChannelEventUpdated     = ChannelEvent{name: "UPDATED"}
+)
+
+func (e ChannelEvent) String() string {
+	return e.name
+}
+
+// A ChannelStateChange is the data associated with a ChannelEvent.
+//
+// If the Event is a ChannelEventUpdated, Current and Previous are the
+// the same. Otherwise, the event is a state transition from Previous to
+// Current.
+type ChannelStateChange struct {
+	Current  ChannelState
+	Event    ChannelEvent
+	Previous ChannelState
+	// Reason, if any, is an error that caused the state change.
+	Reason *ErrorInfo
+	// Resumed is set to true for Attached and Update events when channel state
+	// has been maintainted without interruption in the server, so there has
+	// been no loss of message continuity.
+	Resumed bool
+}
+
+func (ChannelStateChange) isEmitterData() {}
+
+func mapOldToNewChanState(old StateEnum) ChannelState {
+	switch old {
+	case StateChanInitialized:
+		return ChannelStateInitialized
+	case StateChanAttaching:
+		return ChannelStateAttaching
+	case StateChanAttached:
+		return ChannelStateAttached
+	case StateChanDetaching:
+		return ChannelStateDetaching
+	case StateChanDetached:
+		return ChannelStateDetached
+	case StateChanFailed:
+		return ChannelStateFailed
 	default:
 		panic(fmt.Errorf("unexpected StateEnum: %v", old))
 	}

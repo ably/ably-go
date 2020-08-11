@@ -14,6 +14,147 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
+func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
+	t.Parallel()
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateAttaching), func(t *testing.T) {
+		t.Parallel()
+
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+		connectAndWait(t, realtime)
+
+		changes := make(chan ably.ChannelStateChange)
+		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+		channel := realtime.Channels.Get("test")
+
+		channel.On(ably.ChannelEventAttaching, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+
+		_, err := channel.Attach()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateAttached), func(t *testing.T) {
+		t.Parallel()
+
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+		connectAndWait(t, realtime)
+
+		channel := realtime.Channels.Get("test")
+
+		attachAndWait(t, channel)
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateDetaching), func(t *testing.T) {
+		t.Parallel()
+
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+		connectAndWait(t, realtime)
+
+		channel := realtime.Channels.Get("test")
+
+		attachAndWait(t, channel)
+
+		changes := make(chan ably.ChannelStateChange)
+		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+		channel.On(ably.ChannelEventDetaching, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+
+		_, err := channel.Detach()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateDetached), func(t *testing.T) {
+		t.Parallel()
+
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+		connectAndWait(t, realtime)
+
+		channel := realtime.Channels.Get("test")
+
+		attachAndWait(t, channel)
+
+		changes := make(chan ably.ChannelStateChange)
+		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+		channel.On(ably.ChannelEventDetached, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+
+		_, err := channel.Detach()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateSuspended), func(t *testing.T) {
+		t.Parallel()
+
+		t.Skip("SUSPENDED not yet implemented")
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelEventUpdated), func(t *testing.T) {
+		t.Parallel()
+
+		t.Skip("UPDATED not yet implemented")
+	})
+}
+
+func attachAndWait(t *testing.T, channel *ably.RealtimeChannel) {
+	t.Helper()
+
+	changes := make(chan ably.ChannelStateChange, 2)
+	defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+	{
+		off := channel.Once(ably.ChannelEventAttached, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+		defer off()
+	}
+
+	{
+		off := channel.Once(ably.ChannelEventFailed, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+		defer off()
+	}
+
+	_, err := channel.Attach()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var change ably.ChannelStateChange
+	ablytest.Soon.Recv(t, &change, changes, t.Fatalf)
+
+	if change.Current != ably.ChannelStateAttached {
+		t.Fatalf("unexpected FAILED event: %s", change.Reason)
+	}
+}
+
 func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 	t.Parallel()
 
@@ -67,7 +208,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
 
 		stateChanges = make(chan ably.State, 10)
-		channel.On(stateChanges)
+		channel.OnState(stateChanges)
 
 		return
 	}

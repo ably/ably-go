@@ -48,7 +48,7 @@ func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 
 func (pres *RealtimePresence) verifyChanState() error {
 	switch state := pres.channel.State(); state {
-	case StateChanDetached, StateChanDetaching, StateChanFailed:
+	case ChannelStateDetached, ChannelStateDetaching, ChannelStateFailed:
 		return newError(91001, fmt.Errorf("unable to enter presence channel (invalid channel state: %s)", state.String()))
 	default:
 		return nil
