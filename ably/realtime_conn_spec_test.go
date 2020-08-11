@@ -1279,6 +1279,9 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 
 	errorCode := 50123
 
+	channelFailed := make(chan ably.State, 1)
+	channel.On(channelFailed, ably.StateChanFailed)
+
 	err = ablytest.ConnWaiter(c, func() {
 		in <- &proto.ProtocolMessage{
 			Action: proto.ActionError,
@@ -1302,7 +1305,10 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 		t.Fatalf("expected %v; got %v", expected, got)
 	}
 
-	// The channel should have been moved to FAILED too.
+	// The channel should be moved to FAILED too.
+
+	ablytest.Instantly.Recv(t, nil, channelFailed, t.Fatalf)
+
 	if expected, got := ably.StateChanFailed, channel.State(); expected != got {
 		t.Fatalf("expected channel in state %v; got %v", expected, got)
 	}
