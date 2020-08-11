@@ -1330,6 +1330,7 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	if err := ablytest.Wait(channel.Publish("name", "data")); err != nil {
 		t.Fatal(err)
 	}
+	prevMsgSerial := c.Connection.MsgSerial()
 
 	client := app.NewRealtime(ably.ClientOptions{}.
 		Recover(c.Connection.RecoveryKey()))
@@ -1344,8 +1345,8 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 			t.Errorf("expected the same connection")
 		}
 
-		if client.Connection.MsgSerial() != c.Connection.MsgSerial() {
-			t.Errorf("expected %d got %d", c.Connection.MsgSerial(), client.Connection.MsgSerial())
+		if expected, got := prevMsgSerial, client.Connection.MsgSerial(); expected != got {
+			t.Errorf("expected %d got %d", expected, got)
 		}
 		if true {
 			return

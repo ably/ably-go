@@ -549,11 +549,8 @@ func (c *Connection) eventloop() {
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
 			mode := c.getMode()
-			c.state.Unlock()
 			if msg.ConnectionDetails != nil {
-				c.state.Lock()
 				c.key = msg.ConnectionDetails.ConnectionKey //(RTN15e) (RTN16d)
-				c.state.Unlock()
 
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(msg.ConnectionDetails.ClientID)
@@ -561,34 +558,13 @@ func (c *Connection) eventloop() {
 				maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
 				receiveTimeout = c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
 			}
-			c.state.Lock()
 			reconnecting := c.reconnecting
 			if reconnecting {
 				// reset the mode
 				c.reconnecting = false
 				c.reauthorizing = false
 			}
-			id := c.id
-			c.state.Unlock()
-			if reconnecting {
-				// (RTN15c1) (RTN15c2)
-				c.state.Lock()
-				c.setState(StateConnConnected, newErrorProto(msg.Error))
-				c.state.Unlock()
-				if id != msg.ConnectionID {
-					// (RTN15c3)
-					// we are calling this outside of locks to avoid deadlock because in the
-					// RealtimeClient client where this callback is implemented we do some ops
-					// with this Conn where we re acquire Conn.state.Lock again.
-					c.callbacks.onReconnected(msg.Error)
-				}
-			} else {
-				// preserve old behavior.
-				c.state.Lock()
-				c.setState(StateConnConnected, nil)
-				c.state.Unlock()
-			}
-			c.state.Lock()
+			previousID := c.id
 			c.id = msg.ConnectionID
 			c.msgSerial = 0
 			if reconnecting && mode == recoveryMode {
@@ -601,6 +577,24 @@ func (c *Connection) eventloop() {
 			}
 			c.setSerial(-1)
 			c.state.Unlock()
+			if reconnecting {
+				// (RTN15c1) (RTN15c2)
+				c.state.Lock()
+				c.setState(StateConnConnected, newErrorProto(msg.Error))
+				c.state.Unlock()
+				if previousID != msg.ConnectionID {
+					// (RTN15c3)
+					// we are calling this outside of locks to avoid deadlock because in the
+					// RealtimeClient client where this callback is implemented we do some ops
+					// with this Conn where we re acquire Conn.state.Lock again.
+					c.callbacks.onReconnected(msg.Error)
+				}
+			} else {
+				// preserve old behavior.
+				c.state.Lock()
+				c.setState(StateConnConnected, nil)
+				c.state.Unlock()
+			}
 			c.queue.Flush()
 		case proto.ActionDisconnected:
 			if !isTokenError(msg.Error) {
