@@ -82,8 +82,8 @@ func TestChannel_Presence(t *testing.T) {
 		ts.Run("with start and end time", func(ts *testing.T) {
 			params := &ably.PaginateParams{
 				ScopeParams: ably.ScopeParams{
-					Start: ably.Time(time.Now().Add(-24 * time.Hour)),
-					End:   ably.Time(time.Now()),
+					Start: time.Now().Add(-24 * time.Hour),
+					End:   time.Now(),
 				},
 			}
 			page, err := presence.History(params)

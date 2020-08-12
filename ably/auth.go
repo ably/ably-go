@@ -72,9 +72,6 @@ type Auth struct {
 
 	// ServerTimeHandler when provided this will be used to query server time.
 	serverTimeHandler func() (time.Time, error)
-
-	// This provides a function that returns the current time.
-	now func() time.Time
 }
 
 func newAuth(client *REST) (*Auth, error) {
@@ -281,7 +278,7 @@ func (a *Auth) Authorize(params *TokenParams, setOpts AuthOptions) (*TokenDetail
 
 func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*TokenDetails, error) {
 	switch tok := a.token(); {
-	case tok != nil && !force && (tok.Expires == 0 || !tok.Expired()):
+	case tok != nil && !force && (tok.Expires == 0 || !tok.expired(a.opts().Now())):
 		return tok, nil
 	case params != nil && params.ClientID == "":
 		params.ClientID = a.clientID
@@ -342,19 +339,14 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 		if err != nil {
 			return err
 		}
-		req.Timestamp = Time(ts)
+		req.Timestamp = unixMilli(ts)
 	}
 	return nil
 }
 
 //Timestamp returns the timestamp to be used in authorization request.
 func (a *Auth) timestamp(query bool) (time.Time, error) {
-	var now time.Time
-	if a.now != nil {
-		now = a.now()
-	} else {
-		now = time.Now()
-	}
+	now := a.client.opts.Now()
 	if !query {
 		return now, nil
 	}

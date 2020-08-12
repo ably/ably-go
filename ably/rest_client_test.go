@@ -200,7 +200,7 @@ func TestRestClient(t *testing.T) {
 					page, err := client.Stats(&ably.PaginateParams{
 						Limit: 1,
 						ScopeParams: ably.ScopeParams{
-							Start: ably.Time(longAgo),
+							Start: longAgo,
 							Unit:  proto.StatGranularityMinute,
 						},
 					})

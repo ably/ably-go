@@ -172,7 +172,7 @@ func TestAuth_Authorise(t *testing.T) {
 	defer safeclose(t, app)
 
 	params := &ably.TokenParams{
-		TTL: ably.Duration(time.Second),
+		TTL: time.Second.Milliseconds(),
 	}
 	_, err := client.Auth.Authorise(params, nil)
 	if err != nil {
@@ -196,10 +196,12 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 	}
 
 	t.Run("must use local time when UseQueryTime is false", func(ts *testing.T) {
-		a := &ably.Auth{}
-		a.SetNowFunc(func() time.Time {
-			return now
-		})
+		rest, _ := ably.NewREST(ably.ClientOptions{}.
+			Key("fake:key").
+			Now(func() time.Time {
+				return now
+			}))
+		a := rest.Auth
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
@@ -212,10 +214,12 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		}
 	})
 	t.Run("must use server time when UseQueryTime is true", func(ts *testing.T) {
-		a := &ably.Auth{}
-		a.SetNowFunc(func() time.Time {
-			return now
-		})
+		rest, _ := ably.NewREST(ably.ClientOptions{}.
+			Key("fake:key").
+			Now(func() time.Time {
+				return now
+			}))
+		a := rest.Auth
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
@@ -229,10 +233,13 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		}
 	})
 	t.Run("must use server time offset ", func(ts *testing.T) {
-		a := &ably.Auth{}
-		a.SetNowFunc(func() time.Time {
-			return now
-		})
+		now := now
+		rest, _ := ably.NewREST(ably.ClientOptions{}.
+			Key("fake:key").
+			Now(func() time.Time {
+				return now
+			}))
+		a := rest.Auth
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
@@ -245,9 +252,7 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 			ts.Errorf("expected %s got %s", serverTime, stamp)
 		}
 
-		a.SetNowFunc(func() time.Time {
-			return now.Add(time.Minute)
-		})
+		now = now.Add(time.Minute)
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return time.Time{}, errors.New("must not be called")
 		})
@@ -255,7 +260,7 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		serverTime = now.Add(time.Minute * 2)
+		serverTime = now.Add(time.Minute)
 		if !stamp.Equal(serverTime) {
 			ts.Errorf("expected %s got %s", serverTime, stamp)
 		}
@@ -271,7 +276,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	defer safeclose(t, app)
 
 	params := &ably.TokenParams{
-		TTL: ably.Duration(time.Second),
+		TTL: time.Second.Milliseconds(),
 	}
 	tok, err := client.Auth.Authorize(params, nil)
 	if err != nil {
@@ -608,7 +613,7 @@ func TestAuth_ClientID(t *testing.T) {
 	proxy := ablytest.MustAuthReverseProxy(app.Options(opts))
 	defer safeclose(t, proxy)
 	params := &ably.TokenParams{
-		TTL: ably.Duration(time.Second),
+		TTL: time.Second.Milliseconds(),
 	}
 	opts = ably.ClientOptions{}.
 		AuthURL(proxy.URL("details")).
@@ -713,7 +718,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		QueryTime(true).
 		Key(app.Key())
 	params := &ably.TokenParams{
-		TTL:           ably.Duration(5 * time.Second),
+		TTL:           (5 * time.Second).Milliseconds(),
 		RawCapability: (ably.Capability{"presence": {"read", "write"}}).Encode(),
 	}
 	t.Run("RSA9h", func(ts *testing.T) {
