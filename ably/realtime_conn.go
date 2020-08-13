@@ -510,6 +510,7 @@ func (c *Connection) eventloop() {
 				return
 			}
 
+			// RTN23a
 			c.setState(StateConnDisconnected, err)
 			c.state.Unlock()
 			c.reconnect(lastActivityAt, connDetails, false)
