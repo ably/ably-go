@@ -3,6 +3,7 @@ package ably_test
 import (
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/ably/ably-go/ably"
 )
@@ -21,8 +22,8 @@ func TestScopeParams(t *testing.T) {
 	t.Parallel()
 	t.Run("must error when given invalid range", func(ts *testing.T) {
 		params := ably.ScopeParams{
-			Start: 123,
-			End:   122,
+			Start: time.Unix(0, 0).Add(123 * time.Millisecond),
+			End:   time.Unix(0, 0).Add(122 * time.Millisecond),
 		}
 		err := params.EncodeValues(nil)
 		if err == nil {
@@ -32,8 +33,8 @@ func TestScopeParams(t *testing.T) {
 
 	t.Run("must set url values", func(ts *testing.T) {
 		params := ably.ScopeParams{
-			Start: 122,
-			End:   123,
+			Start: time.Unix(0, 0).Add(122 * time.Millisecond),
+			End:   time.Unix(0, 0).Add(123 * time.Millisecond),
 		}
 		u := make(url.Values)
 		err := params.EncodeValues(&u)
@@ -71,8 +72,8 @@ func TestPaginateParams(t *testing.T) {
 			Limit:     1,
 			Direction: "backwards",
 			ScopeParams: ably.ScopeParams{
-				Start: 123,
-				End:   124,
+				Start: time.Unix(0, 0).Add(123 * time.Millisecond),
+				End:   time.Unix(0, 0).Add(124 * time.Millisecond),
 				Unit:  "hello",
 			},
 		}
@@ -103,7 +104,7 @@ func TestPaginateParams(t *testing.T) {
 	t.Run("with a value for ScopeParams", func(ts *testing.T) {
 		values := make(url.Values)
 		params := ably.PaginateParams{}
-		params.Start = 123
+		params.Start = time.Unix(0, 0).Add(123 * time.Millisecond)
 		err := params.EncodeValues(&values)
 		if err != nil {
 			ts.Fatal(err)

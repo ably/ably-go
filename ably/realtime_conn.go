@@ -59,7 +59,7 @@ type connCallbacks struct {
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels and we dont have it here so we let RealtimeClient do the
 	// work.
-	onReconnected func(*proto.ErrorInfo)
+	onReconnected func(_ *proto.ErrorInfo, isNewID bool)
 	// onReconnectionFailed is called when we get a FAILED response from a
 	// reconnection request.
 	onReconnectionFailed func(*proto.ErrorInfo)
@@ -128,10 +128,23 @@ func (c *Connection) connect(result bool) (Result, error) {
 	return c.connectWith(result, mode)
 }
 
-func (c *Connection) reconnect(result bool) (Result, error) {
+func (c *Connection) reconnect(lastActivityAt time.Time, connDetails *proto.ConnectionDetails, result bool) (Result, error) {
 	c.state.Lock()
-	mode := c.getMode()
+
+	var mode connectionMode
+	if connDetails != nil && c.opts.Now().Sub(lastActivityAt) >= time.Duration(connDetails.ConnectionStateTTL+connDetails.MaxIdleInterval) {
+		// RTN15g
+		c.msgSerial = 0
+		c.key = ""
+		// c.id isn't cleared since it's used later to determine if the
+		// reconnection resulted in a new transport-level connection.
+		mode = normalMode
+	} else {
+		mode = c.getMode()
+	}
+
 	c.state.Unlock()
+
 	r, err := c.connectWith(result, mode)
 	if err != nil {
 		return nil, err
@@ -142,6 +155,7 @@ func (c *Connection) reconnect(result bool) (Result, error) {
 	c.state.Lock()
 	c.reconnecting = true
 	c.state.Unlock()
+
 	return r, nil
 }
 
@@ -157,7 +171,7 @@ func (c *Connection) getMode() connectionMode {
 
 func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	query := url.Values{
-		"timestamp": []string{strconv.FormatInt(TimeNow(), 10)},
+		"timestamp": []string{strconv.FormatInt(unixMilli(c.opts.Now()), 10)},
 		"echo":      []string{"true"},
 		"format":    []string{"msgpack"},
 	}
@@ -487,11 +501,14 @@ func (c *Connection) setSerial(serial int64) {
 }
 
 func (c *Connection) eventloop() {
-	var receiveTimeout time.Duration
+	var lastActivityAt time.Time
+	var connDetails *proto.ConnectionDetails
 	for c.lockCanReceiveMessages() {
 		var deadline time.Time
-		if receiveTimeout != 0 {
-			deadline = time.Now().Add(receiveTimeout) // RTN23a
+		if connDetails != nil {
+			maxIdleInterval := time.Duration(connDetails.MaxIdleInterval)
+			receiveTimeout := c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
+			deadline = c.opts.Now().Add(receiveTimeout)                         // RTNf23a
 		}
 		msg, err := c.conn.Receive(deadline)
 		if err != nil {
@@ -503,9 +520,10 @@ func (c *Connection) eventloop() {
 
 			c.setState(StateConnDisconnected, err)
 			c.state.Unlock()
-			c.reconnect(false)
+			c.reconnect(lastActivityAt, connDetails, false)
 			return
 		}
+		lastActivityAt = c.opts.Now()
 		if msg.ConnectionSerial != 0 {
 			c.state.Lock()
 			c.setSerial(msg.ConnectionSerial)
@@ -544,19 +562,16 @@ func (c *Connection) eventloop() {
 
 			c.failedConnSideEffects(msg.Error)
 		case proto.ActionConnected:
-			c.auth.updateClientID(msg.ConnectionDetails.ClientID)
 			c.state.Lock()
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
 			mode := c.getMode()
 			if msg.ConnectionDetails != nil {
-				c.key = msg.ConnectionDetails.ConnectionKey //(RTN15e) (RTN16d)
+				connDetails = msg.ConnectionDetails
+				c.key = connDetails.ConnectionKey //(RTN15e) (RTN16d)
 
 				// Spec RSA7b3, RSA7b4, RSA12a
-				c.auth.updateClientID(msg.ConnectionDetails.ClientID)
-
-				maxIdleInterval := time.Duration(msg.ConnectionDetails.MaxIdleInterval) * time.Millisecond
-				receiveTimeout = c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
+				c.auth.updateClientID(connDetails.ClientID)
 			}
 			reconnecting := c.reconnecting
 			if reconnecting {
@@ -587,7 +602,7 @@ func (c *Connection) eventloop() {
 					// we are calling this outside of locks to avoid deadlock because in the
 					// RealtimeClient client where this callback is implemented we do some ops
 					// with this Conn where we re acquire Conn.state.Lock again.
-					c.callbacks.onReconnected(msg.Error)
+					c.callbacks.onReconnected(msg.Error, true)
 				}
 			} else {
 				// preserve old behavior.
@@ -611,7 +626,7 @@ func (c *Connection) eventloop() {
 			}
 
 			// RTN15h2
-			c.reauthorize()
+			c.reauthorize(lastActivityAt, connDetails)
 			return
 		case proto.ActionClosed:
 			c.state.Lock()
@@ -654,7 +669,7 @@ func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
 	}
 }
 
-func (c *Connection) reauthorize() {
+func (c *Connection) reauthorize(lastActivityAt time.Time, connDetails *proto.ConnectionDetails) {
 	c.state.Lock()
 	_, err := c.auth.reauthorize()
 	if err != nil {
@@ -667,7 +682,7 @@ func (c *Connection) reauthorize() {
 	// reconnecting will use the new token.
 	c.reauthorizing = true
 	c.state.Unlock()
-	c.reconnect(false)
+	c.reconnect(lastActivityAt, connDetails, false)
 }
 
 func (c *Connection) lockedReauthorizationFailed(err error) {

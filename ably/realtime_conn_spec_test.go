@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -970,6 +971,169 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	if expected, got := ably.StateConnFailed, client.Connection.State(); expected != got {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
+}
+
+func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
+	t.Parallel()
+
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	now, setNow := func() (func() time.Time, func(time.Time)) {
+		now := time.Now()
+
+		var mtx sync.Mutex
+		return func() time.Time {
+				mtx.Lock()
+				defer mtx.Unlock()
+				return now
+			}, func(t time.Time) {
+				mtx.Lock()
+				defer mtx.Unlock()
+				now = t
+			}
+	}()
+
+	connDetails := proto.ConnectionDetails{
+		ConnectionKey:      "foo",
+		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 2),
+		MaxIdleInterval:    proto.DurationFromMsecs(time.Second),
+	}
+
+	dials := make(chan *url.URL, 1)
+	connIDs := make(chan string, 1)
+	var breakConn func()
+	var in chan *proto.ProtocolMessage
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		AutoConnect(false).
+		Token("fake:token").
+		Now(now).
+		Dial(func(p string, u *url.URL) (proto.Conn, error) {
+			in = make(chan *proto.ProtocolMessage, 1)
+			in <- &proto.ProtocolMessage{
+				Action:            proto.ActionConnected,
+				ConnectionID:      <-connIDs,
+				ConnectionDetails: &connDetails,
+			}
+			breakConn = func() { close(in) }
+			dials <- u
+			return ablytest.MessagePipe(in, out)(p, u)
+		}))
+
+	connIDs <- "conn-1"
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf) // discard first URL; we're interested in reconnections
+
+	// Get channels to ATTACHING, ATTACHED and DETACHED. (TODO: SUSPENDED)
+
+	attaching := c.Channels.Get("attaching")
+	_, err = attaching.Attach()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg := <-out; msg.Action != proto.ActionAttach {
+		t.Fatalf("expected ATTACH, got %v", msg)
+	}
+
+	attached := c.Channels.Get("attached")
+	attachWaiter, err := attached.Attach()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg := <-out; msg.Action != proto.ActionAttach {
+		t.Fatalf("expected ATTACH, got %v", msg)
+	}
+	in <- &proto.ProtocolMessage{
+		Action:  proto.ActionAttached,
+		Channel: "attached",
+	}
+	ablytest.Wait(attachWaiter, err)
+
+	detached := c.Channels.Get("detached")
+	attachWaiter, err = detached.Attach()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg := <-out; msg.Action != proto.ActionAttach {
+		t.Fatalf("expected ATTACH, got %v", msg)
+	}
+	in <- &proto.ProtocolMessage{
+		Action:  proto.ActionAttached,
+		Channel: "detached",
+	}
+	ablytest.Wait(attachWaiter, err)
+	detachWaiter, err := detached.Detach()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg := <-out; msg.Action != proto.ActionDetach {
+		t.Fatalf("expected DETACH, got %v", msg)
+	}
+	in <- &proto.ProtocolMessage{
+		Action:  proto.ActionDetached,
+		Channel: "detached",
+	}
+	ablytest.Wait(detachWaiter, err)
+
+	// Simulate a broken connection. Before that, set the current time to a point
+	// in the future just before connectionStateTTL + maxIdleInterval. So we still
+	// attempt a resume.
+
+	discardStateTTL := time.Duration(connDetails.ConnectionStateTTL + connDetails.MaxIdleInterval)
+
+	setNow(now().Add(discardStateTTL - 1))
+
+	connected := make(chan struct{})
+	c.Connection.Once(ably.ConnectionEventConnected, func(ably.ConnectionStateChange) {
+		close(connected)
+	})
+
+	breakConn()
+
+	connIDs <- "conn-1" // Same connection ID so the resume "succeeds".
+	var dialed *url.URL
+	ablytest.Instantly.Recv(t, &dialed, dials, t.Fatalf)
+	if resume := dialed.Query().Get("resume"); resume == "" {
+		t.Fatalf("expected a resume key; got %v", dialed)
+	}
+
+	// Now do the same, but past connectionStateTTL + maxIdleInterval. This
+	// should make a fresh connection.
+
+	ablytest.Instantly.Recv(t, nil, connected, t.Fatalf) // wait for CONNECTED before disconnecting again
+
+	setNow(now().Add(discardStateTTL + 1))
+	breakConn()
+
+	connIDs <- "conn-2"
+	ablytest.Instantly.Recv(t, &dialed, dials, t.Fatalf)
+	if resume := dialed.Query().Get("resume"); resume != "" {
+		t.Fatalf("didn't expect a resume key; got %v", dialed)
+	}
+	if recover := dialed.Query().Get("recover"); recover != "" {
+		t.Fatalf("didn't expect a recover key; got %v", dialed)
+	}
+
+	// RTN15g3: Expect the previously attaching and attached channels to be
+	// attached again.
+	attachExpected := map[string]struct{}{
+		"attaching": {},
+		"attached":  {},
+	}
+	for len(attachExpected) > 0 {
+		var msg *proto.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
+		_, ok := attachExpected[msg.Channel]
+		if !ok {
+			t.Fatalf("ATTACH sent for unexpected or already attaching channel %q", msg.Channel)
+		}
+		delete(attachExpected, msg.Channel)
+	}
+	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 }
 
 func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {

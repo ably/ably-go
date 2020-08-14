@@ -5,6 +5,7 @@ package ably
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"time"
 )
 
 func min(i, j int) int {
@@ -43,4 +44,9 @@ func randomString(n int) string {
 	p := make([]byte, n/2+1)
 	rand.Read(p)
 	return hex.EncodeToString(p)[:n]
+}
+
+// unixMilli returns the given time as a timestamp in milliseconds since epoch.
+func unixMilli(t time.Time) int64 {
+	return t.UnixNano() / int64(time.Millisecond)
 }

@@ -331,7 +331,10 @@ func (pc pipeConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
 		timeout = time.After(deadline.Sub(pc.now()))
 	}
 	select {
-	case m := <-pc.in:
+	case m, ok := <-pc.in:
+		if !ok {
+			return nil, io.EOF
+		}
 		return m, nil
 	case <-timeout:
 		return nil, errTimeout{}
