@@ -29,7 +29,10 @@ func NewRealtime(options ClientOptions) (*Realtime, error) {
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
 	conn, err := newConn(c.opts(), rest.Auth, connCallbacks{
-		c.onChannelMsg, c.onReconnectMsg, c.onConnStateChange,
+		c.onChannelMsg,
+		c.onReconnected,
+		c.onReconnectionFailed,
+		c.onConnStateChange,
 	})
 	if err != nil {
 		return nil, err
@@ -64,30 +67,27 @@ func (c *Realtime) onChannelMsg(msg *proto.ProtocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
 }
 
-func (c *Realtime) onReconnectMsg(msg *proto.ProtocolMessage, isNewID bool) {
-	switch msg.Action {
-	case proto.ActionConnected:
-		if msg.Error != nil || // RTN15c3
-			isNewID { // RTN15g3
-			for _, ch := range c.Channels.All() {
-				switch ch.State() {
-				// TODO: SUSPENDED
-				case StateChanAttaching, StateChanAttached:
-					ch.mayAttach(false, false)
-				}
-			}
-		}
+func (c *Realtime) onReconnected(err *proto.ErrorInfo, isNewID bool) {
+	if err == nil /* RTN15c3 */ && !isNewID /* RTN15g3 */ {
+		return
+	}
 
-	case proto.ActionError:
-		// (RTN15c4)
-
-		for _, ch := range c.Channels.All() {
-			ch.state.syncSet(StateChanFailed, newErrorProto(msg.Error))
+	for _, ch := range c.Channels.All() {
+		switch ch.State() {
+		// TODO: SUSPENDED
+		case StateChanAttaching, StateChanAttached:
+			ch.mayAttach(false, false)
 		}
 	}
 }
 
-func tokenError(err *proto.ErrorInfo) bool {
+func (c *Realtime) onReconnectionFailed(err *proto.ErrorInfo) {
+	for _, ch := range c.Channels.All() {
+		ch.state.syncSet(StateChanFailed, newErrorProto(err))
+	}
+}
+
+func isTokenError(err *proto.ErrorInfo) bool {
 	return err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
 }
 

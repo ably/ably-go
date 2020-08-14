@@ -48,19 +48,22 @@ type Connection struct {
 	// with this set to true then its the first message/response after issuing the
 	// reconnection request.
 	reconnecting bool
+	// reauthorizing tracks if the current reconnection attempt is happening
+	// after a reauthorization, to avoid re-reauthorizing.
+	reauthorizing bool
 }
 
 type connCallbacks struct {
 	onChannelMsg func(*proto.ProtocolMessage)
-	// onReconnectMsg is called when we get a response from reconnect request. We
+	// onReconnected is called when we get a CONNECTED response from reconnect request. We
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels and we dont have it here so we let RealtimeClient do the
 	// work.
-	onReconnectMsg func(_ *proto.ProtocolMessage, isNewID bool)
-	onStateChange  func(State)
-	// reconnecting tracks if we have issued a reconnection request. If we receive any message
-	// with this set to true then its the first message/response after issuing the
+	onReconnected func(_ *proto.ErrorInfo, isNewID bool)
+	// onReconnectionFailed is called when we get a FAILED response from a
 	// reconnection request.
+	onReconnectionFailed func(*proto.ErrorInfo)
+	onStateChange        func(State)
 }
 
 func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) (*Connection, error) {
@@ -97,6 +100,12 @@ func (c *Connection) dial(proto string, u *url.URL) (proto.Conn, error) {
 // Connect attempts to move the connection to the CONNECTED state, if it
 // can and if it isn't already.
 func (c *Connection) Connect() {
+	c.state.Lock()
+	isActive := c.isActive()
+	c.state.Unlock()
+	if isActive {
+		return
+	}
 	c.connect(false)
 }
 
@@ -200,10 +209,9 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 func (c *Connection) connectWith(result bool, mode connectionMode) (Result, error) {
 	c.state.Lock()
 	defer c.state.Unlock()
-	if c.isActive() {
-		return nopResult, nil
+	if !c.isActive() {
+		c.setState(StateConnConnecting, nil)
 	}
-	c.setState(StateConnConnecting, nil)
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
 		return nil, c.setState(StateConnFailed, err)
@@ -537,66 +545,41 @@ func (c *Connection) eventloop() {
 				c.callbacks.onChannelMsg(msg)
 				break
 			}
+
 			c.state.Lock()
-			if c.reconnecting {
-				c.reconnecting = false
-				if tokenError(msg.Error) {
-					// (RTN15c5)
-					// TODO: (gernest) implement (RTN15h) This can be done as a separate task?
+			reauthorizing := c.reauthorizing
+			c.reauthorizing = false
+			if isTokenError(msg.Error) {
+				if reauthorizing {
+					c.lockedReauthorizationFailed(newErrorProto(msg.Error))
+					c.state.Unlock()
+					return
 				} else {
-					// (RTN15c4)
-					c.callbacks.onReconnectMsg(msg, false)
+					// TODO: RTN14b; may reuse c.reauthorize from RTN15h2.
 				}
 			}
-			c.setState(StateConnFailed, newErrorProto(msg.Error))
 			c.state.Unlock()
-			c.queue.Fail(newErrorProto(msg.Error))
-			if c.conn != nil {
-				c.conn.Close()
-			}
+
+			c.failedConnSideEffects(msg.Error)
 		case proto.ActionConnected:
 			c.state.Lock()
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
 			mode := c.getMode()
-			c.state.Unlock()
 			if msg.ConnectionDetails != nil {
 				connDetails = msg.ConnectionDetails
-
-				c.state.Lock()
 				c.key = connDetails.ConnectionKey //(RTN15e) (RTN16d)
-				c.state.Unlock()
 
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(connDetails.ClientID)
 			}
-			c.state.Lock()
 			reconnecting := c.reconnecting
 			if reconnecting {
 				// reset the mode
 				c.reconnecting = false
+				c.reauthorizing = false
 			}
-			id := c.id
-			c.state.Unlock()
-			if reconnecting {
-				// (RTN15c1) (RTN15c2)
-				c.state.Lock()
-				c.setState(StateConnConnected, newErrorProto(msg.Error))
-				c.state.Unlock()
-				if id != msg.ConnectionID {
-					// (RTN15c3)
-					// we are calling this outside of locks to avoid deadlock because in the
-					// RealtimeClient client where this callback is implemented we do some ops
-					// with this Conn where we re acquire Conn.state.Lock again.
-					c.callbacks.onReconnectMsg(msg, true)
-				}
-			} else {
-				// preserve old behavior.
-				c.state.Lock()
-				c.setState(StateConnConnected, nil)
-				c.state.Unlock()
-			}
-			c.state.Lock()
+			previousID := c.id
 			c.id = msg.ConnectionID
 			c.msgSerial = 0
 			if reconnecting && mode == recoveryMode {
@@ -609,12 +592,42 @@ func (c *Connection) eventloop() {
 			}
 			c.setSerial(-1)
 			c.state.Unlock()
+			if reconnecting {
+				// (RTN15c1) (RTN15c2)
+				c.state.Lock()
+				c.setState(StateConnConnected, newErrorProto(msg.Error))
+				c.state.Unlock()
+				if previousID != msg.ConnectionID {
+					// (RTN15c3)
+					// we are calling this outside of locks to avoid deadlock because in the
+					// RealtimeClient client where this callback is implemented we do some ops
+					// with this Conn where we re acquire Conn.state.Lock again.
+					c.callbacks.onReconnected(msg.Error, true)
+				}
+			} else {
+				// preserve old behavior.
+				c.state.Lock()
+				c.setState(StateConnConnected, nil)
+				c.state.Unlock()
+			}
 			c.queue.Flush()
 		case proto.ActionDisconnected:
-			c.state.Lock()
-			c.id = ""
-			c.setState(StateConnDisconnected, nil)
-			c.state.Unlock()
+			if !isTokenError(msg.Error) {
+				// The spec doesn't say what to do in this case, so do nothing.
+				// Ably is supposed to then close the transport, which will
+				// trigger a transition to DISCONNECTED.
+				continue
+			}
+
+			if !c.auth.isTokenRenewable() {
+				// RTN15h1
+				c.failedConnSideEffects(msg.Error)
+				return
+			}
+
+			// RTN15h2
+			c.reauthorize(lastActivityAt, connDetails)
+			return
 		case proto.ActionClosed:
 			c.state.Lock()
 			c.id, c.key = "", "" //(RTN16c)
@@ -639,6 +652,42 @@ func (c *Connection) setState(state StateEnum, err error) error {
 	go func() { c.callbacks.onStateChange(<-ch) }()
 
 	return c.state.set(state, err)
+}
+
+func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
+	c.state.Lock()
+	if c.reconnecting {
+		c.reconnecting = false
+		c.reauthorizing = false
+		c.callbacks.onReconnectionFailed(err)
+	}
+	c.setState(StateConnFailed, newErrorProto(err))
+	c.state.Unlock()
+	c.queue.Fail(newErrorProto(err))
+	if c.conn != nil {
+		c.conn.Close()
+	}
+}
+
+func (c *Connection) reauthorize(lastActivityAt time.Time, connDetails *proto.ConnectionDetails) {
+	c.state.Lock()
+	_, err := c.auth.reauthorize()
+	if err != nil {
+		c.lockedReauthorizationFailed(err)
+		c.state.Unlock()
+		return
+	}
+
+	// The reauthorize above will have set the new token in c.auth, so
+	// reconnecting will use the new token.
+	c.reauthorizing = true
+	c.state.Unlock()
+	c.reconnect(lastActivityAt, connDetails, false)
+}
+
+func (c *Connection) lockedReauthorizationFailed(err error) {
+	c.setState(StateConnDisconnected, err)
+	// TODO: RTN14d
 }
 
 type verboseConn struct {

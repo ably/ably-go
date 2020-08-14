@@ -158,7 +158,7 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 	in <- connected
 
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
-		Dial(ablytest.MessagePipe(in, out)).
+		Dial(ablytest.MessagePipe(in, out, ablytest.MessagePipeWithNowFunc(time.Now))).
 		RealtimeRequestTimeout(10 * time.Millisecond).
 		AutoConnect(false))
 	defer safeclose(t, app)

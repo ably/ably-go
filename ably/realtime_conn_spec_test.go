@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -1135,6 +1136,268 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 }
 
+func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		AutoConnect(false).
+		Token("fake:token").
+		Dial(ablytest.MessagePipe(in, out)))
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tokenErr := proto.ErrorInfo{
+		StatusCode: 401,
+		Code:       40141,
+		Message:    "fake token error",
+	}
+
+	err = ablytest.ConnWaiter(c, func() {
+		in <- &proto.ProtocolMessage{
+			Action: proto.ActionDisconnected,
+			Error:  &tokenErr,
+		}
+	}, ably.ConnectionEventFailed).Wait()
+
+	var errInfo *ably.ErrorInfo
+	if !errors.As(err, &errInfo) {
+		t.Fatal(err)
+	}
+
+	if errInfo.StatusCode != tokenErr.StatusCode || errInfo.Code != tokenErr.Code {
+		t.Fatalf("expected the token error as FAILED state change reason; got: %s", err)
+	}
+}
+
+func TestRealtimeConn_RTN15h2_ReauthFails(t *testing.T) {
+	t.Parallel()
+
+	authErr := fmt.Errorf("reauth error")
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	authCallbackCalled := false
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		AutoConnect(false).
+		Token("fake:token").
+		AuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+			if authCallbackCalled {
+				t.Errorf("expected a single attempt to reauth")
+			}
+			authCallbackCalled = true
+			return nil, authErr
+		}).
+		Dial(ablytest.MessagePipe(in, out)))
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tokenErr := proto.ErrorInfo{
+		StatusCode: 401,
+		Code:       40141,
+		Message:    "fake token error",
+	}
+
+	err = ablytest.ConnWaiter(c, func() {
+		in <- &proto.ProtocolMessage{
+			Action: proto.ActionDisconnected,
+			Error:  &tokenErr,
+		}
+	}, ably.ConnectionEventDisconnected).Wait()
+
+	if !errors.Is(err, authErr) {
+		t.Fatalf("expected the auth error as DISCONNECTED state change reason; got: %s", err)
+	}
+}
+
+func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	dials := make(chan *url.URL, 1)
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		Token("fake:token").
+		AutoConnect(false).
+		AuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+			return ably.TokenString("bad:token"), nil
+		}).
+		Dial(func(proto string, u *url.URL) (proto.Conn, error) {
+			dials <- u
+			return ablytest.MessagePipe(in, out)(proto, u)
+		}))
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf)
+
+	tokenErr := proto.ErrorInfo{
+		StatusCode: 401,
+		Code:       40141,
+		Message:    "fake token error",
+	}
+
+	stateChanges := make(chan ably.ConnectionStateChange, 1)
+
+	off := c.Connection.OnAll(func(change ably.ConnectionStateChange) {
+		stateChanges <- change
+	})
+	defer off()
+
+	// Remove the buffer from dials, so that we can make the library wait for
+	// us to receive it before a state change.
+	dials = make(chan *url.URL)
+
+	in <- &proto.ProtocolMessage{
+		Action: proto.ActionDisconnected,
+		Error:  &tokenErr,
+	}
+
+	// No state change expected before a reauthorization and reconnection
+	// attempt.
+	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+
+	// The DISCONNECTED causes a reauth, and dial again with the new
+	// token.
+	var dialURL *url.URL
+	ablytest.Instantly.Recv(t, &dialURL, dials, t.Fatalf)
+
+	if expected, got := "bad:token", dialURL.Query().Get("access_token"); expected != got {
+		t.Errorf("expected reauthorization with token returned by the authCallback; got %q", got)
+	}
+
+	// After a token error response, we finally get to our expected
+	// DISCONNECTED state.
+
+	in <- &proto.ProtocolMessage{
+		Action: proto.ActionError,
+		Error:  &tokenErr,
+	}
+
+	var change ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+
+	if change.Current != ably.ConnectionStateDisconnected {
+		t.Fatalf("expected DISCONNECTED event; got %v", change)
+	}
+
+	if change.Reason.StatusCode != tokenErr.StatusCode || change.Reason.Code != tokenErr.Code {
+		t.Fatalf("expected the token error as FAILED state change reason; got: %s", change.Reason)
+	}
+}
+
+func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	dials := make(chan *url.URL, 1)
+
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		Token("fake:token").
+		AutoConnect(false).
+		AuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+			return ably.TokenString("good:token"), nil
+		}).
+		Dial(func(proto string, u *url.URL) (proto.Conn, error) {
+			dials <- u
+			return ablytest.MessagePipe(in, out)(proto, u)
+		}))
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf)
+
+	tokenErr := proto.ErrorInfo{
+		StatusCode: 401,
+		Code:       40141,
+		Message:    "fake token error",
+	}
+
+	stateChanges := make(chan ably.ConnectionStateChange, 1)
+
+	off := c.Connection.OnAll(func(change ably.ConnectionStateChange) {
+		stateChanges <- change
+	})
+	defer off()
+
+	in <- &proto.ProtocolMessage{
+		Action: proto.ActionDisconnected,
+		Error:  &tokenErr,
+	}
+
+	// The DISCONNECTED causes a reauth, and dial again with the new
+	// token.
+	var dialURL *url.URL
+	ablytest.Instantly.Recv(t, &dialURL, dials, t.Fatalf)
+
+	if expected, got := "good:token", dialURL.Query().Get("access_token"); expected != got {
+		t.Errorf("expected reauthorization with token returned by the authCallback; got %q", got)
+	}
+
+	// Simulate a successful reconnection.
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "new-connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	// Expect a UPDATED event.
+
+	var change ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+
+	if change.Event != ably.ConnectionEventUpdated {
+		t.Fatalf("expected UPDATED event; got %v", change)
+	}
+
+	// Expect no further events.break
+	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+}
+
 func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 	t.Parallel()
 
@@ -1231,6 +1494,7 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	if err := ablytest.Wait(channel.Publish("name", "data")); err != nil {
 		t.Fatal(err)
 	}
+	prevMsgSerial := c.Connection.MsgSerial()
 
 	client := app.NewRealtime(ably.ClientOptions{}.
 		Recover(c.Connection.RecoveryKey()))
@@ -1245,8 +1509,8 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 			t.Errorf("expected the same connection")
 		}
 
-		if client.Connection.MsgSerial() != c.Connection.MsgSerial() {
-			t.Errorf("expected %d got %d", c.Connection.MsgSerial(), client.Connection.MsgSerial())
+		if expected, got := prevMsgSerial, client.Connection.MsgSerial(); expected != got {
+			t.Errorf("expected %d got %d", expected, got)
 		}
 		if true {
 			return

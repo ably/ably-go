@@ -289,18 +289,35 @@ func (rec *StateRecorder) timeout() time.Duration {
 	return 15 * time.Second
 }
 
-func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMessage) func(string, *url.URL) (proto.Conn, error) {
+type MessagePipeOption func(*pipeConn)
+
+// MessagePipeWithNowFunc sets a function to get the current time. This time
+// will be used to determine whether a Receive times out.
+//
+// If not set, receives won't timeout.
+func MessagePipeWithNowFunc(now func() time.Time) MessagePipeOption {
+	return func(pc *pipeConn) {
+		pc.now = now
+	}
+}
+
+func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMessage, opts ...MessagePipeOption) func(string, *url.URL) (proto.Conn, error) {
 	return func(proto string, u *url.URL) (proto.Conn, error) {
-		return pipeConn{
+		pc := pipeConn{
 			in:  in,
 			out: out,
-		}, nil
+		}
+		for _, opt := range opts {
+			opt(&pc)
+		}
+		return pc, nil
 	}
 }
 
 type pipeConn struct {
 	in  <-chan *proto.ProtocolMessage
 	out chan<- *proto.ProtocolMessage
+	now func() time.Time
 }
 
 func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
@@ -309,13 +326,17 @@ func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
 }
 
 func (pc pipeConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	var timeout <-chan time.Time
+	if pc.now != nil {
+		timeout = time.After(deadline.Sub(pc.now()))
+	}
 	select {
 	case m, ok := <-pc.in:
 		if !ok {
 			return nil, io.EOF
 		}
 		return m, nil
-	case <-time.After(time.Until(deadline)):
+	case <-timeout:
 		return nil, errTimeout{}
 	}
 }
