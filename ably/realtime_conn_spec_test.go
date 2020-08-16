@@ -1384,7 +1384,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	// The connection should not disconnect as we received the heartbeat message
 	ablytest.Before(receiveTimeout).NoRecv(t, nil, disconnected, t.Fatalf)
 
-	// RTN23b The connection should be disconnected due to lack of activity past
+	// RTN23a The connection should be disconnected due to lack of activity past
 	// receiveTimeout
 	var reason *ably.ErrorInfo
 	ablytest.Instantly.Recv(t, &reason, disconnected, t.Fatalf)
