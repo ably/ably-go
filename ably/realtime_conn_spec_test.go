@@ -1597,63 +1597,64 @@ func sameConnection(a, b string) bool {
 	return strings.Split(a, "-")[0] == strings.Split(b, "-")[0]
 }
 
-type protoConnWithReceiveHook struct {
-	proto.Conn
-	ok chan *proto.ProtocolMessage
-}
-
-func (w *protoConnWithReceiveHook) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
-	msg, err := w.Conn.Receive(deadline)
-	w.ok <- msg
-	return msg, err
-}
-
 func TestRealtimeConn_RTN23(t *testing.T) {
-	t.Skip("Temporarily disabled; see https://github.com/ably/ably-go/pull/169#discussion_r463656583")
-
 	t.Parallel()
-	query := make(chan url.Values, 1)
-	ok := make(chan *proto.ProtocolMessage, 2)
-	timeout := 30 * time.Millisecond
-	app, c := ablytest.NewRealtime(ably.ClientOptions{}.
-		RealtimeRequestTimeout(timeout).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
-			query <- u.Query()
-			conn, err := ablyutil.DialWebsocket(protocol, u)
-			if err != nil {
-				return nil, err
-			}
-			return &protoConnWithReceiveHook{ok: ok, Conn: conn}, nil
-		}))
-	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
 
+	connDetails := proto.ConnectionDetails{
+		ConnectionKey:      "foo",
+		ConnectionStateTTL: proto.DurationFromMsecs(time.Millisecond * 20),
+		MaxIdleInterval:    proto.DurationFromMsecs(time.Millisecond * 5),
+	}
+
+	dials := make(chan *url.URL, 1)
+	var in chan *proto.ProtocolMessage
+	realtimeRequestTimeout := time.Millisecond
+	c, _ := ably.NewRealtime(ably.ClientOptions{}.
+		AutoConnect(false).
+		Token("fake:token").
+		RealtimeRequestTimeout(realtimeRequestTimeout).
+		Dial(func(p string, u *url.URL) (proto.Conn, error) {
+			in = make(chan *proto.ProtocolMessage, 1)
+			in <- &proto.ProtocolMessage{
+				Action:            proto.ActionConnected,
+				ConnectionID:      "connection",
+				ConnectionDetails: &connDetails,
+			}
+			dials <- u
+			return ablytest.MessagePipe(in, nil)(p, u)
+		}))
 	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
 	if err != nil {
 		t.Fatal(err)
 	}
-	msg := <-ok // consume the connect message
-	receiveTimeout := timeout + time.Duration(msg.ConnectionDetails.MaxIdleInterval)
-
-	{ // RTN23b
-		h := (<-query).Get("heartbeats")
-		if h != "true" {
-			t.Errorf("expected heartbeats query param to be true got %q", h)
-		}
+	var dialed *url.URL
+	ablytest.Instantly.Recv(t, &dialed, dials, t.Fatalf)
+	// RTN23b
+	h := dialed.Query().Get("heartbeats")
+	if h != "true" {
+		t.Errorf("expected heartbeats query param to be true got %q", h)
 	}
-	{ //RTN23a
-		select {
-		case msg := <-ok:
-			// The test here is ensuring we receive a heartbeat within the timeout bounds
-			// as per rtn23a because the connection is idle since receiving connection
-			// message from ably.
-			if msg == nil {
-				t.Fatal("expected to receive heartbeat message")
-			}
-			if msg.Action != proto.ActionHeartbeat {
-				t.Errorf("expected action %v got %v", proto.ActionHeartbeat, msg.Action)
-			}
-		case <-time.After(receiveTimeout):
-			t.Error("no heartbeat was sent by ably")
-		}
+
+	maxIdleInterval := time.Duration(connDetails.MaxIdleInterval)
+	receiveTimeout := realtimeRequestTimeout + maxIdleInterval
+
+	disconnected := make(chan *ably.ErrorInfo, 1)
+	c.Connection.Once(ably.ConnectionEventDisconnected, func(e ably.ConnectionStateChange) {
+		disconnected <- e.Reason
+	})
+	in <- &proto.ProtocolMessage{
+		Action: proto.ActionHeartbeat,
+	}
+	// The connection should not disconnect as we received the heartbeat message
+	ablytest.Before(receiveTimeout).NoRecv(t, nil, disconnected, t.Fatalf)
+
+	// RTN23a The connection should be disconnected due to lack of activity past
+	// receiveTimeout
+	var reason *ably.ErrorInfo
+	ablytest.Instantly.Recv(t, &reason, disconnected, t.Fatalf)
+
+	// make sure the reason is timeout
+	if !strings.Contains(reason.Error(), "timeout") {
+		t.Errorf("expected %q to contain timeout", reason.Error())
 	}
 }
