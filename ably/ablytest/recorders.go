@@ -332,7 +332,7 @@ func (pc pipeConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
 	}
 	select {
 	case m, ok := <-pc.in:
-		if !ok {
+		if !ok || m == nil {
 			return nil, io.EOF
 		}
 		return m, nil

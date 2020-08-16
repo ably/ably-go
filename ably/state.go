@@ -219,7 +219,7 @@ func (s *stateEmitter) set(state StateEnum, err error) error {
 	changed := s.current != state
 	s.current = state
 	s.err = stateError(state, err)
-	if changed {
+	if changed || err != nil {
 		s.emit(State{
 			Channel: s.channel,
 			Err:     s.err,

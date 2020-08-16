@@ -137,6 +137,12 @@ func (os ClientOptions) Now(now func() time.Time) ClientOptions {
 	})
 }
 
+func (os ClientOptions) After(after func(time.Duration) <-chan time.Time) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.After = after
+	})
+}
+
 func (os ClientOptions) ApplyWithDefaults() *clientOptions {
 	return os.applyWithDefaults()
 }

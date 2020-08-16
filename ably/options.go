@@ -30,6 +30,7 @@ var defaultOptions = clientOptions{
 	TimeoutDisconnect:        30 * time.Second,
 	RealtimeRequestTimeout:   10 * time.Second, // DF1b
 	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
+	ChannelRetryTimeout:      15 * time.Second, // TO3l7
 	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
 	Port:                     80,
@@ -202,6 +203,7 @@ type clientOptions struct {
 	// DisconnectedRetryTimeout is the time to wait after a disconnection before
 	// attempting an automatic reconnection, if still disconnected.
 	DisconnectedRetryTimeout time.Duration
+	ChannelRetryTimeout      time.Duration
 
 	// Dial specifies the dial function for creating message connections used
 	// by Realtime.
@@ -223,7 +225,8 @@ type clientOptions struct {
 	Trace *httptrace.ClientTrace
 
 	// Now returns the time the library should take as current.
-	Now func() time.Time
+	Now   func() time.Time
+	After func(time.Duration) <-chan time.Time
 }
 
 func (opts *clientOptions) timeoutConnect() time.Duration {
@@ -616,6 +619,12 @@ func (os ClientOptions) TransportParams(params url.Values) ClientOptions {
 func (os ClientOptions) DisconnectedRetryTimeout(d time.Duration) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.DisconnectedRetryTimeout = d
+	})
+}
+
+func (os ClientOptions) ChannelRetryTimeout(d time.Duration) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.ChannelRetryTimeout = d
 	})
 }
 
