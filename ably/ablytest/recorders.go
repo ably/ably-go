@@ -602,9 +602,9 @@ type realtimeIOCloser struct {
 func (c realtimeIOCloser) Close() error {
 	switch c.c.Connection.State() {
 	case
-		ably.StateConnInitialized,
-		ably.StateConnClosed,
-		ably.StateConnFailed:
+		ably.ConnectionStateInitialized,
+		ably.ConnectionStateClosed,
+		ably.ConnectionStateFailed:
 
 		return c.c.Connection.ErrorReason()
 	}
