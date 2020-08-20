@@ -663,8 +663,8 @@ func TestAuth_ClientID(t *testing.T) {
 	time.Sleep(time.Duration(params.TTL) * time.Millisecond)
 	tokenExpiredAt := time.Now()
 
-	failed := make(chan ably.State, 1)
-	client.Connection.OnState(failed, ably.StateConnFailed)
+	failed := make(ably.ConnStateChanges, 1)
+	client.Connection.On(ably.ConnectionEventFailed, failed.Receive)
 
 	// Allow some extra time for the server to reject our token.
 	err = nil
@@ -701,11 +701,11 @@ func TestAuth_ClientID(t *testing.T) {
 	}
 	select {
 	case state := <-failed:
-		if state.State != ably.StateConnFailed {
-			t.Fatalf("want state=%q; got %q", ably.StateConnFailed, state.State)
+		if state.Current != ably.ConnectionStateFailed {
+			t.Fatalf("want state=%q; got %q", ably.ConnectionStateFailed, state.Current)
 		}
 	default:
-		t.Fatal("wanted to have StateConnFailed emitted; it wasn't")
+		t.Fatal("wanted to have ConnectionStateFailed emitted; it wasn't")
 	}
 }
 

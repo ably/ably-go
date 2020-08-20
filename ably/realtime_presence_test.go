@@ -2,6 +2,7 @@ package ably_test
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -104,33 +105,28 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 
 func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	t.Parallel()
-	presTransitions := []ably.StateEnum{
-		ably.StateConnConnecting,
-		ably.StateConnConnected,
-		ably.StateChanAttaching,
-		ably.StateChanAttached,
+	presTransitions := []ably.ChannelState{
+		ably.ChannelStateAttaching,
+		ably.ChannelStateAttached,
 	}
-	rec := ablytest.NewStateRecorder(4)
+	var rec ablytest.ChanStatesRecorder
 	opts := ably.ClientOptions{}.
-		Listener(rec.Channel()).
 		AutoConnect(false)
 	app, client := ablytest.NewRealtime(opts)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 	channel := client.Channels.Get("persisted:presence_fixtures")
+	off := rec.Listen(channel)
+	defer off()
 	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
-		t.Fatal(err)
-	}
-	if err := rec.WaitFor(presTransitions[:2]); err != nil {
 		t.Fatal(err)
 	}
 	members, err := channel.Presence.Get(true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := rec.WaitFor(presTransitions); err != nil {
-		t.Fatal(err)
+	if expected, got := presTransitions, rec.States(); !reflect.DeepEqual(expected, got) {
+		t.Fatalf("expected %+v, got %+v", expected, got)
 	}
-	rec.Stop()
 	if err = contains(members, fixtureMembers...); err != nil {
 		t.Fatal(err)
 	}

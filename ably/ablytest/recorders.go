@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -125,168 +123,78 @@ func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, erro
 	return resp, err
 }
 
-// StateRecorder provides:
-//
-//   * send ably.State channel for recording state transitions
-//   * goroutine-safe access to recorded state enums
-//
-type StateRecorder struct {
-	Timeout time.Duration // times out waiting for states after this duration; 15s by default
-
+type ConnStatesRecorder struct {
 	mtx    sync.Mutex
-	wg     sync.WaitGroup
-	states []ably.State
-	ch     chan ably.State
-	done   chan struct{}
-	typ    ably.StateType
+	states []ably.ConnectionState
 }
 
-// NewStateRecorder gives new recorder which purpose is to record states via
-// (*clientOptions).Listener channel.
-//
-// If buffer is > 0, the recorder will use it as a buffer to ensure all states
-// transitions are received.
-// If buffer is <= 0, the recorder will not buffer any states, which can
-// result in some of them being dropped.
-func NewStateRecorder(buffer int) *StateRecorder {
-	return newStateRecorder(buffer, ably.StateChan|ably.StateConn)
+func (cs *ConnStatesRecorder) append(state ably.ConnectionState) {
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
+	cs.states = append(cs.states, state)
 }
 
-// NewStateChanRecorder gives new recorder which records channel-related
-// state transitions only.
-func NewStateChanRecorder(buffer int) *StateRecorder {
-	return newStateRecorder(buffer, ably.StateChan)
+func (cs *ConnStatesRecorder) Listen(r *ably.Realtime) (off func()) {
+	cs.append(r.Connection.State())
+	return r.Connection.OnAll(func(c ably.ConnectionStateChange) {
+		cs.append(c.Current)
+	})
 }
 
-// NewStateConnRecorder gives new recorder which records connection-related
-// state transitions only.
-func NewStateConnRecorder(buffer int) *StateRecorder {
-	return newStateRecorder(buffer, ably.StateConn)
+func (cs *ConnStatesRecorder) States() []ably.ConnectionState {
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
+	return cs.states
 }
 
-func newStateRecorder(buffer int, typ ably.StateType) *StateRecorder {
-	if buffer < 0 {
-		buffer = 0
-	}
-	rec := &StateRecorder{
-		ch:     make(chan ably.State, buffer),
-		done:   make(chan struct{}),
-		states: make([]ably.State, 0, buffer),
-		typ:    typ,
-	}
-	rec.wg.Add(1)
-	go rec.processIncomingStates()
-	return rec
+type ChanStatesRecorder struct {
+	mtx    sync.Mutex
+	states []ably.ChannelState
 }
 
-func (rec *StateRecorder) processIncomingStates() {
-	defer rec.wg.Done()
-	for {
-		select {
-		case state, ok := <-rec.ch:
-			if !ok {
-				return
-			}
-			if state.Type != 0 && state.Type&rec.typ == 0 {
-				continue
-			}
-			rec.add(state)
-		case <-rec.done:
-			return
-		}
+func (cs *ChanStatesRecorder) append(state ably.ChannelState) {
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
+	cs.states = append(cs.states, state)
+}
+
+func (cs *ChanStatesRecorder) Listen(channel *ably.RealtimeChannel) (off func()) {
+	cs.append(channel.State())
+	return channel.OnAll(func(c ably.ChannelStateChange) {
+		cs.append(c.Current)
+	})
+}
+
+func (cs *ChanStatesRecorder) States() []ably.ChannelState {
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
+	return cs.states
+}
+
+type ConnErrorsRecorder struct {
+	mtx    sync.Mutex
+	errors []*ably.ErrorInfo
+}
+
+func (ce *ConnErrorsRecorder) appendNonNil(err *ably.ErrorInfo) {
+	ce.mtx.Lock()
+	defer ce.mtx.Unlock()
+	if err != nil {
+		ce.errors = append(ce.errors, err)
 	}
 }
 
-// Add appends state to the list of recorded ones, used to ensure ordering
-// of the states by injecting values at certain points of the test.
-func (rec *StateRecorder) Add(state ably.StateEnum) {
-	rec.ch <- ably.State{State: state}
+func (ce *ConnErrorsRecorder) Listen(r *ably.Realtime) (off func()) {
+	ce.appendNonNil(r.Connection.ErrorReason())
+	return r.Connection.OnAll(func(c ably.ConnectionStateChange) {
+		ce.appendNonNil(c.Reason)
+	})
 }
 
-func (rec *StateRecorder) add(state ably.State) {
-	rec.mtx.Lock()
-	rec.states = append(rec.states, state)
-	rec.mtx.Unlock()
-}
-
-func (rec *StateRecorder) Channel() chan<- ably.State {
-	return rec.ch
-}
-
-// Stop stops separate recording goroutine and waits until it terminates.
-func (rec *StateRecorder) Stop() {
-	close(rec.done)
-	rec.wg.Wait()
-	// Drain listener channel.
-	for {
-		select {
-		case <-rec.ch:
-		default:
-			return
-		}
-	}
-}
-
-// States gives copy of the recorded states, safe for use while the recorder
-// is still running.
-func (rec *StateRecorder) States() []ably.StateEnum {
-	rec.mtx.Lock()
-	defer rec.mtx.Unlock()
-	states := make([]ably.StateEnum, 0, len(rec.states))
-	for _, state := range rec.states {
-		states = append(states, state.State)
-	}
-	return states
-}
-
-// Errors gives copy of the error that recorded events hold. It returns only
-// non-nil errors. If none of the recorded states contained an error, the
-// method returns nil.
-func (rec *StateRecorder) Errors() []*ably.ErrorInfo {
-	var errors []*ably.ErrorInfo
-	rec.mtx.Lock()
-	defer rec.mtx.Unlock()
-	for _, state := range rec.states {
-		if state.Err != nil {
-			errors = append(errors, state.Err)
-		}
-	}
-	return errors
-}
-
-// WaitFor blocks until we observe the given exact states were recorded.
-func (rec *StateRecorder) WaitFor(states []ably.StateEnum) error {
-	done := make(chan struct{})
-	stop := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-				if recorded := rec.States(); reflect.DeepEqual(states, recorded) {
-					close(done)
-					return
-				}
-				time.Sleep(20 * time.Millisecond)
-			}
-		}
-	}()
-	select {
-	case <-done:
-		return nil
-	case <-time.After(rec.timeout()):
-		close(stop)
-		return fmt.Errorf("WaitFor(%v) has timed out after %v: recorded states were %v",
-			states, rec.timeout(), rec.States())
-	}
-}
-
-func (rec *StateRecorder) timeout() time.Duration {
-	if rec.Timeout != 0 {
-		return rec.Timeout
-	}
-	return 15 * time.Second
+func (ce *ConnErrorsRecorder) Errors() []*ably.ErrorInfo {
+	ce.mtx.Lock()
+	defer ce.mtx.Unlock()
+	return ce.errors
 }
 
 type MessagePipeOption func(*pipeConn)

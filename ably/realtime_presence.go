@@ -64,7 +64,7 @@ func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
 	}
 	protomsg := &proto.ProtocolMessage{
 		Action:   proto.ActionPresence,
-		Channel:  pres.channel.state.channel,
+		Channel:  pres.channel.Name,
 		Presence: []*proto.PresenceMessage{msg},
 	}
 	return pres.channel.send(protomsg)

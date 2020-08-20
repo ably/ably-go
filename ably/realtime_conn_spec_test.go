@@ -467,8 +467,9 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	chanStateChanges := make(chan ably.State)
-	channel.OnState(chanStateChanges)
+	chanStateChanges := make(ably.ChannelStateChanges)
+	off := channel.OnAll(chanStateChanges.Receive)
+	defer off()
 
 	stateChanges := make(chan ably.ConnectionStateChange, 16)
 	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
@@ -577,8 +578,9 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	if err := ablytest.Wait(channel.Attach()); err != nil {
 		t.Fatal(err)
 	}
-	chanStateChanges := make(chan ably.State)
-	channel.OnState(chanStateChanges)
+	chanStateChanges := make(ably.ChannelStateChanges)
+	off := channel.OnAll(chanStateChanges.Receive)
+	defer off()
 
 	sub, err := channel.Subscribe()
 	if err != nil {
@@ -703,8 +705,9 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	if err := ablytest.Wait(channel.Attach()); err != nil {
 		t.Fatal(err)
 	}
-	chanStateChanges := make(chan ably.State, 18)
-	channel.OnState(chanStateChanges, ably.StateChanAttaching)
+	chanStateChanges := make(ably.ChannelStateChanges, 18)
+	off := channel.On(ably.ChannelEventAttaching, chanStateChanges.Receive)
+	defer off()
 
 	stateChanges := make(chan ably.ConnectionStateChange, 16)
 	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
@@ -745,7 +748,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 
 	<-stateChanges
 
-	var chanState ably.State
+	var chanState ably.ChannelStateChange
 	select {
 	case chanState = <-chanStateChanges:
 	case <-time.After(50 * time.Millisecond):
@@ -753,7 +756,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	}
 	// we are testing to make sure we have initiated a new attach for channels
 	// in ATTACHED state.
-	if expected, got := ably.StateChanAttaching, chanState; expected != got.State {
+	if expected, got := ably.ChannelStateAttaching, chanState; expected != got.Current {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
 	reason := client.Connection.ErrorReason()
@@ -855,7 +858,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 
 	// we are testing to make sure we have initiated a new attach for channels
 	// in ATTACHING  state.
-	if expected, got := ably.StateChanAttaching, channel.StateEnum(); expected != got {
+	if expected, got := ably.ChannelStateAttaching, channel.State(); expected != got {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
 	reason := client.Connection.ErrorReason()
@@ -911,8 +914,9 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	if err := ablytest.Wait(channel.Attach()); err != nil {
 		t.Fatal(err)
 	}
-	chanStateChanges := make(chan ably.State, 1)
-	channel.OnState(chanStateChanges, ably.StateChanFailed)
+	chanStateChanges := make(ably.ChannelStateChanges, 1)
+	off := channel.On(ably.ChannelEventFailed, chanStateChanges.Receive)
+	defer off()
 
 	stateChanges := make(chan ably.ConnectionStateChange, 16)
 	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
@@ -951,13 +955,13 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
 	<-stateChanges
-	var chanState ably.State
+	var chanState ably.ChannelStateChange
 	select {
 	case chanState = <-chanStateChanges:
 	case <-time.After(50 * time.Millisecond):
 		t.Fatal("didn't change state")
 	}
-	if expected, got := ably.StateChanFailed, chanState; expected != got.State {
+	if expected, got := ably.ChannelStateFailed, chanState; expected != got.Current {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
 	reason := client.Connection.ErrorReason()
@@ -973,7 +977,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	}
 }
 
-func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
+func TestRealtimeConn_RTN15g_NewConnectionOnLost(t *testing.T) {
 	t.Parallel()
 
 	out := make(chan *proto.ProtocolMessage, 16)
@@ -1443,8 +1447,9 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 
 	errorCode := 50123
 
-	channelFailed := make(chan ably.State, 1)
-	channel.OnState(channelFailed, ably.StateChanFailed)
+	channelFailed := make(ably.ChannelStateChanges, 1)
+	off := channel.On(ably.ChannelEventFailed, channelFailed.Receive)
+	defer off()
 
 	err = ablytest.ConnWaiter(c, func() {
 		in <- &proto.ProtocolMessage{
@@ -1473,7 +1478,7 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 
 	ablytest.Instantly.Recv(t, nil, channelFailed, t.Fatalf)
 
-	if expected, got := ably.StateChanFailed, channel.StateEnum(); expected != got {
+	if expected, got := ably.ChannelStateFailed, channel.State(); expected != got {
 		t.Fatalf("expected channel in state %v; got %v", expected, got)
 	}
 }

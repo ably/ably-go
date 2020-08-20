@@ -96,26 +96,6 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	}
 }
 
-var chanCloseTransitions = [][]ably.StateEnum{{
-	ably.StateConnConnecting,
-	ably.StateChanAttaching,
-	ably.StateConnConnected,
-	ably.StateChanAttached,
-	ably.StateChanDetaching,
-	ably.StateChanDetached,
-	ably.StateConnClosing,
-	ably.StateConnClosed,
-}, {
-	ably.StateConnConnecting,
-	ably.StateConnConnected,
-	ably.StateChanAttaching,
-	ably.StateChanAttached,
-	ably.StateChanDetaching,
-	ably.StateChanDetached,
-	ably.StateConnClosing,
-	ably.StateConnClosed,
-}}
-
 func TestRealtimeChannel_Detach(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime(ably.ClientOptions{})
@@ -141,8 +121,8 @@ func TestRealtimeChannel_Detach(t *testing.T) {
 		}
 		done <- nil
 	}()
-	if state := channel.StateEnum(); state != ably.StateChanAttached {
-		t.Fatalf("want state=%v; got %v", ably.StateChanAttached, state)
+	if state := channel.State(); state != ably.ChannelStateAttached {
+		t.Fatalf("want state=%v; got %v", ably.ChannelStateAttached, state)
 	}
 	if err := ablytest.Wait(channel.Detach()); err != nil {
 		t.Fatalf("channel.Detach()=%v", err)

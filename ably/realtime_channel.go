@@ -122,50 +122,55 @@ func (ch *Channels) Release(name string) error {
 	return nil
 }
 
-func (ch *Channels) broadcastConnStateChange(state State) {
+func (ch *Channels) broadcastConnStateChange(change ConnectionStateChange) {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
 	for _, c := range ch.chans {
-		c.onConnState(state)
+		c.onConnStateChange(change)
 	}
 }
 
 // RealtimeChannel represents a single named message channel.
 type RealtimeChannel struct {
+	mtx sync.Mutex
+
+	ChannelEventEmitter
 	Name     string            // name used to create the channel
 	Presence *RealtimePresence //
 
+	state           ChannelState
+	errorReason     *ErrorInfo
+	internalEmitter ChannelEventEmitter
+
 	client *Realtime
-	state  *stateEmitter
 	subs   *subscriptions
 	queue  *msgQueue
-	listen chan State
 }
 
 func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 	c := &RealtimeChannel{
-		Name:   name,
+		ChannelEventEmitter: ChannelEventEmitter{newEventEmitter(client.logger())},
+		Name:                name,
+
+		state:           ChannelStateInitialized,
+		internalEmitter: ChannelEventEmitter{newEventEmitter(client.logger())},
+
 		client: client,
-		state:  newStateEmitter(StateChan, StateChanInitialized, name, client.logger()),
 		subs:   newSubscriptions(subscriptionMessages, client.logger()),
-		listen: make(chan State, 1),
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
-	if c.opts().Listener != nil {
-		c.onState(c.opts().Listener)
-	}
 	return c
 }
 
-func (c *RealtimeChannel) onConnState(state State) {
-	c.state.Lock()
+func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
+	c.mtx.Lock()
 	active := c.isActive()
-	c.state.Unlock()
-	switch state.State {
-	case StateConnFailed:
+	c.mtx.Unlock()
+	switch change.Current {
+	case ConnectionStateFailed:
 		if active {
-			c.state.syncSet(StateChanFailed, state.Err)
+			c.setState(ChannelStateFailed, change.Reason)
 		}
 	}
 }
@@ -181,18 +186,13 @@ func (c *RealtimeChannel) Attach() (Result, error) {
 	return c.attach(true)
 }
 
-var attachResultStates = []StateEnum{
-	StateChanAttached, // expected state
-	StateChanFailed,
-}
-
 func (c *RealtimeChannel) attach(result bool) (Result, error) {
 	return c.mayAttach(result, true)
 }
 
 func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
-	c.state.Lock()
-	defer c.state.Unlock()
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	if checkActive {
 		if c.isActive() {
 			return nopResult, nil
@@ -203,20 +203,20 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 
 func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 	if !c.client.Connection.lockIsActive() {
-		return nil, c.state.set(StateChanFailed, errAttach)
+		return nil, c.lockSetState(ChannelStateFailed, errAttach)
 	}
-	c.state.set(StateChanAttaching, err)
+	c.lockSetState(ChannelStateAttaching, err)
 	var res Result
 	if result {
-		res = c.state.listenResult(attachResultStates...)
+		res = c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed)
 	}
 	msg := &proto.ProtocolMessage{
 		Action:  proto.ActionAttach,
-		Channel: c.state.channel,
+		Channel: c.Name,
 	}
 	err = c.client.Connection.send(msg, nil)
 	if err != nil {
-		return nil, c.state.set(StateChanFailed, err)
+		return nil, c.lockSetState(ChannelStateFailed, err)
 	}
 	return res, nil
 }
@@ -232,35 +232,30 @@ func (c *RealtimeChannel) Detach() (Result, error) {
 	return c.detach(true)
 }
 
-var detachResultStates = []StateEnum{
-	StateChanDetached, // expected state
-	StateChanFailed,
-}
-
 func (c *RealtimeChannel) detach(result bool) (Result, error) {
-	c.state.Lock()
-	defer c.state.Unlock()
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	switch {
-	case c.state.current == StateChanFailed:
-		return nil, stateError(StateChanFailed, errDetach)
+	case c.state == ChannelStateFailed:
+		return nil, channelStateError(ChannelStateFailed, errDetach)
 	case !c.isActive():
 		return nopResult, nil
 	}
 	if !c.client.Connection.lockIsActive() {
-		return nil, c.state.set(StateChanFailed, errDetach)
+		return nil, c.lockSetState(ChannelStateFailed, errDetach)
 	}
-	c.state.set(StateChanDetaching, nil)
+	c.lockSetState(ChannelStateDetaching, nil)
 	var res Result
 	if result {
-		res = c.state.listenResult(detachResultStates...)
+		res = c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
 	}
 	msg := &proto.ProtocolMessage{
 		Action:  proto.ActionDetach,
-		Channel: c.state.channel,
+		Channel: c.Name,
 	}
 	err := c.client.Connection.send(msg, nil)
 	if err != nil {
-		return nil, c.state.set(StateChanFailed, err)
+		return nil, c.lockSetState(ChannelStateFailed, err)
 	}
 	return res, nil
 }
@@ -291,22 +286,21 @@ func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
 	c.subs.unsubscribe(true, sub, namesToKeys(names)...)
 }
 
-// onState relays request channel states to c; on state transition
-// connection will not block sending to c - the caller must ensure the incoming
-// values are read at proper pace or the c is sufficiently buffered.
-//
-// If no states are given, c is registered for all of them.
-// If c is nil, the method panics.
-// If c is already registered, its state set is expanded.
-func (c *RealtimeChannel) onState(ch chan<- State, states ...StateEnum) {
-	c.state.on(ch, states...)
+type channelStateChanges chan ChannelStateChange
+
+func (c channelStateChanges) Receive(change ChannelStateChange) {
+	c <- change
+}
+
+type ChannelEventEmitter struct {
+	emitter *eventEmitter
 }
 
 // On registers an event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *RealtimeChannel) On(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
-	return c.state.eventEmitter.On(e, func(change emitterData) {
+func (em ChannelEventEmitter) On(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
+	return em.emitter.On(e, func(change emitterData) {
 		handle(change.(ChannelStateChange))
 	})
 }
@@ -314,8 +308,8 @@ func (c *RealtimeChannel) On(e ChannelEvent, handle func(ChannelStateChange)) (o
 // OnAll registers an event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *RealtimeChannel) OnAll(handle func(ChannelStateChange)) (off func()) {
-	return c.state.eventEmitter.OnAll(func(change emitterData) {
+func (em ChannelEventEmitter) OnAll(handle func(ChannelStateChange)) (off func()) {
+	return em.emitter.OnAll(func(change emitterData) {
 		handle(change.(ChannelStateChange))
 	})
 }
@@ -323,8 +317,8 @@ func (c *RealtimeChannel) OnAll(handle func(ChannelStateChange)) (off func()) {
 // Once registers an one-off event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *RealtimeChannel) Once(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
-	return c.state.eventEmitter.On(e, func(change emitterData) {
+func (em ChannelEventEmitter) Once(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
+	return em.emitter.On(e, func(change emitterData) {
 		handle(change.(ChannelStateChange))
 	})
 }
@@ -332,32 +326,24 @@ func (c *RealtimeChannel) Once(e ChannelEvent, handle func(ChannelStateChange)) 
 // OnceAll registers an one-off event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *RealtimeChannel) OnceAll(handle func(ChannelStateChange)) (off func()) {
-	return c.state.eventEmitter.OnceAll(func(change emitterData) {
+func (em ChannelEventEmitter) OnceAll(handle func(ChannelStateChange)) (off func()) {
+	return em.emitter.OnceAll(func(change emitterData) {
 		handle(change.(ChannelStateChange))
 	})
-}
-
-// offState removes c from listening on the given channel state transitions.
-//
-// If no states are given, c is removed for all of the connection's states.
-// If c is nil, the method panics.
-func (c *RealtimeChannel) offState(ch chan<- State, states ...StateEnum) {
-	c.state.off(ch, states...)
 }
 
 // Off deregisters event handlers for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *RealtimeChannel) Off(e ChannelEvent) {
-	c.state.eventEmitter.Off(e)
+func (em ChannelEventEmitter) Off(e ChannelEvent) {
+	em.emitter.Off(e)
 }
 
 // Off deregisters all event handlers.
 //
 // See package-level documentation on Event Emitter for details.
-func (c *RealtimeChannel) OffAll() {
-	c.state.eventEmitter.OffAll()
+func (em ChannelEventEmitter) OffAll() {
+	em.emitter.OffAll()
 }
 
 // Publish publishes a message on the channel, which is send on separate
@@ -382,7 +368,7 @@ func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) 
 	}
 	msg := &proto.ProtocolMessage{
 		Action:   proto.ActionMessage,
-		Channel:  c.state.channel,
+		Channel:  c.Name,
 		Messages: messages,
 	}
 	return c.send(msg)
@@ -416,41 +402,41 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 
 // State gives the current state of the channel.
 func (c *RealtimeChannel) State() ChannelState {
-	c.state.Lock()
-	defer c.state.Unlock()
-	return mapOldToNewChanState(c.state.current)
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.state
 }
 
 // Reason gives the last error that caused channel transition to failed state.
 func (c *RealtimeChannel) Reason() error {
-	c.state.Lock()
-	defer c.state.Unlock()
-	return c.state.err
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.errorReason
 }
 
 func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
 		c.Presence.onAttach(msg)
-		c.state.syncSet(StateChanAttached, nil)
+		c.setState(ChannelStateAttached, nil)
 		c.queue.Flush()
 	case proto.ActionDetached:
-		c.state.Lock()
+		c.mtx.Lock()
 
 		err := error(newErrorProto(msg.Error))
-		switch c.state.current {
-		case StateChanDetaching:
-			c.state.set(StateChanDetached, err)
-			c.state.Unlock()
+		switch c.state {
+		case ChannelStateDetaching:
+			c.lockSetState(ChannelStateDetached, err)
+			c.mtx.Unlock()
 			return
-		case StateChanAttached: // TODO: Also SUSPENDED; RTL13a
+		case ChannelStateAttached: // TODO: Also SUSPENDED; RTL13a
 			var res Result
 			res, err = c.lockAttach(true, err)
 			if err != nil {
 				break
 			}
 
-			c.state.Unlock()
+			c.mtx.Unlock()
 			go func() {
 				// We need to wait in another goroutine to allow more messages
 				// to reach the connection.
@@ -459,16 +445,16 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 				if err == nil {
 					return
 				}
-				c.state.Lock()
+				c.mtx.Lock()
 
 				c.lockStartRetryAttachLoop(err)
 			}()
 			return
 		case
-			StateChanAttaching,
-			StateChanDetached: // TODO: Should be SUSPENDED
+			ChannelStateAttaching,
+			ChannelStateDetached: // TODO: Should be SUSPENDED
 		default:
-			c.state.Unlock()
+			c.mtx.Unlock()
 			return
 		}
 
@@ -478,7 +464,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	case proto.ActionPresence:
 		c.Presence.processIncomingMessage(msg, "")
 	case proto.ActionError:
-		c.state.syncSet(StateChanFailed, newErrorProto(msg.Error))
+		c.setState(ChannelStateFailed, newErrorProto(msg.Error))
 		c.queue.Fail(newErrorProto(msg.Error))
 	case proto.ActionMessage:
 		c.subs.messageEnqueue(msg)
@@ -488,22 +474,22 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 
 func (c *RealtimeChannel) lockStartRetryAttachLoop(err error) {
 	// TODO: Move to SUSPENDED; move it to DETACHED for now.
-	c.state.set(StateChanDetached, err)
-	c.state.Unlock()
+	c.lockSetState(ChannelStateDetached, err)
+	c.mtx.Unlock()
 
 	go func() {
 		// TODO: The listener should be set before unlocking the state.
 		// Will do once we have an EventEmitter.
-		stateChange := make(chan State, 10)
-		c.state.on(stateChange)
-		defer c.state.off(stateChange)
+		stateChange := make(channelStateChanges, 10)
+		off := c.internalEmitter.OnAll(stateChange.Receive)
+		defer off()
 
 		for !c.retryAttach(stateChange) {
 		}
 	}()
 }
 
-func (c *RealtimeChannel) retryAttach(stateChange chan State) (done bool) {
+func (c *RealtimeChannel) retryAttach(stateChange channelStateChanges) (done bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -524,12 +510,12 @@ func (c *RealtimeChannel) retryAttach(stateChange chan State) (done bool) {
 		return true
 	}
 	// TODO: Move to SUSPENDED; move it to DETACHED for now.
-	c.state.syncSet(StateChanDetached, err)
+	c.setState(ChannelStateDetached, err)
 	return false
 }
 
 func (c *RealtimeChannel) isActive() bool {
-	return c.state.current == StateChanAttaching || c.state.current == StateChanAttached
+	return c.state == ChannelStateAttaching || c.state == ChannelStateAttached
 }
 
 func (c *RealtimeChannel) opts() *clientOptions {
@@ -538,4 +524,33 @@ func (c *RealtimeChannel) opts() *clientOptions {
 
 func (c *RealtimeChannel) logger() *LoggerOptions {
 	return c.client.logger()
+}
+
+func (c *RealtimeChannel) setState(state ChannelState, err error) error {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.lockSetState(state, err)
+}
+
+func (c *RealtimeChannel) lockSetState(state ChannelState, err error) error {
+	previous := c.state
+	changed := c.state != state
+	c.state = state
+	c.errorReason = channelStateError(state, err)
+	change := ChannelStateChange{
+		Current:  c.state,
+		Previous: previous,
+		Reason:   c.errorReason,
+	}
+	if !changed {
+		change.Event = ChannelEventUpdated
+	} else {
+		change.Event = ChannelEvent(change.Current)
+	}
+	c.internalEmitter.emitter.Emit(change.Event, change)
+	c.emitter.Emit(change.Event, change)
+	if c.errorReason == nil {
+		return nil
+	}
+	return c.errorReason
 }
