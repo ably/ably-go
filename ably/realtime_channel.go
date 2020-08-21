@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -470,8 +471,11 @@ func (c *RealtimeChannel) lockStartRetryAttachLoop(err error) {
 }
 
 func (c *RealtimeChannel) retryAttach(stateChange chan State) (done bool) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	select {
-	case <-c.opts().After(c.opts().ChannelRetryTimeout):
+	case <-c.opts().After(ctx, c.opts().ChannelRetryTimeout):
 	case <-stateChange:
 		// Any concurrent state change cancels the retry.
 		return true

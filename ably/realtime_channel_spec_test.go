@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -37,7 +38,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		c, _ = ably.NewRealtime(ably.ClientOptions{}.
 			Token("fake:token").
 			AutoConnect(false).
-			After(func(d time.Duration) <-chan time.Time {
+			After(func(ctx context.Context, d time.Duration) <-chan time.Time {
 				ch := make(chan time.Time)
 				afterCalls <- afterCall{d: d, ret: ch}
 				return ch

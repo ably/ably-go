@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptrace"
 	"time"
@@ -137,7 +138,7 @@ func (os ClientOptions) Now(now func() time.Time) ClientOptions {
 	})
 }
 
-func (os ClientOptions) After(after func(time.Duration) <-chan time.Time) ClientOptions {
+func (os ClientOptions) After(after func(context.Context, time.Duration) <-chan time.Time) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.After = after
 	})

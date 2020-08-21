@@ -36,6 +36,7 @@ var defaultOptions = clientOptions{
 	Port:                     80,
 	TLSPort:                  443,
 	Now:                      time.Now,
+	After:                    ablyutil.After,
 }
 
 func DefaultFallbackHosts() []string {
@@ -226,7 +227,7 @@ type clientOptions struct {
 
 	// Now returns the time the library should take as current.
 	Now   func() time.Time
-	After func(time.Duration) <-chan time.Time
+	After func(context.Context, time.Duration) <-chan time.Time
 }
 
 func (opts *clientOptions) timeoutConnect() time.Duration {
