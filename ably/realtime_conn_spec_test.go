@@ -1621,7 +1621,9 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 				ConnectionDetails: &connDetails,
 			}
 			dials <- u
-			return ablytest.MessagePipe(in, nil)(p, u)
+			return ablytest.MessagePipe(in, nil,
+				ablytest.MessagePipeWithNowFunc(time.Now),
+			)(p, u)
 		}))
 	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
 	if err != nil {
