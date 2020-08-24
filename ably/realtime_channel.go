@@ -191,7 +191,10 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 				return err
 			}
 
-			return res.Wait()
+			if result {
+				return res.Wait()
+			}
+			return nil
 		}), nil
 	}
 
