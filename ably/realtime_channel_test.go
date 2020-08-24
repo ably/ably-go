@@ -46,47 +46,6 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 	}
 }
 
-func TestRealtimeChannel_Failed(t *testing.T) {
-	t.Parallel()
-	rec := ablytest.NewStateChanRecorder(5)
-	opts := &ably.ClientOptions{
-		NoConnect:  true,
-		NoQueueing: true,
-		Listener:   rec.Channel(),
-	}
-	app, client := ablytest.NewRealtimeClient(opts)
-	defer safeclose(t, client, app)
-
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
-		t.Fatalf("Connect()=%v", err)
-	}
-	channel := client.Channels.GetAndAttach("test")
-	if err := client.Close(); err != nil {
-		t.Fatalf("Close()=%v", err)
-	}
-	want := []ably.StateEnum{
-		ably.StateChanAttaching,
-		ably.StateChanAttached,
-		ably.StateChanClosed,
-		ably.StateChanFailed,
-	}
-	if err := rec.WaitFor(want[:3]); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkError(80000, ablytest.Wait(channel.Publish("im", "closed"))); err != nil {
-		t.Fatal(err)
-	}
-	if err := rec.WaitFor(want); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkError(80000, ablytest.Wait(channel.Detach())); err != nil {
-		t.Fatal(err)
-	}
-	if len(rec.Errors()) == 0 {
-		t.Fatal("want len(errors) != 0")
-	}
-}
-
 func TestRealtimeChannel_Subscribe(t *testing.T) {
 	t.Parallel()
 	app, client1 := ablytest.NewRealtimeClient(nil)
