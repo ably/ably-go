@@ -3,12 +3,14 @@ package ably_test
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
 )
 
@@ -210,4 +212,57 @@ func TestRealtimeChannel_Close(t *testing.T) {
 		}
 	}
 	t.Error(err)
+}
+
+func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
+	t.Parallel()
+
+	doEOF := make(chan struct{}, 1)
+	allowDial := make(chan struct{}, 1)
+	allowDial <- struct{}{}
+
+	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
+		NoConnect: true,
+		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
+			<-allowDial
+			c, err := ablyutil.DialWebsocket(protocol, u)
+			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
+		},
+	})
+	defer safeclose(t, client, app)
+
+	channel := client.Channels.Get("test")
+
+	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+		t.Fatal(err)
+	}
+
+	// Move to DISCONNECTED.
+
+	disconnected := make(chan ably.State, 1)
+	client.Connection.On(disconnected, ably.StateConnDisconnected)
+	doEOF <- struct{}{}
+	client.Connection.Off(disconnected, ably.StateConnDisconnected)
+
+	// Attempt ATTACH. It should be blocked until we're CONNECTED again.
+
+	attached := make(chan ably.State, 1)
+	channel.On(attached, ably.StateChanAttached)
+
+	res, err := channel.Attach()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ablytest.Before(1*time.Second).NoRecv(t, nil, attached, t.Fatalf)
+
+	// Allow another dial, which should eventually move the connection to
+	// CONNECTED, thus allowing the attachment to complete.
+
+	allowDial <- struct{}{}
+
+	ablytest.Soon.Recv(t, nil, attached, t.Fatalf)
+
+	if err := ablytest.Wait(res, nil); err != nil {
+		t.Fatal(err)
+	}
 }

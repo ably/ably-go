@@ -88,6 +88,23 @@ func wait(res Result, err error) error {
 	return res.Wait()
 }
 
+type resultFunc func() error
+
+func (f resultFunc) Wait() error {
+	return f()
+}
+
+func goWaiter(f resultFunc) Result {
+	err := make(chan error, 1)
+	go func() {
+		defer close(err)
+		err <- f()
+	}()
+	return resultFunc(func() error {
+		return <-err
+	})
+}
+
 var stateText = map[StateEnum]string{
 	StateConnInitialized:  "ably.StateConnInitialized",
 	StateConnConnecting:   "ably.StateConnConnecting",

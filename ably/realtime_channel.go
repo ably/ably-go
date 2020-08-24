@@ -167,9 +167,34 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 			return nopResult, nil
 		}
 	}
-	if !c.client.Connection.lockIsActive() {
-		return nil, c.state.set(StateChanFailed, errAttach)
+
+	switch c.client.Connection.State() {
+	// RTL4b
+	case StateConnClosed,
+		StateConnClosing,
+		StateConnFailed:
+		return nil, errAttach
+
+	// RTL4i
+	case StateConnInitialized,
+		StateConnConnecting,
+		StateConnDisconnected:
+
+		return goWaiter(func() error {
+			connected := make(chan State, 1)
+			c.client.Connection.On(connected, StateConnConnected)
+			<-connected
+			c.client.Connection.Off(connected)
+
+			res, err := c.mayAttach(result, checkActive)
+			if err != nil {
+				return err
+			}
+
+			return res.Wait()
+		}), nil
 	}
+
 	c.state.set(StateChanAttaching, nil)
 	var res Result
 	if result {
