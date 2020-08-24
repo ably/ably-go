@@ -33,16 +33,16 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 			t.Errorf("NewRealtime=%s (host=%s)", err, host)
 			continue
 		}
-		if state := client.Connection.State(); state != ably.StateConnInitialized {
-			t.Errorf("want state=%v; got %s", ably.StateConnInitialized, state)
+		if state := client.Connection.State(); state != ably.ConnectionStateInitialized {
+			t.Errorf("want state=%v; got %s", ably.ConnectionStateInitialized, state)
 			continue
 		}
 		if err := checkError(80000, ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()); err != nil {
 			t.Errorf("%s (host=%s)", err, host)
 			continue
 		}
-		if state := client.Connection.State(); state != ably.StateConnFailed {
-			t.Errorf("want state=%v; got %s", ably.StateConnFailed, state)
+		if state := client.Connection.State(); state != ably.ConnectionStateFailed {
+			t.Errorf("want state=%v; got %s", ably.ConnectionStateFailed, state)
 			continue
 		}
 		if err := checkError(80000, ablytest.FullRealtimeCloser(client).Close()); err != nil {

@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptrace"
 	"time"
@@ -95,6 +96,12 @@ func (c *Connection) OffState(ch chan<- State, states ...StateEnum) {
 	c.offState(ch, states...)
 }
 
+func (c *Connection) StateEnum() StateEnum {
+	c.state.Lock()
+	defer c.state.Unlock()
+	return c.state.current
+}
+
 func (c *Connection) RemoveKey() {
 	c.state.Lock()
 	defer c.state.Unlock()
@@ -128,6 +135,12 @@ func (os ClientOptions) Trace(trace *httptrace.ClientTrace) ClientOptions {
 func (os ClientOptions) Now(now func() time.Time) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.Now = now
+	})
+}
+
+func (os ClientOptions) After(after func(context.Context, time.Duration) <-chan time.Time) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.After = after
 	})
 }
 

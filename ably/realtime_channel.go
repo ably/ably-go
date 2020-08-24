@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -198,10 +199,14 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 			return nopResult, nil
 		}
 	}
+	return c.lockAttach(result, nil)
+}
+
+func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 	if !c.client.Connection.lockIsActive() {
 		return nil, c.state.set(StateChanFailed, errAttach)
 	}
-	c.state.set(StateChanAttaching, nil)
+	c.state.set(StateChanAttaching, err)
 	var res Result
 	if result {
 		res = c.state.listenResult(attachResultStates...)
@@ -210,7 +215,7 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 		Action:  proto.ActionAttach,
 		Channel: c.state.channel,
 	}
-	err := c.client.Connection.send(msg, nil)
+	err = c.client.Connection.send(msg, nil)
 	if err != nil {
 		return nil, c.state.set(StateChanFailed, err)
 	}
@@ -397,7 +402,44 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 		c.state.syncSet(StateChanAttached, nil)
 		c.queue.Flush()
 	case proto.ActionDetached:
-		c.state.syncSet(StateChanDetached, nil)
+		c.state.Lock()
+
+		err := error(newErrorProto(msg.Error))
+		switch c.state.current {
+		case StateChanDetaching:
+			c.state.set(StateChanDetached, err)
+			c.state.Unlock()
+			return
+		case StateChanAttached: // TODO: Also SUSPENDED; RTL13a
+			var res Result
+			res, err = c.lockAttach(true, err)
+			if err != nil {
+				break
+			}
+
+			c.state.Unlock()
+			go func() {
+				// We need to wait in another goroutine to allow more messages
+				// to reach the connection.
+
+				err = res.Wait()
+				if err == nil {
+					return
+				}
+				c.state.Lock()
+
+				c.lockStartRetryAttachLoop(err)
+			}()
+			return
+		case
+			StateChanAttaching,
+			StateChanDetached: // TODO: Should be SUSPENDED
+		default:
+			c.state.Unlock()
+			return
+		}
+
+		c.lockStartRetryAttachLoop(err)
 	case proto.ActionSync:
 		c.Presence.processIncomingMessage(msg, syncSerial(msg))
 	case proto.ActionPresence:
@@ -409,6 +451,48 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 		c.subs.messageEnqueue(msg)
 	default:
 	}
+}
+
+func (c *RealtimeChannel) lockStartRetryAttachLoop(err error) {
+	// TODO: Move to SUSPENDED; move it to DETACHED for now.
+	c.state.set(StateChanDetached, err)
+	c.state.Unlock()
+
+	go func() {
+		// TODO: The listener should be set before unlocking the state.
+		// Will do once we have an EventEmitter.
+		stateChange := make(chan State, 10)
+		c.state.on(stateChange)
+		defer c.state.off(stateChange)
+
+		for !c.retryAttach(stateChange) {
+		}
+	}()
+}
+
+func (c *RealtimeChannel) retryAttach(stateChange chan State) (done bool) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	select {
+	case <-c.opts().After(ctx, c.opts().ChannelRetryTimeout):
+	case <-stateChange:
+		// Any concurrent state change cancels the retry.
+		return true
+	}
+
+	if c.client.Connection.State() != ConnectionStateConnected {
+		// RTL13c: If no longer CONNECTED, RTL3 takes over.
+		return true
+	}
+
+	err := wait(c.mayAttach(true, false))
+	if err == nil {
+		return true
+	}
+	// TODO: Move to SUSPENDED; move it to DETACHED for now.
+	c.state.syncSet(StateChanDetached, err)
+	return false
 }
 
 func (c *RealtimeChannel) isActive() bool {

@@ -326,10 +326,10 @@ func (c *Connection) Serial() int64 {
 }
 
 // State returns current state of the connection.
-func (c *Connection) State() StateEnum {
+func (c *Connection) State() ConnectionState {
 	c.state.Lock()
 	defer c.state.Unlock()
-	return c.state.current
+	return mapOldToNewConnState(c.state.current)
 }
 
 // onState relays request connection states to the given channel; onState state transition

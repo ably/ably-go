@@ -332,7 +332,7 @@ func (pc pipeConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
 	}
 	select {
 	case m, ok := <-pc.in:
-		if !ok {
+		if !ok || m == nil {
 			return nil, io.EOF
 		}
 		return m, nil
@@ -602,9 +602,9 @@ type realtimeIOCloser struct {
 func (c realtimeIOCloser) Close() error {
 	switch c.c.Connection.State() {
 	case
-		ably.StateConnInitialized,
-		ably.StateConnClosed,
-		ably.StateConnFailed:
+		ably.ConnectionStateInitialized,
+		ably.ConnectionStateClosed,
+		ably.ConnectionStateFailed:
 
 		return c.c.Connection.ErrorReason()
 	}
