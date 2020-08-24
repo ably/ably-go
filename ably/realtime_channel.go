@@ -173,7 +173,7 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 	case StateConnClosed,
 		StateConnClosing,
 		StateConnFailed:
-		return nil, errAttach
+		return nil, newError(80000, errAttach)
 
 	// RTL4i
 	case StateConnInitialized,
