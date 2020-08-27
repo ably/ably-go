@@ -301,8 +301,8 @@ func MessagePipeWithNowFunc(now func() time.Time) MessagePipeOption {
 	}
 }
 
-func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMessage, opts ...MessagePipeOption) func(string, *url.URL) (proto.Conn, error) {
-	return func(proto string, u *url.URL) (proto.Conn, error) {
+func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMessage, opts ...MessagePipeOption) func(string, *url.URL, time.Duration) (proto.Conn, error) {
+	return func(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 		pc := pipeConn{
 			in:  in,
 			out: out,
@@ -504,8 +504,8 @@ func DialFakeDisconnect(dial DialFunc) (_ DialFunc, disconnect func() error) {
 
 	disconnectReq := make(chan chan<- error, 1)
 
-	return func(proto string, url *url.URL) (proto.Conn, error) {
-			conn, err := dial(proto, url)
+	return func(proto string, url *url.URL, timeout time.Duration) (proto.Conn, error) {
+			conn, err := dial(proto, url, timeout)
 			if err != nil {
 				return nil, err
 			}
@@ -522,7 +522,7 @@ func DialFakeDisconnect(dial DialFunc) (_ DialFunc, disconnect func() error) {
 		}
 }
 
-type DialFunc func(proto string, url *url.URL) (proto.Conn, error)
+type DialFunc func(proto string, url *url.URL, timeout time.Duration) (proto.Conn, error)
 
 type connWithFakeDisconnect struct {
 	conn          proto.Conn

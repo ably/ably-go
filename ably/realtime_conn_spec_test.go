@@ -181,8 +181,8 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
-			c, err := ablyutil.DialWebsocket(protocol, u)
+		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -308,7 +308,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
@@ -438,7 +438,7 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
@@ -551,7 +551,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
@@ -676,7 +676,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
@@ -783,7 +783,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
@@ -884,7 +884,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			m := &meta{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
@@ -980,8 +980,8 @@ func TestRealtimeConn_RTN15e_ConnKeyUpdatedOnReconnect(t *testing.T) {
 
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
-			c, err := ablyutil.DialWebsocket(protocol, u)
+		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -1050,7 +1050,7 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 		AutoConnect(false).
 		Token("fake:token").
 		Now(now).
-		Dial(func(p string, u *url.URL) (proto.Conn, error) {
+		Dial(func(p string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			in = make(chan *proto.ProtocolMessage, 1)
 			in <- &proto.ProtocolMessage{
 				Action:            proto.ActionConnected,
@@ -1059,7 +1059,7 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 			}
 			breakConn = func() { close(in) }
 			dials <- u
-			return ablytest.MessagePipe(in, out)(p, u)
+			return ablytest.MessagePipe(in, out)(p, u, timeout)
 		}))
 
 	connIDs <- "conn-1"
@@ -1288,9 +1288,9 @@ func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
 		AuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
 			return ably.TokenString("bad:token"), nil
 		}).
-		Dial(func(proto string, u *url.URL) (proto.Conn, error) {
+		Dial(func(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			dials <- u
-			return ablytest.MessagePipe(in, out)(proto, u)
+			return ablytest.MessagePipe(in, out)(proto, u, timeout)
 		}))
 
 	in <- &proto.ProtocolMessage{
@@ -1375,9 +1375,9 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 		AuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
 			return ably.TokenString("good:token"), nil
 		}).
-		Dial(func(proto string, u *url.URL) (proto.Conn, error) {
+		Dial(func(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			dials <- u
-			return ablytest.MessagePipe(in, out)(proto, u)
+			return ablytest.MessagePipe(in, out)(proto, u, timeout)
 		}))
 
 	in <- &proto.ProtocolMessage{
@@ -1579,9 +1579,9 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		fakeRecoveryKey := "_____!ablygo_test_fake-key____:5:3"
 		client2 := app.NewRealtime(ably.ClientOptions{}.
 			Recover(fakeRecoveryKey).
-			Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+			Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 				query = u.Query()
-				return ablyutil.DialWebsocket(protocol, u)
+				return ablyutil.DialWebsocket(protocol, u, timeout)
 			}))
 		defer safeclose(t, ablytest.FullRealtimeCloser(client2))
 		err = ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait()
@@ -1655,7 +1655,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 		AutoConnect(false).
 		Token("fake:token").
 		RealtimeRequestTimeout(realtimeRequestTimeout).
-		Dial(func(p string, u *url.URL) (proto.Conn, error) {
+		Dial(func(p string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			in = make(chan *proto.ProtocolMessage, 1)
 			in <- &proto.ProtocolMessage{
 				Action:            proto.ActionConnected,
@@ -1665,7 +1665,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 			dials <- u
 			return ablytest.MessagePipe(in, nil,
 				ablytest.MessagePipeWithNowFunc(time.Now),
-			)(p, u)
+			)(p, u, timeout)
 		}))
 	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
 	if err != nil {
@@ -1711,12 +1711,12 @@ func TestRealtimeConn_RTN14(t *testing.T) {
 	{
 		//(RTN14c)
 		var connTimeout time.Duration
-		client, err := ably.NewRealtime(app.Options(&ably.ClientOptions{
-			Dial: func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+		client, err := ably.NewRealtime(ably.ClientOptions{}.
+			Token("fake:key").
+			Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 				connTimeout = timeout
 				return ablyutil.DialWebsocket(protocol, u, timeout)
-			},
-		}))
+			}))
 		if err != nil {
 			t.Fatal(err)
 		}
