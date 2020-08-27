@@ -91,16 +91,10 @@ func (c *Connection) dial(proto string, u *url.URL) (proto.Conn, error) {
 	query := u.Query()
 	query.Add("heartbeats", "true")
 	u.RawQuery = query.Encode()
-	// (RTN14c) we are setting timeout to connect.
-	timeout := c.opts.RealtimeRequestTimeout
-	if timeout == 0 {
-		// use defined default value
-		timeout = defaultOptions.RealtimeRequestTimeout
-	}
 	if c.opts.Dial != nil {
-		return c.opts.Dial(proto, u, timeout)
+		return c.opts.Dial(proto, u, c.opts.RealtimeRequestTimeout)
 	}
-	return ablyutil.DialWebsocket(proto, u, timeout)
+	return ablyutil.DialWebsocket(proto, u, c.opts.RealtimeRequestTimeout)
 }
 
 // Connect attempts to move the connection to the CONNECTED state, if it
