@@ -2,7 +2,6 @@ package ably_test
 
 import (
 	"fmt"
-	"reflect"
 	"sync"
 	"testing"
 
@@ -63,14 +62,17 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 		}
 	}
 	want := []ably.ConnectionState{
+		ably.ConnectionStateInitialized,
 		ably.ConnectionStateConnecting,
 		ably.ConnectionStateFailed,
+		ably.ConnectionStateInitialized,
 		ably.ConnectionStateConnecting,
 		ably.ConnectionStateFailed,
+		ably.ConnectionStateInitialized,
 		ably.ConnectionStateConnecting,
 		ably.ConnectionStateFailed,
 	}
-	if expected, got := want, rec; !reflect.DeepEqual(expected, got) {
+	if expected, got := want, stateRec.States(); !ablytest.Contains(expected, got) {
 		t.Fatalf("expected %+v, got %+v", expected, got)
 	}
 	errors := errorsRec.Errors()

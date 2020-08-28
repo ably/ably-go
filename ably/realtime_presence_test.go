@@ -106,6 +106,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	t.Parallel()
 	presTransitions := []ably.ChannelState{
+		ably.ChannelStateInitialized,
 		ably.ChannelStateAttaching,
 		ably.ChannelStateAttached,
 	}
