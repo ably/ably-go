@@ -977,7 +977,123 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	}
 }
 
-func TestRealtimeConn_RTN15g_NewConnectionOnLost(t *testing.T) {
+func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
+	t.Parallel()
+
+	doEOF := make(chan struct{}, 1)
+	allowDial := make(chan struct{}, 1)
+
+	allowDial <- struct{}{}
+
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
+		AutoConnect(false).
+		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+			<-allowDial
+			c, err := ablyutil.DialWebsocket(protocol, u)
+			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
+		}))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	channel := client.Channels.Get("test")
+	err := ablytest.Wait(channel.Attach())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sub, err := channel.Subscribe("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ablytest.ConnWaiter(client, func() {
+		doEOF <- struct{}{}
+	}, ably.ConnectionEventDisconnected).Wait(); !errors.Is(err, io.EOF) {
+		t.Fatal(err)
+	}
+
+	// While we're DISCONNECTED, publish a few messages to the channel through
+	// REST. If we then successfully recover connection state, the channel will
+	// still be attached and the messages will arrive.
+
+	rest, err := ably.NewREST(app.Options(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		err := rest.Channels.Get("test").Publish("test", fmt.Sprintf("msg %d", i))
+		if err != nil {
+			t.Fatalf("%d: %v", i, err)
+		}
+	}
+
+	// Now let the connection reconnect.
+
+	if err := ablytest.ConnWaiter(client, func() {
+		allowDial <- struct{}{}
+	}, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	// And expect the messages in the same channel.
+	for i := 0; i < 3; i++ {
+		fatalf := ablytest.FmtFunc(t.Fatalf).Wrap(t, "%d: %s", i)
+
+		var msg *proto.Message
+		ablytest.Soon.Recv(t, &msg, sub.MessageChannel(), fatalf)
+
+		if expected, got := fmt.Sprintf("msg %d", i), msg.Data; expected != got {
+			fatalf("expected %v, got %v", expected, got)
+		}
+	}
+}
+
+func TestRealtimeConn_RTN15e_ConnKeyUpdatedOnReconnect(t *testing.T) {
+	t.Parallel()
+
+	doEOF := make(chan struct{}, 1)
+
+	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
+		AutoConnect(false).
+		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+			c, err := ablyutil.DialWebsocket(protocol, u)
+			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
+		}))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	key1 := client.Connection.Key()
+
+	connected := make(chan struct{}, 1)
+	off := client.Connection.Once(ably.ConnectionEventConnected, func(ably.ConnectionStateChange) {
+		connected <- struct{}{}
+	})
+	defer off()
+
+	// Break the connection to cause a reconnection.
+
+	doEOF <- struct{}{}
+
+	// Once reconnected, the key should be different to the old one.
+
+	ablytest.Soon.Recv(t, nil, connected, t.Fatalf)
+	key2 := client.Connection.Key()
+
+	if key2 == "" {
+		t.Fatalf("the new key is empty")
+	}
+	if key1 == key2 {
+		t.Fatalf("expected new key %q to be different from first one", key1)
+	}
+}
+
+func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	t.Parallel()
 
 	out := make(chan *proto.ProtocolMessage, 16)
