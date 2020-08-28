@@ -364,7 +364,7 @@ func (em ConnectionEventEmitter) OnAll(handle func(ConnectionStateChange)) (off 
 //
 // See package-level documentation on Event Emitter for details.
 func (em ConnectionEventEmitter) Once(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
-	return em.emitter.On(e, func(change emitterData) {
+	return em.emitter.Once(e, func(change emitterData) {
 		handle(change.(ConnectionStateChange))
 	})
 }
