@@ -182,9 +182,12 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 
 		return goWaiter(func() error {
 			connected := make(chan State, 1)
-			c.client.Connection.On(connected, StateConnConnected)
-			<-connected
+			c.client.Connection.On(connected, StateConnConnected, StateConnClosed, StateConnFailed)
+			state := <-connected
 			c.client.Connection.Off(connected)
+			if state.State != StateConnConnected {
+				return state.Err
+			}
 
 			res, err := c.mayAttach(result, checkActive)
 			if err != nil {
