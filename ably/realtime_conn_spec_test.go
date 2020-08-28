@@ -516,24 +516,25 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 		t.Fatal("expected message after connection recovery; got none")
 	}
 
-	select {
-	case <-chanStateChanges:
-		t.Fatal("expected no channel state changes")
-	case <-time.After(50 * time.Millisecond):
-		// (RTN15c1)
-		//
-		// - current connectionId == resume message connectionId
-		// - resume message has no error
-		// - no channel state changes happened.
-		if client.Connection.ID() != metaList[1].messages[0].ConnectionID {
-			t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].messages[0].ConnectionID)
-		}
-		if metaList[1].messages[0].Error != nil {
-			t.Error("expected resume error to be nil")
-		}
-	}
+	// (RTN15c1)
+	//
+	// - current connectionId == resume message connectionId
+	// - resume message has no error
+	// - no channel state changes happened.
 
+	var change ably.ChannelStateChange
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	if change.Previous != change.Current {
+		t.Errorf("expected no state change; got %+v", change)
+	}
+	if client.Connection.ID() != metaList[1].messages[0].ConnectionID {
+		t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].messages[0].ConnectionID)
+	}
+	if metaList[1].messages[0].Error != nil {
+		t.Error("expected resume error to be nil")
+	}
 }
+
 func TestRealtimeConn_RTN15c2(t *testing.T) {
 	t.Parallel()
 
@@ -633,33 +634,34 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 		t.Fatal("expected message after connection recovery; got none")
 	}
 
-	<-stateChanges
-	select {
-	case <-chanStateChanges:
-		t.Fatal("expected no channel state changes")
-	case <-time.After(50 * time.Millisecond):
-		// (RTN15c2)
-		//
-		// - current connectionId == resume message connectionId
-		// - resume message has an error
-		// - Conn.Reqson == message resume error
-		// - no channel state changes happened.
-		if client.Connection.ID() != metaList[1].messages[0].ConnectionID {
-			t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].messages[0].ConnectionID)
-		}
-		if metaList[1].messages[0].Error == nil {
-			t.Error("expected resume error")
-		}
-		err = client.Connection.ErrorReason()
-		if err == nil {
-			t.Fatal("expected reason to be set")
-		}
-		reason := err.(*ably.ErrorInfo)
-		if reason.StatusCode != errInfo.StatusCode {
-			t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
-		}
+	// (RTN15c2)
+	//
+	// - current connectionId == resume message connectionId
+	// - resume message has an error
+	// - Conn.Reqson == message resume error
+	// - no channel state changes happened.
+
+	var change ably.ChannelStateChange
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	if change.Previous != change.Current {
+		t.Errorf("expected no state change; got %+v", change)
+	}
+	if client.Connection.ID() != metaList[1].messages[0].ConnectionID {
+		t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].messages[0].ConnectionID)
+	}
+	if metaList[1].messages[0].Error == nil {
+		t.Error("expected resume error")
+	}
+	err = client.Connection.ErrorReason()
+	if err == nil {
+		t.Fatal("expected reason to be set")
+	}
+	reason := err.(*ably.ErrorInfo)
+	if reason.StatusCode != errInfo.StatusCode {
+		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
 	}
 }
+
 func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	t.Parallel()
 
