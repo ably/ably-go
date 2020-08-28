@@ -318,7 +318,7 @@ func (em ChannelEventEmitter) OnAll(handle func(ChannelStateChange)) (off func()
 //
 // See package-level documentation on Event Emitter for details.
 func (em ChannelEventEmitter) Once(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
-	return em.emitter.On(e, func(change emitterData) {
+	return em.emitter.Once(e, func(change emitterData) {
 		handle(change.(ChannelStateChange))
 	})
 }
