@@ -475,15 +475,14 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 func (c *RealtimeChannel) lockStartRetryAttachLoop(err error) {
 	// TODO: Move to SUSPENDED; move it to DETACHED for now.
 	c.lockSetState(ChannelStateDetached, err)
+
+	stateChange := make(channelStateChanges, 1)
+	off := c.internalEmitter.OnceAll(stateChange.Receive)
+
 	c.mtx.Unlock()
 
 	go func() {
-		// TODO: The listener should be set before unlocking the state.
-		// Will do once we have an EventEmitter.
-		stateChange := make(channelStateChanges, 10)
-		off := c.internalEmitter.OnAll(stateChange.Receive)
 		defer off()
-
 		for !c.retryAttach(stateChange) {
 		}
 	}()
