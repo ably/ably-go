@@ -26,6 +26,7 @@ var defaultOptions = &ClientOptions{
 	RestHost:                 RestHost,
 	FallbackHosts:            DefaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
+	HTTPRequestTimeout:       10 * time.Second,
 	RealtimeHost:             "realtime.ably.io",
 	TimeoutDisconnect:        30 * time.Second,
 	RealtimeRequestTimeout:   10 * time.Second, // DF1b
@@ -185,6 +186,10 @@ type ClientOptions struct {
 
 	// max number of fallback hosts to use as a fallback.
 	HTTPMaxRetryCount int
+	// HTTPRequestTimeout is the timeout for getting a response for outgoing HTTP requests.
+	//
+	// Will only be used if no custom HTTPClient is set.
+	HTTPRequestTimeout time.Duration
 
 	// The period in milliseconds before HTTP requests are retried against the
 	// default endpoint
@@ -230,7 +235,7 @@ type ClientOptions struct {
 
 	// HTTPClient specifies the client used for HTTP communication by RestClient.
 	//
-	// If HTTPClient is nil, the http.DefaultClient is used.
+	// If HTTPClient is nil, a client configured with default settings is used.
 	HTTPClient *http.Client
 
 	//When provided this will be used on every request.
@@ -343,7 +348,9 @@ func (opts *ClientOptions) httpclient() *http.Client {
 	if opts.HTTPClient != nil {
 		return opts.HTTPClient
 	}
-	return http.DefaultClient
+	return &http.Client{
+		Timeout: defaultOptions.HTTPRequestTimeout,
+	}
 }
 
 func (opts *ClientOptions) protocol() string {
