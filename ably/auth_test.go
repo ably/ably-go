@@ -699,13 +699,11 @@ func TestAuth_ClientID(t *testing.T) {
 	if state := client.Connection.State(); state != ably.ConnectionStateFailed {
 		t.Fatalf("want state=%q; got %q", ably.ConnectionStateFailed, state)
 	}
-	select {
-	case state := <-failed:
-		if state.Current != ably.ConnectionStateFailed {
-			t.Fatalf("want state=%q; got %q", ably.ConnectionStateFailed, state.Current)
-		}
-	default:
-		t.Fatal("wanted to have ConnectionStateFailed emitted; it wasn't")
+
+	var state ably.ConnectionStateChange
+	ablytest.Soon.Recv(t, &state, failed, t.Fatalf)
+	if state.Current != ably.ConnectionStateFailed {
+		t.Fatalf("want state=%q; got %q", ably.ConnectionStateFailed, state.Current)
 	}
 }
 
