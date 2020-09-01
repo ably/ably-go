@@ -24,7 +24,6 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 		"localhost",
 		"::1",
 	}
-	var stateRec ablytest.ConnStatesRecorder
 	var errorsRec ablytest.ConnErrorsRecorder
 	for _, host := range hosts {
 		opts := rec.Options(nil, host)
@@ -32,10 +31,6 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 		if err != nil {
 			t.Errorf("NewRealtime=%s (host=%s)", err, host)
 			continue
-		}
-		{
-			off := stateRec.Listen(client)
-			defer off()
 		}
 		{
 			off := errorsRec.Listen(client)
@@ -49,10 +44,6 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 			t.Errorf("%s (host=%s)", err, host)
 			continue
 		}
-		if state := client.Connection.State(); state != ably.ConnectionStateFailed {
-			t.Errorf("want state=%v; got %s", ably.ConnectionStateFailed, state)
-			continue
-		}
 		if err := checkError(80000, ablytest.FullRealtimeCloser(client).Close()); err != nil {
 			t.Errorf("%s (host=%s)", err, host)
 			continue
@@ -61,22 +52,12 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 			t.Errorf("host %s was not recorded (recorded %v)", host, rec.Hosts)
 		}
 	}
-	want := []ably.ConnectionState{
-		ably.ConnectionStateInitialized,
-		ably.ConnectionStateConnecting,
-		ably.ConnectionStateFailed,
-		ably.ConnectionStateInitialized,
-		ably.ConnectionStateConnecting,
-		ably.ConnectionStateFailed,
-		ably.ConnectionStateInitialized,
-		ably.ConnectionStateConnecting,
-		ably.ConnectionStateFailed,
-	}
-	if expected, got := want, stateRec.States(); !ablytest.Contains(expected, got) {
-		t.Fatalf("expected %+v, got %+v", expected, got)
-	}
-	errors := errorsRec.Errors()
-	if len(errors) != len(hosts) {
+
+	var errors []*ably.ErrorInfo
+	if !ablytest.Soon.IsTrue(func() bool {
+		errors = errorsRec.Errors()
+		return len(errors) == len(hosts)
+	}) {
 		t.Fatalf("want len(errors)=%d; got %d", len(hosts), len(errors))
 	}
 	for i, err := range errors {
