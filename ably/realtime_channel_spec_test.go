@@ -14,6 +14,147 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
+func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
+	t.Parallel()
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateAttaching), func(t *testing.T) {
+		t.Parallel()
+
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+		connectAndWait(t, realtime)
+
+		changes := make(chan ably.ChannelStateChange)
+		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+		channel := realtime.Channels.Get("test")
+
+		channel.On(ably.ChannelEventAttaching, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+
+		_, err := channel.Attach()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateAttached), func(t *testing.T) {
+		t.Parallel()
+
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+		connectAndWait(t, realtime)
+
+		channel := realtime.Channels.Get("test")
+
+		attachAndWait(t, channel)
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateDetaching), func(t *testing.T) {
+		t.Parallel()
+
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+		connectAndWait(t, realtime)
+
+		channel := realtime.Channels.Get("test")
+
+		attachAndWait(t, channel)
+
+		changes := make(chan ably.ChannelStateChange)
+		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+		channel.On(ably.ChannelEventDetaching, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+
+		_, err := channel.Detach()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateDetached), func(t *testing.T) {
+		t.Parallel()
+
+		app, realtime := ablytest.NewRealtime(ably.ClientOptions{}.AutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+		connectAndWait(t, realtime)
+
+		channel := realtime.Channels.Get("test")
+
+		attachAndWait(t, channel)
+
+		changes := make(chan ably.ChannelStateChange)
+		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+		channel.On(ably.ChannelEventDetached, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+
+		_, err := channel.Detach()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelStateSuspended), func(t *testing.T) {
+		t.Parallel()
+
+		t.Skip("SUSPENDED not yet implemented")
+	})
+
+	t.Run(fmt.Sprintf("on %s", ably.ChannelEventUpdated), func(t *testing.T) {
+		t.Parallel()
+
+		t.Skip("UPDATED not yet implemented")
+	})
+}
+
+func attachAndWait(t *testing.T, channel *ably.RealtimeChannel) {
+	t.Helper()
+
+	changes := make(chan ably.ChannelStateChange, 2)
+	defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
+
+	{
+		off := channel.Once(ably.ChannelEventAttached, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+		defer off()
+	}
+
+	{
+		off := channel.Once(ably.ChannelEventFailed, func(change ably.ChannelStateChange) {
+			changes <- change
+		})
+		defer off()
+	}
+
+	_, err := channel.Attach()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var change ably.ChannelStateChange
+	ablytest.Soon.Recv(t, &change, changes, t.Fatalf)
+
+	if change.Current != ably.ChannelStateAttached {
+		t.Fatalf("unexpected FAILED event: %s", change.Reason)
+	}
+}
+
 func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 	t.Parallel()
 
@@ -28,7 +169,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		in, out chan *proto.ProtocolMessage,
 		c *ably.Realtime,
 		channel *ably.RealtimeChannel,
-		stateChanges chan ably.State,
+		stateChanges ably.ChannelStateChanges,
 		afterCalls chan afterCall,
 	) {
 		in = make(chan *proto.ProtocolMessage, 1)
@@ -66,8 +207,8 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
 
-		stateChanges = make(chan ably.State, 10)
-		channel.On(stateChanges)
+		stateChanges = make(ably.ChannelStateChanges, 10)
+		channel.OnAll(stateChanges.Receive)
 
 		return
 	}
@@ -84,10 +225,10 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			Channel: channel.Name,
 		}
 
-		var change ably.State
+		var change ably.ChannelStateChange
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.StateChanAttached, change.State; expected != got {
+		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
@@ -106,11 +247,11 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		// Expect a transition to ATTACHING with the error.
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.StateChanAttaching, change.State; expected != got {
+		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
-		if got := fmt.Sprint(change.Err); !strings.Contains(got, errInfo.Message) {
-			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Err)
+		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
+			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
 		}
 
 		var msg *proto.ProtocolMessage
@@ -126,11 +267,11 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			Channel: channel.Name,
 		}
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.StateChanAttached, change.State; expected != got {
+		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
-		if change.Err != nil {
-			t.Fatal(change.Err)
+		if change.Reason != nil {
+			t.Fatal(change.Reason)
 		}
 
 		// Expect the retry loop to be finished.
@@ -157,13 +298,13 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		// Expect a state change with the error.
 
-		var change ably.State
+		var change ably.ChannelStateChange
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.StateChanDetached, change.State; expected != got {
+		if expected, got := ably.ChannelStateDetached, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
-		if got := fmt.Sprint(change.Err); !strings.Contains(got, errInfo.Message) {
-			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Err)
+		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
+			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
 		}
 
 		// Expect an attempt to attach after channelRetryTimeout.
@@ -178,7 +319,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		// Expect a transition to ATTACHING, and an ATTACH message.
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.StateChanAttaching, change.State; expected != got {
+		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
@@ -195,11 +336,11 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			Channel: channel.Name,
 		}
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.StateChanAttached, change.State; expected != got {
+		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
-		if change.Err != nil {
-			t.Fatal(change.Err)
+		if change.Reason != nil {
+			t.Fatal(change.Reason)
 		}
 
 		// Expect the retry loop to be finished.
@@ -226,13 +367,13 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		// Expect a state change with the error.
 
-		var change ably.State
+		var change ably.ChannelStateChange
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.StateChanDetached, change.State; expected != got {
+		if expected, got := ably.ChannelStateDetached, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
-		if got := fmt.Sprint(change.Err); !strings.Contains(got, errInfo.Message) {
-			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Err)
+		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
+			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
 		}
 
 		// Expect an attempt to attach after channelRetryTimeout.

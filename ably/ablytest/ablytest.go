@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -74,4 +75,20 @@ func protocol(opts ably.ClientOptions) string {
 		return "application/x-msgpack"
 	}
 	return "application/json"
+}
+
+func Contains(s, sub interface{}) bool {
+	return reflectContains(reflect.ValueOf(s), reflect.ValueOf(sub))
+}
+
+func reflectContains(s, sub reflect.Value) bool {
+	for i := 0; i+sub.Len() <= s.Len(); i++ {
+		if reflect.DeepEqual(
+			s.Slice(i, i+sub.Len()).Interface(),
+			sub.Interface(),
+		) {
+			return true
+		}
+	}
+	return false
 }

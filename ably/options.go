@@ -212,11 +212,6 @@ type clientOptions struct {
 	// If Dial is nil, the default websocket connection is used.
 	Dial func(protocol string, u *url.URL) (proto.Conn, error)
 
-	// Listener if set, will be automatically registered with On method for every
-	// realtime connection and realtime channel created by realtime client.
-	// The listener will receive events for all state transitions.
-	Listener chan<- State
-
 	// HTTPClient specifies the client used for HTTP communication by RestClient.
 	//
 	// If HTTPClient is nil, the http.DefaultClient is used.

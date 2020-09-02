@@ -48,7 +48,7 @@ func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 
 func (pres *RealtimePresence) verifyChanState() error {
 	switch state := pres.channel.State(); state {
-	case StateChanDetached, StateChanDetaching, StateChanClosing, StateChanClosed, StateChanFailed:
+	case ChannelStateDetached, ChannelStateDetaching, ChannelStateFailed:
 		return newError(91001, fmt.Errorf("unable to enter presence channel (invalid channel state: %s)", state.String()))
 	default:
 		return nil
@@ -64,7 +64,7 @@ func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
 	}
 	protomsg := &proto.ProtocolMessage{
 		Action:   proto.ActionPresence,
-		Channel:  pres.channel.state.channel,
+		Channel:  pres.channel.Name,
 		Presence: []*proto.PresenceMessage{msg},
 	}
 	return pres.channel.send(protomsg)

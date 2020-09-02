@@ -32,7 +32,9 @@ func NewRealtime(options ClientOptions) (*Realtime, error) {
 		c.onChannelMsg,
 		c.onReconnected,
 		c.onReconnectionFailed,
-		c.onConnStateChange,
+	})
+	conn.internalEmitter.OnAll(func(change ConnectionStateChange) {
+		c.Channels.broadcastConnStateChange(change)
 	})
 	if err != nil {
 		return nil, err
@@ -75,7 +77,7 @@ func (c *Realtime) onReconnected(err *proto.ErrorInfo, isNewID bool) {
 	for _, ch := range c.Channels.All() {
 		switch ch.State() {
 		// TODO: SUSPENDED
-		case StateChanAttaching, StateChanAttached:
+		case ChannelStateAttaching, ChannelStateAttached:
 			ch.mayAttach(false, false)
 		}
 	}
@@ -83,17 +85,12 @@ func (c *Realtime) onReconnected(err *proto.ErrorInfo, isNewID bool) {
 
 func (c *Realtime) onReconnectionFailed(err *proto.ErrorInfo) {
 	for _, ch := range c.Channels.All() {
-		ch.state.syncSet(StateChanFailed, newErrorProto(err))
+		ch.setState(ChannelStateFailed, newErrorProto(err))
 	}
 }
 
 func isTokenError(err *proto.ErrorInfo) bool {
 	return err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
-}
-
-func (c *Realtime) onConnStateChange(state State) {
-	// TODO: Replace with EventEmitter https://github.com/ably/ably-go/pull/144
-	c.Channels.broadcastConnStateChange(state)
 }
 
 func (c *Realtime) opts() *clientOptions {

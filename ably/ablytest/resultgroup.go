@@ -87,7 +87,18 @@ func ConnWaiter(client *ably.Realtime, do func(), expectedEvent ...ably.Connecti
 	off := client.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 		change <- ev
 	})
-	do()
+	if do != nil {
+		do()
+	}
+	for _, ev := range expectedEvent {
+		if ev == ably.ConnectionEvent(client.Connection.State()) {
+			var err error
+			if errInfo := client.Connection.ErrorReason(); errInfo != nil {
+				err = errInfo
+			}
+			return ResultFunc(func() error { return err })
+		}
+	}
 	return ResultFunc(func() error {
 		defer off()
 		timer := time.After(Timeout)
