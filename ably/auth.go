@@ -180,10 +180,13 @@ func (a *Auth) RequestToken(params *TokenParams, opts AuthOptions) (*TokenDetail
 }
 
 func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenDetails, tokReqClientID string, err error) {
+	log := a.logger().Sugar()
 	switch {
 	case opts != nil && opts.Token != "":
+		log.Verbose("Auth: found token in AuthOptions")
 		return newTokenDetails(opts.Token), "", nil
 	case opts != nil && opts.TokenDetails != nil:
+		log.Verbose("Auth: found TokenDetails in AuthOptions")
 		return opts.TokenDetails, "", nil
 	}
 	if params == nil {
@@ -193,8 +196,10 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 	var tokReq *TokenRequest
 	switch {
 	case opts.AuthCallback != nil:
+		log.Verbose("Auth: found AuthCallback in AuthOptions")
 		v, err := opts.AuthCallback(context.TODO(), *params)
 		if err != nil {
+			log.Error("Auth: failed calling opts.AuthCallback ", err)
 			return nil, "", newError(ErrErrorFromClientTokenCallback, err)
 		}
 
@@ -218,8 +223,10 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 			panic(fmt.Errorf("unhandled TokenLike: %T", v))
 		}
 	case opts.AuthURL != "":
+		log.Verbose("Auth: found AuthURL in AuthOptions")
 		res, err := a.requestAuthURL(params, opts)
 		if err != nil {
+			log.Error("Auth: failed calling requesting token with AuthURL ", err)
 			return nil, "", err
 		}
 		switch res := res.(type) {
@@ -230,6 +237,8 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 			tokReqClientID = tokReq.ClientID
 		}
 	default:
+		log.Verbose("Auth: using default token request")
+
 		req, err := a.createTokenRequest(params, opts)
 		if err != nil {
 			return nil, "", err
@@ -277,6 +286,7 @@ func (a *Auth) Authorize(params *TokenParams, setOpts AuthOptions) (*TokenDetail
 }
 
 func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*TokenDetails, error) {
+	log := a.logger().Sugar()
 	switch tok := a.token(); {
 	case tok != nil && !force && (tok.Expires == 0 || !tok.expired(a.opts().Now())):
 		return tok, nil
@@ -285,18 +295,22 @@ func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*T
 	case params == nil && a.clientID != "":
 		params = &TokenParams{ClientID: a.clientID}
 	}
+	log.Info("Auth: sending  token request")
 	tok, tokReqClientID, err := a.requestToken(params, opts)
 	if err != nil {
+		log.Error("Auth: failed to get token", err)
 		return nil, err
 	}
 	// Fail if the non-empty ClientID, that was set explicitely via clientOptions, does
 	// not match the non-wildcard ClientID returned with the token.
 	if areClientIDsSet(a.clientID, tok.ClientID) && a.clientID != tok.ClientID {
+		log.Error("Auth: ", errClientIDMismatch)
 		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
 	}
 	// Fail if non-empty ClientID requested by a TokenRequest
 	// does not match the non-wildcard ClientID that arrived with the token.
 	if areClientIDsSet(tokReqClientID, tok.ClientID) && tokReqClientID != tok.ClientID {
+		log.Error("Auth: ", errClientIDMismatch)
 		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
 	}
 	a.method = authToken
@@ -309,6 +323,7 @@ func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*T
 func (a *Auth) reauthorize() (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
+	a.logger().Sugar().Info("Auth: reauthorize")
 	return a.authorize(a.params, nil, true)
 }
 
