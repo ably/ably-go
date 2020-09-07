@@ -170,14 +170,14 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 
 	switch c.client.Connection.State() {
 	// RTL4b
-	case StateConnClosed,
+	case StateConnInitialized,
+		StateConnClosed,
 		StateConnClosing,
 		StateConnFailed:
 		return nil, newError(80000, errAttach)
 
 	// RTL4i
-	case StateConnInitialized,
-		StateConnConnecting,
+	case StateConnConnecting,
 		StateConnDisconnected:
 
 		return goWaiter(func() error {
