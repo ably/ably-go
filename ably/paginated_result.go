@@ -1,6 +1,9 @@
 package ably
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -135,9 +138,13 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 			return nil, err
 		}
 		p.errorCode = i
+	} else if !p.success {
+		return nil, malformedPaginatedResponseError(resp)
 	}
 	if h := p.respHeaders.Get(AblyErrormessageHeader); h != "" {
 		p.errorMessage = h
+	} else if !p.success {
+		return nil, malformedPaginatedResponseError(resp)
 	}
 	p.path = builtPath
 	p.links = resp.Header["Link"]
@@ -147,6 +154,17 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 	}
 	p.typItems = v
 	return p, nil
+}
+
+func malformedPaginatedResponseError(resp *http.Response) error {
+	body := make([]byte, 200)
+	n, err := io.ReadFull(resp.Body, body)
+	body = body[:n]
+	msg := fmt.Sprintf("invalid PaginatedResult HTTP response; status: %d; body (first %d bytes): %q", resp.StatusCode, len(body), body)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("%s; body read error: %w", msg, err)
+	}
+	return errors.New(msg)
 }
 
 func copyHeader(dest, src http.Header) {
