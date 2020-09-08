@@ -23,6 +23,17 @@ func wait(res Result, err error) error {
 	return res.Wait()
 }
 
+func goWaiter(f resultFunc) Result {
+	err := make(chan error, 1)
+	go func() {
+		defer close(err)
+		err <- f()
+	}()
+	return resultFunc(func() error {
+		return <-err
+	})
+}
+
 var (
 	errDisconnected   = newErrorf(80003, "Connection temporarily unavailable")
 	errSuspended      = newErrorf(80002, "Connection unavailable")

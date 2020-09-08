@@ -202,10 +202,47 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 }
 
 func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
-	if !c.client.Connection.lockIsActive() {
-		return nil, c.lockSetState(ChannelStateFailed, errAttach)
+	switch c.client.Connection.State() {
+	// RTL4b
+	case ConnectionStateInitialized,
+		ConnectionStateClosed,
+		ConnectionStateClosing,
+		ConnectionStateFailed:
+		return nil, newError(80000, errAttach)
+
+	// RTL4i
+	case ConnectionStateConnecting,
+		ConnectionStateDisconnected:
+
+		changes := make(connStateChanges, 1)
+		var offs []func()
+		for _, e := range []ConnectionEvent{
+			ConnectionEventConnected,
+			ConnectionEventClosed,
+			ConnectionEventFailed,
+		} {
+			offs = append(offs, c.client.Connection.On(e, changes.Receive))
+		}
+		return goWaiter(func() error {
+			change := <-changes
+			if change.Current != ConnectionStateConnected {
+				return change.Reason
+			}
+
+			res, err := c.mayAttach(result, true)
+			if err != nil {
+				return err
+			}
+
+			if result {
+				return res.Wait()
+			}
+			return nil
+		}), nil
 	}
+
 	c.lockSetState(ChannelStateAttaching, err)
+
 	var res Result
 	if result {
 		res = c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed)
