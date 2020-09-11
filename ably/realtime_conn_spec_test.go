@@ -1876,7 +1876,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 			t.Errorf("expected %v got %v", expect, got)
 		}
 		if expect, got := "invalid key", c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
-			t.Errorf("expected %v to contain %q", got, expect)
+			t.Errorf("expected %v to contain %q", expect, got)
 		}
 	}
 }
@@ -1985,6 +1985,62 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 
 		// We should only try try to reconnect once after token error.
 		if expect, got := 2, dials.Load().(int); got != expect {
+			t.Errorf("expected %v got %v", expect, got)
+		}
+	}
+}
+
+type closeConn struct {
+	proto.Conn
+	closed int
+}
+
+func (c *closeConn) Close() error {
+	c.closed++
+	return c.Conn.Close()
+}
+
+func TestRealtimeConn_RTN14g(t *testing.T) {
+	t.Parallel()
+	{ // missing key
+		in := make(chan *proto.ProtocolMessage, 1)
+		out := make(chan *proto.ProtocolMessage, 16)
+		var ls *closeConn
+		c, _ := ably.NewRealtime(ably.ClientOptions{}.
+			Token("fake:token").
+			AutoConnect(false).
+			Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				w, err := ablytest.MessagePipe(in, out)(protocol, u, timeout)
+				if err != nil {
+					return nil, err
+				}
+				ls = &closeConn{Conn: w}
+				return ls, nil
+			}))
+		c.Connect()
+		// Get the connection to CONNECTED.
+		tokenError := &proto.ErrorInfo{
+			StatusCode: http.StatusBadRequest,
+		}
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionError,
+			ConnectionDetails: &proto.ConnectionDetails{},
+			Error:             tokenError,
+		}
+		change := make(chan ably.ConnectionStateChange, 1)
+		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
+			change <- ev
+		})
+		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
+		if expect, got := ably.ConnectionStateFailed, state.Current; expect != got {
+			t.Errorf("expected %v got %v", expect, got)
+		}
+		if expect, got := tokenError, c.Connection.ErrorReason(); got.StatusCode != expect.StatusCode {
+			t.Errorf("expected %v got %v", expect, got)
+		}
+		// we make sure the connection is closed
+		if expect, got := 1, ls.closed; got != expect {
 			t.Errorf("expected %v got %v", expect, got)
 		}
 	}
