@@ -989,9 +989,9 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 
 	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
 		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			<-allowDial
-			c, err := ablyutil.DialWebsocket(protocol, u)
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
