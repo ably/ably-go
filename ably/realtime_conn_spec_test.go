@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1784,7 +1785,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	}
 }
 
-func TestRealtimeConn_RTN14(t *testing.T) {
+func TestRealtimeConn_RTN14c(t *testing.T) {
 	t.Parallel()
 	app := ablytest.MustSandbox(nil)
 
@@ -1807,6 +1808,184 @@ func TestRealtimeConn_RTN14(t *testing.T) {
 		expect := 10 * time.Second
 		if connTimeout != expect {
 			t.Errorf("expected %v got %v", expect, connTimeout)
+		}
+	}
+}
+func TestRealtimeConn_RTN14a(t *testing.T) {
+	t.Parallel()
+
+	{ // missing key
+		in := make(chan *proto.ProtocolMessage, 1)
+		out := make(chan *proto.ProtocolMessage, 16)
+
+		c, _ := ably.NewRealtime(ably.ClientOptions{}.
+			Token("fake:token").
+			AutoConnect(false).
+			Dial(ablytest.MessagePipe(in, out)))
+		c.Connect()
+		// Get the connection to CONNECTED.
+		tokenError := &proto.ErrorInfo{
+			StatusCode: http.StatusUnauthorized,
+			Code:       40140,
+		}
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionError,
+			ConnectionDetails: &proto.ConnectionDetails{},
+			Error:             tokenError,
+		}
+		change := make(chan ably.ConnectionStateChange, 1)
+		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
+			change <- ev
+		})
+		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
+		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
+			t.Errorf("expected %v got %v", expect, got)
+		}
+		if expect, got := "missing key", c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
+			t.Errorf("expected %v to contain %q", got, expect)
+		}
+	}
+	{ // invalid key
+		in := make(chan *proto.ProtocolMessage, 1)
+		out := make(chan *proto.ProtocolMessage, 16)
+
+		c, _ := ably.NewRealtime(ably.ClientOptions{}.
+			Token("fake:token").
+			AutoConnect(false).
+			Key("invalid").
+			Dial(ablytest.MessagePipe(in, out)))
+		c.Connect()
+		// Get the connection to CONNECTED.
+		tokenError := &proto.ErrorInfo{
+			StatusCode: http.StatusUnauthorized,
+			Code:       40140,
+		}
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionError,
+			ConnectionDetails: &proto.ConnectionDetails{},
+			Error:             tokenError,
+		}
+		change := make(chan ably.ConnectionStateChange, 1)
+		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
+			change <- ev
+		})
+		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
+		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
+			t.Errorf("expected %v got %v", expect, got)
+		}
+		if expect, got := "invalid key", c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
+			t.Errorf("expected %v to contain %q", got, expect)
+		}
+	}
+}
+func TestRealtimeConn_RTN14b(t *testing.T) {
+	t.Parallel()
+	{ // renewable token that fails to renew with token error
+
+		in := make(chan *proto.ProtocolMessage, 1)
+		out := make(chan *proto.ProtocolMessage, 16)
+		var reauth atomic.Value
+		reauth.Store(int(0))
+		bad := "bad token request"
+		c, _ := ably.NewRealtime(ably.ClientOptions{}.
+			AutoConnect(false).
+			AuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+				if reauth.Load().(int) > 0 {
+					return nil, errors.New(bad)
+				}
+				reauth.Store(reauth.Load().(int) + 1)
+				return ably.TokenString("fake:token"), nil
+			}).
+			Dial(ablytest.MessagePipe(in, out)))
+		c.Connect()
+		// Get the connection to CONNECTED.
+		tokenError := &proto.ErrorInfo{
+			StatusCode: http.StatusUnauthorized,
+			Code:       40140,
+		}
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionError,
+			ConnectionDetails: &proto.ConnectionDetails{},
+			Error:             tokenError,
+		}
+		change := make(chan ably.ConnectionStateChange, 1)
+		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
+			change <- ev
+		})
+		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
+		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
+			t.Errorf("expected %v got %v", expect, got)
+		}
+		if expect, got := bad, c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
+			t.Errorf("expected %v to contain %q", got, expect)
+		}
+		n := reauth.Load().(int)
+		if n != 1 {
+			t.Error("expected re authorization to happen once")
+		}
+	}
+	{ // renewable token that fails to renew with token error
+
+		in := make(chan *proto.ProtocolMessage, 1)
+		out := make(chan *proto.ProtocolMessage, 16)
+		var reauth atomic.Value
+		reauth.Store(int(0))
+		var dials atomic.Value
+		dials.Store(int(0))
+		c, _ := ably.NewRealtime(ably.ClientOptions{}.
+			AutoConnect(false).
+			AuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+				reauth.Store(reauth.Load().(int) + 1)
+				return ably.TokenString("fake:token"), nil
+			}).
+			Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				dials.Store(dials.Load().(int) + 1)
+				return ablytest.MessagePipe(in, out)(protocol, u, timeout)
+			}))
+		c.Connect()
+		// Get the connection to CONNECTED.
+		tokenError := &proto.ErrorInfo{
+			StatusCode: http.StatusUnauthorized,
+			Code:       40140,
+		}
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionError,
+			ConnectionDetails: &proto.ConnectionDetails{},
+			Error:             tokenError,
+		}
+		change := make(chan ably.ConnectionStateChange, 1)
+		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
+			change <- ev
+		})
+		bad := &proto.ErrorInfo{
+			StatusCode: http.StatusUnauthorized,
+			Code:       40140,
+			Message:    "bad token request",
+		}
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionError,
+			ConnectionDetails: &proto.ConnectionDetails{},
+			Error:             bad,
+		}
+		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
+		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
+			t.Errorf("expected %v got %v", expect, got)
+		}
+		if expect, got := bad.Message, c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
+			t.Errorf("expected %v to contain %q", got, expect)
+		}
+		n := reauth.Load().(int)
+		if n != 2 {
+			t.Errorf("expected re authorization to happen twice got %d", n)
+		}
+
+		// We should only try try to reconnect once after token error.
+		if expect, got := 2, dials.Load().(int); got != expect {
+			t.Errorf("expected %v got %v", expect, got)
 		}
 	}
 }

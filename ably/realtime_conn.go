@@ -532,6 +532,7 @@ func (c *Connection) eventloop() {
 			c.pending.Nack(msg.MsgSerial, msg.Count, newErrorProto(msg.Error))
 			c.mtx.Unlock()
 		case proto.ActionError:
+
 			if msg.Channel != "" {
 				c.callbacks.onChannelMsg(msg)
 				break
@@ -545,9 +546,11 @@ func (c *Connection) eventloop() {
 					c.lockedReauthorizationFailed(newErrorProto(msg.Error))
 					c.mtx.Unlock()
 					return
-				} else {
-					// TODO: RTN14b; may reuse c.reauthorize from RTN15h2.
 				}
+				// RTN14b
+				c.mtx.Unlock()
+				c.reauthorize(lastActivityAt, connDetails)
+				return
 			}
 			c.mtx.Unlock()
 
@@ -651,6 +654,7 @@ func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
 func (c *Connection) reauthorize(lastActivityAt time.Time, connDetails *proto.ConnectionDetails) {
 	c.mtx.Lock()
 	_, err := c.auth.reauthorize()
+
 	if err != nil {
 		c.lockedReauthorizationFailed(err)
 		c.mtx.Unlock()
@@ -666,7 +670,6 @@ func (c *Connection) reauthorize(lastActivityAt time.Time, connDetails *proto.Co
 
 func (c *Connection) lockedReauthorizationFailed(err error) {
 	c.lockSetState(ConnectionStateDisconnected, err)
-	// TODO: RTN14d
 }
 
 type verboseConn struct {
