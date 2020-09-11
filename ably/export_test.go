@@ -85,39 +85,16 @@ type EmitterString string
 func (EmitterString) isEmitterEvent() {}
 func (EmitterString) isEmitterData()  {}
 
-// TODO: Once channels have also an EventEmitter, refactor tests to use
-// EventEmitters for both connection and channels.
-
-func (c *Connection) OnState(ch chan<- State, states ...StateEnum) {
-	c.onState(ch, states...)
-}
-
-func (c *Connection) OffState(ch chan<- State, states ...StateEnum) {
-	c.offState(ch, states...)
-}
-
-func (c *Connection) StateEnum() StateEnum {
-	c.state.Lock()
-	defer c.state.Unlock()
-	return c.state.current
-}
-
 func (c *Connection) RemoveKey() {
-	c.state.Lock()
-	defer c.state.Unlock()
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	c.key = ""
 }
 
 func (c *Connection) MsgSerial() int64 {
-	c.state.Lock()
-	defer c.state.Unlock()
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	return c.msgSerial
-}
-
-func (os ClientOptions) Listener(ch chan<- State) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.Listener = ch
-	})
 }
 
 func (os ClientOptions) RealtimeRequestTimeout(d time.Duration) ClientOptions {
@@ -147,3 +124,7 @@ func (os ClientOptions) After(after func(context.Context, time.Duration) <-chan 
 func (os ClientOptions) ApplyWithDefaults() *clientOptions {
 	return os.applyWithDefaults()
 }
+
+type ConnStateChanges = connStateChanges
+
+type ChannelStateChanges = channelStateChanges

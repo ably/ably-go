@@ -1,5 +1,15 @@
 # Change Log
 
+## [v1.1.5](https://github.com/ably/ably-go/tree/v1.1.5) (2020-05-27)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.1.4...v1.1.5)
+
+**Merged pull requests:**
+
+- Add logs to help in troubleshooting RestClient http api calls [\#162](https://github.com/ably/ably-go/pull/162) ([gernest](https://github.com/gernest))
+- Remove unused fields definition on RealtimeClient [\#161](https://github.com/ably/ably-go/pull/161) ([gernest](https://github.com/gernest))
+- add implementation for  RTN15b-c spec [\#159](https://github.com/ably/ably-go/pull/159) ([gernest](https://github.com/gernest))
+
 ## [v1.1.4](https://github.com/ably/ably-go/tree/v1.1.4) (2020-04-24)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.1.3...v1.1.4)

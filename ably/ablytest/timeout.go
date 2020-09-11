@@ -63,3 +63,20 @@ func (wt WithTimeout) recv(into interface{}, from interface{}) (ok, timeout bool
 	}
 	return ok, chosen == 1
 }
+
+func (wt WithTimeout) IsTrue(pred func() bool) bool {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	timeout := time.NewTimer(wt.before)
+	defer timeout.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if pred() {
+				return true
+			}
+		case <-timeout.C:
+			return pred()
+		}
+	}
+}
