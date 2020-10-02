@@ -366,6 +366,8 @@ func (c *Connection) connectWithInternal(arg connArgs) (Result, error) {
 }
 
 func (c *Connection) connectionStateTTL() time.Duration {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	if c.arg.connDetails != nil && c.arg.connDetails.ConnectionStateTTL != 0 {
 		return time.Duration(c.arg.connDetails.ConnectionStateTTL)
 	}
