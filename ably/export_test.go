@@ -103,6 +103,12 @@ func (os ClientOptions) RealtimeRequestTimeout(d time.Duration) ClientOptions {
 	})
 }
 
+func (os ClientOptions) ConnectionStateTTL(d time.Duration) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.ConnectionStateTTL = d
+	})
+}
+
 func (os ClientOptions) Trace(trace *httptrace.ClientTrace) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.Trace = trace
@@ -128,3 +134,9 @@ func (os ClientOptions) ApplyWithDefaults() *clientOptions {
 type ConnStateChanges = connStateChanges
 
 type ChannelStateChanges = channelStateChanges
+
+func (c *Connection) Cancel() {
+	if c.cancel != nil {
+		c.cancel()
+	}
+}

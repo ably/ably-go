@@ -29,7 +29,9 @@ var defaultOptions = clientOptions{
 	HTTPRequestTimeout:       10 * time.Second,
 	RealtimeHost:             "realtime.ably.io",
 	TimeoutDisconnect:        30 * time.Second,
+	ConnectionStateTTL:       120 * time.Second,
 	RealtimeRequestTimeout:   10 * time.Second, // DF1b
+	SuspendedRetryTimeout:    30 * time.Second, //  RTN14d, TO3l2
 	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
 	ChannelRetryTimeout:      15 * time.Second, // TO3l7
 	FallbackRetryTimeout:     10 * time.Minute,
@@ -202,6 +204,8 @@ type clientOptions struct {
 	TimeoutConnect    time.Duration
 	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
 
+	ConnectionStateTTL time.Duration //(DF1a)
+
 	// RealtimeRequestTimeout is the timeout for realtime connection establishment
 	// and each subsequent operation.
 	RealtimeRequestTimeout time.Duration
@@ -209,6 +213,7 @@ type clientOptions struct {
 	// DisconnectedRetryTimeout is the time to wait after a disconnection before
 	// attempting an automatic reconnection, if still disconnected.
 	DisconnectedRetryTimeout time.Duration
+	SuspendedRetryTimeout    time.Duration
 	ChannelRetryTimeout      time.Duration
 
 	// Dial specifies the dial function for creating message connections used
@@ -257,12 +262,25 @@ func (opts *clientOptions) realtimeRequestTimeout() time.Duration {
 	}
 	return defaultOptions.RealtimeRequestTimeout
 }
+func (opts *clientOptions) connectionStateTTL() time.Duration {
+	if opts.ConnectionStateTTL != 0 {
+		return opts.ConnectionStateTTL
+	}
+	return defaultOptions.ConnectionStateTTL
+}
 
 func (opts *clientOptions) disconnectedRetryTimeout() time.Duration {
 	if opts.DisconnectedRetryTimeout != 0 {
 		return opts.DisconnectedRetryTimeout
 	}
 	return defaultOptions.DisconnectedRetryTimeout
+}
+
+func (opts *clientOptions) suspendedRetryTimeout() time.Duration {
+	if opts.SuspendedRetryTimeout != 0 {
+		return opts.SuspendedRetryTimeout
+	}
+	return defaultOptions.SuspendedRetryTimeout
 }
 
 func (opts *clientOptions) restURL() string {
@@ -622,6 +640,12 @@ func (os ClientOptions) TransportParams(params url.Values) ClientOptions {
 func (os ClientOptions) DisconnectedRetryTimeout(d time.Duration) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.DisconnectedRetryTimeout = d
+	})
+}
+
+func (os ClientOptions) SuspendedRetryTimeout(d time.Duration) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.SuspendedRetryTimeout = d
 	})
 }
 

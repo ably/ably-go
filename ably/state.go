@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/ably/ably-go/ably/proto"
 )
@@ -373,6 +374,7 @@ type ConnectionStateChange struct {
 	Current  ConnectionState
 	Event    ConnectionEvent
 	Previous ConnectionState
+	RetryIn  time.Duration //RTN14d, TA2
 	// Reason, if any, is an error that caused the state change.
 	Reason *ErrorInfo
 }
