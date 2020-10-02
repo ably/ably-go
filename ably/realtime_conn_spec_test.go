@@ -2111,8 +2111,6 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 	changes := []ably.ConnectionState{
 		ably.ConnectionStateConnecting,
 		ably.ConnectionStateDisconnected,
-		ably.ConnectionStateConnecting,
-		ably.ConnectionStateDisconnected,
 		ably.ConnectionStateSuspended, //(RTN14e)
 		ably.ConnectionStateConnecting,
 		ably.ConnectionStateConnected,
