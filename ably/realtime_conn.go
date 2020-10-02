@@ -195,11 +195,6 @@ type connArgs struct {
 	result         bool
 	dialOnce       bool
 	mode           connectionMode
-	dial           struct {
-		protocol string
-		url      *url.URL
-		timeout  time.Duration
-	}
 }
 
 func (c *Connection) reconnect(arg connArgs) (Result, error) {
