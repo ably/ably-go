@@ -2081,7 +2081,7 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 			count.Store(x + 1)
 			return nil, context.DeadlineExceeded
 		}))
-	defer c.Connection.Cancel()
+	defer c.Close()
 	change := make(chan ably.ConnectionStateChange, 16)
 	c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 		change <- ev

@@ -134,9 +134,3 @@ func (os ClientOptions) ApplyWithDefaults() *clientOptions {
 type ConnStateChanges = connStateChanges
 
 type ChannelStateChanges = channelStateChanges
-
-func (c *Connection) Cancel() {
-	if c.cancel != nil {
-		c.cancel()
-	}
-}
