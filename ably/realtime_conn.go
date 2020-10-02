@@ -120,7 +120,7 @@ func (c *Connection) dial(proto string, u *url.URL, once bool) (conn proto.Conn,
 	return conn, err
 }
 
-func (c *Connection) connetAfterSuspension(arg connArgs) (Result, error) {
+func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 	timeout := c.opts.suspendedRetryTimeout()
 	lg := c.logger().Sugar()
 	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", timeout)
@@ -304,7 +304,7 @@ func (c *Connection) connectWith(arg connArgs) (Result, error) {
 				case <-suspend:
 					// (RTN14f)
 					lg.Debug("Reached SUSPENDED state while reconnecting")
-					return c.connetAfterSuspension(arg)
+					return c.connectAfterSuspension(arg)
 				case <-next.C:
 					lg.Debug("Attemting to dial")
 					res, err := c.connectWithInternal(arg)
