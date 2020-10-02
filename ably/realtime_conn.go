@@ -392,6 +392,7 @@ func (c *Connection) watchDisconnect(ctx context.Context) {
 			if !watching {
 				continue
 			}
+			// (RTN14e)
 			lg.Debug("Transition to SUSPENDED state")
 			c.setState(ConnectionStateSuspended, context.DeadlineExceeded)
 			deadline.Reset(c.connectionStateTTL())
