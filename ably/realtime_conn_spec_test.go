@@ -2066,13 +2066,14 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 	count.Store(0)
 	in := make(chan *proto.ProtocolMessage)
 	out := make(chan *proto.ProtocolMessage, 16)
+	ttl := 10 * time.Millisecond
 	c, _ := ably.NewRealtime(ably.ClientOptions{}.
 		Token("fake:token").
 		AutoConnect(false).
 		LogLevel(ably.LogDebug).
-		ConnectionStateTTL(10 * time.Millisecond).
-		SuspendedRetryTimeout(10 * time.Millisecond).
-		DisconnectedRetryTimeout(100 * time.Millisecond).
+		ConnectionStateTTL(ttl).
+		SuspendedRetryTimeout(ttl / 2).
+		DisconnectedRetryTimeout(ttl * 2).
 		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			x := count.Load().(int)
 			if x > 3 {
@@ -2083,20 +2084,33 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 		}))
 	defer c.Close()
 	change := make(chan ably.ConnectionStateChange, 16)
-	c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
+	off := c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 		change <- ev
 	})
+	defer off()
+
 	go c.Connect()
+	connected := make(chan ably.ConnectionStateChange, 1)
+	clear := c.Connection.On(ably.ConnectionEventConnected, func(csc ably.ConnectionStateChange) {
+		connected <- csc
+	})
+	defer clear()
+
 	in <- &proto.ProtocolMessage{
-		Action:            proto.ActionConnected,
-		ConnectionDetails: &proto.ConnectionDetails{},
+		Action: proto.ActionConnected,
 	}
+
+	// Make sure we have CONNECTED event fired before we inspect state changes
+	ablytest.Soon.Recv(t, nil, connected, t.Fatalf)
+
 	// - Start connecting
 	// - Get recoverable error, immediately set to disconnected
 	// - Stay disconnected long than connectionStateTTL, then tansition to suspended
 	// - Periodic start connecting until we successful connect
 	// - Transition to Connected after we receive connected action.
 	changes := []ably.ConnectionState{
+		ably.ConnectionStateConnecting,
+		ably.ConnectionStateDisconnected,
 		ably.ConnectionStateConnecting,
 		ably.ConnectionStateDisconnected,
 		ably.ConnectionStateSuspended, //(RTN14e)
@@ -2122,4 +2136,5 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 			t.Errorf("expected 4 failed dials got %d instead ", x)
 		}
 	})
+
 }
