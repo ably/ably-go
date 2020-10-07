@@ -2,7 +2,7 @@ package ably
 
 type RestPresence struct {
 	client  *REST
-	channel *RestChannel
+	channel *RESTChannel
 }
 
 // Get gives the channel's presence messages according to the given parameters.

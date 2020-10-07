@@ -39,7 +39,7 @@ func query(fn func(string, interface{}) (*http.Response, error)) queryFunc {
 // RestChannels provides an API for managing collection of RestChannel. This is
 // safe for concurrent use.
 type RestChannels struct {
-	cache  map[string]*RestChannel
+	cache  map[string]*RESTChannel
 	mu     sync.RWMutex
 	client *REST
 }
@@ -51,8 +51,8 @@ type RestChannels struct {
 // iteration to avoid any deadlock, meaning any modification (like creating new
 // RestChannel, or removing one) that occurs during iteration will not have any
 // effect to the values passed to the fn.
-func (c *RestChannels) Range(fn func(name string, channel *RestChannel) bool) {
-	clone := make(map[string]*RestChannel)
+func (c *RestChannels) Range(fn func(name string, channel *RESTChannel) bool) {
+	clone := make(map[string]*RESTChannel)
 	c.mu.RLock()
 	for k, v := range c.cache {
 		clone[k] = v
@@ -79,7 +79,7 @@ func (c *RestChannels) Exists(name string) bool {
 // You can optionally pass ChannelOptions, if the channel exists it will
 // updated with the options and when it doesn't a new channel will be created
 // with the given options.
-func (c *RestChannels) Get(name string, options ...ChannelOption) *RestChannel {
+func (c *RestChannels) Get(name string, options ...ChannelOption) *RESTChannel {
 	var o channelOptions
 	for _, set := range options {
 		set(&o)
@@ -87,7 +87,7 @@ func (c *RestChannels) Get(name string, options ...ChannelOption) *RestChannel {
 	return c.get(name, (*proto.ChannelOptions)(&o))
 }
 
-func (c *RestChannels) get(name string, opts *proto.ChannelOptions) *RestChannel {
+func (c *RestChannels) get(name string, opts *proto.ChannelOptions) *RESTChannel {
 	c.mu.RLock()
 	v, ok := c.cache[name]
 	c.mu.RUnlock()
@@ -106,7 +106,7 @@ func (c *RestChannels) get(name string, opts *proto.ChannelOptions) *RestChannel
 }
 
 // Release deletes the channel from the cache.
-func (c *RestChannels) Release(ch *RestChannel) {
+func (c *RestChannels) Release(ch *RESTChannel) {
 	c.mu.Lock()
 	delete(c.cache, ch.Name)
 	c.mu.Unlock()
@@ -138,7 +138,7 @@ func NewREST(options ClientOptions) (*REST, error) {
 	}
 	c.Auth = auth
 	c.Channels = &RestChannels{
-		cache:  make(map[string]*RestChannel),
+		cache:  make(map[string]*RESTChannel),
 		client: c,
 	}
 	return c, nil

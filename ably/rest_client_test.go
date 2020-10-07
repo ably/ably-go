@@ -525,7 +525,7 @@ func TestRestChannels_RSN1(t *testing.T) {
 		for _, v := range sample {
 			client.Channels.Get(v.name)
 		}
-		client.Channels.Range(func(name string, _ *ably.RestChannel) bool {
+		client.Channels.Range(func(name string, _ *ably.RESTChannel) bool {
 			n := client.Channels.Get(name + "_range")
 			return client.Channels.Exists(n.Name)
 		})

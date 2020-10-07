@@ -26,7 +26,8 @@ var encodeURIComponent = strings.NewReplacer(
 	"#", "%23",
 )
 
-type RestChannel struct {
+// RESTChannel is the interface for REST API operations on a channel.
+type RESTChannel struct {
 	Name     string
 	Presence *RestPresence
 
@@ -35,8 +36,8 @@ type RestChannel struct {
 	options *proto.ChannelOptions
 }
 
-func newRestChannel(name string, client *REST) *RestChannel {
-	c := &RestChannel{
+func newRestChannel(name string, client *REST) *RESTChannel {
+	c := &RESTChannel{
 		Name:    name,
 		client:  client,
 		baseURL: "/channels/" + encodeURIComponent.Replace(name),
@@ -49,7 +50,7 @@ func newRestChannel(name string, client *REST) *RestChannel {
 }
 
 // Publish publishes a message on the channel.
-func (c *RestChannel) Publish(ctx context.Context, name string, data interface{}) error {
+func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}) error {
 	return c.PublishAll(ctx, []Message{
 		{Name: name, Data: data},
 	}, nil)
@@ -62,7 +63,7 @@ type Message = proto.Message
 //
 // The params, if any, will be set as additional query parameters in the
 // resulting HTTP request to the REST API.
-func (c *RestChannel) PublishAll(ctx context.Context, messages []Message, params map[string]string) error {
+func (c *RESTChannel) PublishAll(ctx context.Context, messages []Message, params map[string]string) error {
 	// TODO: Use context
 	msgPtrs := make([]*proto.Message, 0, len(messages))
 	for _, m := range messages {
@@ -122,7 +123,7 @@ func (c *RestChannel) PublishAll(ctx context.Context, messages []Message, params
 // History gives the channel's message history according to the given parameters.
 // The returned result can be inspected for the messages via the Messages()
 // method.
-func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
+func (c *RESTChannel) History(params *PaginateParams) (*PaginatedResult, error) {
 	path := c.baseURL + "/history"
 	rst, err := newPaginatedResult(c.options, paginatedRequest{typ: msgType, path: path, params: params, query: query(c.client.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
 	if err != nil {
@@ -131,6 +132,6 @@ func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) 
 	return rst, nil
 }
 
-func (c *RestChannel) logger() *LoggerOptions {
+func (c *RESTChannel) logger() *LoggerOptions {
 	return c.client.logger()
 }
