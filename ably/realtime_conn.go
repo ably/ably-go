@@ -524,12 +524,12 @@ func (c *Connection) eventloop() {
 		case proto.ActionHeartbeat:
 		case proto.ActionAck:
 			c.mtx.Lock()
-			c.pending.Ack(msg.MsgSerial, msg.Count, newErrorProto(msg.Error))
+			c.pending.Ack(msg.MsgSerial, msg.Count, newErrorFromProto(msg.Error))
 			c.setSerial(c.serial + 1)
 			c.mtx.Unlock()
 		case proto.ActionNack:
 			c.mtx.Lock()
-			c.pending.Nack(msg.MsgSerial, msg.Count, newErrorProto(msg.Error))
+			c.pending.Nack(msg.MsgSerial, msg.Count, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
 		case proto.ActionError:
 			if msg.Channel != "" {
@@ -542,7 +542,7 @@ func (c *Connection) eventloop() {
 			c.reauthorizing = false
 			if isTokenError(msg.Error) {
 				if reauthorizing {
-					c.lockedReauthorizationFailed(newErrorProto(msg.Error))
+					c.lockedReauthorizationFailed(newErrorFromProto(msg.Error))
 					c.mtx.Unlock()
 					return
 				} else {
@@ -586,7 +586,7 @@ func (c *Connection) eventloop() {
 			if reconnecting {
 				// (RTN15c1) (RTN15c2)
 				c.mtx.Lock()
-				c.lockSetState(ConnectionStateConnected, newErrorProto(msg.Error))
+				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error))
 				c.mtx.Unlock()
 				if previousID != msg.ConnectionID {
 					// (RTN15c3)
@@ -640,9 +640,9 @@ func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
 		c.reauthorizing = false
 		c.callbacks.onReconnectionFailed(err)
 	}
-	c.lockSetState(ConnectionStateFailed, newErrorProto(err))
+	c.lockSetState(ConnectionStateFailed, newErrorFromProto(err))
 	c.mtx.Unlock()
-	c.queue.Fail(newErrorProto(err))
+	c.queue.Fail(newErrorFromProto(err))
 	if c.conn != nil {
 		c.conn.Close()
 	}

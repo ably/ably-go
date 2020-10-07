@@ -218,9 +218,9 @@ func (c *REST) Request(method string, path string, params *PaginateParams, body 
 			})
 		}, c.logger())
 	default:
-		return nil, newErrorProto(&proto.ErrorInfo{
+		return nil, newErrorFromProto(&proto.ErrorInfo{
 			Message:    fmt.Sprintf("%s method is not supported", method),
-			Code:       ErrMethodNotAllowed,
+			Code:       int(ErrMethodNotAllowed),
 			StatusCode: http.StatusMethodNotAllowed,
 		})
 	}

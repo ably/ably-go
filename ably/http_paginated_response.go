@@ -12,7 +12,7 @@ type HTTPPaginatedResponse struct {
 	*PaginatedResult
 	StatusCode   int         //spec HP4
 	Success      bool        //spec HP5
-	ErrorCode    int         //spec HP6
+	ErrorCode    ErrorCode   //spec HP6
 	ErrorMessage string      //spec HP7
 	Headers      http.Header //spec HP8
 }
@@ -42,7 +42,7 @@ func newHTTPPaginatedResultFromPaginatedResult(p *PaginatedResult) *HTTPPaginate
 	h := &HTTPPaginatedResponse{PaginatedResult: p}
 	h.StatusCode = p.statusCode
 	h.Success = p.success
-	h.ErrorCode = p.errorCode
+	h.ErrorCode = ErrorCode(p.errorCode)
 	h.ErrorMessage = p.errorMessage
 	return h
 }

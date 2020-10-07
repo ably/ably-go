@@ -78,8 +78,8 @@ func TestAuth_BasicAuth(t *testing.T) {
 	switch _, err := ably.NewREST(app.Options(opts.TLS(false))); {
 	case err == nil:
 		t.Fatal("want err != nil")
-	case ably.ErrorCode(err) != 40103:
-		t.Fatalf("want code=40103; got %d", ably.ErrorCode(err))
+	case ably.UnwrapErrorCode(err) != 40103:
+		t.Fatalf("want code=40103; got %d", ably.UnwrapErrorCode(err))
 	}
 }
 

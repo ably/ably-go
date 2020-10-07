@@ -449,7 +449,7 @@ func (a *Auth) isTokenRenewable() bool {
 	return a.opts().Key != "" || a.opts().AuthURL != "" || a.opts().AuthCallback != nil
 }
 
-func (a *Auth) newError(code int, err error) error {
+func (a *Auth) newError(code ErrorCode, err error) error {
 	return newError(code, err)
 }
 

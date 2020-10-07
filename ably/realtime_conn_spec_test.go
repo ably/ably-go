@@ -1298,7 +1298,7 @@ func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if errInfo.StatusCode != tokenErr.StatusCode || errInfo.Code != tokenErr.Code {
+	if errInfo.StatusCode != tokenErr.StatusCode || int(errInfo.Code) != tokenErr.Code {
 		t.Fatalf("expected the token error as FAILED state change reason; got: %s", err)
 	}
 }
@@ -1436,7 +1436,7 @@ func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
 		t.Fatalf("expected DISCONNECTED event; got %v", change)
 	}
 
-	if change.Reason.StatusCode != tokenErr.StatusCode || change.Reason.Code != tokenErr.Code {
+	if change.Reason.StatusCode != tokenErr.StatusCode || int(change.Reason.Code) != tokenErr.Code {
 		t.Fatalf("expected the token error as FAILED state change reason; got: %s", change.Reason)
 	}
 }
@@ -1584,7 +1584,7 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 	if !errors.As(err, &errorInfo) {
 		t.Fatal(err)
 	}
-	if expected, got := errorCode, errorInfo.Code; expected != got {
+	if expected, got := errorCode, int(errorInfo.Code); expected != got {
 		t.Fatalf("expected error code %d; got %v", expected, errorInfo)
 	}
 
@@ -1689,12 +1689,12 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		{ //(RTN16e)
 			info := err.(*ably.ErrorInfo)
 			code := 80008
-			if info.Code != code {
+			if int(info.Code) != code {
 				// verify unrecoverable-connection error set in stateChange.reason
 				t.Errorf("expected 80000 got %d", info.Code)
 			}
 			reason := client2.Connection.ErrorReason()
-			if reason.Code != code {
+			if int(reason.Code) != code {
 				// verify unrecoverable-connection error set in connection.errorReason
 				t.Errorf("expected 80000 got %d", reason.Code)
 			}
