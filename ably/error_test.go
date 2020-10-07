@@ -23,7 +23,7 @@ func TestErrorResponseWithInvalidKey(t *testing.T) {
 	err, ok := e.(*ably.ErrorInfo)
 	assert.True(t, ok, fmt.Sprintf("want e be *ably.Error; was %T", e))
 	assert.Equal(t, 400, err.StatusCode, fmt.Sprintf("want StatusCode=400; got %d", err.StatusCode))
-	assert.Equal(t, 40005, err.Code, fmt.Sprintf("want Code=40005; got %d", err.Code))
+	assert.Equal(t, ably.ErrInvalidCredential, err.Code, fmt.Sprintf("want Code=	; got %d", err.Code))
 	assert.NotNil(t, err.Unwrap())
 }
 

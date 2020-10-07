@@ -36,7 +36,7 @@ func DecodeResp(resp *http.Response, out interface{}) error {
 	return decodeResp(resp, out)
 }
 
-func ErrorCode(err error) int {
+func UnwrapErrorCode(err error) ErrorCode {
 	return code(err)
 }
 
@@ -70,7 +70,7 @@ func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }
 
-func NewErrorInfo(code int, err error) *ErrorInfo {
+func NewErrorInfo(code ErrorCode, err error) *ErrorInfo {
 	return newError(code, err)
 }
 

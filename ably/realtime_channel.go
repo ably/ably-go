@@ -460,7 +460,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	case proto.ActionDetached:
 		c.mtx.Lock()
 
-		err := error(newErrorProto(msg.Error))
+		err := error(newErrorFromProto(msg.Error))
 		switch c.state {
 		case ChannelStateDetaching:
 			c.lockSetState(ChannelStateDetached, err)
@@ -501,8 +501,8 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	case proto.ActionPresence:
 		c.Presence.processIncomingMessage(msg, "")
 	case proto.ActionError:
-		c.setState(ChannelStateFailed, newErrorProto(msg.Error))
-		c.queue.Fail(newErrorProto(msg.Error))
+		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error))
+		c.queue.Fail(newErrorFromProto(msg.Error))
 	case proto.ActionMessage:
 		c.subs.messageEnqueue(msg)
 	default:
