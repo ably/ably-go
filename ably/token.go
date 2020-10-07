@@ -4,34 +4,11 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
 	"time"
 )
-
-// Capability
-type Capability map[string][]string
-
-// ParseCapability
-func ParseCapability(capability string) (c Capability, err error) {
-	c = make(Capability)
-	err = json.Unmarshal([]byte(capability), &c)
-	return
-}
-
-// Encode
-func (c Capability) Encode() string {
-	if len(c) == 0 {
-		return ""
-	}
-	p, err := json.Marshal((map[string][]string)(c))
-	if err != nil {
-		panic(err)
-	}
-	return string(p)
-}
 
 // TokenParams
 type TokenParams struct {
@@ -41,8 +18,8 @@ type TokenParams struct {
 	// of the issuing key.
 	TTL int64 `json:"ttl,omitempty" codec:"ttl,omitempty"`
 
-	// RawCapability represents encoded access rights of the token.
-	RawCapability string `json:"capability,omitempty" codec:"capability,omitempty"`
+	// Capability represents encoded access rights of the token.
+	Capability string `json:"capability,omitempty" codec:"capability,omitempty"`
 
 	// ClientID represents a client, whom the token is generated for.
 	ClientID string `json:"clientId,omitempty" codec:"clientId,omitempty"`
@@ -50,12 +27,6 @@ type TokenParams struct {
 	// Timestamp of the token request. It's used, in conjunction with the nonce,
 	// are used to prevent token requests from being replayed.
 	Timestamp int64 `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
-}
-
-// Capability
-func (params *TokenParams) Capability() Capability {
-	c, _ := ParseCapability(params.RawCapability)
-	return c
 }
 
 // Query encodes the params to query params value. If a field of params is
@@ -68,8 +39,8 @@ func (params *TokenParams) Query() url.Values {
 	if params.TTL != 0 {
 		q.Set("ttl", strconv.FormatInt(params.TTL, 10))
 	}
-	if params.RawCapability != "" {
-		q.Set("capability", params.RawCapability)
+	if params.Capability != "" {
+		q.Set("capability", params.Capability)
 	}
 	if params.ClientID != "" {
 		q.Set("clientId", params.ClientID)
@@ -96,7 +67,7 @@ func (req *TokenRequest) sign(secret []byte) {
 	mac := hmac.New(sha256.New, secret)
 	fmt.Fprintln(mac, req.KeyName)
 	fmt.Fprintln(mac, req.TTL)
-	fmt.Fprintln(mac, req.RawCapability)
+	fmt.Fprintln(mac, req.Capability)
 	fmt.Fprintln(mac, req.ClientID)
 	fmt.Fprintln(mac, req.Timestamp)
 	fmt.Fprintln(mac, req.Nonce)
@@ -120,18 +91,12 @@ type TokenDetails struct {
 	// Issued
 	Issued int64 `json:"issued,omitempty" codec:"issued,omitempty"`
 
-	// RawCapability
-	RawCapability string `json:"capability,omitempty" codec:"capability,omitempty"`
+	// Capability
+	Capability string `json:"capability,omitempty" codec:"capability,omitempty"`
 }
 
 func (TokenDetails) IsTokener() {}
 func (TokenDetails) isTokener() {}
-
-// Capability
-func (tok *TokenDetails) Capability() Capability {
-	c, _ := ParseCapability(tok.RawCapability)
-	return c
-}
 
 func (tok *TokenDetails) expired(now time.Time) bool {
 	return tok.Expires != 0 && tok.Expires <= unixMilli(now)

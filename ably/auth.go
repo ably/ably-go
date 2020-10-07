@@ -340,8 +340,8 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 	if req.Nonce == "" {
 		req.Nonce = randomString(32)
 	}
-	if req.RawCapability == "" {
-		req.RawCapability = (Capability{"*": {"*"}}).Encode()
+	if req.Capability == "" {
+		req.Capability = `{"*":["*"]}`
 	}
 	if req.TTL == 0 {
 		req.TTL = 60 * 60 * 1000
