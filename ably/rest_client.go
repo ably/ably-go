@@ -298,7 +298,7 @@ func (f *fallbackCache) put(host string) {
 }
 
 func (c *REST) doWithHandle(r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
-	log := c.opts.Logger.Sugar()
+	log := c.opts.Logger.sugar()
 	if c.successFallbackHost == nil {
 		c.successFallbackHost = &fallbackCache{
 			duration: c.opts.fallbackRetryTimeout(),
@@ -492,7 +492,7 @@ func (c *REST) newHTTPRequest(r *request) (*http.Request, error) {
 }
 
 func (c *REST) handleResponse(resp *http.Response, out interface{}) (*http.Response, error) {
-	log := c.opts.Logger.Sugar()
+	log := c.opts.Logger.sugar()
 	log.Info("RestClient:checking valid http response")
 	if err := checkValidHTTPResponse(resp); err != nil {
 		log.Error("RestClient: failed to check valid http response ", err)

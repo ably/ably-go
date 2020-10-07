@@ -180,7 +180,7 @@ func (a *Auth) RequestToken(params *TokenParams, opts AuthOptions) (*TokenDetail
 }
 
 func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenDetails, tokReqClientID string, err error) {
-	log := a.logger().Sugar()
+	log := a.logger().sugar()
 	switch {
 	case opts != nil && opts.Token != "":
 		log.Verbose("Auth: found token in AuthOptions")
@@ -286,7 +286,7 @@ func (a *Auth) Authorize(params *TokenParams, setOpts AuthOptions) (*TokenDetail
 }
 
 func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*TokenDetails, error) {
-	log := a.logger().Sugar()
+	log := a.logger().sugar()
 	switch tok := a.token(); {
 	case tok != nil && !force && (tok.Expires == 0 || !tok.expired(a.opts().Now())):
 		return tok, nil
@@ -323,7 +323,7 @@ func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*T
 func (a *Auth) reauthorize() (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	a.logger().Sugar().Info("Auth: reauthorize")
+	a.logger().sugar().Info("Auth: reauthorize")
 	return a.authorize(a.params, nil, true)
 }
 
