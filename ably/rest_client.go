@@ -146,7 +146,7 @@ func NewREST(options ClientOptions) (*REST, error) {
 
 func (c *REST) Time() (time.Time, error) {
 	var times []int64
-	r := &Request{
+	r := &request{
 		Method: "GET",
 		Path:   "/time",
 		Out:    &times,
@@ -169,9 +169,9 @@ func (c *REST) Stats(params *PaginateParams) (*PaginatedResult, error) {
 	return newPaginatedResult(nil, paginatedRequest{typ: statType, path: "/stats", params: params, query: query(c.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
 }
 
-// Request this contains fields necessary to compose http request that will be
+// request this contains fields necessary to compose http request that will be
 // sent ably endpoints.
-type Request struct {
+type request struct {
 	Method string
 	Path   string
 	In     interface{} // value to be encoded and sent with request body
@@ -192,7 +192,7 @@ func (c *REST) Request(method string, path string, params *PaginateParams, body 
 	switch method {
 	case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
 		return newHTTPPaginatedResult(path, params, func(p string) (*http.Response, error) {
-			req := &Request{
+			req := &request{
 				Method: method,
 				Path:   p,
 				In:     body,
@@ -212,7 +212,7 @@ func (c *REST) Request(method string, path string, params *PaginateParams, body 
 }
 
 func (c *REST) get(path string, out interface{}) (*http.Response, error) {
-	r := &Request{
+	r := &request{
 		Method: "GET",
 		Path:   path,
 		Out:    out,
@@ -221,7 +221,7 @@ func (c *REST) get(path string, out interface{}) (*http.Response, error) {
 }
 
 func (c *REST) post(path string, in, out interface{}) (*http.Response, error) {
-	r := &Request{
+	r := &request{
 		Method: "POST",
 		Path:   path,
 		In:     in,
@@ -230,7 +230,7 @@ func (c *REST) post(path string, in, out interface{}) (*http.Response, error) {
 	return c.do(r)
 }
 
-func (c *REST) do(r *Request) (*http.Response, error) {
+func (c *REST) do(r *request) (*http.Response, error) {
 	return c.doWithHandle(r, c.handleResponse)
 }
 
@@ -297,7 +297,7 @@ func (f *fallbackCache) put(host string) {
 	}
 }
 
-func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
+func (c *REST) doWithHandle(r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
 	log := c.opts.Logger.Sugar()
 	if c.successFallbackHost == nil {
 		c.successFallbackHost = &fallbackCache{
@@ -305,7 +305,7 @@ func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{})
 		}
 		log.Verbosef("RestClient: setup fallback duration to %v", c.successFallbackHost.duration)
 	}
-	req, err := c.NewHTTPRequest(r)
+	req, err := c.newHTTPRequest(r)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{})
 							}
 						}
 						left = n
-						req, err := c.NewHTTPRequest(r)
+						req, err := c.newHTTPRequest(r)
 						if err != nil {
 							return nil, err
 						}
@@ -451,9 +451,9 @@ func canFallBack(code int) bool {
 		code <= http.StatusGatewayTimeout
 }
 
-// NewHTTPRequest creates a new http.Request that can be sent to ably endpoints.
+// newHTTPRequest creates a new http.Request that can be sent to ably endpoints.
 // This makes sure necessary headers are set.
-func (c *REST) NewHTTPRequest(r *Request) (*http.Request, error) {
+func (c *REST) newHTTPRequest(r *request) (*http.Request, error) {
 	var body io.Reader
 	var protocol = c.opts.protocol()
 	if r.In != nil {

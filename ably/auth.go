@@ -246,7 +246,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 		tokReq = req
 	}
 	tok = &TokenDetails{}
-	r := &Request{
+	r := &request{
 		Method: "POST",
 		Path:   "/keys/" + tokReq.KeyName + "/requestToken",
 		In:     tokReq,
