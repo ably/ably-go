@@ -128,3 +128,7 @@ func (os ClientOptions) ApplyWithDefaults() *clientOptions {
 type ConnStateChanges = connStateChanges
 
 type ChannelStateChanges = channelStateChanges
+
+func DefaultFallbackHosts() []string {
+	return defaultFallbackHosts()
+}

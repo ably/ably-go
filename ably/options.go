@@ -40,7 +40,7 @@ var defaultOptions = clientOptions{
 	After:                    ablyutil.After,
 }
 
-func DefaultFallbackHosts() []string {
+func defaultFallbackHosts() []string {
 	return []string{
 		"a.ably-realtime.com",
 		"b.ably-realtime.com",

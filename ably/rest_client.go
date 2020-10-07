@@ -347,7 +347,7 @@ func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{})
 			if canFallBack(e.StatusCode) &&
 				(strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
 					c.opts.FallbackHosts != nil) {
-				fallback := DefaultFallbackHosts()
+				fallback := defaultFallbackHosts()
 				if c.opts.FallbackHosts != nil {
 					fallback = c.opts.FallbackHosts
 				}
