@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -41,7 +42,7 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	channel := client.Channels.Get("test")
-	if err := ablytest.Wait(channel.Publish("hello", "world")); err != nil {
+	if err := channel.Publish(context.Background(), "hello", "world"); err != nil {
 		t.Fatalf("Publish()=%v", err)
 	}
 }
@@ -56,10 +57,10 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	channel1 := client1.Channels.Get("test")
 	channel2 := client2.Channels.Get("test")
 
-	if err := ablytest.Wait(channel1.Attach()); err != nil {
+	if err := channel1.Attach(context.Background()); err != nil {
 		t.Fatalf("client1: Attach()=%v", err)
 	}
-	if err := ablytest.Wait(channel2.Attach()); err != nil {
+	if err := channel2.Attach(context.Background()); err != nil {
 		t.Fatalf("client2: Attach()=%v", err)
 	}
 
@@ -75,10 +76,10 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	}
 	defer sub2.Close()
 
-	if err := ablytest.Wait(channel1.Publish("hello", "client1")); err != nil {
+	if err := channel1.Publish(context.Background(), "hello", "client1"); err != nil {
 		t.Fatalf("client1: Publish()=%v", err)
 	}
-	if err := ablytest.Wait(channel2.Publish("hello", "client2")); err != nil {
+	if err := channel2.Publish(context.Background(), "hello", "client2"); err != nil {
 		t.Fatalf("client2: Publish()=%v", err)
 	}
 
@@ -109,7 +110,7 @@ func TestRealtimeChannel_Detach(t *testing.T) {
 		t.Fatalf("channel.Subscribe()=%v", err)
 	}
 	defer sub.Close()
-	if err := ablytest.Wait(channel.Publish("hello", "world")); err != nil {
+	if err := channel.Publish(context.Background(), "hello", "world"); err != nil {
 		t.Fatalf("channel.Publish()=%v", err)
 	}
 	done := make(chan error)
@@ -126,8 +127,8 @@ func TestRealtimeChannel_Detach(t *testing.T) {
 	if state := channel.State(); state != ably.ChannelStateAttached {
 		t.Fatalf("want state=%v; got %v", ably.ChannelStateAttached, state)
 	}
-	if err := ablytest.Wait(channel.Detach()); err != nil {
-		t.Fatalf("channel.Detach()=%v", err)
+	if err := channel.Detach(context.Background()); err != nil {
+		t.Fatalf("channel.Detach(context.Background())=%v", err)
 	}
 	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
 		t.Fatalf("ablytest.FullRealtimeCloser(client).Close()=%v", err)
@@ -177,11 +178,8 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	channel.On(ably.ChannelEventAttached, attached.Receive)
 
 	res := make(chan ably.Result)
-	var attachErr error
 	go func() {
-		var r ably.Result
-		r, attachErr = channel.Attach()
-		res <- r
+		res <- ablytest.ResultFunc.Go(func() error { return channel.Attach(context.Background()) })
 	}()
 	ablytest.Before(1*time.Second).NoRecv(t, nil, attached, t.Fatalf)
 
@@ -194,9 +192,5 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	if err := ablytest.Wait(<-res, nil); err != nil {
 		t.Fatal(err)
-	}
-
-	if attachErr != nil {
-		t.Fatal(attachErr)
 	}
 }

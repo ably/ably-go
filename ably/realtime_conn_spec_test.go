@@ -193,7 +193,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 
 	channel := client.Channels.Get("channel")
 
-	if err := ablytest.Wait(channel.Attach()); err != nil {
+	if err := channel.Attach(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -329,7 +329,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 
 	channel := client.Channels.Get("channel")
 
-	if err := ablytest.Wait(channel.Attach()); err != nil {
+	if err := channel.Attach(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -458,7 +458,7 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	}
 
 	channel := client.Channels.Get("channel")
-	if err := ablytest.Wait(channel.Attach()); err != nil {
+	if err := channel.Attach(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -576,7 +576,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	}
 
 	channel := client.Channels.Get("channel")
-	if err := ablytest.Wait(channel.Attach()); err != nil {
+	if err := channel.Attach(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	chanStateChanges := make(ably.ChannelStateChanges)
@@ -704,7 +704,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	}
 
 	channel := client.Channels.Get("channel")
-	if err := ablytest.Wait(channel.Attach()); err != nil {
+	if err := channel.Attach(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	chanStateChanges := make(ably.ChannelStateChanges, 18)
@@ -815,7 +815,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 	}
 
 	channel := client.Channels.Get("channel")
-	if _, err := channel.Attach(); err != nil {
+	if err := channel.Attach(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -913,7 +913,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	}
 
 	channel := client.Channels.Get("channel")
-	if err := ablytest.Wait(channel.Attach()); err != nil {
+	if err := channel.Attach(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	chanStateChanges := make(ably.ChannelStateChanges, 1)
@@ -1001,7 +1001,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 	}
 
 	channel := client.Channels.Get("test")
-	err := ablytest.Wait(channel.Attach())
+	err := channel.Attach(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1153,19 +1153,13 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	// Get channels to ATTACHING, ATTACHED and DETACHED. (TODO: SUSPENDED)
 
 	attaching := c.Channels.Get("attaching")
-	_, err = attaching.Attach()
-	if err != nil {
-		t.Fatal(err)
-	}
+	_ = ablytest.ResultFunc.Go(func() error { return attaching.Attach(context.Background()) })
 	if msg := <-out; msg.Action != proto.ActionAttach {
 		t.Fatalf("expected ATTACH, got %v", msg)
 	}
 
 	attached := c.Channels.Get("attached")
-	attachWaiter, err := attached.Attach()
-	if err != nil {
-		t.Fatal(err)
-	}
+	attachWaiter := ablytest.ResultFunc.Go(func() error { return attached.Attach(context.Background()) })
 	if msg := <-out; msg.Action != proto.ActionAttach {
 		t.Fatalf("expected ATTACH, got %v", msg)
 	}
@@ -1176,10 +1170,7 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	ablytest.Wait(attachWaiter, err)
 
 	detached := c.Channels.Get("detached")
-	attachWaiter, err = detached.Attach()
-	if err != nil {
-		t.Fatal(err)
-	}
+	attachWaiter = ablytest.ResultFunc.Go(func() error { return detached.Attach(context.Background()) })
 	if msg := <-out; msg.Action != proto.ActionAttach {
 		t.Fatalf("expected ATTACH, got %v", msg)
 	}
@@ -1188,10 +1179,7 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 		Channel: "detached",
 	}
 	ablytest.Wait(attachWaiter, err)
-	detachWaiter, err := detached.Detach()
-	if err != nil {
-		t.Fatal(err)
-	}
+	detachWaiter := ablytest.ResultFunc.Go(func() error { return detached.Detach(context.Background()) })
 	if msg := <-out; msg.Action != proto.ActionDetach {
 		t.Fatalf("expected DETACH, got %v", msg)
 	}
@@ -1547,10 +1535,7 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 	// Get a channel to ATTACHED.
 
 	channel := c.Channels.Get("test")
-	attachWaiter, err := channel.Attach()
-	if err != nil {
-		t.Fatal(err)
-	}
+	attachWaiter := ablytest.ResultFunc.Go(func() error { return channel.Attach(context.Background()) })
 
 	_ = <-out // consume ATTACH
 
@@ -1611,10 +1596,10 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		t.Fatal(err)
 	}
 	channel := c.Channels.Get("channel")
-	if err := ablytest.Wait(channel.Attach()); err != nil {
+	if err := channel.Attach(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := ablytest.Wait(channel.Publish("name", "data")); err != nil {
+	if err := channel.Publish(context.Background(), "name", "data"); err != nil {
 		t.Fatal(err)
 	}
 	prevMsgSerial := c.Connection.MsgSerial()

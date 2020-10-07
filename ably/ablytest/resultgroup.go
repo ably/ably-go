@@ -65,6 +65,10 @@ func (rg *ResultGroup) Add(res ably.Result, err error) {
 	}()
 }
 
+func (rg *ResultGroup) GoAdd(f ResultFunc) {
+	rg.Add(f.Go(), nil)
+}
+
 func (rg *ResultGroup) Wait() error {
 	if rg.err != nil {
 		return rg.err
@@ -132,4 +136,14 @@ type ResultFunc func() error
 
 func (f ResultFunc) Wait() error {
 	return f()
+}
+
+func (f ResultFunc) Go() ably.Result {
+	err := make(chan error)
+	go func() {
+		err <- f()
+	}()
+	return ResultFunc(func() error {
+		return <-err
+	})
 }

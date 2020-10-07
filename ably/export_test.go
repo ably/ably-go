@@ -44,7 +44,7 @@ func UnwrapErrorCode(err error) ErrorCode {
 // the attaching failed.
 func (ch *Channels) GetAndAttach(name string) *RealtimeChannel {
 	channel := ch.Get(name)
-	if err := wait(channel.Attach()); err != nil {
+	if err := channel.Attach(context.TODO()); err != nil {
 		panic(`attach to "` + name + `" failed: ` + err.Error())
 	}
 	return channel

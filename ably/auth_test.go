@@ -2,6 +2,7 @@ package ably_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -575,12 +576,12 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			t.Errorf("%d: Subscribe()=%v", i, err)
 			continue
 		}
-		msg := []*proto.Message{{
+		msg := []ably.Message{{
 			ClientID: cas.publishAs,
 			Name:     "test",
 			Data:     "payload",
 		}}
-		err = ablytest.Wait(channel.PublishAll(msg))
+		err = channel.PublishAll(context.Background(), msg)
 		if cas.rejected {
 			if err == nil {
 				t.Errorf("%d: expected message to be rejected %#v", i, cas)
@@ -792,7 +793,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
-	if err := ablytest.Wait(client.Channels.Get("test").Publish("name", "value")); err != nil {
+	if err := client.Channels.Get("test").Publish(context.Background(), "name", "value"); err != nil {
 		t.Fatalf("Publish()=%v", err)
 	}
 	if clientID := client.Auth.ClientID(); clientID != explicitClientID {

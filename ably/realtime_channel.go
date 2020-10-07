@@ -103,18 +103,16 @@ func (ch *Channels) All() []*RealtimeChannel {
 	return chans
 }
 
-// Release closes a channel looked up by the name.
-//
-// It is safe to call Release from multiple goroutines - if a channel happened
-// to be already concurrently released, the method is a nop.
-func (ch *Channels) Release(name string) error {
+// Release releases all resources associated with a channel, detaching it first
+// if necessary. See RealtimeChannel.Detach for details.
+func (ch *Channels) Release(ctx context.Context, name string) error {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
 	c, ok := ch.chans[name]
 	if !ok {
 		return nil
 	}
-	err := wait(c.Detach())
+	err := c.Detach(ctx)
 	if err != nil {
 		return err
 	}
@@ -175,15 +173,19 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	}
 }
 
-// Attach initiates attach request, which is being processed on a separate
-// goroutine.
+// Attach attaches the Realtime connection to the channel, after which it starts
+// receiving messages from it.
 //
-// If channel is already attached, this method is a nop.
-// If sending attach message failed, the returned error value is non-nil.
-// If sending attach message succeed, the returned Result value can be used
-// to wait until ack from server is received.
-func (c *RealtimeChannel) Attach() (Result, error) {
-	return c.attach(true)
+// If the context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached anyway.
+func (c *RealtimeChannel) Attach(ctx context.Context) error {
+	res, err := c.attach(true)
+	if err != nil {
+		return err
+	}
+	// TODO: Don't ignore context.
+	return res.Wait()
 }
 
 func (c *RealtimeChannel) attach(result bool) (Result, error) {
@@ -258,15 +260,19 @@ func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 	return res, nil
 }
 
-// Detach initiates detach request, which is being processed on a separate
-// goroutine.
+// Detach detaches the Realtime connection to the channel, after which it stops
+// receiving messages from it.
 //
-// If channel is already detached, this method is a nop.
-// If sending detach message failed, the returned error value is non-nil.
-// If sending detach message succeed, the returned Result value can be used
-// to wait until ack from server is received.
-func (c *RealtimeChannel) Detach() (Result, error) {
-	return c.detach(true)
+// If the context is canceled before the detach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be detached anyway.
+func (c *RealtimeChannel) Detach(ctx context.Context) error {
+	res, err := c.detach(true)
+	if err != nil {
+		return err
+	}
+	// TODO: Don't ignore context.
+	return res.Wait()
 }
 
 func (c *RealtimeChannel) detach(result bool) (Result, error) {
@@ -383,24 +389,28 @@ func (em ChannelEventEmitter) OffAll() {
 	em.emitter.OffAll()
 }
 
-// Publish publishes a message on the channel, which is send on separate
-// goroutine. Publish does not block.
+// Publish publishes a message on the channel.
 //
-// This implicitly attaches the channel if it's not already attached.
-func (c *RealtimeChannel) Publish(name string, data interface{}) (Result, error) {
-	return c.PublishAll([]*proto.Message{{Name: name, Data: data}})
+// This implicitly attaches the channel if it's not already attached. If the
+// context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached and the message published anyway.
+func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interface{}) error {
+	return c.PublishAll(ctx, []Message{{Name: name, Data: data}})
 }
 
 // PublishAll publishes all given messages on the channel at once.
-// PublishAll does not block.
 //
-// This implicitly attaches the channel if it's not already attached.
-func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) {
+// This implicitly attaches the channel if it's not already attached. If the
+// context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached and the message published anyway.
+func (c *RealtimeChannel) PublishAll(ctx context.Context, messages []Message) error {
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
 		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
 			// Spec RSL1g3,RSL1g4
-			return nil, fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
+			return fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
 		}
 	}
 	msg := &proto.ProtocolMessage{
@@ -408,7 +418,12 @@ func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) 
 		Channel:  c.Name,
 		Messages: messages,
 	}
-	return c.send(msg)
+	res, err := c.send(msg)
+	if err != nil {
+		return err
+	}
+	// TODO: Don't ignore context.
+	return res.Wait()
 }
 
 // History gives the channel's message history according to the given parameters.
