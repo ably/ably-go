@@ -4,6 +4,7 @@ vet:
 	go vet ./ably ./scripts
 
 build:
+	go generate ./...
 	go build ./...
 
 test: submodules
