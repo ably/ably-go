@@ -3,6 +3,7 @@ package ably
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -47,38 +48,26 @@ func newRestChannel(name string, client *REST) *RestChannel {
 	return c
 }
 
-// PublishV12 publishes a message on the channel.
-func (c *RestChannel) PublishV12(ctx context.Context, name string, data interface{}, params ...map[string]string) error {
-	return c.PublishAllV12(ctx, []Message{
+// Publish publishes a message on the channel.
+func (c *RestChannel) Publish(ctx context.Context, name string, data interface{}) error {
+	return c.PublishAll(ctx, []Message{
 		{Name: name, Data: data},
-	}, params...)
-}
-
-func (c *RestChannel) Publish(name string, data interface{}) error {
-	messages := []*proto.Message{
-		{Name: name, Data: data},
-	}
-	return c.PublishAll(messages)
+	}, nil)
 }
 
 // Message is what Ably channels send and receive.
-type Message proto.Message
+type Message = proto.Message
 
-// PublishAllV12 publishes multiple messages in a batch.
-func (c *RestChannel) PublishAllV12(ctx context.Context, messages []Message, params ...map[string]string) error {
-	ctx = context.TODO()
+// PublishAll publishes multiple messages in a batch.
+//
+// The params, if any, will be set as additional query parameters in the
+// resulting HTTP request to the REST API.
+func (c *RestChannel) PublishAll(ctx context.Context, messages []Message, params map[string]string) error {
+	// TODO: Use context
 	msgPtrs := make([]*proto.Message, 0, len(messages))
 	for _, m := range messages {
 		msgPtrs = append(msgPtrs, (*proto.Message)(&m))
 	}
-	// TODO: Merge params together and actually use them.
-	return c.PublishAll(msgPtrs)
-}
-
-// PublishAll sends multiple messages in the same http call.
-// This is the more efficient way of transmitting a batch of messages
-// using the Rest API.
-func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 	if c.options != nil {
 		for _, v := range messages {
 			v.ChannelOptions = c.options
@@ -115,7 +104,15 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 			}
 		}
 	}
-	res, err := c.client.post(c.baseURL+"/messages", messages, nil)
+	var query string
+	if len(params) > 0 {
+		queryParams := url.Values{}
+		for k, v := range params {
+			queryParams.Set(k, v)
+		}
+		query = "?" + queryParams.Encode()
+	}
+	res, err := c.client.post(c.baseURL+"/messages"+query, messages, nil)
 	if err != nil {
 		return err
 	}

@@ -228,7 +228,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = rest.Channels.Get("channel").Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +360,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +493,7 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -610,7 +610,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -733,7 +733,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -841,7 +841,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -942,7 +942,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish("name", "data")
+	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1026,7 +1026,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 3; i++ {
-		err := rest.Channels.Get("test").Publish("test", fmt.Sprintf("msg %d", i))
+		err := rest.Channels.Get("test").Publish(context.Background(), "test", fmt.Sprintf("msg %d", i))
 		if err != nil {
 			t.Fatalf("%d: %v", i, err)
 		}

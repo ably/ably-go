@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -61,7 +62,7 @@ func TestRestClient(t *testing.T) {
 			if err != nil {
 				ts.Fatal(err)
 			}
-			err = client.Channels.Get("test").Publish("ping", "pong")
+			err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -95,7 +96,7 @@ func TestRestClient(t *testing.T) {
 			if err != nil {
 				ts.Fatal(err)
 			}
-			err = client.Channels.Get("test").Publish("ping", "pong")
+			err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -291,7 +292,7 @@ func TestRest_hostfallback(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		err = client.Channels.Get("test").Publish("ping", "pong")
+		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
 		if err == nil {
 			ts.Error("expected an error")
 		}
@@ -456,7 +457,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 			ts.Fatal(err)
 		}
 		channel := client.Channels.Get("remember_fallback_host")
-		err = channel.Publish("ping", "pong")
+		err = channel.Publish(context.Background(), "ping", "pong")
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -467,7 +468,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		retryCount = 0
 
 		// the same cached host is used again
-		err = channel.Publish("pong", "ping")
+		err = channel.Publish(context.Background(), "pong", "ping")
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -551,7 +552,7 @@ func TestFixConnLeak_ISSUE89(t *testing.T) {
 	}
 	channel := client.Channels.Get("issue89")
 	for i := 0; i < 10; i++ {
-		err := channel.Publish(fmt.Sprintf("msg_%d", i), fmt.Sprint(i))
+		err := channel.Publish(context.Background(), fmt.Sprintf("msg_%d", i), fmt.Sprint(i))
 		if err != nil {
 			t.Error(err)
 		}
