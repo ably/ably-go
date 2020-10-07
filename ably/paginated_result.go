@@ -132,7 +132,7 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 	p.statusCode = resp.StatusCode
 	p.success = 200 <= p.statusCode && p.statusCode < 300
 	copyHeader(p.respHeaders, resp.Header)
-	if h := p.respHeaders.Get(AblyErrorCodeHeader); h != "" {
+	if h := p.respHeaders.Get(proto.AblyErrorCodeHeader); h != "" {
 		i, err := strconv.Atoi(h)
 		if err != nil {
 			return nil, err
@@ -141,7 +141,7 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 	} else if !p.success {
 		return nil, malformedPaginatedResponseError(resp)
 	}
-	if h := p.respHeaders.Get(AblyErrormessageHeader); h != "" {
+	if h := p.respHeaders.Get(proto.AblyErrormessageHeader); h != "" {
 		p.errorMessage = h
 	} else if !p.success {
 		return nil, malformedPaginatedResponseError(resp)

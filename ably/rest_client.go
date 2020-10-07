@@ -30,21 +30,6 @@ var (
 	arrayTyp    = reflect.TypeOf((*[]interface{})(nil)).Elem()
 )
 
-// constants for rsc7
-const (
-	AblyVersionHeader      = "X-Ably-Version"
-	AblyLibHeader          = "X-Ably-Lib"
-	AblyErrorCodeHeader    = "X-Ably-Errorcode"
-	AblyErrormessageHeader = "X-Ably-Errormessage"
-	LibraryVersion         = "1.1.5"
-	LibraryName            = "ably-go"
-	LibraryString          = LibraryName + "-" + LibraryVersion
-	AblyVersion            = "1.0"
-	AblyClientIDHeader     = "X-Ably-ClientId"
-)
-
-const HostHeader = "Host"
-
 func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
 	return func(path string) (*http.Response, error) {
 		return fn(path, nil)
@@ -401,7 +386,7 @@ func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{})
 						log.Infof("RestClient:  chose fallback host=%q ", h)
 						req.URL.Host = h
 						req.Host = ""
-						req.Header.Set(HostHeader, h)
+						req.Header.Set(proto.HostHeader, h)
 						if log.Is(LogVerbose) {
 							b, err := httputil.DumpRequest(req, true)
 							if err != nil {
@@ -470,9 +455,9 @@ func canFallBack(code int) bool {
 // This makes sure necessary headers are set.
 func (c *REST) NewHTTPRequest(r *Request) (*http.Request, error) {
 	var body io.Reader
-	var proto = c.opts.protocol()
+	var protocol = c.opts.protocol()
 	if r.In != nil {
-		p, err := encode(proto, r.In)
+		p, err := encode(protocol, r.In)
 		if err != nil {
 			return nil, newError(ErrProtocolError, err)
 		}
@@ -484,18 +469,18 @@ func (c *REST) NewHTTPRequest(r *Request) (*http.Request, error) {
 		return nil, newError(ErrInternalError, err)
 	}
 	if body != nil {
-		req.Header.Set("Content-Type", proto) //spec RSC19c
+		req.Header.Set("Content-Type", protocol) //spec RSC19c
 	}
 	if r.header != nil {
 		copyHeader(req.Header, r.header)
 	}
-	req.Header.Set("Accept", proto) //spec RSC19c
-	req.Header.Set(AblyVersionHeader, AblyVersion)
-	req.Header.Set(AblyLibHeader, LibraryString)
+	req.Header.Set("Accept", protocol) //spec RSC19c
+	req.Header.Set(proto.AblyVersionHeader, proto.AblyVersion)
+	req.Header.Set(proto.AblyLibHeader, proto.LibraryString)
 	if c.opts.ClientID != "" && c.Auth.method == authBasic {
 		// References RSA7e2
 		h := base64.StdEncoding.EncodeToString([]byte(c.opts.ClientID))
-		req.Header.Set(AblyClientIDHeader, h)
+		req.Header.Set(proto.AblyClientIDHeader, h)
 	}
 	if !r.NoAuth {
 		//spec RSC19b

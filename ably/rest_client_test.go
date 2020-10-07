@@ -246,9 +246,9 @@ func TestRSC7(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		h := req.Header.Get(ably.AblyVersionHeader)
-		if h != ably.AblyVersion {
-			t.Errorf("expected %s got %s", ably.AblyVersion, h)
+		h := req.Header.Get(proto.AblyVersionHeader)
+		if h != proto.AblyVersion {
+			t.Errorf("expected %s got %s", proto.AblyVersion, h)
 		}
 	})
 	t.Run("must set lib header", func(ts *testing.T) {
@@ -256,9 +256,9 @@ func TestRSC7(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		h := req.Header.Get(ably.AblyLibHeader)
-		if h != ably.LibraryString {
-			t.Errorf("expected %s got %s", ably.LibraryString, h)
+		h := req.Header.Get(proto.AblyLibHeader)
+		if h != proto.LibraryString {
+			t.Errorf("expected %s got %s", proto.LibraryString, h)
 		}
 	})
 }
