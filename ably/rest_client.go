@@ -30,7 +30,7 @@ var (
 	arrayTyp    = reflect.TypeOf((*[]interface{})(nil)).Elem()
 )
 
-func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
+func query(fn func(string, interface{}) (*http.Response, error)) queryFunc {
 	return func(path string) (*http.Response, error) {
 		return fn(path, nil)
 	}

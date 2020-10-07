@@ -26,9 +26,9 @@ func (err errInvalidType) Error() string {
 	return "requested value of incompatible type: " + err.typ.String()
 }
 
-// QueryFunc queries the given URL and gives non-nil HTTP response if no error
+// queryFunc queries the given URL and gives non-nil HTTP response if no error
 // occurred.
-type QueryFunc func(url string) (*http.Response, error)
+type queryFunc func(url string) (*http.Response, error)
 
 // PaginatedResult represents a single page coming back from the REST API.
 // Any call to create a new page will generate a new instance.
@@ -52,7 +52,7 @@ type paginatedRequest struct {
 	typ       reflect.Type
 	path      string
 	params    *PaginateParams
-	query     QueryFunc
+	query     queryFunc
 	logger    *LoggerOptions
 	respCheck func(*http.Response) error
 	decoder   func(*proto.ChannelOptions, reflect.Type, *http.Response) (interface{}, error)
