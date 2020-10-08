@@ -125,7 +125,7 @@ func TestRestChannel(t *testing.T) {
 
 	t.Run("PublishAll", func(ts *testing.T) {
 		encodingRestChannel := client.Channels.Get("this?is#an?encoding#channel")
-		messages := []ably.Message{
+		messages := []*ably.Message{
 			{Name: "send", Data: "test data 1"},
 			{Name: "send", Data: "test data 2"},
 		}
@@ -236,7 +236,7 @@ func TestIdempotentPublishing(t *testing.T) {
 	t.Run("when ID is included (#RSL1k2, #RSL1k5)", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_2")
 		for range make([]struct{}, 3) {
-			err := channel.PublishAll(context.Background(), []ably.Message{
+			err := channel.PublishAll(context.Background(), []*ably.Message{
 				{
 					ID:   randomStr,
 					Data: randomStr,
@@ -263,7 +263,7 @@ func TestIdempotentPublishing(t *testing.T) {
 
 	t.Run("multiple messages in one publish operation (#RSL1k3)", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_3")
-		err := channel.PublishAll(context.Background(), []ably.Message{
+		err := channel.PublishAll(context.Background(), []*ably.Message{
 			{
 				ID:   randomStr,
 				Data: randomStr,
@@ -288,9 +288,9 @@ func TestIdempotentPublishing(t *testing.T) {
 
 	t.Run("multiple messages in one publish operation with IDs following the required format described in RSL1k1 (#RSL1k3)", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_4")
-		var m []ably.Message
+		var m []*ably.Message
 		for i := 0; i < 3; i++ {
-			m = append(m, ably.Message{
+			m = append(m, &ably.Message{
 				ID: fmt.Sprintf("%s:%d", randomStr, i),
 			})
 		}
@@ -370,7 +370,7 @@ func TestIdempotentPublishing(t *testing.T) {
 	t.Run("publishing a batch of messages", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_6")
 		name := "event"
-		err := channel.PublishAll(context.Background(), []ably.Message{
+		err := channel.PublishAll(context.Background(), []*ably.Message{
 			{Name: name},
 			{Name: name},
 			{Name: name},
@@ -488,7 +488,7 @@ func TestIdempotent_retry(t *testing.T) {
 		ts.Run("or multiple messages in one publish operation'", func(ts *testing.T) {
 			retryCount = 0
 			channel := client.Channels.Get("idempotent_test_fallback_1")
-			msgs := []ably.Message{
+			msgs := []*ably.Message{
 				{Data: randomStr},
 				{Data: randomStr},
 				{Data: randomStr},
@@ -524,10 +524,10 @@ func TestRSL1f1(t *testing.T) {
 	}
 	channel := client.Channels.Get("RSL1f")
 	id := "any_client_id"
-	var msgs []ably.Message
+	var msgs []*ably.Message
 	size := 10
 	for i := 0; i < size; i++ {
-		msgs = append(msgs, ably.Message{
+		msgs = append(msgs, &ably.Message{
 			ClientID: id,
 			Data:     fmt.Sprint(i),
 		})
@@ -569,7 +569,7 @@ func TestRSL1g(t *testing.T) {
 	}
 	t.Run("RSL1g1b", func(ts *testing.T) {
 		channel := client.Channels.Get("RSL1g1b")
-		err := channel.PublishAll(context.Background(), []ably.Message{
+		err := channel.PublishAll(context.Background(), []*ably.Message{
 			{Name: "some 1"},
 			{Name: "some 2"},
 			{Name: "some 3"},
@@ -593,7 +593,7 @@ func TestRSL1g(t *testing.T) {
 	})
 	t.Run("RSL1g2", func(ts *testing.T) {
 		channel := client.Channels.Get("RSL1g2")
-		err := channel.PublishAll(context.Background(), []ably.Message{
+		err := channel.PublishAll(context.Background(), []*ably.Message{
 			{Name: "1", ClientID: clientID},
 			{Name: "2", ClientID: clientID},
 			{Name: "3", ClientID: clientID},
@@ -617,7 +617,7 @@ func TestRSL1g(t *testing.T) {
 	})
 	t.Run("RSL1g3", func(ts *testing.T) {
 		channel := client.Channels.Get("RSL1g3")
-		err := channel.PublishAll(context.Background(), []ably.Message{
+		err := channel.PublishAll(context.Background(), []*ably.Message{
 			{Name: "1", ClientID: clientID},
 			{Name: "2", ClientID: "other client"},
 			{Name: "3", ClientID: clientID},

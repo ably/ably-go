@@ -26,7 +26,7 @@ type RealtimePresence struct {
 	serial         string
 	messageEmitter *eventEmitter
 	channel        *RealtimeChannel
-	members        map[string]proto.PresenceMessage
+	members        map[string]*proto.PresenceMessage
 	stale          map[string]struct{}
 	state          proto.PresenceAction
 	syncMtx        sync.Mutex
@@ -37,7 +37,7 @@ func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	pres := &RealtimePresence{
 		messageEmitter: newEventEmitter(channel.logger()),
 		channel:        channel,
-		members:        make(map[string]proto.PresenceMessage),
+		members:        make(map[string]*proto.PresenceMessage),
 		syncState:      syncInitial,
 	}
 	// Lock syncMtx to make all callers to Get(true) wait until the presence
@@ -56,7 +56,7 @@ func (pres *RealtimePresence) verifyChanState() error {
 	}
 }
 
-func (pres *RealtimePresence) send(msg proto.PresenceMessage) (Result, error) {
+func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
 	if _, err := pres.channel.attach(false); err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (pres *RealtimePresence) send(msg proto.PresenceMessage) (Result, error) {
 	protomsg := &proto.ProtocolMessage{
 		Action:   proto.ActionPresence,
 		Channel:  pres.channel.Name,
-		Presence: []proto.PresenceMessage{msg},
+		Presence: []*proto.PresenceMessage{msg},
 	}
 	return pres.channel.send(protomsg)
 }
@@ -153,7 +153,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 		pres.syncStart(syncSerial)
 	}
 	// Filter out old messages by their timestamp.
-	messages := make([]proto.PresenceMessage, 0, len(msg.Presence))
+	messages := make([]*proto.PresenceMessage, 0, len(msg.Presence))
 	// Update presence map / channel's member state.
 	for _, member := range msg.Presence {
 		memberKey := member.ConnectionID + member.ClientID
@@ -194,7 +194,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 		case proto.PresenceUpdate:
 			action = PresenceActionUpdate
 		}
-		pres.messageEmitter.Emit(action, subscriptionPresenceMessage(msg))
+		pres.messageEmitter.Emit(action, (*subscriptionPresenceMessage)(msg))
 	}
 }
 
@@ -202,7 +202,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 //
 // If wait is true it blocks until undergoing sync operation completes.
 // If wait is false or sync already completed, the function returns immediately.
-func (pres *RealtimePresence) Get(wait bool) ([]proto.PresenceMessage, error) {
+func (pres *RealtimePresence) Get(wait bool) ([]*proto.PresenceMessage, error) {
 	if _, err := pres.channel.attach(false); err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (pres *RealtimePresence) Get(wait bool) ([]proto.PresenceMessage, error) {
 	}
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
-	members := make([]proto.PresenceMessage, 0, len(pres.members))
+	members := make([]*proto.PresenceMessage, 0, len(pres.members))
 	for _, member := range pres.members {
 		members = append(members, member)
 	}
@@ -241,7 +241,7 @@ type PresenceMessage = proto.PresenceMessage
 
 type subscriptionPresenceMessage PresenceMessage
 
-func (subscriptionPresenceMessage) isEmitterData() {}
+func (*subscriptionPresenceMessage) isEmitterData() {}
 
 // Subscribe registers a presence message handler to be called with each
 // presence message with the given action received from the channel.
@@ -253,7 +253,7 @@ func (subscriptionPresenceMessage) isEmitterData() {}
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
-func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceAction, handle func(PresenceMessage)) (unsubscribe func(), err error) {
+func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceAction, handle func(*PresenceMessage)) (unsubscribe func(), err error) {
 	res, err := pres.channel.attach(true)
 	if err != nil {
 		return nil, err
@@ -264,7 +264,7 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 		return nil, err
 	}
 	return pres.messageEmitter.On(action, func(message emitterData) {
-		handle(PresenceMessage(message.(subscriptionPresenceMessage)))
+		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
 	}), nil
 }
 
@@ -278,7 +278,7 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
-func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(PresenceMessage)) (unsubscribe func(), err error) {
+func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*PresenceMessage)) (unsubscribe func(), err error) {
 	res, err := pres.channel.attach(true)
 	if err != nil {
 		return nil, err
@@ -289,7 +289,7 @@ func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(Pres
 		return nil, err
 	}
 	return pres.messageEmitter.OnAll(func(message emitterData) {
-		handle(PresenceMessage(message.(subscriptionPresenceMessage)))
+		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
 	}), nil
 }
 
@@ -337,7 +337,7 @@ func (pres *RealtimePresence) EnterClient(clientID string, data interface{}) (Re
 	}
 	msg.Data = data
 	msg.ClientID = clientID
-	return pres.send(msg)
+	return pres.send(&msg)
 }
 
 func nonnil(a, b interface{}) interface{} {
@@ -365,7 +365,7 @@ func (pres *RealtimePresence) UpdateClient(clientID string, data interface{}) (R
 	}
 	msg.ClientID = clientID
 	msg.Data = data
-	return pres.send(msg)
+	return pres.send(&msg)
 }
 
 // LeaveClient announces the given clientID leave the associated channel altogether
@@ -386,7 +386,7 @@ func (pres *RealtimePresence) LeaveClient(clientID string, data interface{}) (Re
 	}
 	msg.ClientID = clientID
 	msg.Data = data
-	return pres.send(msg)
+	return pres.send(&msg)
 }
 
 func (pres *RealtimePresence) auth() *Auth {

@@ -12,7 +12,7 @@ import (
 	"github.com/ably/ably-go/ably/ablytest"
 )
 
-func contains(members []ably.PresenceMessage, clients ...string) error {
+func contains(members []*ably.PresenceMessage, clients ...string) error {
 	lookup := make(map[string]struct{}, len(members))
 	for _, member := range members {
 		lookup[member.ClientID] = struct{}{}
@@ -88,7 +88,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	if err := rg.Wait(); err != nil {
 		t.Fatalf("rg.Wait()=%v", err)
 	}
-	members2 := make([]ably.PresenceMessage, 250)
+	members2 := make([]*ably.PresenceMessage, 250)
 	tout := time.After(250 * ablytest.Timeout)
 
 	for i := range members2 {

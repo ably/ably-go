@@ -15,7 +15,7 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
-func expectMsg(ch <-chan proto.Message, name string, data interface{}, t time.Duration, received bool) error {
+func expectMsg(ch <-chan *proto.Message, name string, data interface{}, t time.Duration, received bool) error {
 	select {
 	case msg := <-ch:
 		if !received {

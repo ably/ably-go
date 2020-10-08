@@ -580,7 +580,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			t.Errorf("%d:.Subscribe(context.Background())=%v", i, err)
 			continue
 		}
-		msg := []ably.Message{{
+		msg := []*ably.Message{{
 			ClientID: cas.publishAs,
 			Name:     "test",
 			Data:     "payload",

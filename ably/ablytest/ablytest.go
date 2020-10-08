@@ -94,13 +94,13 @@ func reflectContains(s, sub reflect.Value) bool {
 	return false
 }
 
-type MessageChannel chan ably.Message
+type MessageChannel chan *ably.Message
 
-func (ch MessageChannel) Receive(m ably.Message) {
+func (ch MessageChannel) Receive(m *ably.Message) {
 	ch <- m
 }
 
-func ReceiveMessages(channel *ably.RealtimeChannel, name string) (messages <-chan ably.Message, unsubscribe func(), err error) {
+func ReceiveMessages(channel *ably.RealtimeChannel, name string) (messages <-chan *ably.Message, unsubscribe func(), err error) {
 	ch := make(MessageChannel, 100)
 	if name == "" {
 		unsubscribe, err = channel.SubscribeAll(context.Background(), ch.Receive)
@@ -110,13 +110,13 @@ func ReceiveMessages(channel *ably.RealtimeChannel, name string) (messages <-cha
 	return ch, unsubscribe, err
 }
 
-type PresenceChannel chan ably.PresenceMessage
+type PresenceChannel chan *ably.PresenceMessage
 
-func (ch PresenceChannel) Receive(m ably.PresenceMessage) {
+func (ch PresenceChannel) Receive(m *ably.PresenceMessage) {
 	ch <- m
 }
 
-func ReceivePresenceMessages(channel *ably.RealtimeChannel, action *ably.PresenceAction) (messages <-chan ably.PresenceMessage, unsubscribe func(), err error) {
+func ReceivePresenceMessages(channel *ably.RealtimeChannel, action *ably.PresenceAction) (messages <-chan *ably.PresenceMessage, unsubscribe func(), err error) {
 	ch := make(PresenceChannel, 100)
 	if action == nil {
 		unsubscribe, err = channel.Presence.SubscribeAll(context.Background(), ch.Receive)

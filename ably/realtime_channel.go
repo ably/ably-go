@@ -309,7 +309,7 @@ func (subscriptionName) isEmitterEvent() {}
 
 type subscriptionMessage Message
 
-func (subscriptionMessage) isEmitterData() {}
+func (*subscriptionMessage) isEmitterData() {}
 
 // Subscribe registers a message handler to be called with each message with the
 // given name received from the channel.
@@ -321,7 +321,7 @@ func (subscriptionMessage) isEmitterData() {}
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
-func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(Message)) (unsubscribe func(), err error) {
+func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(*Message)) (unsubscribe func(), err error) {
 	res, err := c.attach(true)
 	if err != nil {
 		return nil, err
@@ -332,7 +332,7 @@ func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle fun
 		return nil, err
 	}
 	return c.messageEmitter.On(subscriptionName(name), func(message emitterData) {
-		handle(Message(message.(subscriptionMessage)))
+		handle((*Message)(message.(*subscriptionMessage)))
 	}), nil
 }
 
@@ -346,7 +346,7 @@ func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle fun
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
-func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(Message)) (unsubscribe func(), err error) {
+func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message)) (unsubscribe func(), err error) {
 	res, err := c.attach(true)
 	if err != nil {
 		return nil, err
@@ -357,7 +357,7 @@ func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(Message)
 		return nil, err
 	}
 	return c.messageEmitter.OnAll(func(message emitterData) {
-		handle(Message(message.(subscriptionMessage)))
+		handle((*Message)(message.(*subscriptionMessage)))
 	}), nil
 }
 
@@ -428,7 +428,7 @@ func (em ChannelEventEmitter) OffAll() {
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached and the message published anyway.
 func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interface{}) error {
-	return c.PublishAll(ctx, []Message{{Name: name, Data: data}})
+	return c.PublishAll(ctx, []*Message{{Name: name, Data: data}})
 }
 
 // PublishAll publishes all given messages on the channel at once.
@@ -437,7 +437,7 @@ func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interfa
 // context is canceled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached and the message published anyway.
-func (c *RealtimeChannel) PublishAll(ctx context.Context, messages []Message) error {
+func (c *RealtimeChannel) PublishAll(ctx context.Context, messages []*Message) error {
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
 		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
@@ -552,7 +552,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 		c.queue.Fail(newErrorFromProto(msg.Error))
 	case proto.ActionMessage:
 		for _, msg := range msg.Messages {
-			c.messageEmitter.Emit(subscriptionName(msg.Name), subscriptionMessage(msg))
+			c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
 		}
 	default:
 	}

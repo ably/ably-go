@@ -75,8 +75,8 @@ func coerceInt64(v interface{}) int64 {
 }
 
 type ProtocolMessage struct {
-	Messages          []Message          `json:"messages,omitempty" codec:"messages,omitempty"`
-	Presence          []PresenceMessage  `json:"presence,omitempty" codec:"presence,omitempty"`
+	Messages          []*Message         `json:"messages,omitempty" codec:"messages,omitempty"`
+	Presence          []*PresenceMessage `json:"presence,omitempty" codec:"presence,omitempty"`
 	ID                string             `json:"id,omitempty" codec:"id,omitempty"`
 	ApplicationID     string             `json:"applicationId,omitempty" codec:"applicationId,omitempty"`
 	ConnectionID      string             `json:"connectionId,omitempty" codec:"connectionId,omitempty"`
@@ -109,7 +109,7 @@ func (p *ProtocolMessage) FromMap(ctx map[string]interface{}) {
 		for _, v := range i {
 			var msg Message
 			msg.FromMap(v.(map[string]interface{}))
-			p.Messages = append(p.Messages, msg)
+			p.Messages = append(p.Messages, &msg)
 		}
 	}
 	if v, ok := ctx["presence"]; ok {
@@ -117,7 +117,7 @@ func (p *ProtocolMessage) FromMap(ctx map[string]interface{}) {
 		for _, v := range i {
 			var msg PresenceMessage
 			msg.FromMap(v.(map[string]interface{}))
-			p.Presence = append(p.Presence, msg)
+			p.Presence = append(p.Presence, &msg)
 		}
 	}
 	if v, ok := ctx["id"]; ok {
