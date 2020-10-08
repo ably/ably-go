@@ -15,7 +15,7 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
-func expectMsg(ch <-chan *proto.Message, name string, data interface{}, t time.Duration, received bool) error {
+func expectMsg(ch <-chan proto.Message, name string, data interface{}, t time.Duration, received bool) error {
 	select {
 	case msg := <-ch:
 		if !received {
@@ -64,17 +64,17 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 		t.Fatalf("client2: Attach()=%v", err)
 	}
 
-	sub1, err := channel1.Subscribe()
+	sub1, unsub1, err := ablytest.ReceiveMessages(channel1, "")
 	if err != nil {
-		t.Fatalf("client1: Subscribe()=%v", err)
+		t.Fatalf("client1:.Subscribe(context.Background())=%v", err)
 	}
-	defer sub1.Close()
+	defer unsub1()
 
-	sub2, err := channel2.Subscribe()
+	sub2, unsub2, err := ablytest.ReceiveMessages(channel2, "")
 	if err != nil {
-		t.Fatalf("client2: Subscribe()=%v", err)
+		t.Fatalf("client2:.Subscribe(context.Background())=%v", err)
 	}
-	defer sub2.Close()
+	defer unsub2()
 
 	if err := channel1.Publish(context.Background(), "hello", "client1"); err != nil {
 		t.Fatalf("client1: Publish()=%v", err)
@@ -85,16 +85,16 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 
 	timeout := 15 * time.Second
 
-	if err := expectMsg(sub1.MessageChannel(), "hello", "client1", timeout, true); err != nil {
+	if err := expectMsg(sub1, "hello", "client1", timeout, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := expectMsg(sub1.MessageChannel(), "hello", "client2", timeout, true); err != nil {
+	if err := expectMsg(sub1, "hello", "client2", timeout, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := expectMsg(sub2.MessageChannel(), "hello", "client1", timeout, true); err != nil {
+	if err := expectMsg(sub2, "hello", "client1", timeout, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := expectMsg(sub2.MessageChannel(), "hello", "client2", timeout, false); err != nil {
+	if err := expectMsg(sub2, "hello", "client2", timeout, false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -105,17 +105,17 @@ func TestRealtimeChannel_Detach(t *testing.T) {
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	channel := client.Channels.Get("test")
-	sub, err := channel.Subscribe()
+	sub, unsub, err := ablytest.ReceiveMessages(channel, "")
 	if err != nil {
-		t.Fatalf("channel.Subscribe()=%v", err)
+		t.Fatalf("ablytest.ReceiveMessages(channel)=%v", err)
 	}
-	defer sub.Close()
+	defer unsub()
 	if err := channel.Publish(context.Background(), "hello", "world"); err != nil {
 		t.Fatalf("channel.Publish()=%v", err)
 	}
 	done := make(chan error)
 	go func() {
-		msg, ok := <-sub.MessageChannel()
+		msg, ok := <-sub
 		if !ok {
 			done <- errors.New("did not receive published message")
 		}

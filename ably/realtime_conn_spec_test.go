@@ -197,10 +197,11 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sub, err := channel.Subscribe()
+	sub, unsub, err := ablytest.ReceiveMessages(channel, "")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer unsub()
 
 	stateChanges := make(chan ably.ConnectionStateChange, 16)
 	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
@@ -254,7 +255,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	}
 
 	select {
-	case msg := <-sub.MessageChannel():
+	case msg := <-sub:
 		if expected, got := "data", msg.Data; expected != got {
 			t.Fatalf("expected message with data %v, got %v", expected, got)
 		}
@@ -462,10 +463,11 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sub, err := channel.Subscribe()
+	sub, unsub, err := ablytest.ReceiveMessages(channel, "")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer unsub()
 
 	chanStateChanges := make(ably.ChannelStateChanges)
 	off := channel.OnAll(chanStateChanges.Receive)
@@ -508,7 +510,7 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 		t.Fatalf("expected transition to %v, got %v", expected, got)
 	}
 	select {
-	case msg := <-sub.MessageChannel():
+	case msg := <-sub:
 		if expected, got := "data", msg.Data; expected != got {
 			t.Fatalf("expected message with data %v, got %v", expected, got)
 		}
@@ -583,10 +585,11 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	off := channel.OnAll(chanStateChanges.Receive)
 	defer off()
 
-	sub, err := channel.Subscribe()
+	sub, unsub, err := ablytest.ReceiveMessages(channel, "")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer unsub()
 
 	stateChanges := make(chan ably.ConnectionStateChange, 16)
 	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
@@ -626,7 +629,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	}
 
 	select {
-	case msg := <-sub.MessageChannel():
+	case msg := <-sub:
 		if expected, got := "data", msg.Data; expected != got {
 			t.Fatalf("expected message with data %v, got %v", expected, got)
 		}
@@ -1006,10 +1009,11 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sub, err := channel.Subscribe("test")
+	sub, unsub, err := ablytest.ReceiveMessages(channel, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer unsub()
 
 	if err := ablytest.ConnWaiter(client, func() {
 		doEOF <- struct{}{}
@@ -1045,7 +1049,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 		fatalf := ablytest.FmtFunc(t.Fatalf).Wrap(t, "%d: %s", i)
 
 		var msg *proto.Message
-		ablytest.Soon.Recv(t, &msg, sub.MessageChannel(), fatalf)
+		ablytest.Soon.Recv(t, &msg, sub, fatalf)
 
 		if expected, got := fmt.Sprintf("msg %d", i), msg.Data; expected != got {
 			fatalf("expected %v, got %v", expected, got)

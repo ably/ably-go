@@ -40,16 +40,6 @@ func UnwrapErrorCode(err error) ErrorCode {
 	return code(err)
 }
 
-// GetAndAttach is a helper method, which returns attached channel or panics if
-// the attaching failed.
-func (ch *Channels) GetAndAttach(name string) *RealtimeChannel {
-	channel := ch.Get(name)
-	if err := channel.Attach(context.TODO()); err != nil {
-		panic(`attach to "` + name + `" failed: ` + err.Error())
-	}
-	return channel
-}
-
 func (a *Auth) Timestamp(query bool) (time.Time, error) {
 	return a.timestamp(query)
 }

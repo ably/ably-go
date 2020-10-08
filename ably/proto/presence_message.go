@@ -6,10 +6,10 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-type PresenceState int64
+type PresenceAction int64
 
 const (
-	PresenceAbsent PresenceState = iota
+	PresenceAbsent PresenceAction = iota
 	PresencePresent
 	PresenceEnter
 	PresenceLeave
@@ -18,7 +18,7 @@ const (
 
 type PresenceMessage struct {
 	Message
-	State PresenceState `json:"action" codec:"action"`
+	Action PresenceAction `json:"action" codec:"action"`
 }
 
 func (m PresenceMessage) MarshalJSON() ([]byte, error) {
@@ -27,7 +27,7 @@ func (m PresenceMessage) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	ctx := e.ToMap()
-	ctx["action"] = m.State
+	ctx["action"] = m.Action
 	return json.Marshal(ctx)
 }
 
@@ -46,7 +46,7 @@ func (m PresenceMessage) CodecEncodeSelf(encoder *codec.Encoder) {
 		panic(err)
 	}
 	ctx := e.ToMap()
-	ctx["action"] = m.State
+	ctx["action"] = m.Action
 	encoder.MustEncode(ctx)
 }
 
@@ -65,13 +65,13 @@ func (m *PresenceMessage) FromMap(ctx map[string]interface{}) error {
 		return err
 	}
 	if v, ok := ctx["action"]; ok {
-		m.State = PresenceState(coerceInt64(v))
+		m.Action = PresenceAction(coerceInt64(v))
 	}
 	return nil
 }
 
 func (m PresenceMessage) ToMap() map[string]interface{} {
 	ctx := m.Message.ToMap()
-	ctx["action"] = m.State
+	ctx["action"] = m.Action
 	return ctx
 }

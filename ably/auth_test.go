@@ -570,10 +570,14 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
 			continue
 		}
-		channel := client.Channels.GetAndAttach("publish")
-		sub, err := channel.Subscribe("test")
+		channel := client.Channels.Get("publish")
+		if err := channel.Attach(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		messages, unsub, err := ablytest.ReceiveMessages(channel, "test")
+		defer unsub()
 		if err != nil {
-			t.Errorf("%d: Subscribe()=%v", i, err)
+			t.Errorf("%d:.Subscribe(context.Background())=%v", i, err)
 			continue
 		}
 		msg := []ably.Message{{
@@ -593,7 +597,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			continue
 		}
 		select {
-		case msg := <-sub.MessageChannel():
+		case msg := <-messages:
 			if msg.ClientID != cas.publishAs {
 				t.Errorf("%d: want ClientID=%q; got %q", i, cas.publishAs, msg.ClientID)
 			}

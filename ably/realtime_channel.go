@@ -140,9 +140,9 @@ type RealtimeChannel struct {
 	errorReason     *ErrorInfo
 	internalEmitter ChannelEventEmitter
 
-	client *Realtime
-	subs   *subscriptions
-	queue  *msgQueue
+	client         *Realtime
+	messageEmitter *eventEmitter
+	queue          *msgQueue
 }
 
 func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
@@ -153,8 +153,8 @@ func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 		state:           ChannelStateInitialized,
 		internalEmitter: ChannelEventEmitter{newEventEmitter(client.logger())},
 
-		client: client,
-		subs:   newSubscriptions(subscriptionMessages, client.logger()),
+		client:         client,
+		messageEmitter: newEventEmitter(client.logger()),
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
@@ -303,30 +303,62 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 	return res, nil
 }
 
-// Subscribe subscribes to a realtime channel, which makes any newly received
-// messages relayed to the returned Subscription value.
+type subscriptionName string
+
+func (subscriptionName) isEmitterEvent() {}
+
+type subscriptionMessage Message
+
+func (subscriptionMessage) isEmitterData() {}
+
+// Subscribe registers a message handler to be called with each message with the
+// given name received from the channel.
 //
-// If no names are given, returned Subscription will receive all messages.
-// If ch is non-nil and it was already registered to receive messages with different
-// names than the ones given, it will be added to receive also the new ones.
-func (c *RealtimeChannel) Subscribe(names ...string) (*Subscription, error) {
-	if _, err := c.attach(false); err != nil {
+// This implicitly attaches the channel if it's not already attached. If the
+// context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached anyway.
+//
+// See package-level documentation on Event Emitter for details about
+// messages dispatch.
+func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(Message)) (unsubscribe func(), err error) {
+	res, err := c.attach(true)
+	if err != nil {
 		return nil, err
 	}
-	return c.subs.subscribe(namesToKeys(names)...)
+	// TODO: Don't ignore context.
+	err = res.Wait()
+	if err != nil {
+		return nil, err
+	}
+	return c.messageEmitter.On(subscriptionName(name), func(message emitterData) {
+		handle(Message(message.(subscriptionMessage)))
+	}), nil
 }
 
-// Unsubscribe removes previous Subscription for the given message names.
+// SubscribeAll register a message handler to be called with each message
+// received from the channel.
 //
-// Unsubscribe panics if the given sub was subscribed for presence messages and
-// not for regular channel messages.
+// This implicitly attaches the channel if it's not already attached. If the
+// context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached anyway.
 //
-// If sub was already unsubscribed, the method is a nop.
-func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
-	if sub.typ != subscriptionMessages {
-		panic(errInvalidType{typ: sub.typ})
+// See package-level documentation on Event Emitter for details about
+// messages dispatch.
+func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(Message)) (unsubscribe func(), err error) {
+	res, err := c.attach(true)
+	if err != nil {
+		return nil, err
 	}
-	c.subs.unsubscribe(true, sub, namesToKeys(names)...)
+	// TODO: Don't ignore context.
+	err = res.Wait()
+	if err != nil {
+		return nil, err
+	}
+	return c.messageEmitter.OnAll(func(message emitterData) {
+		handle(Message(message.(subscriptionMessage)))
+	}), nil
 }
 
 type channelStateChanges chan ChannelStateChange
@@ -519,7 +551,9 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error))
 		c.queue.Fail(newErrorFromProto(msg.Error))
 	case proto.ActionMessage:
-		c.subs.messageEnqueue(msg)
+		for _, msg := range msg.Messages {
+			c.messageEmitter.Emit(subscriptionName(msg.Name), subscriptionMessage(msg))
+		}
 	default:
 	}
 }
