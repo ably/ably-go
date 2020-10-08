@@ -139,7 +139,7 @@ func (f ResultFunc) Wait() error {
 }
 
 func (f ResultFunc) Go() ably.Result {
-	err := make(chan error)
+	err := make(chan error, 1)
 	go func() {
 		err <- f()
 	}()

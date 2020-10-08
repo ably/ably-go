@@ -200,10 +200,9 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		channel = c.Channels.Get("test")
 
-		err = channel.Attach(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
+		ctx, cancel := context.WithCancel(context.Background())
+		go channel.Attach(ctx)
+		defer cancel()
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
 

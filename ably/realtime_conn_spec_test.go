@@ -818,9 +818,17 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 	}
 
 	channel := client.Channels.Get("channel")
-	if err := channel.Attach(context.Background()); err != nil {
-		t.Fatal(err)
-	}
+	attaching := make(ably.ChannelStateChanges, 1)
+	off := channel.On(ably.ChannelEventAttaching, attaching.Receive)
+	defer off()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		channel.Attach(ctx)
+	}()
+
+	ablytest.Soon.Recv(t, nil, attaching, t.Fatalf)
 
 	stateChanges := make(chan ably.ConnectionStateChange, 16)
 	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
@@ -844,7 +852,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 		t.Fatal(err)
 	}
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
+	err = rest.Channels.Get("channel").Publish(ctx, "name", "data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1048,7 +1056,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		fatalf := ablytest.FmtFunc(t.Fatalf).Wrap(t, "%d: %s", i)
 
-		var msg *proto.Message
+		var msg *ably.Message
 		ablytest.Soon.Recv(t, &msg, sub, fatalf)
 
 		if expected, got := fmt.Sprintf("msg %d", i), msg.Data; expected != got {

@@ -120,8 +120,9 @@ func TestRealtime_multiple(t *testing.T) {
 			}
 			for j := 0; j < 25; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
+				event, data := fmt.Sprintf("event/%d/%d", i, j), fmt.Sprintf("data/%d/%d", i, j)
 				rg.GoAdd(func() error {
-					return channel.Publish(context.Background(), fmt.Sprintf("event/%d/%d", i, j), fmt.Sprintf("data/%d/%d", i, j))
+					return channel.Publish(context.Background(), event, data)
 				})
 			}
 			if err := rg.Wait(); err != nil {
