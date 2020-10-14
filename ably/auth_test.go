@@ -134,8 +134,8 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if n := rec.Len(); n != 1 {
 		t.Fatalf("Authorize() did not return new token; want rec.Len()=1; %d", n)
 	}
-	if defaultCap := (ably.Capability{"*": {"*"}}); tok.RawCapability != defaultCap.Encode() {
-		t.Fatalf("want tok.Capability=%v; got %v", defaultCap, tok.Capability())
+	if defaultCap := `{"*":["*"]}`; tok.Capability != defaultCap {
+		t.Fatalf("want tok.Capability=%v; got %v", defaultCap, tok.Capability)
 	}
 	now := time.Now().Add(time.Second)
 	if err := timeWithin(tok.IssueTime(), beforeAuth, now); err != nil {
@@ -716,8 +716,8 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		QueryTime(true).
 		Key(app.Key())
 	params := &ably.TokenParams{
-		TTL:           (5 * time.Second).Milliseconds(),
-		RawCapability: (ably.Capability{"presence": {"read", "write"}}).Encode(),
+		TTL:        (5 * time.Second).Milliseconds(),
+		Capability: `{"presence":["read", "write"]}`,
 	}
 	t.Run("RSA9h", func(ts *testing.T) {
 		ts.Run("parameters are optional", func(ts *testing.T) {

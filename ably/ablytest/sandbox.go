@@ -17,21 +17,16 @@ import (
 )
 
 type Key struct {
-	ID            string `json:"id,omitempty"`
-	ScopeID       string `json:"scopeId,omitempty"`
-	Status        int    `json:"status,omitempty"`
-	Type          int    `json:"type,omitempty"`
-	Value         string `json:"value,omitempty"`
-	Created       int    `json:"created,omitempty"`
-	Modified      int    `json:"modified,omitempty"`
-	RawCapability string `json:"capability,omitempty"`
-	Expires       int    `json:"expired,omitempty"`
-	Privileged    bool   `json:"privileged,omitempty"`
-}
-
-func (k *Key) Capability() ably.Capability {
-	c, _ := ably.ParseCapability(k.RawCapability)
-	return c
+	ID         string `json:"id,omitempty"`
+	ScopeID    string `json:"scopeId,omitempty"`
+	Status     int    `json:"status,omitempty"`
+	Type       int    `json:"type,omitempty"`
+	Value      string `json:"value,omitempty"`
+	Created    int    `json:"created,omitempty"`
+	Modified   int    `json:"modified,omitempty"`
+	Capability string `json:"capability,omitempty"`
+	Expires    int    `json:"expired,omitempty"`
+	Privileged bool   `json:"privileged,omitempty"`
 }
 
 type Namespace struct {

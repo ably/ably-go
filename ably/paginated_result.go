@@ -26,9 +26,9 @@ func (err errInvalidType) Error() string {
 	return "requested value of incompatible type: " + err.typ.String()
 }
 
-// QueryFunc queries the given URL and gives non-nil HTTP response if no error
+// queryFunc queries the given URL and gives non-nil HTTP response if no error
 // occurred.
-type QueryFunc func(url string) (*http.Response, error)
+type queryFunc func(url string) (*http.Response, error)
 
 // PaginatedResult represents a single page coming back from the REST API.
 // Any call to create a new page will generate a new instance.
@@ -52,7 +52,7 @@ type paginatedRequest struct {
 	typ       reflect.Type
 	path      string
 	params    *PaginateParams
-	query     QueryFunc
+	query     queryFunc
 	logger    *LoggerOptions
 	respCheck func(*http.Response) error
 	decoder   func(*proto.ChannelOptions, reflect.Type, *http.Response) (interface{}, error)
@@ -132,7 +132,7 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 	p.statusCode = resp.StatusCode
 	p.success = 200 <= p.statusCode && p.statusCode < 300
 	copyHeader(p.respHeaders, resp.Header)
-	if h := p.respHeaders.Get(AblyErrorCodeHeader); h != "" {
+	if h := p.respHeaders.Get(proto.AblyErrorCodeHeader); h != "" {
 		i, err := strconv.Atoi(h)
 		if err != nil {
 			return nil, err
@@ -141,7 +141,7 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 	} else if !p.success {
 		return nil, malformedPaginatedResponseError(resp)
 	}
-	if h := p.respHeaders.Get(AblyErrormessageHeader); h != "" {
+	if h := p.respHeaders.Get(proto.AblyErrormessageHeader); h != "" {
 		p.errorMessage = h
 	} else if !p.success {
 		return nil, malformedPaginatedResponseError(resp)

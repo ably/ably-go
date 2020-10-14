@@ -27,7 +27,7 @@ func decodeHTTPPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, res
 }
 
 func newHTTPPaginatedResult(path string, params *PaginateParams,
-	query QueryFunc, log *LoggerOptions) (*HTTPPaginatedResponse, error) {
+	query queryFunc, log *LoggerOptions) (*HTTPPaginatedResponse, error) {
 	p, err := newPaginatedResult(nil, paginatedRequest{typ: arrayTyp, path: path, params: params, query: query, logger: log, respCheck: func(_ *http.Response) error {
 		return nil
 	}, decoder: decodeHTTPPaginatedResult})

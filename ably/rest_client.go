@@ -30,22 +30,7 @@ var (
 	arrayTyp    = reflect.TypeOf((*[]interface{})(nil)).Elem()
 )
 
-// constants for rsc7
-const (
-	AblyVersionHeader      = "X-Ably-Version"
-	AblyLibHeader          = "X-Ably-Lib"
-	AblyErrorCodeHeader    = "X-Ably-Errorcode"
-	AblyErrormessageHeader = "X-Ably-Errormessage"
-	LibraryVersion         = "1.1.5"
-	LibraryName            = "ably-go"
-	LibraryString          = LibraryName + "-" + LibraryVersion
-	AblyVersion            = "1.0"
-	AblyClientIDHeader     = "X-Ably-ClientId"
-)
-
-const HostHeader = "Host"
-
-func query(fn func(string, interface{}) (*http.Response, error)) QueryFunc {
+func query(fn func(string, interface{}) (*http.Response, error)) queryFunc {
 	return func(path string) (*http.Response, error) {
 		return fn(path, nil)
 	}
@@ -161,7 +146,7 @@ func NewREST(options ClientOptions) (*REST, error) {
 
 func (c *REST) Time() (time.Time, error) {
 	var times []int64
-	r := &Request{
+	r := &request{
 		Method: "GET",
 		Path:   "/time",
 		Out:    &times,
@@ -184,9 +169,9 @@ func (c *REST) Stats(params *PaginateParams) (*PaginatedResult, error) {
 	return newPaginatedResult(nil, paginatedRequest{typ: statType, path: "/stats", params: params, query: query(c.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
 }
 
-// Request this contains fields necessary to compose http request that will be
+// request this contains fields necessary to compose http request that will be
 // sent ably endpoints.
-type Request struct {
+type request struct {
 	Method string
 	Path   string
 	In     interface{} // value to be encoded and sent with request body
@@ -207,7 +192,7 @@ func (c *REST) Request(method string, path string, params *PaginateParams, body 
 	switch method {
 	case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
 		return newHTTPPaginatedResult(path, params, func(p string) (*http.Response, error) {
-			req := &Request{
+			req := &request{
 				Method: method,
 				Path:   p,
 				In:     body,
@@ -227,7 +212,7 @@ func (c *REST) Request(method string, path string, params *PaginateParams, body 
 }
 
 func (c *REST) get(path string, out interface{}) (*http.Response, error) {
-	r := &Request{
+	r := &request{
 		Method: "GET",
 		Path:   path,
 		Out:    out,
@@ -236,7 +221,7 @@ func (c *REST) get(path string, out interface{}) (*http.Response, error) {
 }
 
 func (c *REST) post(path string, in, out interface{}) (*http.Response, error) {
-	r := &Request{
+	r := &request{
 		Method: "POST",
 		Path:   path,
 		In:     in,
@@ -245,7 +230,7 @@ func (c *REST) post(path string, in, out interface{}) (*http.Response, error) {
 	return c.do(r)
 }
 
-func (c *REST) do(r *Request) (*http.Response, error) {
+func (c *REST) do(r *request) (*http.Response, error) {
 	return c.doWithHandle(r, c.handleResponse)
 }
 
@@ -312,15 +297,15 @@ func (f *fallbackCache) put(host string) {
 	}
 }
 
-func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
-	log := c.opts.Logger.Sugar()
+func (c *REST) doWithHandle(r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
+	log := c.opts.Logger.sugar()
 	if c.successFallbackHost == nil {
 		c.successFallbackHost = &fallbackCache{
 			duration: c.opts.fallbackRetryTimeout(),
 		}
 		log.Verbosef("RestClient: setup fallback duration to %v", c.successFallbackHost.duration)
 	}
-	req, err := c.NewHTTPRequest(r)
+	req, err := c.newHTTPRequest(r)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +347,7 @@ func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{})
 			if canFallBack(e.StatusCode) &&
 				(strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
 					c.opts.FallbackHosts != nil) {
-				fallback := DefaultFallbackHosts()
+				fallback := defaultFallbackHosts()
 				if c.opts.FallbackHosts != nil {
 					fallback = c.opts.FallbackHosts
 				}
@@ -394,14 +379,14 @@ func (c *REST) doWithHandle(r *Request, handle func(*http.Response, interface{})
 							}
 						}
 						left = n
-						req, err := c.NewHTTPRequest(r)
+						req, err := c.newHTTPRequest(r)
 						if err != nil {
 							return nil, err
 						}
 						log.Infof("RestClient:  chose fallback host=%q ", h)
 						req.URL.Host = h
 						req.Host = ""
-						req.Header.Set(HostHeader, h)
+						req.Header.Set(proto.HostHeader, h)
 						if log.Is(LogVerbose) {
 							b, err := httputil.DumpRequest(req, true)
 							if err != nil {
@@ -466,13 +451,13 @@ func canFallBack(code int) bool {
 		code <= http.StatusGatewayTimeout
 }
 
-// NewHTTPRequest creates a new http.Request that can be sent to ably endpoints.
+// newHTTPRequest creates a new http.Request that can be sent to ably endpoints.
 // This makes sure necessary headers are set.
-func (c *REST) NewHTTPRequest(r *Request) (*http.Request, error) {
+func (c *REST) newHTTPRequest(r *request) (*http.Request, error) {
 	var body io.Reader
-	var proto = c.opts.protocol()
+	var protocol = c.opts.protocol()
 	if r.In != nil {
-		p, err := encode(proto, r.In)
+		p, err := encode(protocol, r.In)
 		if err != nil {
 			return nil, newError(ErrProtocolError, err)
 		}
@@ -484,18 +469,18 @@ func (c *REST) NewHTTPRequest(r *Request) (*http.Request, error) {
 		return nil, newError(ErrInternalError, err)
 	}
 	if body != nil {
-		req.Header.Set("Content-Type", proto) //spec RSC19c
+		req.Header.Set("Content-Type", protocol) //spec RSC19c
 	}
 	if r.header != nil {
 		copyHeader(req.Header, r.header)
 	}
-	req.Header.Set("Accept", proto) //spec RSC19c
-	req.Header.Set(AblyVersionHeader, AblyVersion)
-	req.Header.Set(AblyLibHeader, LibraryString)
+	req.Header.Set("Accept", protocol) //spec RSC19c
+	req.Header.Set(proto.AblyVersionHeader, proto.AblyVersion)
+	req.Header.Set(proto.AblyLibHeader, proto.LibraryString)
 	if c.opts.ClientID != "" && c.Auth.method == authBasic {
 		// References RSA7e2
 		h := base64.StdEncoding.EncodeToString([]byte(c.opts.ClientID))
-		req.Header.Set(AblyClientIDHeader, h)
+		req.Header.Set(proto.AblyClientIDHeader, h)
 	}
 	if !r.NoAuth {
 		//spec RSC19b
@@ -507,7 +492,7 @@ func (c *REST) NewHTTPRequest(r *Request) (*http.Request, error) {
 }
 
 func (c *REST) handleResponse(resp *http.Response, out interface{}) (*http.Response, error) {
-	log := c.opts.Logger.Sugar()
+	log := c.opts.Logger.sugar()
 	log.Info("RestClient:checking valid http response")
 	if err := checkValidHTTPResponse(resp); err != nil {
 		log.Error("RestClient: failed to check valid http response ", err)

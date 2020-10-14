@@ -230,35 +230,44 @@ func TestRestClient(t *testing.T) {
 	})
 }
 
+type httpRoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f httpRoundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
 func TestRSC7(t *testing.T) {
 	t.Parallel()
-	app, err := ablytest.NewSandbox(nil)
+
+	client := &http.Client{}
+	requests := make(chan *http.Request, 1)
+	client.Transport = httpRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		requests <- req
+		return nil, errors.New("fake round tripper")
+	})
+
+	c, err := ably.NewREST(ably.ClientOptions{}.
+		Key("fake:key").
+		HTTPClient(client))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer app.Close()
-	c, err := ably.NewREST(app.Options(nil))
-	if err != nil {
-		t.Fatal(err)
-	}
+
+	_, _ = c.Request("POST", "/foo", nil, nil, nil)
+
+	var req *http.Request
+	ablytest.Instantly.Recv(t, &req, requests, t.Fatalf)
+
 	t.Run("must set version header", func(ts *testing.T) {
-		req, err := c.NewHTTPRequest(&ably.Request{})
-		if err != nil {
-			ts.Fatal(err)
-		}
-		h := req.Header.Get(ably.AblyVersionHeader)
-		if h != ably.AblyVersion {
-			t.Errorf("expected %s got %s", ably.AblyVersion, h)
+		h := req.Header.Get(proto.AblyVersionHeader)
+		if h != proto.AblyVersion {
+			t.Errorf("expected %s got %s", proto.AblyVersion, h)
 		}
 	})
 	t.Run("must set lib header", func(ts *testing.T) {
-		req, err := c.NewHTTPRequest(&ably.Request{})
-		if err != nil {
-			ts.Fatal(err)
-		}
-		h := req.Header.Get(ably.AblyLibHeader)
-		if h != ably.LibraryString {
-			t.Errorf("expected %s got %s", ably.LibraryString, h)
+		h := req.Header.Get(proto.AblyLibHeader)
+		if h != proto.LibraryString {
+			t.Errorf("expected %s got %s", proto.LibraryString, h)
 		}
 	})
 }

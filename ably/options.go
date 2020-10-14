@@ -19,12 +19,12 @@ const (
 	protocolJSON    = "application/json"
 	protocolMsgPack = "application/x-msgpack"
 
-	// RestHost is the primary ably host .
-	RestHost = "rest.ably.io"
+	// restHost is the primary ably host .
+	restHost = "rest.ably.io"
 )
 
 var defaultOptions = clientOptions{
-	RestHost:                 RestHost,
+	RestHost:                 restHost,
 	HTTPMaxRetryCount:        3,
 	HTTPRequestTimeout:       10 * time.Second,
 	RealtimeHost:             "realtime.ably.io",
@@ -40,7 +40,7 @@ var defaultOptions = clientOptions{
 	After:                    ablyutil.After,
 }
 
-func DefaultFallbackHosts() []string {
+func defaultFallbackHosts() []string {
 	return []string{
 		"a.ably-realtime.com",
 		"b.ably-realtime.com",

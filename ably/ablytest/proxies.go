@@ -31,7 +31,7 @@ func NewTokenParams(query url.Values) *ably.TokenParams {
 		params.TTL = n
 	}
 	if s := query.Get("capability"); s != "" {
-		params.RawCapability = s
+		params.Capability = s
 	}
 	if s := query.Get("clientId"); s != "" {
 		params.ClientID = s
