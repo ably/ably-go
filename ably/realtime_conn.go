@@ -421,7 +421,7 @@ func (c *Connection) send(msg *proto.ProtocolMessage, listen chan<- error) error
 		return err
 	}
 	c.updateSerial(msg, listen)
-	c.mtx.Unlock()
+	defer c.mtx.Unlock()
 	return c.conn.Send(msg)
 }
 
