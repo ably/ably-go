@@ -129,7 +129,7 @@ func TestRestChannel(t *testing.T) {
 			{Name: "send", Data: "test data 1"},
 			{Name: "send", Data: "test data 2"},
 		}
-		err := encodingRestChannel.PublishBatch(context.Background(), messages, nil)
+		err := encodingRestChannel.PublishBatch(context.Background(), messages)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -241,7 +241,7 @@ func TestIdempotentPublishing(t *testing.T) {
 					ID:   randomStr,
 					Data: randomStr,
 				},
-			}, nil)
+			})
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -276,7 +276,7 @@ func TestIdempotentPublishing(t *testing.T) {
 				ID:   randomStr,
 				Data: randomStr,
 			},
-		}, nil)
+		})
 		if err == nil {
 			ts.Fatal("expected an error")
 		}
@@ -294,7 +294,7 @@ func TestIdempotentPublishing(t *testing.T) {
 				ID: fmt.Sprintf("%s:%d", randomStr, i),
 			})
 		}
-		err := channel.PublishBatch(context.Background(), m, nil)
+		err := channel.PublishBatch(context.Background(), m)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -374,7 +374,7 @@ func TestIdempotentPublishing(t *testing.T) {
 			{Name: name},
 			{Name: name},
 			{Name: name},
-		}, nil)
+		})
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -494,7 +494,7 @@ func TestIdempotent_retry(t *testing.T) {
 				{Data: randomStr},
 			}
 			for range msgs {
-				channel.PublishBatch(context.Background(), msgs, nil)
+				channel.PublishBatch(context.Background(), msgs)
 			}
 			res, err := channel.History(nil)
 			if err != nil {
@@ -532,7 +532,7 @@ func TestRSL1f1(t *testing.T) {
 			Data:     fmt.Sprint(i),
 		})
 	}
-	err = channel.PublishBatch(context.Background(), msgs, nil)
+	err = channel.PublishBatch(context.Background(), msgs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -573,7 +573,7 @@ func TestRSL1g(t *testing.T) {
 			{Name: "some 1"},
 			{Name: "some 2"},
 			{Name: "some 3"},
-		}, nil)
+		})
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -597,7 +597,7 @@ func TestRSL1g(t *testing.T) {
 			{Name: "1", ClientID: clientID},
 			{Name: "2", ClientID: clientID},
 			{Name: "3", ClientID: clientID},
-		}, nil)
+		})
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -621,7 +621,7 @@ func TestRSL1g(t *testing.T) {
 			{Name: "1", ClientID: clientID},
 			{Name: "2", ClientID: "other client"},
 			{Name: "3", ClientID: clientID},
-		}, nil)
+		})
 		if err == nil {
 			ts.Fatal("expected an error")
 		}

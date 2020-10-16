@@ -53,18 +53,38 @@ func newRestChannel(name string, client *REST) *RESTChannel {
 func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}) error {
 	return c.PublishBatch(ctx, []*Message{
 		{Name: name, Data: data},
-	}, nil)
+	})
 }
 
 // Message is what Ably channels send and receive.
 type Message = proto.Message
 
 // PublishBatch publishes multiple messages in a batch.
-//
-// The params, if any, will be set as additional query parameters in the
-// resulting HTTP request to the REST API.
-func (c *RESTChannel) PublishBatch(ctx context.Context, messages []*Message, params map[string]string) error {
+func (c *RESTChannel) PublishBatch(ctx context.Context, messages []*Message) error {
+	return c.PublishBatchWithOptions(ctx, messages, RESTChannelPublishBatchOptions{})
+}
+
+// RESTChannelPublishBatchOptions are optional parameters for RESTChannel.PublishBatchWithOptions.
+type RESTChannelPublishBatchOptions []func(*restChannelPublishBatchOptions)
+
+type restChannelPublishBatchOptions struct {
+	params map[string]string
+}
+
+// Params adds query parameters to the resulting HTTP request to the REST API.
+func (o RESTChannelPublishBatchOptions) Params(params map[string]string) RESTChannelPublishBatchOptions {
+	return append(o, func(options *restChannelPublishBatchOptions) {
+		options.params = params
+	})
+}
+
+// PublishBatchWithOptions is PublishBatch with optional parameters.
+func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*Message, options RESTChannelPublishBatchOptions) error {
 	// TODO: Use context
+	var publishOpts restChannelPublishBatchOptions
+	for _, o := range options {
+		o(&publishOpts)
+	}
 	msgPtrs := make([]*proto.Message, 0, len(messages))
 	for _, m := range messages {
 		msgPtrs = append(msgPtrs, (*proto.Message)(m))
@@ -106,7 +126,7 @@ func (c *RESTChannel) PublishBatch(ctx context.Context, messages []*Message, par
 		}
 	}
 	var query string
-	if len(params) > 0 {
+	if params := publishOpts.params; len(params) > 0 {
 		queryParams := url.Values{}
 		for k, v := range params {
 			queryParams.Set(k, v)
