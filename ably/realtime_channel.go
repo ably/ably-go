@@ -428,16 +428,16 @@ func (em ChannelEventEmitter) OffAll() {
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached and the message published anyway.
 func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interface{}) error {
-	return c.PublishAll(ctx, []*Message{{Name: name, Data: data}})
+	return c.PublishBatch(ctx, []*Message{{Name: name, Data: data}})
 }
 
-// PublishAll publishes all given messages on the channel at once.
+// PublishBatch publishes all given messages on the channel at once.
 //
 // This implicitly attaches the channel if it's not already attached. If the
 // context is canceled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached and the message published anyway.
-func (c *RealtimeChannel) PublishAll(ctx context.Context, messages []*Message) error {
+func (c *RealtimeChannel) PublishBatch(ctx context.Context, messages []*Message) error {
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
 		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {

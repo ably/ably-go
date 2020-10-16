@@ -51,7 +51,7 @@ func newRestChannel(name string, client *REST) *RESTChannel {
 
 // Publish publishes a message on the channel.
 func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}) error {
-	return c.PublishAll(ctx, []*Message{
+	return c.PublishBatch(ctx, []*Message{
 		{Name: name, Data: data},
 	}, nil)
 }
@@ -59,11 +59,11 @@ func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}
 // Message is what Ably channels send and receive.
 type Message = proto.Message
 
-// PublishAll publishes multiple messages in a batch.
+// PublishBatch publishes multiple messages in a batch.
 //
 // The params, if any, will be set as additional query parameters in the
 // resulting HTTP request to the REST API.
-func (c *RESTChannel) PublishAll(ctx context.Context, messages []*Message, params map[string]string) error {
+func (c *RESTChannel) PublishBatch(ctx context.Context, messages []*Message, params map[string]string) error {
 	// TODO: Use context
 	msgPtrs := make([]*proto.Message, 0, len(messages))
 	for _, m := range messages {

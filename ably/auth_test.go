@@ -585,7 +585,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			Name:     "test",
 			Data:     "payload",
 		}}
-		err = channel.PublishAll(context.Background(), msg)
+		err = channel.PublishBatch(context.Background(), msg)
 		if cas.rejected {
 			if err == nil {
 				t.Errorf("%d: expected message to be rejected %#v", i, cas)
@@ -593,7 +593,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			continue
 		}
 		if err != nil {
-			t.Errorf("%d: PublishAll()=%v", i, err)
+			t.Errorf("%d: PublishBatch()=%v", i, err)
 			continue
 		}
 		select {
