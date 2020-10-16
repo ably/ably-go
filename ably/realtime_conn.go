@@ -716,8 +716,5 @@ func (c *Connection) lockSetState(state ConnectionState, err error) error {
 	}
 	c.internalEmitter.emitter.Emit(change.Event, change)
 	c.emitter.Emit(change.Event, change)
-	if c.errorReason == nil {
-		return nil
-	}
-	return c.errorReason
+	return c.errorReason.unwrapNil()
 }

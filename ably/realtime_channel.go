@@ -228,7 +228,7 @@ func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 		return goWaiter(func() error {
 			change := <-changes
 			if change.Current != ConnectionStateConnected {
-				return change.Reason
+				return change.Reason.unwrapNil()
 			}
 
 			res, err := c.mayAttach(result, true)
@@ -492,7 +492,7 @@ func (c *RealtimeChannel) State() ChannelState {
 }
 
 // Reason gives the last error that caused channel transition to failed state.
-func (c *RealtimeChannel) Reason() error {
+func (c *RealtimeChannel) Reason() *ErrorInfo {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.errorReason
@@ -634,8 +634,5 @@ func (c *RealtimeChannel) lockSetState(state ChannelState, err error) error {
 	}
 	c.internalEmitter.emitter.Emit(change.Event, change)
 	c.emitter.Emit(change.Event, change)
-	if c.errorReason == nil {
-		return nil
-	}
-	return c.errorReason
+	return c.errorReason.unwrapNil()
 }

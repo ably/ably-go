@@ -28,7 +28,7 @@ func receive(ch ...chan error) []error {
 	return errs
 }
 
-func emit(serial int64, count int, fn func(*pendingEmitter, int64, int, error)) func(*pendingEmitter) {
+func emit(serial int64, count int, fn func(*pendingEmitter, int64, int, *ErrorInfo)) func(*pendingEmitter) {
 	return func(q *pendingEmitter) {
 		fn(q, serial, count, nil)
 	}
