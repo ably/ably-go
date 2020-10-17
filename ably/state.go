@@ -39,6 +39,8 @@ var (
 	errSuspended      = newErrorf(80002, "Connection unavailable")
 	errFailed         = newErrorf(80000, "Connection failed")
 	errNeverConnected = newErrorf(80002, "Unable to establish connection")
+
+	errSerialSkipped = newErrorf(ErrInternalError, "Serial for message was skipped by acknowledgement")
 )
 
 var connStateErrors = map[ConnectionState]ErrorInfo{
@@ -145,6 +147,9 @@ func (q *pendingEmitter) Ack(serial int64, count int, errInfo *ErrorInfo) {
 		ack = min(i+1+count, q.Len())
 	}
 	err := errInfo.unwrapNil()
+	if err == nil && nack > 0 {
+		err = errSerialSkipped
+	}
 	for _, sch := range q.queue[:nack] {
 		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
 		sch.ch <- err
