@@ -100,7 +100,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) (*Connect
 	return c, nil
 }
 
-func (c *Connection) dial(proto string, u *url.URL, once bool) (conn proto.Conn, err error) {
+func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error) {
 	lg := c.logger().Sugar()
 	start := time.Now()
 	lg.Debugf("Dial protocol=%q url %q ", proto, u.String())
@@ -351,7 +351,7 @@ func (c *Connection) connectWithInternal(arg connArgs) (Result, error) {
 	}
 	u.RawQuery = query.Encode()
 	proto := c.opts.protocol()
-	conn, err := c.dial(proto, u, arg.dialOnce)
+	conn, err := c.dial(proto, u)
 	if err != nil {
 		return nil, err
 	}
