@@ -151,8 +151,8 @@ func recoverable(err error) bool {
 	if info, ok := err.(*ErrorInfo); ok {
 		err = info.err
 	}
-	switch err {
-	case context.DeadlineExceeded:
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
 		return true
 	default:
 		return false
