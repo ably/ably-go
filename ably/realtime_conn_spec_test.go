@@ -2013,7 +2013,7 @@ func (noopConn) Close() error { return nil }
 
 func TestRealtimeConn_RTN14g(t *testing.T) {
 	t.Parallel()
-	t.Run("missing key", func(t *testing.T) {
+	t.Run("Non RTN14b error", func(t *testing.T) {
 		in := make(chan *proto.ProtocolMessage, 1)
 		out := make(chan *proto.ProtocolMessage, 16)
 		var ls *closeConn
@@ -2029,14 +2029,13 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 				return ls, nil
 			}))
 		c.Connect()
-		// Get the connection to CONNECTED.
-		tokenError := &proto.ErrorInfo{
+		badReqErr := &proto.ErrorInfo{
 			StatusCode: http.StatusBadRequest,
 		}
 		in <- &proto.ProtocolMessage{
 			Action:            proto.ActionError,
 			ConnectionDetails: &proto.ConnectionDetails{},
-			Error:             tokenError,
+			Error:             badReqErr,
 		}
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
@@ -2045,7 +2044,7 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 		if expect, got := ably.ConnectionStateFailed, state.Current; expect != got {
 			t.Errorf("expected %v got %v", expect, got)
 		}
-		if expect, got := tokenError, c.Connection.ErrorReason(); got.StatusCode != expect.StatusCode {
+		if expect, got := badReqErr, c.Connection.ErrorReason(); got.StatusCode != expect.StatusCode {
 			t.Errorf("expected %v got %v", expect, got)
 		}
 		// we make sure the connection is closed
