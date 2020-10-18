@@ -1834,7 +1834,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 			ConnectionDetails: &proto.ConnectionDetails{},
 			Error:             tokenError,
 		}
-		change := make(chan ably.ConnectionStateChange, 1)
+		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 			change <- ev
 		})
@@ -1869,7 +1869,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 			ConnectionDetails: &proto.ConnectionDetails{},
 			Error:             tokenError,
 		}
-		change := make(chan ably.ConnectionStateChange, 1)
+		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 			change <- ev
 		})
@@ -1914,7 +1914,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 			ConnectionDetails: &proto.ConnectionDetails{},
 			Error:             tokenError,
 		}
-		change := make(chan ably.ConnectionStateChange, 1)
+		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 			change <- ev
 		})
@@ -1960,7 +1960,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 			ConnectionDetails: &proto.ConnectionDetails{},
 			Error:             tokenError,
 		}
-		change := make(chan ably.ConnectionStateChange, 1)
+		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 			change <- ev
 		})
@@ -2046,7 +2046,7 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 			ConnectionDetails: &proto.ConnectionDetails{},
 			Error:             tokenError,
 		}
-		change := make(chan ably.ConnectionStateChange, 1)
+		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 			change <- ev
 		})
@@ -2088,14 +2088,14 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 			return nil, context.DeadlineExceeded
 		}))
 	defer c.Close()
-	change := make(chan ably.ConnectionStateChange, 16)
+	change := make(ably.ConnStateChanges, 16)
 	off := c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 		change <- ev
 	})
 	defer off()
 
 	go c.Connect()
-	connected := make(chan ably.ConnectionStateChange, 1)
+	connected := make(ably.ConnStateChanges, 1)
 	clear := c.Connection.On(ably.ConnectionEventConnected, func(csc ably.ConnectionStateChange) {
 		connected <- csc
 	})
