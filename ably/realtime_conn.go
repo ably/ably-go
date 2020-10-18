@@ -108,10 +108,12 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 	query := u.Query()
 	query.Add("heartbeats", "true")
 	u.RawQuery = query.Encode()
-	// We first try a single dial to see if we are successful. There is no need to
-	// have this only in the for loop because most cases we will succeed after the
-	// first attempt, let's be prudent here.
-	conn, err = c.dialInternal(proto, u, c.opts.httpOpenTimeout())
+	timeout := c.opts.httpOpenTimeout()
+	if c.opts.Dial != nil {
+		conn, err = c.opts.Dial(proto, u, timeout)
+	} else {
+		conn, err = ablyutil.DialWebsocket(proto, u, timeout)
+	}
 	if err != nil {
 		lg.Debugf("Dial Failed in %v with %v", time.Since(start), err)
 		return nil, err
@@ -141,13 +143,6 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 			return res, nil
 		}
 	}
-}
-
-func (c *Connection) dialInternal(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
-	if c.opts.Dial != nil {
-		return c.opts.Dial(protocol, u, timeout)
-	}
-	return ablyutil.DialWebsocket(protocol, u, timeout)
 }
 
 // recoverable returns true if err is recoverable, err is from making a
