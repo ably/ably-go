@@ -1835,9 +1835,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 			Error:             tokenError,
 		}
 		change := make(ably.ConnStateChanges, 1)
-		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
-			change <- ev
-		})
+		c.Connection.OnAll(change.Receive)
 		var state ably.ConnectionStateChange
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
 		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
@@ -1870,9 +1868,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 			Error:             tokenError,
 		}
 		change := make(ably.ConnStateChanges, 1)
-		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
-			change <- ev
-		})
+		c.Connection.OnAll(change.Receive)
 		var state ably.ConnectionStateChange
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
 		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
@@ -1915,9 +1911,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 			Error:             tokenError,
 		}
 		change := make(ably.ConnStateChanges, 1)
-		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
-			change <- ev
-		})
+		c.Connection.OnAll(change.Receive)
 		var state ably.ConnectionStateChange
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
 		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
@@ -1961,9 +1955,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 			Error:             tokenError,
 		}
 		change := make(ably.ConnStateChanges, 1)
-		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
-			change <- ev
-		})
+		c.Connection.OnAll(change.Receive)
 		bad := &proto.ErrorInfo{
 			StatusCode: http.StatusUnauthorized,
 			Code:       40140,
@@ -2047,9 +2039,7 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 			Error:             tokenError,
 		}
 		change := make(ably.ConnStateChanges, 1)
-		c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
-			change <- ev
-		})
+		c.Connection.OnAll(change.Receive)
 		var state ably.ConnectionStateChange
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
 		if expect, got := ably.ConnectionStateFailed, state.Current; expect != got {
@@ -2089,9 +2079,7 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 		}))
 	defer c.Close()
 	change := make(ably.ConnStateChanges, 16)
-	off := c.Connection.OnAll(func(ev ably.ConnectionStateChange) {
-		change <- ev
-	})
+	off := c.Connection.OnAll(change.Receive)
 	defer off()
 
 	go c.Connect()
