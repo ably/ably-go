@@ -1824,7 +1824,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 			AutoConnect(false).
 			Dial(ablytest.MessagePipe(in, out)))
 		c.Connect()
-		// Get the connection to CONNECTED.
+		// Respond to connection attempt with a token error.
 		tokenError := &proto.ErrorInfo{
 			StatusCode: http.StatusUnauthorized,
 			Code:       40140,
