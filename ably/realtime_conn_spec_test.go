@@ -1814,7 +1814,8 @@ func TestRealtimeConn_RTN14c(t *testing.T) {
 func TestRealtimeConn_RTN14a(t *testing.T) {
 	t.Parallel()
 
-	{ // missing key
+	t.Run("Missing key", func(t *testing.T) {
+		t.Parallel()
 		in := make(chan *proto.ProtocolMessage, 1)
 		out := make(chan *proto.ProtocolMessage, 16)
 
@@ -1845,8 +1846,10 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 		if expect, got := "missing key", c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
 			t.Errorf("expected %v to contain %q", got, expect)
 		}
-	}
-	{ // invalid key
+	})
+
+	t.Run("Invalid key", func(t *testing.T) {
+		t.Parallel()
 		in := make(chan *proto.ProtocolMessage, 1)
 		out := make(chan *proto.ProtocolMessage, 16)
 
@@ -1878,12 +1881,13 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 		if expect, got := "invalid key", c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
 			t.Errorf("expected %v to contain %q", expect, got)
 		}
-	}
+	})
+
 }
 func TestRealtimeConn_RTN14b(t *testing.T) {
 	t.Parallel()
-	{ // renewable token that fails to renew with token error
-
+	t.Run("renewable token that fails to renew with token error", func(t *testing.T) {
+		t.Parallel()
 		in := make(chan *proto.ProtocolMessage, 1)
 		out := make(chan *proto.ProtocolMessage, 16)
 		var reauth atomic.Value
@@ -1926,9 +1930,9 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 		if n != 1 {
 			t.Error("expected re authorization to happen once")
 		}
-	}
-	{ // renewable token that fails to renew with token error
-
+	})
+	t.Run("renewable token, consecutive token errors", func(t *testing.T) {
+		t.Parallel()
 		in := make(chan *proto.ProtocolMessage, 1)
 		out := make(chan *proto.ProtocolMessage, 16)
 		var reauth atomic.Value
@@ -1987,7 +1991,8 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 		if expect, got := 2, dials.Load().(int); got != expect {
 			t.Errorf("expected %v got %v", expect, got)
 		}
-	}
+	})
+
 }
 
 type closeConn struct {
@@ -2016,7 +2021,7 @@ func (noopConn) Close() error { return nil }
 
 func TestRealtimeConn_RTN14g(t *testing.T) {
 	t.Parallel()
-	{ // missing key
+	t.Run("missing key", func(t *testing.T) {
 		in := make(chan *proto.ProtocolMessage, 1)
 		out := make(chan *proto.ProtocolMessage, 16)
 		var ls *closeConn
@@ -2057,7 +2062,7 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 		if expect, got := 1, ls.closed; got != expect {
 			t.Errorf("expected %v got %v", expect, got)
 		}
-	}
+	})
 }
 
 func TestRealtimeConn_RTN14e(t *testing.T) {
