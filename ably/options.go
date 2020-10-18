@@ -33,6 +33,7 @@ var defaultOptions = clientOptions{
 	RealtimeRequestTimeout:   10 * time.Second, // DF1b
 	SuspendedRetryTimeout:    30 * time.Second, //  RTN14d, TO3l2
 	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
+	HTTPOpenTimeout:          4 * time.Second,  //TO3l3
 	ChannelRetryTimeout:      15 * time.Second, // TO3l7
 	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
@@ -215,6 +216,7 @@ type clientOptions struct {
 	DisconnectedRetryTimeout time.Duration
 	SuspendedRetryTimeout    time.Duration
 	ChannelRetryTimeout      time.Duration
+	HTTPOpenTimeout          time.Duration
 
 	// Dial specifies the dial function for creating message connections used
 	// by Realtime.
@@ -274,6 +276,13 @@ func (opts *clientOptions) disconnectedRetryTimeout() time.Duration {
 		return opts.DisconnectedRetryTimeout
 	}
 	return defaultOptions.DisconnectedRetryTimeout
+}
+
+func (opts *clientOptions) httpOpenTimeout() time.Duration {
+	if opts.HTTPOpenTimeout != 0 {
+		return opts.HTTPOpenTimeout
+	}
+	return defaultOptions.HTTPOpenTimeout
 }
 
 func (opts *clientOptions) suspendedRetryTimeout() time.Duration {
@@ -640,6 +649,11 @@ func (os ClientOptions) TransportParams(params url.Values) ClientOptions {
 func (os ClientOptions) DisconnectedRetryTimeout(d time.Duration) ClientOptions {
 	return append(os, func(os *clientOptions) {
 		os.DisconnectedRetryTimeout = d
+	})
+}
+func (os ClientOptions) HTTPOpenTimeout(d time.Duration) ClientOptions {
+	return append(os, func(os *clientOptions) {
+		os.HTTPOpenTimeout = d
 	})
 }
 

@@ -111,7 +111,7 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 	// We first try a single dial to see if we are successful. There is no need to
 	// have this only in the for loop because most cases we will succeed after the
 	// first attempt, let's be prudent here.
-	conn, err = c.dialInternal(proto, u, c.opts.realtimeRequestTimeout())
+	conn, err = c.dialInternal(proto, u, c.opts.httpOpenTimeout())
 	if err != nil {
 		lg.Debugf("Dial Failed in %v with %v", time.Since(start), err)
 		return nil, err
