@@ -1892,10 +1892,10 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 		c, _ := ably.NewRealtime(ably.ClientOptions{}.
 			AutoConnect(false).
 			AuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
-				if reauth.Load().(int) > 0 {
+				reauth.Store(reauth.Load().(int) + 1)
+				if reauth.Load().(int) > 1 {
 					return nil, errors.New(bad)
 				}
-				reauth.Store(reauth.Load().(int) + 1)
 				return ably.TokenString("fake:token"), nil
 			}).
 			Dial(ablytest.MessagePipe(in, out)))
@@ -1920,9 +1920,9 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 		if expect, got := bad, c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
 			t.Errorf("expected %v to contain %q", got, expect)
 		}
-		n := reauth.Load().(int)
+		n := reauth.Load().(int) - 1 // we remove the first attempt
 		if n != 1 {
-			t.Error("expected re authorization to happen once")
+			t.Errorf("expected re authorization to happen once but happened %d", n)
 		}
 	})
 	t.Run("renewable token, consecutive token errors", func(t *testing.T) {
