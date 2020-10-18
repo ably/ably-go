@@ -131,7 +131,7 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 			lg.Debug("exiting connetAfterSuspension loop")
 			return nil, c.ctx.Err()
 		case <-tick.C:
-			res, err := c.connectWithInternal(arg)
+			res, err := c.connectWith(arg)
 			if err != nil {
 				if recoverable(err) {
 					continue
@@ -186,7 +186,7 @@ func (c *Connection) connect(arg connArgs) (Result, error) {
 	c.mtx.Lock()
 	arg.mode = c.getMode()
 	c.mtx.Unlock()
-	return c.connectWith(arg)
+	return c.connectWithRetryLoop(arg)
 }
 
 type connArgs struct {
@@ -214,7 +214,7 @@ func (c *Connection) reconnect(arg connArgs) (Result, error) {
 
 	c.mtx.Unlock()
 	arg.mode = mode
-	r, err := c.connectWith(arg)
+	r, err := c.connectWithRetryLoop(arg)
 	if err != nil {
 		return nil, err
 	}
@@ -275,9 +275,9 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	return query, nil
 }
 
-func (c *Connection) connectWith(arg connArgs) (Result, error) {
+func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 	lg := c.logger().Sugar()
-	res, err := c.connectWithInternal(arg)
+	res, err := c.connectWith(arg)
 	if err != nil {
 		if !arg.dialOnce && recoverable(err) {
 			lg.Errorf("Received recoverable error %v", err)
@@ -307,7 +307,7 @@ func (c *Connection) connectWith(arg connArgs) (Result, error) {
 					return c.connectAfterSuspension(arg)
 				case <-next.C:
 					lg.Debug("Attemting to dial")
-					res, err := c.connectWithInternal(arg)
+					res, err := c.connectWith(arg)
 					if err != nil {
 						if recoverable(err) {
 							lg.Errorf("Received recoverable error %v", err)
@@ -327,7 +327,7 @@ func (c *Connection) connectWith(arg connArgs) (Result, error) {
 	return res, nil
 }
 
-func (c *Connection) connectWithInternal(arg connArgs) (Result, error) {
+func (c *Connection) connectWith(arg connArgs) (Result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	if !c.isActive() {
