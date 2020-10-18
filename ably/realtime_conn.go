@@ -278,53 +278,54 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 	lg := c.logger().Sugar()
 	res, err := c.connectWith(arg)
-	if err != nil {
-		if !arg.dialOnce && recoverable(err) {
-			lg.Errorf("Received recoverable error %v", err)
-			c.setState(ConnectionStateDisconnected, err)
+	if err == nil {
+		return res, nil
+	}
 
-			suspend := make(chan ConnectionStateChange)
-			off := c.On(ConnectionEventSuspended, func(csc ConnectionStateChange) {
-				suspend <- csc
-			})
-			defer off()
+	if !arg.dialOnce && recoverable(err) {
+		lg.Errorf("Received recoverable error %v", err)
+		c.setState(ConnectionStateDisconnected, err)
 
-			next := time.NewTimer(c.opts.disconnectedRetryTimeout())
-			reset := func() {
-				ttl := c.opts.disconnectedRetryTimeout()
-				lg.Debugf("Retry in %v", ttl)
-				next.Reset(ttl)
-			}
-			defer next.Stop()
-			for {
-				select {
-				case <-c.ctx.Done():
-					lg.Debug("exiting dial retry loop")
-					return nopResult, nil
-				case <-suspend:
-					// (RTN14f)
-					lg.Debug("Reached SUSPENDED state while reconnecting")
-					return c.connectAfterSuspension(arg)
-				case <-next.C:
-					lg.Debug("Attemting to dial")
-					res, err := c.connectWith(arg)
-					if err != nil {
-						if recoverable(err) {
-							lg.Errorf("Received recoverable error %v", err)
-							c.setState(ConnectionStateDisconnected, err)
-							reset()
-							continue
-						}
-						return nil, c.setState(ConnectionStateFailed, err)
-					}
+		suspend := make(chan ConnectionStateChange)
+		off := c.On(ConnectionEventSuspended, func(csc ConnectionStateChange) {
+			suspend <- csc
+		})
+		defer off()
+
+		next := time.NewTimer(c.opts.disconnectedRetryTimeout())
+		reset := func() {
+			ttl := c.opts.disconnectedRetryTimeout()
+			lg.Debugf("Retry in %v", ttl)
+			next.Reset(ttl)
+		}
+		defer next.Stop()
+		for {
+			select {
+			case <-c.ctx.Done():
+				lg.Debug("exiting dial retry loop")
+				return nopResult, nil
+			case <-suspend:
+				// (RTN14f)
+				lg.Debug("Reached SUSPENDED state while reconnecting")
+				return c.connectAfterSuspension(arg)
+			case <-next.C:
+				lg.Debug("Attemting to dial")
+				res, err := c.connectWith(arg)
+				if err == nil {
 					return res, nil
 				}
-
+				if recoverable(err) {
+					lg.Errorf("Received recoverable error %v", err)
+					c.setState(ConnectionStateDisconnected, err)
+					reset()
+					continue
+				}
+				return nil, c.setState(ConnectionStateFailed, err)
 			}
+
 		}
-		return nil, c.setState(ConnectionStateFailed, err)
 	}
-	return res, nil
+	return nil, c.setState(ConnectionStateFailed, err)
 }
 
 func (c *Connection) connectWith(arg connArgs) (Result, error) {
