@@ -53,7 +53,7 @@ type MessageTypes struct {
 type MessageTraffic struct {
 	All           MessageTypes `json:"all" codec:"all"`
 	RealTime      MessageTypes `json:"realtime" codec:"realtime"`
-	Rest          MessageTypes `json:"rest" codec:"rest"`
+	REST          MessageTypes `json:"rest" codec:"rest"`
 	Webhook       MessageTypes `json:"webhook" codec:"webhook"`
 	Push          MessageTypes `json:"push" codec:"push"`
 	ExternalQueue MessageTypes `json:"externalQueue" codec:"externalQueue"`

@@ -36,7 +36,7 @@ func query(fn func(string, interface{}) (*http.Response, error)) queryFunc {
 	}
 }
 
-// RESTChannels provides an API for managing collection of RestChannel. This is
+// RESTChannels provides an API for managing collection of RESTChannel. This is
 // safe for concurrent use.
 type RESTChannels struct {
 	cache  map[string]*RESTChannel
@@ -47,9 +47,9 @@ type RESTChannels struct {
 // Range iterates over the channels calling fn on every iteration. If fn returns
 // false then the iteration is stopped.
 //
-// This uses locking to take a snapshot of the underlying RestChannel map before
+// This uses locking to take a snapshot of the underlying RESTChannel map before
 // iteration to avoid any deadlock, meaning any modification (like creating new
-// RestChannel, or removing one) that occurs during iteration will not have any
+// RESTChannel, or removing one) that occurs during iteration will not have any
 // effect to the values passed to the fn.
 func (c *RESTChannels) Range(fn func(name string, channel *RESTChannel) bool) {
 	clone := make(map[string]*RESTChannel)
@@ -97,7 +97,7 @@ func (c *RESTChannels) get(name string, opts *proto.ChannelOptions) *RESTChannel
 		}
 		return v
 	}
-	v = newRestChannel(name, c.client)
+	v = newRESTChannel(name, c.client)
 	v.options = opts
 	c.mu.Lock()
 	c.cache[name] = v
@@ -345,7 +345,7 @@ func (c *REST) doWithHandle(r *request, handle func(*http.Response, interface{})
 		log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
 			if canFallBack(e.StatusCode) &&
-				(strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
+				(strings.HasPrefix(req.URL.Host, defaultOptions.RESTHost) ||
 					c.opts.FallbackHosts != nil) {
 				fallback := defaultFallbackHosts()
 				if c.opts.FallbackHosts != nil {

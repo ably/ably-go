@@ -22,7 +22,7 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
-func TestRestChannel(t *testing.T) {
+func TestRESTChannel(t *testing.T) {
 	t.Parallel()
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
@@ -95,12 +95,12 @@ func TestRestChannel(t *testing.T) {
 	})
 
 	t.Run("History", func(ts *testing.T) {
-		historyRestChannel := client.Channels.Get("channelhistory")
+		historyRESTChannel := client.Channels.Get("channelhistory")
 		for i := 0; i < 2; i++ {
-			historyRestChannel.Publish(context.Background(), "breakingnews", "Another Shark attack!!")
+			historyRESTChannel.Publish(context.Background(), "breakingnews", "Another Shark attack!!")
 		}
 
-		page1, err := historyRestChannel.History(&ably.PaginateParams{Limit: 1})
+		page1, err := historyRESTChannel.History(&ably.PaginateParams{Limit: 1})
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -124,16 +124,16 @@ func TestRestChannel(t *testing.T) {
 	})
 
 	t.Run("PublishBatch", func(ts *testing.T) {
-		encodingRestChannel := client.Channels.Get("this?is#an?encoding#channel")
+		encodingRESTChannel := client.Channels.Get("this?is#an?encoding#channel")
 		messages := []*ably.Message{
 			{Name: "send", Data: "test data 1"},
 			{Name: "send", Data: "test data 2"},
 		}
-		err := encodingRestChannel.PublishBatch(context.Background(), messages)
+		err := encodingRESTChannel.PublishBatch(context.Background(), messages)
 		if err != nil {
 			ts.Fatal(err)
 		}
-		page, err := encodingRestChannel.History(&ably.PaginateParams{Limit: 2})
+		page, err := encodingRESTChannel.History(&ably.PaginateParams{Limit: 2})
 		if err != nil {
 			ts.Fatal(err)
 		}

@@ -481,7 +481,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		}
 	})
 }
-func TestRestChannels_RSN1(t *testing.T) {
+func TestRESTChannels_RSN1(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)

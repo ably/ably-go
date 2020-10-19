@@ -29,20 +29,20 @@ var encodeURIComponent = strings.NewReplacer(
 // RESTChannel is the interface for REST API operations on a channel.
 type RESTChannel struct {
 	Name     string
-	Presence *RestPresence
+	Presence *RESTPresence
 
 	client  *REST
 	baseURL string
 	options *proto.ChannelOptions
 }
 
-func newRestChannel(name string, client *REST) *RESTChannel {
+func newRESTChannel(name string, client *REST) *RESTChannel {
 	c := &RESTChannel{
 		Name:    name,
 		client:  client,
 		baseURL: "/channels/" + encodeURIComponent.Replace(name),
 	}
-	c.Presence = &RestPresence{
+	c.Presence = &RESTPresence{
 		client:  client,
 		channel: c,
 	}
@@ -94,7 +94,7 @@ func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*M
 			v.ChannelOptions = c.options
 		}
 	}
-	useIdempotent := c.client.opts.idempotentRestPublishing()
+	useIdempotent := c.client.opts.idempotentRESTPublishing()
 	if useIdempotent {
 		switch len(messages) {
 		case 1:
