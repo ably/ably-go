@@ -24,11 +24,11 @@ func single() *ably.PaginateParams {
 	}
 }
 
-func recorder() (*ablytest.RoundTripRecorder, ably.ClientOptions) {
+func recorder() (*ablytest.RoundTripRecorder, []ably.ClientOption) {
 	rec := &ablytest.RoundTripRecorder{}
-	return rec, ably.ClientOptions{}.HTTPClient(&http.Client{
+	return rec, []ably.ClientOption{ably.WithHTTPClient(&http.Client{
 		Transport: rec,
-	})
+	})}
 }
 
 func authValue(req *http.Request) (value string, err error) {
@@ -47,8 +47,8 @@ func TestAuth_BasicAuth(t *testing.T) {
 	t.Parallel()
 	rec, extraOpt := recorder()
 	defer rec.Stop()
-	opts := ably.ClientOptions{}.QueryTime(true)
-	app, client := ablytest.NewREST(opts, extraOpt)
+	opts := []ably.ClientOption{ably.WithQueryTime(true)}
+	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
 	defer safeclose(t, app)
 
 	if _, err := client.Time(); err != nil {
@@ -75,7 +75,7 @@ func TestAuth_BasicAuth(t *testing.T) {
 		t.Fatalf("want auth=%q; got %q", key, auth)
 	}
 	// Can't use basic auth over HTTP.
-	switch _, err := ably.NewREST(app.Options(opts.TLS(false))); {
+	switch _, err := ably.NewREST(app.Options(ably.WithTLS(false))...); {
 	case err == nil:
 		t.Fatal("want err != nil")
 	case ably.UnwrapErrorCode(err) != 40103:
@@ -94,11 +94,12 @@ func TestAuth_TokenAuth(t *testing.T) {
 	t.Parallel()
 	rec, extraOpt := recorder()
 	defer rec.Stop()
-	opts := ably.ClientOptions{}.
-		TLS(false).
-		UseTokenAuth(true).
-		QueryTime(true)
-	app, client := ablytest.NewREST(opts, extraOpt)
+	opts := []ably.ClientOption{
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithQueryTime(true),
+	}
+	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
 	defer safeclose(t, app)
 
 	beforeAuth := time.Now().Add(-time.Second)
@@ -126,7 +127,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 		t.Fatalf("want url.Scheme=http; got %s", url.Scheme)
 	}
 	rec.Reset()
-	tok, err := client.Auth.Authorize(nil, nil)
+	tok, err := client.Auth.Authorize(nil)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -164,17 +165,18 @@ func TestAuth_Authorise(t *testing.T) {
 	rec, extraOpt := recorder()
 	defer rec.Stop()
 	log := &bufferLogger{}
-	opts := ably.ClientOptions{}.
-		UseTokenAuth(true).
-		LogHandler(log).
-		LogLevel(ably.LogWarning)
-	app, client := ablytest.NewREST(opts, extraOpt)
+	opts := []ably.ClientOption{
+		ably.WithUseTokenAuth(true),
+		ably.WithLogHandler(log),
+		ably.WithLogLevel(ably.LogWarning),
+	}
+	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
 	defer safeclose(t, app)
 
 	params := &ably.TokenParams{
 		TTL: time.Second.Milliseconds(),
 	}
-	_, err := client.Auth.Authorise(params, nil)
+	_, err := client.Auth.Authorise(params)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,9 +198,9 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 	}
 
 	t.Run("must use local time when UseQueryTime is false", func(ts *testing.T) {
-		rest, _ := ably.NewREST(ably.ClientOptions{}.
-			Key("fake:key").
-			Now(func() time.Time {
+		rest, _ := ably.NewREST(
+			ably.WithKey("fake:key"),
+			ably.WithNow(func() time.Time {
 				return now
 			}))
 		a := rest.Auth
@@ -214,9 +216,9 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		}
 	})
 	t.Run("must use server time when UseQueryTime is true", func(ts *testing.T) {
-		rest, _ := ably.NewREST(ably.ClientOptions{}.
-			Key("fake:key").
-			Now(func() time.Time {
+		rest, _ := ably.NewREST(
+			ably.WithKey("fake:key"),
+			ably.WithNow(func() time.Time {
 				return now
 			}))
 		a := rest.Auth
@@ -234,9 +236,9 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 	})
 	t.Run("must use server time offset ", func(ts *testing.T) {
 		now := now
-		rest, _ := ably.NewREST(ably.ClientOptions{}.
-			Key("fake:key").
-			Now(func() time.Time {
+		rest, _ := ably.NewREST(
+			ably.WithKey("fake:key"),
+			ably.WithNow(func() time.Time {
 				return now
 			}))
 		a := rest.Auth
@@ -271,14 +273,14 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	t.Parallel()
 	rec, extraOpt := recorder()
 	defer rec.Stop()
-	opts := ably.ClientOptions{}.UseTokenAuth(true)
-	app, client := ablytest.NewREST(opts, extraOpt)
+	opts := []ably.ClientOption{ably.WithUseTokenAuth(true)}
+	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
 	defer safeclose(t, app)
 
 	params := &ably.TokenParams{
 		TTL: time.Second.Milliseconds(),
 	}
-	tok, err := client.Auth.Authorize(params, nil)
+	tok, err := client.Auth.Authorize(params)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -317,9 +319,9 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	// Ensure request fails when Token or *TokenDetails is provided, but no
 	// means to renew the token
 	rec.Reset()
-	opts = app.Options(opts)
-	opts = opts.Key("").TokenDetails(tok)
-	client, err = ably.NewREST(opts)
+	opts = app.Options(opts...)
+	opts = append(opts, ably.WithKey(""), ably.WithTokenDetails(tok))
+	client, err = ably.NewREST(opts...)
 	if err != nil {
 		t.Fatalf("NewREST()=%v", err)
 	}
@@ -335,19 +337,20 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 func TestAuth_RequestToken(t *testing.T) {
 	t.Parallel()
 	rec, extraOpt := recorder()
-	opts := ably.ClientOptions{}.
-		UseTokenAuth(true).
-		AuthParams(url.Values{"param_1": []string{"this", "should", "get", "overwritten"}})
+	opts := []ably.ClientOption{
+		ably.WithUseTokenAuth(true),
+		ably.WithAuthParams(url.Values{"param_1": []string{"this", "should", "get", "overwritten"}}),
+	}
 	defer rec.Stop()
-	app, client := ablytest.NewREST(opts, extraOpt)
+	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
 	defer safeclose(t, app)
-	server := ablytest.MustAuthReverseProxy(app.Options(opts, extraOpt))
+	server := ablytest.MustAuthReverseProxy(app.Options(append(opts, extraOpt...)...)...)
 	defer safeclose(t, server)
 
 	if n := rec.Len(); n != 0 {
 		t.Fatalf("want rec.Len()=0; got %d", n)
 	}
-	token, err := client.Auth.RequestToken(nil, nil)
+	token, err := client.Auth.RequestToken(nil)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
@@ -357,9 +360,10 @@ func TestAuth_RequestToken(t *testing.T) {
 	// Enqueue token in the auth reverse proxy - expect it'd be received in response
 	// to AuthURL request.
 	server.TokenQueue = append(server.TokenQueue, token)
-	authOpts := ably.AuthOptions{}.
-		AuthURL(server.URL("details"))
-	token2, err := client.Auth.RequestToken(nil, authOpts)
+	authOpts := []ably.AuthOption{
+		ably.AuthWithAuthURL(server.URL("details")),
+	}
+	token2, err := client.Auth.RequestToken(nil, authOpts...)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
@@ -378,9 +382,10 @@ func TestAuth_RequestToken(t *testing.T) {
 	rec.Reset()
 	for _, callback := range []string{"token", "details"} {
 		server.TokenQueue = append(server.TokenQueue, token2)
-		authOpts := ably.AuthOptions{}.
-			AuthCallback(server.Callback(callback))
-		tokCallback, err := client.Auth.RequestToken(nil, authOpts)
+		authOpts := []ably.AuthOption{
+			ably.AuthWithAuthCallback(server.Callback(callback)),
+		}
+		tokCallback, err := client.Auth.RequestToken(nil, authOpts...)
 		if err != nil {
 			t.Fatalf("RequestToken()=%v (callback=%s)", err, callback)
 		}
@@ -400,9 +405,10 @@ func TestAuth_RequestToken(t *testing.T) {
 	// For "request" callback, a TokenRequest value is created from the token2,
 	// then it's used to request TokenDetails from the Ably servers.
 	server.TokenQueue = append(server.TokenQueue, token2)
-	authOpts = ably.AuthOptions{}.
-		AuthCallback(server.Callback("request"))
-	tokCallback, err := client.Auth.RequestToken(nil, authOpts)
+	authOpts = []ably.AuthOption{
+		ably.AuthWithAuthCallback(server.Callback("request")),
+	}
+	tokCallback, err := client.Auth.RequestToken(nil, authOpts...)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
@@ -428,16 +434,17 @@ func TestAuth_RequestToken(t *testing.T) {
 			"param_2":  {"value"},
 			"clientId": {"should not be overwritten"},
 		}
-		authOpts = ably.AuthOptions{}.
-			AuthMethod(method).
-			AuthURL(server.URL("request")).
-			AuthHeaders(authHeaders).
-			AuthParams(authParams)
+		authOpts = []ably.AuthOption{
+			ably.AuthWithAuthMethod(method),
+			ably.AuthWithAuthURL(server.URL("request")),
+			ably.AuthWithAuthHeaders(authHeaders),
+			ably.AuthWithAuthParams(authParams),
+		}
 		params := &ably.TokenParams{
 			ClientID: "test",
 		}
 
-		tokURL, err := client.Auth.RequestToken(params, authOpts)
+		tokURL, err := client.Auth.RequestToken(params, authOpts...)
 		if err != nil {
 			t.Fatalf("RequestToken()=%v (method=%s)", err, method)
 		}
@@ -474,9 +481,10 @@ func TestAuth_RequestToken(t *testing.T) {
 			t.Errorf("want clientID=test; got %v (method=%s)", tokReq.ClientID, method)
 		}
 		// Call the API with the token obtained via AuthURL.
-		optsURL := app.Options(opts).
-			Token(tokURL.Token)
-		c, err := ably.NewREST(optsURL)
+		optsURL := append(app.Options(opts...),
+			ably.WithToken(tokURL.Token),
+		)
+		c, err := ably.NewREST(optsURL...)
 		if err != nil {
 			t.Errorf("NewRealtime()=%v", err)
 			continue
@@ -489,11 +497,12 @@ func TestAuth_RequestToken(t *testing.T) {
 
 func TestAuth_ClientID_Error(t *testing.T) {
 	t.Parallel()
-	opts := ably.ClientOptions{}.
-		ClientID("*").
-		Key("abc:abc").
-		UseTokenAuth(true)
-	_, err := ably.NewRealtime(opts)
+	opts := []ably.ClientOption{
+		ably.WithClientID("*"),
+		ably.WithKey("abc:abc"),
+		ably.WithUseTokenAuth(true),
+	}
+	_, err := ably.NewRealtime(opts...)
 	if err := checkError(40102, err); err != nil {
 		t.Fatal(err)
 	}
@@ -501,14 +510,14 @@ func TestAuth_ClientID_Error(t *testing.T) {
 
 func TestAuth_ReuseClientID(t *testing.T) {
 	t.Parallel()
-	opts := ably.ClientOptions{}.UseTokenAuth(true)
-	app, client := ablytest.NewREST(opts)
+	opts := []ably.ClientOption{ably.WithUseTokenAuth(true)}
+	app, client := ablytest.NewREST(opts...)
 	defer safeclose(t, app)
 
 	params := &ably.TokenParams{
 		ClientID: "reuse-me",
 	}
-	tok, err := client.Auth.Authorize(params, nil)
+	tok, err := client.Auth.Authorize(params)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -518,7 +527,7 @@ func TestAuth_ReuseClientID(t *testing.T) {
 	if clientID := client.Auth.ClientID(); clientID != params.ClientID {
 		t.Fatalf("want ClientID=%q; got %q", params.ClientID, tok.ClientID)
 	}
-	tok2, err := client.Auth.Authorize(nil, nil)
+	tok2, err := client.Auth.Authorize(nil)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -545,25 +554,26 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 	}
 
 	for i, cas := range cases {
-		rclient, err := ably.NewREST(app.Options(nil))
+		rclient, err := ably.NewREST(app.Options()...)
 		if err != nil {
 			t.Fatal(err)
 		}
 		params := &ably.TokenParams{
 			ClientID: cas.authAs,
 		}
-		tok, err := rclient.Auth.RequestToken(params, nil)
+		tok, err := rclient.Auth.RequestToken(params)
 		if err != nil {
 			t.Errorf("%d: CreateTokenRequest()=%v", i, err)
 			continue
 		}
-		opts := ably.ClientOptions{}.
-			TokenDetails(tok).
-			UseTokenAuth(true)
-		if i == 4 {
-			opts = opts.ClientID(cas.clientID)
+		opts := []ably.ClientOption{
+			ably.WithTokenDetails(tok),
+			ably.WithUseTokenAuth(true),
 		}
-		client := app.NewRealtime(opts)
+		if i == 4 {
+			opts = append(opts, ably.WithClientID(cas.clientID))
+		}
+		client := app.NewRealtime(opts...)
 		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 		if id := client.Auth.ClientID(); id != cas.clientID {
 			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
@@ -608,27 +618,29 @@ func TestAuth_ClientID(t *testing.T) {
 	out := make(chan *proto.ProtocolMessage, 16)
 	app := ablytest.MustSandbox(nil)
 	defer safeclose(t, app)
-	opts := ably.ClientOptions{}.
-		UseTokenAuth(true)
-	proxy := ablytest.MustAuthReverseProxy(app.Options(opts))
+	opts := []ably.ClientOption{
+		ably.WithUseTokenAuth(true),
+	}
+	proxy := ablytest.MustAuthReverseProxy(app.Options(opts...)...)
 	defer safeclose(t, proxy)
 	params := &ably.TokenParams{
 		TTL: time.Second.Milliseconds(),
 	}
-	opts = ably.ClientOptions{}.
-		AuthURL(proxy.URL("details")).
-		UseTokenAuth(true).
-		Dial(ablytest.MessagePipe(in, out)).
-		AutoConnect(false)
-	client := app.NewRealtime(opts) // no client.Close as the connection is mocked
+	opts = []ably.ClientOption{
+		ably.WithAuthURL(proxy.URL("details")),
+		ably.WithUseTokenAuth(true),
+		ably.WithDial(ablytest.MessagePipe(in, out)),
+		ably.WithAutoConnect(false),
+	}
+	client := app.NewRealtime(opts...) // no client.Close as the connection is mocked
 
-	tok, err := client.Auth.RequestToken(params, nil)
+	tok, err := client.Auth.RequestToken(params)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
 	proxy.TokenQueue = append(proxy.TokenQueue, tok)
 
-	tok, err = client.Auth.Authorize(nil, nil)
+	tok, err = client.Auth.Authorize(nil)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -655,7 +667,7 @@ func TestAuth_ClientID(t *testing.T) {
 	tok.ClientID = "non-matching"
 	proxy.TokenQueue = append(proxy.TokenQueue, tok)
 
-	_, err = client.Auth.Authorize(nil, nil)
+	_, err = client.Auth.Authorize(nil)
 	if err := checkError(40012, err); err != nil {
 		t.Fatal(err)
 	}
@@ -709,34 +721,35 @@ func TestAuth_ClientID(t *testing.T) {
 
 func TestAuth_CreateTokenRequest(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewREST(nil)
+	app, client := ablytest.NewREST()
 	defer safeclose(t, app)
 
-	opts := ably.AuthOptions{}.
-		QueryTime(true).
-		Key(app.Key())
+	opts := []ably.AuthOption{
+		ably.AuthWithQueryTime(true),
+		ably.AuthWithKey(app.Key()),
+	}
 	params := &ably.TokenParams{
 		TTL:        (5 * time.Second).Milliseconds(),
 		Capability: `{"presence":["read", "write"]}`,
 	}
 	t.Run("RSA9h", func(ts *testing.T) {
 		ts.Run("parameters are optional", func(ts *testing.T) {
-			_, err := client.Auth.CreateTokenRequest(params, nil)
+			_, err := client.Auth.CreateTokenRequest(params)
 			if err != nil {
 				ts.Fatalf("expected no error to occur got %v instead", err)
 			}
-			_, err = client.Auth.CreateTokenRequest(nil, opts)
+			_, err = client.Auth.CreateTokenRequest(nil, opts...)
 			if err != nil {
 				ts.Fatalf("expected no error to occur got %v instead", err)
 			}
-			_, err = client.Auth.CreateTokenRequest(nil, nil)
+			_, err = client.Auth.CreateTokenRequest(nil)
 			if err != nil {
 				ts.Fatalf("expected no error to occur got %v instead", err)
 			}
 		})
 		ts.Run("authOptions must not be merged", func(ts *testing.T) {
-			opts := ably.AuthOptions{}.QueryTime(true)
-			_, err := client.Auth.CreateTokenRequest(params, opts)
+			opts := []ably.AuthOption{ably.AuthWithQueryTime(true)}
+			_, err := client.Auth.CreateTokenRequest(params, opts...)
 			if err == nil {
 				ts.Fatal("expected an error")
 			}
@@ -746,8 +759,8 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 			}
 
 			// override with bad key
-			opts = opts.Key("some bad key")
-			_, err = client.Auth.CreateTokenRequest(params, opts)
+			opts = append(opts, ably.AuthWithKey("some bad key"))
+			_, err = client.Auth.CreateTokenRequest(params, opts...)
 			if err == nil {
 				ts.Fatal("expected an error")
 			}
@@ -758,7 +771,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		})
 	})
 	t.Run("RSA9c must generate a unique 16+ character nonce", func(ts *testing.T) {
-		req, err := client.Auth.CreateTokenRequest(params, opts)
+		req, err := client.Auth.CreateTokenRequest(params, opts...)
 		if err != nil {
 			ts.Fatalf("CreateTokenRequest()=%v", err)
 		}
@@ -767,7 +780,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		}
 	})
 	t.Run("RSA9g generate a signed request", func(ts *testing.T) {
-		req, err := client.Auth.CreateTokenRequest(nil, nil)
+		req, err := client.Auth.CreateTokenRequest(nil)
 		if err != nil {
 			ts.Fatalf("CreateTokenRequest()=%v", err)
 		}
@@ -781,12 +794,13 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	t.Parallel()
 	rec := ablytest.NewMessageRecorder()
 	const explicitClientID = "explicit"
-	opts := ably.ClientOptions{}.
-		ClientID(explicitClientID).
-		AutoConnect(false).
-		Dial(rec.Dial).
-		UseTokenAuth(true)
-	app, client := ablytest.NewRealtime(opts)
+	opts := []ably.ClientOption{
+		ably.WithClientID(explicitClientID),
+		ably.WithAutoConnect(false),
+		ably.WithDial(rec.Dial),
+		ably.WithUseTokenAuth(true),
+	}
+	app, client := ablytest.NewRealtime(opts...)
 	defer safeclose(t, app)
 
 	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
@@ -823,9 +837,9 @@ func TestAuth_RSA7c(t *testing.T) {
 	t.Parallel()
 	app := ablytest.MustSandbox(nil)
 	defer safeclose(t, app)
-	opts := app.Options(nil)
-	opts = opts.ClientID("*")
-	_, err := ably.NewREST(opts)
+	opts := app.Options()
+	opts = append(opts, ably.WithClientID("*"))
+	_, err := ably.NewREST(opts...)
 	if err == nil {
 		t.Error("expected an error")
 	}
