@@ -1,7 +1,9 @@
 package ably
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -24,45 +26,76 @@ var encodeURIComponent = strings.NewReplacer(
 	"#", "%23",
 )
 
-type RestChannel struct {
+// RESTChannel is the interface for REST API operations on a channel.
+type RESTChannel struct {
 	Name     string
-	Presence *RestPresence
+	Presence *RESTPresence
 
 	client  *REST
 	baseURL string
 	options *proto.ChannelOptions
 }
 
-func newRestChannel(name string, client *REST) *RestChannel {
-	c := &RestChannel{
+func newRESTChannel(name string, client *REST) *RESTChannel {
+	c := &RESTChannel{
 		Name:    name,
 		client:  client,
 		baseURL: "/channels/" + encodeURIComponent.Replace(name),
 	}
-	c.Presence = &RestPresence{
+	c.Presence = &RESTPresence{
 		client:  client,
 		channel: c,
 	}
 	return c
 }
 
-func (c *RestChannel) Publish(name string, data interface{}) error {
-	messages := []*proto.Message{
+// Publish publishes a message on the channel.
+func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}) error {
+	return c.PublishBatch(ctx, []*Message{
 		{Name: name, Data: data},
-	}
-	return c.PublishAll(messages)
+	})
 }
 
-// PublishAll sends multiple messages in the same http call.
-// This is the more efficient way of transmitting a batch of messages
-// using the Rest API.
-func (c *RestChannel) PublishAll(messages []*proto.Message) error {
+// Message is what Ably channels send and receive.
+type Message = proto.Message
+
+// PublishBatch publishes multiple messages in a batch.
+func (c *RESTChannel) PublishBatch(ctx context.Context, messages []*Message) error {
+	return c.PublishBatchWithOptions(ctx, messages)
+}
+
+// PublishBatchOptions is an optional parameter for
+// RESTChannel.PublishBatchWithOptions.
+type PublishBatchOption func(*publishBatchOptions)
+
+type publishBatchOptions struct {
+	params map[string]string
+}
+
+// Params adds query parameters to the resulting HTTP request to the REST API.
+func PublishBatchWithParams(params map[string]string) PublishBatchOption {
+	return func(options *publishBatchOptions) {
+		options.params = params
+	}
+}
+
+// PublishBatchWithOptions is PublishBatch with optional parameters.
+func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*Message, options ...PublishBatchOption) error {
+	// TODO: Use context
+	var publishOpts publishBatchOptions
+	for _, o := range options {
+		o(&publishOpts)
+	}
+	msgPtrs := make([]*proto.Message, 0, len(messages))
+	for _, m := range messages {
+		msgPtrs = append(msgPtrs, (*proto.Message)(m))
+	}
 	if c.options != nil {
 		for _, v := range messages {
 			v.ChannelOptions = c.options
 		}
 	}
-	useIdempotent := c.client.opts.idempotentRestPublishing()
+	useIdempotent := c.client.opts.idempotentRESTPublishing()
 	if useIdempotent {
 		switch len(messages) {
 		case 1:
@@ -93,7 +126,15 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 			}
 		}
 	}
-	res, err := c.client.post(c.baseURL+"/messages", messages, nil)
+	var query string
+	if params := publishOpts.params; len(params) > 0 {
+		queryParams := url.Values{}
+		for k, v := range params {
+			queryParams.Set(k, v)
+		}
+		query = "?" + queryParams.Encode()
+	}
+	res, err := c.client.post(c.baseURL+"/messages"+query, messages, nil)
 	if err != nil {
 		return err
 	}
@@ -103,7 +144,7 @@ func (c *RestChannel) PublishAll(messages []*proto.Message) error {
 // History gives the channel's message history according to the given parameters.
 // The returned result can be inspected for the messages via the Messages()
 // method.
-func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) {
+func (c *RESTChannel) History(params *PaginateParams) (*PaginatedResult, error) {
 	path := c.baseURL + "/history"
 	rst, err := newPaginatedResult(c.options, paginatedRequest{typ: msgType, path: path, params: params, query: query(c.client.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
 	if err != nil {
@@ -112,6 +153,6 @@ func (c *RestChannel) History(params *PaginateParams) (*PaginatedResult, error) 
 	return rst, nil
 }
 
-func (c *RestChannel) logger() *LoggerOptions {
+func (c *RESTChannel) logger() *LoggerOptions {
 	return c.client.logger()
 }

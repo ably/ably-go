@@ -119,6 +119,13 @@ func newErrorFromProto(err *proto.ErrorInfo) *ErrorInfo {
 	}
 }
 
+func (e *ErrorInfo) unwrapNil() error {
+	if e == nil {
+		return nil
+	}
+	return e
+}
+
 func code(err error) ErrorCode {
 	if e, ok := err.(*ErrorInfo); ok {
 		return e.Code

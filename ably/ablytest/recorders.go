@@ -515,7 +515,11 @@ func (c realtimeIOCloser) Close() error {
 		ably.ConnectionStateClosed,
 		ably.ConnectionStateFailed:
 
-		return c.c.Connection.ErrorReason()
+		err := c.c.Connection.ErrorReason()
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout)

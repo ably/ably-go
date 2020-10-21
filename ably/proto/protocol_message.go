@@ -107,17 +107,17 @@ func (p *ProtocolMessage) FromMap(ctx map[string]interface{}) {
 	if v, ok := ctx["messages"]; ok {
 		i := v.([]interface{})
 		for _, v := range i {
-			msg := &Message{}
+			var msg Message
 			msg.FromMap(v.(map[string]interface{}))
-			p.Messages = append(p.Messages, msg)
+			p.Messages = append(p.Messages, &msg)
 		}
 	}
 	if v, ok := ctx["presence"]; ok {
 		i := v.([]interface{})
 		for _, v := range i {
-			msg := &PresenceMessage{}
+			var msg PresenceMessage
 			msg.FromMap(v.(map[string]interface{}))
-			p.Presence = append(p.Presence, msg)
+			p.Presence = append(p.Presence, &msg)
 		}
 	}
 	if v, ok := ctx["id"]; ok {

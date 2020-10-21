@@ -421,7 +421,7 @@ func (c *Connection) send(msg *proto.ProtocolMessage, listen chan<- error) error
 		return err
 	}
 	c.updateSerial(msg, listen)
-	c.mtx.Unlock()
+	defer c.mtx.Unlock()
 	return c.conn.Send(msg)
 }
 
@@ -716,8 +716,5 @@ func (c *Connection) lockSetState(state ConnectionState, err error) error {
 	}
 	c.internalEmitter.emitter.Emit(change.Event, change)
 	c.emitter.Emit(change.Event, change)
-	if c.errorReason == nil {
-		return nil
-	}
-	return c.errorReason
+	return c.errorReason.unwrapNil()
 }

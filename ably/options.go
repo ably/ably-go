@@ -24,7 +24,7 @@ const (
 )
 
 var defaultOptions = clientOptions{
-	RestHost:                 restHost,
+	RESTHost:                 restHost,
 	HTTPMaxRetryCount:        3,
 	HTTPRequestTimeout:       10 * time.Second,
 	RealtimeHost:             "realtime.ably.io",
@@ -33,7 +33,7 @@ var defaultOptions = clientOptions{
 	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
 	ChannelRetryTimeout:      15 * time.Second, // TO3l7
 	FallbackRetryTimeout:     10 * time.Minute,
-	IdempotentRestPublishing: false,
+	IdempotentRESTPublishing: false,
 	Port:                     80,
 	TLSPort:                  443,
 	Now:                      time.Now,
@@ -121,7 +121,7 @@ type authOptions struct {
 	// Spec: TO3j11
 	DefaultTokenParams *TokenParams
 
-	// UseTokenAuth makes the Rest and Realtime clients always use token
+	// UseTokenAuth makes the REST and Realtime clients always use token
 	// authentication method.
 	UseTokenAuth bool
 }
@@ -161,7 +161,7 @@ func (opts *authOptions) KeySecret() string {
 type clientOptions struct {
 	authOptions
 
-	RestHost string // optional; overwrite endpoint hostname for REST client
+	RESTHost string // optional; overwrite endpoint hostname for REST client
 
 	FallbackHosts   []string
 	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
@@ -194,7 +194,7 @@ type clientOptions struct {
 
 	// When true idempotent rest publishing will be enabled.
 	// Spec TO3n
-	IdempotentRestPublishing bool
+	IdempotentRESTPublishing bool
 
 	// TimeoutConnect is the time period after which connect request is failed.
 	//
@@ -217,7 +217,7 @@ type clientOptions struct {
 	// If Dial is nil, the default websocket connection is used.
 	Dial func(protocol string, u *url.URL) (proto.Conn, error)
 
-	// HTTPClient specifies the client used for HTTP communication by RestClient.
+	// HTTPClient specifies the client used for HTTP communication by REST.
 	//
 	// If HTTPClient is nil, a client configured with default settings is used.
 	HTTPClient *http.Client
@@ -266,7 +266,7 @@ func (opts *clientOptions) disconnectedRetryTimeout() time.Duration {
 }
 
 func (opts *clientOptions) restURL() string {
-	host := resolveHost(opts.RestHost, opts.Environment, defaultOptions.RestHost)
+	host := resolveHost(opts.RESTHost, opts.Environment, defaultOptions.RESTHost)
 	if opts.NoTLS {
 		port := opts.Port
 		if port == 0 {
@@ -324,8 +324,8 @@ func (opts *clientOptions) protocol() string {
 	return protocolMsgPack
 }
 
-func (opts *clientOptions) idempotentRestPublishing() bool {
-	return opts.IdempotentRestPublishing
+func (opts *clientOptions) idempotentRESTPublishing() bool {
+	return opts.IdempotentRESTPublishing
 }
 
 type ScopeParams struct {
@@ -572,7 +572,7 @@ func WithQueueMessages(queue bool) ClientOption {
 
 func WithRESTHost(host string) ClientOption {
 	return func(os *clientOptions) {
-		os.RestHost = host
+		os.RESTHost = host
 	}
 }
 
@@ -638,7 +638,7 @@ func WithHTTPMaxRetryCount(count int) ClientOption {
 
 func WithIdempotentRESTPublishing(idempotent bool) ClientOption {
 	return func(os *clientOptions) {
-		os.IdempotentRestPublishing = idempotent
+		os.IdempotentRESTPublishing = idempotent
 	}
 }
 
