@@ -396,31 +396,31 @@ type TokenString string
 func (TokenString) IsTokener() {}
 func (TokenString) isTokener() {}
 
-func AuthWithAuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOption {
+func AuthWithCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOption {
 	return func(os *authOptions) {
 		os.AuthCallback = authCallback
 	}
 }
 
-func AuthWithAuthParams(params url.Values) AuthOption {
+func AuthWithParams(params url.Values) AuthOption {
 	return func(os *authOptions) {
 		os.AuthParams = params
 	}
 }
 
-func AuthWithAuthURL(url string) AuthOption {
+func AuthWithURL(url string) AuthOption {
 	return func(os *authOptions) {
 		os.AuthURL = url
 	}
 }
 
-func AuthWithAuthMethod(url string) AuthOption {
+func AuthWithMethod(url string) AuthOption {
 	return func(os *authOptions) {
 		os.AuthMethod = url
 	}
 }
 
-func AuthWithAuthHeaders(headers http.Header) AuthOption {
+func AuthWithHeaders(headers http.Header) AuthOption {
 	return func(os *authOptions) {
 		os.AuthHeaders = headers
 	}

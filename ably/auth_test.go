@@ -361,7 +361,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	// to AuthURL request.
 	server.TokenQueue = append(server.TokenQueue, token)
 	authOpts := []ably.AuthOption{
-		ably.AuthWithAuthURL(server.URL("details")),
+		ably.AuthWithURL(server.URL("details")),
 	}
 	token2, err := client.Auth.RequestToken(nil, authOpts...)
 	if err != nil {
@@ -383,7 +383,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	for _, callback := range []string{"token", "details"} {
 		server.TokenQueue = append(server.TokenQueue, token2)
 		authOpts := []ably.AuthOption{
-			ably.AuthWithAuthCallback(server.Callback(callback)),
+			ably.AuthWithCallback(server.Callback(callback)),
 		}
 		tokCallback, err := client.Auth.RequestToken(nil, authOpts...)
 		if err != nil {
@@ -406,7 +406,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	// then it's used to request TokenDetails from the Ably servers.
 	server.TokenQueue = append(server.TokenQueue, token2)
 	authOpts = []ably.AuthOption{
-		ably.AuthWithAuthCallback(server.Callback("request")),
+		ably.AuthWithCallback(server.Callback("request")),
 	}
 	tokCallback, err := client.Auth.RequestToken(nil, authOpts...)
 	if err != nil {
@@ -435,10 +435,10 @@ func TestAuth_RequestToken(t *testing.T) {
 			"clientId": {"should not be overwritten"},
 		}
 		authOpts = []ably.AuthOption{
-			ably.AuthWithAuthMethod(method),
-			ably.AuthWithAuthURL(server.URL("request")),
-			ably.AuthWithAuthHeaders(authHeaders),
-			ably.AuthWithAuthParams(authParams),
+			ably.AuthWithMethod(method),
+			ably.AuthWithURL(server.URL("request")),
+			ably.AuthWithHeaders(authHeaders),
+			ably.AuthWithParams(authParams),
 		}
 		params := &ably.TokenParams{
 			ClientID: "test",
