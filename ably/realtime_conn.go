@@ -61,8 +61,6 @@ type Connection struct {
 	// after a reauthorization, to avoid re-reauthorizing.
 	reauthorizing bool
 	arg           connArgs
-	cancel        context.CancelFunc
-	ctx           context.Context
 }
 
 type connCallbacks struct {
@@ -90,8 +88,6 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) (*Connect
 		callbacks: callbacks,
 	}
 	c.queue = newMsgQueue(c)
-	c.ctx, c.cancel = context.WithCancel(context.Background())
-	go c.watchDisconnect(c.ctx)
 	if !opts.NoConnect {
 		if _, err := c.connect(connArgs{}); err != nil {
 			return nil, err
@@ -128,20 +124,15 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", timeout)
 	tick := time.NewTicker(timeout)
 	for {
-		select {
-		case <-c.ctx.Done():
-			lg.Debug("exiting connetAfterSuspension loop")
-			return nil, c.ctx.Err()
-		case <-tick.C:
-			res, err := c.connectWith(arg)
-			if err != nil {
-				if recoverable(err) {
-					continue
-				}
-				return nil, err
+		<-tick.C
+		res, err := c.connectWith(arg)
+		if err != nil {
+			if recoverable(err) {
+				continue
 			}
-			return res, nil
+			return nil, err
 		}
+		return res, nil
 	}
 }
 
@@ -283,11 +274,11 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 	lg.Errorf("Received recoverable error %v", err)
 	c.setState(ConnectionStateDisconnected, err)
 
-	suspend := make(chan ConnectionStateChange)
-	off := c.On(ConnectionEventSuspended, func(csc ConnectionStateChange) {
-		suspend <- csc
-	})
-	defer off()
+	// The initial DISCONNECTED event has been fired. If we reach stateTTL without
+	// any state changes, we transition to SUSPENDED state
+	stateTTL := c.opts.connectionStateTTL()
+	stateDeadline := time.NewTimer(stateTTL)
+	defer stateDeadline.Stop()
 
 	next := time.NewTimer(c.opts.disconnectedRetryTimeout())
 	reset := func() {
@@ -298,21 +289,24 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 	defer next.Stop()
 	for {
 		select {
-		case <-c.ctx.Done():
-			lg.Debug("exiting dial retry loop")
-			return nopResult, nil
-		case <-suspend:
+		case <-stateDeadline.C:
+			// (RTN14e)
+			lg.Debug("Transition to SUSPENDED state")
+			c.setState(ConnectionStateSuspended, context.DeadlineExceeded)
 			// (RTN14f)
-			lg.Debug("Reached SUSPENDED state while reconnecting")
+			lg.Debug("Reached SUSPENDED state while opening connection")
 			return c.connectAfterSuspension(arg)
 		case <-next.C:
-			lg.Debug("Attemting to dial")
+			lg.Debug("Attemting to open connection")
 			res, err := c.connectWith(arg)
 			if err == nil {
 				return res, nil
 			}
 			if recoverable(err) {
 				lg.Errorf("Received recoverable error %v", err)
+				// No need to reset stateDeadline as we are still in DISCONNECTED state. so
+				// another DISCONNECTED implies we haven't transitioned from DISCONNECTED
+				// state
 				c.setState(ConnectionStateDisconnected, err)
 				reset()
 				continue
@@ -369,55 +363,8 @@ func (c *Connection) connectionStateTTL() time.Duration {
 	return c.opts.connectionStateTTL()
 }
 
-func (c *Connection) watchDisconnect(ctx context.Context) {
-	lg := c.logger().Sugar()
-	lg.Debug("Start loop for watching DISCONNECTED events")
-	deadline := time.NewTimer(c.connectionStateTTL())
-	defer deadline.Stop()
-	var watching bool
-	watch := make(chan ConnectionStateChange)
-	off := c.OnAll(func(csc ConnectionStateChange) {
-		watch <- csc
-	})
-	defer off()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-deadline.C:
-			lg.Debugf("DISCONNECTED watch timed out watching=%v", watching)
-			if !watching {
-				continue
-			}
-			// (RTN14e)
-			lg.Debug("Transition to SUSPENDED state")
-			c.setState(ConnectionStateSuspended, context.DeadlineExceeded)
-			deadline.Reset(c.connectionStateTTL())
-			watching = false
-		case change := <-watch:
-			switch change.Current {
-			case ConnectionStateDisconnected:
-				ttl := c.connectionStateTTL()
-				lg.Debugf("Received DISCONNECTED event resetting the wtach timer to %v", ttl)
-				deadline.Reset(ttl)
-				watching = true
-			default:
-				if !watching {
-					continue
-				}
-				lg.Debugf("Received %v state while watching for DISCONNECTED", change.Current)
-				deadline.Reset(c.connectionStateTTL())
-				watching = false
-			}
-		}
-	}
-}
-
 func (c *Connection) close() {
 	c.mtx.Lock()
-	if c.cancel != nil {
-		c.cancel()
-	}
 	c.key, c.id = "", "" //(RTN16c)
 	defer c.mtx.Unlock()
 	switch c.state {

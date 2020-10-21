@@ -1805,7 +1805,7 @@ func TestRealtimeConn_RTN14c(t *testing.T) {
 		client.Close()
 
 		// Check if we passed default request timeout
-		expect := 10 * time.Second
+		expect := 4 * time.Second
 		if connTimeout != expect {
 			t.Errorf("expected %v got %v", expect, connTimeout)
 		}
