@@ -30,4 +30,7 @@
 //
 // Calling any of these methods an "off" function inside a handler will only
 // have effect for subsequent events.
+//
+// For messages and presence messages, "on" is called "subscribe" and "off" is
+// called "unsubscribe".
 package ably

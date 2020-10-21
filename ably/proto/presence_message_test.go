@@ -10,7 +10,7 @@ import (
 )
 
 func TestPresenceMessage(t *testing.T) {
-	actions := []proto.PresenceState{
+	actions := []proto.PresenceAction{
 		proto.PresenceAbsent,
 		proto.PresencePresent,
 		proto.PresenceEnter,
@@ -25,7 +25,7 @@ func TestPresenceMessage(t *testing.T) {
 			Message: proto.Message{
 				ID: id,
 			},
-			State: a,
+			Action: a,
 		}
 
 		t.Run("json", func(ts *testing.T) {
@@ -41,8 +41,8 @@ func TestPresenceMessage(t *testing.T) {
 			if msg.ID != id {
 				ts.Errorf("expected id to be %s got %s", id, msg.ID)
 			}
-			if msg.State != a {
-				ts.Errorf("expected action to be %d got %d", a, msg.State)
+			if msg.Action != a {
+				ts.Errorf("expected action to be %d got %d", a, msg.Action)
 			}
 		})
 		t.Run("msgpack", func(ts *testing.T) {
@@ -58,8 +58,8 @@ func TestPresenceMessage(t *testing.T) {
 			if msg.ID != id {
 				ts.Errorf("expected id to be %s got %s", id, msg.ID)
 			}
-			if msg.State != a {
-				ts.Errorf("expected action to be %d got %d", a, msg.State)
+			if msg.Action != a {
+				ts.Errorf("expected action to be %d got %d", a, msg.Action)
 			}
 		})
 	}

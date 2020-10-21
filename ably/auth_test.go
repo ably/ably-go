@@ -2,6 +2,7 @@ package ably_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -569,18 +570,22 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
 			continue
 		}
-		channel := client.Channels.GetAndAttach("publish")
-		sub, err := channel.Subscribe("test")
+		channel := client.Channels.Get("publish")
+		if err := channel.Attach(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		messages, unsub, err := ablytest.ReceiveMessages(channel, "test")
+		defer unsub()
 		if err != nil {
-			t.Errorf("%d: Subscribe()=%v", i, err)
+			t.Errorf("%d:.Subscribe(context.Background())=%v", i, err)
 			continue
 		}
-		msg := []*proto.Message{{
+		msg := []*ably.Message{{
 			ClientID: cas.publishAs,
 			Name:     "test",
 			Data:     "payload",
 		}}
-		err = ablytest.Wait(channel.PublishAll(msg))
+		err = channel.PublishBatch(context.Background(), msg)
 		if cas.rejected {
 			if err == nil {
 				t.Errorf("%d: expected message to be rejected %#v", i, cas)
@@ -588,11 +593,11 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			continue
 		}
 		if err != nil {
-			t.Errorf("%d: PublishAll()=%v", i, err)
+			t.Errorf("%d: PublishBatch()=%v", i, err)
 			continue
 		}
 		select {
-		case msg := <-sub.MessageChannel():
+		case msg := <-messages:
 			if msg.ClientID != cas.publishAs {
 				t.Errorf("%d: want ClientID=%q; got %q", i, cas.publishAs, msg.ClientID)
 			}
@@ -792,7 +797,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
-	if err := ablytest.Wait(client.Channels.Get("test").Publish("name", "value")); err != nil {
+	if err := client.Channels.Get("test").Publish(context.Background(), "name", "value"); err != nil {
 		t.Fatalf("Publish()=%v", err)
 	}
 	if clientID := client.Auth.ClientID(); clientID != explicitClientID {

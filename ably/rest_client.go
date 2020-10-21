@@ -36,10 +36,10 @@ func query(fn func(string, interface{}) (*http.Response, error)) queryFunc {
 	}
 }
 
-// RestChannels provides an API for managing collection of RestChannel. This is
+// RESTChannels provides an API for managing collection of RESTChannel. This is
 // safe for concurrent use.
-type RestChannels struct {
-	cache  map[string]*RestChannel
+type RESTChannels struct {
+	cache  map[string]*RESTChannel
 	mu     sync.RWMutex
 	client *REST
 }
@@ -47,12 +47,12 @@ type RestChannels struct {
 // Range iterates over the channels calling fn on every iteration. If fn returns
 // false then the iteration is stopped.
 //
-// This uses locking to take a snapshot of the underlying RestChannel map before
+// This uses locking to take a snapshot of the underlying RESTChannel map before
 // iteration to avoid any deadlock, meaning any modification (like creating new
-// RestChannel, or removing one) that occurs during iteration will not have any
+// RESTChannel, or removing one) that occurs during iteration will not have any
 // effect to the values passed to the fn.
-func (c *RestChannels) Range(fn func(name string, channel *RestChannel) bool) {
-	clone := make(map[string]*RestChannel)
+func (c *RESTChannels) Range(fn func(name string, channel *RESTChannel) bool) {
+	clone := make(map[string]*RESTChannel)
 	c.mu.RLock()
 	for k, v := range c.cache {
 		clone[k] = v
@@ -67,7 +67,7 @@ func (c *RestChannels) Range(fn func(name string, channel *RestChannel) bool) {
 }
 
 // Exists returns true if the channel by the given name exists.
-func (c *RestChannels) Exists(name string) bool {
+func (c *RESTChannels) Exists(name string) bool {
 	c.mu.RLock()
 	_, ok := c.cache[name]
 	c.mu.RUnlock()
@@ -79,7 +79,7 @@ func (c *RestChannels) Exists(name string) bool {
 // You can optionally pass ChannelOptions, if the channel exists it will
 // updated with the options and when it doesn't a new channel will be created
 // with the given options.
-func (c *RestChannels) Get(name string, options ...ChannelOption) *RestChannel {
+func (c *RESTChannels) Get(name string, options ...ChannelOption) *RESTChannel {
 	var o channelOptions
 	for _, set := range options {
 		set(&o)
@@ -87,7 +87,7 @@ func (c *RestChannels) Get(name string, options ...ChannelOption) *RestChannel {
 	return c.get(name, (*proto.ChannelOptions)(&o))
 }
 
-func (c *RestChannels) get(name string, opts *proto.ChannelOptions) *RestChannel {
+func (c *RESTChannels) get(name string, opts *proto.ChannelOptions) *RESTChannel {
 	c.mu.RLock()
 	v, ok := c.cache[name]
 	c.mu.RUnlock()
@@ -97,7 +97,7 @@ func (c *RestChannels) get(name string, opts *proto.ChannelOptions) *RestChannel
 		}
 		return v
 	}
-	v = newRestChannel(name, c.client)
+	v = newRESTChannel(name, c.client)
 	v.options = opts
 	c.mu.Lock()
 	c.cache[name] = v
@@ -106,14 +106,14 @@ func (c *RestChannels) get(name string, opts *proto.ChannelOptions) *RestChannel
 }
 
 // Release deletes the channel from the cache.
-func (c *RestChannels) Release(ch *RestChannel) {
+func (c *RESTChannels) Release(ch *RESTChannel) {
 	c.mu.Lock()
 	delete(c.cache, ch.Name)
 	c.mu.Unlock()
 }
 
 // Len returns the number of channels stored.
-func (c *RestChannels) Len() (size int) {
+func (c *RESTChannels) Len() (size int) {
 	c.mu.RLock()
 	size = len(c.cache)
 	c.mu.RUnlock()
@@ -122,7 +122,7 @@ func (c *RestChannels) Len() (size int) {
 
 type REST struct {
 	Auth                *Auth
-	Channels            *RestChannels
+	Channels            *RESTChannels
 	opts                *clientOptions
 	successFallbackHost *fallbackCache
 }
@@ -137,8 +137,8 @@ func NewREST(options ClientOptions) (*REST, error) {
 		return nil, err
 	}
 	c.Auth = auth
-	c.Channels = &RestChannels{
-		cache:  make(map[string]*RestChannel),
+	c.Channels = &RESTChannels{
+		cache:  make(map[string]*RESTChannel),
 		client: c,
 	}
 	return c, nil
@@ -345,7 +345,7 @@ func (c *REST) doWithHandle(r *request, handle func(*http.Response, interface{})
 		log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
 			if canFallBack(e.StatusCode) &&
-				(strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
+				(strings.HasPrefix(req.URL.Host, defaultOptions.RESTHost) ||
 					c.opts.FallbackHosts != nil) {
 				fallback := defaultFallbackHosts()
 				if c.opts.FallbackHosts != nil {

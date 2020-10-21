@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -110,8 +111,8 @@ func TestRealtime_multiple(t *testing.T) {
 			rg.Add(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
-				rg.Add(channel.Attach())
-				rg.Add(channel.Attach())
+				rg.GoAdd(func() error { return channel.Attach(context.Background()) })
+				rg.GoAdd(func() error { return channel.Attach(context.Background()) })
 				rg.Add(channel.Presence.Enter(""))
 			}
 			if err := rg.Wait(); err != nil {
@@ -119,7 +120,10 @@ func TestRealtime_multiple(t *testing.T) {
 			}
 			for j := 0; j < 25; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
-				rg.Add(channel.Publish(fmt.Sprintf("event/%d/%d", i, j), fmt.Sprintf("data/%d/%d", i, j)))
+				event, data := fmt.Sprintf("event/%d/%d", i, j), fmt.Sprintf("data/%d/%d", i, j)
+				rg.GoAdd(func() error {
+					return channel.Publish(context.Background(), event, data)
+				})
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
@@ -127,8 +131,8 @@ func TestRealtime_multiple(t *testing.T) {
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
 				rg.Add(channel.Presence.Leave(""))
-				rg.Add(channel.Detach())
-				rg.Add(channel.Detach())
+				rg.GoAdd(func() error { return channel.Detach(context.Background()) })
+				rg.GoAdd(func() error { return channel.Detach(context.Background()) })
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)

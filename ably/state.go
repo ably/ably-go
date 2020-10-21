@@ -39,6 +39,8 @@ var (
 	errSuspended      = newErrorf(80002, "Connection unavailable")
 	errFailed         = newErrorf(80000, "Connection failed")
 	errNeverConnected = newErrorf(80002, "Unable to establish connection")
+
+	errSerialSkipped = newErrorf(ErrInternalError, "Serial for message was skipped by acknowledgement")
 )
 
 var connStateErrors = map[ConnectionState]ErrorInfo{
@@ -51,7 +53,7 @@ var connStateErrors = map[ConnectionState]ErrorInfo{
 func connStateError(state ConnectionState, err error) *ErrorInfo {
 	// Set default error information associated with the target state.
 	e, ok := err.(*ErrorInfo)
-	if ok {
+	if ok && e != nil {
 		return e
 	}
 	if e, ok := connStateErrors[state]; ok {
@@ -70,7 +72,7 @@ var channelStateErrors = map[ChannelState]ErrorInfo{
 func channelStateError(state ChannelState, err error) *ErrorInfo {
 	// Set default error information associated with the target state.
 	e, ok := err.(*ErrorInfo)
-	if ok {
+	if ok && e != nil {
 		return e
 	}
 	if e, ok := channelStateErrors[state]; ok {
@@ -128,7 +130,7 @@ func (q *pendingEmitter) Enqueue(serial int64, ch chan<- error) {
 	}
 }
 
-func (q *pendingEmitter) Ack(serial int64, count int, err error) {
+func (q *pendingEmitter) Ack(serial int64, count int, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
@@ -144,8 +146,9 @@ func (q *pendingEmitter) Ack(serial int64, count int, err error) {
 		nack = i + 1
 		ack = min(i+1+count, q.Len())
 	}
-	if err == nil {
-		err = newError(50000, err)
+	err := errInfo.unwrapNil()
+	if err == nil && nack > 0 {
+		err = errSerialSkipped
 	}
 	for _, sch := range q.queue[:nack] {
 		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
@@ -158,7 +161,7 @@ func (q *pendingEmitter) Ack(serial int64, count int, err error) {
 	q.queue = q.queue[ack:]
 }
 
-func (q *pendingEmitter) Nack(serial int64, count int, err error) {
+func (q *pendingEmitter) Nack(serial int64, count int, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
@@ -171,9 +174,7 @@ func (q *pendingEmitter) Nack(serial int64, count int, err error) {
 	default:
 		nack = min(i+1+count, q.Len())
 	}
-	if err == nil {
-		err = newError(50000, err)
-	}
+	err := errInfo.unwrapNil()
 	for _, sch := range q.queue[:nack] {
 		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
 		sch.ch <- err

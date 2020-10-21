@@ -34,7 +34,7 @@ func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
 			changes <- change
 		})
 
-		_, err := channel.Attach()
+		err := channel.Attach(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +74,7 @@ func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
 			changes <- change
 		})
 
-		_, err := channel.Detach()
+		err := channel.Detach(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -101,7 +101,7 @@ func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
 			changes <- change
 		})
 
-		_, err := channel.Detach()
+		err := channel.Detach(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +142,7 @@ func attachAndWait(t *testing.T, channel *ably.RealtimeChannel) {
 		defer off()
 	}
 
-	_, err := channel.Attach()
+	err := channel.Attach(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,10 +200,9 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		channel = c.Channels.Get("test")
 
-		_, err = channel.Attach()
-		if err != nil {
-			t.Fatal(err)
-		}
+		ctx, cancel := context.WithCancel(context.Background())
+		go channel.Attach(ctx)
+		defer cancel()
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
 

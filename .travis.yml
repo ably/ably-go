@@ -10,5 +10,5 @@ env:
 sudo: false
 script:
   - make build
-  - if ! (git status | grep "working tree clean"); then echo "uncommitted generated code; run 'make build' and commit the result"; exit 1; fi
+  - if ! (git status | grep "working tree clean"); then git status; echo "uncommitted generated code; run 'make build' and commit the result"; exit 1; fi
   - make test
