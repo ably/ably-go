@@ -61,27 +61,28 @@ type Message = proto.Message
 
 // PublishBatch publishes multiple messages in a batch.
 func (c *RESTChannel) PublishBatch(ctx context.Context, messages []*Message) error {
-	return c.PublishBatchWithOptions(ctx, messages, RESTChannelPublishBatchOptions{})
+	return c.PublishBatchWithOptions(ctx, messages)
 }
 
-// RESTChannelPublishBatchOptions are optional parameters for RESTChannel.PublishBatchWithOptions.
-type RESTChannelPublishBatchOptions []func(*restChannelPublishBatchOptions)
+// PublishBatchOptions is an optional parameter for
+// RESTChannel.PublishBatchWithOptions.
+type PublishBatchOption func(*publishBatchOptions)
 
-type restChannelPublishBatchOptions struct {
+type publishBatchOptions struct {
 	params map[string]string
 }
 
 // Params adds query parameters to the resulting HTTP request to the REST API.
-func (o RESTChannelPublishBatchOptions) Params(params map[string]string) RESTChannelPublishBatchOptions {
-	return append(o, func(options *restChannelPublishBatchOptions) {
+func PublishBatchWithParams(params map[string]string) PublishBatchOption {
+	return func(options *publishBatchOptions) {
 		options.params = params
-	})
+	}
 }
 
 // PublishBatchWithOptions is PublishBatch with optional parameters.
-func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*Message, options RESTChannelPublishBatchOptions) error {
+func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*Message, options ...PublishBatchOption) error {
 	// TODO: Use context
-	var publishOpts restChannelPublishBatchOptions
+	var publishOpts publishBatchOptions
 	for _, o := range options {
 		o(&publishOpts)
 	}
