@@ -87,32 +87,32 @@ func (c *Connection) MsgSerial() int64 {
 	return c.msgSerial
 }
 
-func (os ClientOptions) RealtimeRequestTimeout(d time.Duration) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
 		os.RealtimeRequestTimeout = d
-	})
+	}
 }
 
-func (os ClientOptions) Trace(trace *httptrace.ClientTrace) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithTrace(trace *httptrace.ClientTrace) ClientOption {
+	return func(os *clientOptions) {
 		os.Trace = trace
-	})
+	}
 }
 
-func (os ClientOptions) Now(now func() time.Time) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithNow(now func() time.Time) ClientOption {
+	return func(os *clientOptions) {
 		os.Now = now
-	})
+	}
 }
 
-func (os ClientOptions) After(after func(context.Context, time.Duration) <-chan time.Time) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithAfter(after func(context.Context, time.Duration) <-chan time.Time) ClientOption {
+	return func(os *clientOptions) {
 		os.After = after
-	})
+	}
 }
 
-func (os ClientOptions) ApplyWithDefaults() *clientOptions {
-	return os.applyWithDefaults()
+func ApplyOptionsWithDefaults(o ...ClientOption) *clientOptions {
+	return applyOptionsWithDefaults(o...)
 }
 
 type ConnStateChanges = connStateChanges

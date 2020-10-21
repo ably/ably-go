@@ -134,12 +134,12 @@ func (a *Auth) updateClientID(clientID string) {
 }
 
 // CreateTokenRequest
-func (a *Auth) CreateTokenRequest(params *TokenParams, opts AuthOptions) (*TokenRequest, error) {
+func (a *Auth) CreateTokenRequest(params *TokenParams, opts ...AuthOption) (*TokenRequest, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	var o *authOptions
 	if opts != nil {
-		o = opts.applyWithDefaults()
+		o = applyAuthOptionsWithDefaults(opts...)
 	}
 	return a.createTokenRequest(params, o)
 }
@@ -168,12 +168,12 @@ func (a *Auth) createTokenRequest(params *TokenParams, opts *authOptions) (*Toke
 }
 
 // RequestToken
-func (a *Auth) RequestToken(params *TokenParams, opts AuthOptions) (*TokenDetails, error) {
+func (a *Auth) RequestToken(params *TokenParams, opts ...AuthOption) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	var o *authOptions
 	if opts != nil {
-		o = opts.applyWithDefaults()
+		o = applyAuthOptionsWithDefaults(opts...)
 	}
 	tok, _, err := a.requestToken(params, o)
 	return tok, err
@@ -183,10 +183,10 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 	log := a.logger().sugar()
 	switch {
 	case opts != nil && opts.Token != "":
-		log.Verbose("Auth: found token in AuthOptions")
+		log.Verbose("Auth: found token in []AuthOption")
 		return newTokenDetails(opts.Token), "", nil
 	case opts != nil && opts.TokenDetails != nil:
-		log.Verbose("Auth: found TokenDetails in AuthOptions")
+		log.Verbose("Auth: found TokenDetails in []AuthOption")
 		return opts.TokenDetails, "", nil
 	}
 	if params == nil {
@@ -196,7 +196,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 	var tokReq *TokenRequest
 	switch {
 	case opts.AuthCallback != nil:
-		log.Verbose("Auth: found AuthCallback in AuthOptions")
+		log.Verbose("Auth: found AuthCallback in []AuthOption")
 		v, err := opts.AuthCallback(context.TODO(), *params)
 		if err != nil {
 			log.Error("Auth: failed calling opts.AuthCallback ", err)
@@ -223,7 +223,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 			panic(fmt.Errorf("unhandled TokenLike: %T", v))
 		}
 	case opts.AuthURL != "":
-		log.Verbose("Auth: found AuthURL in AuthOptions")
+		log.Verbose("Auth: found AuthURL in []AuthOption")
 		res, err := a.requestAuthURL(params, opts)
 		if err != nil {
 			log.Error("Auth: failed calling requesting token with AuthURL ", err)
@@ -266,19 +266,19 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 // Auth.Authorize instead.
 //
 // Refers to RSA10l
-func (a *Auth) Authorise(params *TokenParams, opts AuthOptions) (*TokenDetails, error) {
+func (a *Auth) Authorise(params *TokenParams, opts ...AuthOption) (*TokenDetails, error) {
 	a.logger().Print(LogWarning, "Auth.Authorise is deprecated please use Auth.Authorize \n")
-	return a.Authorize(params, opts)
+	return a.Authorize(params, opts...)
 }
 
 // Authorize performs authorization with ably service and returns the
 // authorization token details.
 //
 // Refers to RSA10
-func (a *Auth) Authorize(params *TokenParams, setOpts AuthOptions) (*TokenDetails, error) {
+func (a *Auth) Authorize(params *TokenParams, setOpts ...AuthOption) (*TokenDetails, error) {
 	var opts *authOptions
 	if setOpts != nil {
-		opts = setOpts.applyWithDefaults()
+		opts = applyAuthOptionsWithDefaults(setOpts...)
 	}
 	a.mtx.Lock()
 	defer a.mtx.Unlock()

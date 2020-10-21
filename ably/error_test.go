@@ -15,8 +15,8 @@ import (
 )
 
 func TestErrorResponseWithInvalidKey(t *testing.T) {
-	opts := ably.NewClientOptions(":")
-	_, e := ably.NewREST(opts)
+	opts := []ably.ClientOption{ably.WithKey(":")}
+	_, e := ably.NewREST(opts...)
 	if e == nil {
 		t.Fatal("NewREST(): expected err != nil")
 	}
@@ -43,13 +43,15 @@ func TestIssue127ErrorResponse(t *testing.T) {
 
 	endpointURL, err := url.Parse(server.URL)
 	assert.Nil(t, err)
-	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz").
-		TLS(false).
-		UseTokenAuth(true).
-		RESTHost(endpointURL.Hostname())
+	opts := []ably.ClientOption{
+		ably.WithKey("xxxxxxx.yyyyyyy:zzzzzzz"),
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithRESTHost(endpointURL.Hostname()),
+	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
-	opts = opts.Port(int(port))
-	client, e := ably.NewREST(opts)
+	opts = append(opts, ably.WithPort(int(port)))
+	client, e := ably.NewREST(opts...)
 	assert.Nil(t, e)
 
 	_, err = client.Time()
@@ -132,13 +134,15 @@ func TestIssue_154(t *testing.T) {
 
 	endpointURL, err := url.Parse(server.URL)
 	assert.Nil(t, err)
-	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz").
-		TLS(false).
-		UseTokenAuth(true).
-		RESTHost(endpointURL.Hostname())
+	opts := []ably.ClientOption{
+		ably.WithKey("xxxxxxx.yyyyyyy:zzzzzzz"),
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithRESTHost(endpointURL.Hostname()),
+	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
-	opts = opts.Port(int(port))
-	client, e := ably.NewREST(opts)
+	opts = append(opts, ably.WithPort(int(port)))
+	client, e := ably.NewREST(opts...)
 	assert.Nil(t, e)
 
 	_, err = client.Time()

@@ -45,8 +45,8 @@ func init() {
 	}
 }
 
-func MergeOptions(opts ...ably.ClientOptions) ably.ClientOptions {
-	var merged ably.ClientOptions
+func MergeOptions(opts ...[]ably.ClientOption) []ably.ClientOption {
+	var merged []ably.ClientOption
 	for _, opt := range opts {
 		merged = append(merged, opt...)
 	}
@@ -67,11 +67,11 @@ func encode(typ string, in interface{}) ([]byte, error) {
 }
 
 var ClientOptionsInspector struct {
-	UseBinaryProtocol func(ably.ClientOptions) bool
-	HTTPClient        func(ably.ClientOptions) *http.Client
+	UseBinaryProtocol func([]ably.ClientOption) bool
+	HTTPClient        func([]ably.ClientOption) *http.Client
 }
 
-func protocol(opts ably.ClientOptions) string {
+func protocol(opts []ably.ClientOption) string {
 	if ClientOptionsInspector.UseBinaryProtocol(opts) {
 		return "application/x-msgpack"
 	}

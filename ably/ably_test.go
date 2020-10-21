@@ -68,10 +68,10 @@ func checkError(code ably.ErrorCode, err error) error {
 }
 
 func init() {
-	ablytest.ClientOptionsInspector.UseBinaryProtocol = func(o ably.ClientOptions) bool {
-		return !o.ApplyWithDefaults().NoBinaryProtocol
+	ablytest.ClientOptionsInspector.UseBinaryProtocol = func(o []ably.ClientOption) bool {
+		return !ably.ApplyOptionsWithDefaults(o...).NoBinaryProtocol
 	}
-	ablytest.ClientOptionsInspector.HTTPClient = func(o ably.ClientOptions) *http.Client {
-		return o.ApplyWithDefaults().HTTPClient
+	ablytest.ClientOptionsInspector.HTTPClient = func(o []ably.ClientOption) *http.Client {
+		return ably.ApplyOptionsWithDefaults(o...).HTTPClient
 	}
 }

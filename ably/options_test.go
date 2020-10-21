@@ -11,7 +11,7 @@ import (
 func TestClientOptions(t *testing.T) {
 	t.Parallel()
 	t.Run("must return error on invalid key", func(ts *testing.T) {
-		_, err := ably.NewREST(ably.NewClientOptions("invalid"))
+		_, err := ably.NewREST([]ably.ClientOption{ably.WithKey("invalid")}...)
 		if err == nil {
 			ts.Error("expected an error")
 		}

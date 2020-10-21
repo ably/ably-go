@@ -128,9 +128,9 @@ type REST struct {
 }
 
 // NewREST constructs a new REST.
-func NewREST(options ClientOptions) (*REST, error) {
+func NewREST(options ...ClientOption) (*REST, error) {
 	c := &REST{
-		opts: options.applyWithDefaults(),
+		opts: applyOptionsWithDefaults(options...),
 	}
 	auth, err := newAuth(c)
 	if err != nil {

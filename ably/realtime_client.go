@@ -19,9 +19,9 @@ type Realtime struct {
 }
 
 // NewRealtime constructs a new Realtime.
-func NewRealtime(options ClientOptions) (*Realtime, error) {
+func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c := &Realtime{}
-	rest, err := NewREST(options)
+	rest, err := NewREST(options...)
 	if err != nil {
 		return nil, err
 	}

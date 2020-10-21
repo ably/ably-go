@@ -78,9 +78,10 @@ type AuthReverseProxy struct {
 
 // NewAuthReverseProxy creates new auth reverse proxy. The given opts
 // are used to create a Auth client, used to reverse proxying token requests.
-func NewAuthReverseProxy(opts ably.ClientOptions) (*AuthReverseProxy, error) {
-	client, err := ably.NewREST(opts.
-		UseTokenAuth(true))
+func NewAuthReverseProxy(opts ...ably.ClientOption) (*AuthReverseProxy, error) {
+	client, err := ably.NewREST(append(opts,
+		ably.WithUseTokenAuth(true),
+	)...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,8 +99,8 @@ func NewAuthReverseProxy(opts ably.ClientOptions) (*AuthReverseProxy, error) {
 }
 
 // MustAuthReverseProxy panics when creating the proxy fails.
-func MustAuthReverseProxy(opts ably.ClientOptions) *AuthReverseProxy {
-	srv, err := NewAuthReverseProxy(opts)
+func MustAuthReverseProxy(opts ...ably.ClientOption) *AuthReverseProxy {
+	srv, err := NewAuthReverseProxy(opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -168,7 +169,7 @@ func (srv *AuthReverseProxy) handleAuth(responseType string, params ably.TokenPa
 		if len(srv.TokenQueue) != 0 {
 			tok, srv.TokenQueue = srv.TokenQueue[0], srv.TokenQueue[1:]
 		} else {
-			tok, err = srv.auth.Authorize(&params, nil)
+			tok, err = srv.auth.Authorize(&params)
 			if err != nil {
 				return nil, "", err
 			}
@@ -178,7 +179,7 @@ func (srv *AuthReverseProxy) handleAuth(responseType string, params ably.TokenPa
 		}
 		return tok, srv.proto, nil
 	case "request":
-		tokReq, err := srv.auth.CreateTokenRequest(&params, nil)
+		tokReq, err := srv.auth.CreateTokenRequest(&params)
 		if err != nil {
 			return nil, "", err
 		}

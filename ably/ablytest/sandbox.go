@@ -96,18 +96,18 @@ type Sandbox struct {
 	client *http.Client
 }
 
-func NewRealtime(opts ...ably.ClientOptions) (*Sandbox, *ably.Realtime) {
+func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
 	app := MustSandbox(nil)
-	client, err := ably.NewRealtime(app.Options(opts...))
+	client, err := ably.NewRealtime(app.Options(opts...)...)
 	if err != nil {
 		panic(nonil(err, app.Close()))
 	}
 	return app, client
 }
 
-func NewREST(opts ...ably.ClientOptions) (*Sandbox, *ably.REST) {
+func NewREST(opts ...ably.ClientOption) (*Sandbox, *ably.REST) {
 	app := MustSandbox(nil)
-	client, err := ably.NewREST(app.Options(opts...))
+	client, err := ably.NewREST(app.Options(opts...)...)
 	if err != nil {
 		panic(nonil(err, app.Close()))
 	}
@@ -180,8 +180,8 @@ func (app *Sandbox) Close() error {
 	return nil
 }
 
-func (app *Sandbox) NewRealtime(opts ...ably.ClientOptions) *ably.Realtime {
-	client, err := ably.NewRealtime(app.Options(opts...))
+func (app *Sandbox) NewRealtime(opts ...ably.ClientOption) *ably.Realtime {
+	client, err := ably.NewRealtime(app.Options(opts...)...)
 	if err != nil {
 		panic("ably.NewRealtime failed: " + err.Error())
 	}
@@ -197,25 +197,27 @@ func (app *Sandbox) Key() string {
 	return name + ":" + secret
 }
 
-func (app *Sandbox) Options(opts ...ably.ClientOptions) ably.ClientOptions {
+func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 	type transportHijacker interface {
 		Hijack(http.RoundTripper) http.RoundTripper
 	}
 	appHTTPClient := NewHTTPClient()
-	appOpts := ably.NewClientOptions(app.Key()).
-		Environment(app.Environment).
-		UseBinaryProtocol(!NoBinaryProtocol).
-		LogHandler(DefaultLogger.GetLogger()).
-		LogLevel(DefaultLogger.Level).
-		HTTPClient(appHTTPClient)
+	appOpts := []ably.ClientOption{
+		ably.WithKey(app.Key()),
+		ably.WithEnvironment(app.Environment),
+		ably.WithUseBinaryProtocol(!NoBinaryProtocol),
+		ably.WithLogHandler(DefaultLogger.GetLogger()),
+		ably.WithLogLevel(DefaultLogger.Level),
+		ably.WithHTTPClient(appHTTPClient),
+	}
 
 	// If opts want to record round trips inject the recording transport
 	// via TransportHijacker interface.
-	opt := MergeOptions(opts...)
+	opt := MergeOptions(opts)
 	if httpClient := ClientOptionsInspector.HTTPClient(opt); httpClient != nil {
 		if hijacker, ok := httpClient.Transport.(transportHijacker); ok {
 			appHTTPClient.Transport = hijacker.Hijack(appHTTPClient.Transport)
-			opt = opt.HTTPClient(appHTTPClient)
+			opt = append(opt, ably.WithHTTPClient(appHTTPClient))
 		}
 	}
 	appOpts = MergeOptions(appOpts, opt)

@@ -38,7 +38,7 @@ func expectMsg(ch <-chan *proto.Message, name string, data interface{}, t time.D
 
 func TestRealtimeChannel_Publish(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtime(nil)
+	app, client := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	channel := client.Channels.Get("test")
@@ -49,9 +49,9 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 
 func TestRealtimeChannel_Subscribe(t *testing.T) {
 	t.Parallel()
-	app, client1 := ablytest.NewRealtime(nil)
+	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
-	client2 := app.NewRealtime(ably.ClientOptions{}.EchoMessages(false))
+	client2 := app.NewRealtime(ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
 
 	channel1 := client1.Channels.Get("test")
@@ -101,7 +101,7 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 
 func TestRealtimeChannel_Detach(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtime(ably.ClientOptions{})
+	app, client := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	channel := client.Channels.Get("test")
@@ -150,9 +150,9 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	allowDial := make(chan struct{}, 1)
 	allowDial <- struct{}{}
 
-	app, client := ablytest.NewRealtime(ably.ClientOptions{}.
-		AutoConnect(false).
-		Dial(func(protocol string, u *url.URL) (proto.Conn, error) {
+	app, client := ablytest.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithDial(func(protocol string, u *url.URL) (proto.Conn, error) {
 			<-allowDial
 			c, err := ablyutil.DialWebsocket(protocol, u)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err

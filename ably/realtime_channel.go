@@ -37,11 +37,7 @@ func newChannels(client *Realtime) *Channels {
 	}
 }
 
-// ChannelOptions is a set of options for a channel.
-type ChannelOptions []ChannelOption
-
-// A ChannelOption configures a channel. Options are set by calling methods
-// on ChannelOptions.
+// A ChannelOption configures a channel.
 type ChannelOption func(*channelOptions)
 
 // channelOptions wraps proto.ChannelOptions. It exists so that users can't
@@ -49,22 +45,22 @@ type ChannelOption func(*channelOptions)
 type channelOptions proto.ChannelOptions
 
 // CipherKey is like Cipher with an AES algorithm and CBC mode.
-func (o ChannelOptions) CipherKey(key []byte) ChannelOptions {
-	return append(o, func(o *channelOptions) {
+func ChannelWithCipherKey(key []byte) ChannelOption {
+	return func(o *channelOptions) {
 		o.Cipher = proto.CipherParams{
 			Algorithm: proto.DefaultCipherAlgorithm,
 			Key:       key,
 			KeyLength: proto.DefaultKeyLength,
 			Mode:      proto.DefaultCipherMode,
 		}
-	})
+	}
 }
 
 // Cipher sets cipher parameters for encrypting messages on a channel.
-func (o ChannelOptions) Cipher(params proto.CipherParams) ChannelOptions {
-	return append(o, func(o *channelOptions) {
+func ChannelWithCipher(params proto.CipherParams) ChannelOption {
+	return func(o *channelOptions) {
 		o.Cipher = params
-	})
+	}
 }
 
 // Get looks up a channel given by the name and creates it if it does not exist
