@@ -140,6 +140,10 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 // connection
 func recoverable(err error) bool {
 	if info, ok := err.(*ErrorInfo); ok {
+		// any 4xx that is not a token error
+		if (40000 <= info.Code && info.Code < 50000) && !(40140 <= info.Code && info.Code < 40150) {
+			return true
+		}
 		err = info.err
 	}
 	switch {
