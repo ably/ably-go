@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
+	"golang.org/x/net/websocket"
 )
 
 var (
@@ -139,19 +141,23 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 // recoverable returns true if err is recoverable, err is from making a
 // connection
 func recoverable(err error) bool {
-	if info, ok := err.(*ErrorInfo); ok {
+	switch e := err.(type) {
+	case *ErrorInfo:
 		// any 4xx that is not a token error
-		if (40000 <= info.Code && info.Code < 50000) && !(40140 <= info.Code && info.Code < 40150) {
+		if (40000 <= e.Code && e.Code < 50000) && !(40140 <= e.Code && e.Code < 40150) {
 			return true
 		}
-		err = info.err
+		err = e.err
+	case *websocket.DialError:
+		err = e.Err
 	}
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
+	if errors.Is(err, context.DeadlineExceeded) {
 		return true
-	default:
-		return false
 	}
+	if e, ok := err.(net.Error); ok {
+		return e.Timeout()
+	}
+	return false
 }
 
 // Connect attempts to move the connection to the CONNECTED state, if it
