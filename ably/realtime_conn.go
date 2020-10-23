@@ -152,10 +152,11 @@ func (c *Conn) connectWithRecovery(result bool, connKey string, connSerial int64
 	if err := c.auth.authQuery(query); err != nil {
 		return nil, c.setState(StateConnFailed, err)
 	}
-	if connKey != "" {
-		query.Set("resume", connKey)
-		query.Set("connectionSerial", fmt.Sprint(connSerial))
-	}
+	fmt.Println("Not resuming")
+	// if connKey != "" {
+	// 	query.Set("resume", connKey)
+	// 	query.Set("connectionSerial", fmt.Sprint(connSerial))
+	// }
 	u.RawQuery = query.Encode()
 	conn, err := c.dial(proto, u)
 	if err != nil {
