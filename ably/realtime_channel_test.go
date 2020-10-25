@@ -39,7 +39,9 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime(nil)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
 	channel := client.Channels.Get("test")
 	if err := ablytest.Wait(channel.Publish("hello", "world")); err != nil {
 		t.Fatalf("Publish()=%v", err)
@@ -52,7 +54,12 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 	client2 := app.NewRealtime(ably.ClientOptions{}.EchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
-
+	if err := ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
+	if err := ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
 	channel1 := client1.Channels.Get("test")
 	channel2 := client2.Channels.Get("test")
 
@@ -102,7 +109,9 @@ func TestRealtimeChannel_Detach(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime(ably.ClientOptions{})
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
 	channel := client.Channels.Get("test")
 	sub, err := channel.Subscribe()
 	if err != nil {

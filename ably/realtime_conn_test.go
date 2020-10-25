@@ -120,8 +120,9 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 	if err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err == nil {
 		t.Fatal("Connect(): want err != nil")
 	}
-	if state := client.Connection.State(); state != ably.ConnectionStateFailed {
-		t.Fatalf("want state=%s; got %s", ably.ConnectionStateFailed, state)
+	// Token errors are recoverable so we stay in DISCONNECTED and RTN14 kicks in
+	if state := client.Connection.State(); state != ably.ConnectionStateDisconnected {
+		t.Fatalf("want state=%s; got %s reason=%v", ably.ConnectionStateFailed, state, client.Connection.ErrorReason())
 	}
 }
 

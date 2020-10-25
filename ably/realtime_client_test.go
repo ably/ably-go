@@ -106,6 +106,10 @@ func TestRealtime_multiple(t *testing.T) {
 				all.Add(nil, err)
 				return
 			}
+			if err = ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+				t.Error(err)
+				return
+			}
 			var rg ablytest.ResultGroup
 			rg.Add(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 			for j := 0; j < 10; j++ {

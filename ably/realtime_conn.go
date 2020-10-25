@@ -77,7 +77,7 @@ type connCallbacks struct {
 	onReconnectionFailed func(*proto.ErrorInfo)
 }
 
-func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) (*Connection, error) {
+func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connection {
 	c := &Connection{
 
 		ConnectionEventEmitter: ConnectionEventEmitter{newEventEmitter(auth.logger())},
@@ -91,11 +91,15 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) (*Connect
 	}
 	c.queue = newMsgQueue(c)
 	if !opts.NoConnect {
-		if _, err := c.connect(connArgs{}); err != nil {
-			return nil, err
-		}
+		go func() {
+			lg := opts.Logger.Sugar()
+			lg.Info("Trying to establish a connection asynchronously")
+			if _, err := c.connect(connArgs{}); err != nil {
+				lg.Errorf("Failed to open connection with err:%v", err)
+			}
+		}()
 	}
-	return c, nil
+	return c
 }
 
 func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error) {
@@ -163,13 +167,15 @@ func recoverable(err error) bool {
 // Connect attempts to move the connection to the CONNECTED state, if it
 // can and if it isn't already.
 func (c *Connection) Connect() {
-	c.mtx.Lock()
-	isActive := c.isActive()
-	c.mtx.Unlock()
-	if isActive {
-		return
-	}
-	c.connect(connArgs{})
+	go func() {
+		c.mtx.Lock()
+		isActive := c.isActive()
+		c.mtx.Unlock()
+		if isActive {
+			return
+		}
+		c.connect(connArgs{})
+	}()
 }
 
 // Close attempts to move the connection to the CLOSED state, if it can and if

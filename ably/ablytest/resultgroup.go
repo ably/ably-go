@@ -55,7 +55,7 @@ func (rg *ResultGroup) Add(res ably.Result, err error) {
 	rg.wg.Add(1)
 	go func() {
 		err := res.Wait()
-		if err != nil {
+		if err != nil && err != (*ably.ErrorInfo)(nil) {
 			select {
 			case rg.errch <- err:
 			default:

@@ -1787,26 +1787,24 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 
 func TestRealtimeConn_RTN14c(t *testing.T) {
 	t.Parallel()
-	app := ablytest.MustSandbox(nil)
-
-	defer safeclose(t, app)
 	{
 		//(RTN14c)
-		var connTimeout time.Duration
+		connTimeout := make(chan time.Duration, 1)
 		client, err := ably.NewRealtime(ably.ClientOptions{}.
 			Token("fake:key").
 			Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
-				connTimeout = timeout
+				connTimeout <- timeout
 				return ablyutil.DialWebsocket(protocol, u, timeout)
 			}))
 		if err != nil {
 			t.Fatal(err)
 		}
 		client.Close()
-
+		var got time.Duration
+		ablytest.Instantly.Recv(t, &got, connTimeout, t.Fatalf)
 		// Check if we passed default request timeout
 		expect := 4 * time.Second
-		if connTimeout != expect {
+		if got != expect {
 			t.Errorf("expected %v got %v", expect, connTimeout)
 		}
 	}
@@ -1837,6 +1835,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
 		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // skip CONNECTING
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
 		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
 			t.Errorf("expected %v got %v", expect, got)
@@ -1870,6 +1869,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
 		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // skip CONNECTING
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
 		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
 			t.Errorf("expected %v got %v", expect, got)
@@ -1913,6 +1913,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
 		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // Skip CONNECTING
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
 		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
 			t.Errorf("expected %v got %v", expect, got)
@@ -1967,6 +1968,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 			Error:             bad,
 		}
 		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // skip CONNECTING
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
 		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
 			t.Errorf("expected %v got %v", expect, got)
@@ -2040,6 +2042,7 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
 		var state ably.ConnectionStateChange
+		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // Skip CONNECTING
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
 		if expect, got := ably.ConnectionStateFailed, state.Current; expect != got {
 			t.Errorf("expected %v got %v", expect, got)
@@ -2127,4 +2130,18 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 		}
 	})
 
+}
+
+func TestStartupLoop(t *testing.T) {
+	opts := ably.ClientOptions{}.
+		Key("xxx:xxx").
+		LogLevel(ably.LogDebug).
+		AutoConnect(false).
+		RESTHost("192.168.0.200").
+		RealtimeHost("192.168.0.200").
+		HTTPOpenTimeout(1 * time.Second)
+
+	if _, err := ably.NewRealtime(opts); err != nil {
+		t.Fatal(err)
+	}
 }

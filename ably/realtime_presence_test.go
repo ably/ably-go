@@ -44,7 +44,9 @@ func TestRealtimePresence_Sync(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime(nil)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatalf("Connect(): want err == nil got %v", err)
+	}
 	members, err := client.Channels.GetAndAttach("persisted:presence_fixtures").Presence.Get(true)
 	if err != nil {
 		t.Fatal(err)
@@ -58,10 +60,15 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	t.Parallel()
 	app, client1 := ablytest.NewRealtime(nil)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+	if err := ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatalf("Connect(): want err == nil got %v", err)
+	}
 	client2 := app.NewRealtime(nil)
 	client3 := app.NewRealtime(nil)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2), ablytest.FullRealtimeCloser(client3))
-
+	if err := ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatalf("Connect(): want err == nil got %v", err)
+	}
 	channel1 := client1.Channels.GetAndAttach("sync250")
 	channel2 := client2.Channels.GetAndAttach("sync250")
 
