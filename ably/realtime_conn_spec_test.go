@@ -2131,17 +2131,3 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 	})
 
 }
-
-func TestStartupLoop(t *testing.T) {
-	opts := ably.ClientOptions{}.
-		Key("xxx:xxx").
-		LogLevel(ably.LogDebug).
-		AutoConnect(false).
-		RESTHost("192.168.0.200").
-		RealtimeHost("192.168.0.200").
-		HTTPOpenTimeout(1 * time.Second)
-
-	if _, err := ably.NewRealtime(opts); err != nil {
-		t.Fatal(err)
-	}
-}
