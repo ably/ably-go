@@ -1821,7 +1821,6 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 			Token("fake:token").
 			AutoConnect(false).
 			Dial(ablytest.MessagePipe(in, out)))
-		c.Connect()
 		// Respond to connection attempt with a token error.
 		tokenError := &proto.ErrorInfo{
 			StatusCode: http.StatusUnauthorized,
@@ -1834,6 +1833,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 		}
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
+		c.Connect()
 		var state ably.ConnectionStateChange
 		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // skip CONNECTING
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
@@ -1855,7 +1855,6 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 			AutoConnect(false).
 			Key("invalid").
 			Dial(ablytest.MessagePipe(in, out)))
-		c.Connect()
 		// Get the connection to CONNECTED.
 		tokenError := &proto.ErrorInfo{
 			StatusCode: http.StatusUnauthorized,
@@ -1868,6 +1867,7 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 		}
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
+		c.Connect()
 		var state ably.ConnectionStateChange
 		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // skip CONNECTING
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
@@ -1899,7 +1899,6 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 				return ably.TokenString("fake:token"), nil
 			}).
 			Dial(ablytest.MessagePipe(in, out)))
-		c.Connect()
 		// Get the connection to CONNECTED.
 		tokenError := &proto.ErrorInfo{
 			StatusCode: http.StatusUnauthorized,
@@ -1912,6 +1911,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 		}
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
+		c.Connect()
 		var state ably.ConnectionStateChange
 		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // Skip CONNECTING
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
@@ -1944,7 +1944,6 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 				dials.Store(dials.Load().(int) + 1)
 				return ablytest.MessagePipe(in, out)(protocol, u, timeout)
 			}))
-		c.Connect()
 		// Get the connection to CONNECTED.
 		tokenError := &proto.ErrorInfo{
 			StatusCode: http.StatusUnauthorized,
@@ -1957,6 +1956,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 		}
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
+		c.Connect()
 		bad := &proto.ErrorInfo{
 			StatusCode: http.StatusUnauthorized,
 			Code:       40140,
@@ -2030,7 +2030,6 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 				ls = &closeConn{Conn: w}
 				return ls, nil
 			}))
-		c.Connect()
 		badReqErr := &proto.ErrorInfo{
 			StatusCode: http.StatusBadRequest,
 		}
@@ -2041,6 +2040,7 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 		}
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
+		c.Connect()
 		var state ably.ConnectionStateChange
 		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // Skip CONNECTING
 		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
