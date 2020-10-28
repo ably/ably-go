@@ -261,7 +261,7 @@ if err != nil {
 
 As the library is actively developed couple of features are not there yet:
 
-- Realtime connection failure handling is partly implemented
+- Realtime connection failure handling is partially implemented
 - Realtime Ping function is not implemented
 
 ## Release process
