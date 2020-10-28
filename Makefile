@@ -1,7 +1,7 @@
 all: vet build test
 
 vet:
-	go vet ./ably ./scripts
+	go vet ./ably ./scripts/...
 
 build:
 	go generate ./...

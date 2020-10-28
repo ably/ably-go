@@ -46,9 +46,9 @@ specification. If there are features that are currently missing that are a high 
 
 ### Creating a client
 
-<!-- GO EXAMPLE
-import "fmt"
+<!-- GO IMPORT "context" -->
 
+<!-- GO EXAMPLE
 ctx := context.Background()
 -->
 
@@ -175,6 +175,10 @@ unsubscribe()
 
 All examples assume a client and/or channel has been created as follows:
 
+<!-- GO EXAMPLE
+{
+-->
+
 ```go
 client, err := ably.NewREST(ably.WithKey("xxx:xxx"))
 if err != nil {
@@ -248,6 +252,10 @@ if err != nil {
 	panic(err)
 }
 ```
+
+<!-- GO EXAMPLE
+}
+-->
 
 ## Known limitations (work in progress)
 
