@@ -86,8 +86,6 @@ func (e ErrorInfo) Message() string {
 
 func newError(defaultCode ErrorCode, err error) *ErrorInfo {
 	switch err := err.(type) {
-	case nil:
-		return nil
 	case *ErrorInfo:
 		return err
 	case net.Error:

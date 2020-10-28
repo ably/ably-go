@@ -178,10 +178,12 @@ func copyHeader(dest, src http.Header) {
 // Next returns the path to the next page as found in the response headers.
 // The response headers from the REST API contains a relative link to the next result.
 // (Link: <./path>; rel="next").
+//
+// If there is no next link, both return values are nil.
 func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 	nextPath, ok := p.paginationHeaders()["next"]
 	if !ok {
-		return nil, newErrorf(ErrProtocolError, "no next page after %q", p.path)
+		return nil, nil
 	}
 	nextPage := p.buildPath(p.path, nextPath)
 	req := p.req
