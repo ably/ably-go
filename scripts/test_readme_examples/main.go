@@ -1,3 +1,33 @@
+// Command test_readme_examples, when run at the /ably directory, generates
+// a readme_examples_test.go file with the examples from README.md.
+//
+// Packages to import can be added at the top with comments like:
+//
+// 	<!-- GO IMPORT "path/to/import" -->
+//
+// Also, Go code that isn't part of the visible example but needs to be included
+// in the resulting test can be added like:
+//
+// 	<!-- GO EXAMPLE
+// 	... code goes here ...
+// 	-->
+//
+// README code may use fmt.Println, which is mocked as a no-op in the actual
+// test.
+//
+// The test runs against a sandbox app. When copying README code, this:
+//
+// 	ably.WithKey("xxx:xxx")
+//
+// is replaced with:
+//
+// 	app.Options(ably.WithClientID("clientID"))...
+//
+// So that the REST and Realtime instances can run against the app, without
+// polluting the README with test plumbing.
+//
+// The generated Go code includes references to the README.md line from which
+// it's derived, for debugging.
 package main
 
 import (
