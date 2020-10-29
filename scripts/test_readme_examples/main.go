@@ -12,8 +12,8 @@
 // 	... code goes here ...
 // 	-->
 //
-// README code may use fmt.Println, which is mocked as a no-op in the actual
-// test.
+// README code may use fmt.Println and fmt.Printf, which are mocked as no-ops
+// in the actual test.
 //
 // The test runs against a sandbox app. When copying README code, this:
 //
@@ -123,8 +123,10 @@ loop:
 	w.writeln(`
 		fmt := struct {
 			Println func(a ...interface{}) (n int, err error)
+			Printf func(s string, a ...interface{}) (n int, err error)
 		}{
 			Println: func(a ...interface{}) (n int, err error) { return 0, nil },
+			Printf: func(s string, a ...interface{}) (n int, err error) { return 0, nil },
 		}
 	`)
 

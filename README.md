@@ -31,7 +31,7 @@ channel := client.Channels.Get("test")
 
 ```go
 unsubscribe, err := channel.SubscribeAll(ctx, func(msg *ably.Message) {
-	fmt.Println("Received message:", msg)
+	fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
 })
 if err != nil {
 	panic(err)
@@ -46,14 +46,14 @@ unsubscribe()
 
 ```go
 unsubscribe1, err := channel.Subscribe(ctx, "EventName1", func(msg *ably.Message) {
-	fmt.Println("Received message:", msg)
+	fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
 })
 if err != nil {
 	panic(err)
 }
 
 unsubscribe2, err := channel.Subscribe(ctx, "EventName2", func(msg *ably.Message) {
-	fmt.Println("Received message:", msg)
+	fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
 })
 if err != nil {
 	panic(err)
@@ -92,6 +92,22 @@ if err != nil {
 }
 ```
 
+### Updating and leaving presence
+
+```go
+// Update also has an UpdateClient variant.
+err = channel.Presence.Update(ctx, "new presence data")
+if err != nil {
+	panic(err)
+}
+
+// Leave also has an LeaveClient variant.
+err = channel.Presence.Leave(ctx, "last presence data")
+if err != nil {
+	panic(err)
+}
+```
+
 ### Getting all clients present on a channel
 
 ```go
@@ -109,7 +125,7 @@ for _, client := range clients {
 
 ```go
 unsubscribe, err = channel.Presence.SubscribeAll(ctx, func(msg *ably.PresenceMessage) {
-	fmt.Println("Presence event:", msg)
+	fmt.Println("Presence event: action=%v data=%v", msg.Action, msg.Data)
 })
 if err != nil {
 	panic(err)
@@ -158,6 +174,15 @@ channel := client.Channels.Get("test")
 
 ```go
 err = channel.Publish(ctx, "HelloEvent", "Hello!")
+if err != nil {
+	panic(err)
+}
+
+// You can also publish a batch of messages in a single request.
+err = channel.PublishBatch(ctx, []*ably.Message{
+	{Name: "HelloEvent", Data: "Hello!"},
+	{Name: "ByeEvent", Data: "Bye!"},
+})
 if err != nil {
 	panic(err)
 }
