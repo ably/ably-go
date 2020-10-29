@@ -696,10 +696,9 @@ func TestAuth_ClientID(t *testing.T) {
 	if err = checkError(40012, err); err != nil {
 		t.Fatal(err)
 	}
-	if state := client.Connection.State(); state != ably.ConnectionStateDisconnected {
+	if state := client.Connection.State(); state != ably.ConnectionStateFailed {
 		t.Fatalf("want state=%q; got %q", ably.ConnectionStateFailed, state)
 	}
-	// RTN14 will kick in here. Since 40012 is recoverable error.
 }
 
 func TestAuth_CreateTokenRequest(t *testing.T) {
