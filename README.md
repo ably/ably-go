@@ -8,40 +8,6 @@ A Go client library for [www.ably.io](https://ably.io), the realtime messaging s
 ~ $ go get -u github.com/ably/ably-go/ably
 ```
 
-## Feature support
-
-This library implements the Ably REST and Realtime client APIs.
-
-### REST API
-
-In respect of the Ably REST API, this library targets the Ably 1.2 client library specification,
-with some omissions as follows (see [the client library specification](https://www.ably.io/documentation/client-lib-development-guide/features) for specification references):
-
-| Feature |
-| --- |
-| [Push notifications admin API](https://www.ably.io/documentation/general/push/admin) |
-| [JWT authentication](https://www.ably.io/documentation/core-features/authentication#ably-jwt-process) |
-
-It is intended that this library is upgraded incrementally, with 1.2 feature support expanded in successive minor
-releases. If there are features that are currently missing that are a high priority for your use-case then please
-[contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
-
-### Realtime API
-
-- there is no channel `suspended` state; this means that the client will not automatically reattach to channels if a
-connection becomes `suspended` and then resumes, and presence members associated with the client will not be
-automatically re-entered;
-
-- transient realtime publishing is not supported, so a call to `publish()` on a realtime channel will trigger attachment
- of the channel;
-
-- inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
-connection.
-
-As with the REST API, it is intended that this library is upgraded incrementally and brought into line with the 1.2
-specification. If there are features that are currently missing that are a high priority for your use-case then please
-[contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
-
 ## Using the Realtime API
 
 ### Creating a client
@@ -257,12 +223,37 @@ if err != nil {
 }
 -->
 
-## Known limitations (work in progress)
+## Feature support
 
-As the library is actively developed couple of features are not there yet:
+This library targets the Ably 1.2 [client library specification](https://www.ably.io/documentation/client-lib-development-guide/features).
 
-- Realtime connection failure handling is partially implemented
-- Realtime Ping function is not implemented
+It is intended that this library is upgraded incrementally, with 1.2 feature support expanded in successive minor
+releases. If there are features that are currently missing that are a high priority for your use-case then please
+[contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
+
+### Known limitations
+
+### REST API
+
+- [Push notifications admin API](https://www.ably.io/documentation/general/push/admin) is not implemented.
+
+- [JWT authentication](https://www.ably.io/documentation/core-features/authentication#ably-jwt-process) is not implemented.
+
+### Realtime API
+
+- There is no channel `suspended` state; this means that the client will not automatically reattach to channels if a
+connection becomes `suspended` and then resumes, and presence members associated with the client will not be
+automatically re-entered.
+
+- Transient realtime publishing is not supported, so a call to `publish()` on a realtime channel will trigger attachment
+ of the channel.
+
+- Inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
+connection.
+
+- Realtime connection failure handling is partially implemented.
+
+- Realtime Ping function is not implemented.
 
 ## Release process
 
