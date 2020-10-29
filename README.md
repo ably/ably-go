@@ -259,7 +259,7 @@ connection.
 
 Starting with release 1.2, this library uses [semantic versioning](http://semver.org/). For each release, the following needs to be done:
 
-* Create a branch for the release, named like `release/1.1.6`
+* Create a branch for the release, named like `release/1.2.0`
 * Replace all references of the current version number with the new version number and commit the changes
 * Run [`github_changelog_generator`](https://github.com/github-changelog-generator/github-changelog-generator) to automate the update of the [CHANGELOG](./CHANGELOG.md). This may require some manual intervention, both in terms of how the command is run and how the change log file is modified. Your mileage may vary:
     * The command you will need to run will look something like this: `github_changelog_generator -u ably -p ably-go --since-tag v1.1.4 --output delta.md`
@@ -270,7 +270,7 @@ Starting with release 1.2, this library uses [semantic versioning](http://semver
 * Commit [CHANGELOG](./CHANGELOG.md)
 * Make a PR against `main`
 * Once the PR is approved, merge it into `main`
-* Add a tag to the new `main` head commit and push to origin such as `git tag v1.1.6 && git push origin v1.1.6`
+* Add a tag to the new `main` head commit and push to origin such as `git tag v1.2.0 && git push origin v1.2.0`
 
 ## Support and feedback
 
