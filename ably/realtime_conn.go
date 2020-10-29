@@ -145,7 +145,7 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 func recoverable(err error) bool {
 	var e *ErrorInfo
 	if errors.As(err, &e) {
-		return !(40140 <= e.Code && e.Code < 40150)
+		return !(40000 <= e.Code && e.Code < 50000)
 	}
 	return true
 }
