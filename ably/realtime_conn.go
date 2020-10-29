@@ -107,7 +107,7 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 	query := u.Query()
 	query.Add("heartbeats", "true")
 	u.RawQuery = query.Encode()
-	timeout := c.opts.httpOpenTimeout()
+	timeout := c.opts.realtimeRequestTimeout()
 	if c.opts.Dial != nil {
 		conn, err = c.opts.Dial(proto, u, timeout)
 	} else {
