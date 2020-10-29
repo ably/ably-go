@@ -375,7 +375,8 @@ func (c *Connection) close() {
 		ConnectionStateClosed,
 		ConnectionStateInitialized,
 		ConnectionStateFailed,
-		ConnectionStateDisconnected:
+		ConnectionStateDisconnected,
+		ConnectionStateSuspended:
 
 		return
 	}
