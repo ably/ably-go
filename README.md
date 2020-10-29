@@ -1,4 +1,4 @@
-## [Ably Go](https://www.ably.io)
+## [Ably Go](https://www.ably.io) [![PkgGoDev](https://pkg.go.dev/badge/github.com/ably/ably-go@v1.2.0-apipreview.1/ably)](https://pkg.go.dev/github.com/ably/ably-go@v1.2.0-apipreview.1/ably)
 
 A Go client library for [www.ably.io](https://ably.io), the realtime messaging service.
 
