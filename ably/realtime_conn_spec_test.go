@@ -1,10 +1,12 @@
 package ably_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -1785,28 +1787,60 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	}
 }
 
+type writerLogger struct {
+	w io.Writer
+}
+
+func (w *writerLogger) Print(level ably.LogLevel, v ...interface{}) {
+	fmt.Fprint(w.w, v...)
+}
+
+func (w *writerLogger) Printf(level ably.LogLevel, format string, v ...interface{}) {
+	fmt.Fprintf(w.w, format, v...)
+}
+
 func TestRealtimeConn_RTN14c(t *testing.T) {
 	t.Parallel()
-	{
-		//(RTN14c)
-		connTimeout := make(chan time.Duration, 1)
-		client, err := ably.NewRealtime(ably.ClientOptions{}.
-			Token("fake:key").
-			Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
-				connTimeout <- timeout
-				return ablyutil.DialWebsocket(protocol, u, timeout)
-			}))
-		if err != nil {
-			t.Fatal(err)
-		}
-		client.Close()
-		var got time.Duration
-		ablytest.Instantly.Recv(t, &got, connTimeout, t.Fatalf)
-		// Check if we passed default request timeout
-		expect := 4 * time.Second
-		if got != expect {
-			t.Errorf("expected %v got %v", expect, connTimeout)
-		}
+	var buf bytes.Buffer
+	lg := &writerLogger{w: &buf}
+	reqTimeout := 5 * time.Millisecond
+	opts := ably.ClientOptions{}.
+		Key("xxx:xxx").
+		RealtimeHost("192.168.0.200").
+		RealtimeRequestTimeout(reqTimeout).
+		LogHandler(lg).
+		LogLevel(ably.LogDebug).
+		AutoConnect(false)
+	client, err := ably.NewRealtime(opts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
+	ok := make(chan struct{}, 1)
+	client.Connection.On(ably.ConnectionEventDisconnected, func(csc ably.ConnectionStateChange) {
+		ok <- struct{}{}
+	})
+
+	client.Connect()
+	ablytest.Instantly.Recv(t, nil, ok, t.Fatalf)
+	sub := "Dial Failed in "
+	x := buf.String()
+	idx := strings.Index(x, sub)
+	if idx == -1 {
+		t.Fatal("Missing Dial i/o timeout error")
+	}
+	x = x[idx+len(sub):]
+	x = strings.TrimSpace(x)
+	x = strings.Split(x, " ")[0]
+
+	d, err := time.ParseDuration(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The clock is not precise but 1 margin of error should be fine.
+	if d < reqTimeout || d > reqTimeout+time.Millisecond {
+		t.Errorf("expected timeout to be %v got %v", reqTimeout, d)
 	}
 }
 func TestRealtimeConn_RTN14a(t *testing.T) {
