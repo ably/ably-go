@@ -22,7 +22,7 @@ with some omissions as follows (see [the client library specification](https://w
 | [Push notifications admin API](https://www.ably.io/documentation/general/push/admin) |
 | [JWT authentication](https://www.ably.io/documentation/core-features/authentication#ably-jwt-process) |
 
-It is intended that this library is upgraded incrementally, with 1.1 feature support expanded in successive minor
+It is intended that this library is upgraded incrementally, with 1.2 feature support expanded in successive minor
 releases. If there are features that are currently missing that are a high priority for your use-case then please
 [contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
 
