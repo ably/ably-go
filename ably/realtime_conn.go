@@ -613,9 +613,7 @@ func (c *Connection) eventloop() {
 			receiveTimeout := c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
 			deadline = c.opts.Now().Add(receiveTimeout)                         // RTNf23a
 		}
-		c.mtx.Lock()
 		msg, err := c.conn.Receive(deadline)
-		c.mtx.Unlock()
 		if err != nil {
 			c.mtx.Lock()
 			if c.state == ConnectionStateClosed {
