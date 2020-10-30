@@ -34,6 +34,12 @@ const (
 type Connection struct {
 	mtx sync.Mutex
 
+	// on setConn we write to conn with mtx protection, however in eventLoop we
+	// read conn unprotected, this is racy because now we establish connection in a
+	// separate goroutine.
+	//
+	// using mtx to protect reads in eventLoop causes a deadlock.
+	connMtx sync.Mutex
 	ConnectionEventEmitter
 
 	state           ConnectionState
@@ -591,7 +597,9 @@ func (c *Connection) lockIsActive() bool {
 }
 
 func (c *Connection) setConn(conn proto.Conn) {
+	c.connMtx.Lock()
 	c.conn = conn
+	c.connMtx.Unlock()
 	go c.eventloop()
 }
 
@@ -613,7 +621,9 @@ func (c *Connection) eventloop() {
 			receiveTimeout := c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
 			deadline = c.opts.Now().Add(receiveTimeout)                         // RTNf23a
 		}
+		c.connMtx.Lock()
 		msg, err := c.conn.Receive(deadline)
+		c.connMtx.Unlock()
 		if err != nil {
 			c.mtx.Lock()
 			if c.state == ConnectionStateClosed {
