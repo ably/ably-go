@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1801,12 +1804,27 @@ func (w *writerLogger) Printf(level ably.LogLevel, format string, v ...interface
 
 func TestRealtimeConn_RTN14c(t *testing.T) {
 	t.Parallel()
+	ts := httptest.NewUnstartedServer(nil)
+	reqTimeout := 5 * time.Millisecond
+	ts.Config = &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(reqTimeout + 5*time.Millisecond)
+		}),
+	}
+	ts.StartTLS()
+	defer ts.Close()
+
+	host, port, err := net.SplitHostPort(strings.TrimPrefix(ts.URL, "https://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, _ := strconv.Atoi(port)
 	var buf bytes.Buffer
 	lg := &writerLogger{w: &buf}
-	reqTimeout := 5 * time.Millisecond
 	opts := ably.ClientOptions{}.
 		Key("xxx:xxx").
-		RealtimeHost("192.168.0.200").
+		RealtimeHost(host).
+		TLSPort(p).
 		RealtimeRequestTimeout(reqTimeout).
 		LogHandler(lg).
 		LogLevel(ably.LogDebug).
@@ -1820,9 +1838,8 @@ func TestRealtimeConn_RTN14c(t *testing.T) {
 	client.Connection.On(ably.ConnectionEventDisconnected, func(csc ably.ConnectionStateChange) {
 		ok <- struct{}{}
 	})
-
 	client.Connect()
-	ablytest.Instantly.Recv(t, nil, ok, t.Fatalf)
+	ablytest.Soon.Recv(t, nil, ok, t.Fatalf)
 	sub := "Dial Failed in "
 	x := buf.String()
 	idx := strings.Index(x, sub)
@@ -1838,8 +1855,9 @@ func TestRealtimeConn_RTN14c(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The clock is not precise but 1 margin of error should be fine.
-	if d < reqTimeout || d > reqTimeout+time.Millisecond {
+	// We can't be precise here so just an estimate. Manual tests ranges between 5ms -10ms
+	// TODO: Find a proper way to record Dial i/o timeouts duration.
+	if d < reqTimeout || d > reqTimeout*2+time.Millisecond {
 		t.Errorf("expected timeout to be %v got %v", reqTimeout, d)
 	}
 }
