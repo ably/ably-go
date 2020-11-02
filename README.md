@@ -125,7 +125,7 @@ for _, client := range clients {
 
 ```go
 unsubscribe, err = channel.Presence.SubscribeAll(ctx, func(msg *ably.PresenceMessage) {
-	fmt.Println("Presence event: action=%v data=%v", msg.Action, msg.Data)
+	fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
 })
 if err != nil {
 	panic(err)
@@ -140,7 +140,7 @@ unsubscribe()
 
 ```go
 unsubscribe, err = channel.Presence.Subscribe(ctx, ably.PresenceActionEnter, func(msg *ably.PresenceMessage) {
-	fmt.Println("Presence event:", msg)
+	fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
 })
 if err != nil {
 	panic(err)
