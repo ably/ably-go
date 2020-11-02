@@ -252,11 +252,9 @@ if err != nil {
 
 This library targets the Ably 1.2 [client library specification](https://www.ably.io/documentation/client-lib-development-guide/features).
 
-It is intended that this library is upgraded incrementally, with 1.2 feature support expanded in successive minor
-releases. If there are features that are currently missing that are a high priority for your use-case then please
-[contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
-
 ### Known limitations
+
+As of release 1.2.0, the following are not implemented and will be covered in future 1.2.x releases. If there are features that are currently missing that are a high priority for your use-case then please [contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
 
 ### REST API
 
