@@ -21,13 +21,7 @@
 //
 // is replaced with:
 //
-// 	ably.WithKey(app.Key()), ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID")
-//
-// And this:
-//
-// 	ably.WithKey("invalid:key")
-//
-// does the same, except it doesn't replace "invalid:key" with app.Key().
+// 	app.Options(ably.WithClientID("clientID"))...
 //
 // So that the REST and Realtime instances can run against the app, without
 // polluting the README with test plumbing.
@@ -170,15 +164,7 @@ func (w *writer) writeGo(endBlock string) state {
 			break
 		}
 
-		sandboxOptions := `ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID")`
-		l = strings.ReplaceAll(l,
-			`ably.WithKey("xxx:xxx")`,
-			`ably.WithKey(app.Key()), `+sandboxOptions,
-		)
-		l = strings.ReplaceAll(l,
-			`ably.WithKey("invalid:key")`,
-			`ably.WithKey("invalid:key"), `+sandboxOptions,
-		)
+		l = strings.ReplaceAll(l, `ably.WithKey("xxx:xxx")`, `app.Options(ably.WithClientID("clientID"))...`)
 
 		w.writeln(`/*`, readmeRef(lineNum), `*/`, l)
 	}

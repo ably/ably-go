@@ -13,7 +13,6 @@ A Go client library for [www.ably.io](https://ably.io), the realtime messaging s
 ### Creating a client
 
 <!-- GO IMPORT "context" -->
-<!-- GO IMPORT "errors" -->
 
 <!-- GO EXAMPLE
 ctx := context.Background()
@@ -26,38 +25,6 @@ if err != nil {
 }
 
 channel := client.Channels.Get("test")
-```
-
-<!-- GO EXAMPLE
-client.Close()
--->
-
-### Subscribing to events
-
-You may monitor events on connections and channels.
-
-```go
-client, err = ably.NewRealtime(
-	ably.WithKey("xxx:xxx"),
-	ably.WithAutoConnect(false), // Set this option to avoid missing state changes.
-)
-if err != nil {
-	panic(err)
-}
-
-// Set up connection events handler.
-client.Connection.OnAll(func(change ably.ConnectionStateChange) {
-	fmt.Printf("Connection event: %s state=%s reason=%s", change.Event, change.Current, change.Reason)
-})
-
-// Then connect.
-client.Connect()
-
-channel = client.Channels.Get("test")
-
-channel.OnAll(func(change ably.ChannelStateChange) {
-	fmt.Printf("Channel event event: %s channel=%s state=%s reason=%s", channel.Name, change.Event, change.Current, change.Reason)
-})
 ```
 
 ### Subscribing to a channel for all messages
@@ -103,26 +70,6 @@ unsubscribe2()
 ```go
 err = channel.Publish(ctx, "EventName1", "EventData1")
 if err != nil {
-	panic(err)
-}
-```
-
-### Handling errors
-
-Errors returned by this library may have an underlying `*ErrorInfo` type.
-
-[See Ably documentation for ErrorInfo.](https://www.ably.io/documentation/realtime/types#error-info)
-
-```go
-badClient, err := ably.NewRealtime(ably.WithKey("invalid:key"))
-if err != nil {
-	panic(err)
-}
-
-err = badClient.Channels.Get("test").Publish(ctx, "event", "data")
-if errInfo := (*ably.ErrorInfo)(nil); errors.As(err, &errInfo) {
-	fmt.Printf("Error publishing message: code=%v status=%v cause=%v", errInfo.Code, errInfo.StatusCode, errInfo.Cause)
-} else if err != nil {
 	panic(err)
 }
 ```
