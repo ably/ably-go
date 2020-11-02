@@ -270,6 +270,8 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	return query, nil
 }
 
+const connectionStateTTLErrFmt = "Exceeded connectionStateTtl=%v while in DISCONNECTED state"
+
 func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 	lg := c.logger().Sugar()
 	res, err := c.connectWith(arg)
@@ -301,7 +303,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 		case <-stateDeadline.C:
 			// (RTN14e)
 			lg.Debug("Transition to SUSPENDED state")
-			err := fmt.Errorf("Exceeded connectionStateTtl=%v while in DISCONNECTED state", stateTTL)
+			err := fmt.Errorf(connectionStateTTLErrFmt, stateTTL)
 			c.setState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
 			// (RTN14f)
 			lg.Debug("Reached SUSPENDED state while opening connection")

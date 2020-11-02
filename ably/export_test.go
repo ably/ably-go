@@ -134,3 +134,5 @@ func (os ClientOptions) ApplyWithDefaults() *clientOptions {
 type ConnStateChanges = connStateChanges
 
 type ChannelStateChanges = channelStateChanges
+
+const ConnectionStateTTLErrFmt = connectionStateTTLErrFmt

@@ -2111,75 +2111,42 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 
 func TestRealtimeConn_RTN14e(t *testing.T) {
 	t.Parallel()
-	var count atomic.Value
-	count.Store(0)
-	in := make(chan *proto.ProtocolMessage)
-	out := make(chan *proto.ProtocolMessage, 16)
 	ttl := 10 * time.Millisecond
+	disconnTTL := ttl * 2
+	suspendTTL := ttl / 2
 	c, _ := ably.NewRealtime(ably.ClientOptions{}.
 		Token("fake:token").
 		AutoConnect(false).
-		LogLevel(ably.LogDebug).
 		ConnectionStateTTL(ttl).
-		SuspendedRetryTimeout(ttl / 2).
-		DisconnectedRetryTimeout(ttl * 2).
+		SuspendedRetryTimeout(suspendTTL).
+		DisconnectedRetryTimeout(disconnTTL).
 		Dial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
-			x := count.Load().(int)
-			if x > 3 {
-				return ablytest.MessagePipe(in, out)(protocol, u, timeout)
-			}
-			count.Store(x + 1)
 			return nil, context.DeadlineExceeded
 		}))
 	defer c.Close()
-	change := make(ably.ConnStateChanges, 16)
-	off := c.Connection.OnAll(change.Receive)
+	changes := make(ably.ConnStateChanges, 2)
+	off := c.Connection.On(ably.ConnectionEventSuspended, changes.Receive)
 	defer off()
-
-	go c.Connect()
-	connected := make(ably.ConnStateChanges, 1)
-	clear := c.Connection.On(ably.ConnectionEventConnected, func(csc ably.ConnectionStateChange) {
-		connected <- csc
-	})
-	defer clear()
-
-	in <- &proto.ProtocolMessage{
-		Action: proto.ActionConnected,
+	c.Connect()
+	var state ably.ConnectionStateChange
+	ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+	if state.RetryIn != suspendTTL {
+		t.Fatalf("expected retry to be in %v got %v ", suspendTTL, state.RetryIn)
 	}
-
-	// Make sure we have CONNECTED event fired before we inspect state changes
-	ablytest.Soon.Recv(t, nil, connected, t.Fatalf)
-
-	// - Start connecting
-	// - Get recoverable error, immediately set to disconnected
-	// - Stay disconnected long than connectionStateTTL, then tansition to suspended
-	// - Periodic start connecting until we successful connect
-	// - Transition to Connected after we receive connected action.
-	changes := []ably.ConnectionState{
-		ably.ConnectionStateConnecting,
-		ably.ConnectionStateDisconnected,
-		ably.ConnectionStateSuspended, //(RTN14e)
-		ably.ConnectionStateConnecting,
-		ably.ConnectionStateConnected,
+	reason := fmt.Sprintf(ably.ConnectionStateTTLErrFmt, ttl)
+	if !strings.Contains(state.Reason.Error(), reason) {
+		t.Errorf("expected %v\n to contain %s", state.Reason, reason)
 	}
-	for _, e := range changes {
-		t.Run(e.String(), func(t *testing.T) {
-			var state ably.ConnectionStateChange
-			ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
-			if expect, got := e, state.Current; expect != got {
-				t.Errorf("expected %v got %v", expect, got)
-			}
-		})
+	// make sure we are from DISCONNECTED => SUSPENDED
+	if expect, got := ably.ConnectionStateDisconnected, state.Previous; got != expect {
+		t.Fatalf("expected transitioning from %v got %v", expect, got)
 	}
-	t.Run("(RTN14f)", func(t *testing.T) {
-		// We fall into SUSPENDED state after the first dial. We perodically dial 3
-		// times until we are successful.
-		//
-		// This satisfies the check that we stay in SUSPENDED state indefinitely
-		x := count.Load().(int)
-		if x != 4 {
-			t.Errorf("expected 4 failed dials got %d instead ", x)
-		}
-	})
+	state = ably.ConnectionStateChange{}
+	ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
 
+	// in suspend retries we move from
+	//  SUSPENDED => CONNECTING => SUSPENDED ...
+	if expect, got := ably.ConnectionStateConnecting, state.Previous; got != expect {
+		t.Fatalf("expected transitioning from %v got %v", expect, got)
+	}
 }
