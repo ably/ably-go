@@ -137,9 +137,10 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 		res, err := c.connectWith(arg)
 		if err != nil {
 			if recoverable(err) {
+				c.setState(ConnectionStateSuspended, err, retryIn)
 				continue
 			}
-			return nil, err
+			return nil, c.setState(ConnectionStateFailed, err, 0)
 		}
 		return res, nil
 	}
