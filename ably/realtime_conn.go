@@ -95,7 +95,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 	c.queue = newMsgQueue(c)
 	if !opts.NoConnect {
 		go func() {
-			lg := opts.Logger.Sugar()
+			lg := opts.Logger.sugar()
 			lg.Info("Trying to establish a connection asynchronously")
 			if _, err := c.connect(connArgs{}); err != nil {
 				lg.Errorf("Failed to open connection with err:%v", err)
@@ -106,7 +106,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 }
 
 func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error) {
-	lg := c.logger().Sugar()
+	lg := c.logger().sugar()
 	start := time.Now()
 	lg.Debugf("Dial protocol=%q url %q ", proto, u.String())
 	// (RTN23b)
@@ -129,7 +129,7 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 
 func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 	retryIn := c.opts.suspendedRetryTimeout()
-	lg := c.logger().Sugar()
+	lg := c.logger().sugar()
 	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", retryIn)
 	tick := time.NewTicker(retryIn)
 	for {
@@ -273,7 +273,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 const connectionStateTTLErrFmt = "Exceeded connectionStateTtl=%v while in DISCONNECTED state"
 
 func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
-	lg := c.logger().Sugar()
+	lg := c.logger().sugar()
 	res, err := c.connectWith(arg)
 	if err == nil {
 		return res, nil
@@ -543,7 +543,7 @@ func (c *Connection) send(msg *proto.ProtocolMessage, listen chan<- error) error
 		return err
 	}
 	c.updateSerial(msg, listen)
-	c.mtx.Unlock()
+	defer c.mtx.Unlock()
 	return c.conn.Send(msg)
 }
 
@@ -654,12 +654,12 @@ func (c *Connection) eventloop() {
 		case proto.ActionHeartbeat:
 		case proto.ActionAck:
 			c.mtx.Lock()
-			c.pending.Ack(msg.MsgSerial, msg.Count, newErrorProto(msg.Error))
+			c.pending.Ack(msg.MsgSerial, msg.Count, newErrorFromProto(msg.Error))
 			c.setSerial(c.serial + 1)
 			c.mtx.Unlock()
 		case proto.ActionNack:
 			c.mtx.Lock()
-			c.pending.Nack(msg.MsgSerial, msg.Count, newErrorProto(msg.Error))
+			c.pending.Nack(msg.MsgSerial, msg.Count, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
 		case proto.ActionError:
 
@@ -673,7 +673,7 @@ func (c *Connection) eventloop() {
 			c.reauthorizing = false
 			if isTokenError(msg.Error) {
 				if reauthorizing {
-					c.lockedReauthorizationFailed(newErrorProto(msg.Error))
+					c.lockedReauthorizationFailed(newErrorFromProto(msg.Error))
 					c.mtx.Unlock()
 					return
 				}
@@ -710,7 +710,7 @@ func (c *Connection) eventloop() {
 			previousID := c.id
 			c.id = msg.ConnectionID
 			c.msgSerial = 0
-			if reconnecting && mode == recoveryMode {
+			if reconnecting && mode == recoveryMode && msg.Error == nil {
 				// we are setting msgSerial as per (RTN16f)
 				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
 				if err != nil {
@@ -719,11 +719,12 @@ func (c *Connection) eventloop() {
 				c.msgSerial = msgSerial
 			}
 			c.setSerial(-1)
+
 			c.mtx.Unlock()
 			if reconnecting {
 				// (RTN15c1) (RTN15c2)
 				c.mtx.Lock()
-				c.lockSetState(ConnectionStateConnected, newErrorProto(msg.Error), 0)
+				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 				c.mtx.Unlock()
 				if previousID != msg.ConnectionID {
 					// (RTN15c3)
@@ -780,9 +781,9 @@ func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
 		c.reauthorizing = false
 		c.callbacks.onReconnectionFailed(err)
 	}
-	c.lockSetState(ConnectionStateFailed, newErrorProto(err), 0)
+	c.lockSetState(ConnectionStateFailed, newErrorFromProto(err), 0)
 	c.mtx.Unlock()
-	c.queue.Fail(newErrorProto(err))
+	c.queue.Fail(newErrorFromProto(err))
 	if c.conn != nil {
 		c.conn.Close()
 	}
@@ -857,8 +858,5 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 	}
 	c.internalEmitter.emitter.Emit(change.Event, change)
 	c.emitter.Emit(change.Event, change)
-	if c.errorReason == nil {
-		return nil
-	}
-	return c.errorReason
+	return c.errorReason.unwrapNil()
 }

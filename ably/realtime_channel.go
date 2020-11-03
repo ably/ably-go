@@ -37,11 +37,7 @@ func newChannels(client *Realtime) *Channels {
 	}
 }
 
-// ChannelOptions is a set of options for a channel.
-type ChannelOptions []ChannelOption
-
-// A ChannelOption configures a channel. Options are set by calling methods
-// on ChannelOptions.
+// A ChannelOption configures a channel.
 type ChannelOption func(*channelOptions)
 
 // channelOptions wraps proto.ChannelOptions. It exists so that users can't
@@ -49,22 +45,22 @@ type ChannelOption func(*channelOptions)
 type channelOptions proto.ChannelOptions
 
 // CipherKey is like Cipher with an AES algorithm and CBC mode.
-func (o ChannelOptions) CipherKey(key []byte) ChannelOptions {
-	return append(o, func(o *channelOptions) {
+func ChannelWithCipherKey(key []byte) ChannelOption {
+	return func(o *channelOptions) {
 		o.Cipher = proto.CipherParams{
 			Algorithm: proto.DefaultCipherAlgorithm,
 			Key:       key,
 			KeyLength: proto.DefaultKeyLength,
 			Mode:      proto.DefaultCipherMode,
 		}
-	})
+	}
 }
 
 // Cipher sets cipher parameters for encrypting messages on a channel.
-func (o ChannelOptions) Cipher(params proto.CipherParams) ChannelOptions {
-	return append(o, func(o *channelOptions) {
+func ChannelWithCipher(params proto.CipherParams) ChannelOption {
+	return func(o *channelOptions) {
 		o.Cipher = params
-	})
+	}
 }
 
 // Get looks up a channel given by the name and creates it if it does not exist
@@ -103,18 +99,16 @@ func (ch *Channels) All() []*RealtimeChannel {
 	return chans
 }
 
-// Release closes a channel looked up by the name.
-//
-// It is safe to call Release from multiple goroutines - if a channel happened
-// to be already concurrently released, the method is a nop.
-func (ch *Channels) Release(name string) error {
+// Release releases all resources associated with a channel, detaching it first
+// if necessary. See RealtimeChannel.Detach for details.
+func (ch *Channels) Release(ctx context.Context, name string) error {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
 	c, ok := ch.chans[name]
 	if !ok {
 		return nil
 	}
-	err := wait(c.Detach())
+	err := c.Detach(ctx)
 	if err != nil {
 		return err
 	}
@@ -142,9 +136,9 @@ type RealtimeChannel struct {
 	errorReason     *ErrorInfo
 	internalEmitter ChannelEventEmitter
 
-	client *Realtime
-	subs   *subscriptions
-	queue  *msgQueue
+	client         *Realtime
+	messageEmitter *eventEmitter
+	queue          *msgQueue
 }
 
 func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
@@ -155,8 +149,8 @@ func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 		state:           ChannelStateInitialized,
 		internalEmitter: ChannelEventEmitter{newEventEmitter(client.logger())},
 
-		client: client,
-		subs:   newSubscriptions(subscriptionMessages, client.logger()),
+		client:         client,
+		messageEmitter: newEventEmitter(client.logger()),
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
@@ -175,15 +169,19 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	}
 }
 
-// Attach initiates attach request, which is being processed on a separate
-// goroutine.
+// Attach attaches the Realtime connection to the channel, after which it starts
+// receiving messages from it.
 //
-// If channel is already attached, this method is a nop.
-// If sending attach message failed, the returned error value is non-nil.
-// If sending attach message succeed, the returned Result value can be used
-// to wait until ack from server is received.
-func (c *RealtimeChannel) Attach() (Result, error) {
-	return c.attach(true)
+// If the context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached anyway.
+func (c *RealtimeChannel) Attach(ctx context.Context) error {
+	res, err := c.attach(true)
+	if err != nil {
+		return err
+	}
+	// TODO: Don't ignore context.
+	return res.Wait()
 }
 
 func (c *RealtimeChannel) attach(result bool) (Result, error) {
@@ -226,7 +224,7 @@ func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 		return goWaiter(func() error {
 			change := <-changes
 			if change.Current != ConnectionStateConnected {
-				return change.Reason
+				return change.Reason.unwrapNil()
 			}
 
 			res, err := c.mayAttach(result, true)
@@ -258,15 +256,19 @@ func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 	return res, nil
 }
 
-// Detach initiates detach request, which is being processed on a separate
-// goroutine.
+// Detach detaches the Realtime connection to the channel, after which it stops
+// receiving messages from it.
 //
-// If channel is already detached, this method is a nop.
-// If sending detach message failed, the returned error value is non-nil.
-// If sending detach message succeed, the returned Result value can be used
-// to wait until ack from server is received.
-func (c *RealtimeChannel) Detach() (Result, error) {
-	return c.detach(true)
+// If the context is canceled before the detach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be detached anyway.
+func (c *RealtimeChannel) Detach(ctx context.Context) error {
+	res, err := c.detach(true)
+	if err != nil {
+		return err
+	}
+	// TODO: Don't ignore context.
+	return res.Wait()
 }
 
 func (c *RealtimeChannel) detach(result bool) (Result, error) {
@@ -297,30 +299,62 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 	return res, nil
 }
 
-// Subscribe subscribes to a realtime channel, which makes any newly received
-// messages relayed to the returned Subscription value.
+type subscriptionName string
+
+func (subscriptionName) isEmitterEvent() {}
+
+type subscriptionMessage Message
+
+func (*subscriptionMessage) isEmitterData() {}
+
+// Subscribe registers a message handler to be called with each message with the
+// given name received from the channel.
 //
-// If no names are given, returned Subscription will receive all messages.
-// If ch is non-nil and it was already registered to receive messages with different
-// names than the ones given, it will be added to receive also the new ones.
-func (c *RealtimeChannel) Subscribe(names ...string) (*Subscription, error) {
-	if _, err := c.attach(false); err != nil {
+// This implicitly attaches the channel if it's not already attached. If the
+// context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached anyway.
+//
+// See package-level documentation on Event Emitter for details about
+// messages dispatch.
+func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(*Message)) (unsubscribe func(), err error) {
+	res, err := c.attach(true)
+	if err != nil {
 		return nil, err
 	}
-	return c.subs.subscribe(namesToKeys(names)...)
+	// TODO: Don't ignore context.
+	err = res.Wait()
+	if err != nil {
+		return nil, err
+	}
+	return c.messageEmitter.On(subscriptionName(name), func(message emitterData) {
+		handle((*Message)(message.(*subscriptionMessage)))
+	}), nil
 }
 
-// Unsubscribe removes previous Subscription for the given message names.
+// SubscribeAll register a message handler to be called with each message
+// received from the channel.
 //
-// Unsubscribe panics if the given sub was subscribed for presence messages and
-// not for regular channel messages.
+// This implicitly attaches the channel if it's not already attached. If the
+// context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached anyway.
 //
-// If sub was already unsubscribed, the method is a nop.
-func (c *RealtimeChannel) Unsubscribe(sub *Subscription, names ...string) {
-	if sub.typ != subscriptionMessages {
-		panic(errInvalidType{typ: sub.typ})
+// See package-level documentation on Event Emitter for details about
+// messages dispatch.
+func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message)) (unsubscribe func(), err error) {
+	res, err := c.attach(true)
+	if err != nil {
+		return nil, err
 	}
-	c.subs.unsubscribe(true, sub, namesToKeys(names)...)
+	// TODO: Don't ignore context.
+	err = res.Wait()
+	if err != nil {
+		return nil, err
+	}
+	return c.messageEmitter.OnAll(func(message emitterData) {
+		handle((*Message)(message.(*subscriptionMessage)))
+	}), nil
 }
 
 type channelStateChanges chan ChannelStateChange
@@ -383,24 +417,28 @@ func (em ChannelEventEmitter) OffAll() {
 	em.emitter.OffAll()
 }
 
-// Publish publishes a message on the channel, which is send on separate
-// goroutine. Publish does not block.
+// Publish publishes a message on the channel.
 //
-// This implicitly attaches the channel if it's not already attached.
-func (c *RealtimeChannel) Publish(name string, data interface{}) (Result, error) {
-	return c.PublishAll([]*proto.Message{{Name: name, Data: data}})
+// This implicitly attaches the channel if it's not already attached. If the
+// context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached and the message published anyway.
+func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interface{}) error {
+	return c.PublishBatch(ctx, []*Message{{Name: name, Data: data}})
 }
 
-// PublishAll publishes all given messages on the channel at once.
-// PublishAll does not block.
+// PublishBatch publishes all given messages on the channel at once.
 //
-// This implicitly attaches the channel if it's not already attached.
-func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) {
+// This implicitly attaches the channel if it's not already attached. If the
+// context is canceled before the attach operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached and the message published anyway.
+func (c *RealtimeChannel) PublishBatch(ctx context.Context, messages []*Message) error {
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
 		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
 			// Spec RSL1g3,RSL1g4
-			return nil, fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
+			return fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
 		}
 	}
 	msg := &proto.ProtocolMessage{
@@ -408,7 +446,12 @@ func (c *RealtimeChannel) PublishAll(messages []*proto.Message) (Result, error) 
 		Channel:  c.Name,
 		Messages: messages,
 	}
-	return c.send(msg)
+	res, err := c.send(msg)
+	if err != nil {
+		return err
+	}
+	// TODO: Don't ignore context.
+	return res.Wait()
 }
 
 // History gives the channel's message history according to the given parameters.
@@ -445,7 +488,7 @@ func (c *RealtimeChannel) State() ChannelState {
 }
 
 // Reason gives the last error that caused channel transition to failed state.
-func (c *RealtimeChannel) Reason() error {
+func (c *RealtimeChannel) Reason() *ErrorInfo {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.errorReason
@@ -460,7 +503,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	case proto.ActionDetached:
 		c.mtx.Lock()
 
-		err := error(newErrorProto(msg.Error))
+		err := error(newErrorFromProto(msg.Error))
 		switch c.state {
 		case ChannelStateDetaching:
 			c.lockSetState(ChannelStateDetached, err)
@@ -501,10 +544,12 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	case proto.ActionPresence:
 		c.Presence.processIncomingMessage(msg, "")
 	case proto.ActionError:
-		c.setState(ChannelStateFailed, newErrorProto(msg.Error))
-		c.queue.Fail(newErrorProto(msg.Error))
+		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error))
+		c.queue.Fail(newErrorFromProto(msg.Error))
 	case proto.ActionMessage:
-		c.subs.messageEnqueue(msg)
+		for _, msg := range msg.Messages {
+			c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
+		}
 	default:
 	}
 }
@@ -585,8 +630,5 @@ func (c *RealtimeChannel) lockSetState(state ChannelState, err error) error {
 	}
 	c.internalEmitter.emitter.Emit(change.Event, change)
 	c.emitter.Emit(change.Event, change)
-	if c.errorReason == nil {
-		return nil
-	}
-	return c.errorReason
+	return c.errorReason.unwrapNil()
 }

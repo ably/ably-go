@@ -32,11 +32,12 @@ func TestMalformedPaginatedResult(t *testing.T) {
 	defer srv.Close()
 
 	srvAddr := srv.Listener.Addr().(*net.TCPAddr)
-	client, err := ably.NewREST(ably.ClientOptions{}.
-		Token("xxxxxxx.yyyyyyy:zzzzzzz").
-		TLS(false).
-		RESTHost(srvAddr.IP.String()).
-		Port(srvAddr.Port))
+	client, err := ably.NewREST(
+		ably.WithToken("xxxxxxx.yyyyyyy:zzzzzzz"),
+		ably.WithTLS(false),
+		ably.WithRESTHost(srvAddr.IP.String()),
+		ably.WithPort(srvAddr.Port),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

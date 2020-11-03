@@ -375,12 +375,13 @@ func NewRecorder(httpClient *http.Client) *HostRecorder {
 	return hr
 }
 
-func (hr *HostRecorder) Options(opts ably.ClientOptions, host string) ably.ClientOptions {
-	return opts.
-		RealtimeHost(host).
-		AutoConnect(false).
-		Dial(hr.dialWS).
-		HTTPClient(hr.httpClient)
+func (hr *HostRecorder) Options(host string, opts ...ably.ClientOption) []ably.ClientOption {
+	return append(opts,
+		ably.WithRealtimeHost(host),
+		ably.WithAutoConnect(false),
+		ably.WithDial(hr.dialWS),
+		ably.WithHTTPClient(hr.httpClient),
+	)
 }
 
 func (hr *HostRecorder) addHost(host string) {
@@ -514,7 +515,11 @@ func (c realtimeIOCloser) Close() error {
 		ably.ConnectionStateClosed,
 		ably.ConnectionStateFailed:
 
-		return c.c.Connection.ErrorReason()
+		err := c.c.Connection.ErrorReason()
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout)

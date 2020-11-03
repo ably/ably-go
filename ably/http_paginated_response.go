@@ -12,7 +12,7 @@ type HTTPPaginatedResponse struct {
 	*PaginatedResult
 	StatusCode   int         //spec HP4
 	Success      bool        //spec HP5
-	ErrorCode    int         //spec HP6
+	ErrorCode    ErrorCode   //spec HP6
 	ErrorMessage string      //spec HP7
 	Headers      http.Header //spec HP8
 }
@@ -27,7 +27,7 @@ func decodeHTTPPaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, res
 }
 
 func newHTTPPaginatedResult(path string, params *PaginateParams,
-	query QueryFunc, log *LoggerOptions) (*HTTPPaginatedResponse, error) {
+	query queryFunc, log *LoggerOptions) (*HTTPPaginatedResponse, error) {
 	p, err := newPaginatedResult(nil, paginatedRequest{typ: arrayTyp, path: path, params: params, query: query, logger: log, respCheck: func(_ *http.Response) error {
 		return nil
 	}, decoder: decodeHTTPPaginatedResult})
@@ -42,7 +42,7 @@ func newHTTPPaginatedResultFromPaginatedResult(p *PaginatedResult) *HTTPPaginate
 	h := &HTTPPaginatedResponse{PaginatedResult: p}
 	h.StatusCode = p.statusCode
 	h.Success = p.success
-	h.ErrorCode = p.errorCode
+	h.ErrorCode = ErrorCode(p.errorCode)
 	h.ErrorMessage = p.errorMessage
 	return h
 }

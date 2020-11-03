@@ -19,9 +19,9 @@ type Realtime struct {
 }
 
 // NewRealtime constructs a new Realtime.
-func NewRealtime(options ClientOptions) (*Realtime, error) {
+func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c := &Realtime{}
-	rest, err := NewREST(options)
+	rest, err := NewREST(options...)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (c *Realtime) onReconnected(err *proto.ErrorInfo, isNewID bool) {
 
 func (c *Realtime) onReconnectionFailed(err *proto.ErrorInfo) {
 	for _, ch := range c.Channels.All() {
-		ch.setState(ChannelStateFailed, newErrorProto(err))
+		ch.setState(ChannelStateFailed, newErrorFromProto(err))
 	}
 }
 

@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
@@ -21,15 +22,15 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
-func TestRestChannel(t *testing.T) {
+func TestRESTChannel(t *testing.T) {
 	t.Parallel()
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	options := app.Options(nil)
-	client, err := ably.NewREST(options)
+	options := app.Options()
+	client, err := ably.NewREST(options...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +71,7 @@ func TestRestChannel(t *testing.T) {
 			}
 		}
 		for k, v := range m {
-			err := channel.Publish(k, v.data)
+			err := channel.Publish(context.Background(), k, v.data)
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -94,12 +95,12 @@ func TestRestChannel(t *testing.T) {
 	})
 
 	t.Run("History", func(ts *testing.T) {
-		historyRestChannel := client.Channels.Get("channelhistory")
+		historyRESTChannel := client.Channels.Get("channelhistory")
 		for i := 0; i < 2; i++ {
-			historyRestChannel.Publish("breakingnews", "Another Shark attack!!")
+			historyRESTChannel.Publish(context.Background(), "breakingnews", "Another Shark attack!!")
 		}
 
-		page1, err := historyRestChannel.History(&ably.PaginateParams{Limit: 1})
+		page1, err := historyRESTChannel.History(&ably.PaginateParams{Limit: 1})
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -122,17 +123,17 @@ func TestRestChannel(t *testing.T) {
 		}
 	})
 
-	t.Run("PublishAll", func(ts *testing.T) {
-		encodingRestChannel := client.Channels.Get("this?is#an?encoding#channel")
-		messages := []*proto.Message{
+	t.Run("PublishBatch", func(ts *testing.T) {
+		encodingRESTChannel := client.Channels.Get("this?is#an?encoding#channel")
+		messages := []*ably.Message{
 			{Name: "send", Data: "test data 1"},
 			{Name: "send", Data: "test data 2"},
 		}
-		err := encodingRestChannel.PublishAll(messages)
+		err := encodingRESTChannel.PublishBatch(context.Background(), messages)
 		if err != nil {
 			ts.Fatal(err)
 		}
-		page, err := encodingRestChannel.History(&ably.PaginateParams{Limit: 2})
+		page, err := encodingRESTChannel.History(&ably.PaginateParams{Limit: 2})
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -153,12 +154,12 @@ func TestRestChannel(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		opts := ably.ChannelOptions{}.Cipher(proto.CipherParams{
+		opts := []ably.ChannelOption{ably.ChannelWithCipher(proto.CipherParams{
 			Key:       key,
 			KeyLength: 128,
 			IV:        iv,
 			Algorithm: proto.AES,
-		})
+		})}
 		channelName := "encrypted_channel"
 		channel := client.Channels.Get(channelName, opts...)
 		sample := []struct {
@@ -168,7 +169,7 @@ func TestRestChannel(t *testing.T) {
 			{"publish_1", "second message"},
 		}
 		for _, v := range sample {
-			err := channel.Publish(v.event, v.message)
+			err := channel.Publish(context.Background(), v.event, v.message)
 			if err != nil {
 				ts.Error(err)
 			}
@@ -205,8 +206,8 @@ func TestIdempotentPublishing(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	options := app.Options(ably.ClientOptions{}.IdempotentRESTPublishing(true))
-	client, err := ably.NewREST(options)
+	options := app.Options(ably.WithIdempotentRESTPublishing(true))
+	client, err := ably.NewREST(options...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +218,7 @@ func TestIdempotentPublishing(t *testing.T) {
 	t.Run("when ID is not included (#RSL1k2)", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_1")
 		for range make([]struct{}, 3) {
-			err := channel.Publish("", randomStr)
+			err := channel.Publish(context.Background(), "", randomStr)
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -235,7 +236,7 @@ func TestIdempotentPublishing(t *testing.T) {
 	t.Run("when ID is included (#RSL1k2, #RSL1k5)", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_2")
 		for range make([]struct{}, 3) {
-			err := channel.PublishAll([]*proto.Message{
+			err := channel.PublishBatch(context.Background(), []*ably.Message{
 				{
 					ID:   randomStr,
 					Data: randomStr,
@@ -262,7 +263,7 @@ func TestIdempotentPublishing(t *testing.T) {
 
 	t.Run("multiple messages in one publish operation (#RSL1k3)", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_3")
-		err := channel.PublishAll([]*proto.Message{
+		err := channel.PublishBatch(context.Background(), []*ably.Message{
 			{
 				ID:   randomStr,
 				Data: randomStr,
@@ -287,13 +288,13 @@ func TestIdempotentPublishing(t *testing.T) {
 
 	t.Run("multiple messages in one publish operation with IDs following the required format described in RSL1k1 (#RSL1k3)", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_4")
-		var m []*proto.Message
+		var m []*ably.Message
 		for i := 0; i < 3; i++ {
-			m = append(m, &proto.Message{
+			m = append(m, &ably.Message{
 				ID: fmt.Sprintf("%s:%d", randomStr, i),
 			})
 		}
-		err := channel.PublishAll(m)
+		err := channel.PublishBatch(context.Background(), m)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -335,7 +336,7 @@ func TestIdempotentPublishing(t *testing.T) {
 
 	t.Run("the ID is populated with a random ID and serial 0 from this lib (#RSL1k1)", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_5")
-		err := channel.Publish("event", "")
+		err := channel.Publish(context.Background(), "event", "")
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -369,7 +370,7 @@ func TestIdempotentPublishing(t *testing.T) {
 	t.Run("publishing a batch of messages", func(ts *testing.T) {
 		channel := client.Channels.Get("idempotent_test_6")
 		name := "event"
-		err := channel.PublishAll([]*proto.Message{
+		err := channel.PublishBatch(context.Background(), []*ably.Message{
 			{Name: name},
 			{Name: name},
 			{Name: name},
@@ -428,15 +429,16 @@ func TestIdempotent_retry(t *testing.T) {
 		// set up the proxy to forward the second retry to the correct endpoint,
 		// failing all others via the test server
 		fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
-		nopts := ably.ClientOptions{}.
-			Environment(ablytest.Environment).
-			TLS(false).
-			FallbackHosts(fallbackHosts).
-			IdempotentRESTPublishing(true).
-			UseTokenAuth(true)
+		nopts := []ably.ClientOption{
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithFallbackHosts(fallbackHosts),
+			ably.WithIdempotentRESTPublishing(true),
+			ably.WithUseTokenAuth(true),
+		}
 
 		serverURL, _ := url.Parse(server.URL)
-		defaultURL, _ := url.Parse(nopts.ApplyWithDefaults().RestURL())
+		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(nopts...).RestURL())
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if !strings.HasPrefix(r.URL.Path, "/channels/") {
 				// this is to handle token requests
@@ -454,21 +456,21 @@ func TestIdempotent_retry(t *testing.T) {
 				return defaultURL, nil
 			}
 		}
-		nopts = nopts.HTTPClient(&http.Client{
+		nopts = append(nopts, ably.WithHTTPClient(&http.Client{
 			Transport: &http.Transport{
 				Proxy:        proxy,
 				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
 			},
-		})
+		}))
 
-		client, err := ably.NewREST(app.Options(nopts))
+		client, err := ably.NewREST(app.Options(nopts...)...)
 		if err != nil {
 			ts.Fatal(err)
 		}
 
 		ts.Run("two REST publish retries result in only one message being published'", func(ts *testing.T) {
 			channel := client.Channels.Get("idempotent_test_fallback")
-			err = channel.Publish("", randomStr)
+			err = channel.Publish(context.Background(), "", randomStr)
 			if err != nil {
 				ts.Error(err)
 			}
@@ -487,13 +489,13 @@ func TestIdempotent_retry(t *testing.T) {
 		ts.Run("or multiple messages in one publish operation'", func(ts *testing.T) {
 			retryCount = 0
 			channel := client.Channels.Get("idempotent_test_fallback_1")
-			msgs := []*proto.Message{
+			msgs := []*ably.Message{
 				{Data: randomStr},
 				{Data: randomStr},
 				{Data: randomStr},
 			}
 			for range msgs {
-				channel.PublishAll(msgs)
+				channel.PublishBatch(context.Background(), msgs)
 			}
 			res, err := channel.History(nil)
 			if err != nil {
@@ -514,24 +516,24 @@ func TestRSL1f1(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	opts := app.Options(nil)
+	opts := app.Options()
 	// RSL1f
-	opts = opts.UseTokenAuth(false)
-	client, err := ably.NewREST(opts)
+	opts = append(opts, ably.WithUseTokenAuth(false))
+	client, err := ably.NewREST(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	channel := client.Channels.Get("RSL1f")
 	id := "any_client_id"
-	var msgs []*proto.Message
+	var msgs []*ably.Message
 	size := 10
 	for i := 0; i < size; i++ {
-		msgs = append(msgs, &proto.Message{
+		msgs = append(msgs, &ably.Message{
 			ClientID: id,
 			Data:     fmt.Sprint(i),
 		})
 	}
-	err = channel.PublishAll(msgs)
+	err = channel.PublishBatch(context.Background(), msgs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -558,17 +560,18 @@ func TestRSL1g(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	opts := app.Options(nil).
-		UseTokenAuth(true)
+	opts := append(app.Options(),
+		ably.WithUseTokenAuth(true),
+	)
 	clientID := "some_client_id"
-	opts = opts.ClientID(clientID)
-	client, err := ably.NewREST(opts)
+	opts = append(opts, ably.WithClientID(clientID))
+	client, err := ably.NewREST(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Run("RSL1g1b", func(ts *testing.T) {
 		channel := client.Channels.Get("RSL1g1b")
-		err := channel.PublishAll([]*proto.Message{
+		err := channel.PublishBatch(context.Background(), []*ably.Message{
 			{Name: "some 1"},
 			{Name: "some 2"},
 			{Name: "some 3"},
@@ -592,7 +595,7 @@ func TestRSL1g(t *testing.T) {
 	})
 	t.Run("RSL1g2", func(ts *testing.T) {
 		channel := client.Channels.Get("RSL1g2")
-		err := channel.PublishAll([]*proto.Message{
+		err := channel.PublishBatch(context.Background(), []*ably.Message{
 			{Name: "1", ClientID: clientID},
 			{Name: "2", ClientID: clientID},
 			{Name: "3", ClientID: clientID},
@@ -616,7 +619,7 @@ func TestRSL1g(t *testing.T) {
 	})
 	t.Run("RSL1g3", func(ts *testing.T) {
 		channel := client.Channels.Get("RSL1g3")
-		err := channel.PublishAll([]*proto.Message{
+		err := channel.PublishBatch(context.Background(), []*ably.Message{
 			{Name: "1", ClientID: clientID},
 			{Name: "2", ClientID: "other client"},
 			{Name: "3", ClientID: clientID},

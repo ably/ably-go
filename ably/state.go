@@ -40,6 +40,8 @@ var (
 	errSuspended      = newErrorf(80002, "Connection unavailable")
 	errFailed         = newErrorf(80000, "Connection failed")
 	errNeverConnected = newErrorf(80002, "Unable to establish connection")
+
+	errSerialSkipped = newErrorf(ErrInternalError, "Serial for message was skipped by acknowledgement")
 )
 
 var connStateErrors = map[ConnectionState]ErrorInfo{
@@ -52,7 +54,7 @@ var connStateErrors = map[ConnectionState]ErrorInfo{
 func connStateError(state ConnectionState, err error) *ErrorInfo {
 	// Set default error information associated with the target state.
 	e, ok := err.(*ErrorInfo)
-	if ok {
+	if ok && e != nil {
 		return e
 	}
 	if e, ok := connStateErrors[state]; ok {
@@ -71,7 +73,7 @@ var channelStateErrors = map[ChannelState]ErrorInfo{
 func channelStateError(state ChannelState, err error) *ErrorInfo {
 	// Set default error information associated with the target state.
 	e, ok := err.(*ErrorInfo)
-	if ok {
+	if ok && e != nil {
 		return e
 	}
 	if e, ok := channelStateErrors[state]; ok {
@@ -129,7 +131,7 @@ func (q *pendingEmitter) Enqueue(serial int64, ch chan<- error) {
 	}
 }
 
-func (q *pendingEmitter) Ack(serial int64, count int, err error) {
+func (q *pendingEmitter) Ack(serial int64, count int, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
@@ -145,8 +147,9 @@ func (q *pendingEmitter) Ack(serial int64, count int, err error) {
 		nack = i + 1
 		ack = min(i+1+count, q.Len())
 	}
-	if err == nil {
-		err = newError(50000, err)
+	err := errInfo.unwrapNil()
+	if err == nil && nack > 0 {
+		err = errSerialSkipped
 	}
 	for _, sch := range q.queue[:nack] {
 		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
@@ -159,7 +162,7 @@ func (q *pendingEmitter) Ack(serial int64, count int, err error) {
 	q.queue = q.queue[ack:]
 }
 
-func (q *pendingEmitter) Nack(serial int64, count int, err error) {
+func (q *pendingEmitter) Nack(serial int64, count int, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
@@ -172,9 +175,7 @@ func (q *pendingEmitter) Nack(serial int64, count int, err error) {
 	default:
 		nack = min(i+1+count, q.Len())
 	}
-	if err == nil {
-		err = newError(50000, err)
-	}
+	err := errInfo.unwrapNil()
 	for _, sch := range q.queue[:nack] {
 		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
 		sch.ch <- err
@@ -327,14 +328,14 @@ type ConnectionState struct {
 }
 
 var (
-	ConnectionStateInitialized  = ConnectionState{name: "INITIALIZED"}
-	ConnectionStateConnecting   = ConnectionState{name: "CONNECTING"}
-	ConnectionStateConnected    = ConnectionState{name: "CONNECTED"}
-	ConnectionStateDisconnected = ConnectionState{name: "DISCONNECTED"}
-	ConnectionStateSuspended    = ConnectionState{name: "SUSPENDED"}
-	ConnectionStateClosing      = ConnectionState{name: "CLOSING"}
-	ConnectionStateClosed       = ConnectionState{name: "CLOSED"}
-	ConnectionStateFailed       = ConnectionState{name: "FAILED"}
+	ConnectionStateInitialized  ConnectionState = ConnectionState{name: "INITIALIZED"}
+	ConnectionStateConnecting   ConnectionState = ConnectionState{name: "CONNECTING"}
+	ConnectionStateConnected    ConnectionState = ConnectionState{name: "CONNECTED"}
+	ConnectionStateDisconnected ConnectionState = ConnectionState{name: "DISCONNECTED"}
+	ConnectionStateSuspended    ConnectionState = ConnectionState{name: "SUSPENDED"}
+	ConnectionStateClosing      ConnectionState = ConnectionState{name: "CLOSING"}
+	ConnectionStateClosed       ConnectionState = ConnectionState{name: "CLOSED"}
+	ConnectionStateFailed       ConnectionState = ConnectionState{name: "FAILED"}
 )
 
 func (e ConnectionState) String() string {
@@ -350,15 +351,15 @@ type ConnectionEvent struct {
 func (ConnectionEvent) isEmitterEvent() {}
 
 var (
-	ConnectionEventInitialized  = ConnectionEvent(ConnectionStateInitialized)
-	ConnectionEventConnecting   = ConnectionEvent(ConnectionStateConnecting)
-	ConnectionEventConnected    = ConnectionEvent(ConnectionStateConnected)
-	ConnectionEventDisconnected = ConnectionEvent(ConnectionStateDisconnected)
-	ConnectionEventSuspended    = ConnectionEvent(ConnectionStateSuspended)
-	ConnectionEventClosing      = ConnectionEvent(ConnectionStateClosing)
-	ConnectionEventClosed       = ConnectionEvent(ConnectionStateClosed)
-	ConnectionEventFailed       = ConnectionEvent(ConnectionStateFailed)
-	ConnectionEventUpdated      = ConnectionEvent{name: "UPDATED"}
+	ConnectionEventInitialized  ConnectionEvent = ConnectionEvent(ConnectionStateInitialized)
+	ConnectionEventConnecting   ConnectionEvent = ConnectionEvent(ConnectionStateConnecting)
+	ConnectionEventConnected    ConnectionEvent = ConnectionEvent(ConnectionStateConnected)
+	ConnectionEventDisconnected ConnectionEvent = ConnectionEvent(ConnectionStateDisconnected)
+	ConnectionEventSuspended    ConnectionEvent = ConnectionEvent(ConnectionStateSuspended)
+	ConnectionEventClosing      ConnectionEvent = ConnectionEvent(ConnectionStateClosing)
+	ConnectionEventClosed       ConnectionEvent = ConnectionEvent(ConnectionStateClosed)
+	ConnectionEventFailed       ConnectionEvent = ConnectionEvent(ConnectionStateFailed)
+	ConnectionEventUpdated      ConnectionEvent = ConnectionEvent{name: "UPDATED"}
 )
 
 func (e ConnectionEvent) String() string {
@@ -387,13 +388,13 @@ type ChannelState struct {
 }
 
 var (
-	ChannelStateInitialized = ChannelState{name: "INITIALIZED"}
-	ChannelStateAttaching   = ChannelState{name: "ATTACHING"}
-	ChannelStateAttached    = ChannelState{name: "ATTACHED"}
-	ChannelStateDetaching   = ChannelState{name: "DETACHING"}
-	ChannelStateDetached    = ChannelState{name: "DETACHED"}
-	ChannelStateSuspended   = ChannelState{name: "SUSPENDED"}
-	ChannelStateFailed      = ChannelState{name: "FAILED"}
+	ChannelStateInitialized ChannelState = ChannelState{name: "INITIALIZED"}
+	ChannelStateAttaching   ChannelState = ChannelState{name: "ATTACHING"}
+	ChannelStateAttached    ChannelState = ChannelState{name: "ATTACHED"}
+	ChannelStateDetaching   ChannelState = ChannelState{name: "DETACHING"}
+	ChannelStateDetached    ChannelState = ChannelState{name: "DETACHED"}
+	ChannelStateSuspended   ChannelState = ChannelState{name: "SUSPENDED"}
+	ChannelStateFailed      ChannelState = ChannelState{name: "FAILED"}
 )
 
 func (e ChannelState) String() string {
@@ -409,14 +410,14 @@ type ChannelEvent struct {
 func (ChannelEvent) isEmitterEvent() {}
 
 var (
-	ChannelEventInitialized = ChannelEvent(ChannelStateInitialized)
-	ChannelEventAttaching   = ChannelEvent(ChannelStateAttaching)
-	ChannelEventAttached    = ChannelEvent(ChannelStateAttached)
-	ChannelEventDetaching   = ChannelEvent(ChannelStateDetaching)
-	ChannelEventDetached    = ChannelEvent(ChannelStateDetached)
-	ChannelEventSuspended   = ChannelEvent(ChannelStateSuspended)
-	ChannelEventFailed      = ChannelEvent(ChannelStateFailed)
-	ChannelEventUpdated     = ChannelEvent{name: "UPDATED"}
+	ChannelEventInitialized ChannelEvent = ChannelEvent(ChannelStateInitialized)
+	ChannelEventAttaching   ChannelEvent = ChannelEvent(ChannelStateAttaching)
+	ChannelEventAttached    ChannelEvent = ChannelEvent(ChannelStateAttached)
+	ChannelEventDetaching   ChannelEvent = ChannelEvent(ChannelStateDetaching)
+	ChannelEventDetached    ChannelEvent = ChannelEvent(ChannelStateDetached)
+	ChannelEventSuspended   ChannelEvent = ChannelEvent(ChannelStateSuspended)
+	ChannelEventFailed      ChannelEvent = ChannelEvent(ChannelStateFailed)
+	ChannelEventUpdated     ChannelEvent = ChannelEvent{name: "UPDATED"}
 )
 
 func (e ChannelEvent) String() string {

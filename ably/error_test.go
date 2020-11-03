@@ -15,15 +15,15 @@ import (
 )
 
 func TestErrorResponseWithInvalidKey(t *testing.T) {
-	opts := ably.NewClientOptions(":")
-	_, e := ably.NewREST(opts)
+	opts := []ably.ClientOption{ably.WithKey(":")}
+	_, e := ably.NewREST(opts...)
 	if e == nil {
 		t.Fatal("NewREST(): expected err != nil")
 	}
 	err, ok := e.(*ably.ErrorInfo)
 	assert.True(t, ok, fmt.Sprintf("want e be *ably.Error; was %T", e))
 	assert.Equal(t, 400, err.StatusCode, fmt.Sprintf("want StatusCode=400; got %d", err.StatusCode))
-	assert.Equal(t, 40005, err.Code, fmt.Sprintf("want Code=40005; got %d", err.Code))
+	assert.Equal(t, ably.ErrInvalidCredential, err.Code, fmt.Sprintf("want Code=	; got %d", err.Code))
 	assert.NotNil(t, err.Unwrap())
 }
 
@@ -43,13 +43,15 @@ func TestIssue127ErrorResponse(t *testing.T) {
 
 	endpointURL, err := url.Parse(server.URL)
 	assert.Nil(t, err)
-	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz").
-		TLS(false).
-		UseTokenAuth(true).
-		RESTHost(endpointURL.Hostname())
+	opts := []ably.ClientOption{
+		ably.WithKey("xxxxxxx.yyyyyyy:zzzzzzz"),
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithRESTHost(endpointURL.Hostname()),
+	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
-	opts = opts.Port(int(port))
-	client, e := ably.NewREST(opts)
+	opts = append(opts, ably.WithPort(int(port)))
+	client, e := ably.NewREST(opts...)
 	assert.Nil(t, e)
 
 	_, err = client.Time()
@@ -132,13 +134,15 @@ func TestIssue_154(t *testing.T) {
 
 	endpointURL, err := url.Parse(server.URL)
 	assert.Nil(t, err)
-	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz").
-		TLS(false).
-		UseTokenAuth(true).
-		RESTHost(endpointURL.Hostname())
+	opts := []ably.ClientOption{
+		ably.WithKey("xxxxxxx.yyyyyyy:zzzzzzz"),
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithRESTHost(endpointURL.Hostname()),
+	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
-	opts = opts.Port(int(port))
-	client, e := ably.NewREST(opts)
+	opts = append(opts, ably.WithPort(int(port)))
+	client, e := ably.NewREST(opts...)
 	assert.Nil(t, e)
 
 	_, err = client.Time()

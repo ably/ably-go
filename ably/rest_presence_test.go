@@ -15,7 +15,7 @@ func TestChannel_Presence(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	client, err := ably.NewREST(app.Options(nil))
+	client, err := ably.NewREST(app.Options()...)
 	if err != nil {
 		t.Fatal(err)
 	}

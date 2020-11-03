@@ -19,12 +19,12 @@ const (
 	protocolJSON    = "application/json"
 	protocolMsgPack = "application/x-msgpack"
 
-	// RestHost is the primary ably host .
-	RestHost = "rest.ably.io"
+	// restHost is the primary ably host .
+	restHost = "rest.ably.io"
 )
 
 var defaultOptions = clientOptions{
-	RestHost:                 RestHost,
+	RESTHost:                 restHost,
 	HTTPMaxRetryCount:        3,
 	HTTPRequestTimeout:       10 * time.Second,
 	RealtimeHost:             "realtime.ably.io",
@@ -36,14 +36,14 @@ var defaultOptions = clientOptions{
 	HTTPOpenTimeout:          4 * time.Second,  //TO3l3
 	ChannelRetryTimeout:      15 * time.Second, // TO3l7
 	FallbackRetryTimeout:     10 * time.Minute,
-	IdempotentRestPublishing: false,
+	IdempotentRESTPublishing: false,
 	Port:                     80,
 	TLSPort:                  443,
 	Now:                      time.Now,
 	After:                    ablyutil.After,
 }
 
-func DefaultFallbackHosts() []string {
+func defaultFallbackHosts() []string {
 	return []string{
 		"a.ably-realtime.com",
 		"b.ably-realtime.com",
@@ -124,7 +124,7 @@ type authOptions struct {
 	// Spec: TO3j11
 	DefaultTokenParams *TokenParams
 
-	// UseTokenAuth makes the Rest and Realtime clients always use token
+	// UseTokenAuth makes the REST and Realtime clients always use token
 	// authentication method.
 	UseTokenAuth bool
 }
@@ -164,7 +164,7 @@ func (opts *authOptions) KeySecret() string {
 type clientOptions struct {
 	authOptions
 
-	RestHost string // optional; overwrite endpoint hostname for REST client
+	RESTHost string // optional; overwrite endpoint hostname for REST client
 
 	FallbackHosts   []string
 	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
@@ -197,7 +197,7 @@ type clientOptions struct {
 
 	// When true idempotent rest publishing will be enabled.
 	// Spec TO3n
-	IdempotentRestPublishing bool
+	IdempotentRESTPublishing bool
 
 	// TimeoutConnect is the time period after which connect request is failed.
 	//
@@ -224,7 +224,7 @@ type clientOptions struct {
 	// If Dial is nil, the default websocket connection is used.
 	Dial func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error)
 
-	// HTTPClient specifies the client used for HTTP communication by RestClient.
+	// HTTPClient specifies the client used for HTTP communication by REST.
 	//
 	// If HTTPClient is nil, a client configured with default settings is used.
 	HTTPClient *http.Client
@@ -293,7 +293,7 @@ func (opts *clientOptions) suspendedRetryTimeout() time.Duration {
 }
 
 func (opts *clientOptions) restURL() string {
-	host := resolveHost(opts.RestHost, opts.Environment, defaultOptions.RestHost)
+	host := resolveHost(opts.RESTHost, opts.Environment, defaultOptions.RESTHost)
 	if opts.NoTLS {
 		port := opts.Port
 		if port == 0 {
@@ -351,8 +351,8 @@ func (opts *clientOptions) protocol() string {
 	return protocolMsgPack
 }
 
-func (opts *clientOptions) idempotentRestPublishing() bool {
-	return opts.IdempotentRestPublishing
+func (opts *clientOptions) idempotentRESTPublishing() bool {
+	return opts.IdempotentRESTPublishing
 }
 
 type ScopeParams struct {
@@ -402,15 +402,14 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 	return nil
 }
 
-type ClientOptions []func(*clientOptions)
+// A ClientOption configures a REST or Realtime instance.
+//
+// See: https://www.ably.io/documentation/realtime/usage#client-options
+type ClientOption func(*clientOptions)
 
-func NewClientOptions(key string) ClientOptions {
-	return ClientOptions{func(os *clientOptions) {
-		os.Key = key
-	}}
-}
-
-type AuthOptions []func(*authOptions)
+// An AuthOption configures authentication/authorization for a REST or Realtime
+// instance or operation.
+type AuthOption func(*authOptions)
 
 // A Tokener is or can be used to get a TokenDetails.
 type Tokener interface {
@@ -424,276 +423,282 @@ type TokenString string
 func (TokenString) IsTokener() {}
 func (TokenString) isTokener() {}
 
-func (os AuthOptions) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOption {
+	return func(os *authOptions) {
 		os.AuthCallback = authCallback
-	})
+	}
 }
 
-func (os AuthOptions) AuthParams(params url.Values) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithParams(params url.Values) AuthOption {
+	return func(os *authOptions) {
 		os.AuthParams = params
-	})
+	}
 }
 
-func (os AuthOptions) AuthURL(url string) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithURL(url string) AuthOption {
+	return func(os *authOptions) {
 		os.AuthURL = url
-	})
+	}
 }
 
-func (os AuthOptions) AuthMethod(url string) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithMethod(url string) AuthOption {
+	return func(os *authOptions) {
 		os.AuthMethod = url
-	})
+	}
 }
 
-func (os AuthOptions) AuthHeaders(headers http.Header) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithHeaders(headers http.Header) AuthOption {
+	return func(os *authOptions) {
 		os.AuthHeaders = headers
-	})
+	}
 }
 
-func (os AuthOptions) Key(key string) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithKey(key string) AuthOption {
+	return func(os *authOptions) {
 		os.Key = key
-	})
+	}
 }
 
-func (os AuthOptions) QueryTime(queryTime bool) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithQueryTime(queryTime bool) AuthOption {
+	return func(os *authOptions) {
 		os.UseQueryTime = queryTime
-	})
+	}
 }
 
-func (os AuthOptions) Token(token string) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithToken(token string) AuthOption {
+	return func(os *authOptions) {
 		os.Token = token
-	})
+	}
 }
 
-func (os AuthOptions) TokenDetails(details *TokenDetails) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithTokenDetails(details *TokenDetails) AuthOption {
+	return func(os *authOptions) {
 		os.TokenDetails = details
-	})
+	}
 }
 
-func (os AuthOptions) UseTokenAuth(use bool) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithUseTokenAuth(use bool) AuthOption {
+	return func(os *authOptions) {
 		os.UseTokenAuth = use
-	})
+	}
 }
 
-func (os ClientOptions) AuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithAuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOption {
+	return func(os *clientOptions) {
 		os.AuthCallback = authCallback
-	})
+	}
 }
 
-func (os ClientOptions) AuthParams(params url.Values) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithAuthParams(params url.Values) ClientOption {
+	return func(os *clientOptions) {
 		os.AuthParams = params
-	})
+	}
 }
 
-func (os ClientOptions) AuthURL(url string) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithAuthURL(url string) ClientOption {
+	return func(os *clientOptions) {
 		os.AuthURL = url
-	})
+	}
 }
 
-func (os ClientOptions) AuthMethod(url string) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithAuthMethod(url string) ClientOption {
+	return func(os *clientOptions) {
 		os.AuthMethod = url
-	})
+	}
 }
 
-func (os ClientOptions) AuthHeaders(headers http.Header) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithAuthHeaders(headers http.Header) ClientOption {
+	return func(os *clientOptions) {
 		os.AuthHeaders = headers
-	})
+	}
 }
 
-func (os ClientOptions) Key(key string) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithKey(key string) ClientOption {
+	return func(os *clientOptions) {
 		os.Key = key
-	})
+	}
 }
 
-func (os ClientOptions) QueryTime(queryTime bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithQueryTime(queryTime bool) ClientOption {
+	return func(os *clientOptions) {
 		os.UseQueryTime = queryTime
-	})
+	}
 }
 
-func (os ClientOptions) Token(token string) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithToken(token string) ClientOption {
+	return func(os *clientOptions) {
 		os.Token = token
-	})
+	}
 }
 
-func (os ClientOptions) TokenDetails(details *TokenDetails) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithTokenDetails(details *TokenDetails) ClientOption {
+	return func(os *clientOptions) {
 		os.TokenDetails = details
-	})
+	}
 }
 
-func (os ClientOptions) UseTokenAuth(use bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithUseTokenAuth(use bool) ClientOption {
+	return func(os *clientOptions) {
 		os.UseTokenAuth = use
-	})
+	}
 }
 
-func (os ClientOptions) AutoConnect(autoConnect bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithAutoConnect(autoConnect bool) ClientOption {
+	return func(os *clientOptions) {
 		os.NoConnect = !autoConnect
-	})
+	}
 }
 
-func (os ClientOptions) ClientID(clientID string) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithClientID(clientID string) ClientOption {
+	return func(os *clientOptions) {
 		os.ClientID = clientID
-	})
+	}
 }
 
-func (os AuthOptions) DefaultTokenParams(params TokenParams) AuthOptions {
-	return append(os, func(os *authOptions) {
+func AuthWithDefaultTokenParams(params TokenParams) AuthOption {
+	return func(os *authOptions) {
 		os.DefaultTokenParams = &params
-	})
+	}
 }
 
-func (os ClientOptions) EchoMessages(echo bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithEchoMessages(echo bool) ClientOption {
+	return func(os *clientOptions) {
 		os.NoEcho = !echo
-	})
+	}
 }
 
-func (os ClientOptions) Environment(env string) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithEnvironment(env string) ClientOption {
+	return func(os *clientOptions) {
 		os.Environment = env
-	})
+	}
 }
 
-func (os ClientOptions) LogHandler(handler Logger) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithLogHandler(handler Logger) ClientOption {
+	return func(os *clientOptions) {
 		os.Logger.Logger = handler
-	})
+	}
 }
 
-func (os ClientOptions) LogLevel(level LogLevel) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithLogLevel(level LogLevel) ClientOption {
+	return func(os *clientOptions) {
 		os.Logger.Level = level
-	})
+	}
 }
 
-func (os ClientOptions) Port(port int) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithPort(port int) ClientOption {
+	return func(os *clientOptions) {
 		os.Port = port
-	})
+	}
 }
 
-func (os ClientOptions) QueueMessages(queue bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithQueueMessages(queue bool) ClientOption {
+	return func(os *clientOptions) {
 		os.NoQueueing = !queue
-	})
+	}
 }
 
-func (os ClientOptions) RESTHost(host string) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.RestHost = host
-	})
+func WithRESTHost(host string) ClientOption {
+	return func(os *clientOptions) {
+		os.RESTHost = host
+	}
 }
 
-func (os ClientOptions) RealtimeHost(host string) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithRealtimeHost(host string) ClientOption {
+	return func(os *clientOptions) {
 		os.RealtimeHost = host
-	})
+	}
 }
 
-func (os ClientOptions) FallbackHosts(hosts []string) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithFallbackHosts(hosts []string) ClientOption {
+	return func(os *clientOptions) {
 		os.FallbackHosts = hosts
-	})
+	}
 }
 
-func (os ClientOptions) Recover(key string) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithRecover(key string) ClientOption {
+	return func(os *clientOptions) {
 		os.Recover = key
-	})
+	}
 }
 
-func (os ClientOptions) TLS(tls bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithTLS(tls bool) ClientOption {
+	return func(os *clientOptions) {
 		os.NoTLS = !tls
-	})
+	}
 }
 
-func (os ClientOptions) TLSPort(port int) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithTLSPort(port int) ClientOption {
+	return func(os *clientOptions) {
 		os.TLSPort = port
-	})
+	}
 }
 
-func (os ClientOptions) UseBinaryProtocol(use bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithUseBinaryProtocol(use bool) ClientOption {
+	return func(os *clientOptions) {
 		os.NoBinaryProtocol = !use
-	})
+	}
 }
 
-func (os ClientOptions) TransportParams(params url.Values) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithTransportParams(params url.Values) ClientOption {
+	return func(os *clientOptions) {
 		os.TransportParams = params
-	})
+	}
 }
 
-func (os ClientOptions) DisconnectedRetryTimeout(d time.Duration) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithDisconnectedRetryTimeout(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
 		os.DisconnectedRetryTimeout = d
-	})
+	}
 }
-func (os ClientOptions) HTTPOpenTimeout(d time.Duration) ClientOptions {
-	return append(os, func(os *clientOptions) {
+
+func WithHTTPOpenTimeout(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
 		os.HTTPOpenTimeout = d
-	})
+	}
 }
 
-func (os ClientOptions) SuspendedRetryTimeout(d time.Duration) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithSuspendedRetryTimeout(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
 		os.SuspendedRetryTimeout = d
-	})
+	}
+}
+func WithConnectionStateTTL(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
+		os.ConnectionStateTTL = d
+	}
 }
 
-func (os ClientOptions) ChannelRetryTimeout(d time.Duration) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithChannelRetryTimeout(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
 		os.ChannelRetryTimeout = d
-	})
+	}
 }
 
-func (os ClientOptions) HTTPMaxRetryCount(count int) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithHTTPMaxRetryCount(count int) ClientOption {
+	return func(os *clientOptions) {
 		os.HTTPMaxRetryCount = count
-	})
+	}
 }
 
-func (os ClientOptions) IdempotentRESTPublishing(idempotent bool) ClientOptions {
-	return append(os, func(os *clientOptions) {
-		os.IdempotentRestPublishing = idempotent
-	})
+func WithIdempotentRESTPublishing(idempotent bool) ClientOption {
+	return func(os *clientOptions) {
+		os.IdempotentRESTPublishing = idempotent
+	}
 }
 
-func (os ClientOptions) HTTPClient(client *http.Client) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithHTTPClient(client *http.Client) ClientOption {
+	return func(os *clientOptions) {
 		os.HTTPClient = client
-	})
+	}
 }
 
-func (os ClientOptions) Dial(dial func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error)) ClientOptions {
-	return append(os, func(os *clientOptions) {
+func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error)) ClientOption {
+	return func(os *clientOptions) {
 		os.Dial = dial
-	})
+	}
 }
 
-func (os ClientOptions) applyWithDefaults() *clientOptions {
+func applyOptionsWithDefaults(os ...ClientOption) *clientOptions {
 	to := defaultOptions
 
 	for _, set := range os {
@@ -709,7 +714,7 @@ func (os ClientOptions) applyWithDefaults() *clientOptions {
 	return &to
 }
 
-func (os AuthOptions) applyWithDefaults() *authOptions {
+func applyAuthOptionsWithDefaults(os ...AuthOption) *authOptions {
 	to := defaultOptions.authOptions
 
 	for _, set := range os {

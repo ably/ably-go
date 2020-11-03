@@ -12,12 +12,33 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
-func toStatusCode(code int) int {
-	switch status := code / 100; status {
-	case 400, 401, 403, 404, 405, 500:
+func (code ErrorCode) toStatusCode() int {
+	switch status := int(code) / 100; status {
+	case
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusMethodNotAllowed,
+		http.StatusInternalServerError:
 		return status
 	default:
 		return 0
+	}
+}
+
+func codeFromStatus(statusCode int) ErrorCode {
+	switch code := ErrorCode(statusCode * 100); code {
+	case
+		ErrBadRequest,
+		ErrUnauthorized,
+		ErrForbidden,
+		ErrNotFound,
+		ErrMethodNotAllowed,
+		ErrInternalError:
+		return code
+	default:
+		return ErrNotSet
 	}
 }
 
@@ -26,7 +47,7 @@ func toStatusCode(code int) int {
 // condition.
 type ErrorInfo struct {
 	StatusCode int
-	Code       int
+	Code       ErrorCode
 	HRef       string
 	Cause      *ErrorInfo
 
@@ -44,9 +65,10 @@ func (e ErrorInfo) Error() string {
 	msg := e.Message()
 	var see string
 	if !strings.Contains(msg, errorHref) {
-		see = "See " + errorHref
+		see = " See " + errorHref
 	}
-	return fmt.Sprintf("[ErrorInfo :%s code=%d statusCode=%d] %s", msg, e.Code, e.StatusCode, see)
+	return fmt.Sprintf("[ErrorInfo :%s code=%d %[2]v statusCode=%d]%s", msg, e.Code, e.StatusCode, see)
+
 }
 
 // Unwrap implements the implicit interface that errors.Unwrap understands.
@@ -62,7 +84,7 @@ func (e ErrorInfo) Message() string {
 	return e.err.Error()
 }
 
-func newError(defaultCode int, err error) *ErrorInfo {
+func newError(defaultCode ErrorCode, err error) *ErrorInfo {
 	switch err := err.(type) {
 	case nil:
 		return nil
@@ -75,33 +97,40 @@ func newError(defaultCode int, err error) *ErrorInfo {
 	}
 	return &ErrorInfo{
 		Code:       defaultCode,
-		StatusCode: toStatusCode(defaultCode),
+		StatusCode: defaultCode.toStatusCode(),
 
 		err: err,
 	}
 }
 
-func newErrorf(code int, format string, v ...interface{}) *ErrorInfo {
+func newErrorf(code ErrorCode, format string, v ...interface{}) *ErrorInfo {
 	return newError(code, fmt.Errorf(format, v...))
 }
 
-func newErrorProto(err *proto.ErrorInfo) *ErrorInfo {
+func newErrorFromProto(err *proto.ErrorInfo) *ErrorInfo {
 	if err == nil {
 		return nil
 	}
 	return &ErrorInfo{
-		Code:       err.Code,
+		Code:       ErrorCode(err.Code),
 		StatusCode: err.StatusCode,
 		HRef:       err.HRef,
 		err:        errors.New(err.Message),
 	}
 }
 
-func code(err error) int {
+func (e *ErrorInfo) unwrapNil() error {
+	if e == nil {
+		return nil
+	}
+	return e
+}
+
+func code(err error) ErrorCode {
 	if e, ok := err.(*ErrorInfo); ok {
 		return e.Code
 	}
-	return 0
+	return ErrNotSet
 }
 
 func errFromUnprocessableBody(resp *http.Response) error {
@@ -109,7 +138,7 @@ func errFromUnprocessableBody(resp *http.Response) error {
 	if err == nil {
 		err = errors.New(string(errMsg))
 	}
-	return &ErrorInfo{Code: 40000, StatusCode: resp.StatusCode, err: err}
+	return &ErrorInfo{Code: ErrBadRequest, StatusCode: resp.StatusCode, err: err}
 }
 
 func checkValidHTTPResponse(resp *http.Response) error {
@@ -134,18 +163,15 @@ func checkValidHTTPResponse(resp *http.Response) error {
 
 	body := &errorBody{}
 	if err := decode(typ, resp.Body, &body); err != nil {
-		return newError(resp.StatusCode*100, errors.New(http.StatusText(resp.StatusCode)))
+		return newError(codeFromStatus(resp.StatusCode), errors.New(http.StatusText(resp.StatusCode)))
 	}
 
-	err := &ErrorInfo{
-		Code:       body.Error.Code,
-		StatusCode: body.Error.StatusCode,
-	}
+	err := newErrorFromProto(&body.Error)
 	if body.Error.Message != "" {
 		err.err = errors.New(body.Error.Message)
 	}
 	if err.Code == 0 && err.StatusCode == 0 {
-		err.Code, err.StatusCode = resp.StatusCode*100, resp.StatusCode
+		err.Code, err.StatusCode = codeFromStatus(resp.StatusCode), resp.StatusCode
 	}
 	return err
 }

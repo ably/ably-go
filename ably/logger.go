@@ -61,8 +61,8 @@ func (l LoggerOptions) GetLogger() Logger {
 	return defaultLog.Logger
 }
 
-func (l LoggerOptions) Sugar() *SugaredLogger {
-	return &SugaredLogger{LoggerOptions: l}
+func (l LoggerOptions) sugar() *sugaredLogger {
+	return &sugaredLogger{LoggerOptions: l}
 }
 
 // Logger is an interface for ably loggers.
@@ -87,46 +87,46 @@ func (s *StdLogger) Print(level LogLevel, v ...interface{}) {
 	}
 }
 
-type SugaredLogger struct {
+type sugaredLogger struct {
 	LoggerOptions
 }
 
-func (s SugaredLogger) Error(v ...interface{}) {
+func (s sugaredLogger) Error(v ...interface{}) {
 	s.Print(LogError, v...)
 }
 
-func (s SugaredLogger) Errorf(fmt string, v ...interface{}) {
+func (s sugaredLogger) Errorf(fmt string, v ...interface{}) {
 	s.Printf(LogError, fmt, v...)
 }
 
-func (s SugaredLogger) Warn(v ...interface{}) {
+func (s sugaredLogger) Warn(v ...interface{}) {
 	s.Print(LogWarning, v...)
 }
 
-func (s SugaredLogger) Warnf(fmt string, v ...interface{}) {
+func (s sugaredLogger) Warnf(fmt string, v ...interface{}) {
 	s.Printf(LogWarning, fmt, v...)
 }
 
-func (s SugaredLogger) Info(v ...interface{}) {
+func (s sugaredLogger) Info(v ...interface{}) {
 	s.Print(LogInfo, v...)
 }
 
-func (s SugaredLogger) Infof(fmt string, v ...interface{}) {
+func (s sugaredLogger) Infof(fmt string, v ...interface{}) {
 	s.Printf(LogInfo, fmt, v...)
 }
 
-func (s SugaredLogger) Verbose(v ...interface{}) {
+func (s sugaredLogger) Verbose(v ...interface{}) {
 	s.Print(LogVerbose, v...)
 }
 
-func (s SugaredLogger) Verbosef(fmt string, v ...interface{}) {
+func (s sugaredLogger) Verbosef(fmt string, v ...interface{}) {
 	s.Printf(LogVerbose, fmt, v...)
 }
 
-func (s SugaredLogger) Debugf(fmt string, v ...interface{}) {
+func (s sugaredLogger) Debugf(fmt string, v ...interface{}) {
 	s.Printf(LogDebug, fmt, v...)
 }
 
-func (s SugaredLogger) Debug(v ...interface{}) {
+func (s sugaredLogger) Debug(v ...interface{}) {
 	s.Print(LogDebug, v...)
 }
