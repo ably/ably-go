@@ -63,6 +63,9 @@ func connStateError(state ConnectionState, err error) *ErrorInfo {
 		}
 		err = &e
 	}
+	if err == nil {
+		return nil
+	}
 	return newError(0, err)
 }
 
@@ -81,6 +84,9 @@ func channelStateError(state ChannelState, err error) *ErrorInfo {
 			e.err = err
 		}
 		err = &e
+	}
+	if err == nil {
+		return nil
 	}
 	return newError(0, err)
 }

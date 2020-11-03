@@ -61,9 +61,12 @@ func TestChannel_Presence(t *testing.T) {
 				ts.Errorf("expected %d items got %d", limit, n)
 			}
 
-			_, err = page2.Next()
-			if err == nil {
-				ts.Fatal("expected an error")
+			noPage, err := page2.Next()
+			if err != nil {
+				ts.Fatal(err)
+			}
+			if noPage != nil {
+				ts.Fatal("no more pages expected")
 			}
 		})
 	})

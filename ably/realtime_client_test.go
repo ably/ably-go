@@ -97,7 +97,7 @@ func TestRealtime_multiple(t *testing.T) {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
 				rg.GoAdd(func() error { return channel.Attach(context.Background()) })
 				rg.GoAdd(func() error { return channel.Attach(context.Background()) })
-				rg.Add(channel.Presence.Enter(""))
+				rg.GoAdd(func() error { return channel.Presence.Enter(context.Background(), "") })
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
@@ -114,7 +114,7 @@ func TestRealtime_multiple(t *testing.T) {
 			}
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
-				rg.Add(channel.Presence.Leave(""))
+				rg.GoAdd(func() error { return channel.Presence.Leave(context.Background(), "") })
 				rg.GoAdd(func() error { return channel.Detach(context.Background()) })
 				rg.GoAdd(func() error { return channel.Detach(context.Background()) })
 			}
