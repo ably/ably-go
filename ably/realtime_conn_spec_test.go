@@ -1861,77 +1861,14 @@ func TestRealtimeConn_RTN14c(t *testing.T) {
 		t.Errorf("expected timeout to be %v got %v", reqTimeout, d)
 	}
 }
+
 func TestRealtimeConn_RTN14a(t *testing.T) {
-	t.Parallel()
-
-	t.Run("Missing key", func(t *testing.T) {
-		t.Parallel()
-		in := make(chan *proto.ProtocolMessage, 1)
-		out := make(chan *proto.ProtocolMessage, 16)
-
-		c, _ := ably.NewRealtime(
-			ably.WithToken("fake:token"),
-			ably.WithAutoConnect(false),
-			ably.WithDial(ablytest.MessagePipe(in, out)))
-		// Respond to connection attempt with a token error.
-		tokenError := &proto.ErrorInfo{
-			StatusCode: http.StatusUnauthorized,
-			Code:       40140,
-		}
-		in <- &proto.ProtocolMessage{
-			Action:            proto.ActionError,
-			ConnectionDetails: &proto.ConnectionDetails{},
-			Error:             tokenError,
-		}
-		change := make(ably.ConnStateChanges, 1)
-		c.Connection.OnAll(change.Receive)
-		c.Connect()
-		var state ably.ConnectionStateChange
-		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // skip CONNECTING
-		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
-		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
-			t.Errorf("expected %v got %v", expect, got)
-		}
-		if expect, got := "missing key", c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
-			t.Errorf("expected %v to contain %q", got, expect)
-		}
-	})
-
-	t.Run("Invalid key", func(t *testing.T) {
-		t.Parallel()
-		in := make(chan *proto.ProtocolMessage, 1)
-		out := make(chan *proto.ProtocolMessage, 16)
-
-		c, _ := ably.NewRealtime(
-			ably.WithToken("fake:token"),
-			ably.WithAutoConnect(false),
-			ably.WithKey("invalid"),
-			ably.WithDial(ablytest.MessagePipe(in, out)))
-		// Get the connection to CONNECTED.
-		tokenError := &proto.ErrorInfo{
-			StatusCode: http.StatusUnauthorized,
-			Code:       40140,
-		}
-		in <- &proto.ProtocolMessage{
-			Action:            proto.ActionError,
-			ConnectionDetails: &proto.ConnectionDetails{},
-			Error:             tokenError,
-		}
-		change := make(ably.ConnStateChanges, 1)
-		c.Connection.OnAll(change.Receive)
-		c.Connect()
-		var state ably.ConnectionStateChange
-		ablytest.Instantly.Recv(t, nil, change, t.Fatalf) // skip CONNECTING
-		ablytest.Instantly.Recv(t, &state, change, t.Fatalf)
-		if expect, got := ably.ConnectionStateDisconnected, state.Current; expect != got {
-			t.Errorf("expected %v got %v", expect, got)
-		}
-		if expect, got := "invalid key", c.Connection.ErrorReason(); !strings.Contains(got.Error(), expect) {
-			t.Errorf("expected %v to contain %q", expect, got)
-		}
-	})
-
+	t.Skip(`
+	Currently its impossible to implement/test this.
+	See https://github.com/ably/docs/issues/984 for details
+	`)
 }
+
 func TestRealtimeConn_RTN14b(t *testing.T) {
 	t.Parallel()
 	t.Run("renewable token that fails to renew with token error", func(t *testing.T) {
