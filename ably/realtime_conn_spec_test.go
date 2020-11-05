@@ -1864,7 +1864,7 @@ func TestRealtimeConn_RTN14c(t *testing.T) {
 
 	// We can't be precise here so just an estimate. Manual tests ranges between 5ms -10ms
 	// TODO: Find a proper way to record Dial i/o timeouts duration.
-	if d < reqTimeout || d > reqTimeout+time.Millisecond {
+	if d < reqTimeout || d > reqTimeout+2 {
 		t.Errorf("expected i/o timeout to be %v got %v", reqTimeout, d)
 	}
 }
