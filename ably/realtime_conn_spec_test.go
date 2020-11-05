@@ -1754,6 +1754,10 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 				ablytest.MessagePipeWithNowFunc(time.Now),
 			)(p, u, timeout)
 		}))
+	disconnected := make(chan *ably.ErrorInfo, 1)
+	c.Connection.Once(ably.ConnectionEventDisconnected, func(e ably.ConnectionStateChange) {
+		disconnected <- e.Reason
+	})
 	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
 	if err != nil {
 		t.Fatal(err)
@@ -1769,10 +1773,6 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	maxIdleInterval := time.Duration(connDetails.MaxIdleInterval)
 	receiveTimeout := realtimeRequestTimeout + maxIdleInterval
 
-	disconnected := make(chan *ably.ErrorInfo, 1)
-	c.Connection.Once(ably.ConnectionEventDisconnected, func(e ably.ConnectionStateChange) {
-		disconnected <- e.Reason
-	})
 	in <- &proto.ProtocolMessage{
 		Action: proto.ActionHeartbeat,
 	}
