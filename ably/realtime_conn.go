@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -131,9 +132,11 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 	retryIn := c.opts.suspendedRetryTimeout()
 	lg := c.logger().sugar()
 	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", retryIn)
-	tick := time.NewTicker(retryIn)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tick := ablyutil.NewTicker(c.opts.After)(ctx, retryIn)
 	for {
-		<-tick.C
+		<-tick
 		res, err := c.connectWith(arg)
 		if err != nil {
 			if recoverable(err) {
@@ -289,18 +292,22 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 	// The initial DISCONNECTED event has been fired. If we reach stateTTL without
 	// any state changes, we transition to SUSPENDED state
 	stateTTL := c.opts.connectionStateTTL()
-	stateDeadline := time.NewTimer(stateTTL)
-	defer stateDeadline.Stop()
+	stateDeadlineCtx, cancelStateDeadline := context.WithCancel(context.Background())
+	defer cancelStateDeadline()
+	stateDeadline := c.opts.After(stateDeadlineCtx, stateTTL)
 
-	next := time.NewTimer(retryIn)
+	nextCtx, cancelNext := context.WithCancel(context.Background())
+	next := c.opts.After(nextCtx, retryIn)
 	reset := func() {
 		lg.Debugf("Retry in %v", retryIn)
-		next.Reset(retryIn)
+		cancelNext()
+		nextCtx, cancelNext = context.WithCancel(context.Background())
+		next = c.opts.After(nextCtx, retryIn)
 	}
-	defer next.Stop()
+
 	for {
 		select {
-		case <-stateDeadline.C:
+		case <-stateDeadline:
 			// (RTN14e)
 			lg.Debug("Transition to SUSPENDED state")
 			err := fmt.Errorf(connectionStateTTLErrFmt, stateTTL)
@@ -308,7 +315,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 			// (RTN14f)
 			lg.Debug("Reached SUSPENDED state while opening connection")
 			return c.connectAfterSuspension(arg)
-		case <-next.C:
+		case <-next:
 			lg.Debug("Attemting to open connection")
 			res, err := c.connectWith(arg)
 			if err == nil {
