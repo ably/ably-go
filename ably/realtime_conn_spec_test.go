@@ -3,6 +3,7 @@ package ably_test
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -1811,6 +1812,12 @@ func TestRealtimeConn_RTN14c(t *testing.T) {
 			time.Sleep(reqTimeout + 5*time.Millisecond)
 		}),
 	}
+	ts.TLS = &tls.Config{
+		GetConfigForClient: func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
+			time.Sleep(reqTimeout * 2)
+			return nil, context.DeadlineExceeded
+		},
+	}
 	ts.StartTLS()
 	defer ts.Close()
 
@@ -1857,8 +1864,8 @@ func TestRealtimeConn_RTN14c(t *testing.T) {
 
 	// We can't be precise here so just an estimate. Manual tests ranges between 5ms -10ms
 	// TODO: Find a proper way to record Dial i/o timeouts duration.
-	if d < reqTimeout || d > reqTimeout*2+time.Millisecond {
-		t.Errorf("expected timeout to be %v got %v", reqTimeout, d)
+	if d < reqTimeout || d > reqTimeout+time.Millisecond {
+		t.Errorf("expected i/o timeout to be %v got %v", reqTimeout, d)
 	}
 }
 
