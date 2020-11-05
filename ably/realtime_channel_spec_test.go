@@ -160,30 +160,23 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 	const channelRetryTimeout = 123 * time.Millisecond
 
-	type afterCall struct {
-		d   time.Duration
-		ret chan<- time.Time
-	}
-
 	setup := func(t *testing.T) (
 		in, out chan *proto.ProtocolMessage,
 		c *ably.Realtime,
 		channel *ably.RealtimeChannel,
 		stateChanges ably.ChannelStateChanges,
-		afterCalls chan afterCall,
+		afterCalls chan ablytest.AfterCall,
 	) {
 		in = make(chan *proto.ProtocolMessage, 1)
 		out = make(chan *proto.ProtocolMessage, 16)
-		afterCalls = make(chan afterCall, 1)
+		afterCalls = make(chan ablytest.AfterCall, 1)
+		now, after := ablytest.TimeFuncs(afterCalls)
 
 		c, _ = ably.NewRealtime(
 			ably.WithToken("fake:token"),
 			ably.WithAutoConnect(false),
-			ably.WithAfter(func(ctx context.Context, d time.Duration) <-chan time.Time {
-				ch := make(chan time.Time)
-				afterCalls <- afterCall{d: d, ret: ch}
-				return ch
-			}),
+			ably.WithNow(now),
+			ably.WithAfter(after),
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(ablytest.MessagePipe(in, out)),
 		)
@@ -309,12 +302,12 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		// Expect an attempt to attach after channelRetryTimeout.
 
-		var call afterCall
+		var call ablytest.AfterCall
 		ablytest.Instantly.Recv(t, &call, afterCalls, t.Fatalf)
-		if expected, got := channelRetryTimeout, call.d; expected != got {
+		if expected, got := channelRetryTimeout, call.D; expected != got {
 			t.Fatalf("expected %v; got %v", expected, got)
 		}
-		call.ret <- time.Time{}
+		call.Time <- time.Time{}
 
 		// Expect a transition to ATTACHING, and an ATTACH message.
 
@@ -378,9 +371,9 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		// Expect an attempt to attach after channelRetryTimeout.
 
-		var call afterCall
+		var call ablytest.AfterCall
 		ablytest.Instantly.Recv(t, &call, afterCalls, t.Fatalf)
-		if expected, got := channelRetryTimeout, call.d; expected != got {
+		if expected, got := channelRetryTimeout, call.D; expected != got {
 			t.Fatalf("expected %v; got %v", expected, got)
 		}
 
@@ -395,7 +388,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		// Now trigger the channelRetryTimeout.
 
-		call.ret <- time.Time{}
+		call.Time <- time.Time{}
 
 		// Since the connection isn't CONNECTED, the retry loop should finish.
 

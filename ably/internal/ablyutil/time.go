@@ -37,7 +37,7 @@ func NewTicker(after TimerFunc) TimerFunc {
 
 		go func() {
 			for {
-				t, ok := <-After(ctx, d)
+				t, ok := <-after(ctx, d)
 				if !ok {
 					close(ch)
 					return

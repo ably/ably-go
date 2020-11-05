@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -124,4 +125,54 @@ func ReceivePresenceMessages(channel *ably.RealtimeChannel, action *ably.Presenc
 		unsubscribe, err = channel.Presence.Subscribe(context.Background(), *action, ch.Receive)
 	}
 	return ch, unsubscribe, err
+}
+
+type AfterCall struct {
+	Ctx  context.Context
+	D    time.Duration
+	Time chan<- time.Time
+}
+
+// TimeFuncs returns time functions to be passed as options.
+//
+// Now returns a stable time that is only updated with the times that the
+// returned After produces.
+//
+// After forwards calls to the given channel. The receiver is in charge of
+// sending the resulting time to the AfterCall.Time channel.
+func TimeFuncs(afterCalls chan<- AfterCall) (
+	now func() time.Time,
+	after func(context.Context, time.Duration) <-chan time.Time,
+) {
+	var mtx sync.Mutex
+	currentTime := time.Now()
+	now = func() time.Time {
+		mtx.Lock()
+		defer mtx.Unlock()
+		return currentTime
+	}
+
+	after = func(ctx context.Context, d time.Duration) <-chan time.Time {
+		ch := make(chan time.Time, 1)
+
+		timeUpdates := make(chan time.Time, 1)
+		go func() {
+			t, ok := <-timeUpdates
+			if !ok {
+				close(ch)
+				return
+
+			}
+			mtx.Lock()
+			currentTime = t
+			mtx.Unlock()
+			ch <- t
+		}()
+
+		afterCalls <- AfterCall{Ctx: ctx, D: d, Time: timeUpdates}
+
+		return ch
+	}
+
+	return now, after
 }
