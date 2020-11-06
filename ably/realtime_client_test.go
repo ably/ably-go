@@ -3,67 +3,47 @@ package ably_test
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/proto"
 )
 
 func TestRealtime_RealtimeHost(t *testing.T) {
 	t.Parallel()
-	httpClient := ablytest.NewHTTPClient()
-	app, err := ablytest.NewSandbox(nil)
-	if err != nil {
-		t.Fatalf("NewSandbox=%s", err)
-	}
-	defer safeclose(t, app)
-
-	rec := ablytest.NewRecorder(httpClient)
 	hosts := []string{
 		"127.0.0.1",
 		"localhost",
 		"::1",
 	}
-	var errorsRec ablytest.ConnErrorsRecorder
 	for _, host := range hosts {
-		opts := rec.Options(host)
-		client, err := ably.NewRealtime(app.Options(opts...)...)
+		dial := make(chan string, 1)
+		client, err := ably.NewRealtime(
+			ably.WithKey("xxx:xxx"),
+			ably.WithRealtimeHost(host),
+			ably.WithAutoConnect(false),
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				dial <- u.Host
+				return ablytest.MessagePipe(nil, nil)(protocol, u, timeout)
+			}),
+		)
 		if err != nil {
-			t.Errorf("NewRealtime=%s (host=%s)", err, host)
-			continue
+			t.Fatal(err)
 		}
-		{
-			off := errorsRec.Listen(client)
-			defer off()
+		client.Connect()
+		var recordedHost string
+		ablytest.Instantly.Recv(t, &recordedHost, dial, t.Fatalf)
+		h, _, err := net.SplitHostPort(recordedHost)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if state := client.Connection.State(); state != ably.ConnectionStateInitialized {
-			t.Errorf("want state=%v; got %s", ably.ConnectionStateInitialized, state)
-			continue
-		}
-		if err := checkError(80000, ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()); err != nil {
-			t.Errorf("%s (host=%s)", err, host)
-			continue
-		}
-		if err := checkError(80000, ablytest.FullRealtimeCloser(client).Close()); err != nil {
-			t.Errorf("%s (host=%s)", err, host)
-			continue
-		}
-		if _, ok := rec.Hosts[host]; !ok {
-			t.Errorf("host %s was not recorded (recorded %v)", host, rec.Hosts)
-		}
-	}
-
-	var errors []*ably.ErrorInfo
-	if !ablytest.Soon.IsTrue(func() bool {
-		errors = errorsRec.Errors()
-		return len(errors) == len(hosts)
-	}) {
-		t.Fatalf("want len(errors)=%d; got %d", len(hosts), len(errors))
-	}
-	for i, err := range errors {
-		if err := checkError(80000, err); err != nil {
-			t.Errorf("%s (host=%s)", err, hosts[i])
+		if h != host {
+			t.Errorf(" expected %q got %q", host, h)
 		}
 	}
 }
@@ -105,6 +85,10 @@ func TestRealtime_multiple(t *testing.T) {
 			c, err := ably.NewRealtime(opts...)
 			if err != nil {
 				all.Add(nil, err)
+				return
+			}
+			if err = ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+				t.Error(err)
 				return
 			}
 			var rg ablytest.ResultGroup

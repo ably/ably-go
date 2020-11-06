@@ -119,6 +119,8 @@ type ConnStateChanges = connStateChanges
 
 type ChannelStateChanges = channelStateChanges
 
+const ConnectionStateTTLErrFmt = connectionStateTTLErrFmt
+
 func DefaultFallbackHosts() []string {
 	return defaultFallbackHosts()
 }

@@ -40,7 +40,9 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
 	channel := client.Channels.Get("test")
 	if err := channel.Publish(context.Background(), "hello", "world"); err != nil {
 		t.Fatalf("Publish()=%v", err)
@@ -53,7 +55,12 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 	client2 := app.NewRealtime(ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
-
+	if err := ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
+	if err := ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
 	channel1 := client1.Channels.Get("test")
 	channel2 := client2.Channels.Get("test")
 
@@ -103,7 +110,9 @@ func TestRealtimeChannel_Detach(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-
+	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		t.Fatal(err)
+	}
 	channel := client.Channels.Get("test")
 	sub, unsub, err := ablytest.ReceiveMessages(channel, "")
 	if err != nil {
@@ -152,9 +161,9 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
-		ably.WithDial(func(protocol string, u *url.URL) (proto.Conn, error) {
+		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			<-allowDial
-			c, err := ablyutil.DialWebsocket(protocol, u)
+			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)

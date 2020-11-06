@@ -122,9 +122,6 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 	if err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err == nil {
 		t.Fatal("Connect(): want err != nil")
 	}
-	if state := client.Connection.State(); state != ably.ConnectionStateFailed {
-		t.Fatalf("want state=%s; got %s", ably.ConnectionStateFailed, state)
-	}
 }
 
 func TestRealtimeConn_ReceiveTimeout(t *testing.T) {

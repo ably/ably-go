@@ -28,7 +28,7 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c.rest = rest
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
-	conn, err := newConn(c.opts(), rest.Auth, connCallbacks{
+	conn := newConn(c.opts(), rest.Auth, connCallbacks{
 		c.onChannelMsg,
 		c.onReconnected,
 		c.onReconnectionFailed,
@@ -36,9 +36,6 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	conn.internalEmitter.OnAll(func(change ConnectionStateChange) {
 		c.Channels.broadcastConnStateChange(change)
 	})
-	if err != nil {
-		return nil, err
-	}
 	c.Connection = conn
 	return c, nil
 }

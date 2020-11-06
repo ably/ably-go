@@ -44,14 +44,13 @@ func TestRealtimePresence_Sync(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
 
 	members, err := client.Channels.Get("persisted:presence_fixtures").Presence.Get(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	if err = contains(members, fixtureMembers...); err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +63,18 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	client2 := app.NewRealtime(nil...)
 	client3 := app.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2), ablytest.FullRealtimeCloser(client3))
-
+	err := ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ablytest.ConnWaiter(client3, client3.Connect, ably.ConnectionEventConnected).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
 	channel1 := client1.Channels.Get("sync250")
 	if err := channel1.Attach(context.Background()); err != nil {
 		t.Fatal(err)

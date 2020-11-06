@@ -576,6 +576,9 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		}
 		client := app.NewRealtime(opts...)
 		defer safeclose(t, ablytest.FullRealtimeCloser(client))
+		if err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+			t.Fatalf("Connect(): want err == nil got err=%v", err)
+		}
 		if id := client.Auth.ClientID(); id != cas.clientID {
 			t.Errorf("%d: want ClientID to be %q; got %s", i, cas.clientID, id)
 			continue
@@ -680,9 +683,6 @@ func TestAuth_ClientID(t *testing.T) {
 	time.Sleep(time.Duration(params.TTL) * time.Millisecond)
 	tokenExpiredAt := time.Now()
 
-	failed := make(ably.ConnStateChanges, 1)
-	client.Connection.On(ably.ConnectionEventFailed, failed.Receive)
-
 	// Allow some extra time for the server to reject our token.
 	err = nil
 	tokenErrorDeadline := tokenExpiredAt.Add(5 * time.Second)
@@ -715,12 +715,6 @@ func TestAuth_ClientID(t *testing.T) {
 	}
 	if state := client.Connection.State(); state != ably.ConnectionStateFailed {
 		t.Fatalf("want state=%q; got %q", ably.ConnectionStateFailed, state)
-	}
-
-	var state ably.ConnectionStateChange
-	ablytest.Soon.Recv(t, &state, failed, t.Fatalf)
-	if state.Current != ably.ConnectionStateFailed {
-		t.Fatalf("want state=%q; got %q", ably.ConnectionStateFailed, state.Current)
 	}
 }
 
