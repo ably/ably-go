@@ -27,6 +27,8 @@ func wait(ctx context.Context) func(Result, error) error {
 	}
 }
 
+// goWaiter immediately calls the given function in a separate goroutine. The
+// returned Result waits for its completion and returns its error.
 func goWaiter(f func() error) Result {
 	err := make(chan error, 1)
 	go func() {
@@ -284,7 +286,8 @@ func (f resultFunc) Wait(ctx context.Context) error {
 }
 
 func (e ChannelEventEmitter) listenResult(expected ChannelState, failed ...ChannelState) Result {
-	changes := make(channelStateChanges, 1)
+	// Make enough room not to block the sender if the Result is never waited on.
+	changes := make(channelStateChanges, 1+len(failed))
 
 	var offs []func()
 	offs = append(offs, e.Once(ChannelEvent(expected), changes.Receive))
@@ -318,8 +321,10 @@ func (e ChannelEventEmitter) listenResult(expected ChannelState, failed ...Chann
 		return nil
 	})
 }
+
 func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ...ConnectionState) Result {
-	changes := make(connStateChanges, 1)
+	// Make enough room not to block the sender if the Result is never waited on.
+	changes := make(connStateChanges, 1+len(failed))
 
 	var offs []func()
 	offs = append(offs, e.Once(ConnectionEvent(expected), changes.Receive))

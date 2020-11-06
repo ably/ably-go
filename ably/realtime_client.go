@@ -75,7 +75,7 @@ func (c *Realtime) onReconnected(err *proto.ErrorInfo, isNewID bool) {
 		switch ch.State() {
 		// TODO: SUSPENDED
 		case ChannelStateAttaching, ChannelStateAttached:
-			ch.mayAttach(false, false)
+			ch.mayAttach(false)
 		}
 	}
 }

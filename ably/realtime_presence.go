@@ -57,7 +57,7 @@ func (pres *RealtimePresence) verifyChanState() error {
 }
 
 func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
-	attached, err := pres.channel.attach(true)
+	attached, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +244,7 @@ func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...Pre
 	var opts presenceGetOptions
 	opts.applyWithDefaults(options...)
 
-	res, err := pres.channel.attach(true)
+	res, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +303,7 @@ func (*subscriptionPresenceMessage) isEmitterData() {}
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
 func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceAction, handle func(*PresenceMessage)) (unsubscribe func(), err error) {
-	res, err := pres.channel.attach(true)
+	res, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +327,7 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
 func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*PresenceMessage)) (unsubscribe func(), err error) {
-	res, err := pres.channel.attach(true)
+	res, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
 	}
