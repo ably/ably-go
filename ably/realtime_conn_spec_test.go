@@ -196,7 +196,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
 
@@ -333,7 +333,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
 
@@ -463,7 +463,7 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
 
@@ -582,7 +582,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
 
@@ -711,7 +711,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
 
@@ -822,7 +822,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
 
@@ -928,7 +928,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 		}))
 	defer safeclose(t, &closeClient{Closer: ablytest.FullRealtimeCloser(client), skip: []int{http.StatusBadRequest}}, app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
 	}
 
@@ -1016,7 +1016,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1032,9 +1032,9 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 	}
 	defer unsub()
 
-	if err := ablytest.ConnWaiter(client, func() {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, func() {
 		doEOF <- struct{}{}
-	}, ably.ConnectionEventDisconnected).Wait(); !errors.Is(err, io.EOF) {
+	}, ably.ConnectionEventDisconnected), nil); !errors.Is(err, io.EOF) {
 		t.Fatal(err)
 	}
 
@@ -1055,9 +1055,9 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 
 	// Now let the connection reconnect.
 
-	if err := ablytest.ConnWaiter(client, func() {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, func() {
 		allowDial <- struct{}{}
-	}, ably.ConnectionEventConnected).Wait(); err != nil {
+	}, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1087,7 +1087,7 @@ func TestRealtimeConn_RTN15e_ConnKeyUpdatedOnReconnect(t *testing.T) {
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1164,7 +1164,7 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 		}))
 
 	connIDs <- "conn-1"
-	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1174,13 +1174,13 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	// Get channels to ATTACHING, ATTACHED and DETACHED. (TODO: SUSPENDED)
 
 	attaching := c.Channels.Get("attaching")
-	_ = ablytest.ResultFunc.Go(func() error { return attaching.Attach(context.Background()) })
+	_ = ablytest.ResultFunc.Go(func(ctx context.Context) error { return attaching.Attach(ctx) })
 	if msg := <-out; msg.Action != proto.ActionAttach {
 		t.Fatalf("expected ATTACH, got %v", msg)
 	}
 
 	attached := c.Channels.Get("attached")
-	attachWaiter := ablytest.ResultFunc.Go(func() error { return attached.Attach(context.Background()) })
+	attachWaiter := ablytest.ResultFunc.Go(func(ctx context.Context) error { return attached.Attach(ctx) })
 	if msg := <-out; msg.Action != proto.ActionAttach {
 		t.Fatalf("expected ATTACH, got %v", msg)
 	}
@@ -1191,7 +1191,7 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	ablytest.Wait(attachWaiter, err)
 
 	detached := c.Channels.Get("detached")
-	attachWaiter = ablytest.ResultFunc.Go(func() error { return detached.Attach(context.Background()) })
+	attachWaiter = ablytest.ResultFunc.Go(func(ctx context.Context) error { return detached.Attach(ctx) })
 	if msg := <-out; msg.Action != proto.ActionAttach {
 		t.Fatalf("expected ATTACH, got %v", msg)
 	}
@@ -1200,7 +1200,7 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 		Channel: "detached",
 	}
 	ablytest.Wait(attachWaiter, err)
-	detachWaiter := ablytest.ResultFunc.Go(func() error { return detached.Detach(context.Background()) })
+	detachWaiter := ablytest.ResultFunc.Go(func(ctx context.Context) error { return detached.Detach(ctx) })
 	if msg := <-out; msg.Action != proto.ActionDetach {
 		t.Fatalf("expected DETACH, got %v", msg)
 	}
@@ -1285,7 +1285,7 @@ func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {
 		ConnectionDetails: &proto.ConnectionDetails{},
 	}
 
-	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1296,12 +1296,12 @@ func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {
 		Message:    "fake token error",
 	}
 
-	err = ablytest.ConnWaiter(c, func() {
+	err = ablytest.Wait(ablytest.ConnWaiter(c, func() {
 		in <- &proto.ProtocolMessage{
 			Action: proto.ActionDisconnected,
 			Error:  &tokenErr,
 		}
-	}, ably.ConnectionEventFailed).Wait()
+	}, ably.ConnectionEventFailed), nil)
 
 	var errInfo *ably.ErrorInfo
 	if !errors.As(err, &errInfo) {
@@ -1342,7 +1342,7 @@ func TestRealtimeConn_RTN15h2_ReauthFails(t *testing.T) {
 		ConnectionDetails: &proto.ConnectionDetails{},
 	}
 
-	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1353,12 +1353,12 @@ func TestRealtimeConn_RTN15h2_ReauthFails(t *testing.T) {
 		Message:    "fake token error",
 	}
 
-	err = ablytest.ConnWaiter(c, func() {
+	err = ablytest.Wait(ablytest.ConnWaiter(c, func() {
 		in <- &proto.ProtocolMessage{
 			Action: proto.ActionDisconnected,
 			Error:  &tokenErr,
 		}
-	}, ably.ConnectionEventDisconnected).Wait()
+	}, ably.ConnectionEventDisconnected), nil)
 
 	if !errors.Is(err, authErr) {
 		t.Fatalf("expected the auth error as DISCONNECTED state change reason; got: %s", err)
@@ -1390,7 +1390,7 @@ func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
 		ConnectionDetails: &proto.ConnectionDetails{},
 	}
 
-	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1477,7 +1477,7 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 		ConnectionDetails: &proto.ConnectionDetails{},
 	}
 
-	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1551,7 +1551,7 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 		ConnectionDetails: &proto.ConnectionDetails{},
 	}
 
-	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1559,7 +1559,7 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 	// Get a channel to ATTACHED.
 
 	channel := c.Channels.Get("test")
-	attachWaiter := ablytest.ResultFunc.Go(func() error { return channel.Attach(context.Background()) })
+	attachWaiter := ablytest.ResultFunc.Go(func(ctx context.Context) error { return channel.Attach(ctx) })
 
 	_ = <-out // consume ATTACH
 
@@ -1578,7 +1578,7 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 	off := channel.On(ably.ChannelEventFailed, channelFailed.Receive)
 	defer off()
 
-	err = ablytest.ConnWaiter(c, func() {
+	err = ablytest.Wait(ablytest.ConnWaiter(c, func() {
 		in <- &proto.ProtocolMessage{
 			Action: proto.ActionError,
 			Error: &proto.ErrorInfo{
@@ -1587,7 +1587,7 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 				Message:    "fake error",
 			},
 		}
-	}, ably.ConnectionEventFailed).Wait()
+	}, ably.ConnectionEventFailed), nil)
 
 	var errorInfo *ably.ErrorInfo
 	if !errors.As(err, &errorInfo) {
@@ -1615,7 +1615,7 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	app, c := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
 
-	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1633,7 +1633,7 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
-	err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
+	err = ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1672,7 +1672,7 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 				return ablyutil.DialWebsocket(protocol, u, timeout)
 			}))
 		defer safeclose(t, ablytest.FullRealtimeCloser(client2))
-		err = ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait()
+		err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
 		if err == nil {
 			t.Fatal("expected reason to be set")
 		}
@@ -1759,7 +1759,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	c.Connection.Once(ably.ConnectionEventDisconnected, func(e ably.ConnectionStateChange) {
 		disconnected <- e.Reason
 	})
-	err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

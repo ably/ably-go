@@ -187,7 +187,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			ConnectionDetails: &proto.ConnectionDetails{},
 		}
 
-		err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -379,9 +379,9 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		// Get the connection to a non-CONNECTED state by closing in.
 
-		err := ablytest.ConnWaiter(c, func() {
+		err := ablytest.Wait(ablytest.ConnWaiter(c, func() {
 			close(in)
-		}, ably.ConnectionEventDisconnected).Wait()
+		}, ably.ConnectionEventDisconnected), nil)
 		if !errors.Is(err, io.EOF) {
 			t.Fatal(err)
 		}

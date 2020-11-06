@@ -87,7 +87,8 @@ func TestRealtime_multiple(t *testing.T) {
 				all.Add(nil, err)
 				return
 			}
-			if err = ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+			defer safeclose(t, ablytest.FullRealtimeCloser(c))
+			if err = ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil); err != nil {
 				t.Error(err)
 				return
 			}
@@ -95,28 +96,30 @@ func TestRealtime_multiple(t *testing.T) {
 			rg.Add(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
-				rg.GoAdd(func() error { return channel.Attach(context.Background()) })
-				rg.GoAdd(func() error { return channel.Attach(context.Background()) })
-				rg.GoAdd(func() error { return channel.Presence.Enter(context.Background(), "") })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Attach(ctx) })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Attach(ctx) })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Presence.Enter(ctx, "") })
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
+				return
 			}
 			for j := 0; j < 25; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
 				event, data := fmt.Sprintf("event/%d/%d", i, j), fmt.Sprintf("data/%d/%d", i, j)
-				rg.GoAdd(func() error {
-					return channel.Publish(context.Background(), event, data)
+				rg.GoAdd(func(ctx context.Context) error {
+					return channel.Publish(ctx, event, data)
 				})
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
+				return
 			}
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
-				rg.GoAdd(func() error { return channel.Presence.Leave(context.Background(), "") })
-				rg.GoAdd(func() error { return channel.Detach(context.Background()) })
-				rg.GoAdd(func() error { return channel.Detach(context.Background()) })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Presence.Leave(ctx, "") })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Detach(ctx) })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Detach(ctx) })
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)

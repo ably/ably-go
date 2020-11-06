@@ -180,8 +180,7 @@ func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO: Don't ignore context.
-	return res.Wait()
+	return res.Wait(ctx)
 }
 
 func (c *RealtimeChannel) attach(result bool) (Result, error) {
@@ -207,7 +206,11 @@ func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 		ConnectionStateClosing,
 		ConnectionStateFailed:
 		return nil, newError(80000, errAttach)
+	}
 
+	c.lockSetState(ChannelStateAttaching, err)
+
+	switch c.client.Connection.State() {
 	// RTL4i
 	case ConnectionStateConnecting,
 		ConnectionStateDisconnected:
@@ -233,13 +236,11 @@ func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 			}
 
 			if result {
-				return res.Wait()
+				return res.Wait(context.Background())
 			}
 			return nil
 		}), nil
 	}
-
-	c.lockSetState(ChannelStateAttaching, err)
 
 	var res Result
 	if result {
@@ -267,8 +268,7 @@ func (c *RealtimeChannel) Detach(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO: Don't ignore context.
-	return res.Wait()
+	return res.Wait(ctx)
 }
 
 func (c *RealtimeChannel) detach(result bool) (Result, error) {
@@ -322,8 +322,7 @@ func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle fun
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Don't ignore context.
-	err = res.Wait()
+	err = res.Wait(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -347,8 +346,7 @@ func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Don't ignore context.
-	err = res.Wait()
+	err = res.Wait(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -450,8 +448,7 @@ func (c *RealtimeChannel) PublishBatch(ctx context.Context, messages []*Message)
 	if err != nil {
 		return err
 	}
-	// TODO: Don't ignore context.
-	return res.Wait()
+	return res.Wait(ctx)
 }
 
 // History gives the channel's message history according to the given parameters.
@@ -521,7 +518,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 				// We need to wait in another goroutine to allow more messages
 				// to reach the connection.
 
-				err = res.Wait()
+				err = res.Wait(context.Background())
 				if err == nil {
 					return
 				}
@@ -586,7 +583,7 @@ func (c *RealtimeChannel) retryAttach(stateChange channelStateChanges) (done boo
 		return true
 	}
 
-	err := wait(c.mayAttach(true, false))
+	err := wait(ctx)(c.mayAttach(true, false))
 	if err == nil {
 		return true
 	}

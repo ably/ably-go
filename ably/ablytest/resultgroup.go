@@ -1,6 +1,7 @@
 package ablytest
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -15,7 +16,7 @@ func Wait(res ably.Result, err error) error {
 	}
 	errch := make(chan error)
 	go func() {
-		errch <- res.Wait()
+		errch <- res.Wait(context.Background())
 	}()
 	select {
 	case err := <-errch:
@@ -54,7 +55,7 @@ func (rg *ResultGroup) Add(res ably.Result, err error) {
 	}
 	rg.wg.Add(1)
 	go func() {
-		err := res.Wait()
+		err := res.Wait(context.Background())
 		if err != nil && err != (*ably.ErrorInfo)(nil) {
 			select {
 			case rg.errch <- err:
@@ -100,15 +101,18 @@ func ConnWaiter(client *ably.Realtime, do func(), expectedEvent ...ably.Connecti
 			if errInfo := client.Connection.ErrorReason(); errInfo != nil {
 				err = errInfo
 			}
-			return ResultFunc(func() error { return err })
+			return ResultFunc(func(context.Context) error { return err })
 		}
 	}
-	return ResultFunc(func() error {
+	return ResultFunc(func(ctx context.Context) error {
 		defer off()
 		timer := time.After(Timeout)
 
 		for {
 			select {
+			case <-ctx.Done():
+				return ctx.Err()
+
 			case <-timer:
 				return fmt.Errorf("timeout waiting for event %v", expectedEvent)
 
@@ -132,18 +136,23 @@ func ConnWaiter(client *ably.Realtime, do func(), expectedEvent ...ably.Connecti
 	})
 }
 
-type ResultFunc func() error
+type ResultFunc func(context.Context) error
 
-func (f ResultFunc) Wait() error {
-	return f()
+func (f ResultFunc) Wait(ctx context.Context) error {
+	return f(ctx)
 }
 
 func (f ResultFunc) Go() ably.Result {
 	err := make(chan error, 1)
 	go func() {
-		err <- f()
+		err <- f(context.Background())
 	}()
-	return ResultFunc(func() error {
-		return <-err
+	return ResultFunc(func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-err:
+			return err
+		}
 	})
 }
