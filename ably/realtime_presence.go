@@ -451,10 +451,6 @@ func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string,
 // presence data may eventually be updated anyway.
 func (pres *RealtimePresence) LeaveClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
-	if pres.state != proto.PresenceEnter {
-		pres.mtx.Unlock()
-		return newError(91001, nil)
-	}
 	if pres.data == nil {
 		pres.data = data
 	}
