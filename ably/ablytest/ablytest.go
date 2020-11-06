@@ -128,9 +128,14 @@ func ReceivePresenceMessages(channel *ably.RealtimeChannel, action *ably.Presenc
 }
 
 type AfterCall struct {
-	Ctx  context.Context
-	D    time.Duration
-	Time chan<- time.Time
+	Ctx      context.Context
+	D        time.Duration
+	Deadline time.Time
+	Time     chan<- time.Time
+}
+
+func (c AfterCall) Fire() {
+	c.Time <- c.Deadline
 }
 
 // TimeFuncs returns time functions to be passed as options.
@@ -155,21 +160,29 @@ func TimeFuncs(afterCalls chan<- AfterCall) (
 	after = func(ctx context.Context, d time.Duration) <-chan time.Time {
 		ch := make(chan time.Time, 1)
 
-		timeUpdates := make(chan time.Time, 1)
+		timeUpdate := make(chan time.Time, 1)
 		go func() {
-			t, ok := <-timeUpdates
-			if !ok {
+			select {
+			case <-ctx.Done():
 				close(ch)
-				return
 
+			case t, ok := <-timeUpdate:
+				if !ok {
+					close(ch)
+					return
+				}
+				mtx.Lock()
+				currentTime = t
+				mtx.Unlock()
+				ch <- t
 			}
-			mtx.Lock()
-			currentTime = t
-			mtx.Unlock()
-			ch <- t
 		}()
 
-		afterCalls <- AfterCall{Ctx: ctx, D: d, Time: timeUpdates}
+		mtx.Lock()
+		t := currentTime
+		mtx.Unlock()
+
+		afterCalls <- AfterCall{Ctx: ctx, D: d, Deadline: t.Add(d), Time: timeUpdate}
 
 		return ch
 	}

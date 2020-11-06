@@ -68,6 +68,11 @@ func (c *Realtime) onChannelMsg(msg *proto.ProtocolMessage) {
 
 func (c *Realtime) onReconnected(err *proto.ErrorInfo, isNewID bool) {
 	if err == nil /* RTN15c3 */ && !isNewID /* RTN15g3 */ {
+		// No need to reattach: state is preserved. We just need to flush the
+		// queue of pending messages.
+		for _, ch := range c.Channels.All() {
+			ch.queue.Flush()
+		}
 		return
 	}
 

@@ -738,13 +738,11 @@ func (c *Connection) eventloop() {
 				c.mtx.Lock()
 				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 				c.mtx.Unlock()
-				if previousID != msg.ConnectionID {
-					// (RTN15c3)
-					// we are calling this outside of locks to avoid deadlock because in the
-					// RealtimeClient client where this callback is implemented we do some ops
-					// with this Conn where we re acquire Conn.Lock again.
-					c.callbacks.onReconnected(msg.Error, true)
-				}
+				// (RTN15c3)
+				// we are calling this outside of locks to avoid deadlock because in the
+				// RealtimeClient client where this callback is implemented we do some ops
+				// with this Conn where we re acquire Conn.Lock again.
+				c.callbacks.onReconnected(msg.Error, previousID != msg.ConnectionID)
 			} else {
 				// preserve old behavior.
 				c.mtx.Lock()

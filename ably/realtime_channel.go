@@ -162,6 +162,8 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	active := c.isActive()
 	c.mtx.Unlock()
 	switch change.Current {
+	case ConnectionStateConnected:
+		c.queue.Flush()
 	case ConnectionStateFailed:
 		if active {
 			c.setState(ChannelStateFailed, change.Reason)

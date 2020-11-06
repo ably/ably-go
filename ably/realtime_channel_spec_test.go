@@ -175,7 +175,10 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 			}
 			defer safeclose(t, app)
 
-			c, close := TransitionConn(t, app.Options()...).To(
+			c, close := TransitionConn(t, nil, app.Options()...)
+			defer safeclose(t, close)
+
+			close = c.To(
 				ably.ConnectionStateConnecting,
 				ably.ConnectionStateConnected,
 			)
@@ -210,6 +213,123 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 			}
 
 			ablytest.Soon.Recv(t, nil, msg, t.Fatalf)
+		})
+	}
+}
+
+func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
+	type transitionsCase struct {
+		connBefore []ably.ConnectionState
+		channel    []ably.ChannelState
+		connAfter  []ably.ConnectionState
+	}
+
+	var cases []transitionsCase
+
+	// When connection is INITIALIZED or first CONNECTING, channel can only be
+	// INITIALIZED or ATTACHING.
+
+	for _, connBefore := range [][]ably.ConnectionState{
+		{initialized},
+		{connecting},
+		{connecting, disconnected},
+	} {
+		for _, channel := range [][]ably.ChannelState{
+			{chInitialized},
+			{chAttaching},
+		} {
+			cases = append(cases, transitionsCase{
+				connBefore: connBefore,
+				channel:    channel,
+			})
+		}
+	}
+
+	// For a channel to be ATTACHED, DETACHING or DETACHED, we must have had a
+	// connection in the past.
+
+	for _, connAfter := range [][]ably.ConnectionState{
+		{disconnected},
+		{disconnected, connecting},
+	} {
+		for _, channelAfter := range [][]ably.ChannelState{
+			{},
+			{chDetaching},
+			{chDetaching, chDetached},
+		} {
+			cases = append(cases, transitionsCase{
+				connBefore: []ably.ConnectionState{connecting, connected},
+				channel: append([]ably.ChannelState{
+					chAttaching,
+					chAttached,
+				}, channelAfter...),
+				connAfter: connAfter,
+			})
+		}
+	}
+
+	for _, trans := range cases {
+		trans := trans
+		connTarget := trans.connBefore[len(trans.connBefore)-1]
+		if len(trans.connAfter) > 0 {
+			connTarget = trans.connAfter[len(trans.connAfter)-1]
+		}
+		chanTarget := trans.channel[len(trans.channel)-1]
+
+		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
+			t.Parallel()
+
+			app, err := ablytest.NewSandbox(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer safeclose(t, app)
+
+			recorder := ablytest.NewMessageRecorder()
+
+			c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+			defer safeclose(t, close)
+
+			close = c.To(trans.connBefore...)
+			defer safeclose(t, close)
+
+			channel, close := c.Channel("test").To(trans.channel...)
+			defer safeclose(t, close)
+
+			close = c.To(trans.connAfter...)
+			defer safeclose(t, close)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			err = channel.Publish(ctx, "test", nil)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+
+			// Check that the message isn't published.
+
+			published := func() bool {
+				for _, m := range recorder.Sent() {
+					if m.Action == proto.ActionMessage {
+						return true
+					}
+				}
+				return false
+			}
+
+			if published := ablytest.Instantly.IsTrue(published); published {
+				t.Fatalf("message was published before connection is established")
+			}
+
+			// After moving to CONNECTED, check that message is finally published.
+
+			close = c.To(connecting, connected)
+			defer safeclose(t, close)
+
+			if published := ablytest.Soon.IsTrue(published); !published {
+				t.Fatalf("message wasn't published once connection is established")
+			}
 		})
 	}
 }
@@ -324,7 +444,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			t.Fatalf("expected %v; got %v (message: %+v)", expected, got, msg)
 		}
 
-		// TODO: Test attach failure too, which requires RTL4f.
+		// TODO: Test attach failure too, which requires RTL4ef.
 
 		in <- &proto.ProtocolMessage{
 			Action:  proto.ActionAttached,
