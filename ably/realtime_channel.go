@@ -191,7 +191,10 @@ func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	if checkActive {
-		if c.isActive() {
+		switch c.state {
+		case ChannelStateAttaching:
+			return c.listenResult(ChannelStateAttached, ChannelStateFailed), nil
+		case ChannelStateAttached:
 			return nopResult, nil
 		}
 	}
