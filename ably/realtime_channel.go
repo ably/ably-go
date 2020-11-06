@@ -462,22 +462,63 @@ func (c *RealtimeChannel) History(params *PaginateParams) (*PaginatedResult, err
 }
 
 func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
-	if _, err := c.attach(false); err != nil {
-		return nil, err
-	}
-	res, listen := newErrResult()
-	switch c.State() {
-	case ChannelStateInitialized, ChannelStateAttaching:
-		c.queue.Enqueue(msg, listen)
+	if res, enqueued := c.maybeEnqueue(msg); enqueued {
 		return res, nil
-	case ChannelStateAttached:
-	default:
-		return nil, &ErrorInfo{Code: 90001}
 	}
+
+	if !c.canSend() {
+		return nil, newError(ErrChannelOperationFailedInvalidChannelState, nil)
+	}
+
+	res, listen := newErrResult()
 	if err := c.client.Connection.send(msg, listen); err != nil {
 		return nil, err
 	}
 	return res, nil
+}
+
+func (c *RealtimeChannel) maybeEnqueue(msg *proto.ProtocolMessage) (_ Result, enqueued bool) {
+	// RTL6c2
+	if c.opts().NoQueueing {
+		return nil, false
+	}
+	switch c.client.Connection.State() {
+	default:
+		return nil, false
+	case ConnectionStateInitialized,
+		ConnectionStateConnecting,
+		ConnectionStateDisconnected:
+	}
+	switch c.State() {
+	default:
+		return nil, false
+	case ChannelStateInitialized,
+		ChannelStateAttached,
+		ChannelStateDetached,
+		ChannelStateAttaching,
+		ChannelStateDetaching:
+	}
+
+	res, listen := newErrResult()
+	c.queue.Enqueue(msg, listen)
+	return res, true
+}
+
+func (c *RealtimeChannel) canSend() bool {
+	// RTL6c1
+	if c.client.Connection.State() != ConnectionStateConnected {
+		return false
+	}
+	switch c.State() {
+	default:
+		return false
+	case ChannelStateInitialized,
+		ChannelStateAttached,
+		ChannelStateDetached,
+		ChannelStateAttaching,
+		ChannelStateDetaching:
+	}
+	return true
 }
 
 // State gives the current state of the channel.

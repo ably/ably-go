@@ -56,6 +56,12 @@ func safeclose(t *testing.T, closers ...io.Closer) {
 	}
 }
 
+type closeFunc func() error
+
+func (f closeFunc) Close() error {
+	return f()
+}
+
 func checkError(code ably.ErrorCode, err error) error {
 	switch e, ok := err.(*ably.ErrorInfo); {
 	case !ok:
@@ -74,4 +80,10 @@ func init() {
 	ablytest.ClientOptionsInspector.HTTPClient = func(o []ably.ClientOption) *http.Client {
 		return ably.ApplyOptionsWithDefaults(o...).HTTPClient
 	}
+}
+
+type messages chan *ably.Message
+
+func (ms messages) Receive(m *ably.Message) {
+	ms <- m
 }

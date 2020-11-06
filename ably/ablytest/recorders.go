@@ -498,6 +498,69 @@ func (c connWithFakeDisconnect) Close() error {
 	return c.conn.Close()
 }
 
+// DialIntercept returns a DialFunc and an intercept function that, when called,
+// makes the processing of the next received protocol message with any of the given
+// actions. The processing remains blocked until the passed context expires. The
+// intercepted message is sent to the returned channel.
+func DialIntercept(dial DialFunc) (_ DialFunc, intercept func(context.Context, ...proto.Action) <-chan *proto.ProtocolMessage) {
+	active := &activeIntercept{}
+
+	intercept = func(ctx context.Context, actions ...proto.Action) <-chan *proto.ProtocolMessage {
+		msg := make(chan *proto.ProtocolMessage, 1)
+		active.Lock()
+		defer active.Unlock()
+		active.ctx = ctx
+		active.actions = actions
+		active.msg = msg
+		return msg
+	}
+
+	return func(proto string, url *url.URL, timeout time.Duration) (proto.Conn, error) {
+		conn, err := dial(proto, url, timeout)
+		if err != nil {
+			return nil, err
+		}
+		return interceptConn{conn, active}, nil
+	}, intercept
+}
+
+type activeIntercept struct {
+	sync.Mutex
+	ctx     context.Context
+	actions []proto.Action
+	msg     chan<- *proto.ProtocolMessage
+}
+
+type interceptConn struct {
+	proto.Conn
+	active *activeIntercept
+}
+
+func (c interceptConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	msg, err := c.Conn.Receive(deadline)
+	if err != nil {
+		return nil, err
+	}
+
+	c.active.Lock()
+	defer c.active.Unlock()
+
+	if c.active.msg == nil {
+		return msg, err
+	}
+
+	for _, a := range c.active.actions {
+		if msg.Action == a {
+			c.active.msg <- msg
+			c.active.msg = nil
+			<-c.active.ctx.Done()
+			break
+		}
+	}
+
+	return msg, err
+}
+
 // FullRealtimeCloser returns an io.Closer that, on Close, calls Close on the
 // Realtime instance and waits for its effects.
 func FullRealtimeCloser(c *ably.Realtime) io.Closer {

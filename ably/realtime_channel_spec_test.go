@@ -155,6 +155,77 @@ func attachAndWait(t *testing.T, channel *ably.RealtimeChannel) {
 	}
 }
 
+func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
+	var transition []ably.ChannelState
+	for _, state := range []ably.ChannelState{
+		ably.ChannelStateInitialized,
+		ably.ChannelStateAttaching,
+		ably.ChannelStateAttached,
+		ably.ChannelStateDetaching,
+		ably.ChannelStateDetached,
+	} {
+		transition = append(transition, state)
+		transition := transition // Don't share between test goroutines.
+		t.Run(fmt.Sprintf("when %s", state), func(t *testing.T) {
+			t.Parallel()
+
+			app, err := ablytest.NewSandbox(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer safeclose(t, app)
+
+			c, close := TransitionConn(t, app.Options()...).To(
+				ably.ConnectionStateConnecting,
+				ably.ConnectionStateConnected,
+			)
+			defer safeclose(t, close)
+
+			channel, close := c.Channel("test").To(transition...)
+			defer safeclose(t, close)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			// Make a second client to subscribe and check that messages are
+			// published without interferring with the first client's state.
+
+			subClient, err := ably.NewRealtime(app.Options()...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer safeclose(t, ablytest.FullRealtimeCloser(subClient))
+			err = ablytest.Wait(ablytest.ConnWaiter(subClient, subClient.Connect, ably.ConnectionEventConnected), nil)
+
+			msg := make(messages, 1)
+
+			_, err = subClient.Channels.Get("test").SubscribeAll(context.Background(), msg.Receive)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+
+			err = channel.Publish(ctx, "test", nil)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+
+			ablytest.Soon.Recv(t, nil, msg, t.Fatalf)
+		})
+	}
+}
+
+func expectActions(t *testing.T, protoMsgs <-chan *proto.ProtocolMessage, actions ...proto.Action) {
+	t.Helper()
+	for _, a := range actions {
+		var msg *proto.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, protoMsgs, t.Fatalf)
+		if expected, got := a, msg.Action; expected != got {
+			t.Fatalf("expected message with action %v, got %#v", expected, msg)
+		}
+	}
+	ablytest.Instantly.NoRecv(t, nil, protoMsgs, t.Fatalf)
+}
+
 func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 	t.Parallel()
 
