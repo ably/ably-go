@@ -237,6 +237,9 @@ func (c *Connection) getMode() connectionMode {
 }
 
 func (c *Connection) params(mode connectionMode) (url.Values, error) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
 	query := url.Values{
 		"timestamp": []string{strconv.FormatInt(unixMilli(c.opts.Now()), 10)},
 		"echo":      []string{"true"},
@@ -336,10 +339,8 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 }
 
 func (c *Connection) connectWith(arg connArgs) (Result, error) {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
 	if !c.isActive() {
-		c.lockSetState(ConnectionStateConnecting, nil, 0)
+		c.setState(ConnectionStateConnecting, nil, 0)
 	}
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
@@ -363,6 +364,9 @@ func (c *Connection) connectWith(arg connArgs) (Result, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	if c.logger().Is(LogVerbose) {
 		c.setConn(verboseConn{conn: conn, logger: c.logger()})
 	} else {
