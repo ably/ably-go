@@ -118,11 +118,14 @@ func TestRealtime_multiple(t *testing.T) {
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
 				rg.GoAdd(func(ctx context.Context) error { return channel.Presence.Leave(ctx, "") })
-				rg.GoAdd(func(ctx context.Context) error { return channel.Detach(ctx) })
-				rg.GoAdd(func(ctx context.Context) error { return channel.Detach(ctx) })
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
+			}
+			for j := 0; j < 10; j++ {
+				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
+				rg.GoAdd(func(ctx context.Context) error { return channel.Detach(ctx) })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Detach(ctx) })
 			}
 			idch <- c.Connection.ID()
 			keych <- c.Connection.Key()
