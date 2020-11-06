@@ -95,6 +95,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 	}
 	c.queue = newMsgQueue(c)
 	if !opts.NoConnect {
+		c.setState(ConnectionStateConnecting, nil, 0)
 		go func() {
 			lg := opts.Logger.sugar()
 			lg.Info("Trying to establish a connection asynchronously")
