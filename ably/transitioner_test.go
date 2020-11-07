@@ -26,6 +26,10 @@ type ConnTransitioner struct {
 	next connNextStates
 }
 
+// TransitionConn makes a connection with external events (requests, protocol
+// messages, timers) mocked, so that state transitions can be controlled by the
+// tests. The returned ConnTransitioner's To method moves the connection to the
+// desired state, and keeps it there.
 func TransitionConn(t *testing.T, dial ablytest.DialFunc, options ...ably.ClientOption) (ConnTransitioner, io.Closer) {
 	t.Helper()
 
