@@ -448,6 +448,27 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 	}
 }
 
+func TestRealtimeChannel_RTL6c5_NoImplicitAttach(t *testing.T) {
+	t.Parallel()
+
+	app, c := ablytest.NewRealtime()
+	defer safeclose(t, app, ablytest.FullRealtimeCloser(c))
+
+	if err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	channel := c.Channels.Get("test")
+	err := channel.Publish(context.Background(), "test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if channel.State() == chAttached {
+		t.Fatal("channel implicitly attached")
+	}
+}
+
 func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 	t.Parallel()
 
