@@ -316,8 +316,6 @@ func (c ChanTransitioner) assertState(state ably.ChannelState) {
 }
 
 func (c ChanTransitioner) attach() (chanNextStates, func()) {
-	c.t.Helper()
-
 	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
 	msg := c.intercept(ctx, proto.ActionAttached)
 
@@ -363,8 +361,6 @@ func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancel
 }
 
 func (c ChanTransitioner) detach() (chanNextStates, func()) {
-	c.t.Helper()
-
 	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
 	c.intercept(ctx, proto.ActionDetached)
 
