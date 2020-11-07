@@ -133,11 +133,14 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
 	retryIn := c.opts.suspendedRetryTimeout()
 	lg := c.logger().sugar()
 	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", retryIn)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := c.ctxCancelOnStateTransition()
 	defer cancel()
 	tick := ablyutil.NewTicker(c.opts.After)(ctx, retryIn)
 	for {
-		<-tick
+		_, ok := <-tick
+		if !ok {
+			return nil, ctx.Err()
+		}
 		res, err := c.connectWith(arg)
 		if err != nil {
 			if recoverable(err) {
@@ -293,33 +296,46 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 	retryIn := c.opts.disconnectedRetryTimeout()
 	c.setState(ConnectionStateDisconnected, err, retryIn)
 
+	ctx, cancel := c.ctxCancelOnStateTransition()
+	defer cancel()
+
 	// The initial DISCONNECTED event has been fired. If we reach stateTTL without
 	// any state changes, we transition to SUSPENDED state
 	stateTTL := c.opts.connectionStateTTL()
-	stateDeadlineCtx, cancelStateDeadline := context.WithCancel(context.Background())
+	stateDeadlineCtx, cancelStateDeadline := context.WithCancel(ctx)
 	defer cancelStateDeadline()
 	stateDeadline := c.opts.After(stateDeadlineCtx, stateTTL)
 
-	nextCtx, cancelNext := context.WithCancel(context.Background())
+	nextCtx, cancelNext := context.WithCancel(ctx)
 	next := c.opts.After(nextCtx, retryIn)
 	reset := func() {
 		lg.Debugf("Retry in %v", retryIn)
 		cancelNext()
-		nextCtx, cancelNext = context.WithCancel(context.Background())
+		nextCtx, cancelNext = context.WithCancel(ctx)
 		next = c.opts.After(nextCtx, retryIn)
 	}
 
+loop:
 	for {
 		select {
-		case <-stateDeadline:
-			// (RTN14e)
-			lg.Debug("Transition to SUSPENDED state")
-			err := fmt.Errorf(connectionStateTTLErrFmt, stateTTL)
-			c.setState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
-			// (RTN14f)
-			lg.Debug("Reached SUSPENDED state while opening connection")
-			return c.connectAfterSuspension(arg)
-		case <-next:
+		case _, ok := <-stateDeadline:
+			if !ok {
+				return nil, ctx.Err()
+			}
+			break loop
+		case _, ok := <-next:
+			if !ok {
+				return nil, ctx.Err()
+			}
+			// Prioritize stateDeadline.
+			select {
+			case _, ok := <-stateDeadline:
+				if !ok {
+					return nil, ctx.Err()
+				}
+			default:
+			}
+
 			lg.Debug("Attemting to open connection")
 			res, err := c.connectWith(arg)
 			if err == nil {
@@ -337,6 +353,14 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
 			return nil, c.setState(ConnectionStateFailed, err, 0)
 		}
 	}
+
+	// (RTN14e)
+	lg.Debug("Transition to SUSPENDED state")
+	err = fmt.Errorf(connectionStateTTLErrFmt, stateTTL)
+	c.setState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
+	// (RTN14f)
+	lg.Debug("Reached SUSPENDED state while opening connection")
+	return c.connectAfterSuspension(arg)
 }
 
 func (c *Connection) connectWith(arg connArgs) (Result, error) {
@@ -389,12 +413,21 @@ func (c *Connection) connectionStateTTL() time.Duration {
 
 func (c *Connection) close() {
 	c.mtx.Lock()
-	c.key, c.id = "", "" //(RTN16c)
 	defer c.mtx.Unlock()
-	if c.state != ConnectionStateConnected {
-		return
+
+	switch c.state {
+	case ConnectionStateClosing, ConnectionStateClosed, ConnectionStateFailed:
+	case ConnectionStateConnected: // RTN12a
+		c.lockSetState(ConnectionStateClosing, nil, 0)
+		c.sendClose()
+	case ConnectionStateConnecting: // RTN12f
+		c.lockSetState(ConnectionStateClosing, nil, 0)
+	default: // RTN12d
+		c.lockSetState(ConnectionStateClosed, nil, 0)
 	}
-	c.lockSetState(ConnectionStateClosing, nil, 0)
+}
+
+func (c *Connection) sendClose() {
 	msg := &proto.ProtocolMessage{Action: proto.ActionClose}
 	c.updateSerial(msg, nil)
 
@@ -703,6 +736,7 @@ func (c *Connection) eventloop() {
 			c.failedConnSideEffects(msg.Error)
 		case proto.ActionConnected:
 			c.mtx.Lock()
+
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
 			mode := c.getMode()
@@ -732,7 +766,15 @@ func (c *Connection) eventloop() {
 			}
 			c.setSerial(-1)
 
+			if c.state == ConnectionStateClosing {
+				// RTN12f
+				c.sendClose()
+				c.mtx.Unlock()
+				return
+			}
+
 			c.mtx.Unlock()
+
 			if reconnecting {
 				// (RTN15c1) (RTN15c2)
 				c.mtx.Lock()
@@ -772,7 +814,6 @@ func (c *Connection) eventloop() {
 			return
 		case proto.ActionClosed:
 			c.mtx.Lock()
-			c.id, c.key = "", "" //(RTN16c)
 			c.lockSetState(ConnectionStateClosed, nil, 0)
 			c.mtx.Unlock()
 			if c.conn != nil {
@@ -851,6 +892,10 @@ func (c *Connection) setState(state ConnectionState, err error, retryIn time.Dur
 }
 
 func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time.Duration) error {
+	if state == ConnectionStateClosed {
+		c.key, c.id = "", "" //(RTN16c)
+	}
+
 	previous := c.state
 	changed := c.state != state
 	c.state = state
@@ -869,4 +914,17 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 	c.internalEmitter.emitter.Emit(change.Event, change)
 	c.emitter.Emit(change.Event, change)
 	return c.errorReason.unwrapNil()
+}
+
+func (c *Connection) ctxCancelOnStateTransition() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	off := c.internalEmitter.OnceAll(func(ConnectionStateChange) {
+		cancel()
+	})
+
+	return ctx, func() {
+		off()
+		cancel()
+	}
 }
