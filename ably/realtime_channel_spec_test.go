@@ -226,11 +226,25 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 
 	var cases []transitionsCase
 
-	// When connection is INITIALIZED or first CONNECTING, channel can only be
-	// INITIALIZED or ATTACHING.
+	// When connection is INITIALIZED, channel can only be INITIALIZED.
 
 	for _, connBefore := range [][]ably.ConnectionState{
 		{initialized},
+	} {
+		for _, channel := range [][]ably.ChannelState{
+			{chInitialized},
+		} {
+			cases = append(cases, transitionsCase{
+				connBefore: connBefore,
+				channel:    channel,
+			})
+		}
+	}
+
+	// When connection is first CONNECTING, channel can only be INITIALIZED or
+	// ATTACHING.
+
+	for _, connBefore := range [][]ably.ConnectionState{
 		{connecting},
 		{connecting, disconnected},
 	} {
@@ -432,18 +446,6 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 			}
 		})
 	}
-}
-
-func expectActions(t *testing.T, protoMsgs <-chan *proto.ProtocolMessage, actions ...proto.Action) {
-	t.Helper()
-	for _, a := range actions {
-		var msg *proto.ProtocolMessage
-		ablytest.Instantly.Recv(t, &msg, protoMsgs, t.Fatalf)
-		if expected, got := a, msg.Action; expected != got {
-			t.Fatalf("expected message with action %v, got %#v", expected, msg)
-		}
-	}
-	ablytest.Instantly.NoRecv(t, nil, protoMsgs, t.Fatalf)
 }
 
 func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
