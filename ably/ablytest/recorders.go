@@ -578,10 +578,6 @@ func (c realtimeIOCloser) Close() error {
 		ably.ConnectionStateClosed,
 		ably.ConnectionStateFailed:
 
-		err := c.c.Connection.ErrorReason()
-		if err != nil {
-			return err
-		}
 		return nil
 	}
 

@@ -334,6 +334,106 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 	}
 }
 
+func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
+	type transitionsCase struct {
+		connBefore []ably.ConnectionState
+		channel    []ably.ChannelState
+		connAfter  []ably.ConnectionState
+	}
+
+	var cases []transitionsCase
+
+	// FAILED and SUSPENDED with no connection ever made.
+
+	for _, connBefore := range [][]ably.ConnectionState{
+		// {connecting, failed},
+		{connecting, disconnected, suspended},
+	} {
+		cases = append(cases, transitionsCase{
+			connBefore: connBefore,
+			channel:    []ably.ChannelState{chInitialized},
+		})
+	}
+
+	// // FAILED and SUSPENDED after successful connection and attach.
+
+	// for _, connAfter := range [][]ably.ConnectionState{
+	// 	{disconnected, suspended},
+	// } {
+	// 	cases = append(cases, transitionsCase{
+	// 		connBefore: []ably.ConnectionState{connecting, connected},
+	// 		channel: []ably.ChannelState{
+	// 			chAttaching,
+	// 			chAttached,
+	// 		},
+	// 		connAfter: connAfter,
+	// 	})
+	// }
+
+	// // Connection is OK but channel fails.
+	// cases = append(cases, transitionsCase{
+	// 	connBefore: []ably.ConnectionState{connecting, connected},
+	// 	channel: []ably.ChannelState{
+	// 		chAttaching,
+	// 		chFailed,
+	// 	},
+	// })
+
+	for _, trans := range cases {
+		trans := trans
+		connTarget := trans.connBefore[len(trans.connBefore)-1]
+		if len(trans.connAfter) > 0 {
+			connTarget = trans.connAfter[len(trans.connAfter)-1]
+		}
+		chanTarget := trans.channel[len(trans.channel)-1]
+
+		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
+			t.Parallel()
+
+			app, err := ablytest.NewSandbox(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer safeclose(t, app)
+
+			recorder := ablytest.NewMessageRecorder()
+
+			c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+			defer safeclose(t, close)
+
+			close = c.To(trans.connBefore...)
+			defer safeclose(t, close)
+
+			channel, close := c.Channel("test").To(trans.channel...)
+			defer safeclose(t, close)
+
+			close = c.To(trans.connAfter...)
+			defer safeclose(t, close)
+
+			publishErr := asyncPublish(channel)
+
+			// Check that the message isn't published.
+
+			published := func() bool {
+				for _, m := range recorder.Sent() {
+					if m.Action == proto.ActionMessage {
+						return true
+					}
+				}
+				return false
+			}
+
+			if published := ablytest.Instantly.IsTrue(published); published {
+				t.Fatalf("message was published when it shouldn't")
+			}
+
+			if err := <-publishErr; err == nil || errors.Is(err, context.Canceled) {
+				t.Fatalf("expected publish error")
+			}
+		})
+	}
+}
+
 func expectActions(t *testing.T, protoMsgs <-chan *proto.ProtocolMessage, actions ...proto.Action) {
 	t.Helper()
 	for _, a := range actions {

@@ -116,11 +116,12 @@ func (c ConnTransitioner) connect() (connNextStates, func()) {
 
 	c.Realtime.Connect()
 
-	ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
+	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 	return connNextStates{
 			connected:    c.finishConnecting(nil),
 			disconnected: c.finishConnecting(errors.New("fake connection error")),
+			failed:       c.fail,
 		}, func() {
 			c.Realtime.Close() // don't reconnect
 			c.finishConnecting(errors.New("test done"))
@@ -138,9 +139,27 @@ func (c ConnTransitioner) finishConnecting(err error) connTransitionFunc {
 
 		if err != nil {
 			// Should be DISCONNECTED.
+
+			// Expect to timers: one for reconnecting, another for suspending.
+
+			var timers []ablytest.AfterCall
+			for i := 0; i < 2; i++ {
+				var timer ablytest.AfterCall
+				ablytest.Instantly.Recv(c.t, &timer, c.afterCalls, c.t.Fatalf)
+				timers = append(timers, timer)
+			}
+			// Shortest timer is for reconnection.
+			sort.Slice(timers, func(i, j int) bool {
+				return timers[i].D < timers[j].D
+			})
+			reconnect, suspend := timers[0], timers[1]
+
 			return connNextStates{
-				connecting: c.connect,
-			}, nil
+					connecting: c.recover(reconnect),
+					suspended:  c.fireSuspend(suspend),
+				}, func() {
+					c.Realtime.Close() // cancel timers; don't reconnect
+				}
 		}
 
 		// Should be CONNECTED.
@@ -150,49 +169,91 @@ func (c ConnTransitioner) finishConnecting(err error) connTransitionFunc {
 	}
 }
 
-func (c ConnTransitioner) disconnect() (connNextStates, func()) {
-	change := make(ably.ConnStateChanges, 1)
-	c.Realtime.Connection.Once(ably.ConnectionEventDisconnected, change.Receive)
+func (c ConnTransitioner) fail() (connNextStates, func()) {
+	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
+	defer cancel()
 
-	c.fakeDisconnect()
+	intercepted := c.intercept(ctx, proto.ActionConnected)
 
-	c.dialErr <- errors.New("can't reconnect")
+	c.dialErr <- nil
 
-	ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
-
-	// Expect to timers: one for reconnecting, another for suspending.
-
-	var timers []ablytest.AfterCall
-	for i := 0; i < 2; i++ {
-		var timer ablytest.AfterCall
-		ablytest.Soon.Recv(c.t, &timer, c.afterCalls, c.t.Fatalf)
-		timers = append(timers, timer)
+	msg := <-intercepted
+	msg.Action = proto.ActionError
+	msg.Error = &proto.ErrorInfo{
+		StatusCode: 400,
+		Code:       int(ably.ErrUnauthorized),
+		Message:    "fake error",
 	}
-	// Shortest timer is for reconnection.
-	sort.Slice(timers, func(i, j int) bool {
-		return timers[i].D < timers[j].D
-	})
-	reconnect, suspend := timers[0], timers[1]
-	_ = suspend // TODO
 
-	return connNextStates{
-			connecting: c.reconnect(reconnect),
-		}, func() {
-			c.Realtime.Close() // cancel timers; don't reconnect
-		}
+	change := make(ably.ConnStateChanges, 1)
+	c.Realtime.Connection.Once(ably.ConnectionEventFailed, change.Receive)
+	cancel()
+	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+	return nil, nil
 }
 
-func (c ConnTransitioner) reconnect(reconnectTimer ablytest.AfterCall) connTransitionFunc {
+func (c ConnTransitioner) disconnect() (connNextStates, func()) {
+	c.fakeDisconnect()
+	return c.finishConnecting(errors.New("can't reconnect"))()
+}
+
+func (c ConnTransitioner) recover(timer ablytest.AfterCall) connTransitionFunc {
 	return func() (connNextStates, func()) {
 		change := make(ably.ConnStateChanges, 1)
 		c.Realtime.Connection.Once(ably.ConnectionEventConnecting, change.Receive)
 
-		reconnectTimer.Fire()
+		timer.Fire()
 
-		ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 		return connNextStates{
 				connected: c.finishConnecting(nil),
+			}, func() {
+				c.Realtime.Close() // don't reconnect
+				c.finishConnecting(errors.New("test done"))
+			}
+	}
+}
+
+func (c ConnTransitioner) fireSuspend(timer ablytest.AfterCall) connTransitionFunc {
+	return func() (connNextStates, func()) {
+		timer.Fire()
+		return c.suspend()
+	}
+}
+
+func (c ConnTransitioner) suspend() (connNextStates, func()) {
+	change := make(ably.ConnStateChanges, 1)
+	c.Realtime.Connection.Once(ably.ConnectionEventSuspended, change.Receive)
+
+	c.dialErr <- errors.New("suspending")
+
+	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+	var reconnectTimer ablytest.AfterCall
+	ablytest.Instantly.Recv(c.t, &reconnectTimer, c.afterCalls, c.t.Fatalf)
+
+	return connNextStates{
+			connecting: c.reconnectSuspended(reconnectTimer),
+		}, func() {
+			c.Realtime.Close() // don't reconnect
+			c.finishConnecting(errors.New("test done"))
+		}
+}
+
+func (c ConnTransitioner) reconnectSuspended(timer ablytest.AfterCall) connTransitionFunc {
+	return func() (connNextStates, func()) {
+		change := make(ably.ConnStateChanges, 1)
+		c.Realtime.Connection.Once(ably.ConnectionEventConnecting, change.Receive)
+
+		timer.Fire()
+
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+		return connNextStates{
+				connected: c.finishConnecting(nil),
+				suspended: c.suspend,
 			}, func() {
 				c.Realtime.Close() // don't reconnect
 				c.finishConnecting(errors.New("test done"))
@@ -265,7 +326,7 @@ func (c ChanTransitioner) attach() (chanNextStates, func()) {
 
 	asyncAttach(c.Channel)
 
-	ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
+	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 	return chanNextStates{
 		chAttached: c.finishAttach(msg, cancel, nil),
@@ -291,7 +352,7 @@ func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancel
 		}
 
 		change := make(ably.ChannelStateChanges, 1)
-		c.Channel.Once(ably.ChannelEventAttached, change.Receive)
+		c.Channel.OnceAll(change.Receive)
 
 		cancelIntercept()
 
@@ -312,7 +373,7 @@ func (c ChanTransitioner) detach() (chanNextStates, func()) {
 
 	asyncDetach(c.Channel)
 
-	ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
+	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 	return chanNextStates{
 		chDetached: c.finishDetach(cancel),
