@@ -663,14 +663,13 @@ func (c *Connection) eventloop() {
 	var lastActivityAt time.Time
 	var connDetails *proto.ConnectionDetails
 	for c.lockCanReceiveMessages() {
-		var deadline time.Time
+		receiveTimeout := c.opts.realtimeRequestTimeout()
 		if connDetails != nil {
 			maxIdleInterval := time.Duration(connDetails.MaxIdleInterval)
-			receiveTimeout := c.opts.realtimeRequestTimeout() + maxIdleInterval // RTN23a
-			deadline = c.opts.Now().Add(receiveTimeout)                         // RTNf23a
+			receiveTimeout += maxIdleInterval // RTN23a
 		}
 		c.connMtx.Lock()
-		msg, err := c.conn.Receive(deadline)
+		msg, err := c.conn.Receive(c.opts.Now().Add(receiveTimeout))
 		c.connMtx.Unlock()
 		if err != nil {
 			c.mtx.Lock()
