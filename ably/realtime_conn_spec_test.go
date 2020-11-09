@@ -1648,7 +1648,11 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	}
 
 	{ //(RTN16c)
-		client.Close()
+		err := ablytest.Wait(ablytest.ConnWaiter(client, client.Close, ably.ConnectionEventClosed), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		if key := client.Connection.Key(); key != "" {
 			t.Errorf("expected key to be empty got %q instead", key)
 		}
