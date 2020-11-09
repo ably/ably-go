@@ -1732,17 +1732,22 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 
 	connDetails := proto.ConnectionDetails{
 		ConnectionKey:      "foo",
-		ConnectionStateTTL: proto.DurationFromMsecs(time.Millisecond * 20),
-		MaxIdleInterval:    proto.DurationFromMsecs(time.Millisecond * 5),
+		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 20),
+		MaxIdleInterval:    proto.DurationFromMsecs(time.Minute * 5),
 	}
+
+	afterCalls := make(chan ablytest.AfterCall)
+	now, after := ablytest.TimeFuncs(afterCalls)
 
 	dials := make(chan *url.URL, 1)
 	var in chan *proto.ProtocolMessage
-	realtimeRequestTimeout := time.Millisecond
+	realtimeRequestTimeout := time.Minute
 	c, _ := ably.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithToken("fake:token"),
 		ably.WithRealtimeRequestTimeout(realtimeRequestTimeout),
+		ably.WithNow(now),
+		ably.WithAfter(after),
 		ably.WithDial(func(p string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 			in = make(chan *proto.ProtocolMessage, 1)
 			in <- &proto.ProtocolMessage{
@@ -1752,7 +1757,8 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 			}
 			dials <- u
 			return ablytest.MessagePipe(in, nil,
-				ablytest.MessagePipeWithNowFunc(time.Now),
+				ablytest.MessagePipeWithNowFunc(now),
+				ablytest.MessagePipeWithAfterFunc(after),
 			)(p, u, timeout)
 		}))
 	disconnected := make(chan *ably.ErrorInfo, 1)
@@ -1763,6 +1769,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var dialed *url.URL
 	ablytest.Instantly.Recv(t, &dialed, dials, t.Fatalf)
 	// RTN23b
@@ -1774,11 +1781,29 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	maxIdleInterval := time.Duration(connDetails.MaxIdleInterval)
 	receiveTimeout := realtimeRequestTimeout + maxIdleInterval
 
+	// Expect a timer for a message receive.
+	var timer ablytest.AfterCall
+	ablytest.Instantly.Recv(t, &timer, afterCalls, t.Fatalf)
+	if expected, got := receiveTimeout, timer.D; expected != got {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+
 	in <- &proto.ProtocolMessage{
 		Action: proto.ActionHeartbeat,
 	}
-	// The connection should not disconnect as we received the heartbeat message
-	ablytest.Before(receiveTimeout).NoRecv(t, nil, disconnected, t.Fatalf)
+
+	// An incoming message should cancel the timer and prevent a disconnection.
+	ablytest.Instantly.Recv(t, nil, timer.Ctx.Done(), t.Fatalf)
+	ablytest.Instantly.NoRecv(t, nil, disconnected, t.Fatalf)
+
+	// Expect another timer for a message receive.
+	ablytest.Instantly.Recv(t, &timer, afterCalls, t.Fatalf)
+	if expected, got := receiveTimeout, timer.D; expected != got {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+
+	// Let the deadline pass without a message; expect a disconnection.
+	timer.Fire()
 
 	// RTN23a The connection should be disconnected due to lack of activity past
 	// receiveTimeout

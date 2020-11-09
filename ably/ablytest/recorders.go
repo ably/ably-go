@@ -209,11 +209,22 @@ func MessagePipeWithNowFunc(now func() time.Time) MessagePipeOption {
 	}
 }
 
+// MessagePipeWithAfterFunc sets a function to get a timer. This timer
+// will be used to determine whether a Receive times out.
+//
+// If not set, receives won't timeout.
+func MessagePipeWithAfterFunc(after func(context.Context, time.Duration) <-chan time.Time) MessagePipeOption {
+	return func(pc *pipeConn) {
+		pc.after = after
+	}
+}
+
 func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMessage, opts ...MessagePipeOption) func(string, *url.URL, time.Duration) (proto.Conn, error) {
 	return func(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 		pc := pipeConn{
-			in:  in,
-			out: out,
+			in:    in,
+			out:   out,
+			after: ablyutil.After,
 		}
 		for _, opt := range opts {
 			opt(&pc)
@@ -223,9 +234,10 @@ func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMes
 }
 
 type pipeConn struct {
-	in  <-chan *proto.ProtocolMessage
-	out chan<- *proto.ProtocolMessage
-	now func() time.Time
+	in    <-chan *proto.ProtocolMessage
+	out   chan<- *proto.ProtocolMessage
+	now   func() time.Time
+	after func(context.Context, time.Duration) <-chan time.Time
 }
 
 func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
@@ -234,10 +246,14 @@ func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
 }
 
 func (pc pipeConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var timeout <-chan time.Time
 	if pc.now != nil {
-		timeout = time.After(deadline.Sub(pc.now()))
+		timeout = pc.after(ctx, deadline.Sub(pc.now()))
 	}
+
 	select {
 	case m, ok := <-pc.in:
 		if !ok || m == nil {

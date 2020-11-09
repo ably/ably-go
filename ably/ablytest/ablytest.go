@@ -162,6 +162,18 @@ func TimeFuncs(afterCalls chan<- AfterCall) (
 
 		timeUpdate := make(chan time.Time, 1)
 		go func() {
+			mtx.Lock()
+			t := currentTime
+			mtx.Unlock()
+
+			select {
+			case afterCalls <- AfterCall{Ctx: ctx, D: d, Deadline: t.Add(d), Time: timeUpdate}:
+			case <-ctx.Done():
+				// This allows tests to ignore a call if they expect the timer to
+				// be cancelled.
+				return
+			}
+
 			select {
 			case <-ctx.Done():
 				close(ch)
@@ -177,12 +189,6 @@ func TimeFuncs(afterCalls chan<- AfterCall) (
 				ch <- t
 			}
 		}()
-
-		mtx.Lock()
-		t := currentTime
-		mtx.Unlock()
-
-		afterCalls <- AfterCall{Ctx: ctx, D: d, Deadline: t.Add(d), Time: timeUpdate}
 
 		return ch
 	}
