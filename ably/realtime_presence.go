@@ -57,7 +57,8 @@ func (pres *RealtimePresence) verifyChanState() error {
 }
 
 func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
-	if _, err := pres.channel.attach(false); err != nil {
+	attached, err := pres.channel.attach()
+	if err != nil {
 		return nil, err
 	}
 	if err := pres.verifyChanState(); err != nil {
@@ -68,7 +69,13 @@ func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
 		Channel:  pres.channel.Name,
 		Presence: []*proto.PresenceMessage{msg},
 	}
-	return pres.channel.send(protomsg)
+	return resultFunc(func(ctx context.Context) error {
+		err := attached.Wait(ctx)
+		if err != nil {
+			return err
+		}
+		return wait(ctx)(pres.channel.send(protomsg))
+	}), nil
 }
 
 func (pres *RealtimePresence) syncWait() {
@@ -237,12 +244,12 @@ func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...Pre
 	var opts presenceGetOptions
 	opts.applyWithDefaults(options...)
 
-	res, err := pres.channel.attach(true)
+	res, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
 	}
 	// TODO: Don't ignore context.
-	err = res.Wait()
+	err = res.Wait(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -296,12 +303,11 @@ func (*subscriptionPresenceMessage) isEmitterData() {}
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
 func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceAction, handle func(*PresenceMessage)) (unsubscribe func(), err error) {
-	res, err := pres.channel.attach(true)
+	res, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Don't ignore context.
-	err = res.Wait()
+	err = res.Wait(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -321,12 +327,11 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
 func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*PresenceMessage)) (unsubscribe func(), err error) {
-	res, err := pres.channel.attach(true)
+	res, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Don't ignore context.
-	err = res.Wait()
+	err = res.Wait(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -399,8 +404,7 @@ func (pres *RealtimePresence) EnterClient(ctx context.Context, clientID string, 
 	if err != nil {
 		return err
 	}
-	// TODO: Don't ignore context.
-	return res.Wait()
+	return res.Wait(ctx)
 }
 
 func nonnil(a, b interface{}) interface{} {
@@ -436,8 +440,7 @@ func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string,
 	if err != nil {
 		return err
 	}
-	// TODO: Don't ignore context.
-	return res.Wait()
+	return res.Wait(ctx)
 }
 
 // LeaveClient announces the given clientID leave the associated channel altogether
@@ -448,10 +451,6 @@ func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string,
 // presence data may eventually be updated anyway.
 func (pres *RealtimePresence) LeaveClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
-	if pres.state != proto.PresenceEnter {
-		pres.mtx.Unlock()
-		return newError(91001, nil)
-	}
 	if pres.data == nil {
 		pres.data = data
 	}
@@ -466,8 +465,7 @@ func (pres *RealtimePresence) LeaveClient(ctx context.Context, clientID string, 
 	if err != nil {
 		return err
 	}
-	// TODO: Don't ignore context.
-	return res.Wait()
+	return res.Wait(ctx)
 }
 
 func (pres *RealtimePresence) auth() *Auth {

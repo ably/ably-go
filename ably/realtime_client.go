@@ -66,8 +66,13 @@ func (c *Realtime) onChannelMsg(msg *proto.ProtocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
 }
 
-func (c *Realtime) onReconnected(err *proto.ErrorInfo, isNewID bool) {
-	if err == nil /* RTN15c3 */ && !isNewID /* RTN15g3 */ {
+func (c *Realtime) onReconnected(isNewID bool) {
+	if !isNewID /* RTN15c3, RTN15g3 */ {
+		// No need to reattach: state is preserved. We just need to flush the
+		// queue of pending messages.
+		for _, ch := range c.Channels.All() {
+			ch.queue.Flush()
+		}
 		return
 	}
 
@@ -75,7 +80,7 @@ func (c *Realtime) onReconnected(err *proto.ErrorInfo, isNewID bool) {
 		switch ch.State() {
 		// TODO: SUSPENDED
 		case ChannelStateAttaching, ChannelStateAttached:
-			ch.mayAttach(false, false)
+			ch.mayAttach(false)
 		}
 	}
 }

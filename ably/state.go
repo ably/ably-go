@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -14,24 +15,33 @@ type Result interface {
 	// Wait blocks until asynchronous operation is completed. Upon its completion,
 	// the method returns nil error if it was successful and non-nil error otherwise.
 	// It's allowed to call Wait multiple times.
-	Wait() error
+	Wait(context.Context) error
 }
 
-func wait(res Result, err error) error {
-	if err != nil {
-		return err
+func wait(ctx context.Context) func(Result, error) error {
+	return func(res Result, err error) error {
+		if err != nil {
+			return err
+		}
+		return res.Wait(ctx)
 	}
-	return res.Wait()
 }
 
-func goWaiter(f resultFunc) Result {
+// goWaiter immediately calls the given function in a separate goroutine. The
+// returned Result waits for its completion and returns its error.
+func goWaiter(f func() error) Result {
 	err := make(chan error, 1)
 	go func() {
 		defer close(err)
 		err <- f()
 	}()
-	return resultFunc(func() error {
-		return <-err
+	return resultFunc(func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-err:
+			return err
+		}
 	})
 }
 
@@ -254,25 +264,30 @@ func newErrResult() (Result, chan<- error) {
 }
 
 // Wait implements the Result interface.
-func (res *errResult) Wait() error {
+func (res *errResult) Wait(ctx context.Context) error {
 	if res == nil {
 		return nil
 	}
-	if res.listen != nil {
-		res.err = <-res.listen
+	if l := res.listen; l != nil {
 		res.listen = nil
+		select {
+		case res.err = <-l:
+		case <-ctx.Done():
+			res.err = ctx.Err()
+		}
 	}
 	return res.err
 }
 
-type resultFunc func() error
+type resultFunc func(context.Context) error
 
-func (f resultFunc) Wait() error {
-	return f()
+func (f resultFunc) Wait(ctx context.Context) error {
+	return f(ctx)
 }
 
 func (e ChannelEventEmitter) listenResult(expected ChannelState, failed ...ChannelState) Result {
-	changes := make(channelStateChanges, 1)
+	// Make enough room not to block the sender if the Result is never waited on.
+	changes := make(channelStateChanges, 1+len(failed))
 
 	var offs []func()
 	offs = append(offs, e.Once(ChannelEvent(expected), changes.Receive))
@@ -280,14 +295,21 @@ func (e ChannelEventEmitter) listenResult(expected ChannelState, failed ...Chann
 		offs = append(offs, e.Once(ChannelEvent(ev), changes.Receive))
 	}
 
-	return resultFunc(func() error {
+	return resultFunc(func(ctx context.Context) error {
 		defer func() {
 			for _, off := range offs {
 				off()
 			}
 		}()
 
-		switch change := <-changes; {
+		var change ChannelStateChange
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case change = <-changes:
+		}
+
+		switch {
 		case change.Current == expected:
 		case change.Reason != nil:
 			return change.Reason
@@ -299,8 +321,10 @@ func (e ChannelEventEmitter) listenResult(expected ChannelState, failed ...Chann
 		return nil
 	})
 }
+
 func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ...ConnectionState) Result {
-	changes := make(connStateChanges, 1)
+	// Make enough room not to block the sender if the Result is never waited on.
+	changes := make(connStateChanges, 1+len(failed))
 
 	var offs []func()
 	offs = append(offs, e.Once(ConnectionEvent(expected), changes.Receive))
@@ -308,14 +332,21 @@ func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ..
 		offs = append(offs, e.Once(ConnectionEvent(ev), changes.Receive))
 	}
 
-	return resultFunc(func() error {
+	return resultFunc(func(ctx context.Context) error {
 		defer func() {
 			for _, off := range offs {
 				off()
 			}
 		}()
 
-		switch change := <-changes; {
+		var change ConnectionStateChange
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case change = <-changes:
+		}
+
+		switch {
 		case change.Current == expected:
 		case change.Reason != nil:
 			return change.Reason

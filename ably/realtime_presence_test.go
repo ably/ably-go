@@ -44,7 +44,7 @@ func TestRealtimePresence_Sync(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-	err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 
 	members, err := client.Channels.Get("persisted:presence_fixtures").Presence.Get(context.Background())
 	if err != nil {
@@ -63,15 +63,15 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	client2 := app.NewRealtime(nil...)
 	client3 := app.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2), ablytest.FullRealtimeCloser(client3))
-	err := ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected).Wait()
+	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait()
+	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ablytest.ConnWaiter(client3, client3.Connect, ably.ConnectionEventConnected).Wait()
+	err = ablytest.Wait(ablytest.ConnWaiter(client3, client3.Connect, ably.ConnectionEventConnected), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	var clients = generateClients(250)
 	for _, client := range clients {
 		client := client
-		rg.GoAdd(func() error { return channel1.Presence.EnterClient(context.Background(), client, "") })
+		rg.GoAdd(func(ctx context.Context) error { return channel1.Presence.EnterClient(ctx, client, "") })
 	}
 	if err := rg.Wait(); err != nil {
 		t.Fatalf("rg.Wait()=%v", err)
@@ -139,7 +139,7 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	channel := client.Channels.Get("persisted:presence_fixtures")
 	off := rec.Listen(channel)
 	defer off()
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)
 	}
 	members, err := channel.Presence.Get(context.Background())

@@ -162,6 +162,8 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	active := c.isActive()
 	c.mtx.Unlock()
 	switch change.Current {
+	case ConnectionStateConnected:
+		c.queue.Flush()
 	case ConnectionStateFailed:
 		if active {
 			c.setState(ChannelStateFailed, change.Reason)
@@ -176,30 +178,32 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached anyway.
 func (c *RealtimeChannel) Attach(ctx context.Context) error {
-	res, err := c.attach(true)
+	res, err := c.attach()
 	if err != nil {
 		return err
 	}
-	// TODO: Don't ignore context.
-	return res.Wait()
+	return res.Wait(ctx)
 }
 
-func (c *RealtimeChannel) attach(result bool) (Result, error) {
-	return c.mayAttach(result, true)
+func (c *RealtimeChannel) attach() (Result, error) {
+	return c.mayAttach(true)
 }
 
-func (c *RealtimeChannel) mayAttach(result, checkActive bool) (Result, error) {
+func (c *RealtimeChannel) mayAttach(checkActive bool) (Result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	if checkActive {
-		if c.isActive() {
+		switch c.state {
+		case ChannelStateAttaching:
+			return c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed), nil
+		case ChannelStateAttached:
 			return nopResult, nil
 		}
 	}
-	return c.lockAttach(result, nil)
+	return c.lockAttach(nil)
 }
 
-func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
+func (c *RealtimeChannel) lockAttach(err error) (Result, error) {
 	switch c.client.Connection.State() {
 	// RTL4b
 	case ConnectionStateInitialized,
@@ -207,52 +211,21 @@ func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 		ConnectionStateClosing,
 		ConnectionStateFailed:
 		return nil, newError(80000, errAttach)
-
-	// RTL4i
-	case ConnectionStateConnecting,
-		ConnectionStateDisconnected:
-
-		changes := make(connStateChanges, 1)
-		var offs []func()
-		for _, e := range []ConnectionEvent{
-			ConnectionEventConnected,
-			ConnectionEventClosed,
-			ConnectionEventFailed,
-		} {
-			offs = append(offs, c.client.Connection.On(e, changes.Receive))
-		}
-		return goWaiter(func() error {
-			change := <-changes
-			if change.Current != ConnectionStateConnected {
-				return change.Reason.unwrapNil()
-			}
-
-			res, err := c.mayAttach(result, true)
-			if err != nil {
-				return err
-			}
-
-			if result {
-				return res.Wait()
-			}
-			return nil
-		}), nil
 	}
 
 	c.lockSetState(ChannelStateAttaching, err)
 
-	var res Result
-	if result {
-		res = c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed)
-	}
+	res := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed)
+
 	msg := &proto.ProtocolMessage{
 		Action:  proto.ActionAttach,
 		Channel: c.Name,
 	}
 	err = c.client.Connection.send(msg, nil)
 	if err != nil {
-		return nil, c.lockSetState(ChannelStateFailed, err)
+		return nil, c.setState(ChannelStateFailed, err)
 	}
+
 	return res, nil
 }
 
@@ -263,15 +236,14 @@ func (c *RealtimeChannel) lockAttach(result bool, err error) (Result, error) {
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be detached anyway.
 func (c *RealtimeChannel) Detach(ctx context.Context) error {
-	res, err := c.detach(true)
+	res, err := c.detach()
 	if err != nil {
 		return err
 	}
-	// TODO: Don't ignore context.
-	return res.Wait()
+	return res.Wait(ctx)
 }
 
-func (c *RealtimeChannel) detach(result bool) (Result, error) {
+func (c *RealtimeChannel) detach() (Result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	switch {
@@ -284,10 +256,7 @@ func (c *RealtimeChannel) detach(result bool) (Result, error) {
 		return nil, c.lockSetState(ChannelStateFailed, errDetach)
 	}
 	c.lockSetState(ChannelStateDetaching, nil)
-	var res Result
-	if result {
-		res = c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
-	}
+	res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
 	msg := &proto.ProtocolMessage{
 		Action:  proto.ActionDetach,
 		Channel: c.Name,
@@ -318,12 +287,11 @@ func (*subscriptionMessage) isEmitterData() {}
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
 func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(*Message)) (unsubscribe func(), err error) {
-	res, err := c.attach(true)
+	res, err := c.attach()
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Don't ignore context.
-	err = res.Wait()
+	err = res.Wait(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -343,12 +311,11 @@ func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle fun
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
 func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message)) (unsubscribe func(), err error) {
-	res, err := c.attach(true)
+	res, err := c.attach()
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Don't ignore context.
-	err = res.Wait()
+	err = res.Wait(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -450,8 +417,7 @@ func (c *RealtimeChannel) PublishBatch(ctx context.Context, messages []*Message)
 	if err != nil {
 		return err
 	}
-	// TODO: Don't ignore context.
-	return res.Wait()
+	return res.Wait(ctx)
 }
 
 // History gives the channel's message history according to the given parameters.
@@ -462,22 +428,63 @@ func (c *RealtimeChannel) History(params *PaginateParams) (*PaginatedResult, err
 }
 
 func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
-	if _, err := c.attach(false); err != nil {
-		return nil, err
-	}
-	res, listen := newErrResult()
-	switch c.State() {
-	case ChannelStateInitialized, ChannelStateAttaching:
-		c.queue.Enqueue(msg, listen)
+	if res, enqueued := c.maybeEnqueue(msg); enqueued {
 		return res, nil
-	case ChannelStateAttached:
-	default:
-		return nil, &ErrorInfo{Code: 90001}
 	}
+
+	if !c.canSend() {
+		return nil, newError(ErrChannelOperationFailedInvalidChannelState, nil)
+	}
+
+	res, listen := newErrResult()
 	if err := c.client.Connection.send(msg, listen); err != nil {
 		return nil, err
 	}
 	return res, nil
+}
+
+func (c *RealtimeChannel) maybeEnqueue(msg *proto.ProtocolMessage) (_ Result, enqueued bool) {
+	// RTL6c2
+	if c.opts().NoQueueing {
+		return nil, false
+	}
+	switch c.client.Connection.State() {
+	default:
+		return nil, false
+	case ConnectionStateInitialized,
+		ConnectionStateConnecting,
+		ConnectionStateDisconnected:
+	}
+	switch c.State() {
+	default:
+		return nil, false
+	case ChannelStateInitialized,
+		ChannelStateAttached,
+		ChannelStateDetached,
+		ChannelStateAttaching,
+		ChannelStateDetaching:
+	}
+
+	res, listen := newErrResult()
+	c.queue.Enqueue(msg, listen)
+	return res, true
+}
+
+func (c *RealtimeChannel) canSend() bool {
+	// RTL6c1
+	if c.client.Connection.State() != ConnectionStateConnected {
+		return false
+	}
+	switch c.State() {
+	default:
+		return false
+	case ChannelStateInitialized,
+		ChannelStateAttached,
+		ChannelStateDetached,
+		ChannelStateAttaching,
+		ChannelStateDetaching:
+	}
+	return true
 }
 
 // State gives the current state of the channel.
@@ -511,7 +518,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 			return
 		case ChannelStateAttached: // TODO: Also SUSPENDED; RTL13a
 			var res Result
-			res, err = c.lockAttach(true, err)
+			res, err = c.lockAttach(err)
 			if err != nil {
 				break
 			}
@@ -521,7 +528,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 				// We need to wait in another goroutine to allow more messages
 				// to reach the connection.
 
-				err = res.Wait()
+				err = res.Wait(context.Background())
 				if err == nil {
 					return
 				}
@@ -586,7 +593,7 @@ func (c *RealtimeChannel) retryAttach(stateChange channelStateChanges) (done boo
 		return true
 	}
 
-	err := wait(c.mayAttach(true, false))
+	err := wait(ctx)(c.mayAttach(false))
 	if err == nil {
 		return true
 	}

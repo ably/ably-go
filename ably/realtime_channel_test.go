@@ -40,7 +40,7 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)
 	}
 	channel := client.Channels.Get("test")
@@ -55,10 +55,10 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 	client2 := app.NewRealtime(ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
-	if err := ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)
 	}
 	channel1 := client1.Channels.Get("test")
@@ -110,7 +110,7 @@ func TestRealtimeChannel_Detach(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)
 	}
 	channel := client.Channels.Get("test")
@@ -188,7 +188,7 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	res := make(chan ably.Result)
 	go func() {
-		res <- ablytest.ResultFunc.Go(func() error { return channel.Attach(context.Background()) })
+		res <- ablytest.ResultFunc.Go(func(ctx context.Context) error { return channel.Attach(ctx) })
 	}()
 	ablytest.Before(1*time.Second).NoRecv(t, nil, attached, t.Fatalf)
 

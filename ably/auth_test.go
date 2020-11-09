@@ -576,7 +576,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		}
 		client := app.NewRealtime(opts...)
 		defer safeclose(t, ablytest.FullRealtimeCloser(client))
-		if err = ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+		if err = ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 			t.Fatalf("Connect(): want err == nil got err=%v", err)
 		}
 		if id := client.Auth.ClientID(); id != cas.clientID {
@@ -664,7 +664,7 @@ func TestAuth_ClientID(t *testing.T) {
 	if id := client.Auth.ClientID(); id != "" {
 		t.Fatalf("want clientID to be empty; got %q", id)
 	}
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	if id := client.Auth.ClientID(); id != connected.ConnectionDetails.ClientID {
@@ -802,7 +802,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	app, client := ablytest.NewRealtime(opts...)
 	defer safeclose(t, app)
 
-	if err := ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected).Wait(); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
 	if err := client.Channels.Get("test").Publish(context.Background(), "name", "value"); err != nil {

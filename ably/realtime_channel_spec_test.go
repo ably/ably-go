@@ -155,35 +155,342 @@ func attachAndWait(t *testing.T, channel *ably.RealtimeChannel) {
 	}
 }
 
+func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
+	var transition []ably.ChannelState
+	for _, state := range []ably.ChannelState{
+		ably.ChannelStateInitialized,
+		ably.ChannelStateAttaching,
+		ably.ChannelStateAttached,
+		ably.ChannelStateDetaching,
+		ably.ChannelStateDetached,
+	} {
+		transition = append(transition, state)
+		transition := transition // Don't share between test goroutines.
+		t.Run(fmt.Sprintf("when %s", state), func(t *testing.T) {
+			t.Parallel()
+
+			app, err := ablytest.NewSandbox(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer safeclose(t, app)
+
+			c, close := TransitionConn(t, nil, app.Options()...)
+			defer safeclose(t, close)
+
+			close = c.To(
+				ably.ConnectionStateConnecting,
+				ably.ConnectionStateConnected,
+			)
+			defer safeclose(t, close)
+
+			channel, close := c.Channel("test").To(transition...)
+			defer safeclose(t, close)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			// Make a second client to subscribe and check that messages are
+			// published without interferring with the first client's state.
+
+			subClient, err := ably.NewRealtime(app.Options()...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer safeclose(t, ablytest.FullRealtimeCloser(subClient))
+			err = ablytest.Wait(ablytest.ConnWaiter(subClient, subClient.Connect, ably.ConnectionEventConnected), nil)
+
+			msg := make(messages, 1)
+
+			_, err = subClient.Channels.Get("test").SubscribeAll(context.Background(), msg.Receive)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+
+			err = channel.Publish(ctx, "test", nil)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+
+			ablytest.Soon.Recv(t, nil, msg, t.Fatalf)
+		})
+	}
+}
+
+func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
+	type transitionsCase struct {
+		connBefore []ably.ConnectionState
+		channel    []ably.ChannelState
+		connAfter  []ably.ConnectionState
+	}
+
+	var cases []transitionsCase
+
+	// When connection is INITIALIZED, channel can only be INITIALIZED.
+
+	for _, connBefore := range [][]ably.ConnectionState{
+		{initialized},
+	} {
+		for _, channel := range [][]ably.ChannelState{
+			{chInitialized},
+		} {
+			cases = append(cases, transitionsCase{
+				connBefore: connBefore,
+				channel:    channel,
+			})
+		}
+	}
+
+	// When connection is first CONNECTING, channel can only be INITIALIZED or
+	// ATTACHING.
+
+	for _, connBefore := range [][]ably.ConnectionState{
+		{connecting},
+		{connecting, disconnected},
+	} {
+		for _, channel := range [][]ably.ChannelState{
+			{chInitialized},
+			{chAttaching},
+		} {
+			cases = append(cases, transitionsCase{
+				connBefore: connBefore,
+				channel:    channel,
+			})
+		}
+	}
+
+	// For a channel to be ATTACHED, DETACHING or DETACHED, we must have had a
+	// connection in the past.
+
+	for _, connAfter := range [][]ably.ConnectionState{
+		{disconnected},
+		{disconnected, connecting},
+	} {
+		for _, channelAfter := range [][]ably.ChannelState{
+			{},
+			{chDetaching},
+			{chDetaching, chDetached},
+		} {
+			cases = append(cases, transitionsCase{
+				connBefore: []ably.ConnectionState{connecting, connected},
+				channel: append([]ably.ChannelState{
+					chAttaching,
+					chAttached,
+				}, channelAfter...),
+				connAfter: connAfter,
+			})
+		}
+	}
+
+	for _, trans := range cases {
+		trans := trans
+		connTarget := trans.connBefore[len(trans.connBefore)-1]
+		if len(trans.connAfter) > 0 {
+			connTarget = trans.connAfter[len(trans.connAfter)-1]
+		}
+		chanTarget := trans.channel[len(trans.channel)-1]
+
+		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
+			t.Parallel()
+
+			app, err := ablytest.NewSandbox(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer safeclose(t, app)
+
+			recorder := ablytest.NewMessageRecorder()
+
+			c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+			defer safeclose(t, close)
+
+			close = c.To(trans.connBefore...)
+			defer safeclose(t, close)
+
+			channel, close := c.Channel("test").To(trans.channel...)
+			defer safeclose(t, close)
+
+			close = c.To(trans.connAfter...)
+			defer safeclose(t, close)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			err = channel.Publish(ctx, "test", nil)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+
+			// Check that the message isn't published.
+
+			published := func() bool {
+				for _, m := range recorder.Sent() {
+					if m.Action == proto.ActionMessage {
+						return true
+					}
+				}
+				return false
+			}
+
+			if published := ablytest.Instantly.IsTrue(published); published {
+				t.Fatalf("message was published before connection is established")
+			}
+
+			// After moving to CONNECTED, check that message is finally published.
+
+			close = c.To(connecting, connected)
+			defer safeclose(t, close)
+
+			if published := ablytest.Soon.IsTrue(published); !published {
+				t.Fatalf("message wasn't published once connection is established")
+			}
+		})
+	}
+}
+
+func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
+	type transitionsCase struct {
+		connBefore []ably.ConnectionState
+		channel    []ably.ChannelState
+		connAfter  []ably.ConnectionState
+	}
+
+	var cases []transitionsCase
+
+	// FAILED and SUSPENDED with no connection ever made.
+
+	for _, connBefore := range [][]ably.ConnectionState{
+		// {connecting, failed},
+		{connecting, disconnected, suspended},
+	} {
+		cases = append(cases, transitionsCase{
+			connBefore: connBefore,
+			channel:    []ably.ChannelState{chInitialized},
+		})
+	}
+
+	// // FAILED and SUSPENDED after successful connection and attach.
+
+	// for _, connAfter := range [][]ably.ConnectionState{
+	// 	{disconnected, suspended},
+	// } {
+	// 	cases = append(cases, transitionsCase{
+	// 		connBefore: []ably.ConnectionState{connecting, connected},
+	// 		channel: []ably.ChannelState{
+	// 			chAttaching,
+	// 			chAttached,
+	// 		},
+	// 		connAfter: connAfter,
+	// 	})
+	// }
+
+	// // Connection is OK but channel fails.
+	// cases = append(cases, transitionsCase{
+	// 	connBefore: []ably.ConnectionState{connecting, connected},
+	// 	channel: []ably.ChannelState{
+	// 		chAttaching,
+	// 		chFailed,
+	// 	},
+	// })
+
+	for _, trans := range cases {
+		trans := trans
+		connTarget := trans.connBefore[len(trans.connBefore)-1]
+		if len(trans.connAfter) > 0 {
+			connTarget = trans.connAfter[len(trans.connAfter)-1]
+		}
+		chanTarget := trans.channel[len(trans.channel)-1]
+
+		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
+			t.Parallel()
+
+			app, err := ablytest.NewSandbox(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer safeclose(t, app)
+
+			recorder := ablytest.NewMessageRecorder()
+
+			c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+			defer safeclose(t, close)
+
+			close = c.To(trans.connBefore...)
+			defer safeclose(t, close)
+
+			channel, close := c.Channel("test").To(trans.channel...)
+			defer safeclose(t, close)
+
+			close = c.To(trans.connAfter...)
+			defer safeclose(t, close)
+
+			publishErr := asyncPublish(channel)
+
+			// Check that the message isn't published.
+
+			published := func() bool {
+				for _, m := range recorder.Sent() {
+					if m.Action == proto.ActionMessage {
+						return true
+					}
+				}
+				return false
+			}
+
+			if published := ablytest.Instantly.IsTrue(published); published {
+				t.Fatalf("message was published when it shouldn't")
+			}
+
+			if err := <-publishErr; err == nil || errors.Is(err, context.Canceled) {
+				t.Fatalf("expected publish error")
+			}
+		})
+	}
+}
+
+func TestRealtimeChannel_RTL6c5_NoImplicitAttach(t *testing.T) {
+	t.Parallel()
+
+	app, c := ablytest.NewRealtime()
+	defer safeclose(t, app, ablytest.FullRealtimeCloser(c))
+
+	if err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	channel := c.Channels.Get("test")
+	err := channel.Publish(context.Background(), "test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if channel.State() == chAttached {
+		t.Fatal("channel implicitly attached")
+	}
+}
+
 func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 	t.Parallel()
 
 	const channelRetryTimeout = 123 * time.Millisecond
-
-	type afterCall struct {
-		d   time.Duration
-		ret chan<- time.Time
-	}
 
 	setup := func(t *testing.T) (
 		in, out chan *proto.ProtocolMessage,
 		c *ably.Realtime,
 		channel *ably.RealtimeChannel,
 		stateChanges ably.ChannelStateChanges,
-		afterCalls chan afterCall,
+		afterCalls chan ablytest.AfterCall,
 	) {
 		in = make(chan *proto.ProtocolMessage, 1)
 		out = make(chan *proto.ProtocolMessage, 16)
-		afterCalls = make(chan afterCall, 1)
+		afterCalls = make(chan ablytest.AfterCall, 1)
+		now, after := ablytest.TimeFuncs(afterCalls)
 
 		c, _ = ably.NewRealtime(
 			ably.WithToken("fake:token"),
 			ably.WithAutoConnect(false),
-			ably.WithAfter(func(ctx context.Context, d time.Duration) <-chan time.Time {
-				ch := make(chan time.Time)
-				afterCalls <- afterCall{d: d, ret: ch}
-				return ch
-			}),
+			ably.WithNow(now),
+			ably.WithAfter(after),
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(ablytest.MessagePipe(in, out)),
 		)
@@ -194,7 +501,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			ConnectionDetails: &proto.ConnectionDetails{},
 		}
 
-		err := ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected).Wait()
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -260,7 +567,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			t.Fatalf("expected %v; got %v (message: %+v)", expected, got, msg)
 		}
 
-		// TODO: Test attach failure too, which requires RTL4f.
+		// TODO: Test attach failure too, which requires RTL4ef.
 
 		in <- &proto.ProtocolMessage{
 			Action:  proto.ActionAttached,
@@ -309,12 +616,12 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		// Expect an attempt to attach after channelRetryTimeout.
 
-		var call afterCall
+		var call ablytest.AfterCall
 		ablytest.Instantly.Recv(t, &call, afterCalls, t.Fatalf)
-		if expected, got := channelRetryTimeout, call.d; expected != got {
+		if expected, got := channelRetryTimeout, call.D; expected != got {
 			t.Fatalf("expected %v; got %v", expected, got)
 		}
-		call.ret <- time.Time{}
+		call.Time <- time.Time{}
 
 		// Expect a transition to ATTACHING, and an ATTACH message.
 
@@ -378,24 +685,24 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		// Expect an attempt to attach after channelRetryTimeout.
 
-		var call afterCall
+		var call ablytest.AfterCall
 		ablytest.Instantly.Recv(t, &call, afterCalls, t.Fatalf)
-		if expected, got := channelRetryTimeout, call.d; expected != got {
+		if expected, got := channelRetryTimeout, call.D; expected != got {
 			t.Fatalf("expected %v; got %v", expected, got)
 		}
 
 		// Get the connection to a non-CONNECTED state by closing in.
 
-		err := ablytest.ConnWaiter(c, func() {
+		err := ablytest.Wait(ablytest.ConnWaiter(c, func() {
 			close(in)
-		}, ably.ConnectionEventDisconnected).Wait()
+		}, ably.ConnectionEventDisconnected), nil)
 		if !errors.Is(err, io.EOF) {
 			t.Fatal(err)
 		}
 
 		// Now trigger the channelRetryTimeout.
 
-		call.ret <- time.Time{}
+		call.Time <- time.Time{}
 
 		// Since the connection isn't CONNECTED, the retry loop should finish.
 

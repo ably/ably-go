@@ -209,11 +209,22 @@ func MessagePipeWithNowFunc(now func() time.Time) MessagePipeOption {
 	}
 }
 
+// MessagePipeWithAfterFunc sets a function to get a timer. This timer
+// will be used to determine whether a Receive times out.
+//
+// If not set, receives won't timeout.
+func MessagePipeWithAfterFunc(after func(context.Context, time.Duration) <-chan time.Time) MessagePipeOption {
+	return func(pc *pipeConn) {
+		pc.after = after
+	}
+}
+
 func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMessage, opts ...MessagePipeOption) func(string, *url.URL, time.Duration) (proto.Conn, error) {
 	return func(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 		pc := pipeConn{
-			in:  in,
-			out: out,
+			in:    in,
+			out:   out,
+			after: ablyutil.After,
 		}
 		for _, opt := range opts {
 			opt(&pc)
@@ -223,9 +234,10 @@ func MessagePipe(in <-chan *proto.ProtocolMessage, out chan<- *proto.ProtocolMes
 }
 
 type pipeConn struct {
-	in  <-chan *proto.ProtocolMessage
-	out chan<- *proto.ProtocolMessage
-	now func() time.Time
+	in    <-chan *proto.ProtocolMessage
+	out   chan<- *proto.ProtocolMessage
+	now   func() time.Time
+	after func(context.Context, time.Duration) <-chan time.Time
 }
 
 func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
@@ -234,10 +246,14 @@ func (pc pipeConn) Send(msg *proto.ProtocolMessage) error {
 }
 
 func (pc pipeConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var timeout <-chan time.Time
 	if pc.now != nil {
-		timeout = time.After(deadline.Sub(pc.now()))
+		timeout = pc.after(ctx, deadline.Sub(pc.now()))
 	}
+
 	select {
 	case m, ok := <-pc.in:
 		if !ok || m == nil {
@@ -498,6 +514,69 @@ func (c connWithFakeDisconnect) Close() error {
 	return c.conn.Close()
 }
 
+// DialIntercept returns a DialFunc and an intercept function that, when called,
+// makes the processing of the next received protocol message with any of the given
+// actions. The processing remains blocked until the passed context expires. The
+// intercepted message is sent to the returned channel.
+func DialIntercept(dial DialFunc) (_ DialFunc, intercept func(context.Context, ...proto.Action) <-chan *proto.ProtocolMessage) {
+	active := &activeIntercept{}
+
+	intercept = func(ctx context.Context, actions ...proto.Action) <-chan *proto.ProtocolMessage {
+		msg := make(chan *proto.ProtocolMessage, 1)
+		active.Lock()
+		defer active.Unlock()
+		active.ctx = ctx
+		active.actions = actions
+		active.msg = msg
+		return msg
+	}
+
+	return func(proto string, url *url.URL, timeout time.Duration) (proto.Conn, error) {
+		conn, err := dial(proto, url, timeout)
+		if err != nil {
+			return nil, err
+		}
+		return interceptConn{conn, active}, nil
+	}, intercept
+}
+
+type activeIntercept struct {
+	sync.Mutex
+	ctx     context.Context
+	actions []proto.Action
+	msg     chan<- *proto.ProtocolMessage
+}
+
+type interceptConn struct {
+	proto.Conn
+	active *activeIntercept
+}
+
+func (c interceptConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	msg, err := c.Conn.Receive(deadline)
+	if err != nil {
+		return nil, err
+	}
+
+	c.active.Lock()
+	defer c.active.Unlock()
+
+	if c.active.msg == nil {
+		return msg, err
+	}
+
+	for _, a := range c.active.actions {
+		if msg.Action == a {
+			c.active.msg <- msg
+			c.active.msg = nil
+			<-c.active.ctx.Done()
+			break
+		}
+	}
+
+	return msg, err
+}
+
 // FullRealtimeCloser returns an io.Closer that, on Close, calls Close on the
 // Realtime instance and waits for its effects.
 func FullRealtimeCloser(c *ably.Realtime) io.Closer {
@@ -515,10 +594,6 @@ func (c realtimeIOCloser) Close() error {
 		ably.ConnectionStateClosed,
 		ably.ConnectionStateFailed:
 
-		err := c.c.Connection.ErrorReason()
-		if err != nil {
-			return err
-		}
 		return nil
 	}
 
