@@ -75,7 +75,7 @@ type connCallbacks struct {
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels and we dont have it here so we let RealtimeClient do the
 	// work.
-	onReconnected func(_ *proto.ErrorInfo, isNewID bool)
+	onReconnected func(isNewID bool)
 	// onReconnectionFailed is called when we get a FAILED response from a
 	// reconnection request.
 	onReconnectionFailed func(*proto.ErrorInfo)
@@ -784,7 +784,7 @@ func (c *Connection) eventloop() {
 				// we are calling this outside of locks to avoid deadlock because in the
 				// RealtimeClient client where this callback is implemented we do some ops
 				// with this Conn where we re acquire Conn.Lock again.
-				c.callbacks.onReconnected(msg.Error, previousID != msg.ConnectionID)
+				c.callbacks.onReconnected(previousID != msg.ConnectionID)
 			} else {
 				// preserve old behavior.
 				c.mtx.Lock()
