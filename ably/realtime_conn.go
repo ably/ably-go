@@ -248,6 +248,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 		"timestamp": []string{strconv.FormatInt(unixMilli(c.opts.Now()), 10)},
 		"echo":      []string{"true"},
 		"format":    []string{"msgpack"},
+		"lib":       []string{proto.LibraryString},
 	}
 	if c.opts.NoEcho {
 		query.Set("echo", "false")
