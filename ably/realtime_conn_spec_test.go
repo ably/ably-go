@@ -2123,3 +2123,24 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 		t.Fatalf("expected transitioning from %v got %v", expect, got)
 	}
 }
+
+func TestRealtimeConn_RTN2g(t *testing.T) {
+	t.Parallel()
+	uri := make(chan url.URL, 1)
+	_, err := ably.NewRealtime(
+		ably.WithKey("xxx:xxx"),
+		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+			uri <- *u
+			return nil, io.EOF
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var connURL url.URL
+	ablytest.Soon.Recv(t, &connURL, uri, t.Fatalf)
+	lib := connURL.Query().Get("lib")
+	if lib != proto.LibraryString {
+		t.Errorf("expected %q got %q", proto.LibraryString, lib)
+	}
+}
