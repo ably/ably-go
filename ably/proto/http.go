@@ -7,7 +7,7 @@ const (
 	AblyErrorCodeHeader    = "X-Ably-Errorcode"
 	AblyErrormessageHeader = "X-Ably-Errormessage"
 	LibraryVersion         = "1.1.5"
-	LibraryName            = "ably-go"
+	LibraryName            = "go"
 	LibraryString          = LibraryName + "-" + LibraryVersion
 	AblyVersion            = "1.0"
 	AblyClientIDHeader     = "X-Ably-ClientId"
