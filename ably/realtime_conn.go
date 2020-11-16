@@ -166,13 +166,17 @@ func recoverable(err error) bool {
 // Connect attempts to move the connection to the CONNECTED state, if it
 // can and if it isn't already.
 func (c *Connection) Connect() {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
+	isActive := c.isActive()
+	if isActive {
+		return
+	}
+
+	c.lockSetState(ConnectionStateConnecting, nil, 0)
+
 	go func() {
-		c.mtx.Lock()
-		isActive := c.isActive()
-		c.mtx.Unlock()
-		if isActive {
-			return
-		}
 		c.connect(connArgs{})
 	}()
 }
