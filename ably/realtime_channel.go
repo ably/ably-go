@@ -158,16 +158,12 @@ func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 }
 
 func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
-	c.mtx.Lock()
-	active := c.isActive()
-	c.mtx.Unlock()
 	switch change.Current {
 	case ConnectionStateConnected:
 		c.queue.Flush()
 	case ConnectionStateFailed:
-		if active {
-			c.setState(ChannelStateFailed, change.Reason)
-		}
+		c.setState(ChannelStateFailed, change.Reason)
+		c.queue.Fail(change.Reason)
 	}
 }
 
