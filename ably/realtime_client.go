@@ -81,6 +81,8 @@ func (c *Realtime) onReconnected(isNewID bool) {
 		// TODO: SUSPENDED
 		case ChannelStateAttaching, ChannelStateAttached:
 			ch.mayAttach(false)
+		case ChannelStateDetaching:
+			ch.detachSkipVerifyActive()
 		}
 	}
 }

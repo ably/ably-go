@@ -242,11 +242,21 @@ func (c *RealtimeChannel) Detach(ctx context.Context) error {
 func (c *RealtimeChannel) detach() (Result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	switch {
-	case c.state == ChannelStateFailed:
-		return nil, channelStateError(ChannelStateFailed, errDetach)
-	case !c.isActive():
+	if !c.isActive() {
 		return nopResult, nil
+	}
+	return c.detachUnsafe()
+}
+
+func (c *RealtimeChannel) detachSkipVerifyActive() (Result, error) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.detachUnsafe()
+}
+
+func (c *RealtimeChannel) detachUnsafe() (Result, error) {
+	if c.state == ChannelStateFailed {
+		return nil, channelStateError(ChannelStateFailed, errDetach)
 	}
 	if !c.client.Connection.lockIsActive() {
 		return nil, c.lockSetState(ChannelStateFailed, errDetach)
