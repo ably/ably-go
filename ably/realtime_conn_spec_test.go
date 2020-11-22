@@ -2180,32 +2180,47 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 	attaching := c.Channels.Get("attaching")
 	go attaching.Attach(context.Background())
 
-	realize := make(chan struct{})
-	off = attaching.On(ably.ChannelEventAttaching, func(csc ably.ChannelStateChange) {
-		realize <- struct{}{}
-	})
+	attachChanges := make(ably.ChannelStateChanges, 1)
+	off = attaching.OnAll(attachChanges.Receive)
 	defer off()
-	ablytest.Soon.Recv(t, nil, realize, t.Fatalf)
+	ablytest.Soon.Recv(t, nil, attachChanges, t.Fatalf)
 
 	detaching := c.Channels.Get("detaching")
-	go detaching.Attach(context.Background())
-	off = detaching.On(ably.ChannelEventAttached, func(csc ably.ChannelStateChange) {
-		realize <- struct{}{}
-	})
+	detachChange := make(ably.ChannelStateChanges, 1)
+	off = detaching.OnAll(detachChange.Receive)
 	defer off()
+
+	go detaching.Attach(context.Background())
+	var state ably.ChannelStateChange
+	ablytest.Soon.Recv(t, &state, detachChange, t.Fatalf)
+	if expect, got := ably.ChannelStateAttaching, state.Current; expect != got {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
 	in <- &proto.ProtocolMessage{
 		Action:  proto.ActionAttached,
 		Channel: "detaching",
 	}
-	ablytest.Soon.Recv(t, nil, realize, t.Fatalf)
-	off = detaching.On(ably.ChannelEventDetaching, func(csc ably.ChannelStateChange) {
-		realize <- struct{}{}
-	})
-	defer off()
+
+	state = ably.ChannelStateChange{}
+	ablytest.Soon.Recv(t, &state, detachChange, t.Fatalf)
+	if expect, got := ably.ChannelStateAttached, state.Current; expect != got {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+
 	go detaching.Detach(context.Background())
+	state = ably.ChannelStateChange{}
+	ablytest.Soon.Recv(t, &state, detachChange, t.Fatalf)
+	if expect, got := ably.ChannelStateDetaching, state.Current; expect != got {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+
 	msgs := []proto.ProtocolMessage{
 		{
 			Channel: "attaching",
+			Action:  proto.ActionAttach,
+		},
+		{
+			Channel: "detaching",
 			Action:  proto.ActionAttach,
 		},
 		{
@@ -2225,12 +2240,23 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 	}
 	breakConn()
 	connIDs <- "2"
+	ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+	if c.Connection.ID() != "2" {
+		t.Fatal("expected new connection")
+	}
+	msgs = []proto.ProtocolMessage{
+		{
+			Channel: "attaching",
+			Action:  proto.ActionAttach,
+		},
+		{
+			Channel: "detaching",
+			Action:  proto.ActionDetach,
+		},
+	}
 	for _, expect := range msgs {
 		var got *proto.ProtocolMessage
 		ablytest.Instantly.Recv(t, &got, out, t.Fatalf)
-		if c.Connection.ID() != "2" {
-			t.Fatal("expected new connection")
-		}
 		if expect.Action != got.Action {
 			t.Errorf("expected %v got %v", expect.Action, got.Action)
 		}
