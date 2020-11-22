@@ -103,7 +103,7 @@ func channelStateError(state ChannelState, err error) *ErrorInfo {
 
 // queuedEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
-	queue  []serialCh
+	queue  []msgCh
 	logger *LoggerOptions
 }
 
@@ -113,9 +113,9 @@ func newPendingEmitter(log *LoggerOptions) pendingEmitter {
 	}
 }
 
-type serialCh struct {
-	serial int64
-	ch     chan<- error
+type msgCh struct {
+	msg *proto.ProtocolMessage
+	ch  chan<- error
 }
 
 func (q pendingEmitter) Len() int {
@@ -123,77 +123,77 @@ func (q pendingEmitter) Len() int {
 }
 
 func (q pendingEmitter) Less(i, j int) bool {
-	return q.queue[i].serial < q.queue[j].serial
+	return q.queue[i].msg.MsgSerial < q.queue[j].msg.MsgSerial
 }
 
 func (q pendingEmitter) Swap(i, j int) {
 	q.queue[i], q.queue[j] = q.queue[j], q.queue[i]
 }
 
-func (q pendingEmitter) Search(serial int64) int {
-	return sort.Search(q.Len(), func(i int) bool { return q.queue[i].serial >= serial })
+func (q pendingEmitter) Search(msg *proto.ProtocolMessage) int {
+	return sort.Search(q.Len(), func(i int) bool { return q.queue[i].msg.MsgSerial >= msg.MsgSerial })
 }
 
-func (q *pendingEmitter) Enqueue(serial int64, ch chan<- error) {
-	switch i := q.Search(serial); {
+func (q *pendingEmitter) Enqueue(msg *proto.ProtocolMessage, ch chan<- error) {
+	switch i := q.Search(msg); {
 	case i == q.Len():
-		q.queue = append(q.queue, serialCh{serial, ch})
-	case q.queue[i].serial == serial:
-		q.logger.Printf(LogWarning, "duplicated message serial: %d", serial)
+		q.queue = append(q.queue, msgCh{msg, ch})
+	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
+		q.logger.Printf(LogWarning, "duplicated message serial: %d", msg.MsgSerial)
 	default:
-		q.queue = append(q.queue, serialCh{})
+		q.queue = append(q.queue, msgCh{})
 		copy(q.queue[i+1:], q.queue[i:])
-		q.queue[i] = serialCh{serial, ch}
+		q.queue[i] = msgCh{msg, ch}
 	}
 }
 
-func (q *pendingEmitter) Ack(serial int64, count int, errInfo *ErrorInfo) {
+func (q *pendingEmitter) Ack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
 	ack, nack := 0, 0
 	// Ensure range [serial,serial+count] fits inside q.
-	switch i := q.Search(serial); {
+	switch i := q.Search(msg); {
 	case i == q.Len():
 		nack = q.Len()
-	case q.queue[i].serial == serial:
+	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
 		nack = i
-		ack = min(i+count, q.Len())
+		ack = min(i+msg.Count, q.Len())
 	default:
 		nack = i + 1
-		ack = min(i+1+count, q.Len())
+		ack = min(i+1+msg.Count, q.Len())
 	}
 	err := errInfo.unwrapNil()
 	if err == nil && nack > 0 {
 		err = errSerialSkipped
 	}
 	for _, sch := range q.queue[:nack] {
-		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
+		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.msg.MsgSerial)
 		sch.ch <- err
 	}
 	for _, sch := range q.queue[nack:ack] {
-		q.logger.Printf(LogVerbose, "received ACK for message serial %d", sch.serial)
+		q.logger.Printf(LogVerbose, "received ACK for message serial %d", sch.msg.MsgSerial)
 		sch.ch <- nil
 	}
 	q.queue = q.queue[ack:]
 }
 
-func (q *pendingEmitter) Nack(serial int64, count int, errInfo *ErrorInfo) {
+func (q *pendingEmitter) Nack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
 	nack := 0
-	switch i := q.Search(serial); {
+	switch i := q.Search(msg); {
 	case i == q.Len():
 		nack = q.Len()
-	case q.queue[i].serial == serial:
-		nack = min(i+count, q.Len())
+	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
+		nack = min(i+msg.Count, q.Len())
 	default:
-		nack = min(i+1+count, q.Len())
+		nack = min(i+1+msg.Count, q.Len())
 	}
 	err := errInfo.unwrapNil()
 	for _, sch := range q.queue[:nack] {
-		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
+		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.msg.MsgSerial)
 		sch.ch <- err
 	}
 	q.queue = q.queue[nack:]

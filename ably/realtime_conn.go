@@ -569,7 +569,7 @@ func (c *Connection) updateSerial(msg *proto.ProtocolMessage, listen chan<- erro
 	msg.MsgSerial = c.msgSerial
 	c.msgSerial = (c.msgSerial + 1) % maxint64
 	if listen != nil {
-		c.pending.Enqueue(msg.MsgSerial, listen)
+		c.pending.Enqueue(msg, listen)
 	}
 }
 
@@ -664,6 +664,34 @@ func (c *Connection) setSerial(serial int64) {
 	c.serial = serial
 }
 
+func (c *Connection) resendPending() {
+	lg := c.logger().sugar()
+	c.mtx.Lock()
+	cx := make([]msgCh, len(c.pending.queue))
+	copy(cx, c.pending.queue)
+	c.pending.queue = []msgCh{}
+	c.mtx.Unlock()
+	lg.Debugf("resending %d messages waiting for ACK/NACK", len(cx))
+	for _, v := range cx {
+		go c.sendAndWait(v.msg)
+		close(v.ch)
+	}
+}
+
+func (c *Connection) sendAndWait(msg *proto.ProtocolMessage) {
+	lg := c.logger().sugar()
+	res, listen := newErrResult()
+	err := c.send(msg, listen)
+	if err != nil {
+		lg.Errorf("failed to re send message %v", msg)
+		return
+	}
+	err = res.Wait(context.Background())
+	if err != nil {
+		lg.Errorf("failed wait for ACK/NACK on  message %v", msg)
+	}
+}
+
 func (c *Connection) eventloop() {
 	var lastActivityAt time.Time
 	var connDetails *proto.ConnectionDetails
@@ -703,12 +731,12 @@ func (c *Connection) eventloop() {
 		case proto.ActionHeartbeat:
 		case proto.ActionAck:
 			c.mtx.Lock()
-			c.pending.Ack(msg.MsgSerial, msg.Count, newErrorFromProto(msg.Error))
+			c.pending.Ack(msg, newErrorFromProto(msg.Error))
 			c.setSerial(c.serial + 1)
 			c.mtx.Unlock()
 		case proto.ActionNack:
 			c.mtx.Lock()
-			c.pending.Nack(msg.MsgSerial, msg.Count, newErrorFromProto(msg.Error))
+			c.pending.Nack(msg, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
 		case proto.ActionError:
 

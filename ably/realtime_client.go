@@ -73,6 +73,8 @@ func (c *Realtime) onReconnected(isNewID bool) {
 		for _, ch := range c.Channels.All() {
 			ch.queue.Flush()
 		}
+		//RTN19a
+		c.Connection.resendPending()
 		return
 	}
 
@@ -85,6 +87,8 @@ func (c *Realtime) onReconnected(isNewID bool) {
 			ch.detachSkipVerifyActive()
 		}
 	}
+	//RTN19a
+	c.Connection.resendPending()
 }
 
 func (c *Realtime) onReconnectionFailed(err *proto.ErrorInfo) {

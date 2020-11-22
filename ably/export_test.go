@@ -124,3 +124,10 @@ const ConnectionStateTTLErrFmt = connectionStateTTLErrFmt
 func DefaultFallbackHosts() []string {
 	return defaultFallbackHosts()
 }
+
+// PendingItems returns the number of messages waiting for Ack/Nack
+func (c *Connection) PendingItems() int {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.pending.Len()
+}

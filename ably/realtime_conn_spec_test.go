@@ -2239,3 +2239,96 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 		}
 	}
 }
+
+func TestRealtimeConn_RTN19a(t *testing.T) {
+	t.Parallel()
+	connIDs := make(chan string)
+	var breakConn func()
+	var out, in chan *proto.ProtocolMessage
+	c, err := ably.NewRealtime(
+		// ably.WithLogLevel(ably.LogDebug),
+		ably.WithAutoConnect(false),
+		ably.WithKey("fake:key"),
+		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+			in = make(chan *proto.ProtocolMessage, 1)
+			in <- &proto.ProtocolMessage{
+				Action:       proto.ActionConnected,
+				ConnectionID: <-connIDs,
+				ConnectionDetails: &proto.ConnectionDetails{
+					ConnectionKey: "key",
+				},
+			}
+			out = make(chan *proto.ProtocolMessage, 16)
+			breakConn = func() { close(in) }
+			return ablytest.MessagePipe(in, out)(protocol, u, timeout)
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes := make(ably.ConnStateChanges, 2)
+	off := c.Connection.On(ably.ConnectionEventConnected, changes.Receive)
+	defer off()
+	c.Connect()
+	connIDs <- "1"
+	ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+
+	name := "channel"
+	channel := c.Channels.Get(name)
+	chanChange := make(ably.ChannelStateChanges, 1)
+	off = channel.OnAll(chanChange.Receive)
+	defer off()
+
+	go channel.Attach(context.Background())
+	var state ably.ChannelStateChange
+	ablytest.Soon.Recv(t, &state, chanChange, t.Fatalf)
+	if expect, got := ably.ChannelStateAttaching, state.Current; got != expect {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+	in <- &proto.ProtocolMessage{
+		Action:  proto.ActionAttached,
+		Channel: name,
+	}
+	state = ably.ChannelStateChange{}
+	ablytest.Soon.Recv(t, &state, chanChange, t.Fatalf)
+	if expect, got := ably.ChannelStateAttached, state.Current; got != expect {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+	ctx, _ := context.WithTimeout(context.TODO(), time.Millisecond)
+	err = channel.Publish(ctx, "ack", "ack")
+	if err != nil {
+		if err != context.DeadlineExceeded {
+			t.Fatal(err)
+		}
+	}
+	ablytest.Soon.Recv(t, nil, out, t.Fatalf) // attach
+
+	var msg *proto.ProtocolMessage
+	ablytest.Soon.Recv(t, &msg, out, t.Fatalf)
+	if expect, got := proto.ActionMessage, msg.Action; got != expect {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+
+	if expect, got := 1, c.Connection.PendingItems(); got != expect {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+	breakConn()
+	connIDs <- "2"
+	ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
+	if expect, got := "2", c.Connection.ID(); got != expect {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+
+	ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // attach
+	msg = nil
+	ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
+	if expect, got := proto.ActionMessage, msg.Action; got != expect {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+	if expect, got := name, msg.Channel; got != expect {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+	if expect, got := 1, c.Connection.PendingItems(); got != expect {
+		t.Fatalf("expected %v got %v", expect, got)
+	}
+}
