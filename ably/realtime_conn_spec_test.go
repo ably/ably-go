@@ -2178,7 +2178,7 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 	connIDs <- "1"
 	ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
 	attaching := c.Channels.Get("attaching")
-	go attaching.Attach(context.Background())
+	_ = ablytest.ResultFunc.Go(func(ctx context.Context) error { return attaching.Attach(ctx) })
 
 	attachChanges := make(ably.ChannelStateChanges, 1)
 	off = attaching.OnAll(attachChanges.Receive)
@@ -2190,7 +2190,7 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 	off = detaching.OnAll(detachChange.Receive)
 	defer off()
 
-	go detaching.Attach(context.Background())
+	wait := ablytest.ResultFunc.Go(func(ctx context.Context) error { return detaching.Attach(ctx) })
 	var state ably.ChannelStateChange
 	ablytest.Soon.Recv(t, &state, detachChange, t.Fatalf)
 	if expect, got := ably.ChannelStateAttaching, state.Current; expect != got {
@@ -2200,14 +2200,14 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 		Action:  proto.ActionAttached,
 		Channel: "detaching",
 	}
-
+	ablytest.Wait(wait, nil)
 	state = ably.ChannelStateChange{}
 	ablytest.Soon.Recv(t, &state, detachChange, t.Fatalf)
 	if expect, got := ably.ChannelStateAttached, state.Current; expect != got {
 		t.Fatalf("expected %v got %v", expect, got)
 	}
 
-	go detaching.Detach(context.Background())
+	_ = ablytest.ResultFunc.Go(func(ctx context.Context) error { return detaching.Detach(ctx) })
 	state = ably.ChannelStateChange{}
 	ablytest.Soon.Recv(t, &state, detachChange, t.Fatalf)
 	if expect, got := ably.ChannelStateDetaching, state.Current; expect != got {
@@ -2305,7 +2305,7 @@ func TestRealtimeConn_RTN19a(t *testing.T) {
 	off = channel.OnAll(chanChange.Receive)
 	defer off()
 
-	go channel.Attach(context.Background())
+	wait := ablytest.ResultFunc.Go(func(ctx context.Context) error { return channel.Attach(ctx) })
 	var state ably.ChannelStateChange
 	ablytest.Soon.Recv(t, &state, chanChange, t.Fatalf)
 	if expect, got := ably.ChannelStateAttaching, state.Current; got != expect {
@@ -2315,6 +2315,7 @@ func TestRealtimeConn_RTN19a(t *testing.T) {
 		Action:  proto.ActionAttached,
 		Channel: name,
 	}
+	ablytest.Wait(wait, nil)
 	state = ably.ChannelStateChange{}
 	ablytest.Soon.Recv(t, &state, chanChange, t.Fatalf)
 	if expect, got := ably.ChannelStateAttached, state.Current; got != expect {
