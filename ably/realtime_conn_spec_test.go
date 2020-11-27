@@ -2271,7 +2271,6 @@ func TestRealtimeConn_RTN19a(t *testing.T) {
 	var breakConn func()
 	var out, in chan *proto.ProtocolMessage
 	c, err := ably.NewRealtime(
-		// ably.WithLogLevel(ably.LogDebug),
 		ably.WithAutoConnect(false),
 		ably.WithKey("fake:key"),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
