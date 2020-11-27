@@ -673,22 +673,10 @@ func (c *Connection) resendPending() {
 	c.mtx.Unlock()
 	lg.Debugf("resending %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
-		go c.sendAndWait(v.msg)
-		close(v.ch)
-	}
-}
-
-func (c *Connection) sendAndWait(msg *proto.ProtocolMessage) {
-	lg := c.logger().sugar()
-	res, listen := newErrResult()
-	err := c.send(msg, listen)
-	if err != nil {
-		lg.Errorf("failed to re send message %v", msg)
-		return
-	}
-	err = res.Wait(context.Background())
-	if err != nil {
-		lg.Errorf("failed wait for ACK/NACK on  message %v", msg)
+		err := c.send(v.msg, v.ch)
+		if err != nil {
+			lg.Errorf("failed to re send message %v with error:%v", v.msg, err)
+		}
 	}
 }
 
