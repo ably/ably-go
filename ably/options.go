@@ -20,6 +20,7 @@ const (
 
 	// RestHost is the primary ably host .
 	RestHost = "rest.ably.io"
+	RealtimeHost = "realtime.ably.io"
 )
 
 var defaultOptions = &ClientOptions{
@@ -27,7 +28,7 @@ var defaultOptions = &ClientOptions{
 	FallbackHosts:            DefaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
 	HTTPRequestTimeout:       10 * time.Second,
-	RealtimeHost:             "realtime.ably.io",
+	RealtimeHost:             RealtimeHost,
 	TimeoutDisconnect:        30 * time.Second,
 	RealtimeRequestTimeout:   10 * time.Second, // DF1b
 	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
