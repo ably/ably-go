@@ -255,6 +255,28 @@ func NewClientOptions(key string) *ClientOptions {
 	}
 }
 
+func (opts *ClientOptions) isProductionEnvironment() bool {
+	env := opts.Environment
+	return env == "" || strings.EqualFold(env, "production")
+}
+
+func (opts *ClientOptions) getPort() (port int, isDefaultPort bool) {
+	if opts.NoTLS {
+		port = opts.Port
+		if port == 0 || port == defaultOptions.Port {
+			port = defaultOptions.Port
+			isDefaultPort = true
+		}
+	}
+	port = opts.TLSPort
+	if port == 0 || port == defaultOptions.TLSPort {
+		port = defaultOptions.TLSPort
+		isDefaultPort = true
+	}
+	return
+}
+
+
 func (opts *ClientOptions) timeoutConnect() time.Duration {
 	if opts.TimeoutConnect != 0 {
 		return opts.TimeoutConnect
