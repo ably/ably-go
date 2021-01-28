@@ -201,7 +201,7 @@ func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 			app, client := ablytest.NewRealtime(
 				ably.WithDial(ablytest.MessagePipe(in, out)),
 			)
-			defer safeclose(t, app, ablytest.FullRealtimeCloser(client))
+			defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 			connected := &proto.ProtocolMessage{
 				Action:            proto.ActionConnected,
