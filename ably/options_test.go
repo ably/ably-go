@@ -1,11 +1,27 @@
 package ably_test
 
 import (
-	"net/url"
-	"testing"
-
 	"github.com/ably/ably-go/ably"
+	"github.com/stretchr/testify/assert"
+	"net/url"
+	"reflect"
+	"testing"
 )
+
+func TestDefaultOptions(t *testing.T) {
+	t.Parallel()
+	t.Run("with env should return environment fallback hosts", func(ts *testing.T) {
+		expectedFallBackHosts := [] string {
+				"sandbox-a-fallback.ably-realtime.com",
+				"sandbox-b-fallback.ably-realtime.com",
+				"sandbox-c-fallback.ably-realtime.com",
+				"sandbox-d-fallback.ably-realtime.com",
+				"sandbox-e-fallback.ably-realtime.com",
+		};
+		hosts := ably.GetEnvFallbackHosts("sandbox")
+		assert.True(ts, reflect.DeepEqual(expectedFallBackHosts, hosts), " %s should match %s", hosts, expectedFallBackHosts)
+	})
+}
 
 func TestClientOptions(t *testing.T) {
 	t.Parallel()

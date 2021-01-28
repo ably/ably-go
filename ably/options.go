@@ -51,6 +51,19 @@ func DefaultFallbackHosts() []string {
 	}
 }
 
+func GetEnvFallbackHosts(env string) [] string {
+	formatHost := func(env string, host string) string {
+		return fmt.Sprintf("%s-%s", env, host)
+	}
+	return []string{
+		formatHost(env,"a-fallback.ably-realtime.com"),
+		formatHost(env,"b-fallback.ably-realtime.com"),
+		formatHost(env,"c-fallback.ably-realtime.com"),
+		formatHost(env,"d-fallback.ably-realtime.com"),
+		formatHost(env,"e-fallback.ably-realtime.com"),
+	}
+}
+
 const (
 	authBasic = 1 + iota
 	authToken
@@ -329,10 +342,8 @@ func (opts *ClientOptions) getHost() (restHost string, realtimeHost string) {
 		if host == "" {
 			host = defaultHost
 		}
-		if host == defaultHost {
-			if !opts.isProductionEnvironment() {
+		if host == defaultHost && !opts.isProductionEnvironment(){
 				host = opts.Environment + "-" + host
-			}
 		}
 		return host
 	}
