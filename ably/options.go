@@ -267,6 +267,7 @@ func (opts *ClientOptions) getPort() (port int, isDefaultPort bool) {
 			port = defaultOptions.Port
 			isDefaultPort = true
 		}
+		return
 	}
 	port = opts.TLSPort
 	if port == 0 || port == defaultOptions.TLSPort {
@@ -323,24 +324,14 @@ func (opts *ClientOptions) restURL() string {
 	host := opts.RestHost
 	if host == "" {
 		host = defaultOptions.RestHost
-		if opts.Environment == "production" {
-			opts.Environment = ""
-		}
-		if opts.Environment != "" {
+		if !opts.isProductionEnvironment() {
 			host = opts.Environment + "-" + host
 		}
 	}
+	port, _ := opts.getPort()
 	if opts.NoTLS {
-		port := opts.Port
-		if port == 0 {
-			port = 80
-		}
 		return "http://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	} else {
-		port := opts.TLSPort
-		if port == 0 {
-			port = 443
-		}
 		return "https://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	}
 }
@@ -349,24 +340,14 @@ func (opts *ClientOptions) realtimeURL() string {
 	host := opts.RealtimeHost
 	if host == "" {
 		host = defaultOptions.RealtimeHost
-		if opts.Environment == "production" {
-			opts.Environment = ""
-		}
-		if opts.Environment != "" {
+		if !opts.isProductionEnvironment() {
 			host = opts.Environment + "-" + host
 		}
 	}
+	port, _ := opts.getPort()
 	if opts.NoTLS {
-		port := opts.Port
-		if port == 0 {
-			port = 80
-		}
 		return "ws://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	} else {
-		port := opts.TLSPort
-		if port == 0 {
-			port = 443
-		}
 		return "wss://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
 	}
 }
