@@ -226,11 +226,7 @@ func (q *msgQueue) Enqueue(msg *proto.ProtocolMessage, listen chan<- error) {
 func (q *msgQueue) Flush() {
 	q.mtx.Lock()
 	for _, msgch := range q.queue {
-		err := q.conn.send(msgch.msg, msgch.ch)
-		if err != nil {
-			q.logger().Printf(LogError, "failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
-			msgch.ch <- newError(90000, err)
-		}
+		q.conn.send(msgch.msg, msgch.ch)
 	}
 	q.queue = nil
 	q.mtx.Unlock()

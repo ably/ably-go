@@ -217,11 +217,7 @@ func (c *RealtimeChannel) lockAttach(err error) (Result, error) {
 		Action:  proto.ActionAttach,
 		Channel: c.Name,
 	}
-	err = c.client.Connection.send(msg, nil)
-	if err != nil {
-		return nil, c.setState(ChannelStateFailed, err)
-	}
-
+	c.client.Connection.send(msg, nil)
 	return res, nil
 }
 
@@ -267,10 +263,7 @@ func (c *RealtimeChannel) detachUnsafe() (Result, error) {
 		Action:  proto.ActionDetach,
 		Channel: c.Name,
 	}
-	err := c.client.Connection.send(msg, nil)
-	if err != nil {
-		return nil, c.lockSetState(ChannelStateFailed, err)
-	}
+	c.client.Connection.send(msg, nil)
 	return res, nil
 }
 
@@ -443,9 +436,7 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 	}
 
 	res, listen := newErrResult()
-	if err := c.client.Connection.send(msg, listen); err != nil {
-		return nil, err
-	}
+	c.client.Connection.send(msg, listen)
 	return res, nil
 }
 

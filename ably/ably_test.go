@@ -5,9 +5,11 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/proto"
 )
 
 func nonil(err ...error) error {
@@ -86,4 +88,22 @@ type messages chan *ably.Message
 
 func (ms messages) Receive(m *ably.Message) {
 	ms <- m
+}
+
+type connMock struct {
+	SendFunc    func(*proto.ProtocolMessage) error
+	ReceiveFunc func(deadline time.Time) (*proto.ProtocolMessage, error)
+	CloseFunc   func() error
+}
+
+func (r connMock) Send(a0 *proto.ProtocolMessage) error {
+	return r.SendFunc(a0)
+}
+
+func (r connMock) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
+	return r.ReceiveFunc(deadline)
+}
+
+func (r connMock) Close() error {
+	return r.CloseFunc()
 }

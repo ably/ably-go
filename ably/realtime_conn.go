@@ -434,7 +434,6 @@ func (c *Connection) close() {
 
 func (c *Connection) sendClose() {
 	msg := &proto.ProtocolMessage{Action: proto.ActionClose}
-	c.updateSerial(msg, nil)
 
 	// TODO: handle error. If you can't send a message, the fail-fast way to
 	// deal with it is to discard the WebSocket and perform a normal
@@ -564,37 +563,51 @@ func (em ConnectionEventEmitter) OffAll() {
 	em.emitter.OffAll()
 }
 
-func (c *Connection) updateSerial(msg *proto.ProtocolMessage, listen chan<- error) {
+func (c *Connection) advanceSerial() {
 	const maxint64 = 1<<63 - 1
-	msg.MsgSerial = c.msgSerial
 	c.msgSerial = (c.msgSerial + 1) % maxint64
-	if listen != nil {
-		c.pending.Enqueue(msg, listen)
-	}
 }
 
-func (c *Connection) send(msg *proto.ProtocolMessage, listen chan<- error) error {
+func (c *Connection) send(msg *proto.ProtocolMessage, listen chan<- error) {
 	c.mtx.Lock()
 	switch state := c.state; state {
+	default:
+		c.mtx.Unlock()
+		listen <- connStateError(state, nil)
+
 	case ConnectionStateInitialized, ConnectionStateConnecting, ConnectionStateDisconnected:
 		c.mtx.Unlock()
 		if c.opts.NoQueueing {
-			return connStateError(state, errQueueing)
+			listen <- connStateError(state, errQueueing)
 		}
 		c.queue.Enqueue(msg, listen)
-		return nil
+
 	case ConnectionStateConnected:
-	default:
-		c.mtx.Unlock()
-		return connStateError(state, nil)
+		if err := c.verifyAndUpdateMessages(msg); err != nil {
+			c.mtx.Unlock()
+			listen <- err
+			return
+		}
+		msg.MsgSerial = c.msgSerial
+		err := c.conn.Send(msg)
+		if err != nil {
+			// An error here means there has been some transport-level failure in the
+			// connection. The connection itself is probably discarded, which causes the
+			// concurrent Receive in eventloop to fail, which in turn starts the
+			// reconnection logic. But in case it isn't, force that by closing the
+			// connection. Otherwise, the message we enqueue here may be in the queue
+			// indefinitely.
+			c.conn.Close()
+			c.mtx.Unlock()
+			c.queue.Enqueue(msg, listen)
+		} else {
+			c.advanceSerial()
+			if listen != nil {
+				c.pending.Enqueue(msg, listen)
+			}
+			c.mtx.Unlock()
+		}
 	}
-	if err := c.verifyAndUpdateMessages(msg); err != nil {
-		c.mtx.Unlock()
-		return err
-	}
-	c.updateSerial(msg, listen)
-	defer c.mtx.Unlock()
-	return c.conn.Send(msg)
 }
 
 // verifyAndUpdateMessages ensures the ClientID sent with published messages or
@@ -673,10 +686,7 @@ func (c *Connection) resendPending() {
 	c.mtx.Unlock()
 	lg.Debugf("resending %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
-		err := c.send(v.msg, v.ch)
-		if err != nil {
-			lg.Errorf("failed to re send message %v with error:%v", v.msg, err)
-		}
+		c.send(v.msg, v.ch)
 	}
 }
 
