@@ -21,6 +21,8 @@ const (
 	// RestHost is the primary ably host .
 	RestHost = "rest.ably.io"
 	RealtimeHost = "realtime.ably.io"
+	Port = 80
+	TLSPort = 443
 )
 
 var defaultOptions = &ClientOptions{
@@ -35,6 +37,8 @@ var defaultOptions = &ClientOptions{
 	TimeoutSuspended:         2 * time.Minute,
 	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
+	Port:					  Port,
+	TLSPort:				  TLSPort,
 }
 
 func DefaultFallbackHosts() []string {
