@@ -263,15 +263,19 @@ func (opts *ClientOptions) isProductionEnvironment() bool {
 func (opts *ClientOptions) getPort() (port int, isDefaultPort bool) {
 	if opts.NoTLS {
 		port = opts.Port
-		if port == 0 || port == defaultOptions.Port {
+		if port == 0 {
 			port = defaultOptions.Port
+		}
+		if port == defaultOptions.Port {
 			isDefaultPort = true
 		}
 		return
 	}
 	port = opts.TLSPort
-	if port == 0 || port == defaultOptions.TLSPort {
+	if port == 0 {
 		port = defaultOptions.TLSPort
+	}
+	if port == defaultOptions.TLSPort {
 		isDefaultPort = true
 	}
 	return
@@ -320,36 +324,47 @@ func (opts *ClientOptions) disconnectedRetryTimeout() time.Duration {
 	return defaultOptions.DisconnectedRetryTimeout
 }
 
-func (opts *ClientOptions) restURL() string {
-	host := opts.RestHost
-	if host == "" {
-		host = defaultOptions.RestHost
-		if !opts.isProductionEnvironment() {
-			host = opts.Environment + "-" + host
+func (opts *ClientOptions) getHost() (restHost string, realtimeHost string) {
+	host := func(host string, defaultHost string) string {
+		if host == "" {
+			host = defaultHost
 		}
+		if host == defaultHost {
+			if !opts.isProductionEnvironment() {
+				host = opts.Environment + "-" + host
+			}
+		}
+		return host
 	}
-	port, _ := opts.getPort()
-	if opts.NoTLS {
-		return "http://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
-	} else {
-		return "https://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
-	}
+	restHost = host(opts.RestHost, defaultOptions.RestHost)
+	realtimeHost = host(opts.RealtimeHost, defaultOptions.RealtimeHost)
+	return
 }
 
-func (opts *ClientOptions) realtimeURL() string {
-	host := opts.RealtimeHost
-	if host == "" {
-		host = defaultOptions.RealtimeHost
-		if !opts.isProductionEnvironment() {
-			host = opts.Environment + "-" + host
-		}
-	}
+
+func (opts *ClientOptions) getUrl() (restUrl string, realtimeUrl string) {
+	restHost, realtimeHost := opts.getHost()
 	port, _ := opts.getPort()
+	restBaseUrl := net.JoinHostPort(restHost, strconv.FormatInt(int64(port), 10))
+	realtimeBaseUrl := net.JoinHostPort(realtimeHost, strconv.FormatInt(int64(port), 10))
 	if opts.NoTLS {
-		return "ws://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
+		restUrl = "http://" + restBaseUrl
+		realtimeUrl = "ws://" + realtimeBaseUrl
 	} else {
-		return "wss://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
+		restUrl = "https://" + restBaseUrl
+		realtimeUrl = "wss://" + realtimeBaseUrl
 	}
+	return
+}
+
+func (opts *ClientOptions) restURL() ( restUrl string) {
+	restUrl , _ = opts.getUrl()
+	return
+}
+
+func (opts *ClientOptions) realtimeURL() ( realtimeUrl string) {
+	_ , realtimeUrl = opts.getUrl()
+	return
 }
 
 func (opts *ClientOptions) httpclient() *http.Client {
