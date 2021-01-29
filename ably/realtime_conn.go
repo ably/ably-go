@@ -940,7 +940,7 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 		RetryIn:  retryIn,
 	}
 	if !changed {
-		change.Event = ConnectionEventUpdated
+		change.Event = ConnectionEventUpdate
 	} else {
 		change.Event = ConnectionEvent(change.Current)
 	}

@@ -139,3 +139,9 @@ func (c *Connection) PendingItems() int {
 }
 
 type Result = result
+
+func (c *RESTChannels) Len() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.cache)
+}

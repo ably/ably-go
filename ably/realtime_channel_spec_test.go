@@ -115,7 +115,7 @@ func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
 		t.Skip("SUSPENDED not yet implemented")
 	})
 
-	t.Run(fmt.Sprintf("on %s", ably.ChannelEventUpdated), func(t *testing.T) {
+	t.Run(fmt.Sprintf("on %s", ably.ChannelEventUpdate), func(t *testing.T) {
 		t.Parallel()
 
 		t.Skip("UPDATED not yet implemented")

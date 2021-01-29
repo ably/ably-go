@@ -392,7 +392,7 @@ var (
 	ConnectionEventClosing      ConnectionEvent = ConnectionEvent(ConnectionStateClosing)
 	ConnectionEventClosed       ConnectionEvent = ConnectionEvent(ConnectionStateClosed)
 	ConnectionEventFailed       ConnectionEvent = ConnectionEvent(ConnectionStateFailed)
-	ConnectionEventUpdated      ConnectionEvent = ConnectionEvent{name: "UPDATED"}
+	ConnectionEventUpdate       ConnectionEvent = ConnectionEvent{name: "UPDATE"}
 )
 
 func (e ConnectionEvent) String() string {
@@ -450,7 +450,7 @@ var (
 	ChannelEventDetached    ChannelEvent = ChannelEvent(ChannelStateDetached)
 	ChannelEventSuspended   ChannelEvent = ChannelEvent(ChannelStateSuspended)
 	ChannelEventFailed      ChannelEvent = ChannelEvent(ChannelStateFailed)
-	ChannelEventUpdated     ChannelEvent = ChannelEvent{name: "UPDATED"}
+	ChannelEventUpdate      ChannelEvent = ChannelEvent{name: "UPDATE"}
 )
 
 func (e ChannelEvent) String() string {

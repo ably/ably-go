@@ -22,16 +22,16 @@ func (ch chanSlice) Less(i, j int) bool { return ch[i].Name < ch[j].Name }
 func (ch chanSlice) Swap(i, j int)      { ch[i], ch[j] = ch[j], ch[i] }
 func (ch chanSlice) Sort()              { sort.Sort(ch) }
 
-// Channels is a goroutine-safe container for realtime channels that allows
+// RealtimeChannels is a goroutine-safe container for realtime channels that allows
 // for creating, deleting and iterating over existing channels.
-type Channels struct {
+type RealtimeChannels struct {
 	mtx    sync.Mutex
 	client *Realtime
 	chans  map[string]*RealtimeChannel
 }
 
-func newChannels(client *Realtime) *Channels {
-	return &Channels{
+func newChannels(client *Realtime) *RealtimeChannels {
+	return &RealtimeChannels{
 		client: client,
 		chans:  make(map[string]*RealtimeChannel),
 	}
@@ -73,7 +73,7 @@ type CipherMode = proto.CipherMode
 // It is safe to call Get from multiple goroutines - a single channel is
 // guaranteed to be created only once for multiple calls to Get from different
 // goroutines.
-func (ch *Channels) Get(name string, options ...ChannelOption) *RealtimeChannel {
+func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *RealtimeChannel {
 	// TODO: options
 	ch.mtx.Lock()
 	c, ok := ch.chans[name]
@@ -92,7 +92,7 @@ func (ch *Channels) Get(name string, options ...ChannelOption) *RealtimeChannel 
 // different goroutine.
 //
 // The returned list is sorted by channel names.
-func (ch *Channels) All() []*RealtimeChannel {
+func (ch *RealtimeChannels) All() []*RealtimeChannel {
 	ch.mtx.Lock()
 	chans := make([]*RealtimeChannel, 0, len(ch.chans))
 	for _, c := range ch.chans {
@@ -103,9 +103,17 @@ func (ch *Channels) All() []*RealtimeChannel {
 	return chans
 }
 
+// Exists returns true if the channel by the given name exists.
+func (c *RealtimeChannels) Exists(name string) bool {
+	c.mtx.Lock()
+	_, ok := c.chans[name]
+	c.mtx.Unlock()
+	return ok
+}
+
 // Release releases all resources associated with a channel, detaching it first
 // if necessary. See RealtimeChannel.Detach for details.
-func (ch *Channels) Release(ctx context.Context, name string) error {
+func (ch *RealtimeChannels) Release(ctx context.Context, name string) error {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
 	c, ok := ch.chans[name]
@@ -120,7 +128,7 @@ func (ch *Channels) Release(ctx context.Context, name string) error {
 	return nil
 }
 
-func (ch *Channels) broadcastConnStateChange(change ConnectionStateChange) {
+func (ch *RealtimeChannels) broadcastConnStateChange(change ConnectionStateChange) {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
 	for _, c := range ch.chans {
@@ -495,8 +503,8 @@ func (c *RealtimeChannel) State() ChannelState {
 	return c.state
 }
 
-// Reason gives the last error that caused channel transition to failed state.
-func (c *RealtimeChannel) Reason() *ErrorInfo {
+// ErrorReason gives the last error that caused channel transition to failed state.
+func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.errorReason
@@ -632,7 +640,7 @@ func (c *RealtimeChannel) lockSetState(state ChannelState, err error) error {
 		Reason:   c.errorReason,
 	}
 	if !changed {
-		change.Event = ChannelEventUpdated
+		change.Event = ChannelEventUpdate
 	} else {
 		change.Event = ChannelEvent(change.Current)
 	}

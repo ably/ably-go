@@ -523,7 +523,7 @@ func TestRESTChannels_RSN1(t *testing.T) {
 	t.Run("RSN4 RSN4a must release channels", func(ts *testing.T) {
 		for _, v := range sample {
 			ch := client.Channels.Get(v.name)
-			client.Channels.Release(ch)
+			client.Channels.Release(ch.Name)
 		}
 		size := client.Channels.Len()
 		if size != 0 {
