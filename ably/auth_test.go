@@ -792,7 +792,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		if err != nil {
 			ts.Fatalf("CreateTokenRequest()=%v", err)
 		}
-		if req.Mac == "" {
+		if req.MAC == "" {
 			ts.Fatalf("want mac to be not empty")
 		}
 	})

@@ -57,7 +57,7 @@ type TokenRequest struct {
 
 	KeyName string `json:"keyName,omitempty" codec:"keyName,omitempty"`
 	Nonce   string `json:"nonce,omitempty" codec:"nonce,omitempty"` // should be at least 16 characters long
-	Mac     string `json:"mac,omitempty" codec:"mac,omitempty"`     // message authentication code for the request
+	MAC     string `json:"mac,omitempty" codec:"mac,omitempty"`     // message authentication code for the request
 }
 
 func (TokenRequest) IsTokener() {}
@@ -71,7 +71,7 @@ func (req *TokenRequest) sign(secret []byte) {
 	fmt.Fprintln(mac, req.ClientID)
 	fmt.Fprintln(mac, req.Timestamp)
 	fmt.Fprintln(mac, req.Nonce)
-	req.Mac = base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	req.MAC = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
 // TokenDetails
