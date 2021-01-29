@@ -46,6 +46,77 @@ func TestClientOptions(t *testing.T) {
 			ts.Error("expected an error")
 		}
 	})
+
+	t.Run("with default options", func(ts *testing.T) {
+		clientOptions := ably.NewClientOptions("")
+		assert.Equal(ts, "realtime.ably.io", clientOptions.GetRealtimeHost())
+		assert.Equal(ts, "rest.ably.io", clientOptions.GetRestHost())
+		assert.False(ts, clientOptions.NoTLS)
+		port, isDefaultPort := clientOptions.ActivePort()
+		assert.Equal(ts, 443, port)
+		assert.True(ts, isDefaultPort)
+		fallbackHosts, _ := clientOptions.GetFallbackHosts()
+		assert.Equal(ts, ably.DefaultFallbackHosts(), fallbackHosts)
+	})
+
+	t.Run("with production environment", func(ts *testing.T) {
+		clientOptions := ably.NewClientOptions("")
+		clientOptions.Environment = "production"
+		assert.Equal(ts, "realtime.ably.io", clientOptions.GetRealtimeHost())
+		assert.Equal(ts, "rest.ably.io", clientOptions.GetRestHost())
+		assert.False(ts, clientOptions.NoTLS)
+		port, isDefaultPort := clientOptions.ActivePort()
+		assert.Equal(ts, 443, port)
+		assert.True(ts, isDefaultPort)
+		fallbackHosts, _ := clientOptions.GetFallbackHosts()
+		assert.Equal(ts, ably.DefaultFallbackHosts(), fallbackHosts)
+	})
+
+	t.Run("with custom environment", func(ts *testing.T) {
+		clientOptions := ably.NewClientOptions("")
+		clientOptions.Environment = "sandbox"
+		assert.Equal(ts, "sandbox-realtime.ably.io", clientOptions.GetRealtimeHost())
+		assert.Equal(ts, "sandbox-rest.ably.io", clientOptions.GetRestHost())
+		assert.False(ts, clientOptions.NoTLS)
+		port, isDefaultPort := clientOptions.ActivePort()
+		assert.Equal(ts, 443, port)
+		assert.True(ts, isDefaultPort)
+		fallbackHosts, _ := clientOptions.GetFallbackHosts()
+		assert.Equal(ts, ably.GetEnvFallbackHosts("sandbox"), fallbackHosts)
+	})
+
+	t.Run("with custom environment and default fallbacks", func(ts *testing.T) {
+
+	})
+
+	t.Run("with custom environment and non default ports", func(ts *testing.T) {
+
+	})
+
+	t.Run("with custom host", func(ts *testing.T) {
+
+	})
+
+	t.Run("with custom rest host and realtime host", func(ts *testing.T) {
+
+	})
+
+	t.Run("with custom host and realtime host and fallbackHostsUseDefault", func(ts *testing.T) {
+
+	})
+
+	t.Run("with fallbackHosts and fallbackHostsUseDefault", func(ts *testing.T) {
+
+	})
+
+	t.Run("with fallbackHostsUseDefault And default custom port", func(ts *testing.T) {
+
+	})
+
+	t.Run("with custom host and realtime host", func(ts *testing.T) {
+
+	})
+
 }
 
 func TestScopeParams(t *testing.T) {

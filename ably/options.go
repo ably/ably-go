@@ -276,14 +276,14 @@ func (opts *ClientOptions) isProductionEnvironment() bool {
 	return env == "" || strings.EqualFold(env, "production")
 }
 
-func (opts *ClientOptions) getPort() (port int, isDefaultPort bool) {
+func (opts *ClientOptions) activePort() (port int, isDefault bool) {
 	if opts.NoTLS {
 		port = opts.Port
 		if port == 0 {
 			port = defaultOptions.Port
 		}
 		if port == defaultOptions.Port {
-			isDefaultPort = true
+			isDefault = true
 		}
 		return
 	}
@@ -292,7 +292,7 @@ func (opts *ClientOptions) getPort() (port int, isDefaultPort bool) {
 		port = defaultOptions.TLSPort
 	}
 	if port == defaultOptions.TLSPort {
-		isDefaultPort = true
+		isDefault = true
 	}
 	return
 }
@@ -376,7 +376,7 @@ func empty(s string) bool {
 
 func (opts *ClientOptions) restURL() ( restUrl string) {
 	restHost := opts.getRestHost()
-	port, _ := opts.getPort()
+	port, _ := opts.activePort()
 	baseUrl := net.JoinHostPort(restHost, strconv.FormatInt(int64(port), 10))
 	if opts.NoTLS {
 		return "http://" + baseUrl
@@ -386,7 +386,7 @@ func (opts *ClientOptions) restURL() ( restUrl string) {
 
 func (opts *ClientOptions) realtimeURL() ( realtimeUrl string) {
 	realtimeHost := opts.getRealtimeHost()
-	port, _ := opts.getPort()
+	port, _ := opts.activePort()
 	baseUrl := net.JoinHostPort(realtimeHost, strconv.FormatInt(int64(port), 10))
 	if opts.NoTLS {
 		return "ws://" + baseUrl
@@ -396,7 +396,7 @@ func (opts *ClientOptions) realtimeURL() ( realtimeUrl string) {
 
 func (opts *ClientOptions) getFallbackHosts() ( [] string, error) {
 	logger := opts.Logger.Sugar()
-	_, isDefaultPort := opts.getPort()
+	_, isDefaultPort := opts.activePort()
 	if (opts.FallbackHostsUseDefault) {
 		if opts.FallbackHosts != nil {
 			return nil , fmt.Errorf("fallbackHosts and fallbackHostsUseDefault cannot both be set")
