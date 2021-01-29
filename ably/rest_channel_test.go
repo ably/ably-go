@@ -77,7 +77,7 @@ func TestRESTChannel(t *testing.T) {
 			}
 		}
 		ts.Run("is available in the history", func(ts *testing.T) {
-			page, err := channel.History(nil)
+			page, err := channel.History(context.Background(), nil)
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -100,7 +100,7 @@ func TestRESTChannel(t *testing.T) {
 			historyRESTChannel.Publish(context.Background(), "breakingnews", "Another Shark attack!!")
 		}
 
-		page1, err := historyRESTChannel.History(&ably.PaginateParams{Limit: 1})
+		page1, err := historyRESTChannel.History(context.Background(), &ably.PaginateParams{Limit: 1})
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -111,7 +111,7 @@ func TestRESTChannel(t *testing.T) {
 			ts.Errorf("expected 1 item got %d", len(page1.Items()))
 		}
 
-		page2, err := page1.Next()
+		page2, err := page1.Next(context.Background())
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -133,7 +133,7 @@ func TestRESTChannel(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		page, err := encodingRESTChannel.History(&ably.PaginateParams{Limit: 2})
+		page, err := encodingRESTChannel.History(context.Background(), &ably.PaginateParams{Limit: 2})
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -175,7 +175,7 @@ func TestRESTChannel(t *testing.T) {
 			}
 		}
 
-		rst, err := channel.History(nil)
+		rst, err := channel.History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -223,7 +223,7 @@ func TestIdempotentPublishing(t *testing.T) {
 				ts.Fatal(err)
 			}
 		}
-		res, err := channel.History(nil)
+		res, err := channel.History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -246,7 +246,7 @@ func TestIdempotentPublishing(t *testing.T) {
 				ts.Fatal(err)
 			}
 		}
-		res, err := channel.History(nil)
+		res, err := channel.History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -298,7 +298,7 @@ func TestIdempotentPublishing(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		res, err := channel.History(nil)
+		res, err := channel.History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -340,7 +340,7 @@ func TestIdempotentPublishing(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		res, err := channel.History(nil)
+		res, err := channel.History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -378,7 +378,7 @@ func TestIdempotentPublishing(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		res, err := channel.History(nil)
+		res, err := channel.History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -477,7 +477,7 @@ func TestIdempotent_retry(t *testing.T) {
 			if retryCount != 2 {
 				ts.Errorf("expected %d retry attempts got %d", 2, retryCount)
 			}
-			res, err := channel.History(nil)
+			res, err := channel.History(context.Background(), nil)
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -497,7 +497,7 @@ func TestIdempotent_retry(t *testing.T) {
 			for range msgs {
 				channel.PublishBatch(context.Background(), msgs)
 			}
-			res, err := channel.History(nil)
+			res, err := channel.History(context.Background(), nil)
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -537,7 +537,7 @@ func TestRSL1f1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := channel.History(nil)
+	res, err := channel.History(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -579,7 +579,7 @@ func TestRSL1g(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		pages, err := channel.History(nil)
+		pages, err := channel.History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -603,7 +603,7 @@ func TestRSL1g(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		pages, err := channel.History(nil)
+		pages, err := channel.History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}

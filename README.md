@@ -244,8 +244,8 @@ if err != nil {
 ### Querying the History
 
 ```go
-page, err := channel.History(nil)
-for ; err == nil && page != nil; page, err = page.Next() {
+page, err := channel.History(ctx, nil)
+for ; err == nil && page != nil; page, err = page.Next(ctx) {
 	for _, message := range page.Messages() {
 		fmt.Println(message)
 	}
@@ -258,8 +258,8 @@ if err != nil {
 ### Presence on a channel
 
 ```go
-page, err = channel.Presence.Get(nil)
-for ; err == nil && page != nil; page, err = page.Next() {
+page, err = channel.Presence.Get(ctx, nil)
+for ; err == nil && page != nil; page, err = page.Next(ctx) {
 	for _, presence := range page.PresenceMessages() {
 		fmt.Println(presence)
 	}
@@ -272,8 +272,8 @@ if err != nil {
 ### Querying the Presence History
 
 ```go
-page, err = channel.Presence.History(nil)
-for ; err == nil && page != nil; page, err = page.Next() {
+page, err = channel.Presence.History(ctx, nil)
+for ; err == nil && page != nil; page, err = page.Next(ctx) {
 	for _, presence := range page.PresenceMessages() {
 		fmt.Println(presence)
 	}
@@ -286,8 +286,8 @@ if err != nil {
 ### Fetching your application's stats
 
 ```go
-page, err = client.Stats(&ably.PaginateParams{})
-for ; err == nil && page != nil; page, err = page.Next() {
+page, err = client.Stats(ctx, &ably.PaginateParams{})
+for ; err == nil && page != nil; page, err = page.Next(ctx) {
 	for _, stat := range page.Stats() {
 		fmt.Println(stat)
 	}

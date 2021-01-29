@@ -30,9 +30,9 @@ var (
 	arrayTyp    = reflect.TypeOf((*[]interface{})(nil)).Elem()
 )
 
-func query(fn func(string, interface{}) (*http.Response, error)) queryFunc {
-	return func(path string) (*http.Response, error) {
-		return fn(path, nil)
+func query(fn func(context.Context, string, interface{}) (*http.Response, error)) queryFunc {
+	return func(ctx context.Context, path string) (*http.Response, error) {
+		return fn(ctx, path, nil)
 	}
 }
 
@@ -136,7 +136,7 @@ func NewREST(options ...ClientOption) (*REST, error) {
 	return c, nil
 }
 
-func (c *REST) Time() (time.Time, error) {
+func (c *REST) Time(ctx context.Context) (time.Time, error) {
 	var times []int64
 	r := &request{
 		Method: "GET",
@@ -144,7 +144,7 @@ func (c *REST) Time() (time.Time, error) {
 		Out:    &times,
 		NoAuth: true,
 	}
-	_, err := c.do(r)
+	_, err := c.do(ctx, r)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -157,17 +157,18 @@ func (c *REST) Time() (time.Time, error) {
 // Stats gives the channel's metrics according to the given parameters.
 // The returned result can be inspected for the statistics via the Stats()
 // method.
-func (c *REST) Stats(params *PaginateParams) (*PaginatedResult, error) {
-	return newPaginatedResult(nil, paginatedRequest{typ: statType, path: "/stats", params: params, query: query(c.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
+func (c *REST) Stats(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
+	return newPaginatedResult(ctx, nil, paginatedRequest{typ: statType, path: "/stats", params: params, query: query(c.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
 }
 
 // request this contains fields necessary to compose http request that will be
 // sent ably endpoints.
 type request struct {
-	Method string
-	Path   string
-	In     interface{} // value to be encoded and sent with request body
-	Out    interface{} // value to store decoded response body
+	Context context.Context
+	Method  string
+	Path    string
+	In      interface{} // value to be encoded and sent with request body
+	Out     interface{} // value to store decoded response body
 
 	// NoAuth when set to true, makes the request not being authenticated.
 	NoAuth bool
@@ -179,18 +180,18 @@ type request struct {
 
 // Request sends http request to ably.
 // spec RSC19
-func (c *REST) Request(method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*HTTPPaginatedResponse, error) {
+func (c *REST) Request(ctx context.Context, method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*HTTPPaginatedResponse, error) {
 	method = strings.ToUpper(method)
 	switch method {
 	case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
-		return newHTTPPaginatedResult(path, params, func(p string) (*http.Response, error) {
+		return newHTTPPaginatedResult(ctx, path, params, func(ctx context.Context, p string) (*http.Response, error) {
 			req := &request{
 				Method: method,
 				Path:   p,
 				In:     body,
 				header: headers,
 			}
-			return c.doWithHandle(req, func(resp *http.Response, out interface{}) (*http.Response, error) {
+			return c.doWithHandle(ctx, req, func(resp *http.Response, out interface{}) (*http.Response, error) {
 				return resp, nil
 			})
 		}, c.logger())
@@ -203,27 +204,27 @@ func (c *REST) Request(method string, path string, params *PaginateParams, body 
 	}
 }
 
-func (c *REST) get(path string, out interface{}) (*http.Response, error) {
+func (c *REST) get(ctx context.Context, path string, out interface{}) (*http.Response, error) {
 	r := &request{
 		Method: "GET",
 		Path:   path,
 		Out:    out,
 	}
-	return c.do(r)
+	return c.do(ctx, r)
 }
 
-func (c *REST) post(path string, in, out interface{}) (*http.Response, error) {
+func (c *REST) post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
 	r := &request{
 		Method: "POST",
 		Path:   path,
 		In:     in,
 		Out:    out,
 	}
-	return c.do(r)
+	return c.do(ctx, r)
 }
 
-func (c *REST) do(r *request) (*http.Response, error) {
-	return c.doWithHandle(r, c.handleResponse)
+func (c *REST) do(ctx context.Context, r *request) (*http.Response, error) {
+	return c.doWithHandle(ctx, r, c.handleResponse)
 }
 
 // fallbackCache this caches a successful fallback host for 10 minutes.
@@ -289,7 +290,7 @@ func (f *fallbackCache) put(host string) {
 	}
 }
 
-func (c *REST) doWithHandle(r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
+func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
 	log := c.opts.Logger.sugar()
 	if c.successFallbackHost == nil {
 		c.successFallbackHost = &fallbackCache{
@@ -297,7 +298,7 @@ func (c *REST) doWithHandle(r *request, handle func(*http.Response, interface{})
 		}
 		log.Verbosef("RestClient: setup fallback duration to %v", c.successFallbackHost.duration)
 	}
-	req, err := c.newHTTPRequest(r)
+	req, err := c.newHTTPRequest(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +372,7 @@ func (c *REST) doWithHandle(r *request, handle func(*http.Response, interface{})
 							}
 						}
 						left = n
-						req, err := c.newHTTPRequest(r)
+						req, err := c.newHTTPRequest(ctx, r)
 						if err != nil {
 							return nil, err
 						}
@@ -426,11 +427,11 @@ func (c *REST) doWithHandle(r *request, handle func(*http.Response, interface{})
 				if r.NoRenew || !c.Auth.isTokenRenewable() {
 					return nil, err
 				}
-				if _, err := c.Auth.reauthorize(); err != nil {
+				if _, err := c.Auth.reauthorize(ctx); err != nil {
 					return nil, err
 				}
 				r.NoRenew = true
-				return c.do(r)
+				return c.do(ctx, r)
 			}
 		}
 		return nil, err
@@ -445,7 +446,7 @@ func canFallBack(code int) bool {
 
 // newHTTPRequest creates a new http.Request that can be sent to ably endpoints.
 // This makes sure necessary headers are set.
-func (c *REST) newHTTPRequest(r *request) (*http.Request, error) {
+func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, error) {
 	var body io.Reader
 	var protocol = c.opts.protocol()
 	if r.In != nil {
@@ -456,7 +457,7 @@ func (c *REST) newHTTPRequest(r *request) (*http.Request, error) {
 		body = bytes.NewReader(p)
 	}
 
-	req, err := http.NewRequest(r.Method, c.opts.restURL()+r.Path, body)
+	req, err := http.NewRequestWithContext(ctx, r.Method, c.opts.restURL()+r.Path, body)
 	if err != nil {
 		return nil, newError(ErrInternalError, err)
 	}

@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -42,7 +43,7 @@ func TestMalformedPaginatedResult(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := client.Request("POST", "/foo", nil, nil, nil)
+	resp, err := client.Request(context.Background(), "POST", "/foo", nil, nil, nil)
 	if resp != nil {
 		t.Errorf("expected no HTTPPaginatedResult; got %+v", resp)
 	}

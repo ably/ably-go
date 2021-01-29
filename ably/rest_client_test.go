@@ -126,7 +126,7 @@ func TestRestClient(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		t, err := client.Time()
+		t, err := client.Time(context.Background())
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -178,7 +178,7 @@ func TestRestClient(t *testing.T) {
 		stats[1].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-60*time.Minute), proto.StatGranularityMinute)
 		stats[2].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-1*time.Minute), proto.StatGranularityMinute)
 
-		res, err := client.Post("/stats", &stats, nil)
+		res, err := client.Post(context.Background(), "/stats", &stats, nil)
 		if err != nil {
 			ts.Error(err)
 		}
@@ -200,7 +200,7 @@ func TestRestClient(t *testing.T) {
 					errCh <- errors.New("timeout waiting for client.Stats to return nonempty value")
 					return
 				case <-tick:
-					page, err := client.Stats(&ably.PaginateParams{
+					page, err := client.Stats(context.Background(), &ably.PaginateParams{
 						Limit: 1,
 						ScopeParams: ably.ScopeParams{
 							Start: longAgo,
@@ -256,7 +256,7 @@ func TestRSC7(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _ = c.Request("POST", "/foo", nil, nil, nil)
+	_, _ = c.Request(context.Background(), "POST", "/foo", nil, nil, nil)
 
 	var req *http.Request
 	ablytest.Instantly.Recv(t, &req, requests, t.Fatalf)

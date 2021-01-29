@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -28,7 +29,7 @@ func (err errInvalidType) Error() string {
 
 // queryFunc queries the given URL and gives non-nil HTTP response if no error
 // occurred.
-type queryFunc func(url string) (*http.Response, error)
+type queryFunc func(ctx context.Context, url string) (*http.Response, error)
 
 // PaginatedResult represents a single page coming back from the REST API.
 // Any call to create a new page will generate a new instance.
@@ -106,7 +107,8 @@ func decodePaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, resp *h
 		return v.Elem().Interface(), nil
 	}
 }
-func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*PaginatedResult, error) {
+
+func newPaginatedResult(ctx context.Context, opts *proto.ChannelOptions, req paginatedRequest) (*PaginatedResult, error) {
 	if req.decoder == nil {
 		req.decoder = decodePaginatedResult
 	}
@@ -118,7 +120,7 @@ func newPaginatedResult(opts *proto.ChannelOptions, req paginatedRequest) (*Pagi
 	if err != nil {
 		return nil, err
 	}
-	resp, err := p.req.query(builtPath)
+	resp, err := p.req.query(ctx, builtPath)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +182,7 @@ func copyHeader(dest, src http.Header) {
 // (Link: <./path>; rel="next").
 //
 // If there is no next link, both return values are nil.
-func (p *PaginatedResult) Next() (*PaginatedResult, error) {
+func (p *PaginatedResult) Next(ctx context.Context) (*PaginatedResult, error) {
 	nextPath, ok := p.paginationHeaders()["next"]
 	if !ok {
 		return nil, nil
@@ -189,7 +191,7 @@ func (p *PaginatedResult) Next() (*PaginatedResult, error) {
 	req := p.req
 	req.path = nextPage
 	req.params = nil
-	return newPaginatedResult(p.opts, req)
+	return newPaginatedResult(ctx, p.opts, req)
 }
 
 // Items gives a slice of results of the current page.
