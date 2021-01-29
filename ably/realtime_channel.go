@@ -57,11 +57,15 @@ func ChannelWithCipherKey(key []byte) ChannelOption {
 }
 
 // Cipher sets cipher parameters for encrypting messages on a channel.
-func ChannelWithCipher(params proto.CipherParams) ChannelOption {
+func ChannelWithCipher(params CipherParams) ChannelOption {
 	return func(o *channelOptions) {
 		o.Cipher = params
 	}
 }
+
+type CipherParams = proto.CipherParams
+type CipherAlgorith = proto.CipherAlgorithm
+type CipherMode = proto.CipherMode
 
 // Get looks up a channel given by the name and creates it if it does not exist
 // already.
