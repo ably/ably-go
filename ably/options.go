@@ -662,11 +662,6 @@ func WithSuspendedRetryTimeout(d time.Duration) ClientOption {
 		os.SuspendedRetryTimeout = d
 	}
 }
-func WithConnectionStateTTL(d time.Duration) ClientOption {
-	return func(os *clientOptions) {
-		os.ConnectionStateTTL = d
-	}
-}
 
 func WithChannelRetryTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {

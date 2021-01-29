@@ -111,6 +111,12 @@ func WithAfter(after func(context.Context, time.Duration) <-chan time.Time) Clie
 	}
 }
 
+func WithConnectionStateTTL(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
+		os.ConnectionStateTTL = d
+	}
+}
+
 func ApplyOptionsWithDefaults(o ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(o...)
 }
