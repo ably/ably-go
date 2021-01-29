@@ -519,6 +519,12 @@ func WithKey(key string) ClientOption {
 	}
 }
 
+func WithDefaultTokenParams(params TokenParams) ClientOption {
+	return func(os *clientOptions) {
+		os.DefaultTokenParams = &params
+	}
+}
+
 func WithQueryTime(queryTime bool) ClientOption {
 	return func(os *clientOptions) {
 		os.UseQueryTime = queryTime
