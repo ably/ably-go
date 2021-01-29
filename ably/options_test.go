@@ -85,36 +85,101 @@ func TestClientOptions(t *testing.T) {
 		assert.Equal(ts, ably.GetEnvFallbackHosts("sandbox"), fallbackHosts)
 	})
 
-	t.Run("with custom environment and default fallbacks", func(ts *testing.T) {
-
+	t.Run("with custom environment and fallbackHostUseDefault", func(ts *testing.T) {
+		clientOptions := ably.NewClientOptions("")
+		clientOptions.Environment = "sandbox"
+		clientOptions.FallbackHostsUseDefault = true
+		assert.Equal(ts, "sandbox-realtime.ably.io", clientOptions.GetRealtimeHost())
+		assert.Equal(ts, "sandbox-rest.ably.io", clientOptions.GetRestHost())
+		assert.False(ts, clientOptions.NoTLS)
+		port, isDefaultPort := clientOptions.ActivePort()
+		assert.Equal(ts, 443, port)
+		assert.True(ts, isDefaultPort)
+		fallbackHosts, _ := clientOptions.GetFallbackHosts()
+		assert.Equal(ts, ably.DefaultFallbackHosts(), fallbackHosts)
 	})
 
 	t.Run("with custom environment and non default ports", func(ts *testing.T) {
-
+		clientOptions := ably.NewClientOptions("")
+		clientOptions.Environment = "local"
+		clientOptions.Port = 8080
+		clientOptions.TLSPort = 8081
+		assert.Equal(ts, "local-realtime.ably.io", clientOptions.GetRealtimeHost())
+		assert.Equal(ts, "local-rest.ably.io", clientOptions.GetRestHost())
+		assert.False(ts, clientOptions.NoTLS)
+		port, isDefaultPort := clientOptions.ActivePort()
+		assert.Equal(ts, 8081, port)
+		assert.False(ts, isDefaultPort)
+		fallbackHosts, _ := clientOptions.GetFallbackHosts()
+		assert.Empty(ts, fallbackHosts)
 	})
 
 	t.Run("with custom host", func(ts *testing.T) {
-
+		clientOptions := ably.NewClientOptions("")
+		clientOptions.RestHost = "test.org"
+		assert.Equal(ts, "test.org", clientOptions.GetRealtimeHost())
+		assert.Equal(ts, "test.org", clientOptions.GetRestHost())
+		assert.False(ts, clientOptions.NoTLS)
+		port, isDefaultPort := clientOptions.ActivePort()
+		assert.Equal(ts, 443, port)
+		assert.True(ts, isDefaultPort)
+		fallbackHosts, _ := clientOptions.GetFallbackHosts()
+		assert.Empty(ts, fallbackHosts)
 	})
 
 	t.Run("with custom rest host and realtime host", func(ts *testing.T) {
-
+		clientOptions := ably.NewClientOptions("")
+		clientOptions.RealtimeHost  = "ws.test.org"
+		clientOptions.RestHost = "test.org"
+		assert.Equal(ts, "ws.test.org", clientOptions.GetRealtimeHost())
+		assert.Equal(ts, "test.org", clientOptions.GetRestHost())
+		assert.False(ts, clientOptions.NoTLS)
+		port, isDefaultPort := clientOptions.ActivePort()
+		assert.Equal(ts, 443, port)
+		assert.True(ts, isDefaultPort)
+		fallbackHosts, _ := clientOptions.GetFallbackHosts()
+		assert.Empty(ts, fallbackHosts)
 	})
 
 	t.Run("with custom host and realtime host and fallbackHostsUseDefault", func(ts *testing.T) {
-
+		clientOptions := ably.NewClientOptions("")
+		clientOptions.RealtimeHost  = "ws.test.org"
+		clientOptions.RestHost = "test.org"
+		clientOptions.FallbackHostsUseDefault = true
+		assert.Equal(ts, "ws.test.org", clientOptions.GetRealtimeHost())
+		assert.Equal(ts, "test.org", clientOptions.GetRestHost())
+		assert.False(ts, clientOptions.NoTLS)
+		port, isDefaultPort := clientOptions.ActivePort()
+		assert.Equal(ts, 443, port)
+		assert.True(ts, isDefaultPort)
+		fallbackHosts, _ := clientOptions.GetFallbackHosts()
+		assert.Equal(ts, ably.DefaultFallbackHosts(), fallbackHosts)
 	})
 
 	t.Run("with fallbackHosts and fallbackHostsUseDefault", func(ts *testing.T) {
-
+		clientOptions := ably.NewClientOptions("")
+		clientOptions.FallbackHosts = [] string {"a.example.com", "b.example.com"}
+		clientOptions.FallbackHostsUseDefault = true
+		_ , error := clientOptions.GetFallbackHosts()
+		assert.Equal(ts, error.Error(), "fallbackHosts and fallbackHostsUseDefault cannot both be set")
 	})
 
 	t.Run("with fallbackHostsUseDefault And default custom port", func(ts *testing.T) {
+		clientOptions := ably.NewClientOptions("")
+		clientOptions.TLSPort = 8081
+		clientOptions.FallbackHostsUseDefault = true
+		_ , isDefaultPort := clientOptions.ActivePort()
+		assert.False(ts, isDefaultPort)
+		_ , error := clientOptions.GetFallbackHosts()
+		assert.Equal(ts, error.Error(), "fallbackHostsUseDefault cannot be set when port or tlsPort are set")
 
-	})
-
-	t.Run("with custom host and realtime host", func(ts *testing.T) {
-
+		clientOptions.NoTLS = true
+		clientOptions.Port = 8080
+		clientOptions.FallbackHostsUseDefault = true
+		_ , isDefaultPort = clientOptions.ActivePort()
+		assert.False(ts, isDefaultPort)
+		_ , error = clientOptions.GetFallbackHosts()
+		assert.Equal(ts, error.Error(), "fallbackHostsUseDefault cannot be set when port or tlsPort are set")
 	})
 
 }
