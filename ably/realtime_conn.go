@@ -129,7 +129,7 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 	return conn, err
 }
 
-func (c *Connection) connectAfterSuspension(arg connArgs) (Result, error) {
+func (c *Connection) connectAfterSuspension(arg connArgs) (result, error) {
 	retryIn := c.opts.suspendedRetryTimeout()
 	lg := c.logger().sugar()
 	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", retryIn)
@@ -187,7 +187,7 @@ func (c *Connection) Close() {
 	c.close()
 }
 
-func (c *Connection) connect(arg connArgs) (Result, error) {
+func (c *Connection) connect(arg connArgs) (result, error) {
 	c.mtx.Lock()
 	arg.mode = c.getMode()
 	c.mtx.Unlock()
@@ -203,7 +203,7 @@ type connArgs struct {
 	retryIn        time.Duration
 }
 
-func (c *Connection) reconnect(arg connArgs) (Result, error) {
+func (c *Connection) reconnect(arg connArgs) (result, error) {
 	c.mtx.Lock()
 
 	var mode connectionMode
@@ -287,7 +287,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 
 const connectionStateTTLErrFmt = "Exceeded connectionStateTtl=%v while in DISCONNECTED state"
 
-func (c *Connection) connectWithRetryLoop(arg connArgs) (Result, error) {
+func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	lg := c.logger().sugar()
 	res, err := c.connectWith(arg)
 	if err == nil {
@@ -368,7 +368,7 @@ loop:
 	return c.connectAfterSuspension(arg)
 }
 
-func (c *Connection) connectWith(arg connArgs) (Result, error) {
+func (c *Connection) connectWith(arg connArgs) (result, error) {
 	c.mtx.Lock()
 	if !c.isActive() {
 		c.lockSetState(ConnectionStateConnecting, nil, 0)
@@ -379,7 +379,7 @@ func (c *Connection) connectWith(arg connArgs) (Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	var res Result
+	var res result
 	if arg.result {
 		res = c.internalEmitter.listenResult(
 			ConnectionStateConnected, // expected state

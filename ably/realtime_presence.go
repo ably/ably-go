@@ -56,7 +56,7 @@ func (pres *RealtimePresence) verifyChanState() error {
 	}
 }
 
-func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
+func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (result, error) {
 	attached, err := pres.channel.attach()
 	if err != nil {
 		return nil, err

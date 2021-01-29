@@ -181,11 +181,11 @@ func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	return res.Wait(ctx)
 }
 
-func (c *RealtimeChannel) attach() (Result, error) {
+func (c *RealtimeChannel) attach() (result, error) {
 	return c.mayAttach(true)
 }
 
-func (c *RealtimeChannel) mayAttach(checkActive bool) (Result, error) {
+func (c *RealtimeChannel) mayAttach(checkActive bool) (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	if checkActive {
@@ -199,7 +199,7 @@ func (c *RealtimeChannel) mayAttach(checkActive bool) (Result, error) {
 	return c.lockAttach(nil)
 }
 
-func (c *RealtimeChannel) lockAttach(err error) (Result, error) {
+func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 	switch c.client.Connection.State() {
 	// RTL4b
 	case ConnectionStateInitialized,
@@ -235,7 +235,7 @@ func (c *RealtimeChannel) Detach(ctx context.Context) error {
 	return res.Wait(ctx)
 }
 
-func (c *RealtimeChannel) detach() (Result, error) {
+func (c *RealtimeChannel) detach() (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	if !c.isActive() {
@@ -244,13 +244,13 @@ func (c *RealtimeChannel) detach() (Result, error) {
 	return c.detachUnsafe()
 }
 
-func (c *RealtimeChannel) detachSkipVerifyActive() (Result, error) {
+func (c *RealtimeChannel) detachSkipVerifyActive() (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.detachUnsafe()
 }
 
-func (c *RealtimeChannel) detachUnsafe() (Result, error) {
+func (c *RealtimeChannel) detachUnsafe() (result, error) {
 	if c.state == ChannelStateFailed {
 		return nil, channelStateError(ChannelStateFailed, errDetach)
 	}
@@ -426,7 +426,7 @@ func (c *RealtimeChannel) History(params *PaginateParams) (*PaginatedResult, err
 	return c.client.rest.Channels.Get(c.Name).History(params)
 }
 
-func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
+func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (result, error) {
 	if res, enqueued := c.maybeEnqueue(msg); enqueued {
 		return res, nil
 	}
@@ -440,7 +440,7 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 	return res, nil
 }
 
-func (c *RealtimeChannel) maybeEnqueue(msg *proto.ProtocolMessage) (_ Result, enqueued bool) {
+func (c *RealtimeChannel) maybeEnqueue(msg *proto.ProtocolMessage) (_ result, enqueued bool) {
 	// RTL6c2
 	if c.opts().NoQueueing {
 		return nil, false
@@ -514,7 +514,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 			c.mtx.Unlock()
 			return
 		case ChannelStateAttached: // TODO: Also SUSPENDED; RTL13a
-			var res Result
+			var res result
 			res, err = c.lockAttach(err)
 			if err != nil {
 				break

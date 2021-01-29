@@ -186,7 +186,7 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	attached := make(ably.ChannelStateChanges, 1)
 	channel.On(ably.ChannelEventAttached, attached.Receive)
 
-	res := make(chan ably.Result)
+	res := make(chan Result)
 	go func() {
 		res <- ablytest.ResultFunc.Go(func(ctx context.Context) error { return channel.Attach(ctx) })
 	}()

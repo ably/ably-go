@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,10 @@ import (
 	"github.com/ably/ably-go/ably/ablytest"
 	"github.com/ably/ably-go/ably/proto"
 )
+
+type Result interface {
+	Wait(context.Context) error
+}
 
 func nonil(err ...error) error {
 	for _, err := range err {
