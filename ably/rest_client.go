@@ -357,9 +357,10 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 				(c.opts.FallbackHostsUseDefault ||
 					strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
 					c.opts.FallbackHosts != nil) {
-				fallback := defaultOptions.FallbackHosts
-				if c.opts.FallbackHosts != nil {
-					fallback = c.opts.FallbackHosts
+				fallback, error := c.opts.getFallbackHosts()
+				if error != nil {
+					log.Error("RestClient: Error generating fallbackhosts")
+					return nil, error
 				}
 				log.Info("RestClient: trying to fallback with hosts=%v", fallback)
 				if len(fallback) > 0 {
