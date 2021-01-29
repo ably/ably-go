@@ -441,9 +441,9 @@ func AuthWithURL(url string) AuthOption {
 	}
 }
 
-func AuthWithMethod(url string) AuthOption {
+func AuthWithMethod(method string) AuthOption {
 	return func(os *authOptions) {
-		os.AuthMethod = url
+		os.AuthMethod = method
 	}
 }
 
@@ -501,9 +501,9 @@ func WithAuthURL(url string) ClientOption {
 	}
 }
 
-func WithAuthMethod(url string) ClientOption {
+func WithAuthMethod(method string) ClientOption {
 	return func(os *clientOptions) {
-		os.AuthMethod = url
+		os.AuthMethod = method
 	}
 }
 
