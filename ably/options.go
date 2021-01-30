@@ -415,6 +415,9 @@ func (opts *ClientOptions) getFallbackHosts() ([]string, error) {
 		}
 		return getEnvFallbackHosts(opts.Environment), nil
 	}
+	if opts.FallbackHosts != nil {
+		return opts.FallbackHosts, nil
+	}
 	return []string{}, nil
 }
 
