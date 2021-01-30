@@ -5,6 +5,14 @@ import (
 	"time"
 )
 
+func DefaultFallbackHosts() []string {
+	return defaultFallbackHosts()
+}
+
+func GetEnvFallbackHosts(env string) []string {
+	return getEnvFallbackHosts(env)
+}
+
 func (p *PaginatedResult) BuildPath(base, rel string) string {
 	return p.buildPath(base, rel)
 }
