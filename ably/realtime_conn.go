@@ -369,9 +369,12 @@ loop:
 }
 
 func (c *Connection) connectWith(arg connArgs) (Result, error) {
+	c.mtx.Lock()
 	if !c.isActive() {
-		c.setState(ConnectionStateConnecting, nil, 0)
+		c.lockSetState(ConnectionStateConnecting, nil, 0)
 	}
+	c.mtx.Unlock()
+
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
 		return nil, err
