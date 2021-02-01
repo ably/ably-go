@@ -1,0 +1,46 @@
+# Based upon:
+#   https://github.com/actions/starter-workflows/blob/main/ci/go.yml
+
+on:
+  pull_request:
+  push:
+    branches: [ $default-branch ]
+
+jobs:
+  check:
+
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+    strategy:
+      matrix:
+        go-version: [1.13, 1.14, 1.15]
+
+    steps:
+      - uses: actions/checkout@v2
+      - with:
+          submodules: 'recursive'
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Download Packages
+        run: go get -t -v ./ably/...
+
+      - name: Vet
+        run: go vet ./ably ./scripts
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test with JSON Protocol
+        env:
+          ABLY_PROTOCOL: application/json
+        run: go test -p 1 -race -v ./...
+
+      - name: Test with MessagePack Protocol
+        env:
+          ABLY_PROTOCOL: application/x-msgpack
+        run: go test -p 1 -race -v ./...
