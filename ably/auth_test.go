@@ -680,12 +680,20 @@ func TestAuth_ClientID(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// After the current token expires, reconnecting should request a new token
+	// from authURL. Make it return the token with the mismatched client ID, and
+	// expect a transition to FAILED.
+
 	time.Sleep(time.Duration(params.TTL) * time.Millisecond)
 	tokenExpiredAt := time.Now()
 
 	// Allow some extra time for the server to reject our token.
-	err = nil
 	tokenErrorDeadline := tokenExpiredAt.Add(5 * time.Second)
+
+	// Close and reconnect with the expired token, until we get an error.
+	// Expiration deadlines are inexact, so this may take a few tries until the
+	// token is effectively expired.
+	err = nil
 	for err == nil && time.Now().Before(tokenErrorDeadline) {
 		time.Sleep(100 * time.Millisecond)
 
@@ -704,6 +712,7 @@ func TestAuth_ClientID(t *testing.T) {
 			t.Fatalf("waiting for close: %v", err)
 		}
 
+		in <- connected
 		proxy.TokenQueue = append(proxy.TokenQueue, tok)
 		err = ablytest.Wait(ablytest.ConnWaiter(client, client.Connect,
 			ably.ConnectionEventConnected,
