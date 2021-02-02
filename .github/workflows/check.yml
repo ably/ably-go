@@ -33,9 +33,6 @@ jobs:
       - name: Vet
         run: go vet ./ably ./scripts
 
-      - name: Build
-        run: go build -v ./...
-
       - name: Test with JSON Protocol
         env:
           ABLY_PROTOCOL: application/json
