@@ -28,7 +28,7 @@ type WithTimeout struct {
 //
 // It returns the second, boolean value returned by the receive operation,
 // or false if the operation times out.
-func (wt WithTimeout) Recv(t *testing.T, into interface{}, from interface{}, fail func(fmt string, args ...interface{})) (ok bool) {
+func (wt WithTimeout) Recv(t *testing.T, into, from interface{}, fail func(fmt string, args ...interface{})) (ok bool) {
 	t.Helper()
 	ok, timeout := wt.recv(into, from)
 	if timeout {
@@ -38,7 +38,7 @@ func (wt WithTimeout) Recv(t *testing.T, into interface{}, from interface{}, fai
 }
 
 // NoRecv is like Recv, except it asserts no value is received.
-func (wt WithTimeout) NoRecv(t *testing.T, into interface{}, from interface{}, fail func(fmt string, args ...interface{})) (ok bool) {
+func (wt WithTimeout) NoRecv(t *testing.T, into, from interface{}, fail func(fmt string, args ...interface{})) (ok bool) {
 	t.Helper()
 	if into == nil {
 		into = &into
@@ -50,7 +50,16 @@ func (wt WithTimeout) NoRecv(t *testing.T, into interface{}, from interface{}, f
 	return ok
 }
 
-func (wt WithTimeout) recv(into interface{}, from interface{}) (ok, timeout bool) {
+// Send is like Recv, except it sends.
+func (wt WithTimeout) Send(t *testing.T, ch, v interface{}, fail func(fmt string, args ...interface{})) (ok bool) {
+	t.Helper()
+	if timeout := wt.send(ch, v); timeout {
+		fail("timed out waiting for channel send")
+	}
+	return ok
+}
+
+func (wt WithTimeout) recv(into, from interface{}) (ok, timeout bool) {
 	chosen, recv, ok := reflect.Select([]reflect.SelectCase{{
 		Dir:  reflect.SelectRecv,
 		Chan: reflect.ValueOf(from),
@@ -62,6 +71,18 @@ func (wt WithTimeout) recv(into interface{}, from interface{}) (ok, timeout bool
 		reflect.ValueOf(into).Elem().Set(recv)
 	}
 	return ok, chosen == 1
+}
+
+func (wt WithTimeout) send(ch, v interface{}) (timeout bool) {
+	chosen, _, _ := reflect.Select([]reflect.SelectCase{{
+		Dir:  reflect.SelectSend,
+		Chan: reflect.ValueOf(ch),
+		Send: reflect.ValueOf(v),
+	}, {
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(time.After(time.Duration(wt.before))),
+	}})
+	return chosen == 1
 }
 
 func (wt WithTimeout) IsTrue(pred func() bool) bool {

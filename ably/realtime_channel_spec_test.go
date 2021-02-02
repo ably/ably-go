@@ -452,7 +452,7 @@ func TestRealtimeChannel_RTL6c5_NoImplicitAttach(t *testing.T) {
 	t.Parallel()
 
 	app, c := ablytest.NewRealtime()
-	defer safeclose(t, app, ablytest.FullRealtimeCloser(c))
+	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
 
 	if err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)

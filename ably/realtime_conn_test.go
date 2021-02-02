@@ -1,11 +1,15 @@
 package ably_test
 
 import (
+	"context"
+	"errors"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ably/proto"
 )
 
@@ -201,7 +205,7 @@ func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 			app, client := ablytest.NewRealtime(
 				ably.WithDial(ablytest.MessagePipe(in, out)),
 			)
-			defer safeclose(t, app, ablytest.FullRealtimeCloser(client))
+			defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 			connected := &proto.ProtocolMessage{
 				Action:            proto.ActionConnected,
@@ -228,5 +232,69 @@ func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 			case <-time.After(10 * time.Millisecond):
 			}
 		})
+	}
+}
+
+func TestRealtimeConn_SendErrorReconnects(t *testing.T) {
+	sendErr := make(chan error, 1)
+	closed := make(chan struct{}, 1)
+	allowDial := make(chan struct{})
+
+	dial := ablytest.DialFunc(func(p string, url *url.URL, timeout time.Duration) (proto.Conn, error) {
+		<-allowDial
+		ws, err := ablyutil.DialWebsocket(p, url, timeout)
+		if err != nil {
+			return nil, err
+		}
+		return connMock{
+			SendFunc: func(m *proto.ProtocolMessage) error {
+				select {
+				case err := <-sendErr:
+					return err
+				default:
+					return ws.Send(m)
+				}
+			},
+			ReceiveFunc: ws.Receive,
+			CloseFunc: func() error {
+				closed <- struct{}{}
+				return ws.Close()
+			},
+		}, nil
+	})
+
+	app, c := ablytest.NewRealtime(ably.WithDial(dial))
+	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
+
+	allowDial <- struct{}{}
+
+	if err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Cause a send error; expect message to be enqueued and transport to be
+	// closed.
+
+	sendErr <- errors.New("fail")
+
+	publishErr := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		e := c.Channels.Get("test").Publish(ctx, "test", nil)
+		publishErr <- e
+	}()
+
+	ablytest.Instantly.Recv(t, nil, closed, t.Fatalf)
+	ablytest.Instantly.NoRecv(t, nil, publishErr, t.Fatalf)
+
+	// Reconnect should happen instantly as a result of transport closure.
+	ablytest.Instantly.Send(t, allowDial, struct{}{}, t.Fatalf)
+
+	// After reconnection, message should be published.
+	var err error
+	ablytest.Soon.Recv(t, &err, publishErr, t.Fatalf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

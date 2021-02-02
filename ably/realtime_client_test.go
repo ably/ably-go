@@ -149,5 +149,5 @@ func TestRealtime_multiple(t *testing.T) {
 func TestRealtime_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 	t.Parallel()
 	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
-	defer safeclose(t, app, ablytest.FullRealtimeCloser(client))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 }
