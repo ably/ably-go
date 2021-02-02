@@ -31,7 +31,7 @@ jobs:
         run: go get -t -v ./ably/...
 
       - name: Vet
-        run: go vet ./ably ./scripts
+        run: go vet ./ably/... ./scripts/...
 
       - name: Test with JSON Protocol
         env:
