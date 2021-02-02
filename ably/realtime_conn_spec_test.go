@@ -2319,7 +2319,8 @@ func TestRealtimeConn_RTN19a(t *testing.T) {
 	if expect, got := ably.ChannelStateAttached, state.Current; got != expect {
 		t.Fatalf("expected %v got %v", expect, got)
 	}
-	ctx, _ := context.WithTimeout(context.TODO(), time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond)
+	defer cancel()
 	err = channel.Publish(ctx, "ack", "ack")
 	if err != nil {
 		if err != context.DeadlineExceeded {
