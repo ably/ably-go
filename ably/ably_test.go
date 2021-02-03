@@ -3,6 +3,7 @@ package ably_test
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -63,5 +64,49 @@ func checkError(code int, err error) error {
 		return fmt.Errorf("want e.Code=%d; got %d: %s", code, e.Code, err)
 	default:
 		return nil
+	}
+}
+
+func assertEquals(t *testing.T, expected interface{}, actual interface{}) {
+	if expected != actual {
+		t.Errorf("%v is not equal to %v", expected, actual)
+	}
+}
+
+func assertTrue(t *testing.T, value bool) {
+	if !value {
+		t.Errorf("%v is not true", value)
+	}
+}
+
+func assertFalse(t *testing.T, value bool) {
+	if value {
+		t.Errorf("%v is not false", value)
+	}
+}
+
+func assertNil(t *testing.T, value interface{}) {
+	if value != nil {
+		t.Errorf("%v is not not nil", value)
+	}
+}
+
+func assertNotNil(t *testing.T, value interface{}) {
+	if value == nil {
+		t.Errorf("%v is nil", value)
+	}
+}
+
+func assertDeepEquals(t *testing.T, expected interface{}, actual interface{}) {
+	areEqual := reflect.DeepEqual(expected, actual)
+	if !areEqual {
+		t.Errorf("%v is not equal to %v", expected, actual)
+	}
+}
+
+func assertEmpty(t *testing.T, value []string) {
+	assertNotNil(t, value)
+	if len(value) > 0 {
+		t.Errorf("%v is not empty", value)
 	}
 }
