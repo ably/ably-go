@@ -104,7 +104,7 @@ func TestFallbackHosts_RSC15b(t *testing.T) {
 		assertEquals(ts, 8081, port)
 		assertFalse(ts, isDefaultPort)
 		fallbackHosts, _ := clientOptions.GetFallbackHosts()
-		assertEmpty(ts, fallbackHosts)
+		assertNil(ts, fallbackHosts)
 	})
 
 	t.Run("RSC11 with custom rest host", func(ts *testing.T) {
@@ -117,7 +117,7 @@ func TestFallbackHosts_RSC15b(t *testing.T) {
 		assertEquals(ts, 443, port)
 		assertTrue(ts, isDefaultPort)
 		fallbackHosts, _ := clientOptions.GetFallbackHosts()
-		assertEmpty(ts, fallbackHosts)
+		assertNil(ts, fallbackHosts)
 	})
 
 	t.Run("RSC11 with custom rest host and realtime host", func(ts *testing.T) {
@@ -131,7 +131,7 @@ func TestFallbackHosts_RSC15b(t *testing.T) {
 		assertEquals(ts, 443, port)
 		assertTrue(ts, isDefaultPort)
 		fallbackHosts, _ := clientOptions.GetFallbackHosts()
-		assertEmpty(ts, fallbackHosts)
+		assertNil(ts, fallbackHosts)
 	})
 
 	t.Run("RSC15b with custom rest host and realtime host and fallbackHostsUseDefault", func(ts *testing.T) {

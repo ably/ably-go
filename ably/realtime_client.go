@@ -23,6 +23,12 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 	if opts == nil {
 		panic("called NewRealtimeClient with nil ClientOptions")
 	}
+	_, error := opts.getFallbackHosts()
+	if error != nil {
+		log := opts.Logger.Sugar()
+		log.Errorf("Error getting fallbackHosts : %v", error.Error())
+		return nil, error
+	}
 	c := &RealtimeClient{}
 	rest, err := NewRestClient(opts)
 	if err != nil {

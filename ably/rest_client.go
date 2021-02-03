@@ -138,6 +138,12 @@ func NewRestClient(opts *ClientOptions) (*RestClient, error) {
 	if opts == nil {
 		panic("called NewRealtimeClient with nil ClientOptions")
 	}
+	_, error := opts.getFallbackHosts()
+	if error != nil {
+		log := opts.Logger.Sugar()
+		log.Errorf("Error getting fallbackHosts : %v", error.Error())
+		return nil, error
+	}
 	c := &RestClient{
 		opts: *opts,
 	}
@@ -353,18 +359,11 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 	if err != nil {
 		log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*Error); ok {
-			if canFallBack(e.StatusCode) &&
-				(c.opts.FallbackHostsUseDefault ||
-					strings.HasPrefix(req.URL.Host, defaultOptions.RestHost) ||
-					c.opts.FallbackHosts != nil) {
-				fallback, error := c.opts.getFallbackHosts()
-				if error != nil {
-					log.Error("RestClient: Error generating fallbackhosts")
-					return nil, error
-				}
-				log.Info("RestClient: trying to fallback with hosts=%v", fallback)
-				if len(fallback) > 0 {
-					left := fallback
+			if canFallBack(e.StatusCode) {
+				fallbacks, _ := c.opts.getFallbackHosts()
+				log.Info("RestClient: trying to fallback with hosts=%v", fallbacks)
+				if fallbacks != nil && len(fallbacks) > 0 {
+					left := fallbacks
 					iteration := 0
 					maxLimit := c.opts.HTTPMaxRetryCount
 					if maxLimit == 0 {
