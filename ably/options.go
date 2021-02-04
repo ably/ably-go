@@ -268,6 +268,16 @@ func NewClientOptions(key string) *ClientOptions {
 	}
 }
 
+func (opts *ClientOptions) validate() error {
+	_, error := opts.getFallbackHosts()
+	if error != nil {
+		log := opts.Logger.Sugar()
+		log.Errorf("Error getting fallbackHosts : %v", error.Error())
+		return error
+	}
+	return nil
+}
+
 func (opts *ClientOptions) isProductionEnvironment() bool {
 	env := opts.Environment
 	return empty(env) || strings.EqualFold(env, "production")
