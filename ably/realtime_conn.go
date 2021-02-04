@@ -116,7 +116,6 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 	query.Add("heartbeats", "true")
 	u.RawQuery = query.Encode()
 	timeout := c.opts.realtimeRequestTimeout()
-	// TODO: Use c.opts.baseCtx to dial.
 	if c.opts.Dial != nil {
 		conn, err = c.opts.Dial(proto, u, timeout)
 	} else {
@@ -268,7 +267,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	for k, v := range c.opts.TransportParams {
 		query[k] = v
 	}
-	if err := c.auth.authQuery(c.opts.BaseCtx, query); err != nil {
+	if err := c.auth.authQuery(context.Background(), query); err != nil {
 		return nil, err
 	}
 	switch mode {
@@ -876,7 +875,7 @@ func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
 
 func (c *Connection) reauthorize(arg connArgs) {
 	c.mtx.Lock()
-	_, err := c.auth.reauthorize(c.opts.BaseCtx)
+	_, err := c.auth.reauthorize(context.Background())
 
 	if err != nil {
 		c.lockedReauthorizationFailed(err)

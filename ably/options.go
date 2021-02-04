@@ -41,7 +41,6 @@ var defaultOptions = clientOptions{
 	TLSPort:                  443,
 	Now:                      time.Now,
 	After:                    ablyutil.After,
-	BaseCtx:                  context.Background(),
 }
 
 func defaultFallbackHosts() []string {
@@ -236,8 +235,6 @@ type clientOptions struct {
 	// Now returns the time the library should take as current.
 	Now   func() time.Time
 	After func(context.Context, time.Duration) <-chan time.Time
-
-	BaseCtx context.Context
 }
 
 func (opts *clientOptions) timeoutConnect() time.Duration {
@@ -699,15 +696,6 @@ func WithHTTPClient(client *http.Client) ClientOption {
 func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error)) ClientOption {
 	return func(os *clientOptions) {
 		os.Dial = dial
-	}
-}
-
-// WithBaseContext establishes a context to use for operations initiated by the
-// the library, such as establishing realtime connections and requesting
-// implicit authorizations.
-func WithBaseContext(ctx context.Context) ClientOption {
-	return func(os *clientOptions) {
-		os.BaseCtx = ctx
 	}
 }
 

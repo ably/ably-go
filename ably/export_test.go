@@ -45,7 +45,7 @@ func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
 }
 
 func (c *REST) Timestamp(query bool) (time.Time, error) {
-	return c.Auth.timestamp(c.opts.BaseCtx, query)
+	return c.Auth.timestamp(context.Background(), query)
 }
 
 func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
