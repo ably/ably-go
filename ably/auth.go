@@ -338,11 +338,7 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 		req.ClientID = a.opts().ClientID
 	}
 	if req.Timestamp == 0 {
-		var ctx context.Context
-		if opts.UseQueryTime {
-			ctx = context.Background()
-		}
-		ts, err := a.timestamp(ctx)
+		ts, err := a.timestamp(context.Background(), opts.UseQueryTime)
 		if err != nil {
 			return err
 		}
@@ -352,9 +348,9 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 }
 
 //Timestamp returns the timestamp to be used in authorization request.
-func (a *Auth) timestamp(queryCtx context.Context) (time.Time, error) {
+func (a *Auth) timestamp(ctx context.Context, query bool) (time.Time, error) {
 	now := a.client.opts.Now()
-	if queryCtx == nil {
+	if !query {
 		return now, nil
 	}
 	if a.serverTimeOffset != 0 {
@@ -372,7 +368,7 @@ func (a *Auth) timestamp(queryCtx context.Context) (time.Time, error) {
 		}
 		serverTime = t
 	} else {
-		t, err := a.client.Time(queryCtx)
+		t, err := a.client.Time(ctx)
 		if err != nil {
 			return time.Time{}, newError(ErrUnauthorized, err)
 		}

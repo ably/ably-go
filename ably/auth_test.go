@@ -178,7 +178,7 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
-		stamp, err := a.Timestamp(nil)
+		stamp, err := a.Timestamp(context.Background(), false)
 		if err != nil {
 			ts.Fatal(err)
 		}

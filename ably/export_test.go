@@ -40,16 +40,12 @@ func UnwrapErrorCode(err error) ErrorCode {
 	return code(err)
 }
 
-func (a *Auth) Timestamp(queryCtx context.Context) (time.Time, error) {
-	return a.timestamp(queryCtx)
+func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
+	return a.timestamp(ctx, query)
 }
 
 func (c *REST) Timestamp(query bool) (time.Time, error) {
-	var ctx context.Context
-	if query {
-		ctx = c.opts.BaseCtx
-	}
-	return c.Auth.timestamp(ctx)
+	return c.Auth.timestamp(c.opts.BaseCtx, query)
 }
 
 func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
