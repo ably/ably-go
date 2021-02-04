@@ -164,11 +164,10 @@ func (c *REST) Stats(ctx context.Context, params *PaginateParams) (*PaginatedRes
 // request this contains fields necessary to compose http request that will be
 // sent ably endpoints.
 type request struct {
-	Context context.Context
-	Method  string
-	Path    string
-	In      interface{} // value to be encoded and sent with request body
-	Out     interface{} // value to store decoded response body
+	Method string
+	Path   string
+	In     interface{} // value to be encoded and sent with request body
+	Out    interface{} // value to store decoded response body
 
 	// NoAuth when set to true, makes the request not being authenticated.
 	NoAuth bool
