@@ -593,5 +593,5 @@ type connTrackingClose struct {
 
 func (c *connTrackingClose) Close() error {
 	atomic.StoreUintptr(&c.closed, 1)
-	return c.Close()
+	return c.Conn.Close()
 }
