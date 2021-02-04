@@ -362,7 +362,7 @@ func (c *RestClient) doWithHandle(r *Request, handle func(*http.Response, interf
 			if canFallBack(e.StatusCode) {
 				fallbacks, _ := c.opts.getFallbackHosts()
 				log.Info("RestClient: trying to fallback with hosts=%v", fallbacks)
-				if fallbacks != nil && len(fallbacks) > 0 {
+				if len(fallbacks) > 0 {
 					left := fallbacks
 					iteration := 0
 					maxLimit := c.opts.HTTPMaxRetryCount
