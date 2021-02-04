@@ -91,11 +91,11 @@ func (wt WithTimeout) IsTrue(pred func() bool) bool {
 	timeout := time.NewTimer(wt.before)
 	defer timeout.Stop()
 	for {
+		if pred() {
+			return true
+		}
 		select {
 		case <-ticker.C:
-			if pred() {
-				return true
-			}
 		case <-timeout.C:
 			return pred()
 		}
