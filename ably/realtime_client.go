@@ -12,7 +12,7 @@ import (
 // state.
 type Realtime struct {
 	Auth       *Auth
-	Channels   *Channels
+	Channels   *RealtimeChannels
 	Connection *Connection
 
 	rest *REST

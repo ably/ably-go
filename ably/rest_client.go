@@ -106,18 +106,10 @@ func (c *RESTChannels) get(name string, opts *proto.ChannelOptions) *RESTChannel
 }
 
 // Release deletes the channel from the cache.
-func (c *RESTChannels) Release(ch *RESTChannel) {
+func (c *RESTChannels) Release(name string) {
 	c.mu.Lock()
-	delete(c.cache, ch.Name)
+	delete(c.cache, name)
 	c.mu.Unlock()
-}
-
-// Len returns the number of channels stored.
-func (c *RESTChannels) Len() (size int) {
-	c.mu.RLock()
-	size = len(c.cache)
-	c.mu.RUnlock()
-	return
 }
 
 type REST struct {

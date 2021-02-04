@@ -111,6 +111,12 @@ func WithAfter(after func(context.Context, time.Duration) <-chan time.Time) Clie
 	}
 }
 
+func WithConnectionStateTTL(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
+		os.ConnectionStateTTL = d
+	}
+}
+
 func ApplyOptionsWithDefaults(o ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(o...)
 }
@@ -130,4 +136,12 @@ func (c *Connection) PendingItems() int {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.pending.Len()
+}
+
+type Result = result
+
+func (c *RESTChannels) Len() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.cache)
 }

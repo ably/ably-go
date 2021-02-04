@@ -10,16 +10,16 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
-// Result awaits completion of asynchronous operation.
-type Result interface {
+// result awaits completion of asynchronous operation.
+type result interface {
 	// Wait blocks until asynchronous operation is completed. Upon its completion,
 	// the method returns nil error if it was successful and non-nil error otherwise.
 	// It's allowed to call Wait multiple times.
 	Wait(context.Context) error
 }
 
-func wait(ctx context.Context) func(Result, error) error {
-	return func(res Result, err error) error {
+func wait(ctx context.Context) func(result, error) error {
+	return func(res result, err error) error {
 		if err != nil {
 			return err
 		}
@@ -29,7 +29,7 @@ func wait(ctx context.Context) func(Result, error) error {
 
 // goWaiter immediately calls the given function in a separate goroutine. The
 // returned Result waits for its completion and returns its error.
-func goWaiter(f func() error) Result {
+func goWaiter(f func() error) result {
 	err := make(chan error, 1)
 	go func() {
 		defer close(err)
@@ -253,7 +253,7 @@ type errResult struct {
 	listen <-chan error
 }
 
-func newErrResult() (Result, chan<- error) {
+func newErrResult() (result, chan<- error) {
 	listen := make(chan error, 1)
 	res := &errResult{listen: listen}
 	return res, listen
@@ -281,7 +281,7 @@ func (f resultFunc) Wait(ctx context.Context) error {
 	return f(ctx)
 }
 
-func (e ChannelEventEmitter) listenResult(expected ChannelState, failed ...ChannelState) Result {
+func (e ChannelEventEmitter) listenResult(expected ChannelState, failed ...ChannelState) result {
 	// Make enough room not to block the sender if the Result is never waited on.
 	changes := make(channelStateChanges, 1+len(failed))
 
@@ -318,7 +318,7 @@ func (e ChannelEventEmitter) listenResult(expected ChannelState, failed ...Chann
 	})
 }
 
-func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ...ConnectionState) Result {
+func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ...ConnectionState) result {
 	// Make enough room not to block the sender if the Result is never waited on.
 	changes := make(connStateChanges, 1+len(failed))
 
@@ -392,7 +392,7 @@ var (
 	ConnectionEventClosing      ConnectionEvent = ConnectionEvent(ConnectionStateClosing)
 	ConnectionEventClosed       ConnectionEvent = ConnectionEvent(ConnectionStateClosed)
 	ConnectionEventFailed       ConnectionEvent = ConnectionEvent(ConnectionStateFailed)
-	ConnectionEventUpdated      ConnectionEvent = ConnectionEvent{name: "UPDATED"}
+	ConnectionEventUpdate       ConnectionEvent = ConnectionEvent{name: "UPDATE"}
 )
 
 func (e ConnectionEvent) String() string {
@@ -450,7 +450,7 @@ var (
 	ChannelEventDetached    ChannelEvent = ChannelEvent(ChannelStateDetached)
 	ChannelEventSuspended   ChannelEvent = ChannelEvent(ChannelStateSuspended)
 	ChannelEventFailed      ChannelEvent = ChannelEvent(ChannelStateFailed)
-	ChannelEventUpdated     ChannelEvent = ChannelEvent{name: "UPDATED"}
+	ChannelEventUpdate      ChannelEvent = ChannelEvent{name: "UPDATE"}
 )
 
 func (e ChannelEvent) String() string {

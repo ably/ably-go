@@ -441,9 +441,9 @@ func AuthWithURL(url string) AuthOption {
 	}
 }
 
-func AuthWithMethod(url string) AuthOption {
+func AuthWithMethod(method string) AuthOption {
 	return func(os *authOptions) {
-		os.AuthMethod = url
+		os.AuthMethod = method
 	}
 }
 
@@ -501,9 +501,9 @@ func WithAuthURL(url string) ClientOption {
 	}
 }
 
-func WithAuthMethod(url string) ClientOption {
+func WithAuthMethod(method string) ClientOption {
 	return func(os *clientOptions) {
-		os.AuthMethod = url
+		os.AuthMethod = method
 	}
 }
 
@@ -516,6 +516,12 @@ func WithAuthHeaders(headers http.Header) ClientOption {
 func WithKey(key string) ClientOption {
 	return func(os *clientOptions) {
 		os.Key = key
+	}
+}
+
+func WithDefaultTokenParams(params TokenParams) ClientOption {
+	return func(os *clientOptions) {
+		os.DefaultTokenParams = &params
 	}
 }
 
@@ -660,11 +666,6 @@ func WithHTTPOpenTimeout(d time.Duration) ClientOption {
 func WithSuspendedRetryTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.SuspendedRetryTimeout = d
-	}
-}
-func WithConnectionStateTTL(d time.Duration) ClientOption {
-	return func(os *clientOptions) {
-		os.ConnectionStateTTL = d
 	}
 }
 

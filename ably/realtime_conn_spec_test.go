@@ -1523,7 +1523,7 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 	var change ably.ConnectionStateChange
 	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
 
-	if change.Event != ably.ConnectionEventUpdated {
+	if change.Event != ably.ConnectionEventUpdate {
 		t.Fatalf("expected UPDATED event; got %v", change)
 	}
 

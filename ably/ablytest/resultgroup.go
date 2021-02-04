@@ -10,7 +10,11 @@ import (
 	"github.com/ably/ably-go/ably"
 )
 
-func Wait(res ably.Result, err error) error {
+type Result interface {
+	Wait(context.Context) error
+}
+
+func Wait(res Result, err error) error {
 	if err != nil {
 		return err
 	}
@@ -26,11 +30,11 @@ func Wait(res ably.Result, err error) error {
 	}
 }
 
-// ResultGroup is like sync.WaitGroup, but for ably.Result values.
+// ResultGroup is like sync.WaitGroup, but for Result values.
 //
-// ResultGroup blocks till last added ably.Result has completed successfully.
+// ResultGroup blocks till last added Result has completed successfully.
 //
-// If at least ably.Result value failed, ResultGroup returns first encountered
+// If at least Result value failed, ResultGroup returns first encountered
 // error immediately.
 type ResultGroup struct {
 	mu    sync.Mutex
@@ -49,7 +53,7 @@ func (rg *ResultGroup) check(err error) bool {
 	return rg.err == nil
 }
 
-func (rg *ResultGroup) Add(res ably.Result, err error) {
+func (rg *ResultGroup) Add(res Result, err error) {
 	if !rg.check(err) {
 		return
 	}
@@ -87,7 +91,7 @@ func (rg *ResultGroup) Wait() error {
 	}
 }
 
-func ConnWaiter(client *ably.Realtime, do func(), expectedEvent ...ably.ConnectionEvent) ably.Result {
+func ConnWaiter(client *ably.Realtime, do func(), expectedEvent ...ably.ConnectionEvent) Result {
 	change := make(chan ably.ConnectionStateChange, 1)
 	off := client.Connection.OnAll(func(ev ably.ConnectionStateChange) {
 		change <- ev
@@ -142,7 +146,7 @@ func (f ResultFunc) Wait(ctx context.Context) error {
 	return f(ctx)
 }
 
-func (f ResultFunc) Go() ably.Result {
+func (f ResultFunc) Go() Result {
 	err := make(chan error, 1)
 	go func() {
 		err <- f(context.Background())

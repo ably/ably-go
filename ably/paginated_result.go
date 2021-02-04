@@ -210,7 +210,7 @@ func (p *PaginatedResult) Items() []interface{} {
 
 // Messages gives a slice of messages for the current page. The method panics if
 // the underlying paginated result is not a message.
-func (p *PaginatedResult) Messages() []*proto.Message {
+func (p *PaginatedResult) Messages() []*Message {
 	items, ok := p.typItems.([]*proto.Message)
 	if !ok {
 		panic(errInvalidType{typ: p.req.typ})
@@ -220,7 +220,7 @@ func (p *PaginatedResult) Messages() []*proto.Message {
 
 // PresenceMessages gives a slice of presence messages for the current path.
 // The method panics if the underlying paginated result is not a presence message.
-func (p *PaginatedResult) PresenceMessages() []*proto.PresenceMessage {
+func (p *PaginatedResult) PresenceMessages() []*PresenceMessage {
 	items, ok := p.typItems.([]*proto.PresenceMessage)
 	if !ok {
 		panic(errInvalidType{typ: p.req.typ})
@@ -230,13 +230,23 @@ func (p *PaginatedResult) PresenceMessages() []*proto.PresenceMessage {
 
 // Stats gives a slice of statistics for the current page. The method panics if
 // the underlying paginated result is not statistics.
-func (p *PaginatedResult) Stats() []*proto.Stats {
+func (p *PaginatedResult) Stats() []*Stats {
 	items, ok := p.typItems.([]*proto.Stats)
 	if !ok {
 		panic(errInvalidType{typ: p.req.typ})
 	}
 	return items
 }
+
+type Stats = proto.Stats
+type StatsMessageTypes = proto.MessageTypes
+type StatsMessageTraffic = proto.MessageTraffic
+type StatsConnectionTypes = proto.ConnectionTypes
+type StatsResourceCount = proto.ResourceCount
+type StatsRequestCount = proto.RequestCount
+type StatsPushStats = proto.PushStats
+type StatsXchgMessages = proto.XchgMessages
+type PushStats = proto.PushStats
 
 func (c *PaginatedResult) buildPaginatedPath(path string, params *PaginateParams) (string, error) {
 	if params == nil {

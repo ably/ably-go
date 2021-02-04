@@ -430,7 +430,7 @@ func (a *Auth) requestAuthURL(params *TokenParams, opts *authOptions) (interface
 		var req TokenRequest
 		var buf bytes.Buffer
 		err := decode(typ, io.TeeReader(resp.Body, &buf), &req)
-		if err == nil && req.Mac != "" && req.Nonce != "" {
+		if err == nil && req.MAC != "" && req.Nonce != "" {
 			return &req, nil
 		}
 		var token TokenDetails

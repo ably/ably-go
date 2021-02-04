@@ -56,7 +56,7 @@ func (pres *RealtimePresence) verifyChanState() error {
 	}
 }
 
-func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (Result, error) {
+func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (result, error) {
 	attached, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
@@ -211,7 +211,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached anyway.
-func (pres *RealtimePresence) Get(ctx context.Context) ([]*proto.PresenceMessage, error) {
+func (pres *RealtimePresence) Get(ctx context.Context) ([]*PresenceMessage, error) {
 	return pres.GetWithOptions(ctx)
 }
 
@@ -240,7 +240,7 @@ func (o *presenceGetOptions) applyWithDefaults(options ...PresenceGetOption) {
 }
 
 // GetWithOptions is Get with optional parameters.
-func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...PresenceGetOption) ([]*proto.PresenceMessage, error) {
+func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...PresenceGetOption) ([]*PresenceMessage, error) {
 	var opts presenceGetOptions
 	opts.applyWithDefaults(options...)
 

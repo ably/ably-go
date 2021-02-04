@@ -22,16 +22,16 @@ func (ch chanSlice) Less(i, j int) bool { return ch[i].Name < ch[j].Name }
 func (ch chanSlice) Swap(i, j int)      { ch[i], ch[j] = ch[j], ch[i] }
 func (ch chanSlice) Sort()              { sort.Sort(ch) }
 
-// Channels is a goroutine-safe container for realtime channels that allows
+// RealtimeChannels is a goroutine-safe container for realtime channels that allows
 // for creating, deleting and iterating over existing channels.
-type Channels struct {
+type RealtimeChannels struct {
 	mtx    sync.Mutex
 	client *Realtime
 	chans  map[string]*RealtimeChannel
 }
 
-func newChannels(client *Realtime) *Channels {
-	return &Channels{
+func newChannels(client *Realtime) *RealtimeChannels {
+	return &RealtimeChannels{
 		client: client,
 		chans:  make(map[string]*RealtimeChannel),
 	}
@@ -57,11 +57,15 @@ func ChannelWithCipherKey(key []byte) ChannelOption {
 }
 
 // Cipher sets cipher parameters for encrypting messages on a channel.
-func ChannelWithCipher(params proto.CipherParams) ChannelOption {
+func ChannelWithCipher(params CipherParams) ChannelOption {
 	return func(o *channelOptions) {
 		o.Cipher = params
 	}
 }
+
+type CipherParams = proto.CipherParams
+type CipherAlgorith = proto.CipherAlgorithm
+type CipherMode = proto.CipherMode
 
 // Get looks up a channel given by the name and creates it if it does not exist
 // already.
@@ -69,7 +73,7 @@ func ChannelWithCipher(params proto.CipherParams) ChannelOption {
 // It is safe to call Get from multiple goroutines - a single channel is
 // guaranteed to be created only once for multiple calls to Get from different
 // goroutines.
-func (ch *Channels) Get(name string, options ...ChannelOption) *RealtimeChannel {
+func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *RealtimeChannel {
 	// TODO: options
 	ch.mtx.Lock()
 	c, ok := ch.chans[name]
@@ -88,7 +92,7 @@ func (ch *Channels) Get(name string, options ...ChannelOption) *RealtimeChannel 
 // different goroutine.
 //
 // The returned list is sorted by channel names.
-func (ch *Channels) All() []*RealtimeChannel {
+func (ch *RealtimeChannels) All() []*RealtimeChannel {
 	ch.mtx.Lock()
 	chans := make([]*RealtimeChannel, 0, len(ch.chans))
 	for _, c := range ch.chans {
@@ -99,9 +103,17 @@ func (ch *Channels) All() []*RealtimeChannel {
 	return chans
 }
 
+// Exists returns true if the channel by the given name exists.
+func (c *RealtimeChannels) Exists(name string) bool {
+	c.mtx.Lock()
+	_, ok := c.chans[name]
+	c.mtx.Unlock()
+	return ok
+}
+
 // Release releases all resources associated with a channel, detaching it first
 // if necessary. See RealtimeChannel.Detach for details.
-func (ch *Channels) Release(ctx context.Context, name string) error {
+func (ch *RealtimeChannels) Release(ctx context.Context, name string) error {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
 	c, ok := ch.chans[name]
@@ -116,7 +128,7 @@ func (ch *Channels) Release(ctx context.Context, name string) error {
 	return nil
 }
 
-func (ch *Channels) broadcastConnStateChange(change ConnectionStateChange) {
+func (ch *RealtimeChannels) broadcastConnStateChange(change ConnectionStateChange) {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
 	for _, c := range ch.chans {
@@ -181,11 +193,11 @@ func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	return res.Wait(ctx)
 }
 
-func (c *RealtimeChannel) attach() (Result, error) {
+func (c *RealtimeChannel) attach() (result, error) {
 	return c.mayAttach(true)
 }
 
-func (c *RealtimeChannel) mayAttach(checkActive bool) (Result, error) {
+func (c *RealtimeChannel) mayAttach(checkActive bool) (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	if checkActive {
@@ -199,7 +211,7 @@ func (c *RealtimeChannel) mayAttach(checkActive bool) (Result, error) {
 	return c.lockAttach(nil)
 }
 
-func (c *RealtimeChannel) lockAttach(err error) (Result, error) {
+func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 	switch c.client.Connection.State() {
 	// RTL4b
 	case ConnectionStateInitialized,
@@ -235,7 +247,7 @@ func (c *RealtimeChannel) Detach(ctx context.Context) error {
 	return res.Wait(ctx)
 }
 
-func (c *RealtimeChannel) detach() (Result, error) {
+func (c *RealtimeChannel) detach() (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	if !c.isActive() {
@@ -244,13 +256,13 @@ func (c *RealtimeChannel) detach() (Result, error) {
 	return c.detachUnsafe()
 }
 
-func (c *RealtimeChannel) detachSkipVerifyActive() (Result, error) {
+func (c *RealtimeChannel) detachSkipVerifyActive() (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.detachUnsafe()
 }
 
-func (c *RealtimeChannel) detachUnsafe() (Result, error) {
+func (c *RealtimeChannel) detachUnsafe() (result, error) {
 	if c.state == ChannelStateFailed {
 		return nil, channelStateError(ChannelStateFailed, errDetach)
 	}
@@ -426,7 +438,7 @@ func (c *RealtimeChannel) History(params *PaginateParams) (*PaginatedResult, err
 	return c.client.rest.Channels.Get(c.Name).History(params)
 }
 
-func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
+func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (result, error) {
 	if res, enqueued := c.maybeEnqueue(msg); enqueued {
 		return res, nil
 	}
@@ -440,7 +452,7 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (Result, error) {
 	return res, nil
 }
 
-func (c *RealtimeChannel) maybeEnqueue(msg *proto.ProtocolMessage) (_ Result, enqueued bool) {
+func (c *RealtimeChannel) maybeEnqueue(msg *proto.ProtocolMessage) (_ result, enqueued bool) {
 	// RTL6c2
 	if c.opts().NoQueueing {
 		return nil, false
@@ -491,8 +503,8 @@ func (c *RealtimeChannel) State() ChannelState {
 	return c.state
 }
 
-// Reason gives the last error that caused channel transition to failed state.
-func (c *RealtimeChannel) Reason() *ErrorInfo {
+// ErrorReason gives the last error that caused channel transition to failed state.
+func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.errorReason
@@ -514,7 +526,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 			c.mtx.Unlock()
 			return
 		case ChannelStateAttached: // TODO: Also SUSPENDED; RTL13a
-			var res Result
+			var res result
 			res, err = c.lockAttach(err)
 			if err != nil {
 				break
@@ -628,7 +640,7 @@ func (c *RealtimeChannel) lockSetState(state ChannelState, err error) error {
 		Reason:   c.errorReason,
 	}
 	if !changed {
-		change.Event = ChannelEventUpdated
+		change.Event = ChannelEventUpdate
 	} else {
 		change.Event = ChannelEvent(change.Current)
 	}
