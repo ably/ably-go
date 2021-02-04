@@ -52,10 +52,10 @@ func TestAuth_BasicAuth(t *testing.T) {
 	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
 	defer safeclose(t, app)
 
-	if _, err := client.Time(); err != nil {
+	if _, err := client.Time(context.Background()); err != nil {
 		t.Fatalf("client.Time()=%v", err)
 	}
-	if _, err := client.Stats(single()); err != nil {
+	if _, err := client.Stats(context.Background(), single()); err != nil {
 		t.Fatalf("client.Stats()=%v", err)
 	}
 	if n := rec.Len(); n != 2 {
@@ -104,10 +104,10 @@ func TestAuth_TokenAuth(t *testing.T) {
 	defer safeclose(t, app)
 
 	beforeAuth := time.Now().Add(-time.Second)
-	if _, err := client.Time(); err != nil {
+	if _, err := client.Time(context.Background()); err != nil {
 		t.Fatalf("client.Time()=%v", err)
 	}
-	if _, err := client.Stats(single()); err != nil {
+	if _, err := client.Stats(context.Background(), single()); err != nil {
 		t.Fatalf("client.Stats()=%v", err)
 	}
 	// At this points there should be two requests recorded:
@@ -128,7 +128,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 		t.Fatalf("want url.Scheme=http; got %s", url.Scheme)
 	}
 	rec.Reset()
-	tok, err := client.Auth.Authorize(nil)
+	tok, err := client.Auth.Authorize(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -161,36 +161,6 @@ func (b *bufferLogger) Print(level ably.LogLevel, v ...interface{}) {
 }
 func (b *bufferLogger) Printf(level ably.LogLevel, str string, v ...interface{}) {}
 
-func TestAuth_Authorise(t *testing.T) {
-	t.Parallel()
-	rec, extraOpt := recorder()
-	defer rec.Stop()
-	log := &bufferLogger{}
-	opts := []ably.ClientOption{
-		ably.WithUseTokenAuth(true),
-		ably.WithLogHandler(log),
-		ably.WithLogLevel(ably.LogWarning),
-	}
-	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
-	defer safeclose(t, app)
-
-	params := &ably.TokenParams{
-		TTL: time.Second.Milliseconds(),
-	}
-	_, err := client.Auth.Authorise(params)
-	if err != nil {
-		t.Fatal(err)
-	}
-	msg := "Auth.Authorise is deprecated"
-	txt := log.buf.String()
-
-	// make sure deprecation warning is logged
-	//
-	// Refers to RSA10L
-	if !strings.Contains(txt, msg) {
-		t.Errorf("expected %s to contain %s", txt, msg)
-	}
-}
 func TestAuth_TimestampRSA10k(t *testing.T) {
 	t.Parallel()
 	now, err := time.Parse(time.RFC822, time.RFC822)
@@ -208,7 +178,7 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
-		stamp, err := a.Timestamp(false)
+		stamp, err := a.Timestamp(context.Background(), false)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -226,7 +196,7 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
-		stamp, err := a.Timestamp(true)
+		stamp, err := rest.Timestamp(true)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -246,7 +216,7 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
-		stamp, err := a.Timestamp(true)
+		stamp, err := rest.Timestamp(true)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -259,7 +229,7 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return time.Time{}, errors.New("must not be called")
 		})
-		stamp, err = a.Timestamp(true)
+		stamp, err = rest.Timestamp(true)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -281,7 +251,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	params := &ably.TokenParams{
 		TTL: time.Second.Milliseconds(),
 	}
-	tok, err := client.Auth.Authorize(params)
+	tok, err := client.Auth.Authorize(context.Background(), params)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -292,7 +262,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 		t.Fatalf("want ttl=1s; got %v", ttl)
 	}
 	time.Sleep(2 * time.Second) // wait till expires
-	_, err = client.Stats(single())
+	_, err = client.Stats(context.Background(), single())
 	if err != nil {
 		t.Fatalf("Stats()=%v", err)
 	}
@@ -326,7 +296,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewREST()=%v", err)
 	}
-	if _, err := client.Stats(single()); err == nil {
+	if _, err := client.Stats(context.Background(), single()); err == nil {
 		t.Fatal("want err!=nil")
 	}
 	// Ensure no requests were made to Ably servers.
@@ -351,7 +321,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	if n := rec.Len(); n != 0 {
 		t.Fatalf("want rec.Len()=0; got %d", n)
 	}
-	token, err := client.Auth.RequestToken(nil)
+	token, err := client.Auth.RequestToken(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
@@ -364,7 +334,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	authOpts := []ably.AuthOption{
 		ably.AuthWithURL(server.URL("details")),
 	}
-	token2, err := client.Auth.RequestToken(nil, authOpts...)
+	token2, err := client.Auth.RequestToken(context.Background(), nil, authOpts...)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
@@ -386,7 +356,7 @@ func TestAuth_RequestToken(t *testing.T) {
 		authOpts := []ably.AuthOption{
 			ably.AuthWithCallback(server.Callback(callback)),
 		}
-		tokCallback, err := client.Auth.RequestToken(nil, authOpts...)
+		tokCallback, err := client.Auth.RequestToken(context.Background(), nil, authOpts...)
 		if err != nil {
 			t.Fatalf("RequestToken()=%v (callback=%s)", err, callback)
 		}
@@ -409,7 +379,7 @@ func TestAuth_RequestToken(t *testing.T) {
 	authOpts = []ably.AuthOption{
 		ably.AuthWithCallback(server.Callback("request")),
 	}
-	tokCallback, err := client.Auth.RequestToken(nil, authOpts...)
+	tokCallback, err := client.Auth.RequestToken(context.Background(), nil, authOpts...)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
@@ -445,7 +415,7 @@ func TestAuth_RequestToken(t *testing.T) {
 			ClientID: "test",
 		}
 
-		tokURL, err := client.Auth.RequestToken(params, authOpts...)
+		tokURL, err := client.Auth.RequestToken(context.Background(), params, authOpts...)
 		if err != nil {
 			t.Fatalf("RequestToken()=%v (method=%s)", err, method)
 		}
@@ -490,7 +460,7 @@ func TestAuth_RequestToken(t *testing.T) {
 			t.Errorf("NewRealtime()=%v", err)
 			continue
 		}
-		if _, err = c.Stats(single()); err != nil {
+		if _, err = c.Stats(context.Background(), single()); err != nil {
 			t.Errorf("c.Stats()=%v (method=%s)", err, method)
 		}
 	}
@@ -518,7 +488,7 @@ func TestAuth_ReuseClientID(t *testing.T) {
 	params := &ably.TokenParams{
 		ClientID: "reuse-me",
 	}
-	tok, err := client.Auth.Authorize(params)
+	tok, err := client.Auth.Authorize(context.Background(), params)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -528,7 +498,7 @@ func TestAuth_ReuseClientID(t *testing.T) {
 	if clientID := client.Auth.ClientID(); clientID != params.ClientID {
 		t.Fatalf("want ClientID=%q; got %q", params.ClientID, tok.ClientID)
 	}
-	tok2, err := client.Auth.Authorize(nil)
+	tok2, err := client.Auth.Authorize(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -562,7 +532,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 		params := &ably.TokenParams{
 			ClientID: cas.authAs,
 		}
-		tok, err := rclient.Auth.RequestToken(params)
+		tok, err := rclient.Auth.RequestToken(context.Background(), params)
 		if err != nil {
 			t.Errorf("%d: CreateTokenRequest()=%v", i, err)
 			continue
@@ -642,13 +612,13 @@ func TestAuth_ClientID(t *testing.T) {
 	}
 	client := app.NewRealtime(opts...) // no client.Close as the connection is mocked
 
-	tok, err := client.Auth.RequestToken(params)
+	tok, err := client.Auth.RequestToken(context.Background(), params)
 	if err != nil {
 		t.Fatalf("RequestToken()=%v", err)
 	}
 	proxy.TokenQueue = append(proxy.TokenQueue, tok)
 
-	tok, err = client.Auth.Authorize(nil)
+	tok, err = client.Auth.Authorize(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
@@ -675,7 +645,7 @@ func TestAuth_ClientID(t *testing.T) {
 	tok.ClientID = "non-matching"
 	proxy.TokenQueue = append(proxy.TokenQueue, tok)
 
-	_, err = client.Auth.Authorize(nil)
+	_, err = client.Auth.Authorize(context.Background(), nil)
 	if err := checkError(40012, err); err != nil {
 		t.Fatal(err)
 	}

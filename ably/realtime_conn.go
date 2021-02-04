@@ -267,7 +267,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	for k, v := range c.opts.TransportParams {
 		query[k] = v
 	}
-	if err := c.auth.authQuery(query); err != nil {
+	if err := c.auth.authQuery(context.Background(), query); err != nil {
 		return nil, err
 	}
 	switch mode {
@@ -875,7 +875,7 @@ func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
 
 func (c *Connection) reauthorize(arg connArgs) {
 	c.mtx.Lock()
-	_, err := c.auth.reauthorize()
+	_, err := c.auth.reauthorize(context.Background())
 
 	if err != nil {
 		c.lockedReauthorizationFailed(err)

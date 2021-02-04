@@ -19,8 +19,8 @@ func (opts *clientOptions) RealtimeURL() string {
 	return opts.realtimeURL()
 }
 
-func (c *REST) Post(path string, in, out interface{}) (*http.Response, error) {
-	return c.post(path, in, out)
+func (c *REST) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
+	return c.post(ctx, path, in, out)
 }
 
 const (
@@ -40,8 +40,12 @@ func UnwrapErrorCode(err error) ErrorCode {
 	return code(err)
 }
 
-func (a *Auth) Timestamp(query bool) (time.Time, error) {
-	return a.timestamp(query)
+func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
+	return a.timestamp(ctx, query)
+}
+
+func (c *REST) Timestamp(query bool) (time.Time, error) {
+	return c.Auth.timestamp(context.Background(), query)
 }
 
 func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {

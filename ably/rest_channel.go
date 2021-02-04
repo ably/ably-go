@@ -134,7 +134,7 @@ func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*M
 		}
 		query = "?" + queryParams.Encode()
 	}
-	res, err := c.client.post(c.baseURL+"/messages"+query, messages, nil)
+	res, err := c.client.post(ctx, c.baseURL+"/messages"+query, messages, nil)
 	if err != nil {
 		return err
 	}
@@ -144,9 +144,9 @@ func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*M
 // History gives the channel's message history according to the given parameters.
 // The returned result can be inspected for the messages via the Messages()
 // method.
-func (c *RESTChannel) History(params *PaginateParams) (*PaginatedResult, error) {
+func (c *RESTChannel) History(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
 	path := c.baseURL + "/history"
-	rst, err := newPaginatedResult(c.options, paginatedRequest{typ: msgType, path: path, params: params, query: query(c.client.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
+	rst, err := newPaginatedResult(ctx, c.options, paginatedRequest{typ: msgType, path: path, params: params, query: query(c.client.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
 	if err != nil {
 		return nil, err
 	}

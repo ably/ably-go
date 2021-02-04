@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -53,13 +54,13 @@ func (c *Realtime) Close() {
 // Stats gives the clients metrics according to the given parameters. The
 // returned result can be inspected for the statistics via the Stats()
 // method.
-func (c *Realtime) Stats(params *PaginateParams) (*PaginatedResult, error) {
-	return c.rest.Stats(params)
+func (c *Realtime) Stats(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
+	return c.rest.Stats(ctx, params)
 }
 
 // Time
-func (c *Realtime) Time() (time.Time, error) {
-	return c.rest.Time()
+func (c *Realtime) Time(ctx context.Context) (time.Time, error) {
+	return c.rest.Time(ctx)
 }
 
 func (c *Realtime) onChannelMsg(msg *proto.ProtocolMessage) {

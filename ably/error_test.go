@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -54,7 +55,7 @@ func TestIssue127ErrorResponse(t *testing.T) {
 	client, e := ably.NewREST(opts...)
 	assert.Nil(t, e)
 
-	_, err = client.Time()
+	_, err = client.Time(context.Background())
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), errMsg)
 }
@@ -145,7 +146,7 @@ func TestIssue_154(t *testing.T) {
 	client, e := ably.NewREST(opts...)
 	assert.Nil(t, e)
 
-	_, err = client.Time()
+	_, err = client.Time(context.Background())
 	assert.NotNil(t, err)
 	et := err.(*ably.ErrorInfo)
 	if et.StatusCode != http.StatusMethodNotAllowed {

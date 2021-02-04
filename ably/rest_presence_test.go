@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ func TestChannel_Presence(t *testing.T) {
 	presence := channel.Presence
 
 	t.Run("Get", func(ts *testing.T) {
-		page, err := presence.Get(nil)
+		page, err := presence.Get(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -35,7 +36,7 @@ func TestChannel_Presence(t *testing.T) {
 
 		ts.Run("With limit option", func(ts *testing.T) {
 			limit := 2
-			page1, err := presence.Get(&ably.PaginateParams{Limit: limit})
+			page1, err := presence.Get(context.Background(), &ably.PaginateParams{Limit: limit})
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -48,7 +49,7 @@ func TestChannel_Presence(t *testing.T) {
 				ts.Errorf("expected %d items got %d", limit, n)
 			}
 
-			page2, err := page1.Next()
+			page2, err := page1.Next(context.Background())
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -61,7 +62,7 @@ func TestChannel_Presence(t *testing.T) {
 				ts.Errorf("expected %d items got %d", limit, n)
 			}
 
-			noPage, err := page2.Next()
+			noPage, err := page2.Next(context.Background())
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -72,7 +73,7 @@ func TestChannel_Presence(t *testing.T) {
 	})
 
 	t.Run("History", func(ts *testing.T) {
-		page, err := presence.History(nil)
+		page, err := presence.History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -89,7 +90,7 @@ func TestChannel_Presence(t *testing.T) {
 					End:   time.Now(),
 				},
 			}
-			page, err := presence.History(params)
+			page, err := presence.History(context.Background(), params)
 			if err != nil {
 				ts.Fatal(err)
 			}

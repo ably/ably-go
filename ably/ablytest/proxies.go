@@ -122,7 +122,7 @@ func (srv *AuthReverseProxy) URL(responseType string) string {
 // as for URL method.
 func (srv *AuthReverseProxy) Callback(responseType string) func(context.Context, ably.TokenParams) (ably.Tokener, error) {
 	return func(ctx context.Context, params ably.TokenParams) (ably.Tokener, error) {
-		token, _, err := srv.handleAuth(responseType, params)
+		token, _, err := srv.handleAuth(ctx, responseType, params)
 		return token, err
 	}
 }
@@ -139,7 +139,7 @@ func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	token, contentType, err := srv.handleAuth(req.URL.Path[1:], *NewTokenParams(query))
+	token, contentType, err := srv.handleAuth(req.Context(), req.URL.Path[1:], *NewTokenParams(query))
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -162,14 +162,14 @@ func (srv *AuthReverseProxy) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	}
 }
 
-func (srv *AuthReverseProxy) handleAuth(responseType string, params ably.TokenParams) (token ably.Tokener, typ string, err error) {
+func (srv *AuthReverseProxy) handleAuth(ctx context.Context, responseType string, params ably.TokenParams) (token ably.Tokener, typ string, err error) {
 	switch responseType {
 	case "token", "details":
 		var tok *ably.TokenDetails
 		if len(srv.TokenQueue) != 0 {
 			tok, srv.TokenQueue = srv.TokenQueue[0], srv.TokenQueue[1:]
 		} else {
-			tok, err = srv.auth.Authorize(&params)
+			tok, err = srv.auth.Authorize(ctx, &params)
 			if err != nil {
 				return nil, "", err
 			}

@@ -168,18 +168,18 @@ func (a *Auth) createTokenRequest(params *TokenParams, opts *authOptions) (*Toke
 }
 
 // RequestToken
-func (a *Auth) RequestToken(params *TokenParams, opts ...AuthOption) (*TokenDetails, error) {
+func (a *Auth) RequestToken(ctx context.Context, params *TokenParams, opts ...AuthOption) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	var o *authOptions
 	if opts != nil {
 		o = applyAuthOptionsWithDefaults(opts...)
 	}
-	tok, _, err := a.requestToken(params, o)
+	tok, _, err := a.requestToken(ctx, params, o)
 	return tok, err
 }
 
-func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenDetails, tokReqClientID string, err error) {
+func (a *Auth) requestToken(ctx context.Context, params *TokenParams, opts *authOptions) (tok *TokenDetails, tokReqClientID string, err error) {
 	log := a.logger().sugar()
 	switch {
 	case opts != nil && opts.Token != "":
@@ -224,7 +224,7 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 		}
 	case opts.AuthURL != "":
 		log.Verbose("Auth: found AuthURL in []AuthOption")
-		res, err := a.requestAuthURL(params, opts)
+		res, err := a.requestAuthURL(ctx, params, opts)
 		if err != nil {
 			log.Error("Auth: failed calling requesting token with AuthURL ", err)
 			return nil, "", err
@@ -253,39 +253,27 @@ func (a *Auth) requestToken(params *TokenParams, opts *authOptions) (tok *TokenD
 		Out:    tok,
 		NoAuth: true,
 	}
-	if _, err := a.client.do(r); err != nil {
+	if _, err := a.client.do(ctx, r); err != nil {
 		return nil, "", err
 	}
 	return tok, tokReqClientID, nil
-}
-
-// Authorise performs authorization with ably service and returns the
-// authorization token details.
-//
-// This method is an alias to Auth.Authorize and it is DEPRECATED use
-// Auth.Authorize instead.
-//
-// Refers to RSA10l
-func (a *Auth) Authorise(params *TokenParams, opts ...AuthOption) (*TokenDetails, error) {
-	a.logger().Print(LogWarning, "Auth.Authorise is deprecated please use Auth.Authorize \n")
-	return a.Authorize(params, opts...)
 }
 
 // Authorize performs authorization with ably service and returns the
 // authorization token details.
 //
 // Refers to RSA10
-func (a *Auth) Authorize(params *TokenParams, setOpts ...AuthOption) (*TokenDetails, error) {
+func (a *Auth) Authorize(ctx context.Context, params *TokenParams, setOpts ...AuthOption) (*TokenDetails, error) {
 	var opts *authOptions
 	if setOpts != nil {
 		opts = applyAuthOptionsWithDefaults(setOpts...)
 	}
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	return a.authorize(params, opts, true)
+	return a.authorize(ctx, params, opts, true)
 }
 
-func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*TokenDetails, error) {
+func (a *Auth) authorize(ctx context.Context, params *TokenParams, opts *authOptions, force bool) (*TokenDetails, error) {
 	log := a.logger().sugar()
 	switch tok := a.token(); {
 	case tok != nil && !force && (tok.Expires == 0 || !tok.expired(a.opts().Now())):
@@ -296,7 +284,7 @@ func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*T
 		params = &TokenParams{ClientID: a.clientID}
 	}
 	log.Info("Auth: sending  token request")
-	tok, tokReqClientID, err := a.requestToken(params, opts)
+	tok, tokReqClientID, err := a.requestToken(ctx, params, opts)
 	if err != nil {
 		log.Error("Auth: failed to get token", err)
 		return nil, err
@@ -320,11 +308,11 @@ func (a *Auth) authorize(params *TokenParams, opts *authOptions, force bool) (*T
 	return tok, nil
 }
 
-func (a *Auth) reauthorize() (*TokenDetails, error) {
+func (a *Auth) reauthorize(ctx context.Context) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	a.logger().sugar().Info("Auth: reauthorize")
-	return a.authorize(a.params, nil, true)
+	return a.authorize(ctx, a.params, nil, true)
 }
 
 func (a *Auth) mergeOpts(opts *authOptions) *authOptions {
@@ -350,7 +338,7 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 		req.ClientID = a.opts().ClientID
 	}
 	if req.Timestamp == 0 {
-		ts, err := a.timestamp(opts.UseQueryTime)
+		ts, err := a.timestamp(context.Background(), opts.UseQueryTime)
 		if err != nil {
 			return err
 		}
@@ -360,7 +348,7 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 }
 
 //Timestamp returns the timestamp to be used in authorization request.
-func (a *Auth) timestamp(query bool) (time.Time, error) {
+func (a *Auth) timestamp(ctx context.Context, query bool) (time.Time, error) {
 	now := a.client.opts.Now()
 	if !query {
 		return now, nil
@@ -380,7 +368,7 @@ func (a *Auth) timestamp(query bool) (time.Time, error) {
 		}
 		serverTime = t
 	} else {
-		t, err := a.client.Time()
+		t, err := a.client.Time(ctx)
 		if err != nil {
 			return time.Time{}, newError(ErrUnauthorized, err)
 		}
@@ -390,8 +378,8 @@ func (a *Auth) timestamp(query bool) (time.Time, error) {
 	return serverTime, nil
 }
 
-func (a *Auth) requestAuthURL(params *TokenParams, opts *authOptions) (interface{}, error) {
-	req, err := http.NewRequest(opts.authMethod(), opts.AuthURL, nil)
+func (a *Auth) requestAuthURL(ctx context.Context, params *TokenParams, opts *authOptions) (interface{}, error) {
+	req, err := http.NewRequestWithContext(ctx, opts.authMethod(), opts.AuthURL, nil)
 	if err != nil {
 		return nil, a.newError(40000, err)
 	}
@@ -458,7 +446,7 @@ func (a *Auth) authReq(req *http.Request) error {
 	case authBasic:
 		req.SetBasicAuth(a.opts().KeyName(), a.opts().KeySecret())
 	case authToken:
-		if _, err := a.authorize(a.params, nil, false); err != nil {
+		if _, err := a.authorize(req.Context(), a.params, nil, false); err != nil {
 			return err
 		}
 		encToken := base64.StdEncoding.EncodeToString([]byte(a.token().Token))
@@ -467,14 +455,14 @@ func (a *Auth) authReq(req *http.Request) error {
 	return nil
 }
 
-func (a *Auth) authQuery(query url.Values) error {
+func (a *Auth) authQuery(ctx context.Context, query url.Values) error {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	switch a.method {
 	case authBasic:
 		query.Set("key", a.opts().Key)
 	case authToken:
-		if _, err := a.authorize(a.params, nil, false); err != nil {
+		if _, err := a.authorize(ctx, a.params, nil, false); err != nil {
 			return err
 		}
 		query.Set("access_token", a.token().Token)

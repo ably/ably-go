@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"context"
 	"net/http"
 	"reflect"
 	"sort"
@@ -25,7 +26,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Run("request_time", func(ts *testing.T) {
-		res, err := client.Request("get", "/time", nil, nil, nil)
+		res, err := client.Request(context.Background(), "get", "/time", nil, nil, nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -42,7 +43,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 	})
 
 	t.Run("request_404", func(ts *testing.T) {
-		res, err := client.Request("get", "/keys/ablyjs.test/requestToken", nil, nil, nil)
+		res, err := client.Request(context.Background(), "get", "/keys/ablyjs.test/requestToken", nil, nil, nil)
 		if err != nil {
 			ts.Fatal(err)
 		}
@@ -70,7 +71,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 		ts.Run("post", func(ts *testing.T) {
 			for _, message := range msgs {
-				res, err := client.Request("POST", channelPath, nil, message, nil)
+				res, err := client.Request(context.Background(), "POST", channelPath, nil, message, nil)
 				if err != nil {
 					ts.Fatal(err)
 				}
@@ -88,7 +89,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 		})
 
 		ts.Run("get", func(ts *testing.T) {
-			res, err := client.Request("get", channelPath, &ably.PaginateParams{
+			res, err := client.Request(context.Background(), "get", channelPath, &ably.PaginateParams{
 				Limit:     1,
 				Direction: "forwards",
 			}, nil, nil)
@@ -112,7 +113,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 				ts.Errorf("expected %v got %s", msgs[0].Data, data)
 			}
 
-			res, err = res.Next()
+			res, err = res.Next(context.Background())
 			if err != nil {
 				ts.Fatal(err)
 			}
@@ -132,7 +133,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 		})
 
-		res, err := client.Channels.Get(channelName).History(nil)
+		res, err := client.Channels.Get(channelName).History(context.Background(), nil)
 		if err != nil {
 			ts.Fatal(err)
 		}

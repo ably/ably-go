@@ -170,8 +170,8 @@ func TestReadmeExamples(t *testing.T) {
 			/* README.md:240 */ panic(err)
 			/* README.md:241 */
 		}
-		/* README.md:247 */ page, err := channel.History(nil)
-		/* README.md:248 */ for ; err == nil && page != nil; page, err = page.Next() {
+		/* README.md:247 */ page, err := channel.History(ctx, nil)
+		/* README.md:248 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
 			/* README.md:249 */ for _, message := range page.Messages() {
 				/* README.md:250 */ fmt.Println(message)
 				/* README.md:251 */
@@ -182,8 +182,8 @@ func TestReadmeExamples(t *testing.T) {
 			/* README.md:254 */ panic(err)
 			/* README.md:255 */
 		}
-		/* README.md:261 */ page, err = channel.Presence.Get(nil)
-		/* README.md:262 */ for ; err == nil && page != nil; page, err = page.Next() {
+		/* README.md:261 */ page, err = channel.Presence.Get(ctx, nil)
+		/* README.md:262 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
 			/* README.md:263 */ for _, presence := range page.PresenceMessages() {
 				/* README.md:264 */ fmt.Println(presence)
 				/* README.md:265 */
@@ -194,8 +194,8 @@ func TestReadmeExamples(t *testing.T) {
 			/* README.md:268 */ panic(err)
 			/* README.md:269 */
 		}
-		/* README.md:275 */ page, err = channel.Presence.History(nil)
-		/* README.md:276 */ for ; err == nil && page != nil; page, err = page.Next() {
+		/* README.md:275 */ page, err = channel.Presence.History(ctx, nil)
+		/* README.md:276 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
 			/* README.md:277 */ for _, presence := range page.PresenceMessages() {
 				/* README.md:278 */ fmt.Println(presence)
 				/* README.md:279 */
@@ -206,8 +206,8 @@ func TestReadmeExamples(t *testing.T) {
 			/* README.md:282 */ panic(err)
 			/* README.md:283 */
 		}
-		/* README.md:289 */ page, err = client.Stats(&ably.PaginateParams{})
-		/* README.md:290 */ for ; err == nil && page != nil; page, err = page.Next() {
+		/* README.md:289 */ page, err = client.Stats(ctx, &ably.PaginateParams{})
+		/* README.md:290 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
 			/* README.md:291 */ for _, stat := range page.Stats() {
 				/* README.md:292 */ fmt.Println(stat)
 				/* README.md:293 */
