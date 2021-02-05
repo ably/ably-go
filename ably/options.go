@@ -362,8 +362,7 @@ func (opts *ClientOptions) getRealtimeHost() string {
 	}
 	if !empty(opts.RestHost) {
 		logger := opts.Logger.Sugar()
-		logger.Warnf(`restHost is set to %s but realtimeHost is not set so setting realtimeHost to %s too. 
-							If this is not what you want, please set realtimeHost explicitly.`, opts.RestHost, opts.RealtimeHost)
+		logger.Warnf("restHost is set to %s but realtimeHost is not set so setting realtimeHost to %s too. If this is not what you want, please set realtimeHost explicitly.", opts.RestHost, opts.RealtimeHost)
 		return opts.RestHost
 	}
 	if !opts.isProductionEnvironment() {
