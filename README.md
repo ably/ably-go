@@ -296,6 +296,6 @@ Because this package uses `internal` packages, all fork development has to happe
 3. add your fork as a remote: `git remote add fork git@github.com:your-username/ably-go`
 4. create your feature branch: `git checkout -b my-new-feature`
 5. commit your changes (`git commit -am 'Add some feature'`)
-6. ensure you have added suitable tests and the test suite is passing for both JSON and MessagePack protocols (see [workflow](.github/workflows/check.yml) for the test commands executed in the CI environment).
+6. ensure you have added suitable tests and the test suite is passing for both JSON and MessagePack protocols by running `scripts/test.sh`.
 7. push to the branch: `git push fork my-new-feature`
 8. create a new Pull Request
