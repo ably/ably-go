@@ -269,11 +269,11 @@ func NewClientOptions(key string) *ClientOptions {
 }
 
 func (opts *ClientOptions) validate() error {
-	_, error := opts.getFallbackHosts()
-	if error != nil {
+	_, err := opts.getFallbackHosts()
+	if err != nil {
 		log := opts.Logger.Sugar()
-		log.Errorf("Error getting fallbackHosts : %v", error.Error())
-		return error
+		log.Errorf("Error getting fallbackHosts : %v", err.Error())
+		return err
 	}
 	return nil
 }

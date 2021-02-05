@@ -166,8 +166,8 @@ func TestFallbackHosts_RSC15b(t *testing.T) {
 		clientOptions := ably.NewClientOptions("")
 		clientOptions.FallbackHosts = []string{"a.example.com", "b.example.com"}
 		clientOptions.FallbackHostsUseDefault = true
-		_, error := clientOptions.GetFallbackHosts()
-		assertEquals(ts, error.Error(), "fallbackHosts and fallbackHostsUseDefault cannot both be set")
+		_, err := clientOptions.GetFallbackHosts()
+		assertEquals(ts, err.Error(), "fallbackHosts and fallbackHostsUseDefault cannot both be set")
 	})
 
 	t.Run("RSC15b with fallbackHostsUseDefault And custom port", func(ts *testing.T) {
@@ -176,16 +176,16 @@ func TestFallbackHosts_RSC15b(t *testing.T) {
 		clientOptions.FallbackHostsUseDefault = true
 		_, isDefaultPort := clientOptions.ActivePort()
 		assertFalse(ts, isDefaultPort)
-		_, error := clientOptions.GetFallbackHosts()
-		assertEquals(ts, error.Error(), "fallbackHostsUseDefault cannot be set when port or tlsPort are set")
+		_, err := clientOptions.GetFallbackHosts()
+		assertEquals(ts, err.Error(), "fallbackHostsUseDefault cannot be set when port or tlsPort are set")
 
 		clientOptions.NoTLS = true
 		clientOptions.Port = 8080
 		clientOptions.FallbackHostsUseDefault = true
 		_, isDefaultPort = clientOptions.ActivePort()
 		assertFalse(ts, isDefaultPort)
-		_, error = clientOptions.GetFallbackHosts()
-		assertEquals(ts, error.Error(), "fallbackHostsUseDefault cannot be set when port or tlsPort are set")
+		_, err = clientOptions.GetFallbackHosts()
+		assertEquals(ts, err.Error(), "fallbackHostsUseDefault cannot be set when port or tlsPort are set")
 	})
 }
 
