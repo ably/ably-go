@@ -5,8 +5,32 @@ import (
 	"time"
 )
 
+func DefaultFallbackHosts() []string {
+	return defaultFallbackHosts()
+}
+
+func GetEnvFallbackHosts(env string) []string {
+	return getEnvFallbackHosts(env)
+}
+
 func (p *PaginatedResult) BuildPath(base, rel string) string {
 	return p.buildPath(base, rel)
+}
+
+func (opts *ClientOptions) GetRestHost() string {
+	return opts.getRestHost()
+}
+
+func (opts *ClientOptions) GetRealtimeHost() string {
+	return opts.getRealtimeHost()
+}
+
+func (opts *ClientOptions) ActivePort() (int, bool) {
+	return opts.activePort()
+}
+
+func (opts *ClientOptions) GetFallbackHosts() ([]string, error) {
+	return opts.getFallbackHosts()
 }
 
 func (opts *ClientOptions) RestURL() string {

@@ -23,6 +23,9 @@ func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
 	if opts == nil {
 		panic("called NewRealtimeClient with nil ClientOptions")
 	}
+	if err := opts.validate(); err != nil {
+		return nil, err
+	}
 	c := &RealtimeClient{}
 	rest, err := NewRestClient(opts)
 	if err != nil {

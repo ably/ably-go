@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,30 +20,45 @@ const (
 	protocolMsgPack = "application/x-msgpack"
 
 	// RestHost is the primary ably host .
-	RestHost = "rest.ably.io"
+	RestHost     = "rest.ably.io"
+	RealtimeHost = "realtime.ably.io"
+	Port         = 80
+	TLSPort      = 443
 )
 
 var defaultOptions = &ClientOptions{
 	RestHost:                 RestHost,
-	FallbackHosts:            DefaultFallbackHosts(),
+	FallbackHosts:            defaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
 	HTTPRequestTimeout:       10 * time.Second,
-	RealtimeHost:             "realtime.ably.io",
+	RealtimeHost:             RealtimeHost,
 	TimeoutDisconnect:        30 * time.Second,
 	RealtimeRequestTimeout:   10 * time.Second, // DF1b
 	DisconnectedRetryTimeout: 15 * time.Second, // TO3l1
 	TimeoutSuspended:         2 * time.Minute,
 	FallbackRetryTimeout:     10 * time.Minute,
 	IdempotentRestPublishing: false,
+	Port:                     Port,
+	TLSPort:                  TLSPort,
 }
 
-func DefaultFallbackHosts() []string {
+func defaultFallbackHosts() []string {
 	return []string{
 		"a.ably-realtime.com",
 		"b.ably-realtime.com",
 		"c.ably-realtime.com",
 		"d.ably-realtime.com",
 		"e.ably-realtime.com",
+	}
+}
+
+func getEnvFallbackHosts(env string) []string {
+	return []string{
+		fmt.Sprintf("%s-%s", env, "a-fallback.ably-realtime.com"),
+		fmt.Sprintf("%s-%s", env, "b-fallback.ably-realtime.com"),
+		fmt.Sprintf("%s-%s", env, "c-fallback.ably-realtime.com"),
+		fmt.Sprintf("%s-%s", env, "d-fallback.ably-realtime.com"),
+		fmt.Sprintf("%s-%s", env, "e-fallback.ably-realtime.com"),
 	}
 }
 
@@ -171,7 +187,9 @@ func (opts *AuthOptions) KeySecret() string {
 type ClientOptions struct {
 	AuthOptions
 
-	RestHost                string // optional; overwrite endpoint hostname for REST client
+	RestHost string // optional; overwrite endpoint hostname for REST client
+
+	// Deprecated: The library will automatically use default fallback hosts when a custom REST host or custom fallback hosts aren't provided.
 	FallbackHostsUseDefault bool
 
 	FallbackHosts   []string
@@ -250,6 +268,42 @@ func NewClientOptions(key string) *ClientOptions {
 	}
 }
 
+func (opts *ClientOptions) validate() error {
+	_, err := opts.getFallbackHosts()
+	if err != nil {
+		log := opts.Logger.Sugar()
+		log.Errorf("Error getting fallbackHosts : %v", err.Error())
+		return err
+	}
+	return nil
+}
+
+func (opts *ClientOptions) isProductionEnvironment() bool {
+	env := opts.Environment
+	return empty(env) || strings.EqualFold(env, "production")
+}
+
+func (opts *ClientOptions) activePort() (port int, isDefault bool) {
+	if opts.NoTLS {
+		port = opts.Port
+		if port == 0 {
+			port = defaultOptions.Port
+		}
+		if port == defaultOptions.Port {
+			isDefault = true
+		}
+		return
+	}
+	port = opts.TLSPort
+	if port == 0 {
+		port = defaultOptions.TLSPort
+	}
+	if port == defaultOptions.TLSPort {
+		isDefault = true
+	}
+	return
+}
+
 func (opts *ClientOptions) timeoutConnect() time.Duration {
 	if opts.TimeoutConnect != 0 {
 		return opts.TimeoutConnect
@@ -292,56 +346,78 @@ func (opts *ClientOptions) disconnectedRetryTimeout() time.Duration {
 	return defaultOptions.DisconnectedRetryTimeout
 }
 
-func (opts *ClientOptions) restURL() string {
-	host := opts.RestHost
-	if host == "" {
-		host = defaultOptions.RestHost
-		if opts.Environment == "production" {
-			opts.Environment = ""
-		}
-		if opts.Environment != "" {
-			host = opts.Environment + "-" + host
-		}
+func (opts *ClientOptions) getRestHost() string {
+	if !empty(opts.RestHost) {
+		return opts.RestHost
 	}
-	if opts.NoTLS {
-		port := opts.Port
-		if port == 0 {
-			port = 80
-		}
-		return "http://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
-	} else {
-		port := opts.TLSPort
-		if port == 0 {
-			port = 443
-		}
-		return "https://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
+	if !opts.isProductionEnvironment() {
+		return opts.Environment + "-" + defaultOptions.RestHost
 	}
+	return defaultOptions.RestHost
 }
 
-func (opts *ClientOptions) realtimeURL() string {
-	host := opts.RealtimeHost
-	if host == "" {
-		host = defaultOptions.RealtimeHost
-		if opts.Environment == "production" {
-			opts.Environment = ""
-		}
-		if opts.Environment != "" {
-			host = opts.Environment + "-" + host
-		}
+func (opts *ClientOptions) getRealtimeHost() string {
+	if !empty(opts.RealtimeHost) {
+		return opts.RealtimeHost
 	}
+	if !empty(opts.RestHost) {
+		logger := opts.Logger.Sugar()
+		logger.Warnf("restHost is set to %s but realtimeHost is not set so setting realtimeHost to %s too. If this is not what you want, please set realtimeHost explicitly.", opts.RestHost, opts.RealtimeHost)
+		return opts.RestHost
+	}
+	if !opts.isProductionEnvironment() {
+		return opts.Environment + "-" + defaultOptions.RealtimeHost
+	}
+	return defaultOptions.RealtimeHost
+}
+
+func empty(s string) bool {
+	return len(strings.TrimSpace(s)) == 0
+}
+
+func (opts *ClientOptions) restURL() (restUrl string) {
+	restHost := opts.getRestHost()
+	port, _ := opts.activePort()
+	baseUrl := net.JoinHostPort(restHost, strconv.Itoa(port))
 	if opts.NoTLS {
-		port := opts.Port
-		if port == 0 {
-			port = 80
-		}
-		return "ws://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
-	} else {
-		port := opts.TLSPort
-		if port == 0 {
-			port = 443
-		}
-		return "wss://" + net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
+		return "http://" + baseUrl
 	}
+	return "https://" + baseUrl
+}
+
+func (opts *ClientOptions) realtimeURL() (realtimeUrl string) {
+	realtimeHost := opts.getRealtimeHost()
+	port, _ := opts.activePort()
+	baseUrl := net.JoinHostPort(realtimeHost, strconv.Itoa(port))
+	if opts.NoTLS {
+		return "ws://" + baseUrl
+	}
+	return "wss://" + baseUrl
+}
+
+func (opts *ClientOptions) getFallbackHosts() ([]string, error) {
+	logger := opts.Logger.Sugar()
+	_, isDefaultPort := opts.activePort()
+	if opts.FallbackHostsUseDefault {
+		if opts.FallbackHosts != nil {
+			return nil, errors.New("fallbackHosts and fallbackHostsUseDefault cannot both be set")
+		}
+		if !isDefaultPort {
+			return nil, errors.New("fallbackHostsUseDefault cannot be set when port or tlsPort are set")
+		}
+		if !empty(opts.Environment) {
+			logger.Warn("Deprecated fallbackHostsUseDefault : There is no longer a need to set this when the environment option is also set since the library can generate the correct fallback hosts using the environment option.")
+		}
+		logger.Warn("Deprecated fallbackHostsUseDefault : using default fallbackhosts")
+		return defaultOptions.FallbackHosts, nil
+	}
+	if opts.FallbackHosts == nil && empty(opts.RestHost) && empty(opts.RealtimeHost) && isDefaultPort {
+		if opts.isProductionEnvironment() {
+			return defaultOptions.FallbackHosts, nil
+		}
+		return getEnvFallbackHosts(opts.Environment), nil
+	}
+	return opts.FallbackHosts, nil
 }
 
 func (opts *ClientOptions) httpclient() *http.Client {
