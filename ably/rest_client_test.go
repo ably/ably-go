@@ -549,7 +549,7 @@ func TestFixConnLeak_ISSUE89(t *testing.T) {
 	}
 	defer app.Close()
 
-	var conns []*connTrackingClose
+	var conns []*connCloseTracker
 
 	httpClient := ablytest.NewHTTPClientNoKeepAlive()
 	transport := httpClient.Transport.(*http.Transport)
@@ -559,7 +559,7 @@ func TestFixConnLeak_ISSUE89(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		tracked := &connTrackingClose{Conn: c}
+		tracked := &connCloseTracker{Conn: c}
 		conns = append(conns, tracked)
 		return tracked, nil
 	}
@@ -586,12 +586,12 @@ func TestFixConnLeak_ISSUE89(t *testing.T) {
 	}
 }
 
-type connTrackingClose struct {
+type connCloseTracker struct {
 	net.Conn
 	closed uintptr
 }
 
-func (c *connTrackingClose) Close() error {
+func (c *connCloseTracker) Close() error {
 	atomic.StoreUintptr(&c.closed, 1)
 	return c.Conn.Close()
 }
