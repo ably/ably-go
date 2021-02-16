@@ -16,6 +16,108 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
+type Direction string
+
+const (
+	Backwards Direction = "backwards"
+	Forwards  Direction = "forwards"
+)
+
+type paginatedRequestNew struct {
+	path   string
+	params url.Values
+
+	query queryFunc
+}
+
+func (r *REST) newPaginatedRequest(path string, params url.Values) paginatedRequestNew {
+	return paginatedRequestNew{
+		path:   path,
+		params: params,
+
+		query: query(r.get),
+	}
+}
+
+// PaginatedResultNew is a generic iterator for PaginatedResult pagination.
+// Items decoding is delegated to type-specific wrappers.
+type PaginatedResultNew struct {
+	basePath  string
+	nextLink  string
+	firstLink string
+	res       *http.Response
+	err       error
+
+	query queryFunc
+	first bool
+}
+
+func (p *PaginatedResultNew) load(ctx context.Context, r paginatedRequestNew) error {
+	p.basePath = r.path
+	p.firstLink = (&url.URL{
+		Path:     r.path,
+		RawQuery: r.params.Encode(),
+	}).String()
+	p.query = r.query
+	return p.First(ctx)
+}
+
+func (p *PaginatedResultNew) goTo(ctx context.Context, link string) error {
+	var err error
+	p.res, err = p.query(ctx, link)
+	if err != nil {
+		return err
+	}
+	for _, rawLink := range p.res.Header["Link"] {
+		m := relLinkRegexp.FindStringSubmatch(rawLink)
+		if len(m) == 0 {
+			continue
+		}
+		relPath, rel := m[1], m[2]
+		path := path.Join(p.basePath, relPath)
+		switch rel {
+		case "first":
+			p.firstLink = path
+		case "next":
+			p.nextLink = path
+		}
+	}
+	return nil
+}
+
+// next loads the next page of items, if there is one. It returns whether a page
+// was successfully loaded or not; after it returns false, Err should be
+// called to check for any errors.
+//
+// Items can then be inspected with the type-specific Items method.
+func (p *PaginatedResultNew) next(ctx context.Context, into interface{}) bool {
+	if !p.first {
+		if p.nextLink == "" {
+			return false
+		}
+		p.err = p.goTo(ctx, p.nextLink)
+		if p.err != nil {
+			return false
+		}
+	}
+	p.first = false
+
+	p.err = decodeResp(p.res, into)
+	return p.err == nil
+}
+
+// First loads the first page of items. Next should be called before inspecting
+// the Items.
+func (p *PaginatedResultNew) First(ctx context.Context) error {
+	p.first = true
+	return p.goTo(ctx, p.firstLink)
+}
+
+// Err returns the error that caused Next to fail, if there was one.
+func (p *PaginatedResultNew) Err() error {
+	return p.err
+}
+
 // relLinkRegexp is the regexp that matches our pagination format
 var relLinkRegexp = regexp.MustCompile(`<(?P<url>[^>]+)>; rel="(?P<rel>[^"]+)"`)
 
@@ -224,16 +326,6 @@ func (p *PaginatedResult) Messages() []*Message {
 // The method panics if the underlying paginated result is not a presence message.
 func (p *PaginatedResult) PresenceMessages() []*PresenceMessage {
 	items, ok := p.typItems.([]*proto.PresenceMessage)
-	if !ok {
-		panic(errInvalidType{typ: p.req.typ})
-	}
-	return items
-}
-
-// Stats gives a slice of statistics for the current page. The method panics if
-// the underlying paginated result is not statistics.
-func (p *PaginatedResult) Stats() []*Stats {
-	items, ok := p.typItems.([]*proto.Stats)
 	if !ok {
 		panic(errInvalidType{typ: p.req.typ})
 	}

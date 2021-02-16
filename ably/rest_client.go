@@ -14,7 +14,9 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
+	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,7 +27,6 @@ import (
 
 var (
 	msgType     = reflect.TypeOf((*[]*proto.Message)(nil)).Elem()
-	statType    = reflect.TypeOf((*[]*proto.Stats)(nil)).Elem()
 	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
 	arrayTyp    = reflect.TypeOf((*[]interface{})(nil)).Elem()
 )
@@ -154,11 +155,86 @@ func (c *REST) Time(ctx context.Context) (time.Time, error) {
 	return time.Unix(times[0]/1000, times[0]%1000), nil
 }
 
-// Stats gives the channel's metrics according to the given parameters.
-// The returned result can be inspected for the statistics via the Stats()
-// method.
-func (c *REST) Stats(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
-	return newPaginatedResult(ctx, nil, paginatedRequest{typ: statType, path: "/stats", params: params, query: query(c.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
+// Stats retrieves statistics about the Ably app's activity.
+func (c *REST) Stats(o ...StatsOption) StatsRequest {
+	params := (&statsOptions{}).apply(o...)
+	return StatsRequest{r: c.newPaginatedRequest("/stats", params)}
+}
+
+// A StatsOption configures a call to REST.Stats or Realtime.Stats.
+type StatsOption func(*statsOptions)
+
+func StatsWithStart(t time.Time) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("start", strconv.FormatInt(unixMilli(t), 10))
+	}
+}
+
+func StatsWithEnd(t time.Time) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("end", strconv.FormatInt(unixMilli(t), 10))
+	}
+}
+
+func StatsWithLimit(limit int) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("limit", strconv.Itoa(limit))
+	}
+}
+
+func StatsWithDirection(d Direction) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("direction", string(d))
+	}
+}
+
+type PeriodUnit string
+
+const (
+	PeriodMinute PeriodUnit = "minute"
+	PeriodHour   PeriodUnit = "hour"
+	PeriodDay    PeriodUnit = "day"
+	PeriodMonth  PeriodUnit = "month"
+)
+
+func StatsWithUnit(d PeriodUnit) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("unit", string(d))
+	}
+}
+
+type statsOptions struct {
+	params url.Values
+}
+
+func (o *statsOptions) apply(opts ...StatsOption) url.Values {
+	o.params = make(url.Values)
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o.params
+}
+
+type StatsRequest struct {
+	r paginatedRequestNew
+}
+
+func (r StatsRequest) Pages(ctx context.Context) (*StatsPaginatedResult, error) {
+	var res StatsPaginatedResult
+	return &res, res.load(ctx, r.r)
+}
+
+type StatsPaginatedResult struct {
+	PaginatedResultNew
+	items []*Stats
+}
+
+func (p *StatsPaginatedResult) Next(ctx context.Context) bool {
+	return p.next(ctx, &p.items)
+}
+
+func (p *StatsPaginatedResult) Items() []*Stats {
+	return p.items
 }
 
 // request this contains fields necessary to compose http request that will be

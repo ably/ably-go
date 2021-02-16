@@ -55,7 +55,7 @@ func TestAuth_BasicAuth(t *testing.T) {
 	if _, err := client.Time(context.Background()); err != nil {
 		t.Fatalf("client.Time()=%v", err)
 	}
-	if _, err := client.Stats(context.Background(), single()); err != nil {
+	if _, err := client.Stats().Pages(context.Background()); err != nil {
 		t.Fatalf("client.Stats()=%v", err)
 	}
 	if n := rec.Len(); n != 2 {
@@ -107,7 +107,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if _, err := client.Time(context.Background()); err != nil {
 		t.Fatalf("client.Time()=%v", err)
 	}
-	if _, err := client.Stats(context.Background(), single()); err != nil {
+	if _, err := client.Stats().Pages(context.Background()); err != nil {
 		t.Fatalf("client.Stats()=%v", err)
 	}
 	// At this points there should be two requests recorded:
@@ -262,7 +262,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 		t.Fatalf("want ttl=1s; got %v", ttl)
 	}
 	time.Sleep(2 * time.Second) // wait till expires
-	_, err = client.Stats(context.Background(), single())
+	_, err = client.Stats().Pages(context.Background())
 	if err != nil {
 		t.Fatalf("Stats()=%v", err)
 	}
@@ -296,7 +296,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewREST()=%v", err)
 	}
-	if _, err := client.Stats(context.Background(), single()); err == nil {
+	if _, err := client.Stats().Pages(context.Background()); err == nil {
 		t.Fatal("want err!=nil")
 	}
 	// Ensure no requests were made to Ably servers.
@@ -460,7 +460,7 @@ func TestAuth_RequestToken(t *testing.T) {
 			t.Errorf("NewRealtime()=%v", err)
 			continue
 		}
-		if _, err = c.Stats(context.Background(), single()); err != nil {
+		if _, err = c.Stats().Pages(context.Background()); err != nil {
 			t.Errorf("c.Stats()=%v (method=%s)", err, method)
 		}
 	}

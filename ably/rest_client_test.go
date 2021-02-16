@@ -201,19 +201,20 @@ func TestRestClient(t *testing.T) {
 					errCh <- errors.New("timeout waiting for client.Stats to return nonempty value")
 					return
 				case <-tick:
-					page, err := client.Stats(context.Background(), &ably.PaginateParams{
-						Limit: 1,
-						ScopeParams: ably.ScopeParams{
-							Start: longAgo,
-							Unit:  proto.StatGranularityMinute,
-						},
-					})
+					page, err := client.Stats(
+						ably.StatsWithLimit(1),
+						ably.StatsWithStart(longAgo),
+						ably.StatsWithUnit(ably.PeriodMinute),
+					).Pages(context.Background())
 					if err != nil {
 						errCh <- err
 						return
 					}
-
-					if stats := page.Stats(); len(stats) != 0 {
+					if !page.Next(context.Background()) {
+						errCh <- page.Err()
+						return
+					}
+					if stats := page.Items(); len(stats) != 0 {
 						statsCh <- stats
 						return
 					}

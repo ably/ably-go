@@ -170,54 +170,70 @@ func TestReadmeExamples(t *testing.T) {
 			/* README.md:240 */ panic(err)
 			/* README.md:241 */
 		}
-		/* README.md:247 */ page, err := channel.History(ctx, nil)
-		/* README.md:248 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-			/* README.md:249 */ for _, message := range page.Messages() {
-				/* README.md:250 */ fmt.Println(message)
-				/* README.md:251 */
+		/* README.md:247 */ {
+			/* README.md:251 */ page, err := channel.History(ctx, nil)
+			/* README.md:252 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
+				/* README.md:253 */ for _, message := range page.Messages() {
+					/* README.md:254 */ fmt.Println(message)
+					/* README.md:255 */
+				}
+				/* README.md:256 */
 			}
-			/* README.md:252 */
-		}
-		/* README.md:253 */ if err != nil {
-			/* README.md:254 */ panic(err)
-			/* README.md:255 */
-		}
-		/* README.md:261 */ page, err = channel.Presence.Get(ctx, nil)
-		/* README.md:262 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-			/* README.md:263 */ for _, presence := range page.PresenceMessages() {
-				/* README.md:264 */ fmt.Println(presence)
-				/* README.md:265 */
+			/* README.md:257 */ if err != nil {
+				/* README.md:258 */ panic(err)
+				/* README.md:259 */
 			}
-			/* README.md:266 */
+			/* README.md:263 */
 		}
-		/* README.md:267 */ if err != nil {
-			/* README.md:268 */ panic(err)
-			/* README.md:269 */
-		}
-		/* README.md:275 */ page, err = channel.Presence.History(ctx, nil)
-		/* README.md:276 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-			/* README.md:277 */ for _, presence := range page.PresenceMessages() {
-				/* README.md:278 */ fmt.Println(presence)
-				/* README.md:279 */
+		/* README.md:269 */ {
+			/* README.md:273 */ page, err := channel.Presence.Get(ctx, nil)
+			/* README.md:274 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
+				/* README.md:275 */ for _, presence := range page.PresenceMessages() {
+					/* README.md:276 */ fmt.Println(presence)
+					/* README.md:277 */
+				}
+				/* README.md:278 */
 			}
-			/* README.md:280 */
-		}
-		/* README.md:281 */ if err != nil {
-			/* README.md:282 */ panic(err)
-			/* README.md:283 */
-		}
-		/* README.md:289 */ page, err = client.Stats(ctx, &ably.PaginateParams{})
-		/* README.md:290 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-			/* README.md:291 */ for _, stat := range page.Stats() {
-				/* README.md:292 */ fmt.Println(stat)
-				/* README.md:293 */
+			/* README.md:279 */ if err != nil {
+				/* README.md:280 */ panic(err)
+				/* README.md:281 */
 			}
-			/* README.md:294 */
+			/* README.md:285 */
 		}
-		/* README.md:295 */ if err != nil {
-			/* README.md:296 */ panic(err)
-			/* README.md:297 */
+		/* README.md:291 */ {
+			/* README.md:295 */ page, err := channel.Presence.History(ctx, nil)
+			/* README.md:296 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
+				/* README.md:297 */ for _, presence := range page.PresenceMessages() {
+					/* README.md:298 */ fmt.Println(presence)
+					/* README.md:299 */
+				}
+				/* README.md:300 */
+			}
+			/* README.md:301 */ if err != nil {
+				/* README.md:302 */ panic(err)
+				/* README.md:303 */
+			}
+			/* README.md:307 */
 		}
-		/* README.md:301 */
+		/* README.md:313 */ {
+			/* README.md:317 */ pages, err := client.Stats().Pages(ctx)
+			/* README.md:318 */ if err != nil {
+				/* README.md:319 */ panic(err)
+				/* README.md:320 */
+			}
+			/* README.md:321 */ for pages.Next(ctx) {
+				/* README.md:322 */ for _, stat := range pages.Items() {
+					/* README.md:323 */ fmt.Println(stat)
+					/* README.md:324 */
+				}
+				/* README.md:325 */
+			}
+			/* README.md:326 */ if err := pages.Err(); err != nil {
+				/* README.md:327 */ panic(err)
+				/* README.md:328 */
+			}
+			/* README.md:332 */
+		}
+		/* README.md:336 */
 	}
 }

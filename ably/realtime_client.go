@@ -51,11 +51,9 @@ func (c *Realtime) Close() {
 	c.Connection.Close()
 }
 
-// Stats gives the clients metrics according to the given parameters. The
-// returned result can be inspected for the statistics via the Stats()
-// method.
-func (c *Realtime) Stats(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
-	return c.rest.Stats(ctx, params)
+// Stats is the same as REST.Stats.
+func (c *Realtime) Stats(o ...StatsOption) StatsRequest {
+	return c.rest.Stats(o...)
 }
 
 // Time
