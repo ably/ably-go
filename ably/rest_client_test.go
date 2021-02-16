@@ -7,12 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httptrace"
 	"net/url"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -542,19 +543,28 @@ func TestRESTChannels_RSN1(t *testing.T) {
 }
 
 func TestFixConnLeak_ISSUE89(t *testing.T) {
-	var trackRecord []httptrace.GotConnInfo
-	trace := &httptrace.ClientTrace{
-		GotConn: func(c httptrace.GotConnInfo) {
-			trackRecord = append(trackRecord, c)
-		},
-	}
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	opts := app.Options(ably.WithHTTPClient(ablytest.NewHTTPClientNoKeepAlive()))
-	opts = append(opts, ably.WithTrace(trace))
+
+	var conns []*connCloseTracker
+
+	httpClient := ablytest.NewHTTPClientNoKeepAlive()
+	transport := httpClient.Transport.(*http.Transport)
+	dial := transport.Dial
+	transport.Dial = func(network, address string) (net.Conn, error) {
+		c, err := dial(network, address)
+		if err != nil {
+			return nil, err
+		}
+		tracked := &connCloseTracker{Conn: c}
+		conns = append(conns, tracked)
+		return tracked, nil
+	}
+
+	opts := app.Options(ably.WithHTTPClient(httpClient))
 	client, err := ably.NewREST(opts...)
 	if err != nil {
 		t.Fatal(err)
@@ -567,16 +577,21 @@ func TestFixConnLeak_ISSUE89(t *testing.T) {
 		}
 	}
 
-	for _, v := range trackRecord {
-		v.Conn.SetReadDeadline(time.Now())
-		if _, err := v.Conn.Read(make([]byte, 1)); err != nil {
-			if !connIsClosed(err) {
-				t.Errorf("expected conn %s to be closed", v.Conn.LocalAddr())
-			}
+	for _, c := range conns {
+		if !ablytest.Before(1 * time.Second).IsTrue(func() bool {
+			return atomic.LoadUintptr(&c.closed) != 0
+		}) {
+			t.Errorf("conn to %v wasn't closed", c.RemoteAddr())
 		}
 	}
 }
 
-func connIsClosed(err error) bool {
-	return strings.Contains(err.Error(), "use of closed network connection")
+type connCloseTracker struct {
+	net.Conn
+	closed uintptr
+}
+
+func (c *connCloseTracker) Close() error {
+	atomic.StoreUintptr(&c.closed, 1)
+	return c.Conn.Close()
 }
