@@ -10,11 +10,6 @@ import (
 	"time"
 )
 
-var EventName = "message"
-var UserName = "testUser"
-var AblyKey = "ABLY_KEY"
-var ChannelName = "chat"
-
 func main() {
 	godotenv.Load()
 
