@@ -281,6 +281,11 @@ This library uses [semantic versioning](http://semver.org/). For each release, t
 * Once the PR is approved, merge it into `main`
 * Add a tag to the new `main` head commit and push to origin such as `git tag v1.1.6 && git push origin v1.1.6`
 
+## Resources
+
+* [Building realtime apps with Go and WebSockets: client-side considerations](https://www.ably.io/topic/websockets-golang)
+* [Guide to Pub/Sub in Golang](https://www.ably.io/blog/pubsub-golang)
+
 ## Support and feedback
 
 Please visit http://support.ably.io/ for access to our knowledgebase and to ask for any assistance.
