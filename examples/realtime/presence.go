@@ -1,7 +1,8 @@
 package main
 
+// go run presence.go constants.go
+
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -27,9 +28,6 @@ func main() {
 	checkPresenceEnter(client)
 	checkPresenceLeave(client)
 	checkPresenceEnterAndLeave(client)
-
-	reader := bufio.NewReader(os.Stdin)
-	_, _ = reader.ReadString('\n')
 }
 
 func checkPresenceEnter(client *ably.Realtime) {

@@ -3,7 +3,6 @@ package main
 //go run stats.go utils.go constants.go
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 
@@ -24,9 +23,6 @@ func main() {
 	}
 
 	printApplicationStats(client)
-
-	reader := bufio.NewReader(os.Stdin)
-	_, _ = reader.ReadString('\n')
 }
 
 func printApplicationStats(client *ably.REST) {

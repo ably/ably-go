@@ -3,7 +3,6 @@ package main
 // go run presence.go constants.go utils.go
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"time"
@@ -25,9 +24,6 @@ func main() {
 	}
 
 	checkPresence(client)
-
-	reader := bufio.NewReader(os.Stdin)
-	_, _ = reader.ReadString('\n')
 }
 
 func checkPresence(client *ably.REST) {

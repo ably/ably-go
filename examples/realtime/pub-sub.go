@@ -1,7 +1,8 @@
 package main
 
+//  go run pub-sub.go constants.go
+
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -25,9 +26,6 @@ func main() {
 
 	checkSubscribeAll(client)
 	checkSubscribeToEvent(client)
-
-	reader := bufio.NewReader(os.Stdin)
-	_, _ = reader.ReadString('\n')
 }
 
 func checkSubscribeAll(client *ably.Realtime) {

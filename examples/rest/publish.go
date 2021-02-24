@@ -3,7 +3,6 @@ package main
 // go run publish.go constants.go utils.go
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -28,9 +27,6 @@ func main() {
 	// Connect to the Ably Channel with name 'chat'
 	checkRestPublish(client)
 	checkRestBulkPublish(client)
-
-	reader := bufio.NewReader(os.Stdin)
-	_, _ = reader.ReadString('\n')
 }
 
 func checkRestPublish(client *ably.REST) {
