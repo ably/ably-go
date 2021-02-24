@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/proto"
 	"github.com/joho/godotenv"
-	"os"
-	"time"
 )
 
 func main() {
@@ -61,33 +62,33 @@ func checkPresenceEnterAndLeave(client *ably.Realtime) {
 }
 
 func enterPresence(channel *ably.RealtimeChannel) {
-	pErr := channel.Presence.Enter(context.Background(), UserName + " entered the channel")
+	pErr := channel.Presence.Enter(context.Background(), UserName+" entered the channel")
 	if pErr != nil {
-		err := fmt.Errorf("	Error with enter presence on the channel %w", pErr)
+		err := fmt.Errorf("error with enter presence on the channel %w", pErr)
 		fmt.Println(err)
 	}
 }
 
 func enterOnBehalfOf(clientId string, channel *ably.RealtimeChannel) {
-	pErr := channel.Presence.EnterClient(context.Background(), clientId, UserName + " entered the channel on behalf of " + clientId)
+	pErr := channel.Presence.EnterClient(context.Background(), clientId, UserName+" entered the channel on behalf of "+clientId)
 	if pErr != nil {
-		err := fmt.Errorf("	Error with enter presence on the channel %w", pErr)
+		err := fmt.Errorf("error with enter presence on behalf of other client on the channel %w", pErr)
 		fmt.Println(err)
 	}
 }
 
 func updatePresence(channel *ably.RealtimeChannel) {
-	pErr := channel.Presence.Update(context.Background(), UserName + " entered the channel")
+	pErr := channel.Presence.Update(context.Background(), UserName+" entered the channel")
 	if pErr != nil {
-		err := fmt.Errorf("Error with update presence on the channel %w", pErr)
+		err := fmt.Errorf("error with update presence on the channel %w", pErr)
 		fmt.Println(err)
 	}
 }
 
 func leavePresence(channel *ably.RealtimeChannel) {
-	pErr := channel.Presence.Leave(context.Background(), UserName + " entered the channel")
+	pErr := channel.Presence.Leave(context.Background(), UserName+" entered the channel")
 	if pErr != nil {
-		err := fmt.Errorf("Error with leave presence on the channel %w", pErr)
+		err := fmt.Errorf("error with leave presence on the channel %w", pErr)
 		fmt.Println(err)
 	}
 }
@@ -102,7 +103,7 @@ func subscribeAllPresence(channel *ably.RealtimeChannel) func() {
 		}
 	})
 	if pErr != nil {
-		err := fmt.Errorf("subscribing to presence in channel: %w", pErr)
+		err := fmt.Errorf("error subscribing to presence in channel: %w", pErr)
 		fmt.Println(err)
 
 	}
@@ -120,7 +121,7 @@ func subscribePresenceEnter(channel *ably.RealtimeChannel) func() {
 	})
 
 	if pErr != nil {
-		err := fmt.Errorf("subscribing to presence in channel: %w", pErr)
+		err := fmt.Errorf("error subscribing to enter presence in channel: %w", pErr)
 		fmt.Println(err)
 	}
 	return unsubscribe
@@ -136,7 +137,7 @@ func subscribePresenceLeave(channel *ably.RealtimeChannel) func() {
 		}
 	})
 	if pErr != nil {
-		err := fmt.Errorf("subscribing to presence in channel: %w", pErr)
+		err := fmt.Errorf("error subscribing to leave presence in channel: %w", pErr)
 		fmt.Println(err)
 	}
 	return unsubscribe
@@ -147,7 +148,6 @@ func printAllClientsOnChannel(channel *ably.RealtimeChannel) {
 	if err != nil {
 		panic(err)
 	}
-
 	for _, client := range clients {
 		fmt.Println("Present client:", client)
 	}
