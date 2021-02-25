@@ -33,6 +33,9 @@ jobs:
       - name: Vet
         run: go vet ./ably/... ./scripts/...
 
+      - name: Ensure generated code is up-to-date
+        run: go generate ./... && [ -z "$(git status --porcelain)" ]
+
       - name: Test with JSON Protocol
         env:
           ABLY_PROTOCOL: application/json
