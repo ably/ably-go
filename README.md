@@ -37,7 +37,7 @@ client.Close()
 You may monitor events on connections and channels.
 
 ```go
-client, err = ably.NewRealtime(
+client, err := ably.NewRealtime(
 	ably.WithKey("xxx:xxx"),
 	ably.WithAutoConnect(false), // Set this option to avoid missing state changes.
 )
@@ -53,7 +53,7 @@ client.Connection.OnAll(func(change ably.ConnectionStateChange) {
 // Then connect.
 client.Connect()
 
-channel = client.Channels.Get("test")
+channel := client.Channels.Get("test")
 
 channel.OnAll(func(change ably.ChannelStateChange) {
 	fmt.Printf("Channel event event: %s channel=%s state=%s reason=%s", channel.Name, change.Event, change.Current, change.Reason)
@@ -101,7 +101,7 @@ unsubscribe2()
 ### Publishing to a channel
 
 ```go
-err = channel.Publish(ctx, "EventName1", "EventData1")
+err := channel.Publish(ctx, "EventName1", "EventData1")
 if err != nil {
 	panic(err)
 }
@@ -130,7 +130,7 @@ if errInfo := (*ably.ErrorInfo)(nil); errors.As(err, &errInfo) {
 ### Announcing presence on a channel
 
 ```go
-err = channel.Presence.Enter(ctx, "presence data")
+err := channel.Presence.Enter(ctx, "presence data")
 if err != nil {
 	panic(err)
 }
@@ -139,7 +139,7 @@ if err != nil {
 ### Announcing presence on a channel on behalf of other client
 
 ```go
-err = channel.Presence.EnterClient(ctx, "clientID", "presence data")
+err := channel.Presence.EnterClient(ctx, "clientID", "presence data")
 if err != nil {
 	panic(err)
 }
@@ -149,13 +149,13 @@ if err != nil {
 
 ```go
 // Update also has an UpdateClient variant.
-err = channel.Presence.Update(ctx, "new presence data")
+err := channel.Presence.Update(ctx, "new presence data")
 if err != nil {
 	panic(err)
 }
 
 // Leave also has an LeaveClient variant.
-err = channel.Presence.Leave(ctx, "last presence data")
+err := channel.Presence.Leave(ctx, "last presence data")
 if err != nil {
 	panic(err)
 }
@@ -177,7 +177,7 @@ for _, client := range clients {
 ### Subscribing to all presence messages
 
 ```go
-unsubscribe, err = channel.Presence.SubscribeAll(ctx, func(msg *ably.PresenceMessage) {
+unsubscribe, err := channel.Presence.SubscribeAll(ctx, func(msg *ably.PresenceMessage) {
 	fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
 })
 if err != nil {
@@ -192,7 +192,7 @@ unsubscribe()
 ### Subscribing to 'Enter' presence messages only
 
 ```go
-unsubscribe, err = channel.Presence.Subscribe(ctx, ably.PresenceActionEnter, func(msg *ably.PresenceMessage) {
+unsubscribe, err := channel.Presence.Subscribe(ctx, ably.PresenceActionEnter, func(msg *ably.PresenceMessage) {
 	fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
 })
 if err != nil {
@@ -226,15 +226,15 @@ channel := client.Channels.Get("test")
 ### Publishing a message to a channel
 
 ```go
-err = channel.Publish(ctx, "HelloEvent", "Hello!")
+err := channel.Publish(ctx, "HelloEvent", "Hello!")
 if err != nil {
 	panic(err)
 }
 
 // You can also publish a batch of messages in a single request.
-err = channel.PublishBatch(ctx, []*ably.Message{
-	{Name: "HelloEvent", Data: "Hello!"},
-	{Name: "ByeEvent", Data: "Bye!"},
+err := channel.PublishBatch(ctx, []*ably.Message{
+	{ Name: "HelloEvent", Data: "Hello!" },
+	{ Name: "ByeEvent", Data: "Bye!" },
 })
 if err != nil {
 	panic(err)
@@ -244,8 +244,8 @@ if err != nil {
 ### Querying the History
 
 ```go
-page, err := channel.History(ctx, nil)
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
+page, err := channel.History(nil)
+for ; err == nil && page != nil; page, err = page.Next() {
 	for _, message := range page.Messages() {
 		fmt.Println(message)
 	}
@@ -258,8 +258,8 @@ if err != nil {
 ### Presence on a channel
 
 ```go
-page, err = channel.Presence.Get(ctx, nil)
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
+page, err := channel.Presence.Get(nil)
+for ; err == nil && page != nil; page, err = page.Next() {
 	for _, presence := range page.PresenceMessages() {
 		fmt.Println(presence)
 	}
@@ -272,8 +272,8 @@ if err != nil {
 ### Querying the Presence History
 
 ```go
-page, err = channel.Presence.History(ctx, nil)
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
+page, err := channel.Presence.History(nil)
+for ; err == nil && page != nil; page, err = page.Next() {
 	for _, presence := range page.PresenceMessages() {
 		fmt.Println(presence)
 	}
@@ -286,8 +286,8 @@ if err != nil {
 ### Fetching your application's stats
 
 ```go
-page, err = client.Stats(ctx, &ably.PaginateParams{})
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
+page, err := client.Stats(&ably.PaginateParams{})
+for ; err == nil && page != nil; page, err = page.Next() {
 	for _, stat := range page.Stats() {
 		fmt.Println(stat)
 	}
