@@ -13,10 +13,9 @@ import (
 func main() {
 	godotenv.Load()
 
-	// Connect to Ably using the API key and ClientID specified above
+	// Connect to Ably using the API key and ClientID
 	client, err := ably.NewREST(
 		ably.WithKey(os.Getenv(AblyKey)),
-		// ably.WithEchoMessages(true), // Uncomment to stop messages you send from being sent back
 		ably.WithClientID(UserName))
 	if err != nil {
 		panic(err)

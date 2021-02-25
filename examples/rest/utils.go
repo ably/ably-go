@@ -56,7 +56,6 @@ func realtimePublish(client *ably.Realtime, message string) {
 	channel := client.Channels.Get(ChannelName)
 	// Publish the message typed in to the Ably Channel
 	err := channel.Publish(context.Background(), EventName, message)
-	// await confirmation that message was received by Ably
 	if err != nil {
 		err := fmt.Errorf("error publishing to channel: %w", err)
 		fmt.Println(err)

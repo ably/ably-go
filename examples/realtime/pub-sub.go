@@ -15,10 +15,9 @@ import (
 func main() {
 	godotenv.Load()
 
-	// Connect to Ably using the API key and ClientID specified above
+	// Connect to Ably using the API key and ClientID specified
 	client, err := ably.NewRealtime(
 		ably.WithKey(os.Getenv(AblyKey)),
-		// ably.WithEchoMessages(true), // Uncomment to stop messages you send from being sent back
 		ably.WithClientID(UserName))
 	if err != nil {
 		panic(err)
@@ -29,15 +28,15 @@ func main() {
 }
 
 func checkSubscribeAll(client *ably.Realtime) {
-	// Connect to the Ably Channel with name 'chat'
+
 	channel := client.Channels.Get(ChannelName)
 
 	unsubscribeAll := subscribeAll(channel)
-	// Start the goroutine to allow for publishing messages
+
 	publish(channel, "Hey there !!")
 
 	time.Sleep(time.Second)
-	//
+
 	unsubscribeAll()
 }
 
@@ -46,16 +45,17 @@ func checkSubscribeToEvent(client *ably.Realtime) {
 	channel := client.Channels.Get(ChannelName)
 
 	unsubscribe := subscribeToEvent(channel)
-	// Start the goroutine to allow for publishing messages
+
+	// publish message with blocking call
 	publish(channel, "Hey there !!")
 
 	time.Sleep(time.Second)
-	//
+
 	unsubscribe()
 }
 
 func subscribeToEvent(channel *ably.RealtimeChannel) func() {
-	// Subscribe to messages sent on the channel
+	// Subscribe to messages sent on the channel with given eventName
 	unsubscribe, err := channel.Subscribe(context.Background(), EventName, func(msg *ably.Message) {
 		fmt.Printf("Received message from %v: '%v'\n", msg.ClientID, msg.Data)
 	})
@@ -67,7 +67,7 @@ func subscribeToEvent(channel *ably.RealtimeChannel) func() {
 }
 
 func subscribeAll(channel *ably.RealtimeChannel) func() {
-	// Subscribe to messages sent on the channel
+	// Subscribe to all messages sent on the channel
 	unsubscribeAll, err := channel.SubscribeAll(context.Background(), func(msg *ably.Message) {
 		fmt.Printf("Received message from %v: '%v'\n", msg.ClientID, msg.Data)
 	})
@@ -79,9 +79,8 @@ func subscribeAll(channel *ably.RealtimeChannel) func() {
 }
 
 func publish(channel *ably.RealtimeChannel, message string) {
-	// Publish the message typed in to the Ably Channel
+	// Publish the message to Ably Channel
 	err := channel.Publish(context.Background(), EventName, message)
-	// await confirmation that message was received by Ably
 	if err != nil {
 		err := fmt.Errorf("error publishing to channel: %w", err)
 		fmt.Println(err)

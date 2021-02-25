@@ -15,16 +15,14 @@ import (
 func main() {
 	godotenv.Load()
 
-	// Connect to Ably using the API key and ClientID specified above
+	// Connect to Ably using the API key and ClientID
 	client, err := ably.NewREST(
 		ably.WithKey(os.Getenv(AblyKey)),
-		// ably.WithEchoMessages(true), // Uncomment to stop messages you send from being sent back
 		ably.WithClientID(UserName))
 	if err != nil {
 		panic(err)
 	}
 
-	// Connect to the Ably Channel with name 'chat'
 	checkRestPublish(client)
 	checkRestBulkPublish(client)
 }
@@ -34,7 +32,6 @@ func checkRestPublish(client *ably.REST) {
 	realtimeClient := initRealtimeClient()
 	unsubscribe := realtimeSubscribeToEvent(realtimeClient)
 
-	// check actual rest Publish
 	restPublish(channel, "Hey there")
 
 	time.Sleep(time.Second)
@@ -47,7 +44,6 @@ func checkRestBulkPublish(client *ably.REST) {
 	realtimeClient := initRealtimeClient()
 	unsubscribe := realtimeSubscribeToEvent(realtimeClient)
 
-	// check actual batch publish
 	restPublishBatch(channel, "Hey there", "How are you?")
 
 	time.Sleep(time.Second)

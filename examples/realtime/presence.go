@@ -16,10 +16,9 @@ import (
 func main() {
 	godotenv.Load()
 
-	// Connect to Ably using the API key and ClientID specified above
+	// Connect to Ably using the API key and ClientID specified
 	client, err := ably.NewRealtime(
 		ably.WithKey(os.Getenv(AblyKey)),
-		// ably.WithEchoMessages(true), // Uncomment to stop messages you send from being sent back
 		ably.WithClientID(UserName))
 	if err != nil {
 		panic(err)
@@ -31,7 +30,6 @@ func main() {
 }
 
 func checkPresenceEnter(client *ably.Realtime) {
-	// Connect to the Ably Channel with name 'chat'
 	channel := client.Channels.Get(ChannelName)
 	unsubscribe := subscribePresenceEnter(channel)
 	enterPresence(channel)
@@ -40,7 +38,6 @@ func checkPresenceEnter(client *ably.Realtime) {
 }
 
 func checkPresenceLeave(client *ably.Realtime) {
-	// Connect to the Ably Channel with name 'chat'
 	channel := client.Channels.Get(ChannelName)
 	unsubscribe := subscribePresenceLeave(channel)
 	leavePresence(channel)
@@ -49,7 +46,6 @@ func checkPresenceLeave(client *ably.Realtime) {
 }
 
 func checkPresenceEnterAndLeave(client *ably.Realtime) {
-	// Connect to the Ably Channel with name 'chat'
 	channel := client.Channels.Get(ChannelName)
 	unsubscribe := subscribeAllPresence(channel)
 	enterPresence(channel)
