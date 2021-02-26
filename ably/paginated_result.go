@@ -41,6 +41,8 @@ func (r *REST) newPaginatedRequest(path string, params url.Values) paginatedRequ
 
 // PaginatedResultNew is a generic iterator for PaginatedResult pagination.
 // Items decoding is delegated to type-specific wrappers.
+//
+// See "Paginated results" section in the package-level documentation.
 type PaginatedResultNew struct {
 	basePath  string
 	nextLink  string
@@ -52,6 +54,8 @@ type PaginatedResultNew struct {
 	first bool
 }
 
+// load loads the first page of results. Must be called from the type-specific
+// wrapper Pages method that creates the PaginatedResult object.
 func (p *PaginatedResultNew) load(ctx context.Context, r paginatedRequestNew) error {
 	p.basePath = r.path
 	p.firstLink = (&url.URL{
@@ -90,6 +94,8 @@ func (p *PaginatedResultNew) goTo(ctx context.Context, link string) error {
 // called to check for any errors.
 //
 // Items can then be inspected with the type-specific Items method.
+//
+// For items iterators, use the next function returned by loadItems instead.
 func (p *PaginatedResultNew) next(ctx context.Context, into interface{}) bool {
 	if !p.first {
 		if p.nextLink == "" {

@@ -215,24 +215,38 @@ func (o *statsOptions) apply(opts ...StatsOption) url.Values {
 	return o.params
 }
 
+// StatsRequest represents a request prepared by the REST.Stats or
+// Realtime.Stats method, ready to be performed by its Pages or Items methods.
 type StatsRequest struct {
 	r paginatedRequestNew
 }
 
+// Pages returns an iterator for whole pages of Stats.
+//
+// See "Paginated results" section in the package-level documentation.
 func (r StatsRequest) Pages(ctx context.Context) (*StatsPaginatedResult, error) {
 	var res StatsPaginatedResult
 	return &res, res.load(ctx, r.r)
 }
 
+// A StatsPaginatedResult is an iterator for the result of a Stats request.
+//
+// See "Paginated results" section in the package-level documentation.
 type StatsPaginatedResult struct {
 	PaginatedResultNew
 	items []*Stats
 }
 
+// Next retrieves the next page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
 func (p *StatsPaginatedResult) Next(ctx context.Context) bool {
 	return p.next(ctx, &p.items)
 }
 
+// Items returns the current page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
 func (p *StatsPaginatedResult) Items() []*Stats {
 	return p.items
 }
