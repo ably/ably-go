@@ -599,7 +599,7 @@ func (c *connCloseTracker) Close() error {
 	return c.Conn.Close()
 }
 
-func TestStatsPagination_RSC6a(t *testing.T) {
+func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
 	t.Parallel()
 
 	for _, limit := range []int{2, 3, 20} {
@@ -623,12 +623,127 @@ func TestStatsPagination_RSC6a(t *testing.T) {
 	}
 }
 
+func TestStats_StartEnd_RSC6b1(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	app, rest := ablytest.NewREST()
+	defer app.Close()
+
+	fixtures := statsFixtures()
+	postStats(app, fixtures)
+
+	expected := reverseStats(fixtures[1:3])
+
+	pages, err := rest.Stats(
+		ably.StatsWithStart(time.Date(2020, time.January, 28, 14, 1, 0, 0, time.UTC)),
+		ably.StatsWithEnd(time.Date(2020, time.January, 28, 14, 2, 30, 0, time.UTC)),
+	).Pages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []*ably.Stats
+	for pages.Next(ctx) {
+		got = append(got, pages.Items()...)
+	}
+	if err := pages.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(expected, got) {
+		t.Fatalf("expected: %+v; got: %+v", expected, got)
+	}
+}
+
+func TestStats_Direction_RSC6b2(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		direction ably.Direction
+		expected  []*ably.Stats
+	}{
+		{
+			direction: ably.Backwards,
+			expected:  reverseStats(statsFixtures()),
+		},
+		{
+			direction: ably.Forwards,
+			expected:  statsFixtures(),
+		},
+	} {
+		c := c
+		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
+			ctx := context.Background()
+
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+
+			fixtures := statsFixtures()
+			postStats(app, fixtures)
+
+			expected := c.expected
+
+			pages, err := rest.Stats(
+				ably.StatsWithLimit(len(expected)),
+				ably.StatsWithDirection(c.direction),
+			).Pages(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []*ably.Stats
+			for pages.Next(ctx) {
+				got = append(got, pages.Items()...)
+			}
+			if err := pages.Err(); err != nil {
+				t.Fatal(err)
+			}
+
+			if !reflect.DeepEqual(expected, got) {
+				t.Fatalf("expected: %+v; got: %+v", expected, got)
+			}
+		})
+	}
+}
+
+func TestStats_Unit_RSC6b4(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	app, rest := ablytest.NewREST()
+	defer app.Close()
+
+	fixtures := statsFixtures()
+	postStats(app, fixtures)
+
+	pages, err := rest.Stats(
+		ably.StatsWithUnit(ably.PeriodMonth),
+	).Pages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []*ably.Stats
+	for pages.Next(ctx) {
+		got = append(got, pages.Items()...)
+	}
+	if err := pages.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	if expected, got := 1, len(got); expected != got {
+		t.Fatalf("expected: %v; got: %v", expected, got)
+	}
+
+	stats := got[0]
+	if expected, got := "month", stats.Unit; expected != got {
+		t.Fatalf("expected: %v; got: %v", expected, got)
+	}
+}
+
 func statsFixtures() []*ably.Stats {
 	var fixtures []*ably.Stats
-	baseDate, err := time.Parse("2006-01-02:15:04", "2020-01-28:14:00")
-	if err != nil {
-		panic(err)
-	}
+	baseDate := time.Date(2020, time.January, 28, 14, 0, 0, 0, time.UTC)
 	msgCounts := ably.StatsMessageCount{
 		Count: 50,
 		Data:  5000,
