@@ -251,6 +251,45 @@ func (p *StatsPaginatedResult) Items() []*Stats {
 	return p.items
 }
 
+// Items returns a convenience iterator for single Stats, over an underlying
+// paginated iterator.
+//
+// See "Paginated results" section in the package-level documentation.
+func (r StatsRequest) Items(ctx context.Context) (*StatsPaginatedItems, error) {
+	var res StatsPaginatedItems
+	var err error
+	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
+		return &res.items, func() int { return len(res.items) }
+	})
+	return &res, err
+}
+
+type StatsPaginatedItems struct {
+	PaginatedResultNew
+	items []*Stats
+	item  *Stats
+	next  func(context.Context) (int, bool)
+}
+
+// Next retrieves the next result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *StatsPaginatedItems) Next(ctx context.Context) bool {
+	i, ok := p.next(ctx)
+	if !ok {
+		return false
+	}
+	p.item = p.items[i]
+	return true
+}
+
+// Item returns the current result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *StatsPaginatedItems) Item() *Stats {
+	return p.item
+}
+
 // request this contains fields necessary to compose http request that will be
 // sent ably endpoints.
 type request struct {

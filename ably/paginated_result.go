@@ -66,6 +66,53 @@ func (p *PaginatedResultNew) load(ctx context.Context, r paginatedRequestNew) er
 	return p.First(ctx)
 }
 
+// loadItems loads the first page of results and returns a next function. Must
+// be called from the type-specific wrapper Items method that creates the
+// PaginatedItems object.
+//
+// The returned next function must be called from the wrapper's Next method, and
+// returns the index of the object that should be returned by the Item method,
+// previously loading the next page if necessary.
+//
+// pageDecoder will be called each time a new page is retrieved under the hood.
+// It should return a destination object on which the page of results will be
+// decoded, and a pageLength function that, when called after the page has been
+// decoded, must return the length of the page.
+func (p *PaginatedResultNew) loadItems(
+	ctx context.Context,
+	r paginatedRequestNew,
+	pageDecoder func() (page interface{}, pageLength func() int),
+) (
+	next func(context.Context) (int, bool),
+	err error,
+) {
+	err = p.load(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
+	var page interface{}
+	var pageLen int
+	nextItem := 0
+
+	return func(ctx context.Context) (int, bool) {
+		if nextItem == 0 {
+			var getLen func() int
+			page, getLen = pageDecoder()
+			pageLen = getLen()
+
+			hasNext := p.next(ctx, &page)
+			if !hasNext {
+				return 0, false
+			}
+		}
+
+		idx := nextItem
+		nextItem = (nextItem + 1) % pageLen
+		return idx, true
+	}, nil
+}
+
 func (p *PaginatedResultNew) goTo(ctx context.Context, link string) error {
 	var err error
 	p.res, err = p.query(ctx, link)
