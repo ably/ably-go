@@ -3,6 +3,7 @@ package main
 // go run history.go constants.go utils.go
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -51,8 +52,8 @@ func checkRestChannelPresenceHistory(client *ably.REST) {
 }
 
 func printChannelMessageHistory(channel *ably.RESTChannel) {
-	page, err := channel.History(nil)
-	for ; err == nil && page != nil; page, err = page.Next() {
+	page, err := channel.History(context.Background(), nil)
+	for ; err == nil && page != nil; page, err = page.Next(context.Background()) {
 		for _, message := range page.Messages() {
 			fmt.Println("--- Channel history ---")
 			fmt.Println(jsonify(message))
@@ -65,8 +66,8 @@ func printChannelMessageHistory(channel *ably.RESTChannel) {
 }
 
 func printChannelPresenceHistory(channel *ably.RESTChannel) {
-	page, err := channel.Presence.History(nil)
-	for ; err == nil && page != nil; page, err = page.Next() {
+	page, err := channel.Presence.History(context.Background(), nil)
+	for ; err == nil && page != nil; page, err = page.Next(context.Background()) {
 		for _, presence := range page.PresenceMessages() {
 			fmt.Println("--- Channel presence history ---")
 			fmt.Println(jsonify(presence))

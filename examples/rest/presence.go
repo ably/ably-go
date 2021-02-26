@@ -3,6 +3,7 @@ package main
 // go run presence.go constants.go utils.go
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -39,8 +40,8 @@ func checkPresence(client *ably.REST) {
 }
 
 func printPresenceMessages(channel *ably.RESTChannel) {
-	page, err := channel.Presence.Get(nil)
-	for ; err == nil && page != nil; page, err = page.Next() {
+	page, err := channel.Presence.Get(context.Background(), nil)
+	for ; err == nil && page != nil; page, err = page.Next(context.Background()) {
 		for _, presence := range page.PresenceMessages() {
 			fmt.Println(jsonify(presence))
 		}

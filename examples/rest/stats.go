@@ -3,6 +3,7 @@ package main
 //go run stats.go utils.go constants.go
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -25,8 +26,8 @@ func main() {
 }
 
 func printApplicationStats(client *ably.REST) {
-	page, err := client.Stats(&ably.PaginateParams{})
-	for ; err == nil && page != nil; page, err = page.Next() {
+	page, err := client.Stats(context.Background(), &ably.PaginateParams{})
+	for ; err == nil && page != nil; page, err = page.Next(context.Background()) {
 		for _, stat := range page.Stats() {
 			fmt.Println(jsonify(stat))
 		}
