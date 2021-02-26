@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -595,4 +597,87 @@ type connCloseTracker struct {
 func (c *connCloseTracker) Close() error {
 	atomic.StoreUintptr(&c.closed, 1)
 	return c.Conn.Close()
+}
+
+func TestStatsPagination_RSC6a(t *testing.T) {
+	t.Parallel()
+
+	for _, limit := range []int{2, 3, 20} {
+		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
+			t.Parallel()
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+
+			fixtures := statsFixtures()
+			postStats(app, fixtures)
+
+			err := ablytest.TestPagination(
+				reverseStats(fixtures),
+				rest.Stats(ably.StatsWithLimit(limit)),
+				limit,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func statsFixtures() []*ably.Stats {
+	var fixtures []*ably.Stats
+	baseDate, err := time.Parse("2006-01-02:15:04", "2020-01-28:14:00")
+	if err != nil {
+		panic(err)
+	}
+	msgCounts := ably.StatsMessageCount{
+		Count: 50,
+		Data:  5000,
+	}
+	msgTypes := ably.StatsMessageTypes{
+		All:      msgCounts,
+		Messages: msgCounts,
+	}
+	for i := time.Duration(0); i < 10; i++ {
+		fixtures = append(fixtures, &ably.Stats{
+			IntervalID: baseDate.Add(i * time.Minute).Format("2006-01-02:15:04"),
+			Unit:       "minute",
+			All:        msgTypes,
+			Inbound: ably.StatsMessageTraffic{
+				All:      msgTypes,
+				RealTime: msgTypes,
+			},
+		})
+	}
+	return fixtures
+}
+
+func postStats(app *ablytest.Sandbox, stats []*ably.Stats) error {
+	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
+	defer cancel()
+
+	statsJSON, err := json.Marshal(stats)
+	if err != nil {
+		return fmt.Errorf("marshaling stats: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://sandbox-rest.ably.io/stats", bytes.NewReader(statsJSON))
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+	req = req.WithContext(ctx)
+	req.SetBasicAuth(app.KeyParts())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("performing request: %w", err)
+	}
+	resp.Body.Close()
+	return nil
+}
+
+func reverseStats(stats []*ably.Stats) []*ably.Stats {
+	var reversed []*ably.Stats
+	for i := len(stats) - 1; i >= 0; i-- {
+		reversed = append(reversed, stats[i])
+	}
+	return reversed
 }

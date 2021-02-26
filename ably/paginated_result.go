@@ -57,7 +57,7 @@ type PaginatedResultNew struct {
 // load loads the first page of results. Must be called from the type-specific
 // wrapper Pages method that creates the PaginatedResult object.
 func (p *PaginatedResultNew) load(ctx context.Context, r paginatedRequestNew) error {
-	p.basePath = r.path
+	p.basePath = path.Dir(r.path)
 	p.firstLink = (&url.URL{
 		Path:     r.path,
 		RawQuery: r.params.Encode(),
@@ -99,12 +99,11 @@ func (p *PaginatedResultNew) loadItems(
 		if nextItem == 0 {
 			var getLen func() int
 			page, getLen = pageDecoder()
-			pageLen = getLen()
-
 			hasNext := p.next(ctx, &page)
 			if !hasNext {
 				return 0, false
 			}
+			pageLen = getLen()
 		}
 
 		idx := nextItem
@@ -119,6 +118,7 @@ func (p *PaginatedResultNew) goTo(ctx context.Context, link string) error {
 	if err != nil {
 		return err
 	}
+	p.nextLink = ""
 	for _, rawLink := range p.res.Header["Link"] {
 		m := relLinkRegexp.FindStringSubmatch(rawLink)
 		if len(m) == 0 {
@@ -387,6 +387,7 @@ func (p *PaginatedResult) PresenceMessages() []*PresenceMessage {
 
 type Stats = proto.Stats
 type StatsMessageTypes = proto.MessageTypes
+type StatsMessageCount = proto.MessageCount
 type StatsMessageTraffic = proto.MessageTraffic
 type StatsConnectionTypes = proto.ConnectionTypes
 type StatsResourceCount = proto.ResourceCount

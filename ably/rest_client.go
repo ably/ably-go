@@ -241,6 +241,7 @@ type StatsPaginatedResult struct {
 //
 // See the "Paginated results" section in the package-level documentation.
 func (p *StatsPaginatedResult) Next(ctx context.Context) bool {
+	p.items = nil // avoid mutating already returned items
 	return p.next(ctx, &p.items)
 }
 
@@ -259,6 +260,7 @@ func (r StatsRequest) Items(ctx context.Context) (*StatsPaginatedItems, error) {
 	var res StatsPaginatedItems
 	var err error
 	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
+		res.items = nil // avoid mutating already returned items
 		return &res.items, func() int { return len(res.items) }
 	})
 	return &res, err

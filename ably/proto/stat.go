@@ -46,7 +46,7 @@ type MessageCount struct {
 
 type MessageTypes struct {
 	All      MessageCount `json:"all" codec:"all"`
-	Plain    MessageCount `json:"plain" codec:"plain"`
+	Messages MessageCount `json:"messages" codec:"messages"`
 	Presence MessageCount `json:"presence" codec:"presence"`
 }
 
