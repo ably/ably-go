@@ -6,11 +6,17 @@ import (
 	"time"
 )
 
-// TR3a
+// TR3
 const (
-	FlagPresence Flag = 0
-	FlagResumed  Flag = 2
-	FlagBacklog
+	FlagHasPresence       Flag = 0
+	FlagHasBacklog        Flag = 1
+	FlagResumed           Flag = 2
+	FlagTransient         Flag = 4
+	FlagAttachResume      Flag = 5
+	FlagPresence          Flag = 16
+	FlagPublish           Flag = 17
+	FlagSubscribe         Flag = 18
+	FlagPresenceSubscribe Flag = 19
 )
 
 type Flag int64
