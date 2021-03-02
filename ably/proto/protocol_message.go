@@ -6,8 +6,10 @@ import (
 	"time"
 )
 
+// TR3a
 const (
-	FlagPresence Flag = iota + 1
+	FlagPresence Flag = 0
+	FlagResumed Flag = 2
 	FlagBacklog
 )
 
