@@ -9,7 +9,7 @@ import (
 // TR3a
 const (
 	FlagPresence Flag = 0
-	FlagResumed Flag = 2
+	FlagResumed  Flag = 2
 	FlagBacklog
 )
 

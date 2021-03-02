@@ -469,6 +469,86 @@ func TestRealtimeChannel_RTL6c5_NoImplicitAttach(t *testing.T) {
 	}
 }
 
+func TestRealtimeChannel_RTL2f_HandleResume(t *testing.T) {
+	t.Parallel()
+
+	const channelRetryTimeout = 123 * time.Millisecond
+
+	setup := func(t *testing.T) (
+		in, out chan *proto.ProtocolMessage,
+		c *ably.Realtime,
+		channel *ably.RealtimeChannel,
+		stateChanges ably.ChannelStateChanges,
+		afterCalls chan ablytest.AfterCall,
+	) {
+		in = make(chan *proto.ProtocolMessage, 1)
+		out = make(chan *proto.ProtocolMessage, 16)
+		afterCalls = make(chan ablytest.AfterCall, 1)
+		now, after := ablytest.TimeFuncs(afterCalls)
+
+		c, _ = ably.NewRealtime(
+			ably.WithToken("fake:token"),
+			ably.WithAutoConnect(false),
+			ably.WithNow(now),
+			ably.WithAfter(after),
+			ably.WithChannelRetryTimeout(channelRetryTimeout),
+			ably.WithDial(ablytest.MessagePipe(in, out)),
+		)
+
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &proto.ConnectionDetails{},
+		}
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		channel = c.Channels.Get("test")
+
+		ctx, cancel := context.WithCancel(context.Background())
+		go channel.Attach(ctx)
+		defer cancel()
+
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
+
+		stateChanges = make(ably.ChannelStateChanges, 10)
+		channel.OnAll(stateChanges.Receive)
+
+		return
+	}
+
+	t.Run("RTL13a: when resume flag received, set channelChangeState resume to true", func(t *testing.T) {
+		t.Parallel()
+		in, _, _, channel, stateChanges, afterCalls := setup(t)
+
+		// Get the channel to ATTACHED.
+
+		in <- &proto.ProtocolMessage{
+			Action:  proto.ActionAttached,
+			Channel: channel.Name,
+			Flags:   2,
+		}
+
+		var change ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		if change.Resumed != true {
+			t.Fatalf("expected resumed to be true (event: %+v)", change)
+		}
+
+		// Expect the retry loop to be finished.
+		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+	})
+}
+
 func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 	t.Parallel()
 

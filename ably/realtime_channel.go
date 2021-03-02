@@ -639,7 +639,7 @@ func (c *RealtimeChannel) lockSetState(state ChannelState, err error, resumed bo
 		Current:  c.state,
 		Previous: previous,
 		Reason:   c.errorReason,
-		Resumed: resumed,
+		Resumed:  resumed,
 	}
 	if !changed {
 		change.Event = ChannelEventUpdate
