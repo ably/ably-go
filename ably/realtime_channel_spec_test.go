@@ -752,8 +752,8 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 		channel = c.Channels.Get("test")
 
 		ctx, cancel := context.WithCancel(context.Background())
-		go channel.Attach(ctx)
-		defer cancel()
+		cancel()
+		channel.Attach(ctx)
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
 
@@ -786,7 +786,12 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 		if expected, got := ably.ChannelStateFailed, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
+
 		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
+			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
+		}
+
+		if got := fmt.Sprint(channel.ErrorReason()); !strings.Contains(got, errInfo.Message) {
 			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
 		}
 
