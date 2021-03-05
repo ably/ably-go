@@ -508,8 +508,8 @@ func TestRealtimeChannel_RTL2f_HandleResume(t *testing.T) {
 		channel = c.Channels.Get("test")
 
 		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
 		go channel.Attach(ctx)
-		defer cancel()
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
 
@@ -523,10 +523,6 @@ func TestRealtimeChannel_RTL2f_HandleResume(t *testing.T) {
 	flags[0] = "flag has presence is provided"
 	flags[1] = "flag has_backlog is provided"
 	flags[2] = "flag resumed is provided"
-	flags[4] = "flag transient is provided"
-	flags[5] = "flag attach_resume is provided"
-	flags[16] = "flag presence is provided"
-	flags[17] = "flag publish is provided"
 
 	for flag, flagDescription := range flags {
 		t.Run(fmt.Sprintf("RTL13a: when %v, set channelChangeState resume to %v", flagDescription, flag == proto.FlagResumed), func(t *testing.T) {
@@ -600,14 +596,13 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		channel = c.Channels.Get("test")
 
 		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
 		go channel.Attach(ctx)
-		defer cancel()
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
 
 		stateChanges = make(ably.ChannelStateChanges, 10)
 		channel.OnAll(stateChanges.Receive)
-
 		return
 	}
 
