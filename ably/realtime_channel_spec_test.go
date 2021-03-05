@@ -509,7 +509,7 @@ func TestRealtimeChannel_RTL2f_HandleResume(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		go channel.Attach(ctx)
+		channel.Attach(ctx)
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
 
@@ -597,7 +597,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		go channel.Attach(ctx)
+		channel.Attach(ctx)
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
 
