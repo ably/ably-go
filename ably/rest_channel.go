@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 
@@ -141,16 +143,136 @@ func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*M
 	return res.Body.Close()
 }
 
-// History gives the channel's message history according to the given parameters.
-// The returned result can be inspected for the messages via the Messages()
-// method.
-func (c *RESTChannel) History(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
-	path := c.baseURL + "/history"
-	rst, err := newPaginatedResult(ctx, c.options, paginatedRequest{typ: msgType, path: path, params: params, query: query(c.client.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
-	if err != nil {
-		return nil, err
+// History gives the channel's message history.
+func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
+	params := (&historyOptions{}).apply(o...)
+	return HistoryRequest{
+		r:              c.client.newPaginatedRequest("/channels/"+c.Name+"/history", params),
+		channelOptions: c.options,
 	}
-	return rst, nil
+}
+
+// A HistoryOption configures a call to REST.History or Realtime.History.
+type HistoryOption func(*historyOptions)
+
+func HistoryWithStart(t time.Time) HistoryOption {
+	return func(o *historyOptions) {
+		o.params.Set("start", strconv.FormatInt(unixMilli(t), 10))
+	}
+}
+
+func HistoryWithEnd(t time.Time) HistoryOption {
+	return func(o *historyOptions) {
+		o.params.Set("end", strconv.FormatInt(unixMilli(t), 10))
+	}
+}
+
+func HistoryWithLimit(limit int) HistoryOption {
+	return func(o *historyOptions) {
+		o.params.Set("limit", strconv.Itoa(limit))
+	}
+}
+
+func HistoryWithDirection(d Direction) HistoryOption {
+	return func(o *historyOptions) {
+		o.params.Set("direction", string(d))
+	}
+}
+
+type historyOptions struct {
+	params url.Values
+}
+
+func (o *historyOptions) apply(opts ...HistoryOption) url.Values {
+	o.params = make(url.Values)
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o.params
+}
+
+// HistoryRequest represents a request prepared by the REST.History or
+// Realtime.History method, ready to be performed by its Pages or Items methods.
+type HistoryRequest struct {
+	r              paginatedRequestNew
+	channelOptions *proto.ChannelOptions
+}
+
+// Pages returns an iterator for whole pages of History.
+//
+// See "Paginated results" section in the package-level documentation.
+func (r HistoryRequest) Pages(ctx context.Context) (*MessagesPaginatedResult, error) {
+	var res MessagesPaginatedResult
+	return &res, res.load(ctx, r.r)
+}
+
+// A MessagesPaginatedResult is an iterator for the result of a History request.
+//
+// See "Paginated results" section in the package-level documentation.
+type MessagesPaginatedResult struct {
+	PaginatedResultNew
+	items []*Message
+}
+
+// Next retrieves the next page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *MessagesPaginatedResult) Next(ctx context.Context) bool {
+	p.items = nil // avoid mutating already returned items
+	return p.next(ctx, &p.items)
+}
+
+// Items returns the current page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *MessagesPaginatedResult) Items() []*Message {
+	return p.items
+}
+
+// Items returns a convenience iterator for single History, over an underlying
+// paginated iterator.
+//
+// See "Paginated results" section in the package-level documentation.
+func (r HistoryRequest) Items(ctx context.Context) (*MessagesPaginatedItems, error) {
+	var res MessagesPaginatedItems
+	var err error
+	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
+		res.items = nil // avoid mutating already returned Items
+		var dst interface{} = &res.items
+		if r.channelOptions != nil {
+			// TODO
+		}
+		return dst, func() int {
+			return len(res.items)
+		}
+	})
+	return &res, err
+}
+
+type MessagesPaginatedItems struct {
+	PaginatedResultNew
+	items []*Message
+	item  *Message
+	next  func(context.Context) (int, bool)
+}
+
+// Next retrieves the next result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *MessagesPaginatedItems) Next(ctx context.Context) bool {
+	i, ok := p.next(ctx)
+	if !ok {
+		return false
+	}
+	p.item = p.items[i]
+	return true
+}
+
+// Item returns the current result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *MessagesPaginatedItems) Item() *Message {
+	return p.item
 }
 
 func (c *RESTChannel) logger() *LoggerOptions {

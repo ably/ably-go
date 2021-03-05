@@ -171,69 +171,73 @@ func TestReadmeExamples(t *testing.T) {
 			/* README.md:241 */
 		}
 		/* README.md:247 */ {
-			/* README.md:251 */ page, err := channel.History(ctx, nil)
-			/* README.md:252 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-				/* README.md:253 */ for _, message := range page.Messages() {
-					/* README.md:254 */ fmt.Println(message)
-					/* README.md:255 */
-				}
-				/* README.md:256 */
+			/* README.md:251 */ pages, err := channel.History().Pages(ctx)
+			/* README.md:252 */ if err != nil {
+				/* README.md:253 */ panic(err)
+				/* README.md:254 */
 			}
-			/* README.md:257 */ if err != nil {
-				/* README.md:258 */ panic(err)
+			/* README.md:255 */ for pages.Next(ctx) {
+				/* README.md:256 */ for _, message := range pages.Items() {
+					/* README.md:257 */ fmt.Println(message)
+					/* README.md:258 */
+				}
 				/* README.md:259 */
 			}
-			/* README.md:263 */
+			/* README.md:260 */ if err := pages.Err(); err != nil {
+				/* README.md:261 */ panic(err)
+				/* README.md:262 */
+			}
+			/* README.md:267 */
 		}
-		/* README.md:269 */ {
-			/* README.md:273 */ page, err := channel.Presence.Get(ctx, nil)
-			/* README.md:274 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-				/* README.md:275 */ for _, presence := range page.PresenceMessages() {
-					/* README.md:276 */ fmt.Println(presence)
-					/* README.md:277 */
+		/* README.md:273 */ {
+			/* README.md:277 */ page, err := channel.Presence.Get(ctx, nil)
+			/* README.md:278 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
+				/* README.md:279 */ for _, presence := range page.PresenceMessages() {
+					/* README.md:280 */ fmt.Println(presence)
+					/* README.md:281 */
 				}
-				/* README.md:278 */
+				/* README.md:282 */
 			}
-			/* README.md:279 */ if err != nil {
-				/* README.md:280 */ panic(err)
-				/* README.md:281 */
+			/* README.md:283 */ if err != nil {
+				/* README.md:284 */ panic(err)
+				/* README.md:285 */
 			}
-			/* README.md:285 */
+			/* README.md:289 */
 		}
-		/* README.md:291 */ {
-			/* README.md:295 */ page, err := channel.Presence.History(ctx, nil)
-			/* README.md:296 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-				/* README.md:297 */ for _, presence := range page.PresenceMessages() {
-					/* README.md:298 */ fmt.Println(presence)
-					/* README.md:299 */
+		/* README.md:295 */ {
+			/* README.md:299 */ page, err := channel.Presence.History(ctx, nil)
+			/* README.md:300 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
+				/* README.md:301 */ for _, presence := range page.PresenceMessages() {
+					/* README.md:302 */ fmt.Println(presence)
+					/* README.md:303 */
 				}
-				/* README.md:300 */
+				/* README.md:304 */
 			}
-			/* README.md:301 */ if err != nil {
-				/* README.md:302 */ panic(err)
-				/* README.md:303 */
+			/* README.md:305 */ if err != nil {
+				/* README.md:306 */ panic(err)
+				/* README.md:307 */
 			}
-			/* README.md:307 */
+			/* README.md:311 */
 		}
-		/* README.md:313 */ {
-			/* README.md:317 */ pages, err := client.Stats().Pages(ctx)
-			/* README.md:318 */ if err != nil {
-				/* README.md:319 */ panic(err)
-				/* README.md:320 */
+		/* README.md:317 */ {
+			/* README.md:321 */ pages, err := client.Stats().Pages(ctx)
+			/* README.md:322 */ if err != nil {
+				/* README.md:323 */ panic(err)
+				/* README.md:324 */
 			}
-			/* README.md:321 */ for pages.Next(ctx) {
-				/* README.md:322 */ for _, stat := range pages.Items() {
-					/* README.md:323 */ fmt.Println(stat)
-					/* README.md:324 */
+			/* README.md:325 */ for pages.Next(ctx) {
+				/* README.md:326 */ for _, stat := range pages.Items() {
+					/* README.md:327 */ fmt.Println(stat)
+					/* README.md:328 */
 				}
-				/* README.md:325 */
+				/* README.md:329 */
 			}
-			/* README.md:326 */ if err := pages.Err(); err != nil {
-				/* README.md:327 */ panic(err)
-				/* README.md:328 */
+			/* README.md:330 */ if err := pages.Err(); err != nil {
+				/* README.md:331 */ panic(err)
+				/* README.md:332 */
 			}
-			/* README.md:332 */
+			/* README.md:336 */
 		}
-		/* README.md:336 */
+		/* README.md:340 */
 	}
 }

@@ -248,15 +248,19 @@ if err != nil {
 -->
 
 ```go
-page, err := channel.History(ctx, nil)
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
-	for _, message := range page.Messages() {
-		fmt.Println(message)
-	}
-}
+pages, err := channel.History().Pages(ctx)
 if err != nil {
 	panic(err)
 }
+for pages.Next(ctx) {
+	for _, message := range pages.Items() {
+		fmt.Println(message)
+	}
+}
+if err := pages.Err(); err != nil {
+	panic(err)
+}
+
 ```
 
 <!-- GO EXAMPLE

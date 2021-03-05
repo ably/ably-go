@@ -77,11 +77,11 @@ func TestRESTChannel(t *testing.T) {
 			}
 		}
 		ts.Run("is available in the history", func(ts *testing.T) {
-			page, err := channel.History(context.Background(), nil)
+			var messages []*ably.Message
+			err := ablytest.AllPages(&messages, channel.History())
 			if err != nil {
 				ts.Fatal(err)
 			}
-			messages := page.Messages()
 			if len(messages) == 0 {
 				ts.Fatal("expected messages")
 			}
@@ -94,35 +94,6 @@ func TestRESTChannel(t *testing.T) {
 		})
 	})
 
-	t.Run("History", func(ts *testing.T) {
-		historyRESTChannel := client.Channels.Get("channelhistory")
-		for i := 0; i < 2; i++ {
-			historyRESTChannel.Publish(context.Background(), "breakingnews", "Another Shark attack!!")
-		}
-
-		page1, err := historyRESTChannel.History(context.Background(), &ably.PaginateParams{Limit: 1})
-		if err != nil {
-			ts.Fatal(err)
-		}
-		if len(page1.Messages()) != 1 {
-			ts.Errorf("expected 1 message got %d", len(page1.Messages()))
-		}
-		if len(page1.Items()) != 1 {
-			ts.Errorf("expected 1 item got %d", len(page1.Items()))
-		}
-
-		page2, err := page1.Next(context.Background())
-		if err != nil {
-			ts.Fatal(err)
-		}
-		if len(page2.Messages()) != 1 {
-			ts.Errorf("expected 1 message got %d", len(page2.Messages()))
-		}
-		if len(page2.Items()) != 1 {
-			ts.Errorf("expected 1 item got %d", len(page2.Items()))
-		}
-	})
-
 	t.Run("PublishBatch", func(ts *testing.T) {
 		encodingRESTChannel := client.Channels.Get("this?is#an?encoding#channel")
 		messages := []*ably.Message{
@@ -133,15 +104,13 @@ func TestRESTChannel(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		page, err := encodingRESTChannel.History(context.Background(), &ably.PaginateParams{Limit: 2})
+		var history []*ably.Message
+		err = ablytest.AllPages(&history, encodingRESTChannel.History(ably.HistoryWithLimit(2)))
 		if err != nil {
 			ts.Fatal(err)
 		}
-		if len(page.Messages()) != 2 {
-			ts.Errorf("expected 2 messages got %d", len(page.Messages()))
-		}
-		if len(page.Items()) != 2 {
-			ts.Errorf("expected 2 items got %d", len(page.Items()))
+		if len(history) != 2 {
+			ts.Errorf("expected 2 messages got %d", len(history))
 		}
 	})
 
@@ -175,13 +144,10 @@ func TestRESTChannel(t *testing.T) {
 			}
 		}
 
-		rst, err := channel.History(context.Background(), nil)
+		var msg []*ably.Message
+		err = ablytest.AllPages(&msg, channel.History())
 		if err != nil {
 			ts.Fatal(err)
-		}
-		msg := rst.Messages()
-		if len(msg) != len(sample) {
-			t.Errorf("expected %d messages got %d", len(sample), len(msg))
 		}
 		sort.Slice(msg, func(i, j int) bool {
 			return msg[i].Name < msg[j].Name
@@ -223,11 +189,12 @@ func TestIdempotentPublishing(t *testing.T) {
 				ts.Fatal(err)
 			}
 		}
-		res, err := channel.History(context.Background(), nil)
+		var history []*ably.Message
+		err := ablytest.AllPages(&history, channel.History())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		n := len(res.Items())
+		n := len(history)
 		if n != 3 {
 			ts.Errorf("expected %d got %d", 3, n)
 		}
@@ -246,16 +213,17 @@ func TestIdempotentPublishing(t *testing.T) {
 				ts.Fatal(err)
 			}
 		}
-		res, err := channel.History(context.Background(), nil)
+		var history []*ably.Message
+		err := ablytest.AllPages(&history, channel.History())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		n := len(res.Items())
+		n := len(history)
 		if n != 1 {
 			// three REST publishes result in only one message being published
 			ts.Errorf("expected %d got %d", 1, n)
 		}
-		msg := res.Messages()[0]
+		msg := history[0]
 		if msg.ID != randomStr {
 			ts.Errorf("expected id to be %s got %s", randomStr, msg.ID)
 		}
@@ -298,15 +266,15 @@ func TestIdempotentPublishing(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		res, err := channel.History(context.Background(), nil)
+		var messages []*ably.Message
+		err = ablytest.AllPages(&messages, channel.History())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		n := len(res.Items())
+		n := len(messages)
 		if n != 3 {
 			ts.Errorf("expected %d got %d", 3, n)
 		}
-		messages := res.Messages()
 
 		// we need to sort so we we can easily test the serial in order.
 		sort.Slice(messages, func(i, j int) bool {
@@ -340,11 +308,11 @@ func TestIdempotentPublishing(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		res, err := channel.History(context.Background(), nil)
+		var m []*ably.Message
+		err = ablytest.AllPages(&m, channel.History())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		m := res.Messages()
 		if len(m) != 1 {
 			ts.Fatalf("expected %d got %d", 1, len(m))
 		}
@@ -378,11 +346,11 @@ func TestIdempotentPublishing(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		res, err := channel.History(context.Background(), nil)
+		var m []*ably.Message
+		err = ablytest.AllPages(&m, channel.History())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		m := res.Messages()
 		if len(m) != 3 {
 			ts.Fatalf("expected %d got %d", 1, len(m))
 		}
@@ -477,11 +445,11 @@ func TestIdempotent_retry(t *testing.T) {
 			if retryCount != 2 {
 				ts.Errorf("expected %d retry attempts got %d", 2, retryCount)
 			}
-			res, err := channel.History(context.Background(), nil)
+			var m []*ably.Message
+			err = ablytest.AllPages(&m, channel.History())
 			if err != nil {
 				ts.Fatal(err)
 			}
-			m := res.Messages()
 			if len(m) != 1 {
 				ts.Errorf("expected %d messages got %d", 1, len(m))
 			}
@@ -497,11 +465,11 @@ func TestIdempotent_retry(t *testing.T) {
 			for range msgs {
 				channel.PublishBatch(context.Background(), msgs)
 			}
-			res, err := channel.History(context.Background(), nil)
+			var m []*ably.Message
+			err := ablytest.AllPages(&m, channel.History())
 			if err != nil {
 				ts.Fatal(err)
 			}
-			m := res.Messages()
 			if len(m) != len(msgs) {
 				ts.Errorf("expected %d messages got %d", len(msgs), len(m))
 			}
@@ -537,11 +505,11 @@ func TestRSL1f1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := channel.History(context.Background(), nil)
+	var m []*ably.Message
+	err = ablytest.AllPages(&m, channel.History())
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := res.Messages()
 	n := len(m)
 	if n != size {
 		t.Errorf("expected %d messages got %d", size, n)
@@ -579,15 +547,12 @@ func TestRSL1g(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		pages, err := channel.History(context.Background(), nil)
+		var history []*ably.Message
+		err = ablytest.AllPages(&history, channel.History())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		msg := pages.Messages()
-		if len(msg) != 3 {
-			ts.Fatalf("expected 3 messages got %d", len(msg))
-		}
-		for _, m := range msg {
+		for _, m := range history {
 			if m.ClientID != clientID {
 				ts.Errorf("expected %s got %s", clientID, m.ClientID)
 			}
@@ -603,15 +568,12 @@ func TestRSL1g(t *testing.T) {
 		if err != nil {
 			ts.Fatal(err)
 		}
-		pages, err := channel.History(context.Background(), nil)
+		var history []*ably.Message
+		err = ablytest.AllPages(&history, channel.History())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		msg := pages.Messages()
-		if len(msg) != 3 {
-			ts.Fatalf("expected 3 messages got %d", len(msg))
-		}
-		for _, m := range msg {
+		for _, m := range history {
 			if m.ClientID != clientID {
 				ts.Errorf("expected %s got %s", clientID, m.ClientID)
 			}
@@ -628,4 +590,89 @@ func TestRSL1g(t *testing.T) {
 			ts.Fatal("expected an error")
 		}
 	})
+}
+
+func TestHistory_RSL2_RSL2b3(t *testing.T) {
+	t.Parallel()
+
+	for _, limit := range []int{2, 3, 20} {
+		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
+			t.Parallel()
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+			channel := rest.Channels.Get("test")
+
+			fixtures := historyFixtures()
+			channel.PublishBatch(context.Background(), fixtures)
+
+			err := ablytest.TestPagination(
+				reverseMessages(fixtures),
+				channel.History(ably.HistoryWithLimit(limit)),
+				limit,
+				ablytest.PaginationWithEqual(messagesEqual),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestHistory_Direction_RSL2b2(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		direction ably.Direction
+		expected  []*ably.Message
+	}{
+		{
+			direction: ably.Backwards,
+			expected:  reverseMessages(historyFixtures()),
+		},
+		{
+			direction: ably.Forwards,
+			expected:  historyFixtures(),
+		},
+	} {
+		c := c
+		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+			channel := rest.Channels.Get("test")
+
+			fixtures := historyFixtures()
+			channel.PublishBatch(context.Background(), fixtures)
+
+			expected := c.expected
+
+			err := ablytest.TestPagination(expected, channel.History(
+				ably.HistoryWithLimit(len(expected)),
+				ably.HistoryWithDirection(c.direction),
+			), 100, ablytest.PaginationWithEqual(messagesEqual))
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func historyFixtures() []*ably.Message {
+	var fixtures []*ably.Message
+	for i := 0; i < 10; i++ {
+		fixtures = append(fixtures, &ably.Message{Name: fmt.Sprintf("msg%d", i)})
+	}
+	return fixtures
+}
+
+func reverseMessages(msgs []*ably.Message) []*ably.Message {
+	var reversed []*ably.Message
+	for i := len(msgs) - 1; i >= 0; i-- {
+		reversed = append(reversed, msgs[i])
+	}
+	return reversed
+}
+
+func messagesEqual(x, y interface{}) bool {
+	mx, my := x.(*ably.Message), y.(*ably.Message)
+	return mx.Name == my.Name && reflect.DeepEqual(mx.Data, my.Data)
 }

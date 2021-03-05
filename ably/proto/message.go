@@ -32,6 +32,10 @@ type Message struct {
 	*ChannelOptions `json:"-" codec:"-"`
 }
 
+func (m Message) String() string {
+	return fmt.Sprintf("<Message %q data=%v>", m.Name, m.Data)
+}
+
 func (m *Message) maybeJSONEncode() error {
 	if m.Data == nil {
 		return nil
