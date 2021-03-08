@@ -44,7 +44,8 @@ func TestRESTChannel(t *testing.T) {
 		m := make(map[string]dataSample)
 		if ablytest.NoBinaryProtocol {
 			m["string"] = dataSample{
-				data: "string",
+				encoding: proto.UTF8,
+				data:     "string",
 			}
 			m["binary"] = dataSample{
 				encoding: proto.Base64,
@@ -58,10 +59,12 @@ func TestRESTChannel(t *testing.T) {
 			}
 		} else {
 			m["string"] = dataSample{
-				data: "string",
+				encoding: proto.UTF8,
+				data:     "string",
 			}
 			m["binary"] = dataSample{
-				data: "string",
+				encoding: proto.UTF8,
+				data:     "string",
 			}
 			m["json"] = dataSample{
 				encoding: proto.JSON,

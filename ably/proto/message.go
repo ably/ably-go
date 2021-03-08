@@ -1,15 +1,13 @@
 package proto
 
 import (
+	"bytes"
 	"crypto/aes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"reflect"
 	"strings"
-
-	"github.com/ugorji/go/codec"
+	"unicode/utf8"
 )
 
 // encodings
@@ -21,114 +19,144 @@ const (
 )
 
 type Message struct {
-	ID              string                 `json:"id,omitempty" codec:"id,omitempty"`
-	ClientID        string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
-	ConnectionID    string                 `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
-	Name            string                 `json:"name,omitempty" codec:"name,omitempty"`
-	Data            interface{}            `json:"data,omitempty" codec:"data,omitempty"`
-	Encoding        string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
-	Timestamp       int64                  `json:"timestamp" codec:"timestamp"`
-	Extras          map[string]interface{} `json:"extras" codec:"extras"`
-	*ChannelOptions `json:"-" codec:"-"`
+	ID           string                 `json:"id,omitempty" codec:"id,omitempty"`
+	ClientID     string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	ConnectionID string                 `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
+	Name         string                 `json:"name,omitempty" codec:"name,omitempty"`
+	Data         interface{}            `json:"data,omitempty" codec:"data,omitempty"`
+	Encoding     string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
+	Timestamp    int64                  `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
+	Extras       map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
 }
 
 func (m Message) String() string {
 	return fmt.Sprintf("<Message %q data=%v>", m.Name, m.Data)
 }
 
-func (m *Message) maybeJSONEncode() error {
-	if m.Data == nil {
-		return nil
-	}
-	switch m.Data.(type) {
-	case json.Marshaler:
-		bs, err := m.Data.(json.Marshaler).MarshalJSON()
-		if err != nil {
-			return err
-		}
-		m.Data = string(bs)
-		m.Encoding = mergeEncoding(m.Encoding, JSON)
-		return nil
-	case map[string]interface{}:
-		bs, err := json.Marshal(m.Data)
-		if err != nil {
-			return err
-		}
-		m.Data = string(bs)
-		m.Encoding = mergeEncoding(m.Encoding, JSON)
-		return nil
-	}
-	dataType := reflect.TypeOf(m.Data)
-
-	// marshal any sort of slice except for []byte (i.e. []uint8)
-	if dataType.Kind() == reflect.Slice && dataType.Elem().Kind() != reflect.Uint8 {
-		bs, err := json.Marshal(m.Data)
-		if err != nil {
-			return err
-		}
-		m.Data = string(bs)
-		m.Encoding = mergeEncoding(m.Encoding, JSON)
-	}
-	return nil
+func unencodableDataErr(data interface{}) error {
+	return fmt.Errorf("message data type %T must be string, []byte, or a value that can be encoded as a JSON object or array", data)
 }
 
-func (m Message) HasCipher() bool {
-	if m.ChannelOptions != nil {
-		c, _ := m.ChannelOptions.GetCipher()
-		return c != nil
-	}
-	return false
-}
-
-func (m Message) encode() (Message, error) {
+func (m Message) WithEncodedData(cipher ChannelCipher) (Message, error) {
+	// TODO: Unexport once proto gets merged into package ably.
 	if m.Data == nil {
 		return m, nil
 	}
-	err := m.maybeJSONEncode()
-	if err != nil {
-		return m, err
-	}
-	switch m.Data.(type) {
+
+	switch d := m.Data.(type) {
 	case string:
-		if m.HasCipher() {
+		if utf8.ValidString(d) {
 			m.Encoding = mergeEncoding(m.Encoding, UTF8)
+		} else {
+			// If string isn't UTF-8, convert to []byte to encode it as base64
+			// below.
+			m.Data = []byte(d)
 		}
-	case []byte:
-		// ok
-	default:
-		return Message{}, errors.New("unsupported payload type")
 	}
-	if m.ChannelOptions != nil {
-		if cipher, err := m.GetCipher(); err == nil {
-			// since we know that m.Data is either []byte or string at this point, coerceBytes is always
-			// safe here
-			bs, err := coerceBytes(m.Data)
-			if err != nil {
-				return Message{}, err
-			}
-			e, err := cipher.Encrypt(bs)
-			if err != nil {
-				return Message{}, err
-			}
-			m.Data = e
-			m.Encoding = mergeEncoding(m.Encoding, cipher.GetAlgorithm())
+	switch d := m.Data.(type) {
+	case string:
+	case []byte:
+		m.Data = base64.StdEncoding.EncodeToString(d)
+		m.Encoding = mergeEncoding(m.Encoding, Base64)
+	default:
+		// RSL4c3, RSL4d3: JSON is only for objects and arrays. So marshal data
+		// into JSON, then check if if's one of those.
+		b, err := json.Marshal(d)
+		if err != nil {
+			return Message{}, fmt.Errorf("%s; encoding as JSON: %w", unencodableDataErr(d), err)
 		}
+		token, _ := json.NewDecoder(bytes.NewReader(b)).Token()
+		if token != json.Delim('[') && token != json.Delim('{') {
+			return Message{}, fmt.Errorf("%s; encoded as JSON %T", unencodableDataErr(d), token)
+		}
+		m.Data = string(b)
+		m.Encoding = mergeEncoding(m.Encoding, JSON)
 	}
 
+	if cipher == nil {
+		return m, nil
+	}
+
+	// since we know that m.Data is either []byte or string at this point, coerceBytes is always
+	// safe here
+	bs, err := coerceBytes(m.Data)
+	if err != nil {
+		panic(err)
+	}
+	e, err := cipher.Encrypt(bs)
+	if err != nil {
+		return Message{}, fmt.Errorf("encrypting message data: %w", err)
+	}
+	if _, ok := m.Data.(string); ok {
+		// Not sure why this is useful, and can't find the requirement in the
+		// spec, but test fixtures expect this.
+		m.Encoding = mergeEncoding(m.Encoding, UTF8)
+	}
+	m.Data = base64.StdEncoding.EncodeToString(e)
+	m.Encoding = mergeEncoding(m.Encoding, cipher.GetAlgorithm())
+	m.Encoding = mergeEncoding(m.Encoding, Base64)
 	return m, nil
 }
 
-func (m Message) encodeJSON() (Message, error) {
-	e, err := m.encode()
-	if err != nil {
-		return m, err
+func (m Message) WithDecodedData(cipher ChannelCipher) (Message, error) {
+	// TODO: Unexport once proto gets merged into package ably.
+
+	// strings.Split on empty string returns []string{""}
+	if m.Data == nil || m.Encoding == "" {
+		return m, nil
 	}
-	if d, ok := e.Data.([]byte); ok {
-		b := base64.StdEncoding.EncodeToString(d)
-		e.Data = b
-		e.Encoding = mergeEncoding(e.Encoding, Base64)
+	encodings := strings.Split(m.Encoding, "/")
+	for len(encodings) > 0 {
+		encoding := encodings[len(encodings)-1]
+		encodings = encodings[:len(encodings)-1]
+		switch encoding {
+		case Base64:
+			d, err := coerceString(m.Data)
+			if err != nil {
+				return m, err
+			}
+			data, err := base64.StdEncoding.DecodeString(d)
+			if err != nil {
+				return m, err
+			}
+			m.Data = data
+		case UTF8:
+			d, err := coerceString(m.Data)
+			if err != nil {
+				return m, err
+			}
+			m.Data = d
+		case JSON:
+			d, err := coerceBytes(m.Data)
+			if err != nil {
+				return m, err
+			}
+			var result interface{}
+			if err := json.Unmarshal(d, &result); err != nil {
+				return m, fmt.Errorf("error unmarshaling JSON payload of type %T: %s", m.Data, err.Error())
+			}
+			m.Data = result
+		default:
+			if strings.HasPrefix(encoding, Cipher) {
+				if cipher == nil {
+					return m, fmt.Errorf("message data is encrypted as %s, but cipher wasn't provided", encoding)
+				}
+				d, err := coerceBytes(m.Data)
+				if err != nil {
+					return m, err
+				}
+				d, err = cipher.Decrypt(d)
+				if err != nil {
+					return m, fmt.Errorf("decrypting message data: %w", err)
+				}
+				m.Data = d
+			} else {
+				return m, fmt.Errorf("unknown encoding %s", encoding)
+			}
+		}
+		m.Encoding = strings.Join(encodings, "/")
 	}
-	return e, nil
+	return m, nil
 }
 
 func coerceString(i interface{}) (string, error) {
@@ -153,202 +181,9 @@ func coerceBytes(i interface{}) ([]byte, error) {
 	}
 }
 
-// ToMap returns a map of all message field names to their respective value if
-// the field are set.
-//
-// Spec RSL1j
-func (m Message) ToMap() map[string]interface{} {
-	ctx := make(map[string]interface{})
-	if m.ID != "" {
-		ctx["id"] = m.ID
-	}
-	if m.ClientID != "" {
-		ctx["clientId"] = m.ClientID
-	}
-	if m.ConnectionID != "" {
-		ctx["connectionId"] = m.ConnectionID
-	}
-	if m.Name != "" {
-		ctx["name"] = m.Name
-	}
-	encoding := m.Encoding
-	if m.Data != nil {
-		ctx["data"] = m.Data
-	}
-	if encoding != "" {
-		ctx["encoding"] = encoding
-	}
-	if m.Timestamp != 0 {
-		ctx["timestamp"] = m.Timestamp
-	}
-	if m.Extras != nil {
-		ctx["extras"] = m.Extras
-	}
-	return ctx
-}
-
-func (m Message) MarshalJSON() ([]byte, error) {
-	e, err := m.encodeJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(e.ToMap())
-}
-
-func (m *Message) UnmarshalJSON(data []byte) error {
-	var ctx map[string]interface{}
-	if err := json.Unmarshal(data, &ctx); err != nil {
-		return err
-	}
-	return m.FromMap(ctx)
-}
-
-func (m Message) CodecEncodeSelf(encoder *codec.Encoder) {
-	e, err := m.encode()
-	if err != nil {
-		panic(err)
-	}
-	encoder.MustEncode(e.ToMap())
-}
-
-// CodecDecodeSelf implements codec.Selfer interface for msgpack decoding.
-func (m *Message) CodecDecodeSelf(decoder *codec.Decoder) {
-	ctx := make(map[string]interface{})
-	decoder.MustDecode(&ctx)
-	m.FromMap(ctx)
-}
-
-func (m *Message) FromMap(ctx map[string]interface{}) error {
-	if v, ok := ctx["id"]; ok {
-		x, err := coerceString(v)
-		if err != nil {
-			return err
-		}
-		m.ID = string(x)
-	}
-	if v, ok := ctx["clientId"]; ok {
-		x, err := coerceString(v)
-		if err != nil {
-			return err
-		}
-		m.ClientID = string(x)
-	}
-	if v, ok := ctx["connectionId"]; ok {
-		x, err := coerceString(v)
-		if err != nil {
-			return err
-		}
-		m.ConnectionID = string(x)
-	}
-	if v, ok := ctx["name"]; ok {
-		x, err := coerceString(v)
-		if err != nil {
-			return err
-		}
-		m.Name = string(x)
-	}
-	if v, ok := ctx["encoding"]; ok {
-		x, err := coerceString(v)
-		if err != nil {
-			return err
-		}
-		m.Encoding = string(x)
-	}
-	if v, ok := ctx["data"]; ok {
-		m.Data = v
-		dec, err := m.decode()
-		if err != nil {
-			return err
-		}
-		*m = dec
-	}
-	if v, ok := ctx["timestamp"]; ok {
-		switch e := v.(type) {
-		case float64:
-			m.Timestamp = int64(e)
-		case uint64:
-			m.Timestamp = int64(e)
-		case int64:
-			m.Timestamp = e
-		}
-	}
-	if v, ok := ctx["extras"]; ok {
-		m.Extras = v.(map[string]interface{})
-	}
-	return nil
-}
-
 // MemberKey returns string that allows to uniquely identify connected clients.
 func (m *Message) MemberKey() string {
 	return m.ConnectionID + ":" + m.ClientID
-}
-
-func (m Message) Decrypt() (interface{}, error) {
-	cipher, err := m.GetCipher()
-	if err != nil {
-		return nil, err
-	}
-
-	d, err := coerceBytes(m.Data)
-	if err != nil {
-		return nil, err
-	}
-	v, err := cipher.Decrypt(d)
-	if err != nil {
-		return nil, err
-	}
-	return v, nil
-}
-
-func (m Message) decode() (Message, error) {
-	// strings.Split on empty string returns []string{""}
-	if m.Data == nil || m.Encoding == "" {
-		return m, nil
-	}
-	encodings := strings.Split(m.Encoding, "/")
-	for i := len(encodings) - 1; i >= 0; i-- {
-		switch encodings[i] {
-		case Base64:
-			d, err := coerceString(m.Data)
-			if err != nil {
-				return Message{}, err
-			}
-			data, err := base64.StdEncoding.DecodeString(d)
-			if err != nil {
-				return Message{}, err
-			}
-			m.Data = data
-		case UTF8:
-			d, err := coerceString(m.Data)
-			if err != nil {
-				return Message{}, err
-			}
-			m.Data = d
-		case JSON:
-			d, err := coerceBytes(m.Data)
-			if err != nil {
-				return Message{}, err
-			}
-			var result interface{}
-			if err := json.Unmarshal(d, &result); err != nil {
-				return m, fmt.Errorf("error unmarshaling JSON payload of type %T: %s", m.Data, err.Error())
-			}
-			m.Data = result
-		default:
-			switch {
-			case strings.HasPrefix(encodings[i], Cipher):
-				d, err := m.Decrypt()
-				if err != nil {
-					return m, err
-				}
-				m.Data = d
-			default:
-				return m, fmt.Errorf("unknown encoding %s", encodings[i])
-			}
-
-		}
-	}
-	return m, nil
 }
 
 func addPadding(src []byte) []byte {

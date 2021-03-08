@@ -88,13 +88,12 @@ func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*M
 	for _, o := range options {
 		o(&publishOpts)
 	}
-	msgPtrs := make([]*proto.Message, 0, len(messages))
-	for _, m := range messages {
-		msgPtrs = append(msgPtrs, (*proto.Message)(m))
-	}
-	if c.options != nil {
-		for _, v := range messages {
-			v.ChannelOptions = c.options
+	for i, m := range messages {
+		cipher, _ := c.options.GetCipher()
+		var err error
+		*m, err = (*m).WithEncodedData(cipher)
+		if err != nil {
+			return fmt.Errorf("encoding data for message #%d: %w", i, err)
 		}
 	}
 	useIdempotent := c.client.opts.idempotentRESTPublishing()
