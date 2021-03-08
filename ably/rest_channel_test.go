@@ -88,12 +88,6 @@ func TestRESTChannel(t *testing.T) {
 			if len(messages) == 0 {
 				ts.Fatal("expected messages")
 			}
-			for _, v := range messages {
-				e := m[v.Name]
-				if v.Encoding != e.encoding {
-					ts.Errorf("expected %s got %s ", e.encoding, v.Encoding)
-				}
-			}
 		})
 	})
 
@@ -117,14 +111,14 @@ func TestRESTChannel(t *testing.T) {
 		}
 	})
 
-	t.Run("encryption", func(ts *testing.T) {
+	t.Run("encryption", func(t *testing.T) {
 		key, err := base64.StdEncoding.DecodeString("WUP6u0K7MXI5Zeo0VppPwg==")
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		iv, err := base64.StdEncoding.DecodeString("HO4cYSP8LybPYBPZPHQOtg==")
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		opts := []ably.ChannelOption{ably.ChannelWithCipher(proto.CipherParams{
 			Key:       key,
@@ -143,14 +137,14 @@ func TestRESTChannel(t *testing.T) {
 		for _, v := range sample {
 			err := channel.Publish(context.Background(), v.event, v.message)
 			if err != nil {
-				ts.Error(err)
+				t.Error(err)
 			}
 		}
 
 		var msg []*ably.Message
 		err = ablytest.AllPages(&msg, channel.History())
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		sort.Slice(msg, func(i, j int) bool {
 			return msg[i].Name < msg[j].Name

@@ -2,11 +2,12 @@ package ably
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 	"strconv"
 	"time"
 
-	"github.com/ably/ably-go/ably/proto"
+	"github.com/ugorji/go/codec"
 )
 
 type RESTPresence struct {
@@ -30,8 +31,8 @@ func (p *RESTPresence) logger() *LoggerOptions {
 func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceHistoryRequest {
 	params := (&presenceHistoryOptions{}).apply(o...)
 	return PresenceHistoryRequest{
-		r:              c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence/history", params),
-		channelOptions: c.channel.options,
+		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence/history", params),
+		channel: c.channel,
 	}
 }
 
@@ -77,15 +78,15 @@ func (o *presenceHistoryOptions) apply(opts ...PresenceHistoryOption) url.Values
 // PresenceHistoryRequest represents a request prepared by the RESTPresence.History or
 // RealtimePresence.History method, ready to be performed by its Pages or Items methods.
 type PresenceHistoryRequest struct {
-	r              paginatedRequestNew
-	channelOptions *proto.ChannelOptions
+	r       paginatedRequestNew
+	channel *RESTChannel
 }
 
 // Pages returns an iterator for whole pages of presence messages.
 //
 // See "Paginated results" section in the package-level documentation.
 func (r PresenceHistoryRequest) Pages(ctx context.Context) (*PresencePaginatedResult, error) {
-	var res PresencePaginatedResult
+	res := PresencePaginatedResult{decoder: r.channel.fullPresenceDecoder}
 	return &res, res.load(ctx, r.r)
 }
 
@@ -94,7 +95,8 @@ func (r PresenceHistoryRequest) Pages(ctx context.Context) (*PresencePaginatedRe
 // See "Paginated results" section in the package-level documentation.
 type PresencePaginatedResult struct {
 	PaginatedResultNew
-	items []*PresenceMessage
+	items   []*PresenceMessage
+	decoder func(*[]*PresenceMessage) interface{}
 }
 
 // Next retrieves the next page of results.
@@ -102,7 +104,7 @@ type PresencePaginatedResult struct {
 // See the "Paginated results" section in the package-level documentation.
 func (p *PresencePaginatedResult) Next(ctx context.Context) bool {
 	p.items = nil // avoid mutating already returned items
-	return p.next(ctx, &p.items)
+	return p.next(ctx, p.decoder(&p.items))
 }
 
 // Items returns the current page of results.
@@ -120,16 +122,58 @@ func (r PresenceHistoryRequest) Items(ctx context.Context) (*PresencePaginatedIt
 	var res PresencePaginatedItems
 	var err error
 	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
-		res.items = nil // avoid mutating already returned Items
-		var dst interface{} = &res.items
-		if r.channelOptions != nil {
-			// TODO
-		}
-		return dst, func() int {
+		return r.channel.fullPresenceDecoder(&res.items), func() int {
 			return len(res.items)
 		}
 	})
 	return &res, err
+}
+
+// fullPresenceDecoder wraps a destination slice of messages in a decoder value
+// that decodes both the message itself from the transport-level encoding and
+// the data field within from its message-specific encoding.
+func (c *RESTChannel) fullPresenceDecoder(dst *[]*PresenceMessage) interface{} {
+	return &fullPresenceDecoder{dst: dst, c: c}
+}
+
+type fullPresenceDecoder struct {
+	dst *[]*PresenceMessage
+	c   *RESTChannel
+}
+
+func (t *fullPresenceDecoder) UnmarshalJSON(b []byte) error {
+	err := json.Unmarshal(b, &t.dst)
+	if err != nil {
+		return err
+	}
+	t.decodeMessagesData()
+	return nil
+}
+
+func (t *fullPresenceDecoder) CodecEncodeSelf(*codec.Encoder) {
+	panic("presenceDecoderForChannel cannot be used as encoder")
+}
+
+func (t *fullPresenceDecoder) CodecDecodeSelf(decoder *codec.Decoder) {
+	decoder.MustDecode(&t.dst)
+	t.decodeMessagesData()
+}
+
+var _ interface {
+	json.Unmarshaler
+	codec.Selfer
+} = (*fullPresenceDecoder)(nil)
+
+func (t *fullPresenceDecoder) decodeMessagesData() {
+	cipher, _ := t.c.options.GetCipher()
+	for _, m := range *t.dst {
+		var err error
+		m.Message, err = m.Message.WithDecodedData(cipher)
+		if err != nil {
+			// RSL6b
+			t.c.logger().sugar().Errorf("Couldn't fully decode presence message data from channel %q: %w", t.c.Name, err)
+		}
+	}
 }
 
 type PresencePaginatedItems struct {

@@ -2,6 +2,7 @@ package ably
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
+	"github.com/ugorji/go/codec"
 
 	"github.com/ably/ably-go/ably/proto"
 )
@@ -83,7 +85,6 @@ func PublishBatchWithParams(params map[string]string) PublishBatchOption {
 
 // PublishBatchWithOptions is PublishBatch with optional parameters.
 func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*Message, options ...PublishBatchOption) error {
-	// TODO: Use context
 	var publishOpts publishBatchOptions
 	for _, o := range options {
 		o(&publishOpts)
@@ -146,8 +147,8 @@ func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*M
 func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 	params := (&historyOptions{}).apply(o...)
 	return HistoryRequest{
-		r:              c.client.newPaginatedRequest("/channels/"+c.Name+"/history", params),
-		channelOptions: c.options,
+		r:       c.client.newPaginatedRequest("/channels/"+c.Name+"/history", params),
+		channel: c,
 	}
 }
 
@@ -193,8 +194,8 @@ func (o *historyOptions) apply(opts ...HistoryOption) url.Values {
 // HistoryRequest represents a request prepared by the RESTChannel.History or
 // RealtimeChannel.History method, ready to be performed by its Pages or Items methods.
 type HistoryRequest struct {
-	r              paginatedRequestNew
-	channelOptions *proto.ChannelOptions
+	r       paginatedRequestNew
+	channel *RESTChannel
 }
 
 // Pages returns an iterator for whole pages of History.
@@ -237,15 +238,58 @@ func (r HistoryRequest) Items(ctx context.Context) (*MessagesPaginatedItems, err
 	var err error
 	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
 		res.items = nil // avoid mutating already returned Items
-		var dst interface{} = &res.items
-		if r.channelOptions != nil {
-			// TODO
-		}
-		return dst, func() int {
+		return r.channel.fullMessagesDecoder(&res.items), func() int {
 			return len(res.items)
 		}
 	})
 	return &res, err
+}
+
+// fullMessagesDecoder wraps a destination slice of messages in a decoder value
+// that decodes both the message itself from the transport-level encoding and
+// the data field within from its message-specific encoding.
+func (c *RESTChannel) fullMessagesDecoder(dst *[]*Message) interface{} {
+	return &fullMessagesDecoder{dst: dst, c: c}
+}
+
+type fullMessagesDecoder struct {
+	dst *[]*Message
+	c   *RESTChannel
+}
+
+func (t *fullMessagesDecoder) UnmarshalJSON(b []byte) error {
+	err := json.Unmarshal(b, &t.dst)
+	if err != nil {
+		return err
+	}
+	t.decodeMessagesData()
+	return nil
+}
+
+func (t *fullMessagesDecoder) CodecEncodeSelf(*codec.Encoder) {
+	panic("messagesDecoderForChannel cannot be used as encoder")
+}
+
+func (t *fullMessagesDecoder) CodecDecodeSelf(decoder *codec.Decoder) {
+	decoder.MustDecode(&t.dst)
+	t.decodeMessagesData()
+}
+
+var _ interface {
+	json.Unmarshaler
+	codec.Selfer
+} = (*fullMessagesDecoder)(nil)
+
+func (t *fullMessagesDecoder) decodeMessagesData() {
+	cipher, _ := t.c.options.GetCipher()
+	for _, m := range *t.dst {
+		var err error
+		*m, err = m.WithDecodedData(cipher)
+		if err != nil {
+			// RSL6b
+			t.c.logger().sugar().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
+		}
+	}
 }
 
 type MessagesPaginatedItems struct {

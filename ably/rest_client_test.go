@@ -674,6 +674,7 @@ func TestStats_Direction_RSC6b2(t *testing.T) {
 	} {
 		c := c
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
+			t.Parallel()
 			ctx := context.Background()
 
 			app, rest := ablytest.NewREST()

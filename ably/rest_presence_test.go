@@ -82,6 +82,7 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
 			t.Parallel()
+
 			app, rest := ablytest.NewREST()
 			defer app.Close()
 			channel := rest.Channels.Get("test")
@@ -121,6 +122,8 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 	} {
 		c := c
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
+			t.Parallel()
+
 			app, rest := ablytest.NewREST()
 			channel := rest.Channels.Get("test")
 
@@ -133,7 +136,7 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 			err := ablytest.TestPagination(expected, channel.Presence.History(
 				ably.PresenceHistoryWithLimit(len(expected)),
 				ably.PresenceHistoryWithDirection(c.direction),
-			), 100, ablytest.PaginationWithEqual(presenceEqual))
+			), len(expected), ablytest.PaginationWithEqual(presenceEqual))
 			if err != nil {
 				t.Fatal(err)
 			}
