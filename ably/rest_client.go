@@ -14,7 +14,9 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
+	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,7 +27,6 @@ import (
 
 var (
 	msgType     = reflect.TypeOf((*[]*proto.Message)(nil)).Elem()
-	statType    = reflect.TypeOf((*[]*proto.Stats)(nil)).Elem()
 	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
 	arrayTyp    = reflect.TypeOf((*[]interface{})(nil)).Elem()
 )
@@ -154,11 +155,141 @@ func (c *REST) Time(ctx context.Context) (time.Time, error) {
 	return time.Unix(times[0]/1000, times[0]%1000), nil
 }
 
-// Stats gives the channel's metrics according to the given parameters.
-// The returned result can be inspected for the statistics via the Stats()
-// method.
-func (c *REST) Stats(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
-	return newPaginatedResult(ctx, nil, paginatedRequest{typ: statType, path: "/stats", params: params, query: query(c.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
+// Stats retrieves statistics about the Ably app's activity.
+func (c *REST) Stats(o ...StatsOption) StatsRequest {
+	params := (&statsOptions{}).apply(o...)
+	return StatsRequest{r: c.newPaginatedRequest("/stats", params)}
+}
+
+// A StatsOption configures a call to REST.Stats or Realtime.Stats.
+type StatsOption func(*statsOptions)
+
+func StatsWithStart(t time.Time) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("start", strconv.FormatInt(unixMilli(t), 10))
+	}
+}
+
+func StatsWithEnd(t time.Time) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("end", strconv.FormatInt(unixMilli(t), 10))
+	}
+}
+
+func StatsWithLimit(limit int) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("limit", strconv.Itoa(limit))
+	}
+}
+
+func StatsWithDirection(d Direction) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("direction", string(d))
+	}
+}
+
+type PeriodUnit string
+
+const (
+	PeriodMinute PeriodUnit = "minute"
+	PeriodHour   PeriodUnit = "hour"
+	PeriodDay    PeriodUnit = "day"
+	PeriodMonth  PeriodUnit = "month"
+)
+
+func StatsWithUnit(d PeriodUnit) StatsOption {
+	return func(o *statsOptions) {
+		o.params.Set("unit", string(d))
+	}
+}
+
+type statsOptions struct {
+	params url.Values
+}
+
+func (o *statsOptions) apply(opts ...StatsOption) url.Values {
+	o.params = make(url.Values)
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o.params
+}
+
+// StatsRequest represents a request prepared by the REST.Stats or
+// Realtime.Stats method, ready to be performed by its Pages or Items methods.
+type StatsRequest struct {
+	r paginatedRequestNew
+}
+
+// Pages returns an iterator for whole pages of Stats.
+//
+// See "Paginated results" section in the package-level documentation.
+func (r StatsRequest) Pages(ctx context.Context) (*StatsPaginatedResult, error) {
+	var res StatsPaginatedResult
+	return &res, res.load(ctx, r.r)
+}
+
+// A StatsPaginatedResult is an iterator for the result of a Stats request.
+//
+// See "Paginated results" section in the package-level documentation.
+type StatsPaginatedResult struct {
+	PaginatedResultNew
+	items []*Stats
+}
+
+// Next retrieves the next page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *StatsPaginatedResult) Next(ctx context.Context) bool {
+	p.items = nil // avoid mutating already returned items
+	return p.next(ctx, &p.items)
+}
+
+// Items returns the current page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *StatsPaginatedResult) Items() []*Stats {
+	return p.items
+}
+
+// Items returns a convenience iterator for single Stats, over an underlying
+// paginated iterator.
+//
+// See "Paginated results" section in the package-level documentation.
+func (r StatsRequest) Items(ctx context.Context) (*StatsPaginatedItems, error) {
+	var res StatsPaginatedItems
+	var err error
+	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
+		res.items = nil // avoid mutating already returned items
+		return &res.items, func() int { return len(res.items) }
+	})
+	return &res, err
+}
+
+type StatsPaginatedItems struct {
+	PaginatedResultNew
+	items []*Stats
+	item  *Stats
+	next  func(context.Context) (int, bool)
+}
+
+// Next retrieves the next result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *StatsPaginatedItems) Next(ctx context.Context) bool {
+	i, ok := p.next(ctx)
+	if !ok {
+		return false
+	}
+	p.item = p.items[i]
+	return true
+}
+
+// Item returns the current result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *StatsPaginatedItems) Item() *Stats {
+	return p.item
 }
 
 // request this contains fields necessary to compose http request that will be
