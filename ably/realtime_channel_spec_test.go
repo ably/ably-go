@@ -520,9 +520,9 @@ func TestRealtimeChannel_RTL2f_HandleResume(t *testing.T) {
 	}
 
 	flags := make(map[proto.Flag]string)
-	flags[0] = "flag has presence is provided"
-	flags[1] = "flag has_backlog is provided"
-	flags[2] = "flag resumed is provided"
+	flags[proto.FlagHasPresence] = "flag has presence is provided"
+	flags[proto.FlagHasBacklog] = "flag has_backlog is provided"
+	flags[proto.FlagResumed] = "flag resumed is provided"
 
 	for flag, flagDescription := range flags {
 		t.Run(fmt.Sprintf("RTL13a: when %v, set channelChangeState resume to %v", flagDescription, flag == proto.FlagResumed), func(t *testing.T) {

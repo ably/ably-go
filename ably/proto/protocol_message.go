@@ -8,21 +8,21 @@ import (
 
 // TR3
 const (
-	FlagHasPresence       Flag = 0
-	FlagHasBacklog        Flag = 1
-	FlagResumed           Flag = 2
-	FlagTransient         Flag = 4
-	FlagAttachResume      Flag = 5
-	FlagPresence          Flag = 16
-	FlagPublish           Flag = 17
-	FlagSubscribe         Flag = 18
-	FlagPresenceSubscribe Flag = 19
+	FlagHasPresence       Flag = 1 << 0
+	FlagHasBacklog        Flag = 1 << 1
+	FlagResumed           Flag = 1 << 2
+	FlagTransient         Flag = 1 << 4
+	FlagAttachResume      Flag = 1 << 5
+	FlagPresence          Flag = 1 << 16
+	FlagPublish           Flag = 1 << 17
+	FlagSubscribe         Flag = 1 << 18
+	FlagPresenceSubscribe Flag = 1 << 19
 )
 
 type Flag int64
 
-func (f Flag) Has(flag Flag) bool {
-	return f&flag == flag
+func (flags Flag) Has(flag Flag) bool {
+	return flags&flag == flag
 }
 
 type ConnectionDetails struct {
