@@ -677,7 +677,7 @@ func decodeResp(resp *http.Response, out interface{}) error {
 	if err != nil {
 		return err
 	}
-	b, _ := io.ReadAll(resp.Body)
+	b, _ := ioutil.ReadAll(resp.Body)
 
 	return decode(typ, bytes.NewReader(b), out)
 }
