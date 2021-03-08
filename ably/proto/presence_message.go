@@ -2,6 +2,7 @@ package proto
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/ugorji/go/codec"
 )
@@ -19,6 +20,16 @@ const (
 type PresenceMessage struct {
 	Message
 	Action PresenceAction `json:"action" codec:"action"`
+}
+
+func (m PresenceMessage) String() string {
+	return fmt.Sprintf("<PresenceMessage %v data=%v>", [...]string{
+		"absent",
+		"present",
+		"enter",
+		"leave",
+		"update",
+	}[m.Action], m.Data)
 }
 
 func (m PresenceMessage) MarshalJSON() ([]byte, error) {

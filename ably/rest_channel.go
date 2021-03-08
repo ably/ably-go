@@ -152,7 +152,7 @@ func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 	}
 }
 
-// A HistoryOption configures a call to REST.History or Realtime.History.
+// A HistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
 type HistoryOption func(*historyOptions)
 
 func HistoryWithStart(t time.Time) HistoryOption {
@@ -191,8 +191,8 @@ func (o *historyOptions) apply(opts ...HistoryOption) url.Values {
 	return o.params
 }
 
-// HistoryRequest represents a request prepared by the REST.History or
-// Realtime.History method, ready to be performed by its Pages or Items methods.
+// HistoryRequest represents a request prepared by the RESTChannel.History or
+// RealtimeChannel.History method, ready to be performed by its Pages or Items methods.
 type HistoryRequest struct {
 	r              paginatedRequestNew
 	channelOptions *proto.ChannelOptions

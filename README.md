@@ -296,13 +296,16 @@ if err != nil {
 -->
 
 ```go
-page, err := channel.Presence.History(ctx, nil)
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
-	for _, presence := range page.PresenceMessages() {
+pages, err := channel.Presence.History().Pages(ctx)
+if err != nil {
+	panic(err)
+}
+for pages.Next(ctx) {
+	for _, presence := range pages.Items() {
 		fmt.Println(presence)
 	}
 }
-if err != nil {
+if err := pages.Err(); err != nil {
 	panic(err)
 }
 ```
