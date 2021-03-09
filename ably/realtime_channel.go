@@ -515,7 +515,8 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 
 	case proto.ActionAttached:
 		c.Presence.onAttach(msg)
-		c.setState(ChannelStateAttached, nil, msg.Flags.Has(proto.FlagResumed))
+		// RTL12
+		c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(proto.FlagResumed))
 		c.queue.Flush()
 	case proto.ActionDetached:
 		c.mtx.Lock()
@@ -641,6 +642,7 @@ func (c *RealtimeChannel) lockSetState(state ChannelState, err error, resumed bo
 		Reason:   c.errorReason,
 		Resumed:  resumed,
 	}
+	// RTL2g
 	if !changed {
 		change.Event = ChannelEventUpdate
 	} else {
