@@ -563,8 +563,10 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error))
 		c.queue.Fail(newErrorFromProto(msg.Error))
 	case proto.ActionMessage:
-		for _, msg := range msg.Messages {
-			c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
+		if c.state == ChannelStateAttached {
+			for _, msg := range msg.Messages {
+				c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
+			}
 		}
 	default:
 	}
