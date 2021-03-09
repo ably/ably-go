@@ -91,13 +91,16 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 			realtime := postPresenceHistoryFixtures(context.Background(), app, "test", fixtures)
 			defer safeclose(t, realtime, app)
 
-			err := ablytest.TestPagination(
-				reversePresence(fixtures),
-				channel.Presence.History(ably.PresenceHistoryWithLimit(limit)),
-				limit,
-				ablytest.PaginationWithEqual(presenceEqual),
-			)
-			if err != nil {
+			var err error
+			if !ablytest.Soon.IsTrue(func() bool {
+				err = ablytest.TestPagination(
+					reversePresence(fixtures),
+					channel.Presence.History(ably.PresenceHistoryWithLimit(limit)),
+					limit,
+					ablytest.PaginationWithEqual(presenceEqual),
+				)
+				return err == nil
+			}) {
 				t.Fatal(err)
 			}
 		})
@@ -133,11 +136,14 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 
 			expected := c.expected
 
-			err := ablytest.TestPagination(expected, channel.Presence.History(
-				ably.PresenceHistoryWithLimit(len(expected)),
-				ably.PresenceHistoryWithDirection(c.direction),
-			), len(expected), ablytest.PaginationWithEqual(presenceEqual))
-			if err != nil {
+			var err error
+			if !ablytest.Soon.IsTrue(func() bool {
+				err = ablytest.TestPagination(expected, channel.Presence.History(
+					ably.PresenceHistoryWithLimit(len(expected)),
+					ably.PresenceHistoryWithDirection(c.direction),
+				), len(expected), ablytest.PaginationWithEqual(presenceEqual))
+				return err == nil
+			}) {
 				t.Fatal(err)
 			}
 		})
