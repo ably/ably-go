@@ -104,6 +104,9 @@ func (p *PaginatedResultNew) loadItems(
 				return 0, false
 			}
 			pageLen = getLen()
+			if pageLen == 0 { // compatible with hasNext if first page is empty
+				return 0, false
+			}
 		}
 
 		idx := nextItem
@@ -215,52 +218,11 @@ type paginatedRequest struct {
 }
 
 func decodePaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, resp *http.Response) (interface{}, error) {
-	switch typ {
-	case msgType:
-		var o []map[string]interface{}
-		err := decodeResp(resp, &o)
-		if err != nil {
-			return nil, err
-		}
-		rs := make([]*proto.Message, len(o))
-		for k, v := range o {
-			m := &proto.Message{
-				ChannelOptions: opts,
-			}
-			err = m.FromMap(v)
-			if err != nil {
-				return nil, err
-			}
-			rs[k] = m
-		}
-		return rs, nil
-	case presMsgType:
-		var o []map[string]interface{}
-		err := decodeResp(resp, &o)
-		if err != nil {
-			return nil, err
-		}
-		rs := make([]*proto.PresenceMessage, len(o))
-		for k, v := range o {
-			m := &proto.PresenceMessage{
-				Message: proto.Message{
-					ChannelOptions: opts,
-				},
-			}
-			err = m.FromMap(v)
-			if err != nil {
-				return nil, err
-			}
-			rs[k] = m
-		}
-		return rs, nil
-	default:
-		v := reflect.New(typ)
-		if err := decodeResp(resp, v.Interface()); err != nil {
-			return nil, err
-		}
-		return v.Elem().Interface(), nil
+	v := reflect.New(typ)
+	if err := decodeResp(resp, v.Interface()); err != nil {
+		return nil, err
 	}
+	return v.Elem().Interface(), nil
 }
 
 func newPaginatedResult(ctx context.Context, opts *proto.ChannelOptions, req paginatedRequest) (*PaginatedResult, error) {
@@ -363,16 +325,6 @@ func (p *PaginatedResult) Items() []interface{} {
 		}
 	}
 	return p.items
-}
-
-// Messages gives a slice of messages for the current page. The method panics if
-// the underlying paginated result is not a message.
-func (p *PaginatedResult) Messages() []*Message {
-	items, ok := p.typItems.([]*proto.Message)
-	if !ok {
-		panic(errInvalidType{typ: p.req.typ})
-	}
-	return items
 }
 
 // PresenceMessages gives a slice of presence messages for the current path.

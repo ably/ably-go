@@ -171,69 +171,77 @@ func TestReadmeExamples(t *testing.T) {
 			/* README.md:241 */
 		}
 		/* README.md:247 */ {
-			/* README.md:251 */ page, err := channel.History(ctx, nil)
-			/* README.md:252 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-				/* README.md:253 */ for _, message := range page.Messages() {
-					/* README.md:254 */ fmt.Println(message)
-					/* README.md:255 */
-				}
-				/* README.md:256 */
+			/* README.md:251 */ pages, err := channel.History().Pages(ctx)
+			/* README.md:252 */ if err != nil {
+				/* README.md:253 */ panic(err)
+				/* README.md:254 */
 			}
-			/* README.md:257 */ if err != nil {
-				/* README.md:258 */ panic(err)
+			/* README.md:255 */ for pages.Next(ctx) {
+				/* README.md:256 */ for _, message := range pages.Items() {
+					/* README.md:257 */ fmt.Println(message)
+					/* README.md:258 */
+				}
 				/* README.md:259 */
 			}
-			/* README.md:263 */
+			/* README.md:260 */ if err := pages.Err(); err != nil {
+				/* README.md:261 */ panic(err)
+				/* README.md:262 */
+			}
+			/* README.md:267 */
 		}
-		/* README.md:269 */ {
-			/* README.md:273 */ page, err := channel.Presence.Get(ctx, nil)
-			/* README.md:274 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-				/* README.md:275 */ for _, presence := range page.PresenceMessages() {
-					/* README.md:276 */ fmt.Println(presence)
-					/* README.md:277 */
+		/* README.md:273 */ {
+			/* README.md:277 */ page, err := channel.Presence.Get(ctx, nil)
+			/* README.md:278 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
+				/* README.md:279 */ for _, presence := range page.PresenceMessages() {
+					/* README.md:280 */ fmt.Println(presence)
+					/* README.md:281 */
 				}
-				/* README.md:278 */
+				/* README.md:282 */
 			}
-			/* README.md:279 */ if err != nil {
-				/* README.md:280 */ panic(err)
-				/* README.md:281 */
+			/* README.md:283 */ if err != nil {
+				/* README.md:284 */ panic(err)
+				/* README.md:285 */
 			}
-			/* README.md:285 */
+			/* README.md:289 */
 		}
-		/* README.md:291 */ {
-			/* README.md:295 */ page, err := channel.Presence.History(ctx, nil)
-			/* README.md:296 */ for ; err == nil && page != nil; page, err = page.Next(ctx) {
-				/* README.md:297 */ for _, presence := range page.PresenceMessages() {
-					/* README.md:298 */ fmt.Println(presence)
-					/* README.md:299 */
+		/* README.md:295 */ {
+			/* README.md:299 */ pages, err := channel.Presence.History().Pages(ctx)
+			/* README.md:300 */ if err != nil {
+				/* README.md:301 */ panic(err)
+				/* README.md:302 */
+			}
+			/* README.md:303 */ for pages.Next(ctx) {
+				/* README.md:304 */ for _, presence := range pages.Items() {
+					/* README.md:305 */ fmt.Println(presence)
+					/* README.md:306 */
 				}
-				/* README.md:300 */
+				/* README.md:307 */
 			}
-			/* README.md:301 */ if err != nil {
-				/* README.md:302 */ panic(err)
-				/* README.md:303 */
+			/* README.md:308 */ if err := pages.Err(); err != nil {
+				/* README.md:309 */ panic(err)
+				/* README.md:310 */
 			}
-			/* README.md:307 */
+			/* README.md:314 */
 		}
-		/* README.md:313 */ {
-			/* README.md:317 */ pages, err := client.Stats().Pages(ctx)
-			/* README.md:318 */ if err != nil {
-				/* README.md:319 */ panic(err)
-				/* README.md:320 */
+		/* README.md:320 */ {
+			/* README.md:324 */ pages, err := client.Stats().Pages(ctx)
+			/* README.md:325 */ if err != nil {
+				/* README.md:326 */ panic(err)
+				/* README.md:327 */
 			}
-			/* README.md:321 */ for pages.Next(ctx) {
-				/* README.md:322 */ for _, stat := range pages.Items() {
-					/* README.md:323 */ fmt.Println(stat)
-					/* README.md:324 */
+			/* README.md:328 */ for pages.Next(ctx) {
+				/* README.md:329 */ for _, stat := range pages.Items() {
+					/* README.md:330 */ fmt.Println(stat)
+					/* README.md:331 */
 				}
-				/* README.md:325 */
+				/* README.md:332 */
 			}
-			/* README.md:326 */ if err := pages.Err(); err != nil {
-				/* README.md:327 */ panic(err)
-				/* README.md:328 */
+			/* README.md:333 */ if err := pages.Err(); err != nil {
+				/* README.md:334 */ panic(err)
+				/* README.md:335 */
 			}
-			/* README.md:332 */
+			/* README.md:339 */
 		}
-		/* README.md:336 */
+		/* README.md:343 */
 	}
 }

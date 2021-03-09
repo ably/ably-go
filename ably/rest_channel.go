@@ -2,11 +2,15 @@ package ably
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
+	"github.com/ugorji/go/codec"
 
 	"github.com/ably/ably-go/ably/proto"
 )
@@ -81,18 +85,16 @@ func PublishBatchWithParams(params map[string]string) PublishBatchOption {
 
 // PublishBatchWithOptions is PublishBatch with optional parameters.
 func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*Message, options ...PublishBatchOption) error {
-	// TODO: Use context
 	var publishOpts publishBatchOptions
 	for _, o := range options {
 		o(&publishOpts)
 	}
-	msgPtrs := make([]*proto.Message, 0, len(messages))
-	for _, m := range messages {
-		msgPtrs = append(msgPtrs, (*proto.Message)(m))
-	}
-	if c.options != nil {
-		for _, v := range messages {
-			v.ChannelOptions = c.options
+	for i, m := range messages {
+		cipher, _ := c.options.GetCipher()
+		var err error
+		*m, err = (*m).WithEncodedData(cipher)
+		if err != nil {
+			return fmt.Errorf("encoding data for message #%d: %w", i, err)
 		}
 	}
 	useIdempotent := c.client.opts.idempotentRESTPublishing()
@@ -141,16 +143,179 @@ func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*M
 	return res.Body.Close()
 }
 
-// History gives the channel's message history according to the given parameters.
-// The returned result can be inspected for the messages via the Messages()
-// method.
-func (c *RESTChannel) History(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
-	path := c.baseURL + "/history"
-	rst, err := newPaginatedResult(ctx, c.options, paginatedRequest{typ: msgType, path: path, params: params, query: query(c.client.get), logger: c.logger(), respCheck: checkValidHTTPResponse})
-	if err != nil {
-		return nil, err
+// History gives the channel's message history.
+func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
+	params := (&historyOptions{}).apply(o...)
+	return HistoryRequest{
+		r:       c.client.newPaginatedRequest("/channels/"+c.Name+"/history", params),
+		channel: c,
 	}
-	return rst, nil
+}
+
+// A HistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
+type HistoryOption func(*historyOptions)
+
+func HistoryWithStart(t time.Time) HistoryOption {
+	return func(o *historyOptions) {
+		o.params.Set("start", strconv.FormatInt(unixMilli(t), 10))
+	}
+}
+
+func HistoryWithEnd(t time.Time) HistoryOption {
+	return func(o *historyOptions) {
+		o.params.Set("end", strconv.FormatInt(unixMilli(t), 10))
+	}
+}
+
+func HistoryWithLimit(limit int) HistoryOption {
+	return func(o *historyOptions) {
+		o.params.Set("limit", strconv.Itoa(limit))
+	}
+}
+
+func HistoryWithDirection(d Direction) HistoryOption {
+	return func(o *historyOptions) {
+		o.params.Set("direction", string(d))
+	}
+}
+
+type historyOptions struct {
+	params url.Values
+}
+
+func (o *historyOptions) apply(opts ...HistoryOption) url.Values {
+	o.params = make(url.Values)
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o.params
+}
+
+// HistoryRequest represents a request prepared by the RESTChannel.History or
+// RealtimeChannel.History method, ready to be performed by its Pages or Items methods.
+type HistoryRequest struct {
+	r       paginatedRequestNew
+	channel *RESTChannel
+}
+
+// Pages returns an iterator for whole pages of History.
+//
+// See "Paginated results" section in the package-level documentation.
+func (r HistoryRequest) Pages(ctx context.Context) (*MessagesPaginatedResult, error) {
+	var res MessagesPaginatedResult
+	return &res, res.load(ctx, r.r)
+}
+
+// A MessagesPaginatedResult is an iterator for the result of a History request.
+//
+// See "Paginated results" section in the package-level documentation.
+type MessagesPaginatedResult struct {
+	PaginatedResultNew
+	items []*Message
+}
+
+// Next retrieves the next page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *MessagesPaginatedResult) Next(ctx context.Context) bool {
+	p.items = nil // avoid mutating already returned items
+	return p.next(ctx, &p.items)
+}
+
+// Items returns the current page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *MessagesPaginatedResult) Items() []*Message {
+	return p.items
+}
+
+// Items returns a convenience iterator for single History, over an underlying
+// paginated iterator.
+//
+// See "Paginated results" section in the package-level documentation.
+func (r HistoryRequest) Items(ctx context.Context) (*MessagesPaginatedItems, error) {
+	var res MessagesPaginatedItems
+	var err error
+	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
+		res.items = nil // avoid mutating already returned Items
+		return r.channel.fullMessagesDecoder(&res.items), func() int {
+			return len(res.items)
+		}
+	})
+	return &res, err
+}
+
+// fullMessagesDecoder wraps a destination slice of messages in a decoder value
+// that decodes both the message itself from the transport-level encoding and
+// the data field within from its message-specific encoding.
+func (c *RESTChannel) fullMessagesDecoder(dst *[]*Message) interface{} {
+	return &fullMessagesDecoder{dst: dst, c: c}
+}
+
+type fullMessagesDecoder struct {
+	dst *[]*Message
+	c   *RESTChannel
+}
+
+func (t *fullMessagesDecoder) UnmarshalJSON(b []byte) error {
+	err := json.Unmarshal(b, &t.dst)
+	if err != nil {
+		return err
+	}
+	t.decodeMessagesData()
+	return nil
+}
+
+func (t *fullMessagesDecoder) CodecEncodeSelf(*codec.Encoder) {
+	panic("messagesDecoderForChannel cannot be used as encoder")
+}
+
+func (t *fullMessagesDecoder) CodecDecodeSelf(decoder *codec.Decoder) {
+	decoder.MustDecode(&t.dst)
+	t.decodeMessagesData()
+}
+
+var _ interface {
+	json.Unmarshaler
+	codec.Selfer
+} = (*fullMessagesDecoder)(nil)
+
+func (t *fullMessagesDecoder) decodeMessagesData() {
+	cipher, _ := t.c.options.GetCipher()
+	for _, m := range *t.dst {
+		var err error
+		*m, err = m.WithDecodedData(cipher)
+		if err != nil {
+			// RSL6b
+			t.c.logger().sugar().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
+		}
+	}
+}
+
+type MessagesPaginatedItems struct {
+	PaginatedResultNew
+	items []*Message
+	item  *Message
+	next  func(context.Context) (int, bool)
+}
+
+// Next retrieves the next result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *MessagesPaginatedItems) Next(ctx context.Context) bool {
+	i, ok := p.next(ctx)
+	if !ok {
+		return false
+	}
+	p.item = p.items[i]
+	return true
+}
+
+// Item returns the current result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *MessagesPaginatedItems) Item() *Message {
+	return p.item
 }
 
 func (c *RESTChannel) logger() *LoggerOptions {

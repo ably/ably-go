@@ -6,16 +6,51 @@ import (
 	"reflect"
 )
 
-func TestPagination(expected, request interface{}, perPage int) error {
+// AllPages appends all items from all pages resulting from a paginated
+// request into the slice pointed to by dst, which must be a pointer to a slice
+// of the same type as the paginated response's items.
+func AllPages(dst, paginatedRequest interface{}) error {
+	_, getItems := generalizePagination(reflect.ValueOf(paginatedRequest))
+	items, err := getItems()
+	if err != nil {
+		return err
+	}
+	all := reflect.ValueOf(dst).Elem()
+	for items.next() {
+		all.Set(reflect.Append(all, reflect.ValueOf(items.item())))
+	}
+	return items.err()
+}
+
+type paginationOptions struct {
+	equal func(x, y interface{}) bool
+}
+
+type PaginationOption func(*paginationOptions)
+
+func PaginationWithEqual(equal func(x, y interface{}) bool) PaginationOption {
+	return func(o *paginationOptions) {
+		o.equal = equal
+	}
+}
+
+func TestPagination(expected, request interface{}, perPage int, options ...PaginationOption) error {
+	opts := paginationOptions{
+		equal: reflect.DeepEqual,
+	}
+	for _, o := range options {
+		o(&opts)
+	}
+
 	var items []interface{}
 	rexpected := reflect.ValueOf(expected)
 	for i := 0; i < reflect.ValueOf(expected).Len(); i++ {
 		items = append(items, rexpected.Index(i).Interface())
 	}
-	return testPagination(reflect.ValueOf(request), items, perPage)
+	return testPagination(reflect.ValueOf(request), items, perPage, opts.equal)
 }
 
-func testPagination(request reflect.Value, expectedItems []interface{}, perPage int) error {
+func testPagination(request reflect.Value, expectedItems []interface{}, perPage int, equal func(x, y interface{}) bool) error {
 	getPages, getItems := generalizePagination(request)
 
 	var expectedPages [][]interface{}
@@ -44,7 +79,7 @@ func testPagination(request reflect.Value, expectedItems []interface{}, perPage 
 			return fmt.Errorf("iterating pages: %w", err)
 		}
 
-		if !reflect.DeepEqual(expectedPages, gotPages) {
+		if !PagesEqual(expectedPages, gotPages, equal) {
 			return fmt.Errorf("expected pages: %+v, got: %+v", expectedPages, gotPages)
 		}
 
@@ -66,7 +101,7 @@ func testPagination(request reflect.Value, expectedItems []interface{}, perPage 
 			return fmt.Errorf("iterating items: %w", err)
 		}
 
-		if !reflect.DeepEqual(expectedItems, gotItems) {
+		if !ItemsEqual(expectedItems, gotItems, equal) {
 			return fmt.Errorf("expected items: %+v, got: %+v", expectedItems, gotItems)
 		}
 
@@ -147,4 +182,28 @@ func generalizePagination(request reflect.Value) (func() (paginatedResult, error
 	}
 
 	return pages, items
+}
+
+func PagesEqual(expected, got [][]interface{}, equal func(x, y interface{}) bool) bool {
+	if len(expected) != len(got) {
+		return false
+	}
+	for i := range expected {
+		if !ItemsEqual(expected[i], got[i], equal) {
+			return false
+		}
+	}
+	return true
+}
+
+func ItemsEqual(expected, got []interface{}, equal func(x, y interface{}) bool) bool {
+	if len(expected) != len(got) {
+		return false
+	}
+	for i := range expected {
+		if !equal(expected[i], got[i]) {
+			return false
+		}
+	}
+	return true
 }

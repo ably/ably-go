@@ -431,11 +431,9 @@ func (c *RealtimeChannel) PublishBatch(ctx context.Context, messages []*Message)
 	return res.Wait(ctx)
 }
 
-// History gives the channel's message history according to the given parameters.
-// The returned result can be inspected for the messages via the Messages()
-// method.
-func (c *RealtimeChannel) History(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
-	return c.client.rest.Channels.Get(c.Name).History(ctx, params)
+// History is equivalent to RESTChannel.History.
+func (c *RealtimeChannel) History(o ...HistoryOption) HistoryRequest {
+	return c.client.rest.Channels.Get(c.Name).History(o...)
 }
 
 func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (result, error) {

@@ -15,8 +15,8 @@ type CryptoData struct {
 	Key       string `json:"key"`
 	IV        string `json:"iv"`
 	Items     []struct {
-		Encoded   map[string]interface{} `json:"encoded"`
-		Encrypted map[string]interface{} `json:"encrypted"`
+		Encoded   json.RawMessage `json:"encoded"`
+		Encrypted json.RawMessage `json:"encrypted"`
 	} `json:"items"`
 }
 
