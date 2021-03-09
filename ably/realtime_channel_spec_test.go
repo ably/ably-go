@@ -797,7 +797,6 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 				Encoding:       "encoding",
 				Timestamp:      0,
 				Extras:         nil,
-				ChannelOptions: nil,
 			}
 			in <- &proto.ProtocolMessage{
 				Action:        proto.ActionMessage,
