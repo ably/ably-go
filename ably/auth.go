@@ -127,7 +127,7 @@ func (a *Auth) clientIDForCheck() string {
 func (a *Auth) updateClientID(clientID string) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	if a.clientID == "" {
+	if clientID != "" {
 		//Spec RSA7b3, RSA7b4, RSA12a,RSA12b, RSA7b2,
 		a.clientID = clientID
 	}

@@ -2432,17 +2432,20 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 	if expected, got := ably.ConnectionStateConnected, newConnectionState.Previous; expected != got {
 		t.Fatalf("expected %v; got %v (event: %+v)", expected, got, newConnectionState)
 	}
-	//if got := fmt.Sprint(newConnectionState.Reason); !strings.Contains(got, errInfo.Message) {
-	//	t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, newConnectionState.Reason)
-	//}
+	if got := fmt.Sprint(newConnectionState.Reason); !strings.Contains(got, errInfo.Message) {
+		t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, newConnectionState.Reason)
+	}
+	if got := c.Connection.ErrorReason().Message(); !strings.Contains(got, errInfo.Message) {
+		t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, c.Connection.ErrorReason().Message())
+	}
 	// RTN21 - new connection details over write old values
 	if c.Connection.Key() != newConnDetails.ConnectionKey {
 		t.Fatalf("expected %v; got %v", newConnDetails.ConnectionKey, c.Connection.Key())
 	}
 
-	//if c.Auth.ClientID() != newConnDetails.ClientID {
-	//	t.Fatalf("expected %v; got %v", newConnDetails.ClientID,c.Auth.ClientID())
-	//}
+	if c.Auth.ClientID() != newConnDetails.ClientID {
+		t.Fatalf("expected %v; got %v", newConnDetails.ClientID, c.Auth.ClientID())
+	}
 
 	if c.Connection.ID() != "connection-id-2" {
 		t.Fatalf("expected %v; got %v", "connection-id-2", c.Connection.ID())
