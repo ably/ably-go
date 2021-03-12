@@ -470,6 +470,7 @@ func (c *Connection) Key() string {
 //
 // Ping returns non-nil error without any attempt of communication with Ably
 // if the connection state is ConnectionStateClosed or ConnectionStateFailed.
+// RTN13
 func (c *Connection) Ping() (ping, pong time.Duration, err error) {
 	return 0, 0, errors.New("TODO")
 }

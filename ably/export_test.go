@@ -19,6 +19,10 @@ func (opts *clientOptions) RealtimeURL() string {
 	return opts.realtimeURL()
 }
 
+func (ablyConn *Connection) SetState(state ConnectionState, err error, retryIn time.Duration) error {
+	return ablyConn.setState(state, err, retryIn)
+}
+
 func (c *REST) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
 	return c.post(ctx, path, in, out)
 }

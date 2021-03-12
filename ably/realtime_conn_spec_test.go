@@ -183,6 +183,103 @@ func connectAndWait(t *testing.T, realtime *ably.Realtime) {
 	}
 }
 
+type connectionStateChanges chan ably.ConnectionStateChange
+
+func (c connectionStateChanges) Receive(change ably.ConnectionStateChange) {
+	c <- change
+}
+
+func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
+	t.Parallel()
+
+	setupReal := func()(c *ably.Realtime) {
+		_, c = ablytest.NewRealtime(ably.WithAutoConnect(false))
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		connectionState := c.Connection.State();
+		if connectionState != ably.ConnectionStateConnected {
+			t.Fatalf("expected %v; got %v", ably.ConnectionStateConnected, connectionState)
+		}
+		return
+	}
+
+	//setupMock := func()(c *ably.Realtime, in chan *proto.ProtocolMessage, out chan *proto.ProtocolMessage) {
+	//	in = make(chan *proto.ProtocolMessage, 1)
+	//	out = make(chan *proto.ProtocolMessage, 16)
+	//
+	//	c, _ = ably.NewRealtime(
+	//		ably.WithAutoConnect(false),
+	//		ably.WithToken("fake:token"),
+	//		ably.WithDial(ablytest.MessagePipe(in, out)),
+	//	)
+	//
+	//	connDetails := proto.ConnectionDetails{
+	//		ClientID:           "id1",
+	//		ConnectionKey:      "foo",
+	//		MaxFrameSize:       12,
+	//		MaxInboundRate:     14,
+	//		MaxMessageSize:     67,
+	//		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 2),
+	//		MaxIdleInterval:    proto.DurationFromMsecs(time.Second),
+	//	}
+	//
+	//	in <- &proto.ProtocolMessage{
+	//		Action:            proto.ActionConnected,
+	//		ConnectionID:      "connection-id-1",
+	//		ConnectionDetails: &connDetails,
+	//	}
+	//
+	//	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	//	if err != nil {
+	//		t.Fatal(err)
+	//	}
+	//	return
+	//}
+
+	t.Run("RTN12a", func(t *testing.T) {
+		c := setupReal()
+		stateChange := make(connectionStateChanges, 2)
+		c.Connection.OnAll(stateChange.Receive)
+
+		c.Connection.Close();
+
+		var change ably.ConnectionStateChange
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+
+		if expected, got := ably.ConnectionStateClosing, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+
+		if expected, got := ably.ConnectionStateClosed, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+		ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
+	});
+
+	connectionStates := [2] ably.ConnectionState {ably.ConnectionStateDisconnected, ably.ConnectionStateSuspended}
+	for _, connectionState := range connectionStates {
+		t.Run(fmt.Sprintf("RTN12d : Should directly close on %v", connectionState), func(t *testing.T) {
+			c := setupReal()
+
+			c.Connection.SetState(connectionState, nil, time.Minute)
+			stateChange := make(connectionStateChanges, 1)
+			c.Connection.OnAll(stateChange.Receive)
+			c.Connection.Close()
+
+			var change ably.ConnectionStateChange
+			ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+
+			if expected, got := ably.ConnectionStateClosed, change.Current; expected != got {
+				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+			}
+			ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
+		})
+	}
+}
+
 func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	t.Parallel()
 
