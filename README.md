@@ -24,7 +24,7 @@ with some omissions as follows (see [the client library specification](https://a
 
 It is intended that this library is upgraded incrementally, with 1.1 feature support expanded in successive minor
 releases. If there are features that are currently missing that are a high priority for your use-case then please
-[contact Ably customer support](http://knowledge.ably.com/). Pull Requests are also welcomed.
+[contact Ably customer support](https://knowledge.ably.com/). Pull Requests are also welcomed.
 
 ### Realtime API
 
@@ -43,7 +43,7 @@ connection.
 
 As with the REST API, it is intended that this library is upgraded incrementally and brought into line with the 1.1
 specification. If there are features that are currently missing that are a high priority for your use-case then please
-[contact Ably customer support](http://knowledge.ably.com/). Pull Requests are also welcomed.
+[contact Ably customer support](https://knowledge.ably.com/). Pull Requests are also welcomed.
 
 ## Using the Realtime API
 
@@ -290,7 +290,7 @@ Broaden your knowledge of realtime in Go with these useful materials:
 
 ## Support and feedback
 
-Please visit http://knowledge.ably.com/ for access to our knowledgebase and to ask for any assistance.
+Please visit https://knowledge.ably.com/ for access to our knowledgebase and to ask for any assistance.
 
 You can also view the [community reported Github issues](https://github.com/ably/ably-go/issues).
 
