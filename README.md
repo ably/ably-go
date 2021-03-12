@@ -1,6 +1,6 @@
-## [Ably Go](https://www.ably.io)
+## [Ably Go](https://ably.com/)
 
-A Go client library for [www.ably.io](https://ably.io), the realtime messaging service.
+A Go client library for [https://ably.com/](https://ably.com/), the realtime messaging service.
 
 ## Installation
 
@@ -15,16 +15,16 @@ This library implements the Ably REST and Realtime client APIs.
 ### REST API
 
 In respect of the Ably REST API, this library targets the Ably 1.1 client library specification,
-with some omissions as follows (see [the client library specification](https://www.ably.io/documentation/client-lib-development-guide/features) for specification references):
+with some omissions as follows (see [the client library specification](https://ably.com/documentation/client-lib-development-guide/features) for specification references):
 
 | Feature |
 | --- |
-| [Push notifications admin API](https://www.ably.io/documentation/general/push/admin) |
-| [JWT authentication](https://www.ably.io/documentation/core-features/authentication#ably-jwt-process) |
+| [Push notifications admin API](https://ably.com/documentation/general/push/admin) |
+| [JWT authentication](https://ably.com/documentation/core-features/authentication#ably-jwt-process) |
 
 It is intended that this library is upgraded incrementally, with 1.1 feature support expanded in successive minor
 releases. If there are features that are currently missing that are a high priority for your use-case then please
-[contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
+[contact Ably customer support](http://knowledge.ably.com/). Pull Requests are also welcomed.
 
 ### Realtime API
 
@@ -43,7 +43,7 @@ connection.
 
 As with the REST API, it is intended that this library is upgraded incrementally and brought into line with the 1.1
 specification. If there are features that are currently missing that are a high priority for your use-case then please
-[contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
+[contact Ably customer support](http://knowledge.ably.com/). Pull Requests are also welcomed.
 
 ## Using the Realtime API
 
@@ -281,14 +281,16 @@ This library uses [semantic versioning](http://semver.org/). For each release, t
 * Once the PR is approved, merge it into `main`
 * Add a tag to the new `main` head commit and push to origin such as `git tag v1.1.6 && git push origin v1.1.6`
 
-## Resources
+## Further information
 
-* [Building realtime apps with Go and WebSockets: client-side considerations](https://www.ably.io/topic/websockets-golang)
-* [Guide to Pub/Sub in Golang](https://www.ably.io/blog/pubsub-golang)
+Broaden your knowledge of realtime in Go with these useful materials:
+
+* [Building realtime apps with Go and WebSockets: client-side considerations](https://ably.com/topic/websockets-golang)
+* [Guide to Pub/Sub in Golang](https://ably.com/blog/pubsub-golang)
 
 ## Support and feedback
 
-Please visit http://support.ably.io/ for access to our knowledgebase and to ask for any assistance.
+Please visit http://knowledge.ably.com/ for access to our knowledgebase and to ask for any assistance.
 
 You can also view the [community reported Github issues](https://github.com/ably/ably-go/issues).
 
