@@ -192,58 +192,35 @@ func (c connectionStateChanges) Receive(change ably.ConnectionStateChange) {
 func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	t.Parallel()
 
-	setupReal := func() (c *ably.Realtime) {
-		_, c = ablytest.NewRealtime(ably.WithAutoConnect(false))
-		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	setUpWithEOF := func() (app *ablytest.Sandbox, client *ably.Realtime, doEOF chan struct{}) {
+		doEOF = make(chan struct{}, 1)
+
+		app, client = ablytest.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				c, err := ablyutil.DialWebsocket(protocol, u, timeout)
+				return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
+			}))
+
+		err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		connectionState := c.Connection.State()
+		connectionState := client.Connection.State()
 		if connectionState != ably.ConnectionStateConnected {
 			t.Fatalf("expected %v; got %v", ably.ConnectionStateConnected, connectionState)
 		}
 		return
 	}
 
-	//setupMock := func()(c *ably.Realtime, in chan *proto.ProtocolMessage, out chan *proto.ProtocolMessage) {
-	//	in = make(chan *proto.ProtocolMessage, 1)
-	//	out = make(chan *proto.ProtocolMessage, 16)
-	//
-	//	c, _ = ably.NewRealtime(
-	//		ably.WithAutoConnect(false),
-	//		ably.WithToken("fake:token"),
-	//		ably.WithDial(ablytest.MessagePipe(in, out)),
-	//	)
-	//
-	//	connDetails := proto.ConnectionDetails{
-	//		ClientID:           "id1",
-	//		ConnectionKey:      "foo",
-	//		MaxFrameSize:       12,
-	//		MaxInboundRate:     14,
-	//		MaxMessageSize:     67,
-	//		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 2),
-	//		MaxIdleInterval:    proto.DurationFromMsecs(time.Second),
-	//	}
-	//
-	//	in <- &proto.ProtocolMessage{
-	//		Action:            proto.ActionConnected,
-	//		ConnectionID:      "connection-id-1",
-	//		ConnectionDetails: &connDetails,
-	//	}
-	//
-	//	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
-	//	if err != nil {
-	//		t.Fatal(err)
-	//	}
-	//	return
-	//}
+	t.Run("RTN12a: transition to closed on connection close", func(t *testing.T) {
+		app, client, _ := setUpWithEOF()
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	t.Run("RTN12a", func(t *testing.T) {
-		c := setupReal()
 		stateChange := make(connectionStateChanges, 2)
-		c.Connection.OnAll(stateChange.Receive)
+		client.Connection.OnAll(stateChange.Receive)
 
-		c.Connection.Close()
+		client.Close()
 
 		var change ably.ConnectionStateChange
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
@@ -257,9 +234,10 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
 		}
 		ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
+
 	})
 
-	t.Run("RTN12b", func(t *testing.T) {
+	t.Run("RTN12b: transition to closed on close request timeout", func(t *testing.T) {
 		connDetails := proto.ConnectionDetails{
 			ConnectionKey:      "foo",
 			ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 20),
@@ -302,7 +280,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		maxIdleInterval := time.Duration(connDetails.MaxIdleInterval)
 		receiveTimeout := realtimeRequestTimeout + maxIdleInterval
 
-		c.Connection.Close()
+		c.Close()
 		// RTN23a The connection should be closed due to lack of activity past
 		// receiveTimeout
 		var change ably.ConnectionStateChange
@@ -333,17 +311,51 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		if !strings.Contains(errReason.Error(), "timeout") {
 			t.Errorf("expected %q to contain timeout", errReason.Error())
 		}
+
+		ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
+	})
+
+	t.Run("RTN12c: transition to closed on transport error", func(t *testing.T) {
+		app, client, doEOF := setUpWithEOF()
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+		stateChange := make(connectionStateChanges, 2)
+		client.Connection.OnAll(stateChange.Receive)
+
+		client.Close()
+
+		var change ably.ConnectionStateChange
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+
+		if expected, got := ably.ConnectionStateClosing, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		doEOF <- struct{}{}
+
+		select {
+		case change = <-stateChange:
+		case <-time.After(50 * time.Millisecond):
+			t.Fatal("didn't transition on EOF")
+		}
+
+		if expected, got := ably.ConnectionStateClosed, change; expected != got.Current {
+			t.Fatalf("expected transition to %v, got %v", expected, got)
+		}
+
+		ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
 	})
 
 	connectionStates := [2]ably.ConnectionState{ably.ConnectionStateDisconnected, ably.ConnectionStateSuspended}
 	for _, connectionState := range connectionStates {
 		t.Run(fmt.Sprintf("RTN12d : Should directly close on %v", connectionState), func(t *testing.T) {
-			c := setupReal()
+			app, client, _ := setUpWithEOF()
+			defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-			c.Connection.SetState(connectionState, nil, time.Minute)
+			client.Connection.SetState(connectionState, nil, time.Minute)
 			stateChange := make(connectionStateChanges, 1)
-			c.Connection.OnAll(stateChange.Receive)
-			c.Connection.Close()
+			client.Connection.OnAll(stateChange.Receive)
+			client.Connection.Close()
 
 			var change ably.ConnectionStateChange
 			ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
