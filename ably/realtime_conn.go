@@ -709,7 +709,7 @@ func (c *Connection) eventloop() {
 		if err != nil {
 			c.mtx.Lock()
 			if c.state == ConnectionStateClosing {
-				// RTN12b
+				// RTN12b, RTN12c
 				c.lockSetState(ConnectionStateClosed, err, 0)
 				c.mtx.Unlock()
 				return

@@ -366,6 +366,62 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
 		})
 	}
+
+	t.Skip("RTN12f: transition to closed when close is called intermittently")
+	// todo - Need to fix the test and check for possible race conditions
+	t.Run("RTN12f: transition to closed when close is called intermittently", func(t *testing.T) {
+		in := make(chan *proto.ProtocolMessage, 1)
+		out := make(chan *proto.ProtocolMessage, 16)
+
+		client, _ := ably.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithToken("fake:token"),
+			ably.WithDial(ablytest.MessagePipe(in, out)),
+		)
+
+		stateChange := make(ably.ConnStateChanges, 10)
+		off := client.Connection.OnAll(stateChange.Receive)
+		defer off()
+
+		var change ably.ConnectionStateChange
+		var outgoingMsg *proto.ProtocolMessage
+
+		client.Connect()
+
+		ablytest.Instantly.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		client.Close()
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateClosing, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		in <- &proto.ProtocolMessage{
+			Action:       proto.ActionConnected,
+			ConnectionID: "connection-id-1",
+		}
+
+		ablytest.Soon.Recv(t, &outgoingMsg, out, t.Fatalf)
+		if expected, got := proto.ActionClose, outgoingMsg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		in <- &proto.ProtocolMessage{
+			Action:       proto.ActionClosed,
+			ConnectionID: "connection-id-1",
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateClosed, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
+	})
 }
 
 func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
