@@ -310,9 +310,79 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected error %+v; got %v", expected, got)
 		}
 	})
-	t.Run("RTL5h", func(t *testing.T) {
 
+	t.Skip("RTL5h")
+	t.Run("RTL5h", func(t *testing.T) {
+		in, out, c, channel, _, _ := setup(t)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		connectionChange := make(chan ably.ConnectionStateChange)
+		c.Connection.OnAll(func(change ably.ConnectionStateChange) {
+			connectionChange <- change
+		})
+
+		var outMsg *proto.ProtocolMessage
+
+		// Get the channel to ATTACHED.
+		in <- &proto.ProtocolMessage{
+			Action:  proto.ActionAttached,
+			Channel: channel.Name,
+		}
+
+		var change ably.ConnectionStateChange
+
+		// set connection state to ConnectionStateInitialized
+		c.Connection.SetState(ably.ConnectionStateInitialized, nil, time.Minute)
+		ablytest.Instantly.Recv(t, &change, connectionChange, t.Fatalf) // Consume connection state change to initialized
+		channel.Detach(ctx)
+
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &proto.ConnectionDetails{},
+		}
+
+		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to connected
+		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
+		if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
+		}
+
+		// set connection state to ConnectionStateConnecting
+		c.Connection.SetState(ably.ConnectionStateConnecting, nil, time.Minute)
+
+		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to connecting
+		channel.Detach(ctx)
+
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &proto.ConnectionDetails{},
+		}
+		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to connected
+
+		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
+		if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
+		}
+
+		// set connection state to ConnectionStateConnected
+		c.Connection.SetState(ably.ConnectionStateDisconnected, nil, time.Minute)
+		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to disconnected
+		channel.Detach(ctx)
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &proto.ConnectionDetails{},
+		}
+		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to connected
+
+		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
+		if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
+		}
 	})
+
 	t.Run("RTL5i", func(t *testing.T) {
 		//in, out, _, channel, stateChanges, afterCalls := setup(t)
 		//ctx, cancel := context.WithCancel(context.Background())
