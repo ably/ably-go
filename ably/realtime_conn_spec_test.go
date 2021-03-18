@@ -2420,7 +2420,8 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 		Error:             &errInfo,
 	}
 
-	newConnectionState := <-changes
+	var newConnectionState ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &newConnectionState, changes, t.Fatalf)
 
 	// RTN4h - can emit UPDATE event
 	if expected, got := ably.ConnectionEventUpdate, newConnectionState.Event; expected != got {
