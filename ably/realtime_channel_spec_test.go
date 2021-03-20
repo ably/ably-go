@@ -567,7 +567,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			t.Fatalf("expected %v; got %v (message: %+v)", expected, got, msg)
 		}
 
-		// TODO: Test attach failure too, which requires RTL4ef.
+		// TODO: Test attach failure too, which requires RTL4e.
 
 		in <- &proto.ProtocolMessage{
 			Action:  proto.ActionAttached,
