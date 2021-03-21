@@ -2402,7 +2402,6 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 		MaxIdleInterval:    proto.DurationFromMsecs(time.Second),
 	}
 
-	// Re-attach the channel
 	errInfo := proto.ErrorInfo{
 		StatusCode: 500,
 		Code:       50500,
@@ -2413,6 +2412,7 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 	off := c.Connection.OnAll(changes.Receive)
 	defer off()
 
+	//  Send new connection details
 	in <- &proto.ProtocolMessage{
 		Action:            proto.ActionConnected,
 		ConnectionID:      "connection-id-2",
