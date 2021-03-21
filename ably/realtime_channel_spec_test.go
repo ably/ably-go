@@ -283,6 +283,41 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 	})
 
+	t.Run("RTL4c", func(t *testing.T) {
+		in, out, _, channel, stateChanges, _ := setup(t)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		channel.OnAll(stateChanges.Receive)
+
+		var change ably.ChannelStateChange
+		var outMsg *proto.ProtocolMessage
+
+		channel.Attach(ctx)
+
+		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
+		if expected, got := proto.ActionAttach, outMsg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
+		}
+
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		// Get the channel to ATTACHED.
+
+		in <- &proto.ProtocolMessage{
+			Action:  proto.ActionAttached,
+			Channel: channel.Name,
+		}
+
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+	})
 }
 
 func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
