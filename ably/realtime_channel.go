@@ -11,7 +11,9 @@ import (
 )
 
 var (
-	errAttach = errors.New("attempted to attach channel to inactive connection")
+	errConnAttach = func(connState ConnectionState) error {
+		return errors.New("cannot Attach channel because connection is in " + connState.String() + " state")
+	}
 	errDetach = errors.New("attempted to detach channel from inactive connection")
 )
 
@@ -217,8 +219,9 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 	case ConnectionStateInitialized,
 		ConnectionStateClosed,
 		ConnectionStateClosing,
+		ConnectionStateSuspended,
 		ConnectionStateFailed:
-		return nil, newError(80000, errAttach)
+		return nil, newError(ErrConnectionFailed, errConnAttach(c.client.Connection.State()))
 	}
 
 	c.lockSetState(ChannelStateAttaching, err)
