@@ -213,6 +213,20 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		return
 	}
 
+	setUpWithInterrupt := func() (app *ablytest.Sandbox, client *ably.Realtime, interrupt chan *proto.ProtocolMessage) {
+		interrupt = make(chan *proto.ProtocolMessage)
+
+		app, client = ablytest.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				c, err := ablyutil.DialWebsocket(protocol, u, timeout)
+				return protoConnWithFakeEOF{Conn: c, onMessage: func(msg *proto.ProtocolMessage) {
+					interrupt <- msg
+				}}, err
+			}))
+		return
+	}
+
 	t.Run("RTN12a: transition to closed on connection close", func(t *testing.T) {
 		app, client, _ := setUpWithEOF()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -370,23 +384,17 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	t.Skip("RTN12f: transition to closed when close is called intermittently")
 	// todo - Need to fix the test and check for possible race conditions
 	t.Run("RTN12f: transition to closed when close is called intermittently", func(t *testing.T) {
-		in := make(chan *proto.ProtocolMessage, 1)
-		out := make(chan *proto.ProtocolMessage, 16)
 
-		client, _ := ably.NewRealtime(
-			ably.WithAutoConnect(false),
-			ably.WithToken("fake:token"),
-			ably.WithDial(ablytest.MessagePipe(in, out)),
-		)
+		app, client, interrupt := setUpWithInterrupt()
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 		stateChange := make(ably.ConnStateChanges, 10)
 		off := client.Connection.OnAll(stateChange.Receive)
 		defer off()
 
-		var change ably.ConnectionStateChange
-		var outgoingMsg *proto.ProtocolMessage
-
 		client.Connect()
+
+		var change ably.ConnectionStateChange
 
 		ablytest.Instantly.Recv(t, &change, stateChange, t.Fatalf)
 		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
@@ -400,19 +408,10 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
-		in <- &proto.ProtocolMessage{
-			Action:       proto.ActionConnected,
-			ConnectionID: "connection-id-1",
-		}
+		msg := <-interrupt // accept connected event
 
-		ablytest.Soon.Recv(t, &outgoingMsg, out, t.Fatalf)
-		if expected, got := proto.ActionClose, outgoingMsg.Action; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		in <- &proto.ProtocolMessage{
-			Action:       proto.ActionClosed,
-			ConnectionID: "connection-id-1",
+		if expected, got := proto.ActionConnected, msg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, msg)
 		}
 
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
@@ -420,7 +419,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
-		ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
 	})
 }
 
