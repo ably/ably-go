@@ -133,13 +133,13 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (result, error) {
 	retryIn := c.opts.suspendedRetryTimeout()
 	lg := c.logger().sugar()
 	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", retryIn)
-	ctx, cancel := c.ctxCancelOnStateTransition()
+	parentCtx, cancel := c.ctxCancelOnStateTransition()
 	defer cancel()
-	tick := ablyutil.NewTicker(c.opts.After)(ctx, retryIn)
+	tick := ablyutil.NewTicker(c.opts.After)(parentCtx, retryIn)
 	for {
 		_, ok := <-tick
 		if !ok {
-			return nil, ctx.Err()
+			return nil, parentCtx.Err()
 		}
 		res, err := c.connectWith(arg)
 		if err != nil {
@@ -301,22 +301,22 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	retryIn := c.opts.disconnectedRetryTimeout()
 	c.setState(ConnectionStateDisconnected, err, retryIn)
 
-	ctx, cancel := c.ctxCancelOnStateTransition()
+	parentCtx, cancel := c.ctxCancelOnStateTransition()
 	defer cancel()
 
 	// The initial DISCONNECTED event has been fired. If we reach stateTTL without
 	// any state changes, we transition to SUSPENDED state
 	stateTTL := c.opts.connectionStateTTL()
-	stateDeadlineCtx, cancelStateDeadline := context.WithCancel(ctx)
+	stateDeadlineCtx, cancelStateDeadline := context.WithCancel(parentCtx)
 	defer cancelStateDeadline()
 	stateDeadline := c.opts.After(stateDeadlineCtx, stateTTL)
 
-	nextCtx, cancelNext := context.WithCancel(ctx)
+	nextCtx, cancelNext := context.WithCancel(parentCtx)
 	next := c.opts.After(nextCtx, retryIn)
 	reset := func() {
 		lg.Debugf("Retry in %v", retryIn)
 		cancelNext()
-		nextCtx, cancelNext = context.WithCancel(ctx)
+		nextCtx, cancelNext = context.WithCancel(parentCtx)
 		next = c.opts.After(nextCtx, retryIn)
 	}
 
@@ -325,18 +325,18 @@ loop:
 		select {
 		case _, ok := <-stateDeadline:
 			if !ok {
-				return nil, ctx.Err()
+				return nil, parentCtx.Err()
 			}
 			break loop
 		case _, ok := <-next:
 			if !ok {
-				return nil, ctx.Err()
+				return nil, parentCtx.Err()
 			}
 			// Prioritize stateDeadline.
 			select {
 			case _, ok := <-stateDeadline:
 				if !ok {
-					return nil, ctx.Err()
+					return nil, parentCtx.Err()
 				}
 			default:
 			}
@@ -958,8 +958,10 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 func (c *Connection) ctxCancelOnStateTransition() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	off := c.internalEmitter.OnceAll(func(ConnectionStateChange) {
-		cancel()
+	off := c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
+		if change.Current == ConnectionStateConnected || change.Current == ConnectionStateClosed {
+			cancel()
+		}
 	})
 
 	return ctx, func() {

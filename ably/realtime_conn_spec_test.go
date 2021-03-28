@@ -381,6 +381,199 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		})
 	}
 
+	t.Run("RTN12d : should abort reconnection timer while disconnected on closed", func(t *testing.T) {
+		t.Parallel()
+		ttl := 10 * time.Millisecond
+		disconnectTTl := 2 * ttl
+		connDetails := proto.ConnectionDetails{
+			ConnectionKey:      "foo",
+			ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 20),
+			MaxIdleInterval:    proto.DurationFromMsecs(time.Minute * 5),
+		}
+
+		afterCalls := make(chan ablytest.AfterCall)
+		now, after := ablytest.TimeFuncs(afterCalls)
+
+		var in chan *proto.ProtocolMessage
+
+		errorWhileConnecting := false
+
+		realtimeRequestTimeout := time.Minute
+		c, _ := ably.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithToken("fake:token"),
+			ably.WithRealtimeRequestTimeout(realtimeRequestTimeout),
+			ably.WithConnectionStateTTL(ttl),
+			ably.WithDisconnectedRetryTimeout(disconnectTTl),
+			ably.WithNow(now),
+			ably.WithAfter(ablyutil.After),
+			ably.WithDial(func(p string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				if errorWhileConnecting {
+					return nil, errors.New("can't reconnect once disconnected")
+				}
+				in = make(chan *proto.ProtocolMessage, 1)
+				out := make(chan *proto.ProtocolMessage, 16)
+				in <- &proto.ProtocolMessage{
+					Action:            proto.ActionConnected,
+					ConnectionID:      "connection",
+					ConnectionDetails: &connDetails,
+				}
+				return ablytest.MessagePipe(in, out,
+					ablytest.MessagePipeWithNowFunc(now),
+					ablytest.MessagePipeWithAfterFunc(after),
+				)(p, u, timeout)
+			}))
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		stateChange := make(connectionStateChanges, 2)
+		c.Connection.OnAll(stateChange.Receive)
+
+		maxIdleInterval := time.Duration(connDetails.MaxIdleInterval)
+		receiveTimeout := realtimeRequestTimeout + maxIdleInterval
+
+		// Expect timer for a message receive.
+		var timer ablytest.AfterCall
+
+		ablytest.Instantly.Recv(t, &timer, afterCalls, t.Fatalf)
+		if expected, got := receiveTimeout, timer.D; expected != got {
+			t.Fatalf("expected %v, got %v", expected, got)
+		}
+
+		// Let the deadline pass without a message; expect a disconnection.
+		timer.Fire()
+		errorWhileConnecting = true
+
+		var change ably.ConnectionStateChange
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+
+		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		c.Close()
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateClosed, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+		ablytest.Before(time.Second).NoRecv(t, nil, stateChange, t.Fatalf)
+	})
+
+	t.Run("RTN12d: should abort reconnection timer while suspended on closed", func(t *testing.T) {
+		t.Parallel()
+		ttl := 10 * time.Millisecond
+		disconnectTTl := 2 * ttl
+		suspendTTL := time.Second
+
+		connDetails := proto.ConnectionDetails{
+			ConnectionKey:      "foo",
+			ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 20),
+			MaxIdleInterval:    proto.DurationFromMsecs(time.Minute * 5),
+		}
+
+		afterCalls := make(chan ablytest.AfterCall)
+		now, after := ablytest.TimeFuncs(afterCalls)
+
+		var in chan *proto.ProtocolMessage
+
+		errorWhileConnecting := false
+
+		realtimeRequestTimeout := time.Minute
+		c, _ := ably.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithToken("fake:token"),
+			ably.WithRealtimeRequestTimeout(realtimeRequestTimeout),
+			ably.WithNow(now),
+			ably.WithConnectionStateTTL(ttl),
+			ably.WithDisconnectedRetryTimeout(disconnectTTl),
+			ably.WithSuspendedRetryTimeout(suspendTTL),
+			ably.WithAfter(ablyutil.After),
+			ably.WithDial(func(p string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				if errorWhileConnecting {
+					return nil, errors.New("can't reconnect once disconnected")
+				}
+				in = make(chan *proto.ProtocolMessage, 1)
+				out := make(chan *proto.ProtocolMessage, 16)
+				in <- &proto.ProtocolMessage{
+					Action:            proto.ActionConnected,
+					ConnectionID:      "connection",
+					ConnectionDetails: &connDetails,
+				}
+				return ablytest.MessagePipe(in, out,
+					ablytest.MessagePipeWithNowFunc(now),
+					ablytest.MessagePipeWithAfterFunc(after),
+				)(p, u, timeout)
+			}))
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		stateChange := make(connectionStateChanges, 2)
+		c.Connection.OnAll(stateChange.Receive)
+
+		maxIdleInterval := time.Duration(connDetails.MaxIdleInterval)
+		receiveTimeout := realtimeRequestTimeout + maxIdleInterval
+
+		// Expect timer for a message receive.
+		var timer ablytest.AfterCall
+
+		ablytest.Instantly.Recv(t, &timer, afterCalls, t.Fatalf)
+		if expected, got := receiveTimeout, timer.D; expected != got {
+			t.Fatalf("expected %v, got %v", expected, got)
+		}
+
+		// Let the deadline pass without a message; expect a disconnection.
+		timer.Fire()
+		errorWhileConnecting = true
+
+		var change ably.ConnectionStateChange
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+
+		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateSuspended, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		c.Close()
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateClosed, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		ablytest.Before(time.Second).NoRecv(t, nil, stateChange, t.Fatalf)
+	})
+
 	t.Skip("RTN12f: transition to closed when close is called intermittently")
 	// todo - Need to fix the test and check for possible race conditions
 	t.Run("RTN12f: transition to closed when close is called intermittently", func(t *testing.T) {
