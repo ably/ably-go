@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/ably/ably-go/ably/proto"
 )
@@ -245,16 +246,33 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be detached anyway.
 func (c *RealtimeChannel) Detach(ctx context.Context) error {
+	prevChannelState := c.State()
 	res, err := c.detach()
 	if err != nil {
 		return err
 	}
-	return res.Wait(ctx)
+	resultErr := make(chan error, 1)
+	go func() {
+		resultErr <- res.Wait(ctx)
+	}()
+
+	detachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
+	select {
+	case err := <-resultErr: // RTL5e
+		return err
+	case <-time.After(detachTimeout): // RTL5f
+		err := newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
+		c.setState(prevChannelState, err)
+		return err
+	}
 }
 
 func (c *RealtimeChannel) detach() (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+	if c.state == ChannelStateInitialized || c.state == ChannelStateDetached { //RTL5a
+		return nopResult, nil
+	}
 	if c.state == ChannelStateFailed { // RTL5b
 		return nil, channelStateError(ChannelStateFailed, errChannelDetach(c.state))
 	}
@@ -263,9 +281,6 @@ func (c *RealtimeChannel) detach() (result, error) {
 	}
 	if c.state == ChannelStateSuspended { // RTL5j
 		c.lockSetState(ChannelStateDetached, nil)
-		return nopResult, nil
-	}
-	if !c.isActive() {
 		return nopResult, nil
 	}
 	return c.detachUnsafe()
@@ -278,21 +293,36 @@ func (c *RealtimeChannel) detachSkipVerifyActive() (result, error) {
 }
 
 func (c *RealtimeChannel) detachUnsafe() (result, error) {
-	//if c.state == ChannelStateFailed { // // RTL5b
-	//	return nil, channelStateError(ChannelStateFailed, errDetach)
-	//}
-	//if !c.client.Connection.lockIsActive() { // // RTL5g
-	//	return nil, c.lockSetState(ChannelStateFailed, errDetach)
-	//}
 
-	c.lockSetState(ChannelStateDetaching, nil)
-	res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
-	msg := &proto.ProtocolMessage{
-		Action:  proto.ActionDetach,
-		Channel: c.Name,
+	sendDetachMsg := func() (result, error) {
+		c.lockSetState(ChannelStateDetaching, nil) // no need to check for locks, method is already under lock context
+		res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
+		msg := &proto.ProtocolMessage{
+			Action:  proto.ActionDetach,
+			Channel: c.Name,
+		}
+		c.client.Connection.send(msg, nil)
+		return res, nil
 	}
-	c.client.Connection.send(msg, nil)
-	return res, nil
+
+	if c.state == ChannelStateAttaching { //RTL5i
+		attachRes := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed)
+		return resultFunc(func(ctx context.Context) error { // runs inside goroutine, need to check for locks again before accessing state
+			err := attachRes.Wait(ctx)
+			c.setState(ChannelStateDetaching, nil)
+			res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
+			msg := &proto.ProtocolMessage{
+				Action:  proto.ActionDetach,
+				Channel: c.Name,
+			}
+			c.client.Connection.send(msg, nil)
+			if err != nil {
+				return err
+			}
+			return res.Wait(ctx)
+		}), nil
+	}
+	return sendDetachMsg()
 }
 
 type subscriptionName string
@@ -529,6 +559,10 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
+		if c.State() == ChannelStateDetaching { // RTL5K
+			c.detach()
+			return
+		}
 		c.Presence.onAttach(msg)
 		c.setState(ChannelStateAttached, nil)
 		c.queue.Flush()
@@ -625,10 +659,6 @@ func (c *RealtimeChannel) retryAttach(stateChange channelStateChanges) (done boo
 	// TODO: Move to SUSPENDED; move it to DETACHED for now.
 	c.setState(ChannelStateDetached, err)
 	return false
-}
-
-func (c *RealtimeChannel) isActive() bool { //RTL5i
-	return c.state == ChannelStateAttaching || c.state == ChannelStateAttached
 }
 
 func (c *RealtimeChannel) opts() *clientOptions {
