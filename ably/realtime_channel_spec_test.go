@@ -581,6 +581,61 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		if expected, got := ably.ChannelStateDetached, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
+		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
+	})
+
+	t.Run("RTL5k", func(t *testing.T) {
+		in, out, _, channel, stateChanges, _ := setup(t)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		channel.OnAll(stateChanges.Receive)
+
+		var outMsg *proto.ProtocolMessage
+		var change ably.ChannelStateChange
+
+		cancelledContext, cancel := context.WithCancel(ctx)
+		cancel()
+
+		channel.Attach(cancelledContext)
+
+		// get channel state to attaching
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
+		if expected, got := proto.ActionAttach, outMsg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
+		}
+
+		// Get channel state to detaching
+		channel.SetState(chDetaching, nil)
+
+		// Send attach message
+		in <- &proto.ProtocolMessage{
+			Action:  proto.ActionAttached,
+			Channel: channel.Name,
+		}
+
+		// sends detach message instead of attaching the channel
+		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
+		if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
+		}
+
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetaching, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		// todo - need to check if double detaching update event is needed
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetaching, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
 	})
 }
 
