@@ -318,6 +318,46 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
 	})
+
+	t.Run("RTL4d", func(t *testing.T) {
+
+	})
+
+	t.Run("RTL4e", func(t *testing.T) {
+
+	})
+
+	t.Run("RTL4f", func(t *testing.T) {
+
+	})
+
+	t.Run("RTL4g", func(t *testing.T) {
+
+	})
+	t.Run("RTL4h", func(t *testing.T) {
+
+	})
+
+	t.Run("RTL4i", func(t *testing.T) {
+
+	})
+
+	t.Run("RTL4j", func(t *testing.T) {
+
+	})
+
+	t.Run("RTL4k", func(t *testing.T) {
+
+	})
+
+	t.Run("RTL4l", func(t *testing.T) {
+
+	})
+
+	t.Run("RTL4m", func(t *testing.T) {
+
+	})
+
 }
 
 func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
