@@ -23,7 +23,8 @@ func AllPages(dst, paginatedRequest interface{}) error {
 }
 
 type paginationOptions struct {
-	equal func(x, y interface{}) bool
+	equal      func(x, y interface{}) bool
+	sortResult func([]interface{})
 }
 
 type PaginationOption func(*paginationOptions)
@@ -34,9 +35,16 @@ func PaginationWithEqual(equal func(x, y interface{}) bool) PaginationOption {
 	}
 }
 
+func PaginationWithSortResult(sort func([]interface{})) PaginationOption {
+	return func(o *paginationOptions) {
+		o.sortResult = sort
+	}
+}
+
 func TestPagination(expected, request interface{}, perPage int, options ...PaginationOption) error {
 	opts := paginationOptions{
-		equal: reflect.DeepEqual,
+		equal:      reflect.DeepEqual,
+		sortResult: func(items []interface{}) {},
 	}
 	for _, o := range options {
 		o(&opts)
@@ -73,6 +81,8 @@ func testPagination(request reflect.Value, expectedItems []interface{}, perPage 
 			return fmt.Errorf("iterating pages: %w", err)
 		}
 
+		opts.sortResult(gotItems)
+
 		if !ItemsEqual(expectedItems, gotItems, opts.equal) {
 			return fmt.Errorf("expected items: %+v, got: %+v", expectedItems, gotItems)
 		}
@@ -94,6 +104,8 @@ func testPagination(request reflect.Value, expectedItems []interface{}, perPage 
 		if err := items.err(); err != nil {
 			return fmt.Errorf("iterating items: %w", err)
 		}
+
+		opts.sortResult(gotItems)
 
 		if !ItemsEqual(expectedItems, gotItems, opts.equal) {
 			return fmt.Errorf("expected items: %+v, got: %+v", expectedItems, gotItems)

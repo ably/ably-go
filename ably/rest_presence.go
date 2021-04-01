@@ -15,12 +15,45 @@ type RESTPresence struct {
 	channel *RESTChannel
 }
 
-// Get gives the channel's presence messages according to the given parameters.
-// The returned result can be inspected for the presence messages via
-// the PresenceMessages() method.
-func (p *RESTPresence) Get(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
-	path := p.channel.baseURL + "/presence"
-	return newPaginatedResult(ctx, nil, paginatedRequest{typ: presMsgType, path: path, params: params, query: query(p.client.get), logger: p.logger(), respCheck: checkValidHTTPResponse})
+func (c *RESTPresence) Get(o ...GetPresenceOption) PresenceRequest {
+	params := (&getPresenceOptions{}).apply(o...)
+	return PresenceRequest{
+		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence", params),
+		channel: c.channel,
+	}
+}
+
+// A GetPresenceOption configures a call to RESTPresence.Get or RealtimePresence.Get.
+type GetPresenceOption func(*getPresenceOptions)
+
+func GetPresenceWithLimit(limit int) GetPresenceOption {
+	return func(o *getPresenceOptions) {
+		o.params.Set("limit", strconv.Itoa(limit))
+	}
+}
+
+func GetPresenceWithClientID(clientID string) GetPresenceOption {
+	return func(o *getPresenceOptions) {
+		o.params.Set("clientId", clientID)
+	}
+}
+
+func GetPresenceWithConnectionID(connectionID string) GetPresenceOption {
+	return func(o *getPresenceOptions) {
+		o.params.Set("connectionId", connectionID)
+	}
+}
+
+type getPresenceOptions struct {
+	params url.Values
+}
+
+func (o *getPresenceOptions) apply(opts ...GetPresenceOption) url.Values {
+	o.params = make(url.Values)
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o.params
 }
 
 func (p *RESTPresence) logger() *LoggerOptions {
@@ -28,9 +61,9 @@ func (p *RESTPresence) logger() *LoggerOptions {
 }
 
 // History gives the channel's presence history.
-func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceHistoryRequest {
+func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceRequest {
 	params := (&presenceHistoryOptions{}).apply(o...)
-	return PresenceHistoryRequest{
+	return PresenceRequest{
 		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence/history", params),
 		channel: c.channel,
 	}
@@ -75,9 +108,9 @@ func (o *presenceHistoryOptions) apply(opts ...PresenceHistoryOption) url.Values
 	return o.params
 }
 
-// PresenceHistoryRequest represents a request prepared by the RESTPresence.History or
+// PresenceRequest represents a request prepared by the RESTPresence.History or
 // RealtimePresence.History method, ready to be performed by its Pages or Items methods.
-type PresenceHistoryRequest struct {
+type PresenceRequest struct {
 	r       paginatedRequestNew
 	channel *RESTChannel
 }
@@ -85,7 +118,7 @@ type PresenceHistoryRequest struct {
 // Pages returns an iterator for whole pages of presence messages.
 //
 // See "Paginated results" section in the package-level documentation.
-func (r PresenceHistoryRequest) Pages(ctx context.Context) (*PresencePaginatedResult, error) {
+func (r PresenceRequest) Pages(ctx context.Context) (*PresencePaginatedResult, error) {
 	res := PresencePaginatedResult{decoder: r.channel.fullPresenceDecoder}
 	return &res, res.load(ctx, r.r)
 }
@@ -118,7 +151,7 @@ func (p *PresencePaginatedResult) Items() []*PresenceMessage {
 // paginated iterator.
 //
 // See "Paginated results" section in the package-level documentation.
-func (r PresenceHistoryRequest) Items(ctx context.Context) (*PresencePaginatedItems, error) {
+func (r PresenceRequest) Items(ctx context.Context) (*PresencePaginatedItems, error) {
 	var res PresencePaginatedItems
 	var err error
 	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {

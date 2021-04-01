@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -86,6 +87,123 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 	}
 }
 
+func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
+	t.Parallel()
+
+	for _, limit := range []int{2, 3, 20} {
+		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
+			t.Parallel()
+
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+			channel := rest.Channels.Get("persisted:presence_fixtures")
+
+			expected := persistedPresenceFixtures()
+
+			var err error
+			if !ablytest.Soon.IsTrue(func() bool {
+				err = ablytest.TestPagination(
+					expected,
+					channel.Presence.Get(ably.GetPresenceWithLimit(limit)),
+					limit,
+					ablytest.PaginationWithEqual(presenceEqual),
+					ablytest.PaginationWithSortResult(sortPresenceByClientID),
+				)
+				return err == nil
+			}) {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
+	t.Parallel()
+
+	for _, clientID := range []string{
+		"client_bool",
+		"client_string",
+	} {
+		clientID := clientID
+		t.Run(fmt.Sprintf("clientID=%v", clientID), func(t *testing.T) {
+			t.Parallel()
+
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+			channel := rest.Channels.Get("persisted:presence_fixtures")
+
+			expected := persistedPresenceFixtures(func(p ablytest.Presence) bool {
+				return p.ClientID == clientID
+			})
+
+			var err error
+			if !ablytest.Soon.IsTrue(func() bool {
+				err = ablytest.TestPagination(
+					expected,
+					channel.Presence.Get(ably.GetPresenceWithClientID(clientID)),
+					1,
+					ablytest.PaginationWithEqual(presenceEqual),
+					ablytest.PaginationWithSortResult(sortPresenceByClientID),
+				)
+				return err == nil
+			}) {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
+	t.Parallel()
+
+	app, rest := ablytest.NewREST()
+	defer app.Close()
+
+	expectedByConnID := map[string]ably.Message{}
+
+	for i := 0; i < 3; i++ {
+		realtime := app.NewRealtime()
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
+		m := ably.Message{
+			Data:     fmt.Sprintf("msg%d", i),
+			ClientID: fmt.Sprintf("client%d", i),
+		}
+		realtime.Channels.Get("test").Presence.EnterClient(context.Background(), m.ClientID, m.Data)
+		expectedByConnID[realtime.Connection.ID()] = m
+	}
+
+	channel := rest.Channels.Get("test")
+
+	var rg ablytest.ResultGroup
+
+	for connID, expected := range expectedByConnID {
+		connID, expected := connID, expected
+		rg.GoAdd(func(ctx context.Context) error {
+			var err error
+			if !ablytest.Soon.IsTrue(func() bool {
+				err = ablytest.TestPagination(
+					[]*ably.PresenceMessage{{
+						Action:  proto.PresencePresent,
+						Message: expected,
+					}},
+					channel.Presence.Get(ably.GetPresenceWithConnectionID(connID)),
+					1,
+					ablytest.PaginationWithEqual(presenceEqual),
+					ablytest.PaginationWithSortResult(sortPresenceByClientID),
+				)
+				return err == nil
+			}) {
+				return fmt.Errorf("connID %s: %w", connID, err)
+			}
+			return nil
+		})
+	}
+
+	if err := rg.Wait(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func presenceHistoryFixtures() []*ably.PresenceMessage {
 	actions := []proto.PresenceAction{
 		proto.PresenceEnter,
@@ -139,4 +257,35 @@ func presenceEqual(x, y interface{}) bool {
 		mx.ClientID == my.ClientID &&
 		mx.Name == my.Name &&
 		reflect.DeepEqual(mx.Data, my.Data)
+}
+
+func persistedPresenceFixtures(filter ...func(ablytest.Presence) bool) []interface{} {
+	var expected []interface{}
+fixtures:
+	for _, p := range ablytest.PresenceFixtures {
+		for _, f := range filter {
+			if !f(p) {
+				continue fixtures
+			}
+		}
+		expected = append(expected, &ably.PresenceMessage{
+			Action: proto.PresencePresent,
+			Message: ably.Message{
+				ClientID: p.ClientID,
+				Data:     p.Data,
+			},
+		})
+	}
+
+	// presence.get result order is undefined, so we need to sort both
+	// expected and actual items client-side to get consistent results.
+	sortPresenceByClientID(expected)
+
+	return expected
+}
+
+func sortPresenceByClientID(items []interface{}) {
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].(*ably.PresenceMessage).ClientID < items[j].(*ably.PresenceMessage).ClientID
+	})
 }

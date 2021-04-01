@@ -327,16 +327,6 @@ func (p *PaginatedResult) Items() []interface{} {
 	return p.items
 }
 
-// PresenceMessages gives a slice of presence messages for the current path.
-// The method panics if the underlying paginated result is not a presence message.
-func (p *PaginatedResult) PresenceMessages() []*PresenceMessage {
-	items, ok := p.typItems.([]*proto.PresenceMessage)
-	if !ok {
-		panic(errInvalidType{typ: p.req.typ})
-	}
-	return items
-}
-
 type Stats = proto.Stats
 type StatsMessageTypes = proto.MessageTypes
 type StatsMessageCount = proto.MessageCount
