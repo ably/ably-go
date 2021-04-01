@@ -111,7 +111,7 @@ func (o *presenceHistoryOptions) apply(opts ...PresenceHistoryOption) url.Values
 // PresenceRequest represents a request prepared by the RESTPresence.History or
 // RealtimePresence.History method, ready to be performed by its Pages or Items methods.
 type PresenceRequest struct {
-	r       paginatedRequestNew
+	r       paginatedRequest
 	channel *RESTChannel
 }
 
@@ -127,7 +127,7 @@ func (r PresenceRequest) Pages(ctx context.Context) (*PresencePaginatedResult, e
 //
 // See "Paginated results" section in the package-level documentation.
 type PresencePaginatedResult struct {
-	PaginatedResultNew
+	PaginatedResult
 	items   []*PresenceMessage
 	decoder func(*[]*PresenceMessage) interface{}
 }
@@ -210,7 +210,7 @@ func (t *fullPresenceDecoder) decodeMessagesData() {
 }
 
 type PresencePaginatedItems struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []*PresenceMessage
 	item  *PresenceMessage
 	next  func(context.Context) (int, bool)

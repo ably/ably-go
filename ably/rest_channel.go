@@ -194,7 +194,7 @@ func (o *historyOptions) apply(opts ...HistoryOption) url.Values {
 // HistoryRequest represents a request prepared by the RESTChannel.History or
 // RealtimeChannel.History method, ready to be performed by its Pages or Items methods.
 type HistoryRequest struct {
-	r       paginatedRequestNew
+	r       paginatedRequest
 	channel *RESTChannel
 }
 
@@ -210,7 +210,7 @@ func (r HistoryRequest) Pages(ctx context.Context) (*MessagesPaginatedResult, er
 //
 // See "Paginated results" section in the package-level documentation.
 type MessagesPaginatedResult struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []*Message
 }
 
@@ -293,7 +293,7 @@ func (t *fullMessagesDecoder) decodeMessagesData() {
 }
 
 type MessagesPaginatedItems struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []*Message
 	item  *Message
 	next  func(context.Context) (int, bool)

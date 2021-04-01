@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-func (p *PaginatedResult) BuildPath(base, rel string) string {
-	return p.buildPath(base, rel)
-}
-
 func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }

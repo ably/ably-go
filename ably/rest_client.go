@@ -218,7 +218,7 @@ func (o *statsOptions) apply(opts ...StatsOption) url.Values {
 // StatsRequest represents a request prepared by the REST.Stats or
 // Realtime.Stats method, ready to be performed by its Pages or Items methods.
 type StatsRequest struct {
-	r paginatedRequestNew
+	r paginatedRequest
 }
 
 // Pages returns an iterator for whole pages of Stats.
@@ -233,7 +233,7 @@ func (r StatsRequest) Pages(ctx context.Context) (*StatsPaginatedResult, error) 
 //
 // See "Paginated results" section in the package-level documentation.
 type StatsPaginatedResult struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []*Stats
 }
 
@@ -267,7 +267,7 @@ func (r StatsRequest) Items(ctx context.Context) (*StatsPaginatedItems, error) {
 }
 
 type StatsPaginatedItems struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []*Stats
 	item  *Stats
 	next  func(context.Context) (int, bool)
@@ -313,7 +313,7 @@ func (c *REST) Request(method string, path string, o ...RequestOption) RESTReque
 	method = strings.ToUpper(method)
 	var opts requestOptions
 	opts.apply(o...)
-	return RESTRequest{r: paginatedRequestNew{
+	return RESTRequest{r: paginatedRequest{
 		path:   path,
 		params: opts.params,
 		query: func(ctx context.Context, path string) (*http.Response, error) {
@@ -373,7 +373,7 @@ func (o *requestOptions) apply(opts ...RequestOption) {
 // RESTRequest represents a request prepared by the REST.Request method, ready
 // to be performed by its Pages or Items methods.
 type RESTRequest struct {
-	r paginatedRequestNew
+	r paginatedRequest
 }
 
 // Pages returns an iterator for whole pages of results.
@@ -388,7 +388,7 @@ func (r RESTRequest) Pages(ctx context.Context) (*HTTPPaginatedResponse, error) 
 //
 // See "Paginated results" section in the package-level documentation.
 type HTTPPaginatedResponse struct {
-	PaginatedResultNew
+	PaginatedResult
 	items jsonRawArray
 }
 
@@ -453,7 +453,7 @@ func (r RESTRequest) Items(ctx context.Context) (*RESTPaginatedItems, error) {
 }
 
 type RESTPaginatedItems struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []json.RawMessage
 	item  json.RawMessage
 	next  func(context.Context) (int, bool)
