@@ -308,30 +308,174 @@ type request struct {
 	header  http.Header
 }
 
-// Request sends http request to ably.
-// spec RSC19
-func (c *REST) Request(ctx context.Context, method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*HTTPPaginatedResponse, error) {
+// Request prepares an arbitrary request to the REST API.
+func (c *REST) Request(method string, path string, o ...RequestOption) RESTRequest {
 	method = strings.ToUpper(method)
-	switch method {
-	case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
-		return newHTTPPaginatedResult(ctx, path, params, func(ctx context.Context, p string) (*http.Response, error) {
+	var opts requestOptions
+	opts.apply(o...)
+	return RESTRequest{r: paginatedRequestNew{
+		path:   path,
+		params: opts.params,
+		query: func(ctx context.Context, path string) (*http.Response, error) {
+			switch method {
+			case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
+			default:
+				return nil, fmt.Errorf("invalid HTTP method: %q", method)
+			}
+
 			req := &request{
 				Method: method,
-				Path:   p,
-				In:     body,
-				header: headers,
+				Path:   path,
+				In:     opts.body,
+				header: opts.headers,
 			}
 			return c.doWithHandle(ctx, req, func(resp *http.Response, out interface{}) (*http.Response, error) {
 				return resp, nil
 			})
-		}, c.logger())
-	default:
-		return nil, newErrorFromProto(&proto.ErrorInfo{
-			Message:    fmt.Sprintf("%s method is not supported", method),
-			Code:       int(ErrMethodNotAllowed),
-			StatusCode: http.StatusMethodNotAllowed,
-		})
+		},
+	}}
+}
+
+type requestOptions struct {
+	params  url.Values
+	headers http.Header
+	body    interface{}
+}
+
+// A RequestOption configures a call to REST.Request.
+type RequestOption func(*requestOptions)
+
+func RequestWithParams(params url.Values) RequestOption {
+	return func(o *requestOptions) {
+		o.params = params
 	}
+}
+
+func RequestWithHeaders(headers http.Header) RequestOption {
+	return func(o *requestOptions) {
+		o.headers = headers
+	}
+}
+
+func RequestWithBody(body interface{}) RequestOption {
+	return func(o *requestOptions) {
+		o.body = body
+	}
+}
+
+func (o *requestOptions) apply(opts ...RequestOption) {
+	o.params = make(url.Values)
+	for _, opt := range opts {
+		opt(o)
+	}
+}
+
+// RESTRequest represents a request prepared by the REST.Request method, ready
+// to be performed by its Pages or Items methods.
+type RESTRequest struct {
+	r paginatedRequestNew
+}
+
+// Pages returns an iterator for whole pages of results.
+//
+// See "Paginated results" section in the package-level documentation.
+func (r RESTRequest) Pages(ctx context.Context) (*HTTPPaginatedResponse, error) {
+	var res HTTPPaginatedResponse
+	return &res, res.load(ctx, r.r)
+}
+
+// A HTTPPaginatedResponse is an iterator for the response of a REST request.
+//
+// See "Paginated results" section in the package-level documentation.
+type HTTPPaginatedResponse struct {
+	PaginatedResultNew
+	items jsonRawArray
+}
+
+func (r *HTTPPaginatedResponse) StatusCode() int {
+	return r.res.StatusCode
+}
+
+func (r *HTTPPaginatedResponse) Success() bool {
+	return 200 <= r.res.StatusCode && r.res.StatusCode < 300
+}
+
+func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
+	codeStr := r.res.Header.Get(proto.AblyErrorCodeHeader)
+	if codeStr == "" {
+		return ErrNotSet
+	}
+	code, err := strconv.Atoi(codeStr)
+	if err != nil {
+		return ErrNotSet
+	}
+	return ErrorCode(code)
+}
+
+func (r *HTTPPaginatedResponse) ErrorMessage() string {
+	return r.res.Header.Get(proto.AblyErrorMessageHeader)
+}
+
+func (r *HTTPPaginatedResponse) Headers() http.Header {
+	return r.res.Header
+}
+
+// Next retrieves the next page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *HTTPPaginatedResponse) Next(ctx context.Context) bool {
+	p.items = nil
+	return p.next(ctx, &p.items)
+}
+
+// Items unmarshals the current page of results as JSON into the provided
+// variable.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
+	return json.Unmarshal(p.items, dst)
+}
+
+// Items returns a convenience iterator for single items, over an underlying
+// paginated iterator.
+//
+// For each item,
+//
+// See "Paginated results" section in the package-level documentation.
+func (r RESTRequest) Items(ctx context.Context) (*RESTPaginatedItems, error) {
+	var res RESTPaginatedItems
+	var err error
+	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
+		res.items = nil
+		return &res.items, func() int { return len(res.items) }
+	})
+	return &res, err
+}
+
+type RESTPaginatedItems struct {
+	PaginatedResultNew
+	items []json.RawMessage
+	item  json.RawMessage
+	next  func(context.Context) (int, bool)
+}
+
+// Next retrieves the next result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *RESTPaginatedItems) Next(ctx context.Context) bool {
+	i, ok := p.next(ctx)
+	if !ok {
+		return false
+	}
+	p.item = p.items[i]
+	return true
+}
+
+// Item unmarshal the current result as JSON into the provided variable.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *RESTPaginatedItems) Item(dst interface{}) error {
+	return json.Unmarshal(p.item, dst)
 }
 
 func (c *REST) get(ctx context.Context, path string, out interface{}) (*http.Response, error) {
@@ -680,4 +824,26 @@ func decodeResp(resp *http.Response, out interface{}) error {
 	b, _ := ioutil.ReadAll(resp.Body)
 
 	return decode(typ, bytes.NewReader(b), out)
+}
+
+// jsonRawArray is a json.RawMessage that, if it's not an array already, wrap
+// itself in a JSON array when marshaled into.
+type jsonRawArray json.RawMessage
+
+func (m *jsonRawArray) UnmarshalJSON(data []byte) error {
+	err := (*json.RawMessage)(m).UnmarshalJSON(data)
+	if err != nil {
+		return err
+	}
+	token, _ := json.NewDecoder(bytes.NewReader(*m)).Token()
+	if token != json.Delim('[') {
+		*m = append(
+			jsonRawArray("["),
+			append(
+				*m,
+				']',
+			)...,
+		)
+	}
+	return nil
 }

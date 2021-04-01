@@ -260,7 +260,7 @@ func TestRSC7(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _ = c.Request(context.Background(), "POST", "/foo", nil, nil, nil)
+	_, _ = c.Request("POST", "/foo").Pages(context.Background())
 
 	var req *http.Request
 	ablytest.Instantly.Recv(t, &req, requests, t.Fatalf)

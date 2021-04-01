@@ -260,7 +260,7 @@ func newPaginatedResult(ctx context.Context, opts *proto.ChannelOptions, req pag
 	} else if !p.success {
 		return nil, malformedPaginatedResponseError(resp)
 	}
-	if h := p.respHeaders.Get(proto.AblyErrormessageHeader); h != "" {
+	if h := p.respHeaders.Get(proto.AblyErrorMessageHeader); h != "" {
 		p.errorMessage = h
 	} else if !p.success {
 		return nil, malformedPaginatedResponseError(resp)
