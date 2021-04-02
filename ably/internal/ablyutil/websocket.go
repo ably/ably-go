@@ -49,6 +49,7 @@ func DialWebsocket(proto string, u *url.URL, timeout time.Duration) (*WebsocketC
 	default:
 		return nil, errors.New(`invalid protocol "` + proto + `"`)
 	}
+	// Starts a raw websocket connection with server
 	conn, err := dialWebsocketTimeout(u.String(), "", "https://"+u.Host, timeout)
 	if err != nil {
 		return nil, err

@@ -369,12 +369,6 @@ loop:
 }
 
 func (c *Connection) connectWith(arg connArgs) (result, error) {
-	c.mtx.Lock()
-	if !c.isActive() {
-		c.lockSetState(ConnectionStateConnecting, nil, 0)
-	}
-	c.mtx.Unlock()
-
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
 		return nil, err
@@ -393,18 +387,31 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 	}
 	u.RawQuery = query.Encode()
 	proto := c.opts.protocol()
+
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	if c.state == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
+		return nopResult, nil
+	}
+	// if err is nil, raw connection with server is successful
 	conn, err := c.dial(proto, u)
 	if err != nil {
 		return nil, err
 	}
+	// set ably connection state to connecting
+	if !c.isActive() {
+		c.lockSetState(ConnectionStateConnecting, nil, 0)
+	}
 
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
 	if c.logger().Is(LogVerbose) {
 		c.setConn(verboseConn{conn: conn, logger: c.logger()})
 	} else {
 		c.setConn(conn)
 	}
+
+	// Start eventloop
+	go c.eventloop()
+
 	c.reconnecting = arg.mode == recoveryMode || arg.mode == resumeMode
 	c.arg = arg
 	return res, nil
@@ -670,7 +677,6 @@ func (c *Connection) setConn(conn proto.Conn) {
 	c.connMtx.Lock()
 	c.conn = conn
 	c.connMtx.Unlock()
-	go c.eventloop()
 }
 
 func (c *Connection) logger() *LoggerOptions {
@@ -956,12 +962,21 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 }
 
 func (c *Connection) ctxCancelOnStateTransition() (context.Context, context.CancelFunc) {
+	// Returns parent context for retry process
 	ctx, cancel := context.WithCancel(context.Background())
 
 	off := c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
-		if change.Current == ConnectionStateConnected || change.Current == ConnectionStateClosed {
+
+		// ConnectionStateConnecting state means raw websocket connection with ably is successful, so cancel the retry
+		if change.Current == ConnectionStateConnecting {
 			cancel()
 		}
+
+		// RTN12d - cancel the retry when connectionStateClosed
+		if change.Current == ConnectionStateClosed {
+			cancel()
+		}
+
 	})
 
 	return ctx, func() {

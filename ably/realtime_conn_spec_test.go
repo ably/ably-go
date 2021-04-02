@@ -450,20 +450,18 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		var change ably.ConnectionStateChange
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
 
+		// received disconnect on first receive
 		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
 		}
 
-		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
-		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
-		}
-
+		// first reconnect failed (raw connection can't be established, outside retry loop), so returned disconnect
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
 		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
 		}
 
+		// Went inside retry loop for connecting with server again
 		c.Close()
 
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
@@ -545,15 +543,12 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		var change ably.ConnectionStateChange
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
 
+		// received disconnect on first receive
 		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
 		}
 
-		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
-		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
-		}
-
+		// first reconnect failed (raw connection can't be established, outside retry loop), so returned disconnect
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
 		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
