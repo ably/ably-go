@@ -174,8 +174,6 @@ func (c *Connection) Connect() {
 		return
 	}
 
-	c.lockSetState(ConnectionStateConnecting, nil, 0)
-
 	go func() {
 		c.connect(connArgs{})
 	}()
@@ -815,7 +813,7 @@ func (c *Connection) eventloop() {
 				// RTN12f
 				c.sendClose()
 				c.mtx.Unlock()
-				return
+				continue
 			}
 
 			c.mtx.Unlock()
