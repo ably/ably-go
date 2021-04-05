@@ -398,13 +398,28 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5g", func(t *testing.T) {
-		_, _, c, channel, _, _ := setup(t)
+		in, _, c, channel, stateChanges, _ := setup(t)
+		channel.OnAll(stateChanges.Receive)
 		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
+		defer cancel()
 		connectionChange := make(chan ably.ConnectionStateChange)
 		c.Connection.OnAll(func(change ably.ConnectionStateChange) {
 			connectionChange <- change
 		})
+
+		// Get the channel to ATTACHED.
+
+		in <- &proto.ProtocolMessage{
+			Action:  proto.ActionAttached,
+			Channel: channel.Name,
+		}
+
+		var change ably.ChannelStateChange
+
+		ablytest.Soon.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
 
 		c.Close()
 		// set connection state to closing
