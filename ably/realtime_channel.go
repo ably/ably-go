@@ -292,37 +292,35 @@ func (c *RealtimeChannel) detachSkipVerifyActive() (result, error) {
 	return c.detachUnsafe()
 }
 
-func (c *RealtimeChannel) detachUnsafe() (result, error) {
+func (c *RealtimeChannel) sendDetachMsg() (result, error) {
+	res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
+	msg := &proto.ProtocolMessage{
+		Action:  proto.ActionDetach,
+		Channel: c.Name,
+	}
+	c.client.Connection.send(msg, nil)
+	return res, nil
+}
 
-	sendDetachMsg := func() (result, error) {
-		c.lockSetState(ChannelStateDetaching, nil) // no need to check for locks, method is already under lock context
-		res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
-		msg := &proto.ProtocolMessage{
-			Action:  proto.ActionDetach,
-			Channel: c.Name,
-		}
-		c.client.Connection.send(msg, nil)
-		return res, nil
+func (c *RealtimeChannel) detachUnsafe() (result, error) {
+	if c.state == ChannelStateDetaching { // RTL5i
+		return c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed), nil
 	}
 
 	if c.state == ChannelStateAttaching { //RTL5i
-		attachRes := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed)
-		return resultFunc(func(ctx context.Context) error { // runs inside goroutine, need to check for locks again before accessing state
+		attachRes := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
+		return resultFunc(func(ctx context.Context) error {                                                                                // runs inside goroutine, need to check for locks again before accessing state
 			err := attachRes.Wait(ctx)
 			c.setState(ChannelStateDetaching, nil)
-			res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
-			msg := &proto.ProtocolMessage{
-				Action:  proto.ActionDetach,
-				Channel: c.Name,
-			}
-			c.client.Connection.send(msg, nil)
+			res, _ := c.sendDetachMsg()
 			if err != nil {
 				return err
 			}
 			return res.Wait(ctx)
 		}), nil
 	}
-	return sendDetachMsg()
+	c.lockSetState(ChannelStateDetaching, nil) // no need to check for locks, method is already under lock context
+	return c.sendDetachMsg()
 }
 
 type subscriptionName string
@@ -560,7 +558,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
 		if c.State() == ChannelStateDetaching { // RTL5K
-			c.detach()
+			c.sendDetachMsg()
 			return
 		}
 		c.Presence.onAttach(msg)

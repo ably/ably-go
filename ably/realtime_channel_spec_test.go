@@ -790,6 +790,11 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		// Get channel state to detaching
 		channel.SetState(chDetaching, nil)
 
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetaching, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
 		// Send attach message
 		in <- &proto.ProtocolMessage{
 			Action:  proto.ActionAttached,
@@ -800,17 +805,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
 		if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
-		}
-
-		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateDetaching, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		// todo - need to check if double detaching update event is needed
-		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateDetaching, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
 		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
