@@ -583,7 +583,7 @@ func (c *Connection) send(msg *proto.ProtocolMessage, listen chan<- error) {
 		if c.opts.NoQueueing {
 			listen <- connStateError(state, errQueueing)
 		}
-		c.queue.Enqueue(msg, listen)
+		c.queue.Enqueue(msg, listen) // RTL4i
 
 	case ConnectionStateConnected:
 		if err := c.verifyAndUpdateMessages(msg); err != nil {

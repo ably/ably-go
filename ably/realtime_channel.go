@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/ably/ably-go/ably/proto"
 )
@@ -192,7 +193,20 @@ func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return res.Wait(ctx)
+	resultErr := make(chan error, 1)
+	go func() {
+		resultErr <- res.Wait(ctx)
+	}()
+
+	detachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
+	select {
+	case err := <-resultErr:
+		return err
+	case <-time.After(detachTimeout): // RTL4f
+		err := newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
+		c.setState(ChannelStateSuspended, err)
+		return err
+	}
 }
 
 func (c *RealtimeChannel) attach() (result, error) {
@@ -205,8 +219,8 @@ func (c *RealtimeChannel) mayAttach(checkActive bool) (result, error) {
 	if checkActive {
 		switch c.state {
 		case ChannelStateAttaching:
-			return c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed), nil
-		case ChannelStateAttached:
+			return c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed), nil // RTL4h
+		case ChannelStateAttached: // RTL4a
 			return nopResult, nil
 		}
 	}
@@ -224,16 +238,39 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 		return nil, newError(ErrConnectionFailed, errConnAttach(c.client.Connection.State()))
 	}
 
-	c.lockSetState(ChannelStateAttaching, err)
-
-	res := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed)
-
-	msg := &proto.ProtocolMessage{
-		Action:  proto.ActionAttach,
-		Channel: c.Name,
+	if c.state == ChannelStateFailed { // RTL4g
+		err = nil
 	}
-	c.client.Connection.send(msg, nil)
-	return res, nil
+
+	sendAttachMsg := func() (result, error) {
+		c.lockSetState(ChannelStateAttaching, err)
+		res := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
+		msg := &proto.ProtocolMessage{
+			Action:  proto.ActionAttach,
+			Channel: c.Name,
+		}
+		c.client.Connection.send(msg, nil)
+		return res, nil
+	}
+
+	if c.state == ChannelStateDetaching { //// RTL4h
+		attachRes := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
+		return resultFunc(func(ctx context.Context) error { // runs inside goroutine, need to check for locks again before accessing state
+			detachErr := attachRes.Wait(ctx)
+			c.setState(ChannelStateAttaching, err)
+			res := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
+			msg := &proto.ProtocolMessage{
+				Action:  proto.ActionAttach,
+				Channel: c.Name,
+			}
+			c.client.Connection.send(msg, nil)
+			if detachErr != nil {
+				return detachErr
+			}
+			return res.Wait(ctx)
+		}), nil
+	}
+	return sendAttachMsg()
 }
 
 // Detach detaches the Realtime connection to the channel, after which it stops
