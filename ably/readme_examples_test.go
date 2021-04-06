@@ -162,7 +162,7 @@ func TestReadmeExamples(t *testing.T) {
 		}
 		/* README.md:234 */ // You can also publish a batch of messages in a single request.
 		/* README.md:235 */
-		err = channel.PublishBatch(ctx, []*ably.Message{
+		err = channel.PublishMultiple(ctx, []*ably.Message{
 			/* README.md:236 */ {Name: "HelloEvent", Data: "Hello!"},
 			/* README.md:237 */ {Name: "ByeEvent", Data: "Bye!"},
 			/* README.md:238 */})
