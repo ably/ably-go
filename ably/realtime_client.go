@@ -82,9 +82,9 @@ func (c *Realtime) onReconnected(isNewID bool) {
 	for _, ch := range c.Channels.All() {
 		switch ch.State() {
 		// TODO: SUSPENDED
-		case ChannelStateAttaching, ChannelStateAttached:
+		case ChannelStateAttaching, ChannelStateAttached: //RTN19b
 			ch.mayAttach(false)
-		case ChannelStateDetaching:
+		case ChannelStateDetaching: //RTN19b
 			ch.detachSkipVerifyActive()
 		}
 	}

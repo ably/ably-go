@@ -283,6 +283,9 @@ func (c *RealtimeChannel) detach() (result, error) {
 		c.lockSetState(ChannelStateDetached, nil)
 		return nopResult, nil
 	}
+	if c.state == ChannelStateDetaching { // RTL5i
+		return c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed), nil
+	}
 	return c.detachUnsafe()
 }
 
@@ -303,10 +306,6 @@ func (c *RealtimeChannel) sendDetachMsg() (result, error) {
 }
 
 func (c *RealtimeChannel) detachUnsafe() (result, error) {
-	if c.state == ChannelStateDetaching { // RTL5i
-		return c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed), nil
-	}
-
 	if c.state == ChannelStateAttaching { //RTL5i
 		attachRes := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
 		return resultFunc(func(ctx context.Context) error {                                                                                // runs inside goroutine, need to check for locks again before accessing state
