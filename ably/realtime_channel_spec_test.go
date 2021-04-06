@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/ablytest"
@@ -193,6 +196,33 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		channel = c.Channels.Get("test")
 		stateChanges = make(ably.ChannelStateChanges, 10)
+		return
+	}
+
+	setUpWithInterrupt := func() (app *ablytest.Sandbox, client *ably.Realtime, interrupt chan *proto.ProtocolMessage, channel *ably.RealtimeChannel, stateChanges ably.ChannelStateChanges, eof chan struct{}) {
+		interrupt = make(chan *proto.ProtocolMessage)
+		eof = make(chan struct{})
+		app, client = ablytest.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				c, err := ablyutil.DialWebsocket(protocol, u, timeout)
+				return protoConnWithFakeEOF{Conn: c, doEOF: eof, onMessage: func(msg *proto.ProtocolMessage) {
+					if msg.Action == proto.ActionClosed {
+						close(interrupt)
+						return
+					}
+					if msg.Action == proto.ActionHeartbeat {
+						return
+					}
+					interrupt <- msg
+				}}, err
+			}))
+
+		channel = client.Channels.Get("test")
+		stateChanges = make(ably.ChannelStateChanges, 10)
+		channel.OnAll(func(change ably.ChannelStateChange) {
+			stateChanges <- change
+		})
 		return
 	}
 
@@ -424,8 +454,160 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
 	})
 
-	t.Run("RTL4i", func(t *testing.T) {
+	t.Run("RTL4i : Connecting state", func(t *testing.T) {
+		app, client, interrupt, channel, channelStateChange, _ := setUpWithInterrupt()
+		defer func() {
+			safeclose(t, ablytest.FullRealtimeCloser(client), app)
+			<-interrupt // accept close message
+		}()
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		stateChange := make(ably.ConnStateChanges, 10)
+		off := client.Connection.OnAll(stateChange.Receive)
+		defer off()
+
+		client.Connect()
+
+		var change ably.ConnectionStateChange
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		channel.Attach(ctx)
+
+		var channelChange ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Consume attaching event state
+
+		if expected, got := ably.ChannelStateAttaching, channelChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
+		}
+
+		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Should timeout and set to suspended
+
+		if expected, got := ably.ChannelStateSuspended, channelChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
+		}
+
+		ablytest.Instantly.NoRecv(t, &channelChange, channelStateChange, t.Fatalf) // Shouldn't receive attached message, since it's queued
+
+		msg := <-interrupt // accept connected message
+
+		if expected, got := proto.ActionConnected, msg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, msg)
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnected, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		msg = <-interrupt // accept attached message
+
+		if expected, got := proto.ActionAttached, msg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, msg)
+		}
+
+		ablytest.Soon.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Consume attached event state
+
+		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
+		}
+
+		ablytest.Instantly.NoRecv(t, &channelChange, channelStateChange, t.Fatalf) // Shouldn't change channel state again\
+		ablytest.Instantly.NoRecv(t, &change, stateChange, t.Fatalf)
+	})
+
+	t.Run("RTL4i : Disconnected state", func(t *testing.T) {
+		app, client, interrupt, channel, channelStateChange, doEOF := setUpWithInterrupt()
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		stateChange := make(ably.ConnStateChanges, 10)
+		off := client.Connection.OnAll(stateChange.Receive)
+		defer off()
+
+		client.Connect()
+
+		var change ably.ConnectionStateChange
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		msg := <-interrupt // accept connected message
+
+		if expected, got := proto.ActionConnected, msg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, msg)
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnected, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		doEOF <- struct{}{}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		channel.Attach(ctx)
+
+		var channelChange ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Consume attaching event state
+
+		if expected, got := ably.ChannelStateAttaching, channelChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
+		}
+
+		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Should timeout and set to suspended
+
+		if expected, got := ably.ChannelStateSuspended, channelChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
+		}
+
+		ablytest.Instantly.NoRecv(t, &channelChange, channelStateChange, t.Fatalf) // Shouldn't receive attached message, since it's queued
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		msg = <-interrupt // accept connected message
+
+		if expected, got := proto.ActionConnected, msg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, msg)
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnected, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		msg = <-interrupt // accept attached message
+
+		if expected, got := proto.ActionAttached, msg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, msg)
+		}
+
+		ablytest.Soon.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Consume attached event state
+
+		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
+		}
+
+		ablytest.Instantly.NoRecv(t, &channelChange, channelStateChange, t.Fatalf) // Shouldn't change channel state again\
+		ablytest.Instantly.NoRecv(t, &change, stateChange, t.Fatalf)
 	})
 
 	t.Run("RTL4j", func(t *testing.T) {
