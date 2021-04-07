@@ -15,6 +15,9 @@ var (
 	errConnAttach = func(connState ConnectionState) error {
 		return errors.New("cannot Attach channel because connection is in " + connState.String() + " state")
 	}
+	errChannelDetach = func(channelState ChannelState) error {
+		return errors.New("cannot Detach channel because it is in " + channelState.String() + " state")
+	}
 	errDetach = errors.New("attempted to detach channel from inactive connection")
 )
 

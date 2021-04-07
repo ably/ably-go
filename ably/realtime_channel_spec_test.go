@@ -208,7 +208,6 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 				c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 				return protoConnWithFakeEOF{Conn: c, doEOF: eof, onMessage: func(msg *proto.ProtocolMessage) {
 					if msg.Action == proto.ActionClosed {
-						close(interrupt)
 						return
 					}
 					if msg.Action == proto.ActionHeartbeat {
@@ -375,9 +374,62 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, &change, stateChange, t.Fatalf)
 	})
 
-	t.Run("RTL4d", func(t *testing.T) {
+	invalidChannelStates := []ably.ChannelState{chDetached, chSuspended, chFailed}
 
-	})
+	for _, invalidChannelState := range invalidChannelStates {
+		t.Run("RTL4d", func(t *testing.T) {
+			_, out, _, channel, stateChanges, _ := setup(t)
+
+			channel.OnAll(stateChanges.Receive)
+
+			var change ably.ChannelStateChange
+
+			var outMsg *proto.ProtocolMessage
+
+			go func() {
+				time.Sleep(time.Second / 2)
+				channel.SetState(invalidChannelState, nil)
+			}()
+
+			err := channel.Attach(context.Background())
+
+			ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+			if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
+				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+			}
+
+			ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
+			if expected, got := proto.ActionAttach, outMsg.Action; expected != got {
+				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
+			}
+
+			if err == nil {
+				t.Fatal("attach should return channel state failed error")
+			}
+
+			ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+
+			if expected, got := invalidChannelState, change.Current; expected != got {
+				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+			}
+
+			if invalidChannelState == chFailed {
+				if ably.UnwrapErrorCode(err) != 90000 {
+					t.Fatalf("want code=90000; got %d", ably.UnwrapErrorCode(err))
+				}
+				if expected, got := err, change.Reason; expected != got {
+					t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+				}
+			}
+			if invalidChannelState == chDetached || invalidChannelState == chSuspended {
+				if ably.UnwrapErrorCode(err) != 50001 {
+					t.Fatalf("want code=90000; got %d", ably.UnwrapErrorCode(err))
+				}
+			}
+
+			ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
+		})
+	}
 
 	t.Run("RTL4e", func(t *testing.T) {
 
