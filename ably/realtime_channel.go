@@ -203,7 +203,7 @@ func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	case err := <-resultErr:
 		return err
 	case <-time.After(detachTimeout): // RTL4f
-		err := newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
+		err := newError(ErrTimeoutError, errors.New("timed out before attaching channel"))
 		c.setState(ChannelStateSuspended, err)
 		return err
 	}
