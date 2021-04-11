@@ -221,6 +221,9 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 				c, err := ablyutil.DialWebsocket(protocol, u, timeout)
 				return protoConnWithFakeEOF{Conn: c, onMessage: func(msg *proto.ProtocolMessage) {
+					if msg.Action == proto.ActionHeartbeat {
+						return
+					}
 					interrupt <- msg
 				}}, err
 			}))
@@ -383,7 +386,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 
 	t.Run("RTN12d : should abort reconnection timer while disconnected on closed", func(t *testing.T) {
 		t.Parallel()
-		ttl := 10 * time.Millisecond
+		ttl := 400 * time.Millisecond
 		disconnectTTl := 2 * ttl
 		connDetails := proto.ConnectionDetails{
 			ConnectionKey:      "foo",
@@ -479,7 +482,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 
 	t.Run("RTN12d: should abort reconnection timer while suspended on closed", func(t *testing.T) {
 		t.Parallel()
-		ttl := 10 * time.Millisecond
+		ttl := 400 * time.Millisecond
 		disconnectTTl := 2 * ttl
 		suspendTTL := time.Second
 
