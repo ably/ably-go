@@ -190,7 +190,6 @@ func (c connectionStateChanges) Receive(change ably.ConnectionStateChange) {
 }
 
 func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
-	t.Parallel()
 
 	setUpWithEOF := func() (app *ablytest.Sandbox, client *ably.Realtime, doEOF chan struct{}) {
 		doEOF = make(chan struct{}, 1)
@@ -385,7 +384,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	}
 
 	t.Run("RTN12d : should abort reconnection timer while disconnected on closed", func(t *testing.T) {
-		t.Parallel()
 		ttl := 400 * time.Millisecond
 		disconnectTTl := 2 * ttl
 		connDetails := proto.ConnectionDetails{
@@ -399,7 +397,8 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 
 		var in chan *proto.ProtocolMessage
 
-		errorWhileConnecting := false
+		errorWhileConnecting := new(TAtomBool)
+		errorWhileConnecting.Set(false)
 
 		realtimeRequestTimeout := time.Minute
 		c, _ := ably.NewRealtime(
@@ -411,7 +410,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			ably.WithNow(now),
 			ably.WithAfter(ablyutil.After),
 			ably.WithDial(func(p string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
-				if errorWhileConnecting {
+				if errorWhileConnecting.Get() {
 					return nil, errors.New("can't reconnect once disconnected")
 				}
 				in = make(chan *proto.ProtocolMessage, 1)
@@ -448,7 +447,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 
 		// Let the deadline pass without a message; expect a disconnection.
 		timer.Fire()
-		errorWhileConnecting = true
+		errorWhileConnecting.Set(true)
 
 		var change ably.ConnectionStateChange
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
@@ -481,7 +480,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12d: should abort reconnection timer while suspended on closed", func(t *testing.T) {
-		t.Parallel()
 		ttl := 400 * time.Millisecond
 		disconnectTTl := 2 * ttl
 		suspendTTL := time.Second
@@ -497,7 +495,8 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 
 		var in chan *proto.ProtocolMessage
 
-		errorWhileConnecting := false
+		errorWhileConnecting := new(TAtomBool)
+		errorWhileConnecting.Set(false)
 
 		realtimeRequestTimeout := time.Minute
 		c, _ := ably.NewRealtime(
@@ -510,7 +509,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			ably.WithSuspendedRetryTimeout(suspendTTL),
 			ably.WithAfter(ablyutil.After),
 			ably.WithDial(func(p string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
-				if errorWhileConnecting {
+				if errorWhileConnecting.Get() {
 					return nil, errors.New("can't reconnect once disconnected")
 				}
 				in = make(chan *proto.ProtocolMessage, 1)
@@ -547,7 +546,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 
 		// Let the deadline pass without a message; expect a disconnection.
 		timer.Fire()
-		errorWhileConnecting = true
+		errorWhileConnecting.Set(true)
 
 		var change ably.ConnectionStateChange
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
@@ -625,6 +624,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		if expected, got := ably.ConnectionStateClosed, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
+
 	})
 }
 
