@@ -173,6 +173,8 @@ func (c *Connection) Connect() {
 	if isActive {
 		return
 	}
+	// set state to connecting for initial connect
+	c.lockSetState(ConnectionStateConnecting, nil, 0)
 
 	go func() {
 		c.connect(connArgs{})
