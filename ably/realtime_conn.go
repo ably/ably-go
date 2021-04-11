@@ -133,15 +133,15 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (result, error) {
 	retryIn := c.opts.suspendedRetryTimeout()
 	lg := c.logger().sugar()
 	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", retryIn)
-	parentCtx, cancel := c.ctxCancelOnStateTransition()
-	defer cancel()
+	parentCtx, parentCtxCancel := c.ctxCancelOnStateTransition()
+	defer parentCtxCancel()
 	tick := ablyutil.NewTicker(c.opts.After)(parentCtx, retryIn)
 	for {
 		_, ok := <-tick
 		if !ok {
 			return nil, parentCtx.Err()
 		}
-		res, err := c.connectWith(arg)
+		res, err := c.connectWith(arg, parentCtxCancel)
 		if err != nil {
 			if recoverable(err) {
 				c.setState(ConnectionStateSuspended, err, retryIn)
@@ -289,7 +289,7 @@ const connectionStateTTLErrFmt = "Exceeded connectionStateTtl=%v while in DISCON
 
 func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	lg := c.logger().sugar()
-	res, err := c.connectWith(arg)
+	res, err := c.connectWith(arg, nil)
 	if err == nil {
 		return res, nil
 	}
@@ -301,8 +301,8 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	retryIn := c.opts.disconnectedRetryTimeout()
 	c.setState(ConnectionStateDisconnected, err, retryIn)
 
-	parentCtx, cancel := c.ctxCancelOnStateTransition()
-	defer cancel()
+	parentCtx, parentCtxCancel := c.ctxCancelOnStateTransition()
+	defer parentCtxCancel()
 
 	// The initial DISCONNECTED event has been fired. If we reach stateTTL without
 	// any state changes, we transition to SUSPENDED state
@@ -342,7 +342,7 @@ loop:
 			}
 
 			lg.Debug("Attemting to open connection")
-			res, err := c.connectWith(arg)
+			res, err := c.connectWith(arg, parentCtxCancel)
 			if err == nil {
 				return res, nil
 			}
@@ -368,7 +368,13 @@ loop:
 	return c.connectAfterSuspension(arg)
 }
 
-func (c *Connection) connectWith(arg connArgs) (result, error) {
+func (c *Connection) connectWith(arg connArgs, ctxCancel context.CancelFunc) (result, error) {
+	c.mtx.Lock()
+	// set ably connection state to connecting, connecting state exists regardless of whether raw connection is successful or not
+	if !c.isActive() { // check if already in connecting state
+		c.lockSetState(ConnectionStateConnecting, nil, 0)
+	}
+	c.mtx.Unlock()
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
 		return nil, err
@@ -388,27 +394,28 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 	u.RawQuery = query.Encode()
 	proto := c.opts.protocol()
 
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-	if c.state == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
+	if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
 		return nopResult, nil
 	}
+
 	// if err is nil, raw connection with server is successful
 	conn, err := c.dial(proto, u)
 	if err != nil {
 		return nil, err
+	} else {
+		if ctxCancel != nil {
+			ctxCancel() // break reconnection loop, eventloop will be responsible for next reconnection iterations
+		}
 	}
-	// set ably connection state to connecting
-	if !c.isActive() {
-		c.lockSetState(ConnectionStateConnecting, nil, 0)
-	}
+
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 
 	if c.logger().Is(LogVerbose) {
 		c.setConn(verboseConn{conn: conn, logger: c.logger()})
 	} else {
 		c.setConn(conn)
 	}
-
 	// Start eventloop
 	go c.eventloop()
 
@@ -966,12 +973,6 @@ func (c *Connection) ctxCancelOnStateTransition() (context.Context, context.Canc
 	ctx, cancel := context.WithCancel(context.Background())
 
 	off := c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
-
-		// ConnectionStateConnecting state means raw websocket connection with ably is successful, so cancel the retry
-		if change.Current == ConnectionStateConnecting {
-			cancel()
-		}
-
 		// RTN12d - cancel the retry when connectionStateClosed
 		if change.Current == ConnectionStateClosed {
 			cancel()
