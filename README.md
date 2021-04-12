@@ -231,8 +231,8 @@ if err != nil {
 	panic(err)
 }
 
-// You can also publish a batch of messages in a single request.
-err = channel.PublishBatch(ctx, []*ably.Message{
+// You can also publish multiple messages in a single request.
+err = channel.PublishMultiple(ctx, []*ably.Message{
 	{Name: "HelloEvent", Data: "Hello!"},
 	{Name: "ByeEvent", Data: "Bye!"},
 })
