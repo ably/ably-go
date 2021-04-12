@@ -160,7 +160,7 @@ func TestReadmeExamples(t *testing.T) {
 			/* README.md:231 */ panic(err)
 			/* README.md:232 */
 		}
-		/* README.md:234 */ // You can also publish a batch of messages in a single request.
+		/* README.md:234 */ // You can also publish multiple messages in a single request.
 		/* README.md:235 */
 		err = channel.PublishMultiple(ctx, []*ably.Message{
 			/* README.md:236 */ {Name: "HelloEvent", Data: "Hello!"},
