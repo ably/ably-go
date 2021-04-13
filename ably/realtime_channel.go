@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/ably/ably-go/ably/proto"
 )
@@ -251,20 +250,16 @@ func (c *RealtimeChannel) Detach(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	resultErr := make(chan error, 1)
-	go func() {
-		resultErr <- res.Wait(ctx)
-	}()
 
 	detachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
-	select {
-	case err := <-resultErr: // RTL5e
-		return err
-	case <-time.After(detachTimeout): // RTL5f
-		err := newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
+	timeoutCtx, cancel := context.WithTimeout(ctx, detachTimeout)
+	defer cancel()
+	err = res.Wait(timeoutCtx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		err = newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
 		c.setState(prevChannelState, err)
-		return err
 	}
+	return err
 }
 
 func (c *RealtimeChannel) detach() (result, error) {
@@ -286,6 +281,18 @@ func (c *RealtimeChannel) detach() (result, error) {
 	if c.state == ChannelStateDetaching { // RTL5i
 		return c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed), nil
 	}
+	if c.state == ChannelStateAttaching { //RTL5i
+		attachRes := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
+		return resultFunc(func(ctx context.Context) error {                                                                                // runs inside goroutine, need to check for locks again before accessing state
+			err := attachRes.Wait(ctx)
+			c.setState(ChannelStateDetaching, nil)
+			res, _ := c.sendDetachMsg()
+			if err != nil {
+				return err
+			}
+			return res.Wait(ctx)
+		}), nil
+	}
 	return c.detachUnsafe()
 }
 
@@ -306,18 +313,6 @@ func (c *RealtimeChannel) sendDetachMsg() (result, error) {
 }
 
 func (c *RealtimeChannel) detachUnsafe() (result, error) {
-	if c.state == ChannelStateAttaching { //RTL5i
-		attachRes := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
-		return resultFunc(func(ctx context.Context) error {                                                                                // runs inside goroutine, need to check for locks again before accessing state
-			err := attachRes.Wait(ctx)
-			c.setState(ChannelStateDetaching, nil)
-			res, _ := c.sendDetachMsg()
-			if err != nil {
-				return err
-			}
-			return res.Wait(ctx)
-		}), nil
-	}
 	c.lockSetState(ChannelStateDetaching, nil) // no need to check for locks, method is already under lock context
 	return c.sendDetachMsg()
 }
