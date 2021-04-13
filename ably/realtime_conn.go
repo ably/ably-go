@@ -174,6 +174,8 @@ func (c *Connection) Connect() {
 		return
 	}
 
+	c.lockSetState(ConnectionStateConnecting, nil, 0)
+
 	go func() {
 		c.connect(connArgs{})
 	}()
