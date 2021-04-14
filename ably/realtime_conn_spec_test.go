@@ -360,27 +360,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
 	})
 
-	connectionStates := [2]ably.ConnectionState{ably.ConnectionStateDisconnected, ably.ConnectionStateSuspended}
-	for _, connectionState := range connectionStates {
-		t.Run(fmt.Sprintf("RTN12d : Should directly close on %v", connectionState), func(t *testing.T) {
-			app, client, _ := setUpWithEOF()
-			defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-
-			client.Connection.SetState(connectionState, nil, time.Minute)
-			stateChange := make(connectionStateChanges, 1)
-			client.Connection.OnAll(stateChange.Receive)
-			client.Connection.Close()
-
-			var change ably.ConnectionStateChange
-			ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
-
-			if expected, got := ably.ConnectionStateClosed, change.Current; expected != got {
-				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
-			}
-			ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf)
-		})
-	}
-
 	t.Run("RTN12d : should abort reconnection timer while disconnected on closed", func(t *testing.T) {
 		ttl := 400 * time.Millisecond
 		disconnectTTl := 2 * ttl
