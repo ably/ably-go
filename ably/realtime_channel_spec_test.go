@@ -229,57 +229,70 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5d RTL5e: If connected, should do successful detach with server", func(t *testing.T) {
-		in, out, _, channel, stateChanges := setup(t)
+		app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+		connectionStateChanges := make(ably.ConnStateChanges, 10)
+		off := client.Connection.OnAll(connectionStateChanges.Receive)
+		defer off()
+
+		client.Connect()
+
+		var connectionChange ably.ConnectionStateChange
+
+		ablytest.Soon.Recv(t, &connectionChange, connectionStateChanges, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnecting, connectionChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, connectionChange)
+		}
+
+		ablytest.Soon.Recv(t, &connectionChange, connectionStateChanges, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnected, connectionChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, connectionChange)
+		}
+
+		channel := client.Channels.Get("test")
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		channel.OnAll(stateChanges.Receive)
 
-		// Get the channel to ATTACHED.
+		channeloff := channel.OnAll(channelStateChanges.Receive)
+		defer channeloff()
 
-		in <- &proto.ProtocolMessage{
-			Action:  proto.ActionAttached,
-			Channel: channel.Name,
-		}
+		var channelStatechange ably.ChannelStateChange
 
-		var change ably.ChannelStateChange
-
-		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		var outMsg *proto.ProtocolMessage
-
-		go func() {
-			time.Sleep(time.Second / 2)
-			in <- &proto.ProtocolMessage{
-				Action:  proto.ActionDetached,
-				Channel: channel.Name,
-			}
-		}()
-
-		err := channel.Detach(ctx)
-
+		err := channel.Attach(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
-		if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, connectionChange)
 		}
 
-		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateDetaching, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, connectionChange)
 		}
 
-		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateDetached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		err = channel.Detach(ctx)
+		if err != nil {
+			t.Fatal(err)
 		}
-		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
 
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, connectionChange)
+		}
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, connectionChange)
+		}
+
+		ablytest.Instantly.NoRecv(t, nil, connectionStateChanges, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf)
 	})
 
 	t.Run("RTL5e: return error if channel detach fails", func(t *testing.T) {
