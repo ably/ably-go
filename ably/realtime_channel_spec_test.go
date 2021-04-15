@@ -165,9 +165,12 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		c *ably.Realtime,
 		channel *ably.RealtimeChannel,
 		stateChanges ably.ChannelStateChanges,
+		afterCalls chan ablytest.AfterCall,
 	) {
 		in = make(chan *proto.ProtocolMessage, 1)
 		out = make(chan *proto.ProtocolMessage, 16)
+		afterCalls = make(chan ablytest.AfterCall, 1)
+		now, after := ablytest.TimeFuncs(afterCalls)
 
 		c, _ = ably.NewRealtime(
 			ably.WithToken("fake:token"),
@@ -175,6 +178,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithRealtimeRequestTimeout(realtimeRequestTimeout),
 			ably.WithDial(ablytest.MessagePipe(in, out)),
+			ably.WithNow(now),
+			ably.WithAfter(after),
 		)
 
 		in <- &proto.ProtocolMessage{
@@ -194,7 +199,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	}
 
 	t.Run("RTL5a: If channel is INITIALIZED or DETACHED, do nothing", func(t *testing.T) {
-		_, out, _, channel, stateChanges := setup(t)
+		_, out, _, channel, stateChanges, _ := setup(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		channel.OnAll(stateChanges.Receive)
@@ -214,7 +219,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5b: If channel state is FAILED, return error", func(t *testing.T) {
-		_, _, _, channel, stateChanges := setup(t)
+		_, _, _, channel, stateChanges, _ := setup(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		channel.OnAll(stateChanges.Receive)
@@ -297,7 +302,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5e: return error if channel detach fails", func(t *testing.T) {
 
-		in, out, _, channel, stateChanges := setup(t)
+		in, out, _, channel, stateChanges, _ := setup(t)
 
 		channel.OnAll(stateChanges.Receive)
 
@@ -356,7 +361,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5f: return error on request timeout", func(t *testing.T) {
-		in, out, _, channel, stateChanges := setup(t)
+		in, out, _, channel, stateChanges, afterCalls := setup(t)
 		channel.OnAll(stateChanges.Receive)
 
 		// Get the channel to ATTACHED.
@@ -372,9 +377,19 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		}
 
 		var outMsg *proto.ProtocolMessage
-		//
-		err := channel.Detach(context.Background())
 
+		errCh := make(chan error)
+		go func() {
+			errCh <- channel.Detach(context.Background())
+		}()
+
+		// Cause a timeout.
+		var afterCall ablytest.AfterCall
+		ablytest.Instantly.Recv(t, &afterCall, afterCalls, t.Fatalf)
+		afterCall.Fire()
+
+		var err error
+		ablytest.Instantly.Recv(t, &err, errCh, t.Fatalf)
 		if err == nil {
 			t.Fatal("detach should return timeout error")
 		}
@@ -406,7 +421,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5g: If connection state is CLOSING or FAILED, should return error", func(t *testing.T) {
-		in, _, c, channel, stateChanges := setup(t)
+		in, _, c, channel, stateChanges, _ := setup(t)
 		channel.OnAll(stateChanges.Receive)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -449,9 +464,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5h : If Connection state INITIALIZED, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
-		in, out, c, channel, _ := setup(t)
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		in, out, c, channel, _, afterCalls := setup(t)
 		connectionChange := make(chan ably.ConnectionStateChange)
 		c.Connection.OnAll(func(change ably.ConnectionStateChange) {
 			connectionChange <- change
@@ -487,7 +500,11 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
-		channel.Detach(ctx)
+		var rg ablytest.ResultGroup
+		defer rg.Wait()
+		rg.GoAdd(func(ctx context.Context) error {
+			return channel.Detach(ctx)
+		})
 
 		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // transition to detaching
 
@@ -495,7 +512,12 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
 		}
 
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Should timeout and reset to attached since detach message is queued
+		// Cause a timeout; should reset to attached since detach message is queued
+		var afterCall ablytest.AfterCall
+		ablytest.Instantly.Recv(t, &afterCall, afterCalls, t.Fatalf)
+		afterCall.Fire()
+
+		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf)
 
 		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
@@ -530,9 +552,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5h : If Connection state CONNECTING, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
-		in, out, c, channel, _ := setup(t)
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		in, out, c, channel, _, afterCalls := setup(t)
 		connectionChange := make(chan ably.ConnectionStateChange)
 		c.Connection.OnAll(func(change ably.ConnectionStateChange) {
 			connectionChange <- change
@@ -568,7 +588,11 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
-		channel.Detach(ctx)
+		var rg ablytest.ResultGroup
+		defer rg.Wait()
+		rg.GoAdd(func(ctx context.Context) error {
+			return channel.Detach(ctx)
+		})
 
 		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // transition to detaching
 
@@ -576,7 +600,12 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
 		}
 
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Should timeout and reset to attached since detach message is queued
+		// Cause a timeout; should reset to attached since detach message is queued
+		var afterCall ablytest.AfterCall
+		ablytest.Instantly.Recv(t, &afterCall, afterCalls, t.Fatalf)
+		afterCall.Fire()
+
+		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf)
 
 		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
@@ -603,9 +632,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5h : If Connection state DISCONNECTED, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
-		in, out, c, channel, _ := setup(t)
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		in, out, c, channel, _, afterCalls := setup(t)
 		connectionChange := make(chan ably.ConnectionStateChange)
 		c.Connection.OnAll(func(change ably.ConnectionStateChange) {
 			connectionChange <- change
@@ -641,7 +668,11 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
-		channel.Detach(ctx)
+		var rg ablytest.ResultGroup
+		defer rg.Wait()
+		rg.GoAdd(func(ctx context.Context) error {
+			return channel.Detach(ctx)
+		})
 
 		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // transition to detaching
 
@@ -649,7 +680,12 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
 		}
 
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Should timeout and reset to attached since detach message is queued
+		// Cause a timeout; should reset to attached since detach message is queued
+		var afterCall ablytest.AfterCall
+		ablytest.Instantly.Recv(t, &afterCall, afterCalls, t.Fatalf)
+		afterCall.Fire()
+
+		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf)
 
 		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
@@ -684,7 +720,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5i: If channel in DETACHING or ATTACHING state, do detach after completion of operation", func(t *testing.T) {
-		in, out, _, channel, stateChanges := setup(t)
+		in, out, _, channel, stateChanges, _ := setup(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		channel.OnAll(stateChanges.Receive)
@@ -752,7 +788,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5j: if channel state is SUSPENDED, immediately transition to DETACHED state", func(t *testing.T) {
-		_, _, _, channel, stateChanges := setup(t)
+		_, _, _, channel, stateChanges, _ := setup(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		channel.OnAll(stateChanges.Receive)
@@ -771,7 +807,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	})
 
 	t.Run("RTL5k: When receive ATTACH in detaching state, send new DETACH message", func(t *testing.T) {
-		in, out, _, channel, stateChanges := setup(t)
+		in, out, _, channel, stateChanges, _ := setup(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		channel.OnAll(stateChanges.Receive)
