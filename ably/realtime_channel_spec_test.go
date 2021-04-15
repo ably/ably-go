@@ -650,7 +650,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		cancel()
 		channel.Attach(ctx)
 
-		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume outgoing ATTACHING msg
 
 		stateChanges = make(ably.ChannelStateChanges, 10)
 		channel.OnAll(stateChanges.Receive)
@@ -842,6 +842,95 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		call.Time <- time.Time{}
 
 		// Since the connection isn't CONNECTED, the retry loop should finish.
+
+		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+	})
+}
+
+func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
+	t.Parallel()
+
+	const channelRetryTimeout = 123 * time.Millisecond
+
+	setup := func(t *testing.T) (
+		in, out chan *proto.ProtocolMessage,
+		c *ably.Realtime,
+		channel *ably.RealtimeChannel,
+		stateChanges ably.ChannelStateChanges,
+		afterCalls chan ablytest.AfterCall,
+	) {
+		in = make(chan *proto.ProtocolMessage, 1)
+		out = make(chan *proto.ProtocolMessage, 16)
+		afterCalls = make(chan ablytest.AfterCall, 1)
+		now, after := ablytest.TimeFuncs(afterCalls)
+
+		c, _ = ably.NewRealtime(
+			ably.WithToken("fake:token"),
+			ably.WithAutoConnect(false),
+			ably.WithNow(now),
+			ably.WithAfter(after),
+			ably.WithChannelRetryTimeout(channelRetryTimeout),
+			ably.WithDial(ablytest.MessagePipe(in, out)),
+		)
+
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &proto.ConnectionDetails{},
+		}
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		channel = c.Channels.Get("test")
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		channel.Attach(ctx)
+
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
+
+		stateChanges = make(ably.ChannelStateChanges, 10)
+		channel.OnAll(stateChanges.Receive)
+
+		return
+	}
+
+	t.Run("RTL14: when Error, should transition to failed state", func(t *testing.T) {
+		t.Parallel()
+		in, out, _, channel, stateChanges, afterCalls := setup(t)
+
+		errInfo := proto.ErrorInfo{
+			StatusCode: 500,
+			Code:       50500,
+			Message:    "fake error",
+		}
+
+		in <- &proto.ProtocolMessage{
+			Action:  proto.ActionError,
+			Channel: channel.Name,
+			Error:   &errInfo,
+		}
+
+		// Expect a state change with the error.
+
+		var change ably.ChannelStateChange
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateFailed, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
+			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
+		}
+
+		if got := fmt.Sprint(channel.ErrorReason()); !strings.Contains(got, errInfo.Message) {
+			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
+		}
 
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
