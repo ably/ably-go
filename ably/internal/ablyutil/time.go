@@ -57,16 +57,13 @@ func ContextWithTimeout(ctx context.Context, after TimerFunc, timeout time.Durat
 
 	// If the timer expires, we cancel the context. But then we need the context's
 	// error to be context.DeadlineExceeded instead of context.Canceled.
-	ctx, setErr := newContextWithCustomError(ctx)
+	// uses same context as above, doesn't create new context
+	ctx, setErr := contextWithCustomError(ctx)
 
 	go func() {
 		_, timerFired := <-after(ctx, timeout)
 		if timerFired {
 			setErr(context.DeadlineExceeded)
-		} else {
-			// after returned because the parent context was canceled, not
-			// because the timer fired.
-			setErr(ctx.Err())
 		}
 		cancel()
 	}()
@@ -75,21 +72,19 @@ func ContextWithTimeout(ctx context.Context, after TimerFunc, timeout time.Durat
 
 type contextWithCustomErr struct {
 	context.Context
-	err <-chan error
+	err error
 }
 
-func newContextWithCustomError(ctx context.Context) (_ context.Context, setError func(error)) {
-	errCh := make(chan error, 1)
-	return contextWithCustomErr{ctx, errCh}, func(err error) {
-		errCh <- err
+func contextWithCustomError(ctx context.Context) (_ context.Context, setError func(error)) {
+	customContext := contextWithCustomErr{ctx, nil}
+	return &customContext, func(err error) {
+		customContext.err = err
 	}
 }
 
-func (ctx contextWithCustomErr) Err() error {
-	select {
-	case err := <-ctx.err:
-		return err
-	default:
-		return ctx.Context.Err()
+func (ctx *contextWithCustomErr) Err() error {
+	if ctx.err != nil {
+		return ctx.err
 	}
+	return ctx.Context.Err()
 }
