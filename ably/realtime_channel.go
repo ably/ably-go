@@ -252,7 +252,7 @@ func (c *RealtimeChannel) Detach(ctx context.Context) error {
 	}
 
 	detachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
-	timeoutCtx, cancel := context.WithTimeout(ctx, detachTimeout)
+	timeoutCtx, cancel := c.opts().contextWithTimeout(ctx, detachTimeout)
 	defer cancel()
 	err = res.Wait(timeoutCtx)
 	if errors.Is(err, context.DeadlineExceeded) {

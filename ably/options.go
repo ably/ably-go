@@ -730,3 +730,7 @@ func applyAuthOptionsWithDefaults(os ...AuthOption) *authOptions {
 
 	return &to
 }
+
+func (o *clientOptions) contextWithTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	return ablyutil.ContextWithTimeout(ctx, o.After, timeout)
+}

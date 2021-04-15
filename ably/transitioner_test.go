@@ -373,6 +373,9 @@ func (c ChanTransitioner) detach() (chanNextStates, func()) {
 
 	asyncDetach(c.Channel)
 
+	// Detach sets a timeout; discard it.
+	ablytest.Instantly.Recv(c.t, nil, c.afterCalls, c.t.Fatalf)
+
 	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 	return chanNextStates{
