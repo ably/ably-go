@@ -75,7 +75,11 @@ func TransitionConn(t *testing.T, dial ablytest.DialFunc, options ...ably.Client
 }
 
 func (c ConnTransitioner) Channel(name string) ChanTransitioner {
-	return ChanTransitioner{c, c.Realtime.Channels.Get(name), make(chan error, 1)}
+	transitioner := ChanTransitioner{c, c.Realtime.Channels.Get(name), make(chan error, 1), nil}
+	transitioner.next = chanNextStates{
+		chAttaching: transitioner.attach,
+	}
+	return transitioner
 }
 
 func (c *ConnTransitioner) To(path ...ably.ConnectionState) io.Closer {
@@ -278,6 +282,7 @@ type ChanTransitioner struct {
 	ConnTransitioner
 	Channel *ably.RealtimeChannel
 	err     chan error
+	next    chanNextStates
 }
 
 func (c ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
@@ -303,6 +308,36 @@ func (c ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, 
 		next, cleanUp = transition()
 		from = to
 		c.assertState(from)
+	}
+
+	return c.Channel, closeFunc(func() error {
+		if cleanUp != nil {
+			cleanUp()
+		}
+		return nil
+	})
+}
+
+// preserves state context for channel
+func (c *ChanTransitioner) ToSpecifiedState(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
+	c.t.Helper()
+
+	from := c.Channel.State()
+	c.assertState(from)
+
+	var cleanUp func()
+
+	for _, to := range path {
+		if from == to {
+			continue
+		}
+
+		transition, ok := c.next[to]
+		if !ok {
+			c.t.Fatalf("no transition from %v to %v", from, to)
+		}
+		c.next, cleanUp = transition()
+		from = to
 	}
 
 	return c.Channel, closeFunc(func() error {

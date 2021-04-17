@@ -284,12 +284,12 @@ func (c *RealtimeChannel) detach() (result, error) {
 	if c.state == ChannelStateAttaching { //RTL5i
 		attachRes := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
 		return resultFunc(func(ctx context.Context) error {                                                                                // runs inside goroutine, need to check for locks again before accessing state
-			err := attachRes.Wait(ctx)
-			c.setState(ChannelStateDetaching, nil)
-			res, _ := c.sendDetachMsg()
+			err := attachRes.Wait(ctx) // error can be suspended or failed, so send back error
 			if err != nil {
 				return err
 			}
+			c.setState(ChannelStateDetaching, nil)
+			res, _ := c.sendDetachMsg()
 			return res.Wait(ctx)
 		}), nil
 	}

@@ -650,252 +650,211 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		}
 	})
 
-	// // todo: can be done using transitioner
 	t.Run("RTL5h : If Connection state CONNECTING, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
 		t.Parallel()
 
-		in, out, c, channel, _, afterCalls := setup(t)
-		connectionChange := make(chan ably.ConnectionStateChange)
-		c.Connection.OnAll(func(change ably.ConnectionStateChange) {
-			connectionChange <- change
-		})
-
-		channelStateChange := make(chan ably.ChannelStateChange)
-		channel.OnAll(func(change ably.ChannelStateChange) {
-			channelStateChange <- change
-		})
-		var outMsg *proto.ProtocolMessage
-
-		// Get the channel to ATTACHED.
-		in <- &proto.ProtocolMessage{
-			Action:  proto.ActionAttached,
-			Channel: channel.Name,
-		}
-
-		var channelChange ably.ChannelStateChange
-
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Consume attached message
-
-		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
-		}
-
-		var change ably.ConnectionStateChange
-
-		// set connection state to ConnectionStateConnecting
-		c.Connection.SetState(ably.ConnectionStateConnecting, nil, time.Minute)
-		ablytest.Instantly.Recv(t, &change, connectionChange, t.Fatalf) // Consume connection state change to initialized
-
-		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		var rg ablytest.ResultGroup
-		defer rg.Wait()
-		rg.GoAdd(func(ctx context.Context) error {
-			return channel.Detach(ctx)
-		})
-
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // transition to detaching
-
-		if expected, got := ably.ChannelStateDetaching, channelChange.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
-		}
-
-		// Cause a timeout; should reset to attached since detach message is queued
-		var afterCall ablytest.AfterCall
-		ablytest.Instantly.Recv(t, &afterCall, afterCalls, t.Fatalf)
-		afterCall.Fire()
-
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf)
-
-		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
-		}
-
-		ablytest.Instantly.NoRecv(t, &channelChange, channelStateChange, t.Fatalf) // Shouldn't receive detached state
-
-		in <- &proto.ProtocolMessage{
-			Action:            proto.ActionConnected,
-			ConnectionID:      "connection-id",
-			ConnectionDetails: &proto.ConnectionDetails{},
-		}
-
-		ablytest.Soon.Recv(t, &change, connectionChange, t.Fatalf) // Consume connection state to connected
-
-		if expected, got := ably.ConnectionStateConnected, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		ablytest.Soon.Recv(t, &outMsg, out, t.Fatalf)
-		if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
-		}
-	})
-
-	// // todo: can be done using transitioner
-	t.Run("RTL5h : If Connection state DISCONNECTED, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
-		t.Parallel()
-
-		in, out, c, channel, _, afterCalls := setup(t)
-		connectionChange := make(chan ably.ConnectionStateChange)
-		c.Connection.OnAll(func(change ably.ConnectionStateChange) {
-			connectionChange <- change
-		})
-
-		channelStateChange := make(chan ably.ChannelStateChange)
-		channel.OnAll(func(change ably.ChannelStateChange) {
-			channelStateChange <- change
-		})
-		var outMsg *proto.ProtocolMessage
-
-		// Get the channel to ATTACHED.
-		in <- &proto.ProtocolMessage{
-			Action:  proto.ActionAttached,
-			Channel: channel.Name,
-		}
-
-		var channelChange ably.ChannelStateChange
-
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Consume attached message
-
-		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
-		}
-
-		var change ably.ConnectionStateChange
-
-		// set connection state to ConnectionStateInitialized
-		c.Connection.SetState(ably.ConnectionStateDisconnected, nil, time.Minute)
-		ablytest.Instantly.Recv(t, &change, connectionChange, t.Fatalf) // Consume connection state change to initialized
-
-		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		var rg ablytest.ResultGroup
-		defer rg.Wait()
-		rg.GoAdd(func(ctx context.Context) error {
-			return channel.Detach(ctx)
-		})
-
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // transition to detaching
-
-		if expected, got := ably.ChannelStateDetaching, channelChange.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
-		}
-
-		// Cause a timeout; should reset to attached since detach message is queued
-		var afterCall ablytest.AfterCall
-		ablytest.Instantly.Recv(t, &afterCall, afterCalls, t.Fatalf)
-		afterCall.Fire()
-
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf)
-
-		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
-		}
-
-		ablytest.Instantly.NoRecv(t, &channelChange, channelStateChange, t.Fatalf) // Shouldn't receive detached state
-
-		c.Connection.SetState(ably.ConnectionStateConnecting, nil, time.Minute)
-		// get state to connecting
-		ablytest.Instantly.Recv(t, &change, connectionChange, t.Fatalf) // Consume connection state to connecting
-
-		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		in <- &proto.ProtocolMessage{
-			Action:            proto.ActionConnected,
-			ConnectionID:      "connection-id",
-			ConnectionDetails: &proto.ConnectionDetails{},
-		}
-
-		ablytest.Soon.Recv(t, &change, connectionChange, t.Fatalf) // Consume connection state to connected
-
-		if expected, got := ably.ConnectionStateConnected, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		ablytest.Soon.Recv(t, &outMsg, out, t.Fatalf)
-		if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
-		}
-	})
-
-	// todo: can be done using transitioner
-	t.Run("RTL5i: If channel in DETACHING or ATTACHING state, do detach after completion of operation", func(t *testing.T) {
-		t.Parallel()
-
-		in, out, _, channel, stateChanges, _ := setup(t)
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		channel.OnAll(stateChanges.Receive)
-
-		var outMsg *proto.ProtocolMessage
-		var change ably.ChannelStateChange
-
-		cancelledContext, cancel := context.WithCancel(ctx)
-		cancel()
-
-		channel.Attach(cancelledContext)
-
-		// get channel state to attaching
-		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
-		if expected, got := proto.ActionAttach, outMsg.Action; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
-		}
-
-		go func() {
-			time.Sleep(time.Second / 2)
-			// Get the channel from ATTACHING to ATTACHED.
-			in <- &proto.ProtocolMessage{
-				Action:  proto.ActionAttached,
-				Channel: channel.Name,
-			}
-
-			ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-			if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
-				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-			}
-
-			// sends detach message after channel is attached
-			ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
-			if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
-				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, outMsg.Action)
-			}
-
-			ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-			if expected, got := ably.ChannelStateDetaching, change.Current; expected != got {
-				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-			}
-
-			in <- &proto.ProtocolMessage{
-				Action:  proto.ActionDetached,
-				Channel: channel.Name,
-			}
-
-			ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-			if expected, got := ably.ChannelStateDetached, change.Current; expected != got {
-				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-			}
-		}()
-
-		err := channel.Detach(ctx)
-
+		app, err := ablytest.NewSandbox(nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
+		defer safeclose(t, app)
+
+		c, close := TransitionConn(t, nil, app.Options()...)
+		defer safeclose(t, close)
+
+		close = c.To(
+			connecting,
+			connected,
+		)
+
+		defer safeclose(t, close)
+
+		channelTransitioner := c.Channel("test")
+		channel := channelTransitioner.Channel
+
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(channelStateChanges.Receive)
+
+		channelTransitioner.To(chAttaching, chAttached)
+
+		var channelStatechange ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		close = c.To(
+			disconnected,
+			connecting,
+		)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		channel.Detach(ctx)
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't receive detach, detaching message queued
+
+		close = c.To(
+			connected,
+		)
+
+		defer safeclose(t, close)
+
+		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
 	})
 
-	// No way to produce it using transitioner, because channel suspend not implemented
+	t.Run("RTL5h : If Connection state DISCONNECTED, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
+		t.Parallel()
+
+		app, err := ablytest.NewSandbox(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer safeclose(t, app)
+
+		c, close := TransitionConn(t, nil, app.Options()...)
+		defer safeclose(t, close)
+
+		close = c.To(
+			connecting,
+			connected,
+		)
+
+		defer safeclose(t, close)
+
+		channelTransitioner := c.Channel("test")
+		channel := channelTransitioner.Channel
+
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(channelStateChanges.Receive)
+
+		channelTransitioner.To(chAttaching, chAttached)
+
+		var channelStatechange ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		close = c.To(
+			disconnected,
+		)
+
+		defer safeclose(t, close)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		channel.Detach(ctx)
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't receive detach, detaching message queued
+
+		close = c.To(
+			connecting,
+			connected,
+		)
+
+		defer safeclose(t, close)
+
+		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+	})
+
+	t.Run("RTL5i: If channel in DETACHING or ATTACHING state, do detach after completion of operation", func(t *testing.T) {
+		t.Parallel()
+
+		app, err := ablytest.NewSandbox(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer safeclose(t, app)
+
+		c, close := TransitionConn(t, nil, app.Options()...)
+		defer safeclose(t, close)
+
+		close = c.To(
+			connecting,
+			connected,
+		)
+
+		defer safeclose(t, close)
+
+		channelTransitioner := c.Channel("test")
+		channel := channelTransitioner.Channel
+
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(channelStateChanges.Receive)
+
+		channelTransitioner.ToSpecifiedState(chAttaching)
+
+		var channelStatechange ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		var rg ablytest.ResultGroup
+		defer rg.Wait()
+		rg.GoAdd(func(ctx context.Context) error {
+			err := channel.Detach(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return err
+		})
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't send detach waiting to get attached
+
+		channelTransitioner.ToSpecifiedState(chAttached)
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+	})
+
+	// Suspend not implemented, so directly setting the state
 	t.Run("RTL5j: if channel state is SUSPENDED, immediately transition to DETACHED state", func(t *testing.T) {
 		t.Parallel()
 
