@@ -75,7 +75,7 @@ func TransitionConn(t *testing.T, dial ablytest.DialFunc, options ...ably.Client
 }
 
 func (c ConnTransitioner) Channel(name string) ChanTransitioner {
-	return ChanTransitioner{c, c.Realtime.Channels.Get(name)}
+	return ChanTransitioner{c, c.Realtime.Channels.Get(name), make(chan error, 1)}
 }
 
 func (c *ConnTransitioner) To(path ...ably.ConnectionState) io.Closer {
@@ -277,6 +277,7 @@ type connNextStates map[ably.ConnectionState]connTransitionFunc
 type ChanTransitioner struct {
 	ConnTransitioner
 	Channel *ably.RealtimeChannel
+	err     chan error
 }
 
 func (c ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
@@ -366,12 +367,17 @@ func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancel
 
 func (c ChanTransitioner) detach() (chanNextStates, func()) {
 	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
-	c.intercept(ctx, proto.ActionDetached)
+	msg := c.intercept(ctx, proto.ActionDetached)
 
 	change := make(ably.ChannelStateChanges, 1)
 	c.Channel.Once(ably.ChannelEventDetaching, change.Receive)
 
-	asyncDetach(c.Channel)
+	async(func() error {
+		errCh := asyncDetach(c.Channel)
+		err := <-errCh
+		c.err <- err
+		return err
+	})
 
 	// Detach sets a timeout; discard it.
 	ablytest.Instantly.Recv(c.t, nil, c.afterCalls, c.t.Fatalf)
@@ -379,18 +385,30 @@ func (c ChanTransitioner) detach() (chanNextStates, func()) {
 	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 	return chanNextStates{
-		chDetached: c.finishDetach(cancel),
+		chDetached: c.finishDetach(msg, cancel, nil),
+		chFailed:   c.finishDetach(msg, cancel, &proto.ErrorInfo{Message: "fake error", Code: 50001}),
 	}, cancel
 }
 
-func (c ChanTransitioner) finishDetach(cancelIntercept func()) chanTransitionFunc {
+func (c ChanTransitioner) finishDetach(msg <-chan *proto.ProtocolMessage, cancelIntercept func(), err *proto.ErrorInfo) chanTransitionFunc {
 	return func() (chanNextStates, func()) {
+
+		var attachMsg *proto.ProtocolMessage
+		ablytest.Soon.Recv(c.t, &attachMsg, msg, c.t.Fatalf)
+
+		if err != nil {
+			// Ideally, for moving to FAILED, we'd arrange a real capabilities error
+			// to keep things real. But it's too much hassle for now.
+			attachMsg.Action = proto.ActionError
+			attachMsg.Error = err
+		}
+
 		change := make(ably.ChannelStateChanges, 1)
-		c.Channel.Once(ably.ChannelEventDetached, change.Receive)
+		c.Channel.OnceAll(change.Receive)
 
 		cancelIntercept()
 
-		ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 		return nil, nil
 	}
