@@ -1299,7 +1299,8 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		go channel.Attach(ctx)
 		defer cancel()
 
-		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACH
+		ablytest.Instantly.Recv(t, nil, afterCalls, t.Fatalf) // consume TIMER
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)        // Consume ATTACH
 
 		stateChanges = make(ably.ChannelStateChanges, 10)
 		channel.OnAll(stateChanges.Receive)
