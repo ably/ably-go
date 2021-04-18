@@ -74,7 +74,12 @@ func TransitionConn(t *testing.T, dial ablytest.DialFunc, options ...ably.Client
 }
 
 func (c ConnTransitioner) Channel(name string) ChanTransitioner {
-	transitioner := ChanTransitioner{c, c.Realtime.Channels.Get(name), make(chan error, 1), nil}
+	chanStateErrMap := map[ably.ChannelState]chan error{}
+
+	// add mapping to channel states to capture respective errors
+	chanStateErrMap[chDetaching] = make(chan error, 1)
+
+	transitioner := ChanTransitioner{c, c.Realtime.Channels.Get(name), chanStateErrMap, nil}
 	transitioner.next = chanNextStates{
 		chAttaching: transitioner.attach,
 	}
@@ -331,7 +336,7 @@ type connNextStates map[ably.ConnectionState]connTransitionFunc
 type ChanTransitioner struct {
 	ConnTransitioner
 	Channel *ably.RealtimeChannel
-	err     chan error
+	err     map[ably.ChannelState]chan error
 	next    chanNextStates
 }
 
@@ -460,7 +465,7 @@ func (c ChanTransitioner) detach() (chanNextStates, func()) {
 	async(func() error {
 		errCh := asyncDetach(c.Channel)
 		err := <-errCh
-		c.err <- err
+		c.err[chDetaching] <- err
 		return err
 	})
 

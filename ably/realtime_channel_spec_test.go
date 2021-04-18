@@ -439,7 +439,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
 		}
 
-		detachErr := <-channelTransitioner.err
+		detachErr := <-channelTransitioner.err[chDetaching]
 
 		if detachErr == nil {
 			t.Fatal("detach should return channel failed error")
