@@ -456,6 +456,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	})
 
+	// todo - can only do failed state using transitioner because,it's difficult to reproduce detached while attaching channel
+	// todo - and suspend channel state does not exist
+	t.Run("RTL4d : should return error on DETACHED, SUSPENDED, or FAILED channel state while attaching channel", func(t *testing.T) {
+
+	})
+
 	invalidChannelStates := []ably.ChannelState{chDetached, chSuspended, chFailed}
 
 	for _, invalidChannelState := range invalidChannelStates {
@@ -571,6 +577,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	})
 
+	// todo - can be done using transitioner, both types of tests can be added
 	t.Run("RTL4h: If channel is DETACHING or ATTACHING, do attach after completion of request", func(t *testing.T) {
 		in, out, _, channel, stateChanges, _ := setup(t)
 		ctx, cancel := context.WithCancel(context.Background())
@@ -660,6 +667,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
 	})
 
+	// todo - can be done using transitioner
 	t.Run("RTL4i : If connection state is CONNECTING, do ATTACH after CONNECTED", func(t *testing.T) {
 		app, client, interrupt, channel, channelStateChange, _ := setUpWithInterrupt()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -725,6 +733,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, &change, stateChange, t.Fatalf)
 	})
 
+	// todo - cane be done using transitioner
 	t.Run("RTL4i : If connection state is DISCONNECTED, do ATTACH after CONNECTED", func(t *testing.T) {
 		app, client, interrupt, channel, channelStateChange, doEOF := setUpWithInterrupt()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)

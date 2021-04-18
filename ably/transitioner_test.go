@@ -77,6 +77,7 @@ func (c ConnTransitioner) Channel(name string) ChanTransitioner {
 	chanStateErrMap := map[ably.ChannelState]chan error{}
 
 	// add mapping to channel states to capture respective errors
+	chanStateErrMap[chAttaching] = make(chan error, 1)
 	chanStateErrMap[chDetaching] = make(chan error, 1)
 
 	transitioner := ChanTransitioner{c, c.Realtime.Channels.Get(name), chanStateErrMap, nil}
@@ -417,7 +418,12 @@ func (c ChanTransitioner) attach() (chanNextStates, func()) {
 	change := make(ably.ChannelStateChanges, 1)
 	c.Channel.Once(ably.ChannelEventAttaching, change.Receive)
 
-	asyncAttach(c.Channel)
+	async(func() error {
+		errCh := asyncAttach(c.Channel)
+		err := <-errCh
+		c.err[chAttaching] <- err
+		return err
+	})
 
 	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
