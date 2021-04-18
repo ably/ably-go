@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/ably/ably-go/ably/proto"
 )
@@ -196,20 +195,16 @@ func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	resultErr := make(chan error, 1)
-	go func() {
-		resultErr <- res.Wait(ctx)
-	}()
 
-	detachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
-	select {
-	case err := <-resultErr:
-		return err
-	case <-time.After(detachTimeout): // RTL4f
-		err := newError(ErrTimeoutError, errors.New("timed out before attaching channel"))
+	attachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
+	timeoutCtx, cancel := c.opts().contextWithTimeout(ctx, attachTimeout)
+	defer cancel()
+	err = res.Wait(timeoutCtx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		err = newError(ErrTimeoutError, errors.New("timed out before attaching channel"))
 		c.setState(ChannelStateSuspended, err)
-		return err
 	}
+	return err
 }
 
 func (c *RealtimeChannel) attach() (result, error) {
@@ -231,6 +226,10 @@ func (c *RealtimeChannel) mayAttach(checkActive bool) (result, error) {
 }
 
 func (c *RealtimeChannel) lockAttach(err error) (result, error) {
+	if c.state == ChannelStateFailed { // RTL4g
+		err = nil
+	}
+
 	switch c.client.Connection.State() {
 	// RTL4b
 	case ConnectionStateInitialized,
@@ -241,12 +240,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 		return nil, newError(ErrConnectionFailed, errConnAttach(c.client.Connection.State()))
 	}
 
-	if c.state == ChannelStateFailed { // RTL4g
-		err = nil
-	}
-
 	sendAttachMsg := func() (result, error) {
-		c.lockSetState(ChannelStateAttaching, err)
 		res := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
 		msg := &proto.ProtocolMessage{
 			Action:  proto.ActionAttach,
@@ -260,19 +254,21 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 		attachRes := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
 		return resultFunc(func(ctx context.Context) error { // runs inside goroutine, need to check for locks again before accessing state
 			detachErr := attachRes.Wait(ctx)
+			if detachErr != nil && c.State() == ChannelStateFailed { // RTL4g - channel state is failed
+				c.mtx.Lock()
+				res, err := c.lockAttach(nil) // RTL4g - set error to nil
+				c.mtx.Unlock()
+				if err != nil {
+					return err
+				}
+				return res.Wait(ctx)
+			}
 			c.setState(ChannelStateAttaching, err)
-			res := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
-			msg := &proto.ProtocolMessage{
-				Action:  proto.ActionAttach,
-				Channel: c.Name,
-			}
-			c.client.Connection.send(msg, nil)
-			if detachErr != nil {
-				return detachErr
-			}
+			res, _ := sendAttachMsg()
 			return res.Wait(ctx)
 		}), nil
 	}
+	c.lockSetState(ChannelStateAttaching, err)
 	return sendAttachMsg()
 }
 

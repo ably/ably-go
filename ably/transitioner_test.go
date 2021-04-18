@@ -68,14 +68,22 @@ func TransitionConn(t *testing.T, dial ablytest.DialFunc, options ...ably.Client
 
 	c.next = connNextStates{
 		connecting: c.connect,
-		closed:     c.closeNow,
 	}
 
 	return c, ablytest.FullRealtimeCloser(c.Realtime)
 }
 
 func (c ConnTransitioner) Channel(name string) ChanTransitioner {
-	return ChanTransitioner{c, c.Realtime.Channels.Get(name)}
+	chanStateErrMap := map[ably.ChannelState]chan error{}
+
+	// add mapping to channel states to capture respective errors
+	chanStateErrMap[chDetaching] = make(chan error, 1)
+
+	transitioner := ChanTransitioner{c, c.Realtime.Channels.Get(name), chanStateErrMap, nil}
+	transitioner.next = chanNextStates{
+		chAttaching: transitioner.attach,
+	}
+	return transitioner
 }
 
 func (c *ConnTransitioner) To(path ...ably.ConnectionState) io.Closer {
@@ -169,7 +177,32 @@ func (c ConnTransitioner) finishConnecting(err error) connTransitionFunc {
 		// Should be CONNECTED.
 		return connNextStates{
 			disconnected: c.disconnect,
+			closing:      c.close,
 		}, nil
+	}
+}
+
+func (c ConnTransitioner) failOnIntercept(msg <-chan *proto.ProtocolMessage, cancelIntercept func()) connTransitionFunc {
+	return func() (connNextStates, func()) {
+
+		var incomingMsg *proto.ProtocolMessage
+		ablytest.Soon.Recv(c.t, &incomingMsg, msg, c.t.Fatalf)
+
+		incomingMsg.Action = proto.ActionError
+		incomingMsg.Error = &proto.ErrorInfo{
+			StatusCode: 400,
+			Code:       int(ably.ErrUnauthorized),
+			Message:    "fake error",
+		}
+
+		change := make(ably.ConnStateChanges, 1)
+		c.Realtime.Connection.Once(ably.ConnectionEventFailed, change.Receive)
+
+		cancelIntercept()
+
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+		return nil, nil
 	}
 }
 
@@ -265,9 +298,35 @@ func (c ConnTransitioner) reconnectSuspended(timer ablytest.AfterCall) connTrans
 	}
 }
 
-func (c ConnTransitioner) closeNow() (connNextStates, func()) {
+func (c ConnTransitioner) close() (connNextStates, func()) {
+	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
+	msg := c.intercept(ctx, proto.ActionClosed)
+
+	change := make(ably.ConnStateChanges, 1)
+	c.Realtime.Connection.Once(ably.ConnectionEventClosing, change.Receive)
+
 	c.Realtime.Close()
-	return nil, nil
+
+	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+	return connNextStates{
+		closed: c.finishClosing(cancel),
+		failed: c.failOnIntercept(msg, cancel),
+	}, cancel
+}
+
+func (c ConnTransitioner) finishClosing(cancelIntercept func()) connTransitionFunc {
+	return func() (connNextStates, func()) {
+
+		change := make(ably.ConnStateChanges, 1)
+		c.Realtime.Connection.Once(ably.ConnectionEventClosed, change.Receive)
+
+		cancelIntercept()
+
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+		return nil, nil
+	}
 }
 
 type connTransitionFunc func() (next connNextStates, cleanUp func())
@@ -277,6 +336,8 @@ type connNextStates map[ably.ConnectionState]connTransitionFunc
 type ChanTransitioner struct {
 	ConnTransitioner
 	Channel *ably.RealtimeChannel
+	err     map[ably.ChannelState]chan error
+	next    chanNextStates
 }
 
 func (c ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
@@ -302,6 +363,36 @@ func (c ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, 
 		next, cleanUp = transition()
 		from = to
 		c.assertState(from)
+	}
+
+	return c.Channel, closeFunc(func() error {
+		if cleanUp != nil {
+			cleanUp()
+		}
+		return nil
+	})
+}
+
+// preserves state context for channel
+func (c *ChanTransitioner) ToSpecifiedState(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
+	c.t.Helper()
+
+	from := c.Channel.State()
+	c.assertState(from)
+
+	var cleanUp func()
+
+	for _, to := range path {
+		if from == to {
+			continue
+		}
+
+		transition, ok := c.next[to]
+		if !ok {
+			c.t.Fatalf("no transition from %v to %v", from, to)
+		}
+		c.next, cleanUp = transition()
+		from = to
 	}
 
 	return c.Channel, closeFunc(func() error {
@@ -366,28 +457,48 @@ func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancel
 
 func (c ChanTransitioner) detach() (chanNextStates, func()) {
 	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
-	c.intercept(ctx, proto.ActionDetached)
+	msg := c.intercept(ctx, proto.ActionDetached)
 
 	change := make(ably.ChannelStateChanges, 1)
 	c.Channel.Once(ably.ChannelEventDetaching, change.Receive)
 
-	asyncDetach(c.Channel)
+	async(func() error {
+		errCh := asyncDetach(c.Channel)
+		err := <-errCh
+		c.err[chDetaching] <- err
+		return err
+	})
+
+	// Detach sets a timeout; discard it.
+	ablytest.Instantly.Recv(c.t, nil, c.afterCalls, c.t.Fatalf)
 
 	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 	return chanNextStates{
-		chDetached: c.finishDetach(cancel),
+		chDetached: c.finishDetach(msg, cancel, nil),
+		chFailed:   c.finishDetach(msg, cancel, &proto.ErrorInfo{Message: "fake error", Code: 50001}),
 	}, cancel
 }
 
-func (c ChanTransitioner) finishDetach(cancelIntercept func()) chanTransitionFunc {
+func (c ChanTransitioner) finishDetach(msg <-chan *proto.ProtocolMessage, cancelIntercept func(), err *proto.ErrorInfo) chanTransitionFunc {
 	return func() (chanNextStates, func()) {
+
+		var attachMsg *proto.ProtocolMessage
+		ablytest.Soon.Recv(c.t, &attachMsg, msg, c.t.Fatalf)
+
+		if err != nil {
+			// Ideally, for moving to FAILED, we'd arrange a real capabilities error
+			// to keep things real. But it's too much hassle for now.
+			attachMsg.Action = proto.ActionError
+			attachMsg.Error = err
+		}
+
 		change := make(ably.ChannelStateChanges, 1)
-		c.Channel.Once(ably.ChannelEventDetached, change.Receive)
+		c.Channel.OnceAll(change.Receive)
 
 		cancelIntercept()
 
-		ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 		return nil, nil
 	}

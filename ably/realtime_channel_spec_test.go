@@ -225,7 +225,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		return
 	}
 
-	t.Run("RTL4a", func(t *testing.T) {
+	t.Run("RTL4a: If already attached, nothing is done", func(t *testing.T) {
 		in, out, _, channel, stateChanges, _ := setup(t)
 		ctx, cancel := context.WithCancel(context.Background())
 
@@ -256,7 +256,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
 	})
 
-	t.Run("RTL4b", func(t *testing.T) {
+	t.Run("RTL4b: If connection state is INITIALIZED, CLOSED, CLOSING, SUSPENDED or FAILED, returns error", func(t *testing.T) {
 		_, _, c, channel, _, _ := setup(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -312,7 +312,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 	})
 
-	t.Run("RTL4c RTL4d", func(t *testing.T) {
+	t.Run("RTL4c RTL4d: If connected, should get attached successfully", func(t *testing.T) {
 		app, client, interrupt, channel, channelStateChange, _ := setUpWithInterrupt()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
@@ -377,7 +377,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	invalidChannelStates := []ably.ChannelState{chDetached, chSuspended, chFailed}
 
 	for _, invalidChannelState := range invalidChannelStates {
-		t.Run("RTL4d", func(t *testing.T) {
+		t.Run("RTL4d : should return error on ATTACHED, DETACHED, SUSPENDED, or FAILED channel state while attaching channel", func(t *testing.T) {
 			_, out, _, channel, stateChanges, _ := setup(t)
 
 			channel.OnAll(stateChanges.Receive)
@@ -431,20 +431,30 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		})
 	}
 
-	t.Run("RTL4e", func(t *testing.T) {
+	t.Run("RTL4e: Transition to failed if no attach permission", func(t *testing.T) {
 
 	})
 
-	t.Run("RTL4f: Channel attach timeout test", func(t *testing.T) {
-		_, out, _, channel, stateChanges, _ := setup(t)
+	t.Run("RTL4f: Channel attach timeout if not received within realtime request timeout", func(t *testing.T) {
+		_, out, _, channel, stateChanges, afterCalls := setup(t)
 		channel.OnAll(stateChanges.Receive)
 
 		var change ably.ChannelStateChange
 
 		var outMsg *proto.ProtocolMessage
-		//
-		err := channel.Attach(context.Background())
 
+		errCh := make(chan error)
+		go func() {
+			errCh <- channel.Attach(context.Background())
+		}()
+
+		// Cause a timeout.
+		var afterCall ablytest.AfterCall
+		ablytest.Instantly.Recv(t, &afterCall, afterCalls, t.Fatalf)
+		afterCall.Fire()
+
+		var err error
+		ablytest.Instantly.Recv(t, &err, errCh, t.Fatalf)
 		if err == nil {
 			t.Fatal("attach should return timeout error")
 		}
@@ -475,11 +485,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
 	})
 
-	t.Run("RTL4g", func(t *testing.T) {
+	t.Run("RTL4g: If channel in FAILED state, set err to null and process with attach", func(t *testing.T) {
 
 	})
 
-	t.Run("RTL4h", func(t *testing.T) {
+	t.Run("RTL4h: If channel is DETACHING or ATTACHING, do attach after completion of request", func(t *testing.T) {
 		in, out, _, channel, stateChanges, _ := setup(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -568,7 +578,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
 	})
 
-	t.Run("RTL4i : Connecting state", func(t *testing.T) {
+	t.Run("RTL4i : If connection state is CONNECTING, do ATTACH after CONNECTED", func(t *testing.T) {
 		app, client, interrupt, channel, channelStateChange, _ := setUpWithInterrupt()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
@@ -633,7 +643,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, &change, stateChange, t.Fatalf)
 	})
 
-	t.Run("RTL4i : Disconnected state", func(t *testing.T) {
+	t.Run("RTL4i : If connection state is DISCONNECTED, do ATTACH after CONNECTED", func(t *testing.T) {
 		app, client, interrupt, channel, channelStateChange, doEOF := setUpWithInterrupt()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
@@ -725,15 +735,15 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	})
 
-	t.Run("RTL4k", func(t *testing.T) {
+	t.Run("RTL4k: If params provided in channel options, should be reflected in ATTACH and ATTACHED message", func(t *testing.T) {
 
 	})
 
-	t.Run("RTL4l", func(t *testing.T) {
+	t.Run("RTL4l: If modes provided in channelOptions, should be encoded as bitfield and set as flags field of message", func(t *testing.T) {
 
 	})
 
-	t.Run("RTL4m", func(t *testing.T) {
+	t.Run("RTL4m: If modes provides while attach, should receive modes in attached message", func(t *testing.T) {
 
 	})
 

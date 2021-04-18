@@ -49,3 +49,42 @@ func NewTicker(after TimerFunc) TimerFunc {
 		return ch
 	}
 }
+
+// ContextWithTimeout is like context.WithTimeout, but using the provided
+// TimerFunc for setting the timer.
+func ContextWithTimeout(ctx context.Context, after TimerFunc, timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(ctx)
+
+	// If the timer expires, we cancel the context. But then we need the context's
+	// error to be context.DeadlineExceeded instead of context.Canceled.
+	// uses same context as above, doesn't create new context
+	ctx, setErr := contextWithCustomError(ctx)
+
+	go func() {
+		_, timerFired := <-after(ctx, timeout)
+		if timerFired {
+			setErr(context.DeadlineExceeded)
+		}
+		cancel()
+	}()
+	return ctx, cancel
+}
+
+type contextWithCustomErr struct {
+	context.Context
+	err error
+}
+
+func contextWithCustomError(ctx context.Context) (_ context.Context, setError func(error)) {
+	customContext := contextWithCustomErr{ctx, nil}
+	return &customContext, func(err error) {
+		customContext.err = err
+	}
+}
+
+func (ctx *contextWithCustomErr) Err() error {
+	if ctx.err != nil {
+		return ctx.err
+	}
+	return ctx.Context.Err()
+}
