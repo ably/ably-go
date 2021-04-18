@@ -68,7 +68,6 @@ func TransitionConn(t *testing.T, dial ablytest.DialFunc, options ...ably.Client
 
 	c.next = connNextStates{
 		connecting: c.connect,
-		closed:     c.closeNow,
 	}
 
 	return c, ablytest.FullRealtimeCloser(c.Realtime)
@@ -173,7 +172,32 @@ func (c ConnTransitioner) finishConnecting(err error) connTransitionFunc {
 		// Should be CONNECTED.
 		return connNextStates{
 			disconnected: c.disconnect,
+			closing:      c.close,
 		}, nil
+	}
+}
+
+func (c ConnTransitioner) failOnIntercept(msg <-chan *proto.ProtocolMessage, cancelIntercept func()) connTransitionFunc {
+	return func() (connNextStates, func()) {
+
+		var incomingMsg *proto.ProtocolMessage
+		ablytest.Soon.Recv(c.t, &incomingMsg, msg, c.t.Fatalf)
+
+		incomingMsg.Action = proto.ActionError
+		incomingMsg.Error = &proto.ErrorInfo{
+			StatusCode: 400,
+			Code:       int(ably.ErrUnauthorized),
+			Message:    "fake error",
+		}
+
+		change := make(ably.ConnStateChanges, 1)
+		c.Realtime.Connection.Once(ably.ConnectionEventFailed, change.Receive)
+
+		cancelIntercept()
+
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+		return nil, nil
 	}
 }
 
@@ -269,9 +293,35 @@ func (c ConnTransitioner) reconnectSuspended(timer ablytest.AfterCall) connTrans
 	}
 }
 
-func (c ConnTransitioner) closeNow() (connNextStates, func()) {
+func (c ConnTransitioner) close() (connNextStates, func()) {
+	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
+	msg := c.intercept(ctx, proto.ActionClosed)
+
+	change := make(ably.ConnStateChanges, 1)
+	c.Realtime.Connection.Once(ably.ConnectionEventClosing, change.Receive)
+
 	c.Realtime.Close()
-	return nil, nil
+
+	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+	return connNextStates{
+		closed: c.finishClosing(cancel),
+		failed: c.failOnIntercept(msg, cancel),
+	}, cancel
+}
+
+func (c ConnTransitioner) finishClosing(cancelIntercept func()) connTransitionFunc {
+	return func() (connNextStates, func()) {
+
+		change := make(ably.ConnStateChanges, 1)
+		c.Realtime.Connection.Once(ably.ConnectionEventClosed, change.Receive)
+
+		cancelIntercept()
+
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+		return nil, nil
+	}
 }
 
 type connTransitionFunc func() (next connNextStates, cleanUp func())
