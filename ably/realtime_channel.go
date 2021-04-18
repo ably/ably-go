@@ -265,14 +265,14 @@ func (c *RealtimeChannel) Detach(ctx context.Context) error {
 func (c *RealtimeChannel) detach() (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+	if c.client.Connection.State() == ConnectionStateClosing || c.client.Connection.State() == ConnectionStateFailed { // RTL5g
+		return nil, connStateError(c.client.Connection.State(), errConnDetach(c.client.Connection.State()))
+	}
 	if c.state == ChannelStateInitialized || c.state == ChannelStateDetached { //RTL5a
 		return nopResult, nil
 	}
 	if c.state == ChannelStateFailed { // RTL5b
 		return nil, channelStateError(ChannelStateFailed, errChannelDetach(c.state))
-	}
-	if c.client.Connection.State() == ConnectionStateClosing || c.client.Connection.State() == ConnectionStateFailed { // RTL5g
-		return nil, connStateError(c.client.Connection.State(), errConnDetach(c.client.Connection.State()))
 	}
 	if c.state == ChannelStateSuspended { // RTL5j
 		c.lockSetState(ChannelStateDetached, nil)
@@ -284,7 +284,7 @@ func (c *RealtimeChannel) detach() (result, error) {
 	if c.state == ChannelStateAttaching { //RTL5i
 		attachRes := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
 		return resultFunc(func(ctx context.Context) error {                                                                                // runs inside goroutine, need to check for locks again before accessing state
-			err := attachRes.Wait(ctx) // error can be suspended or failed, so send back error
+			err := attachRes.Wait(ctx) // error can be suspended or failed, so send back error right away
 			if err != nil {
 				return err
 			}
