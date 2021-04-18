@@ -323,7 +323,7 @@ func (c ConnTransitioner) finishClosing(cancelIntercept func()) connTransitionFu
 
 		cancelIntercept()
 
-		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+		ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
 
 		return nil, nil
 	}

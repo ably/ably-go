@@ -256,128 +256,210 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
 	})
 
-	t.Run("RTL4b: If connection state is INITIALIZED, CLOSED, CLOSING, SUSPENDED or FAILED, returns error", func(t *testing.T) {
-		_, _, c, channel, _, _ := setup(t)
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		connectionChange := make(chan ably.ConnectionStateChange)
-		c.Connection.OnAll(func(change ably.ConnectionStateChange) {
-			connectionChange <- change
-		})
+	t.Run("RTL4b: If connection state is INITIALIZED, CLOSING, CLOSED returns error", func(t *testing.T) {
+		t.Parallel()
 
-		c.Close()
-
-		// set connection state to initialized
-		c.Connection.SetState(ably.ConnectionStateInitialized, nil, time.Minute)
-
-		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to closing
-		err := channel.Attach(ctx)
-		if expected, got := "cannot Attach channel because connection is in INITIALIZED state", err.Error(); !strings.Contains(got, expected) {
-			t.Fatalf("expected error %+v; got %v", expected, got)
+		app, err := ablytest.NewSandbox(nil)
+		if err != nil {
+			t.Fatal(err)
 		}
+		defer safeclose(t, app)
 
-		// set connection state to closing
-		c.Connection.SetState(ably.ConnectionStateClosing, nil, time.Minute)
+		c, close := TransitionConn(t, nil, app.Options()...)
+		defer safeclose(t, close)
 
-		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to closing
-		err = channel.Attach(ctx)
-		if expected, got := "cannot Attach channel because connection is in CLOSING state", err.Error(); !strings.Contains(got, expected) {
-			t.Fatalf("expected error %+v; got %v", expected, got)
-		}
+		channelTransitioner := c.Channel("test")
+		channel := channelTransitioner.Channel
 
-		// set connection state to closed
-		c.Connection.SetState(ably.ConnectionStateClosed, nil, time.Minute)
-
-		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to closing
-		err = channel.Attach(ctx)
-		if expected, got := "cannot Attach channel because connection is in CLOSED state", err.Error(); !strings.Contains(got, expected) {
-			t.Fatalf("expected error %+v; got %v", expected, got)
-		}
-
-		// set connection state to suspended
-		c.Connection.SetState(ably.ConnectionStateSuspended, nil, time.Minute)
-
-		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to closing
-		err = channel.Attach(ctx)
-		if expected, got := "cannot Attach channel because connection is in SUSPENDED state", err.Error(); !strings.Contains(got, expected) {
-			t.Fatalf("expected error %+v; got %v", expected, got)
-		}
-
-		// set connection state to failed
-		c.Connection.SetState(ably.ConnectionStateFailed, nil, time.Minute)
-		ablytest.Instantly.Recv(t, nil, connectionChange, t.Fatalf) // Consume connection state change to closing
-		err = channel.Attach(ctx)
-		if expected, got := "cannot Attach channel because connection is in FAILED state", err.Error(); !strings.Contains(got, expected) {
-			t.Fatalf("expected error %+v; got %v", expected, got)
-		}
-	})
-
-	t.Run("RTL4c RTL4d: If connected, should get attached successfully", func(t *testing.T) {
-		app, client, interrupt, channel, channelStateChange, _ := setUpWithInterrupt()
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(channelStateChanges.Receive)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		stateChange := make(ably.ConnStateChanges, 10)
-		off := client.Connection.OnAll(stateChange.Receive)
+		// connection is initialized
+		err = channel.Attach(ctx)
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't change to attaching
+
+		if expected, got := "cannot Attach channel because connection is in INITIALIZED state", err.Error(); !strings.Contains(got, expected) {
+			t.Fatalf("expected error %+v; got %v", expected, got)
+		}
+
+		close = c.To(
+			connecting,
+			connected,
+			closing,
+		)
+
+		defer safeclose(t, close)
+
+		// connection is closing
+		err = channel.Attach(ctx)
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't change to attaching
+
+		if expected, got := "cannot Attach channel because connection is in CLOSING state", err.Error(); !strings.Contains(got, expected) {
+			t.Fatalf("expected error %+v; got %v", expected, got)
+		}
+
+		close = c.To(
+			closed,
+		)
+		defer safeclose(t, close)
+
+		// connection is closed
+		err = channel.Attach(ctx)
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't change to attaching
+
+		if expected, got := "cannot Attach channel because connection is in CLOSED state", err.Error(); !strings.Contains(got, expected) {
+			t.Fatalf("expected error %+v; got %v", expected, got)
+		}
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't change to attaching
+
+	})
+
+	t.Run("RTL4b: If connection state is FAILED, returns error", func(t *testing.T) {
+		t.Parallel()
+
+		app, err := ablytest.NewSandbox(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer safeclose(t, app)
+
+		c, close := TransitionConn(t, nil, app.Options()...)
+		defer safeclose(t, close)
+
+		close = c.To(
+			connecting,
+			failed,
+		)
+
+		defer safeclose(t, close)
+
+		channelTransitioner := c.Channel("test")
+		channel := channelTransitioner.Channel
+
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(channelStateChanges.Receive)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		// connection is failed
+		err = channel.Attach(ctx)
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // shouldn't send attach message
+
+		if expected, got := "cannot Attach channel because connection is in FAILED state", err.Error(); !strings.Contains(got, expected) {
+			t.Fatalf("expected error %+v; got %v", expected, got)
+		}
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf)
+	})
+
+	t.Run("RTL4b: If connection state is SUSPENDED, returns error", func(t *testing.T) {
+		t.Parallel()
+
+		app, err := ablytest.NewSandbox(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer safeclose(t, app)
+
+		c, close := TransitionConn(t, nil, app.Options()...)
+		defer safeclose(t, close)
+
+		close = c.To(
+			connecting,
+			disconnected,
+			suspended,
+		)
+
+		defer safeclose(t, close)
+
+		channelTransitioner := c.Channel("test")
+		channel := channelTransitioner.Channel
+
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(channelStateChanges.Receive)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		// connection state is suspended
+		err = channel.Attach(ctx)
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // shouldn't send attach message
+
+		if expected, got := "cannot Attach channel because connection is in SUSPENDED state", err.Error(); !strings.Contains(got, expected) {
+			t.Fatalf("expected error %+v; got %v", expected, got)
+		}
+
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf)
+
+	})
+
+	t.Run("RTL4c RTL4d: If connected, should get attached successfully", func(t *testing.T) {
+		t.Parallel()
+
+		app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+		connectionStateChanges := make(ably.ConnStateChanges, 10)
+		off := client.Connection.OnAll(connectionStateChanges.Receive)
 		defer off()
 
 		client.Connect()
 
-		var change ably.ConnectionStateChange
+		var connectionChange ably.ConnectionStateChange
 
-		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
-		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		ablytest.Soon.Recv(t, &connectionChange, connectionStateChanges, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnecting, connectionChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, connectionChange)
 		}
 
-		msg := <-interrupt // accept connected message
-
-		if expected, got := proto.ActionConnected, msg.Action; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, msg)
+		ablytest.Soon.Recv(t, &connectionChange, connectionStateChanges, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnected, connectionChange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, connectionChange)
 		}
 
-		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
-		if expected, got := ably.ConnectionStateConnected, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
+		channel := client.Channels.Get("test")
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
 
-		go func() {
-			msg = <-interrupt // accept attached message
-			if expected, got := proto.ActionAttached, msg.Action; expected != got {
-				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, msg)
-			}
-		}()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		channeloff := channel.OnAll(channelStateChanges.Receive)
+		defer channeloff()
+
+		var channelStatechange ably.ChannelStateChange
 
 		err := channel.Attach(ctx)
-
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		var channelChange ably.ChannelStateChange
-
-		ablytest.Instantly.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Consume attaching event state
-
-		if expected, got := ably.ChannelStateAttaching, channelChange.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
 		}
 
-		ablytest.Soon.Recv(t, &channelChange, channelStateChange, t.Fatalf) // Consume attached event state
-
-		if expected, got := ably.ChannelStateAttached, channelChange.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelChange)
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
 		}
 
-		ablytest.Instantly.NoRecv(t, &channelChange, channelStateChange, t.Fatalf) // Shouldn't change channel state again\
-		ablytest.Instantly.NoRecv(t, &change, stateChange, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, connectionStateChanges, t.Fatalf)
+
 	})
 
 	invalidChannelStates := []ably.ChannelState{chDetached, chSuspended, chFailed}
 
 	for _, invalidChannelState := range invalidChannelStates {
-		t.Run("RTL4d : should return error on ATTACHED, DETACHED, SUSPENDED, or FAILED channel state while attaching channel", func(t *testing.T) {
+		t.Run("RTL4d : should return error on DETACHED, SUSPENDED, or FAILED channel state while attaching channel", func(t *testing.T) {
 			_, out, _, channel, stateChanges, _ := setup(t)
 
 			channel.OnAll(stateChanges.Receive)
