@@ -429,7 +429,7 @@ func (c ChanTransitioner) attach() (chanNextStates, func()) {
 
 	return chanNextStates{
 		chAttached: c.finishAttach(msg, cancel, nil),
-		chFailed:   c.finishAttach(msg, cancel, &proto.ErrorInfo{Message: "fake error"}),
+		chFailed:   c.finishAttach(msg, cancel, &proto.ErrorInfo{Message: "fake error", Code: 50001}),
 	}, cancel
 }
 
