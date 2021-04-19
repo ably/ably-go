@@ -80,6 +80,14 @@ func ChannelWithMode(modes []ChannelMode) ChannelOption {
 	}
 }
 
+func applyChannelOptions(os ...ChannelOption) *channelOptions {
+	to := channelOptions{}
+	for _, set := range os {
+		set(&to)
+	}
+	return &to
+}
+
 type CipherParams = proto.CipherParams
 type CipherAlgorith = proto.CipherAlgorithm
 type CipherMode = proto.CipherMode
@@ -97,7 +105,7 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 	ch.mtx.Lock()
 	c, ok := ch.chans[name]
 	if !ok {
-		c = newRealtimeChannel(name, ch.client)
+		c = newRealtimeChannel(name, ch.client, applyChannelOptions(options...))
 		ch.chans[name] = c
 	}
 	ch.mtx.Unlock()
@@ -170,11 +178,12 @@ type RealtimeChannel struct {
 	client         *Realtime
 	messageEmitter *eventEmitter
 	queue          *msgQueue
+	options        *channelOptions
 	params         ChannelParams
 	modes          []ChannelMode
 }
 
-func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
+func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions) *RealtimeChannel {
 	c := &RealtimeChannel{
 		ChannelEventEmitter: ChannelEventEmitter{newEventEmitter(client.logger())},
 		Name:                name,
@@ -184,6 +193,7 @@ func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 
 		client:         client,
 		messageEmitter: newEventEmitter(client.logger()),
+		options:        chOptions,
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
@@ -261,6 +271,12 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 		msg := &proto.ProtocolMessage{
 			Action:  proto.ActionAttach,
 			Channel: c.Name,
+		}
+		if c.channelOpts().Params != nil {
+			msg.Params = &c.channelOpts().Params
+		}
+		if c.channelOpts().Modes != nil {
+			msg.SetModesAsFlag(c.channelOpts().Modes)
 		}
 		c.client.Connection.send(msg, nil)
 		return res, nil
@@ -568,6 +584,12 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
+		if msg.Params != nil {
+			c.params = *msg.Params
+		}
+		if msg.Flags != 0 {
+			c.modes = proto.FromFlag(msg.Flags)
+		}
 		c.Presence.onAttach(msg)
 		c.setState(ChannelStateAttached, nil)
 		c.queue.Flush()
@@ -668,6 +690,10 @@ func (c *RealtimeChannel) retryAttach(stateChange channelStateChanges) (done boo
 
 func (c *RealtimeChannel) isActive() bool {
 	return c.state == ChannelStateAttaching || c.state == ChannelStateAttached
+}
+
+func (c *RealtimeChannel) channelOpts() *channelOptions {
+	return c.options
 }
 
 func (c *RealtimeChannel) opts() *clientOptions {
