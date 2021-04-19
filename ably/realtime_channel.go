@@ -68,9 +68,23 @@ func ChannelWithCipher(params CipherParams) ChannelOption {
 	}
 }
 
+func ChannelWithParams(params ChannelParams) ChannelOption {
+	return func(o *channelOptions) {
+		o.Params = params
+	}
+}
+
+func ChannelWithMode(modes []ChannelMode) ChannelOption {
+	return func(o *channelOptions) {
+		o.Modes = modes
+	}
+}
+
 type CipherParams = proto.CipherParams
 type CipherAlgorith = proto.CipherAlgorithm
 type CipherMode = proto.CipherMode
+type ChannelParams = proto.ChannelParams
+type ChannelMode = proto.ChannelMode
 
 // Get looks up a channel given by the name and creates it if it does not exist
 // already.
@@ -140,52 +154,6 @@ func (ch *RealtimeChannels) broadcastConnStateChange(change ConnectionStateChang
 		c.onConnStateChange(change)
 	}
 }
-
-type ChannelParams map[string]string
-type ChannelMode int64
-
-func (mode ChannelMode) ToFlag() proto.Flag {
-	switch mode {
-	case ChannelModePresence:
-		return proto.FlagPresence
-	case ChannelModePublish:
-		return proto.FlagPublish
-	case ChannelModeSubscribe:
-		return proto.FlagSubscribe
-	case ChannelModePresenceSubscribe:
-		return proto.FlagPresenceSubscribe
-	default:
-		return 0
-	}
-}
-
-func FromFlag(flags proto.Flag) []ChannelMode {
-	var modes []ChannelMode
-	if flags.Has(proto.FlagPresence) {
-		modes = append(modes, ChannelModePresence)
-	}
-	if flags.Has(proto.FlagPublish) {
-		modes = append(modes, ChannelModePublish)
-	}
-	if flags.Has(proto.FlagSubscribe) {
-		modes = append(modes, ChannelModeSubscribe)
-	}
-	if flags.Has(proto.FlagPresenceSubscribe) {
-		modes = append(modes, ChannelModePresenceSubscribe)
-	}
-	return modes
-}
-
-const (
-	// Presence mode. Allows the attached channel to enter Presence.
-	ChannelModePresence ChannelMode = iota + 1
-	// Publish mode. Allows the messages to be published to the attached channel.
-	ChannelModePublish
-	// Subscribe mode. Allows the attached channel to subscribe to messages.
-	ChannelModeSubscribe
-	// PresenceSubscribe. Allows the attached channel to subscribe to Presence updates.
-	ChannelModePresenceSubscribe
-)
 
 // RealtimeChannel represents a single named message channel.
 type RealtimeChannel struct {
