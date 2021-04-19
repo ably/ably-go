@@ -144,7 +144,7 @@ func (ch *RealtimeChannels) broadcastConnStateChange(change ConnectionStateChang
 type ChannelParams map[string]string
 type ChannelMode int64
 
-func (mode ChannelMode) toFlag() proto.Flag {
+func (mode ChannelMode) ToFlag() proto.Flag {
 	switch mode {
 	case ChannelModePresence:
 		return proto.FlagPresence
@@ -159,7 +159,7 @@ func (mode ChannelMode) toFlag() proto.Flag {
 	}
 }
 
-func fromFlag(flags proto.Flag) []ChannelMode {
+func FromFlag(flags proto.Flag) []ChannelMode {
 	var modes []ChannelMode
 	if flags.Has(proto.FlagPresence) {
 		modes = append(modes, ChannelModePresence)

@@ -203,3 +203,66 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRealtimeChannelModes_ToFlag(t *testing.T) {
+	mode := ably.ChannelModePresence
+	flag := mode.ToFlag()
+	if flag != proto.FlagPresence {
+		t.Fatalf("Expected %v, received %v", proto.FlagPresence, flag)
+	}
+
+	mode = ably.ChannelModeSubscribe
+	flag = mode.ToFlag()
+	if flag != proto.FlagSubscribe {
+		t.Fatalf("Expected %v, received %v", proto.FlagSubscribe, flag)
+	}
+
+	mode = ably.ChannelModePublish
+	flag = mode.ToFlag()
+	if flag != proto.FlagPublish {
+		t.Fatalf("Expected %v, received %v", proto.FlagPublish, flag)
+	}
+
+	mode = ably.ChannelModePresenceSubscribe
+	flag = mode.ToFlag()
+	if flag != proto.FlagPresenceSubscribe {
+		t.Fatalf("Expected %v, received %v", proto.FlagPresenceSubscribe, flag)
+	}
+}
+
+func TestRealtimeChannelModes_FromFlag(t *testing.T) {
+
+	// checks if element is present in the array
+	inArray := func(v interface{}, in interface{}) (ok bool) {
+		i := 0
+		val := reflect.Indirect(reflect.ValueOf(in))
+		switch val.Kind() {
+		case reflect.Slice, reflect.Array:
+			for ; i < val.Len(); i++ {
+				if ok = v == val.Index(i).Interface(); ok {
+					return
+				}
+			}
+		}
+		return
+	}
+
+	flags := proto.FlagPresence | proto.FlagPresenceSubscribe | proto.FlagSubscribe
+	modes := ably.FromFlag(flags)
+
+	if !inArray(ably.ChannelModePresence, modes) {
+		t.Fatalf("Expected %v to be present in %v", ably.ChannelModePresence, modes)
+	}
+
+	if !inArray(ably.ChannelModePresenceSubscribe, modes) {
+		t.Fatalf("Expected %v to be present in %v", ably.ChannelModePresenceSubscribe, modes)
+	}
+
+	if !inArray(ably.ChannelModeSubscribe, modes) {
+		t.Fatalf("Expected %v to be present in %v", ably.ChannelModeSubscribe, modes)
+	}
+
+	if inArray(ably.ChannelModePublish, modes) {
+		t.Fatalf("Expected %v not to be present in %v", ably.ChannelModePublish, modes)
+	}
+}
