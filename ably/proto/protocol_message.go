@@ -98,6 +98,7 @@ type ProtocolMessage struct {
 	Count             int                `json:"count,omitempty" codec:"count,omitempty"`
 	Action            Action             `json:"action,omitempty" codec:"action,omitempty"`
 	Flags             Flag               `json:"flags,omitempty" codec:"flags,omitempty"`
+	Params            *ChannelParams     `json:"params,omitempty" codec:"params,omitempty"`
 }
 
 func (p *ProtocolMessage) UnmarshalJSON(b []byte) error {
@@ -108,6 +109,15 @@ func (p *ProtocolMessage) UnmarshalJSON(b []byte) error {
 	}
 	p.FromMap(ctx)
 	return nil
+}
+
+func (p *ProtocolMessage) SetModesAsFlag(modes []ChannelMode) {
+	for _, mode := range modes {
+		flag := mode.ToFlag()
+		if flag != 0 {
+			p.Flags = p.Flags | flag
+		}
+	}
 }
 
 func (p *ProtocolMessage) FromMap(ctx map[string]interface{}) {
