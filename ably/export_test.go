@@ -140,6 +140,7 @@ func (c *Connection) PendingItems() int {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.pending.Len()
+	return c.pending.Len()
 }
 
 type Result = result
@@ -148,12 +149,4 @@ func (c *RESTChannels) Len() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return len(c.cache)
-}
-
-func (c *RealtimeChannel) SetState(state ChannelState, err error) error {
-	return c.setState(state, err)
-}
-
-func (ablyConn *Connection) SetState(state ConnectionState, err error, retryIn time.Duration) error {
-	return ablyConn.setState(state, err, retryIn)
 }

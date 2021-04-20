@@ -343,40 +343,6 @@ type ChanTransitioner struct {
 func (c ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
 	c.t.Helper()
 
-	from := chInitialized
-	c.assertState(from)
-
-	next := chanNextStates{
-		chAttaching: c.attach,
-	}
-	var cleanUp func()
-
-	for _, to := range path {
-		if from == to {
-			continue
-		}
-
-		transition, ok := next[to]
-		if !ok {
-			c.t.Fatalf("no transition from %v to %v", from, to)
-		}
-		next, cleanUp = transition()
-		from = to
-		c.assertState(from)
-	}
-
-	return c.Channel, closeFunc(func() error {
-		if cleanUp != nil {
-			cleanUp()
-		}
-		return nil
-	})
-}
-
-// preserves state context for channel
-func (c *ChanTransitioner) ToSpecifiedState(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
-	c.t.Helper()
-
 	from := c.Channel.State()
 	c.assertState(from)
 
