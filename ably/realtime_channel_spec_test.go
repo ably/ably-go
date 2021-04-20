@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -619,7 +620,31 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	}
 
 	t.Run("RTL4e: Transition to failed if no attach permission", func(t *testing.T) {
+		app, err := ablytest.NewSandbox(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer safeclose(t, app)
 
+		rest, _ := ably.NewREST(app.Options()...)
+		var params ably.TokenParams
+		params.Capability = `{"foo":["subscribe"]}`
+		token, _ := rest.Auth.RequestToken(context.Background(), &params)
+
+		realtime := app.NewRealtime(ably.WithToken(token.Token))
+		err = realtime.Channels.Get("nofoo").Attach(context.Background())
+
+		if err == nil {
+			t.Fatal("Shouldn't attach channel with server")
+		}
+
+		if ably.UnwrapErrorCode(err) != 40160 {
+			t.Fatalf("want code=40160; got %d", ably.UnwrapErrorCode(err))
+		}
+
+		if ably.UnwrapStatusCode(err) != http.StatusUnauthorized {
+			t.Fatalf("error status should be unauthorized")
+		}
 	})
 
 	t.Run("RTL4f: Channel attach timeout if not received within realtime request timeout", func(t *testing.T) {
@@ -1044,7 +1069,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	})
 
-	t.Run("RTL4k, RTL4k1: If params given channel options, should be sent in ATTACH message", func(t *testing.T) {
+	t.Run("RTL4k: If params given channel options, should be sent in ATTACH message", func(t *testing.T) {
 		t.Parallel()
 
 		recorder := ablytest.NewMessageRecorder()

@@ -40,6 +40,10 @@ func UnwrapErrorCode(err error) ErrorCode {
 	return code(err)
 }
 
+func UnwrapStatusCode(err error) int {
+	return statusCode(err)
+}
+
 func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
 	return a.timestamp(ctx, query)
 }
