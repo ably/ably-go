@@ -326,6 +326,21 @@ func (rec *MessageRecorder) Sent() []*proto.ProtocolMessage {
 	return sent
 }
 
+func (rec *MessageRecorder) CheckIfSent(action proto.Action, times int) func() bool {
+	return func() bool {
+		counter := 0
+		for _, m := range rec.Sent() {
+			if m.Action == action {
+				counter++
+				if counter == times {
+					return true
+				}
+			}
+		}
+		return false
+	}
+}
+
 // Received
 func (rec *MessageRecorder) Received() []*proto.ProtocolMessage {
 	rec.mu.Lock()
