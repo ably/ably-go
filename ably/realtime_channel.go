@@ -68,13 +68,16 @@ func ChannelWithCipher(params CipherParams) ChannelOption {
 	}
 }
 
-func ChannelWithParams(params ChannelParams) ChannelOption {
+func ChannelWithParams(key string, value string) ChannelOption {
 	return func(o *channelOptions) {
-		o.Params = params
+		if o.Params == nil {
+			o.Params = map[string]string{}
+		}
+		o.Params[key] = value
 	}
 }
 
-func ChannelWithMode(modes []ChannelMode) ChannelOption {
+func ChannelWithModes(modes ...ChannelMode) ChannelOption {
 	return func(o *channelOptions) {
 		o.Modes = modes
 	}
@@ -694,6 +697,14 @@ func (c *RealtimeChannel) isActive() bool {
 
 func (c *RealtimeChannel) channelOpts() *channelOptions {
 	return c.options
+}
+
+func (c RealtimeChannel) Modes() []ChannelMode {
+	return c.modes
+}
+
+func (c RealtimeChannel) Params() ChannelParams {
+	return c.params
 }
 
 func (c *RealtimeChannel) opts() *clientOptions {
