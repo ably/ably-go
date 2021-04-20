@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -814,7 +815,6 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	})
 
 	t.Run("RTL4h: If channel is DETACHING, do attach after completion of request", func(t *testing.T) {
-
 		t.Parallel()
 
 		app, err := ablytest.NewSandbox(nil)
@@ -1044,18 +1044,140 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	})
 
-	t.Run("RTL4k: If params provided in channel options, should be reflected in ATTACH and ATTACHED message", func(t *testing.T) {
+	t.Run("RTL4k, RTL4k1: If params given channel options, should be sent in ATTACH message", func(t *testing.T) {
+		t.Parallel()
 
+		recorder := ablytest.NewMessageRecorder()
+		app, client := ablytest.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithDial(recorder.Dial))
+
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		client.Connect()
+		channel := client.Channels.Get("test",
+			ably.ChannelWithParams("test", "blah"),
+			ably.ChannelWithParams("test2", "blahblah"),
+			ably.ChannelWithParams("delta", "vcdiff"))
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err := channel.Attach(ctx)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		attachMessage := recorder.FindLatest(proto.ActionAttach)
+		params := attachMessage.Params // RTL4k
+
+		if params == nil {
+			t.Fatal("Attach message params cannot be null")
+		}
+
+		if expected, got := "blah", params["test"]; expected != got {
+			t.Fatalf("expected %v; got %v", expected, got)
+		}
+
+		if expected, got := "blahblah", params["test2"]; expected != got {
+			t.Fatalf("expected %v; got %v", expected, got)
+		}
+
+		if expected, got := "vcdiff", params["delta"]; expected != got {
+			t.Fatalf("expected %v; got %v", expected, got)
+		}
 	})
 
-	t.Run("RTL4l: If modes provided in channelOptions, should be encoded as bitfield and set as flags field of message", func(t *testing.T) {
+	t.Run(" RTL4k1: If params given channel options, should be exposed as readonly field on ATTACHED message", func(t *testing.T) {
+		t.Parallel()
 
+		app, client := ablytest.NewRealtime(
+			ably.WithAutoConnect(false))
+
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		client.Connect()
+		channel := client.Channels.Get("test",
+			ably.ChannelWithParams("test", "blah"),
+			ably.ChannelWithParams("test2", "blahblah"),
+			ably.ChannelWithParams("delta", "vcdiff"))
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err := channel.Attach(ctx)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		params := channel.Params() // RTL4k1
+
+		if expected, got := "vcdiff", params["delta"]; expected != got {
+			t.Fatalf("expected %v; got %v", expected, got)
+		}
+	})
+
+	t.Run("RTL4l: If modes provided in channelOptions, should be encoded as bitfield and set as flags field of ATTACH message", func(t *testing.T) {
+		t.Parallel()
+		recorder := ablytest.NewMessageRecorder()
+		app, client := ablytest.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithDial(recorder.Dial))
+
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		client.Connect()
+
+		channelModes := []ably.ChannelMode{proto.ChannelModePresence, proto.ChannelModePublish, proto.ChannelModeSubscribe}
+
+		channel := client.Channels.Get("test",
+			ably.ChannelWithModes(channelModes...))
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err := channel.Attach(ctx)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		attachMessage := recorder.FindLatest(proto.ActionAttach)
+		flags := attachMessage.Flags // RTL4k
+		modes := proto.FromFlag(flags)
+
+		if !reflect.DeepEqual(channelModes, modes) {
+			t.Fatalf("expected %v; got %v", channelModes, modes)
+		}
 	})
 
 	t.Run("RTL4m: If modes provides while attach, should receive modes in attached message", func(t *testing.T) {
+		t.Parallel()
+		app, client := ablytest.NewRealtime(
+			ably.WithAutoConnect(false))
 
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		client.Connect()
+
+		channelModes := []ably.ChannelMode{proto.ChannelModePresence, proto.ChannelModePublish, proto.ChannelModeSubscribe}
+
+		channel := client.Channels.Get("test",
+			ably.ChannelWithModes(channelModes...))
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err := channel.Attach(ctx)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		modes := channel.Modes()
+
+		if !reflect.DeepEqual(channelModes, modes) {
+			t.Fatalf("expected %v; got %v", channelModes, modes)
+		}
 	})
-
 }
 
 func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {

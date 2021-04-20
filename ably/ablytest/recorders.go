@@ -341,6 +341,15 @@ func (rec *MessageRecorder) CheckIfSent(action proto.Action, times int) func() b
 	}
 }
 
+func (rec *MessageRecorder) FindLatest(action proto.Action) *proto.ProtocolMessage {
+	for _, m := range rec.Sent() {
+		if m.Action == action {
+			return m
+		}
+	}
+	return nil
+}
+
 // Received
 func (rec *MessageRecorder) Received() []*proto.ProtocolMessage {
 	rec.mu.Lock()

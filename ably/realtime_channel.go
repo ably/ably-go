@@ -79,7 +79,7 @@ func ChannelWithParams(key string, value string) ChannelOption {
 
 func ChannelWithModes(modes ...ChannelMode) ChannelOption {
 	return func(o *channelOptions) {
-		o.Modes = modes
+		o.Modes = append(o.Modes, modes...)
 	}
 }
 
@@ -276,7 +276,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 			Channel: c.Name,
 		}
 		if c.channelOpts().Params != nil {
-			msg.Params = &c.channelOpts().Params
+			msg.Params = c.channelOpts().Params
 		}
 		if c.channelOpts().Modes != nil {
 			msg.SetModesAsFlag(c.channelOpts().Modes)
@@ -588,7 +588,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
 		if msg.Params != nil {
-			c.params = *msg.Params
+			c.params = msg.Params
 		}
 		if msg.Flags != 0 {
 			c.modes = proto.FromFlag(msg.Flags)
