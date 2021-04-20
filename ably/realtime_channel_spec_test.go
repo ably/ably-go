@@ -262,7 +262,9 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
+		recorder := ablytest.NewMessageRecorder()
+
+		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
 		defer safeclose(t, close)
 
 		channelTransitioner := c.Channel("test")
@@ -276,6 +278,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		// connection is initialized
 		err = channel.Attach(ctx)
+
+		// Check that the attach message isn't sent
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); attachSent {
+			t.Fatalf("Attach message was sent before connection is established")
+		}
 
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't change to attaching
 
@@ -294,6 +302,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		// connection is closing
 		err = channel.Attach(ctx)
 
+		// Check that the attach message isn't sent
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); attachSent {
+			t.Fatalf("Attach message was sent before connection is established")
+		}
+
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't change to attaching
 
 		if expected, got := "cannot Attach channel because connection is in CLOSING state", err.Error(); !strings.Contains(got, expected) {
@@ -307,6 +320,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		// connection is closed
 		err = channel.Attach(ctx)
+
+		// Check that the attach message isn't sent
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); attachSent {
+			t.Fatalf("Attach message was sent before connection is established")
+		}
 
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't change to attaching
 
@@ -327,7 +345,9 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
+		recorder := ablytest.NewMessageRecorder()
+
+		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
 		defer safeclose(t, close)
 
 		close = c.To(
@@ -348,6 +368,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		// connection is failed
 		err = channel.Attach(ctx)
 
+		// Check that the attach message isn't sent
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); attachSent {
+			t.Fatalf("Attach message was sent before connection is established")
+		}
+
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // shouldn't send attach message
 
 		if expected, got := "cannot Attach channel because connection is in FAILED state", err.Error(); !strings.Contains(got, expected) {
@@ -366,7 +392,9 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
+		recorder := ablytest.NewMessageRecorder()
+
+		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
 		defer safeclose(t, close)
 
 		close = c.To(
@@ -388,6 +416,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		// connection state is suspended
 		err = channel.Attach(ctx)
 
+		// Check that the attach message isn't sent
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); attachSent {
+			t.Fatalf("Attach message was sent before connection is established")
+		}
+
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // shouldn't send attach message
 
 		if expected, got := "cannot Attach channel because connection is in SUSPENDED state", err.Error(); !strings.Contains(got, expected) {
@@ -401,7 +435,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	t.Run("RTL4c RTL4d: If connected, should get attached successfully", func(t *testing.T) {
 		t.Parallel()
 
-		app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		recorder := ablytest.NewMessageRecorder()
+
+		app, client := ablytest.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithDial(recorder.Dial))
+
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 		connectionStateChanges := make(ably.ConnStateChanges, 10)
@@ -434,6 +473,13 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		var channelStatechange ably.ChannelStateChange
 
 		err := channel.Attach(ctx)
+
+		// Check that the attach message is sent
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); !attachSent {
+			t.Fatalf("Should sent attach message, since connection state is connected")
+		}
+
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -462,7 +508,9 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
+		recorder := ablytest.NewMessageRecorder()
+		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+
 		defer safeclose(t, close)
 
 		close = c.To(
@@ -479,6 +527,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channel.OnAll(channelStateChanges.Receive)
 
 		channelTransitioner.To(chAttaching, chFailed)
+
+		// Check that the attach message is sent
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); !attachSent {
+			t.Fatalf("Should sent attach message, since connection state is connected")
+		}
 
 		var channelStatechange ably.ChannelStateChange
 
@@ -509,7 +563,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	invalidChannelStates := []ably.ChannelState{chDetached, chSuspended}
 
 	for _, invalidChannelState := range invalidChannelStates {
-		t.Run("RTL4d : should return error on DETACHED, SUSPENDED, or FAILED channel state while attaching channel", func(t *testing.T) {
+		t.Run("RTL4d : should return error on DETACHED, SUSPENDED channel state while attaching channel", func(t *testing.T) {
 			_, out, _, channel, stateChanges, _ := setup(t)
 
 			channel.OnAll(stateChanges.Receive)
@@ -575,10 +629,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		var outMsg *proto.ProtocolMessage
 
-		errCh := make(chan error)
-		go func() {
-			errCh <- channel.Attach(context.Background())
-		}()
+		errCh := asyncAttach(channel)
 
 		// Cause a timeout.
 		var afterCall ablytest.AfterCall
@@ -626,7 +677,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
+		recorder := ablytest.NewMessageRecorder()
+		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
 		defer safeclose(t, close)
 
 		close = c.To(
@@ -665,9 +717,17 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer cancel()
 
 		err = channel.Attach(ctx)
+
+		// Check that the attach message is sent
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); !attachSent {
+			t.Fatalf("Should sent attach message, since connection state is connected")
+		}
+
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		if expected, got := ably.ChannelStateAttaching, channelStatechange.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
@@ -692,7 +752,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
+		recorder := ablytest.NewMessageRecorder()
+		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
 		defer safeclose(t, close)
 
 		close = c.To(
@@ -710,6 +771,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		channelTransitioner.ToSpecifiedState(chAttaching)
 
+		// check if attach message is sent
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); !attachSent {
+			t.Fatalf("Should send attach message, since channel is attached")
+		}
+
 		var channelStatechange ably.ChannelStateChange
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
@@ -726,6 +793,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			}
 			return err
 		})
+
+		// Check that the attach message isn't sent
+		checkIfAttachSent = recorder.CheckIfSent(proto.ActionAttach, 2)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); attachSent {
+			t.Fatalf("Attach message was sent")
+		}
 
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't send attach, waiting for detach
 
@@ -751,7 +824,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
+		recorder := ablytest.NewMessageRecorder()
+		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
 		defer safeclose(t, close)
 
 		close = c.To(
@@ -768,6 +842,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channel.OnAll(channelStateChanges.Receive)
 
 		channelTransitioner.ToSpecifiedState(chAttaching, chAttached, chDetaching)
+
+		// check if attach message is sent
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); !attachSent {
+			t.Fatalf("Should send attach message, since channel is attached")
+		}
 
 		var channelStatechange ably.ChannelStateChange
 
@@ -796,6 +876,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			return err
 		})
 
+		// Check that the attach message isn't sent
+		checkIfAttachSent = recorder.CheckIfSent(proto.ActionAttach, 2)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); attachSent {
+			t.Fatalf("Attach message was sent before connection is established")
+		}
+
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't send attach, waiting for detach
 
 		channelTransitioner.ToSpecifiedState(chDetached)
@@ -803,6 +889,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		if expected, got := ably.ChannelStateDetached, channelStatechange.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		// Check that the attach message is sent
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); !attachSent {
+			t.Fatalf("Should sent attach message, since channel is detached")
 		}
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
@@ -828,7 +919,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
+		recorder := ablytest.NewMessageRecorder()
+		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
 		defer safeclose(t, close)
 
 		close = c.To(
@@ -848,6 +940,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		channel.Attach(ctx)
 
+		// Check that the attach message isn't sent
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); attachSent {
+			t.Fatalf("Attach message was sent before connection is established")
+		}
+
 		var channelStatechange ably.ChannelStateChange
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
@@ -862,6 +960,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		)
 
 		defer safeclose(t, close)
+
+		// Check that the attach message is sent
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); !attachSent {
+			t.Fatalf("Should sent attach message, since connected")
+		}
 
 		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		if expected, got := ably.ChannelStateAttached, channelStatechange.Current; expected != got {
@@ -880,7 +983,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
+		recorder := ablytest.NewMessageRecorder()
+		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
 		defer safeclose(t, close)
 
 		close = c.To(
@@ -902,6 +1006,13 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		channel.Attach(ctx)
 
+		// Check that the attach message isn't sent
+
+		checkIfAttachSent := recorder.CheckIfSent(proto.ActionAttach, 1)
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); attachSent {
+			t.Fatalf("Attach message was sent before connection is established")
+		}
+
 		var channelStatechange ably.ChannelStateChange
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
@@ -915,6 +1026,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			connecting,
 			connected,
 		)
+
+		// Check that the attach message is sent
+		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); !attachSent {
+			t.Fatalf("Should sent attach message, since connected")
+		}
 
 		defer safeclose(t, close)
 
@@ -1110,14 +1226,7 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 
 			// Check that the message isn't published.
 
-			published := func() bool {
-				for _, m := range recorder.Sent() {
-					if m.Action == proto.ActionMessage {
-						return true
-					}
-				}
-				return false
-			}
+			published := recorder.CheckIfSent(proto.ActionMessage, 1)
 
 			if published := ablytest.Instantly.IsTrue(published); published {
 				t.Fatalf("message was published before connection is established")
@@ -1215,14 +1324,7 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 
 			// Check that the message isn't published.
 
-			published := func() bool {
-				for _, m := range recorder.Sent() {
-					if m.Action == proto.ActionMessage {
-						return true
-					}
-				}
-				return false
-			}
+			published := recorder.CheckIfSent(proto.ActionMessage, 1)
 
 			if published := ablytest.Instantly.IsTrue(published); published {
 				t.Fatalf("message was published when it shouldn't")
