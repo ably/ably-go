@@ -184,6 +184,8 @@ type RealtimeChannel struct {
 	options        *channelOptions
 	params         ChannelParams
 	modes          []ChannelMode
+
+	attachResume bool
 }
 
 func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions) *RealtimeChannel {
@@ -280,6 +282,9 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 		}
 		if c.channelOpts().Modes != nil {
 			msg.SetModesAsFlag(c.channelOpts().Modes)
+		}
+		if c.attachResume {
+			msg.Flags.Set(proto.FlagAttachResume)
 		}
 		c.client.Connection.send(msg, nil)
 		return res, nil
@@ -588,17 +593,16 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
 		if msg.Params != nil {
-			c.params = msg.Params
+			c.setParams(msg.Params)
 		}
 		if msg.Flags != 0 {
-			c.modes = proto.FromFlag(msg.Flags)
+			c.setModes(proto.FromFlag(msg.Flags))
 		}
 		c.Presence.onAttach(msg)
 		c.setState(ChannelStateAttached, nil)
 		c.queue.Flush()
 	case proto.ActionDetached:
 		c.mtx.Lock()
-
 		err := error(newErrorFromProto(msg.Error))
 		switch c.state {
 		case ChannelStateDetaching:
@@ -699,11 +703,27 @@ func (c *RealtimeChannel) channelOpts() *channelOptions {
 	return c.options
 }
 
-func (c RealtimeChannel) Modes() []ChannelMode {
+func (c *RealtimeChannel) setParams(params ChannelParams) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.params = params
+}
+
+func (c *RealtimeChannel) setModes(modes []ChannelMode) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.modes = modes
+}
+
+func (c *RealtimeChannel) Modes() []ChannelMode {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	return c.modes
 }
 
-func (c RealtimeChannel) Params() ChannelParams {
+func (c *RealtimeChannel) Params() ChannelParams {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	return c.params
 }
 
@@ -721,7 +741,20 @@ func (c *RealtimeChannel) setState(state ChannelState, err error) error {
 	return c.lockSetState(state, err)
 }
 
+func (c *RealtimeChannel) lockSetAttachResume(state ChannelState) {
+	if state == ChannelStateDetaching {
+		c.attachResume = false
+	}
+	if state == ChannelStateAttached {
+		c.attachResume = true
+	}
+	if state == ChannelStateFailed {
+		c.attachResume = false
+	}
+}
+
 func (c *RealtimeChannel) lockSetState(state ChannelState, err error) error {
+	c.lockSetAttachResume(state)
 	previous := c.state
 	changed := c.state != state
 	c.state = state

@@ -561,7 +561,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Should not make any change to the channel state
 	})
 
-	// Mocking states because can't reproduce detached while attaching channel and suspend channel state does not exist
+	//Mocking states because can't reproduce detached while attaching channel and suspend channel state does not exist
 	invalidChannelStates := []ably.ChannelState{chDetached, chSuspended}
 
 	for _, invalidChannelState := range invalidChannelStates {
@@ -620,6 +620,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	}
 
 	t.Run("RTL4e: Transition to failed if no attach permission", func(t *testing.T) {
+		t.Parallel()
+
 		app, err := ablytest.NewSandbox(nil)
 		if err != nil {
 			t.Fatal(err)
@@ -648,6 +650,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	})
 
 	t.Run("RTL4f: Channel attach timeout if not received within realtime request timeout", func(t *testing.T) {
+		t.Parallel()
+
 		_, out, _, channel, stateChanges, afterCalls := setup(t)
 		channel.OnAll(stateChanges.Receive)
 
@@ -1129,11 +1133,17 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(channelStateChanges.Receive)
+
 		err := channel.Attach(ctx)
 
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		ablytest.Soon.Recv(t, nil, channelStateChanges, t.Fatalf) // CONSUME ATTACHING
+		ablytest.Soon.Recv(t, nil, channelStateChanges, t.Fatalf) // CONSUME ATTACHED
 
 		params := channel.Params() // RTL4k1
 
@@ -1191,11 +1201,17 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(channelStateChanges.Receive)
+
 		err := channel.Attach(ctx)
 
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		ablytest.Soon.Recv(t, nil, channelStateChanges, t.Fatalf) // CONSUME ATTACHING
+		ablytest.Soon.Recv(t, nil, channelStateChanges, t.Fatalf) // CONSUME ATTACHED
 
 		modes := channel.Modes()
 

@@ -64,6 +64,12 @@ func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
 }
 
+func (c RealtimeChannel) GetAttachResume() bool {
+	c.mtx.Lock()
+	defer c.mtx.Lock()
+	return c.attachResume
+}
+
 func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }
