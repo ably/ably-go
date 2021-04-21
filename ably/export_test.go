@@ -60,10 +60,6 @@ func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
 }
 
-func (c *RealtimeChannel) SetState(state ChannelState, err error) error {
-	return c.setState(state, err)
-}
-
 func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }
