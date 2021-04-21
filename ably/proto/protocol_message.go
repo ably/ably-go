@@ -24,6 +24,10 @@ func (flags Flag) Has(flag Flag) bool {
 	return flags&flag == flag
 }
 
+func (flags *Flag) Set(flag Flag) {
+	*flags |= flag
+}
+
 type ConnectionDetails struct {
 	ClientID           string            `json:"clientId,omitempty" codec:"clientId,omitempty"`
 	ConnectionKey      string            `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
@@ -115,7 +119,7 @@ func (p *ProtocolMessage) SetModesAsFlag(modes []ChannelMode) {
 	for _, mode := range modes {
 		flag := mode.ToFlag()
 		if flag != 0 {
-			p.Flags = p.Flags | flag
+			p.Flags.Set(flag)
 		}
 	}
 }
