@@ -751,14 +751,18 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		}
 
 		channel = c.Channels.Get("test")
+
 		stateChanges = make(ably.ChannelStateChanges, 10)
 		channel.OnAll(stateChanges.Receive)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		channel.Attach(ctx)
 
-		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACHING
+		channel.SubscribeAll(ctx, func(message *ably.Message) {
+			msg <- message
+		})
+
+		channel.Attach(ctx)
 		return
 	}
 
@@ -790,7 +794,7 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 
 		var change ably.ChannelStateChange
 
-		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf) // Consume ATTACHED
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf) // Consume ATTACHING
 		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
@@ -835,7 +839,7 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 			Channel: channel.Name,
 		}
 
-		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf) // Consume ATTACHED
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf) // Consume DETACHED
 		if expected, got := ably.ChannelStateDetached, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
