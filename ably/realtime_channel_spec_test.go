@@ -1069,7 +1069,82 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 	})
 
-	t.Run("RTL4j", func(t *testing.T) {
+	t.Run("RTL4j1", func(t *testing.T) {
+		t.Parallel()
+
+		app, err := ablytest.NewSandbox(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer safeclose(t, app)
+
+		c, close := TransitionConn(t, nil, app.Options()...)
+		defer safeclose(t, close)
+
+		close = c.To(
+			connecting,
+			connected,
+		)
+
+		defer safeclose(t, close)
+
+		channelTransitioner := c.Channel("test")
+		channel := channelTransitioner.Channel
+
+		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(channelStateChanges.Receive)
+
+		// channel state is initialized
+		if expected, got := ably.ChannelStateInitialized, channel.State(); expected != got {
+			t.Fatalf("expected %v; got %v", expected, got)
+		}
+
+		if channel.GetAttachResume() != false {
+			t.Fatalf("Channel attach resume should be false when channel state is INITIALIZED")
+		}
+
+		channelTransitioner.ToSpecifiedState(chAttaching, chAttached)
+
+		var channelStatechange ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+		if channel.GetAttachResume() != true {
+			t.Fatalf("Channel attach resume should be true when channel state is ATTCHED")
+		}
+
+		channelTransitioner.ToSpecifiedState(chDetaching)
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateDetaching, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		if channel.GetAttachResume() != false {
+			t.Fatalf("Channel attach resume should be false when channel state is DETACHING")
+		}
+
+		channelTransitioner.ToSpecifiedState(chFailed)
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateFailed, channelStatechange.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
+		}
+
+		if channel.GetAttachResume() != false {
+			t.Fatalf("Channel attach resume should be false when channel state is FAILED")
+		}
+	})
+
+	t.Run("RTL4j2", func(t *testing.T) {
 
 	})
 
