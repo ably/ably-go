@@ -1144,8 +1144,71 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 	})
 
+	t.Skip("RTL4j2")
 	t.Run("RTL4j2", func(t *testing.T) {
+		t.Parallel()
 
+		app, client := ablytest.NewRealtime(
+			ably.WithAutoConnect(false))
+
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+		client1 := app.NewRealtime(
+			ably.WithAutoConnect(false))
+
+		defer safeclose(t, ablytest.FullRealtimeCloser(client1))
+
+		client2 := app.NewRealtime(
+			ably.WithAutoConnect(false))
+
+		defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+
+		client.Connect()
+		client1.Connect()
+		client2.Connect()
+
+		channel := client.Channels.Get("TestChannel")
+		err := channel.Publish(context.Background(), "test", "testData")
+		if err != nil {
+			t.Fatalf("error publishing message : %v", err)
+		}
+		channel1 := client1.Channels.Get("TestChannel",
+			ably.ChannelWithRewind("1"))
+		channel1.SetAttachResume(true)
+
+		var messages1 []ably.Message
+		unsubscribe1, err := channel1.SubscribeAll(context.Background(), func(message *ably.Message) {
+			messages1 = append(messages1, *message)
+		})
+
+		defer unsubscribe1()
+
+		if err != nil {
+			t.Fatalf("error subscribing channel 1 : %v", err)
+		}
+
+		channel2 := client2.Channels.Get("TestChannel",
+			ably.ChannelWithRewind("1")) // attach resume is false by default
+
+		var messages2 []ably.Message
+		unsubscribe2, err := channel2.SubscribeAll(context.Background(), func(message *ably.Message) {
+			messages2 = append(messages2, *message)
+		})
+
+		defer unsubscribe2()
+
+		if err != nil {
+			t.Fatalf("error subcribing channel 2 : %v", err)
+		}
+
+		time.Sleep(time.Second * 2)
+		if len(messages1) != 0 {
+			t.Fatalf("Channel 1 shouldn't receive any messages")
+		}
+
+		if len(messages1) != 1 {
+			t.Fatalf("Channel 2 should receive 1 published message")
+		}
 	})
 
 	t.Run("RTL4k: If params given channel options, should be sent in ATTACH message", func(t *testing.T) {

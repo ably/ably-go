@@ -70,6 +70,12 @@ func (c *RealtimeChannel) GetAttachResume() bool {
 	return c.attachResume
 }
 
+func (c *RealtimeChannel) SetAttachResume(value bool) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.attachResume = value
+}
+
 func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }

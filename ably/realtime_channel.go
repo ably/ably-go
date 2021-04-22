@@ -77,6 +77,10 @@ func ChannelWithParams(key string, value string) ChannelOption {
 	}
 }
 
+func ChannelWithRewind(numberOfMessages string) ChannelOption {
+	return ChannelWithParams("rewind", numberOfMessages)
+}
+
 func ChannelWithModes(modes ...ChannelMode) ChannelOption {
 	return func(o *channelOptions) {
 		o.Modes = append(o.Modes, modes...)
