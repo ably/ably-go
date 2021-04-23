@@ -449,14 +449,14 @@ func (c ChanTransitioner) detach() (chanNextStates, func()) {
 func (c ChanTransitioner) finishDetach(msg <-chan *proto.ProtocolMessage, cancelIntercept func(), err *proto.ErrorInfo) chanTransitionFunc {
 	return func() (chanNextStates, func()) {
 
-		var attachMsg *proto.ProtocolMessage
-		ablytest.Soon.Recv(c.t, &attachMsg, msg, c.t.Fatalf)
+		var detachMsg *proto.ProtocolMessage
+		ablytest.Soon.Recv(c.t, &detachMsg, msg, c.t.Fatalf)
 
 		if err != nil {
 			// Ideally, for moving to FAILED, we'd arrange a real capabilities error
 			// to keep things real. But it's too much hassle for now.
-			attachMsg.Action = proto.ActionError
-			attachMsg.Error = err
+			detachMsg.Action = proto.ActionError
+			detachMsg.Error = err
 		}
 
 		change := make(ably.ChannelStateChanges, 1)

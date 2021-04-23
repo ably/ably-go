@@ -209,7 +209,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		recorder := ablytest.NewMessageRecorder()
 		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
 
 		close = c.To(
 			connecting,
@@ -300,7 +299,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		recorder := ablytest.NewMessageRecorder()
 		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
 
 		close = c.To(
 			connecting,
@@ -438,7 +436,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		recorder := ablytest.NewMessageRecorder()
 		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
 
 		close = c.To(
 			connecting,
@@ -568,14 +565,11 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		recorder := ablytest.NewMessageRecorder()
 		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
 
 		close = c.To(
 			connecting,
 			connected,
 		)
-
-		defer safeclose(t, close)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -600,8 +594,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		close = c.To(
 			closing,
 		)
-
-		defer safeclose(t, close)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -727,14 +719,11 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		recorder := ablytest.NewMessageRecorder()
 		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
 
 		close = c.To(
 			connecting,
 			connected,
 		)
-
-		defer safeclose(t, close)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -808,14 +797,11 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		recorder := ablytest.NewMessageRecorder()
 		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
 
 		close = c.To(
 			connecting,
 			connected,
 		)
-
-		defer safeclose(t, close)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -840,8 +826,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		close = c.To(
 			disconnected,
 		)
-
-		defer safeclose(t, close)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -891,7 +875,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		recorder := ablytest.NewMessageRecorder()
 		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
 
 		close = c.To(
 			connecting,

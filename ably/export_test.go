@@ -140,7 +140,6 @@ func (c *Connection) PendingItems() int {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.pending.Len()
-	return c.pending.Len()
 }
 
 type Result = result
