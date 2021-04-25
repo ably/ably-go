@@ -2398,7 +2398,7 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 		MaxFrameSize:       13,
 		MaxInboundRate:     15,
 		MaxMessageSize:     70,
-		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 2),
+		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 3),
 		MaxIdleInterval:    proto.DurationFromMsecs(time.Second),
 	}
 
@@ -2446,6 +2446,10 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 
 	if c.Auth.ClientID() != newConnDetails.ClientID {
 		t.Fatalf("expected %v; got %v", newConnDetails.ClientID, c.Auth.ClientID())
+	}
+
+	if c.Connection.ConnectionStateTTL != newConnDetails.ConnectionStateTTL {
+		t.Fatalf("expected %v; got %v", newConnDetails.ConnectionStateTTL, c.Connection.ConnectionStateTTL)
 	}
 
 	if c.Connection.ID() != "connection-id-2" {

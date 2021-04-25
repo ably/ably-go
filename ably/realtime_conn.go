@@ -47,16 +47,17 @@ type Connection struct {
 	errorReason     *ErrorInfo
 	internalEmitter ConnectionEventEmitter
 
-	id        string
-	key       string
-	serial    int64
-	msgSerial int64
-	err       error
-	conn      proto.Conn
-	opts      *clientOptions
-	pending   pendingEmitter
-	queue     *msgQueue
-	auth      *Auth
+	id                 string
+	key                string
+	serial             int64
+	msgSerial          int64
+	ConnectionStateTTL proto.DurationFromMsecs
+	err                error
+	conn               proto.Conn
+	opts               *clientOptions
+	pending            pendingEmitter
+	queue              *msgQueue
+	auth               *Auth
 
 	callbacks connCallbacks
 	// reconnecting tracks if we have issued a reconnection request. If we receive any message
@@ -773,10 +774,10 @@ func (c *Connection) eventloop() {
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
 			mode := c.getMode()
-			if msg.ConnectionDetails != nil {
+			if msg.ConnectionDetails != nil { // RTN21
 				connDetails = msg.ConnectionDetails
 				c.key = connDetails.ConnectionKey //(RTN15e) (RTN16d)
-
+				c.ConnectionStateTTL = connDetails.ConnectionStateTTL
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(connDetails.ClientID)
 			}
