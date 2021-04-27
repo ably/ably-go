@@ -1709,7 +1709,7 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 				// verify unrecoverable-connection error set in connection.errorReason
 				t.Errorf("expected 80000 got %d", reason.Code)
 			}
-			if serial := client2.Connection.Serial(); serial != -1 {
+			if serial := client2.Connection.Serial(); *serial != -1 {
 				// verify serial is -1 (new connection), not 5
 				t.Errorf("expected -1 got %d", serial)
 			}
