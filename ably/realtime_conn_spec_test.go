@@ -183,6 +183,158 @@ func connectAndWait(t *testing.T, realtime *ably.Realtime) {
 	}
 }
 
+type connectionStateChanges chan ably.ConnectionStateChange
+
+func (c connectionStateChanges) Receive(change ably.ConnectionStateChange) {
+	c <- change
+}
+
+func TestRealtimeConn_ConnectionSerial(t *testing.T) {
+	t.Run("RTN10a: Should be unset until connected, should set after connected", func(t *testing.T) {
+		connDetails := proto.ConnectionDetails{
+			ConnectionKey:      "foo",
+			ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 20),
+			MaxIdleInterval:    proto.DurationFromMsecs(time.Minute * 5),
+		}
+
+		in := make(chan *proto.ProtocolMessage, 1)
+		out := make(chan *proto.ProtocolMessage, 16)
+
+		c, _ := ably.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithToken("fake:token"),
+			ably.WithDial(ablytest.MessagePipe(in, out)))
+
+		stateChange := make(connectionStateChanges, 2)
+		c.Connection.OnAll(stateChange.Receive)
+
+		if expected, got := ably.ConnectionStateInitialized, c.Connection.State(); expected != got {
+			t.Fatalf("expected %v; got %v", expected, got)
+		}
+
+		serial := c.Connection.Serial()
+
+		if serial != nil {
+			t.Fatal("Connection serial should be nil when initialized/not connected")
+		}
+
+		c.Connect()
+
+		var change ably.ConnectionStateChange
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		serial = c.Connection.Serial()
+
+		if serial != nil {
+			t.Fatal("Connection serial should be nil when connecting/not connected")
+		}
+
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionConnected,
+			ConnectionID:      "connection",
+			ConnectionSerial:  2,
+			ConnectionDetails: &connDetails,
+		}
+
+		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+		if expected, got := ably.ConnectionStateConnected, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
+		}
+
+		serial = c.Connection.Serial()
+
+		if serial == nil {
+			t.Fatal("Connection serial should not be nil when connected")
+		}
+
+		if *serial != 2 {
+			t.Fatal("Connection serial should be set to 2")
+		}
+	})
+
+	t.Run("RTN10b: Should be set everytime message with connection-serial is received", func(t *testing.T) {
+		connDetails := proto.ConnectionDetails{
+			ConnectionKey:      "foo",
+			ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 20),
+			MaxIdleInterval:    proto.DurationFromMsecs(time.Minute * 5),
+		}
+
+		in := make(chan *proto.ProtocolMessage, 1)
+		out := make(chan *proto.ProtocolMessage, 16)
+
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionConnected,
+			ConnectionID:      "connection",
+			ConnectionSerial:  2,
+			ConnectionDetails: &connDetails,
+		}
+
+		c, _ := ably.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithToken("fake:token"),
+			ably.WithDial(ablytest.MessagePipe(in, out)))
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		serial := *c.Connection.Serial()
+		if serial != 2 {
+			t.Fatal("Connection serial should be set to 2")
+		}
+
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionAttached,
+			ConnectionID:      "connection",
+			ConnectionSerial:  4,
+			ConnectionDetails: &connDetails,
+		}
+
+		err = ablytest.Wait(ablytest.ValueWaiter(func() interface{} {
+			return *c.Connection.Serial()
+		}, int64(4)), nil)
+
+		if err != nil {
+			t.Fatal("Connection serial should be set to 4")
+		}
+
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionMessage,
+			ConnectionID:      "connection",
+			ConnectionSerial:  5,
+			ConnectionDetails: &connDetails,
+		}
+
+		err = ablytest.Wait(ablytest.ValueWaiter(func() interface{} {
+			return *c.Connection.Serial()
+		}, int64(5)), nil)
+
+		if err != nil {
+			t.Fatal("Connection serial should be set to 5")
+		}
+
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionHeartbeat,
+			ConnectionID:      "connection",
+			ConnectionSerial:  6,
+			ConnectionDetails: &connDetails,
+		}
+
+		err = ablytest.Wait(ablytest.ValueWaiter(func() interface{} {
+			return *c.Connection.Serial()
+		}, int64(6)), nil)
+
+		if err != nil {
+			t.Fatal("Connection serial should be set to 6")
+		}
+	})
+}
+
 func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	t.Parallel()
 
