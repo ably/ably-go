@@ -245,14 +245,12 @@ func TestRealtimeConn_ConnectionSerial(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
 		}
 
-		serial = c.Connection.Serial()
+		err := ablytest.Wait(ablytest.AssertionWaiter(func() bool {
+			return *c.Connection.Serial() == 2
+		}), nil)
 
-		if serial == nil {
-			t.Fatal("Connection serial should not be nil when connected")
-		}
-
-		if *serial != 2 {
-			t.Fatal("Connection serial should be set to 2")
+		if err != nil {
+			t.Fatalf("Expected %v, Received %v", 2, *c.Connection.Serial())
 		}
 	})
 
@@ -295,12 +293,12 @@ func TestRealtimeConn_ConnectionSerial(t *testing.T) {
 			ConnectionDetails: &connDetails,
 		}
 
-		err = ablytest.Wait(ablytest.ValueWaiter(func() interface{} {
-			return *c.Connection.Serial()
-		}, int64(4)), nil)
+		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
+			return *c.Connection.Serial() == 4
+		}), nil)
 
 		if err != nil {
-			t.Fatal("Connection serial should be set to 4")
+			t.Fatalf("Expected %v, Received %v", 4, *c.Connection.Serial())
 		}
 
 		in <- &proto.ProtocolMessage{
@@ -310,12 +308,12 @@ func TestRealtimeConn_ConnectionSerial(t *testing.T) {
 			ConnectionDetails: &connDetails,
 		}
 
-		err = ablytest.Wait(ablytest.ValueWaiter(func() interface{} {
-			return *c.Connection.Serial()
-		}, int64(5)), nil)
+		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
+			return *c.Connection.Serial() == 5
+		}), nil)
 
 		if err != nil {
-			t.Fatal("Connection serial should be set to 5")
+			t.Fatalf("Expected %v, Received %v", 5, *c.Connection.Serial())
 		}
 
 		in <- &proto.ProtocolMessage{
@@ -325,12 +323,12 @@ func TestRealtimeConn_ConnectionSerial(t *testing.T) {
 			ConnectionDetails: &connDetails,
 		}
 
-		err = ablytest.Wait(ablytest.ValueWaiter(func() interface{} {
-			return *c.Connection.Serial()
-		}, int64(6)), nil)
+		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
+			return *c.Connection.Serial() == 6
+		}), nil)
 
 		if err != nil {
-			t.Fatal("Connection serial should be set to 6")
+			t.Fatalf("Expected %v, Received %v", 6, *c.Connection.Serial())
 		}
 	})
 }
