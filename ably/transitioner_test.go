@@ -431,12 +431,13 @@ func (c ChanTransitioner) attach() (chanNextStates, func()) {
 	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 	return chanNextStates{
-		chAttached: c.finishAttach(msg, cancel, nil),
-		chFailed:   c.finishAttach(msg, cancel, &proto.ErrorInfo{Message: "fake error", Code: 50001}),
+		chAttached: c.finishAttach(msg, cancel, nil, chAttached),
+		chFailed:   c.finishAttach(msg, cancel, &proto.ErrorInfo{Message: "fake error", Code: 50001}, chFailed),
+		chDetached: c.finishAttach(msg, cancel, &proto.ErrorInfo{Message: "fake error", Code: 50001}, chDetached),
 	}, cancel
 }
 
-func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancelIntercept func(), err *proto.ErrorInfo) chanTransitionFunc {
+func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancelIntercept func(), err *proto.ErrorInfo, channelState ably.ChannelState) chanTransitionFunc {
 	return func() (chanNextStates, func()) {
 		var attachMsg *proto.ProtocolMessage
 		ablytest.Soon.Recv(c.t, &attachMsg, msg, c.t.Fatalf)
@@ -445,8 +446,13 @@ func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancel
 		if err != nil {
 			// Ideally, for moving to FAILED, we'd arrange a real capabilities error
 			// to keep things real. But it's too much hassle for now.
-			attachMsg.Action = proto.ActionError
 			attachMsg.Error = err
+			if channelState == chFailed {
+				attachMsg.Action = proto.ActionError
+			}
+			if channelState == chDetached {
+				attachMsg.Action = proto.ActionDetached
+			}
 		} else {
 			next = chanNextStates{
 				chDetaching: c.detach,
