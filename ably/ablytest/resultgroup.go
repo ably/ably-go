@@ -97,7 +97,7 @@ func (f resultFunc) Wait(ctx context.Context) error {
 	return f(ctx)
 }
 
-func ValueWaiter(generator func() interface{}, expectedValue interface{}) Result {
+func AssertionWaiter(assertion func() bool) Result {
 	return resultFunc(func(ctx context.Context) error {
 		for {
 			select {
@@ -105,14 +105,14 @@ func ValueWaiter(generator func() interface{}, expectedValue interface{}) Result
 				return ctx.Err()
 			default:
 				time.Sleep(time.Millisecond * 200)
-				value := generator()
-				if value == expectedValue {
+				if assertion() {
 					return nil
 				}
 			}
 		}
 	})
 }
+
 func ConnWaiter(client *ably.Realtime, do func(), expectedEvent ...ably.ConnectionEvent) Result {
 	change := make(chan ably.ConnectionStateChange, 1)
 	off := client.Connection.OnAll(func(ev ably.ConnectionStateChange) {
