@@ -165,11 +165,3 @@ func (c *RESTChannels) Len() int {
 	defer c.mu.RUnlock()
 	return len(c.cache)
 }
-
-func (c *RealtimeChannel) SetState(state ChannelState, err error) error {
-	return c.setState(state, err)
-}
-
-func (ablyConn *Connection) SetState(state ConnectionState, err error, retryIn time.Duration) error {
-	return ablyConn.setState(state, err, retryIn)
-}
