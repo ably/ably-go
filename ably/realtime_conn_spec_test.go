@@ -25,6 +25,31 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
+func Test_RTN3_ConnectionAutoConnect(t *testing.T) {
+	t.Parallel()
+
+	recorder := ablytest.NewMessageRecorder()
+
+	app, client := ablytest.NewRealtime(
+		ably.WithAutoConnect(true),
+		ably.WithDial(recorder.Dial))
+
+	connectionStateChanges := make(ably.ConnStateChanges, 10)
+	off := client.Connection.OnAll(connectionStateChanges.Receive)
+	defer off()
+
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+	var connectionChange ably.ConnectionStateChange
+
+	// Transition to connected without needing to explicitly connect
+	ablytest.Soon.Recv(t, &connectionChange, connectionStateChanges, t.Fatalf)
+	if expected, got := ably.ConnectionStateConnected, connectionChange.Current; expected != got {
+		t.Fatalf("expect ed %v; got %v (event: %+v)", expected, got, connectionChange)
+	}
+	ablytest.Instantly.NoRecv(t, nil, connectionStateChanges, t.Fatalf)
+}
+
 func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnecting), func(t *testing.T) {
 		t.Parallel()
