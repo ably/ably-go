@@ -142,6 +142,10 @@ func (c *Connection) PendingItems() int {
 	return c.pending.Len()
 }
 
+func (c *Connection) ConnectionStateTTL() time.Duration {
+	return c.connectionStateTTL()
+}
+
 type Result = result
 
 func (c *RESTChannels) Len() int {

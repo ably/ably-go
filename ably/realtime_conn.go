@@ -47,17 +47,17 @@ type Connection struct {
 	errorReason     *ErrorInfo
 	internalEmitter ConnectionEventEmitter
 
-	id                 string
-	key                string
-	serial             int64
-	msgSerial          int64
-	ConnectionStateTTL proto.DurationFromMsecs
-	err                error
-	conn               proto.Conn
-	opts               *clientOptions
-	pending            pendingEmitter
-	queue              *msgQueue
-	auth               *Auth
+	id           string
+	key          string
+	serial       int64
+	msgSerial    int64
+	connStateTTL proto.DurationFromMsecs
+	err          error
+	conn         proto.Conn
+	opts         *clientOptions
+	pending      pendingEmitter
+	queue        *msgQueue
+	auth         *Auth
 
 	callbacks connCallbacks
 	// reconnecting tracks if we have issued a reconnection request. If we receive any message
@@ -307,7 +307,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 
 	// The initial DISCONNECTED event has been fired. If we reach stateTTL without
 	// any state changes, we transition to SUSPENDED state
-	stateTTL := c.opts.connectionStateTTL()
+	stateTTL := c.connectionStateTTL()
 	stateDeadlineCtx, cancelStateDeadline := context.WithCancel(ctx)
 	defer cancelStateDeadline()
 	stateDeadline := c.opts.After(stateDeadlineCtx, stateTTL)
@@ -414,6 +414,9 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 func (c *Connection) connectionStateTTL() time.Duration {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+	if c.connStateTTL != 0 { // RTN21
+		return time.Duration(c.connStateTTL)
+	}
 	if c.arg.connDetails != nil && c.arg.connDetails.ConnectionStateTTL != 0 {
 		return time.Duration(c.arg.connDetails.ConnectionStateTTL)
 	}
@@ -777,7 +780,7 @@ func (c *Connection) eventloop() {
 			if msg.ConnectionDetails != nil { // RTN21
 				connDetails = msg.ConnectionDetails
 				c.key = connDetails.ConnectionKey //(RTN15e) (RTN16d)
-				c.ConnectionStateTTL = connDetails.ConnectionStateTTL
+				c.connStateTTL = connDetails.ConnectionStateTTL
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(connDetails.ClientID)
 			}

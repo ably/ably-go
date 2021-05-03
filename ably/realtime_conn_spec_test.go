@@ -2448,8 +2448,8 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 		t.Fatalf("expected %v; got %v", newConnDetails.ClientID, c.Auth.ClientID())
 	}
 
-	if c.Connection.ConnectionStateTTL != newConnDetails.ConnectionStateTTL {
-		t.Fatalf("expected %v; got %v", newConnDetails.ConnectionStateTTL, c.Connection.ConnectionStateTTL)
+	if c.Connection.ConnectionStateTTL() != time.Duration(newConnDetails.ConnectionStateTTL) {
+		t.Fatalf("expected %v; got %v", newConnDetails.ConnectionStateTTL, c.Connection.ConnectionStateTTL())
 	}
 
 	if c.Connection.ID() != "connection-id-2" {
