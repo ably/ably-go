@@ -534,15 +534,6 @@ func TestRESTChannels_RSN1(t *testing.T) {
 			ts.Errorf("expected 0 channels  got %d", size)
 		}
 	})
-	t.Run("ensure no deadlock in Range", func(ts *testing.T) {
-		for _, v := range sample {
-			client.Channels.Get(v.name)
-		}
-		client.Channels.Range(func(name string, _ *ably.RESTChannel) bool {
-			n := client.Channels.Get(name + "_range")
-			return client.Channels.Exists(n.Name)
-		})
-	})
 }
 
 func TestFixConnLeak_ISSUE89(t *testing.T) {

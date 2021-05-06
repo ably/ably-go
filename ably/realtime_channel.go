@@ -85,26 +85,23 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 	return c
 }
 
-// All returns a list of created channels.
+// Iterate returns a list of created channels.
 //
-// It is safe to call All from multiple goroutines, however there's no guarantee
+// It is safe to call Iterate from multiple goroutines, however there's no guarantee
 // the returned list would not list a channel that was already released from
 // different goroutine.
-//
-// The returned list is sorted by channel names.
-func (ch *RealtimeChannels) All() []*RealtimeChannel {
+func (ch *RealtimeChannels) Iterate() []*RealtimeChannel { // RSN2, RTS2
 	ch.mtx.Lock()
 	chans := make([]*RealtimeChannel, 0, len(ch.chans))
 	for _, c := range ch.chans {
 		chans = append(chans, c)
 	}
 	ch.mtx.Unlock()
-	chanSlice(chans).Sort()
 	return chans
 }
 
 // Exists returns true if the channel by the given name exists.
-func (c *RealtimeChannels) Exists(name string) bool {
+func (c *RealtimeChannels) Exists(name string) bool { // RSN2, RTS2
 	c.mtx.Lock()
 	_, ok := c.chans[name]
 	c.mtx.Unlock()
