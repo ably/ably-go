@@ -33,4 +33,28 @@
 //
 // For messages and presence messages, "on" is called "subscribe" and "off" is
 // called "unsubscribe".
+//
+// Paginated results
+//
+// Most requests to the Ably REST API return a single page of results, with
+// hyperlinks to the first and next pages in the whole collection of results.
+// To facilitate navigating through these pages, the library provides access to
+// such paginated results though a common pattern.
+//
+// A method that prepares a paginated request returns a Request object with two
+// methods: Pages and Items. Pages returns a PaginatedResult, an iterator that,
+// on each iteration, yields a whole page of results. Items is simply a
+// convenience wrapper that yields single results insteads.
+//
+// In both cases, calling the method validates the request and may return an
+// error.
+//
+// Then, for accessing the results, the Next method from the resulting
+// iterator object must be called repeatedly; each time it returns true, the
+// result that has been retrieved can be inspected with the Items or Item method
+// from the iterator object. Finally, once it returns false, the Err method must
+// be called to check if the iterator stopped due to some error, or else, it
+// just finished going through all pages.
+//
+// See the PaginatedResults example.
 package ably

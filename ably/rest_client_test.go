@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -201,19 +203,20 @@ func TestRestClient(t *testing.T) {
 					errCh <- errors.New("timeout waiting for client.Stats to return nonempty value")
 					return
 				case <-tick:
-					page, err := client.Stats(context.Background(), &ably.PaginateParams{
-						Limit: 1,
-						ScopeParams: ably.ScopeParams{
-							Start: longAgo,
-							Unit:  proto.StatGranularityMinute,
-						},
-					})
+					page, err := client.Stats(
+						ably.StatsWithLimit(1),
+						ably.StatsWithStart(longAgo),
+						ably.StatsWithUnit(ably.PeriodMinute),
+					).Pages(context.Background())
 					if err != nil {
 						errCh <- err
 						return
 					}
-
-					if stats := page.Stats(); len(stats) != 0 {
+					if !page.Next(context.Background()) {
+						errCh <- page.Err()
+						return
+					}
+					if stats := page.Items(); len(stats) != 0 {
 						statsCh <- stats
 						return
 					}
@@ -594,4 +597,203 @@ type connCloseTracker struct {
 func (c *connCloseTracker) Close() error {
 	atomic.StoreUintptr(&c.closed, 1)
 	return c.Conn.Close()
+}
+
+func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
+	t.Parallel()
+
+	for _, limit := range []int{2, 3, 20} {
+		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
+			t.Parallel()
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+
+			fixtures := statsFixtures()
+			postStats(app, fixtures)
+
+			err := ablytest.TestPagination(
+				reverseStats(fixtures),
+				rest.Stats(ably.StatsWithLimit(limit)),
+				limit,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestStats_StartEnd_RSC6b1(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	app, rest := ablytest.NewREST()
+	defer app.Close()
+
+	fixtures := statsFixtures()
+	postStats(app, fixtures)
+
+	expected := reverseStats(fixtures[1:3])
+
+	pages, err := rest.Stats(
+		ably.StatsWithStart(time.Date(2020, time.January, 28, 14, 1, 0, 0, time.UTC)),
+		ably.StatsWithEnd(time.Date(2020, time.January, 28, 14, 2, 30, 0, time.UTC)),
+	).Pages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []*ably.Stats
+	for pages.Next(ctx) {
+		got = append(got, pages.Items()...)
+	}
+	if err := pages.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(expected, got) {
+		t.Fatalf("expected: %+v; got: %+v", expected, got)
+	}
+}
+
+func TestStats_Direction_RSC6b2(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		direction ably.Direction
+		expected  []*ably.Stats
+	}{
+		{
+			direction: ably.Backwards,
+			expected:  reverseStats(statsFixtures()),
+		},
+		{
+			direction: ably.Forwards,
+			expected:  statsFixtures(),
+		},
+	} {
+		c := c
+		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+
+			fixtures := statsFixtures()
+			postStats(app, fixtures)
+
+			expected := c.expected
+
+			pages, err := rest.Stats(
+				ably.StatsWithLimit(len(expected)),
+				ably.StatsWithDirection(c.direction),
+			).Pages(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []*ably.Stats
+			for pages.Next(ctx) {
+				got = append(got, pages.Items()...)
+			}
+			if err := pages.Err(); err != nil {
+				t.Fatal(err)
+			}
+
+			if !reflect.DeepEqual(expected, got) {
+				t.Fatalf("expected: %+v; got: %+v", expected, got)
+			}
+		})
+	}
+}
+
+func TestStats_Unit_RSC6b4(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	app, rest := ablytest.NewREST()
+	defer app.Close()
+
+	fixtures := statsFixtures()
+	postStats(app, fixtures)
+
+	pages, err := rest.Stats(
+		ably.StatsWithUnit(ably.PeriodMonth),
+	).Pages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []*ably.Stats
+	for pages.Next(ctx) {
+		got = append(got, pages.Items()...)
+	}
+	if err := pages.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	if expected, got := 1, len(got); expected != got {
+		t.Fatalf("expected: %v; got: %v", expected, got)
+	}
+
+	stats := got[0]
+	if expected, got := "month", stats.Unit; expected != got {
+		t.Fatalf("expected: %v; got: %v", expected, got)
+	}
+}
+
+func statsFixtures() []*ably.Stats {
+	var fixtures []*ably.Stats
+	baseDate := time.Date(2020, time.January, 28, 14, 0, 0, 0, time.UTC)
+	msgCounts := ably.StatsMessageCount{
+		Count: 50,
+		Data:  5000,
+	}
+	msgTypes := ably.StatsMessageTypes{
+		All:      msgCounts,
+		Messages: msgCounts,
+	}
+	for i := time.Duration(0); i < 10; i++ {
+		fixtures = append(fixtures, &ably.Stats{
+			IntervalID: baseDate.Add(i * time.Minute).Format("2006-01-02:15:04"),
+			Unit:       "minute",
+			All:        msgTypes,
+			Inbound: ably.StatsMessageTraffic{
+				All:      msgTypes,
+				RealTime: msgTypes,
+			},
+		})
+	}
+	return fixtures
+}
+
+func postStats(app *ablytest.Sandbox, stats []*ably.Stats) error {
+	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
+	defer cancel()
+
+	statsJSON, err := json.Marshal(stats)
+	if err != nil {
+		return fmt.Errorf("marshaling stats: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://sandbox-rest.ably.io/stats", bytes.NewReader(statsJSON))
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+	req = req.WithContext(ctx)
+	req.SetBasicAuth(app.KeyParts())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("performing request: %w", err)
+	}
+	resp.Body.Close()
+	return nil
+}
+
+func reverseStats(stats []*ably.Stats) []*ably.Stats {
+	var reversed []*ably.Stats
+	for i := len(stats) - 1; i >= 0; i-- {
+		reversed = append(reversed, stats[i])
+	}
+	return reversed
 }

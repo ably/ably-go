@@ -174,7 +174,7 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	case ConnectionStateConnected:
 		c.queue.Flush()
 	case ConnectionStateFailed:
-		c.setState(ChannelStateFailed, change.Reason)
+		c.setState(ChannelStateFailed, change.Reason, false)
 		c.queue.Fail(change.Reason)
 	}
 }
@@ -221,7 +221,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 		return nil, newError(80000, errAttach)
 	}
 
-	c.lockSetState(ChannelStateAttaching, err)
+	c.lockSetState(ChannelStateAttaching, err, false)
 
 	res := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateFailed)
 
@@ -267,9 +267,9 @@ func (c *RealtimeChannel) detachUnsafe() (result, error) {
 		return nil, channelStateError(ChannelStateFailed, errDetach)
 	}
 	if !c.client.Connection.lockIsActive() {
-		return nil, c.lockSetState(ChannelStateFailed, errDetach)
+		return nil, c.lockSetState(ChannelStateFailed, errDetach, false)
 	}
-	c.lockSetState(ChannelStateDetaching, nil)
+	c.lockSetState(ChannelStateDetaching, nil, false)
 	res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
 	msg := &proto.ProtocolMessage{
 		Action:  proto.ActionDetach,
@@ -402,16 +402,16 @@ func (em ChannelEventEmitter) OffAll() {
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached and the message published anyway.
 func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interface{}) error {
-	return c.PublishBatch(ctx, []*Message{{Name: name, Data: data}})
+	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}})
 }
 
-// PublishBatch publishes all given messages on the channel at once.
+// PublishMultiple publishes all given messages on the channel at once.
 //
 // This implicitly attaches the channel if it's not already attached. If the
 // context is canceled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached and the message published anyway.
-func (c *RealtimeChannel) PublishBatch(ctx context.Context, messages []*Message) error {
+func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Message) error {
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
 		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
@@ -431,11 +431,9 @@ func (c *RealtimeChannel) PublishBatch(ctx context.Context, messages []*Message)
 	return res.Wait(ctx)
 }
 
-// History gives the channel's message history according to the given parameters.
-// The returned result can be inspected for the messages via the Messages()
-// method.
-func (c *RealtimeChannel) History(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
-	return c.client.rest.Channels.Get(c.Name).History(ctx, params)
+// History is equivalent to RESTChannel.History.
+func (c *RealtimeChannel) History(o ...HistoryOption) HistoryRequest {
+	return c.client.rest.Channels.Get(c.Name).History(o...)
 }
 
 func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (result, error) {
@@ -512,9 +510,11 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 
 func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
+
 	case proto.ActionAttached:
 		c.Presence.onAttach(msg)
-		c.setState(ChannelStateAttached, nil)
+		// RTL12
+		c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(proto.FlagResumed))
 		c.queue.Flush()
 	case proto.ActionDetached:
 		c.mtx.Lock()
@@ -522,7 +522,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 		err := error(newErrorFromProto(msg.Error))
 		switch c.state {
 		case ChannelStateDetaching:
-			c.lockSetState(ChannelStateDetached, err)
+			c.lockSetState(ChannelStateDetached, err, false)
 			c.mtx.Unlock()
 			return
 		case ChannelStateAttached: // TODO: Also SUSPENDED; RTL13a
@@ -560,7 +560,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	case proto.ActionPresence:
 		c.Presence.processIncomingMessage(msg, "")
 	case proto.ActionError:
-		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error))
+		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error), false)
 		c.queue.Fail(newErrorFromProto(msg.Error))
 	case proto.ActionMessage:
 		if c.State() == ChannelStateAttached {
@@ -574,7 +574,7 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 
 func (c *RealtimeChannel) lockStartRetryAttachLoop(err error) {
 	// TODO: Move to SUSPENDED; move it to DETACHED for now.
-	c.lockSetState(ChannelStateDetached, err)
+	c.lockSetState(ChannelStateDetached, err, false)
 
 	stateChange := make(channelStateChanges, 1)
 	off := c.internalEmitter.OnceAll(stateChange.Receive)
@@ -609,7 +609,7 @@ func (c *RealtimeChannel) retryAttach(stateChange channelStateChanges) (done boo
 		return true
 	}
 	// TODO: Move to SUSPENDED; move it to DETACHED for now.
-	c.setState(ChannelStateDetached, err)
+	c.setState(ChannelStateDetached, err, false)
 	return false
 }
 
@@ -625,13 +625,13 @@ func (c *RealtimeChannel) logger() *LoggerOptions {
 	return c.client.logger()
 }
 
-func (c *RealtimeChannel) setState(state ChannelState, err error) error {
+func (c *RealtimeChannel) setState(state ChannelState, err error, resumed bool) error {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	return c.lockSetState(state, err)
+	return c.lockSetState(state, err, resumed)
 }
 
-func (c *RealtimeChannel) lockSetState(state ChannelState, err error) error {
+func (c *RealtimeChannel) lockSetState(state ChannelState, err error, resumed bool) error {
 	previous := c.state
 	changed := c.state != state
 	c.state = state
@@ -640,7 +640,9 @@ func (c *RealtimeChannel) lockSetState(state ChannelState, err error) error {
 		Current:  c.state,
 		Previous: previous,
 		Reason:   c.errorReason,
+		Resumed:  resumed,
 	}
+	// RTL2g
 	if !changed {
 		change.Event = ChannelEventUpdate
 	} else {

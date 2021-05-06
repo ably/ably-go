@@ -133,11 +133,11 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 		})
 
-		res, err := client.Channels.Get(channelName).History(context.Background(), nil)
+		var m []*ably.Message
+		err := ablytest.AllPages(&m, client.Channels.Get(channelName).History())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		m := res.Messages()
 		sort.Slice(m, func(i, j int) bool {
 			return m[i].Name < m[j].Name
 		})

@@ -821,7 +821,8 @@ func (c *Connection) eventloop() {
 			} else {
 				// preserve old behavior.
 				c.mtx.Lock()
-				c.lockSetState(ConnectionStateConnected, nil, 0)
+				// RTN24
+				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 				c.mtx.Unlock()
 			}
 			c.queue.Flush()

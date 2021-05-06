@@ -1,6 +1,9 @@
 package proto
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 const (
 	StatGranularityMinute = "minute"
@@ -46,7 +49,7 @@ type MessageCount struct {
 
 type MessageTypes struct {
 	All      MessageCount `json:"all" codec:"all"`
-	Plain    MessageCount `json:"plain" codec:"plain"`
+	Messages MessageCount `json:"messages" codec:"messages"`
 	Presence MessageCount `json:"presence" codec:"presence"`
 }
 
@@ -135,4 +138,8 @@ type Stats struct {
 	XchgProducer  XchgMessages    `json:"xchgProducer" codec:"xchgProducer"`
 	XchgConsumer  XchgMessages    `json:"xchgConsumer" codec:"xchgConsumer"`
 	PeakRates     Rates           `json:"peakRates" codec:"peakRates"`
+}
+
+func (s Stats) String() string {
+	return fmt.Sprintf("<Stats %v; unit=%v; count=%v>", s.IntervalID, s.Unit, s.Count)
 }
