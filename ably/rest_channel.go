@@ -55,7 +55,7 @@ func newRESTChannel(name string, client *REST) *RESTChannel {
 
 // Publish publishes a message on the channel.
 func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}) error {
-	return c.PublishBatch(ctx, []*Message{
+	return c.PublishMultiple(ctx, []*Message{
 		{Name: name, Data: data},
 	})
 }
@@ -63,29 +63,29 @@ func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}
 // Message is what Ably channels send and receive.
 type Message = proto.Message
 
-// PublishBatch publishes multiple messages in a batch.
-func (c *RESTChannel) PublishBatch(ctx context.Context, messages []*Message) error {
-	return c.PublishBatchWithOptions(ctx, messages)
+// PublishMultiple publishes multiple messages in a batch.
+func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message) error {
+	return c.PublishMultipleWithOptions(ctx, messages)
 }
 
-// PublishBatchOptions is an optional parameter for
-// RESTChannel.PublishBatchWithOptions.
-type PublishBatchOption func(*publishBatchOptions)
+// PublishMultipleOption is an optional parameter for
+// RESTChannel.PublishMultipleWithOptions.
+type PublishMultipleOption func(*publishMultipleOptions)
 
-type publishBatchOptions struct {
+type publishMultipleOptions struct {
 	params map[string]string
 }
 
 // Params adds query parameters to the resulting HTTP request to the REST API.
-func PublishBatchWithParams(params map[string]string) PublishBatchOption {
-	return func(options *publishBatchOptions) {
+func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
+	return func(options *publishMultipleOptions) {
 		options.params = params
 	}
 }
 
-// PublishBatchWithOptions is PublishBatch with optional parameters.
-func (c *RESTChannel) PublishBatchWithOptions(ctx context.Context, messages []*Message, options ...PublishBatchOption) error {
-	var publishOpts publishBatchOptions
+// PublishMultipleWithOptions is PublishMultiple with optional parameters.
+func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
+	var publishOpts publishMultipleOptions
 	for _, o := range options {
 		o(&publishOpts)
 	}

@@ -34,7 +34,7 @@ func TestRSL1f1(t *testing.T) {
 			Data:     fmt.Sprint(i),
 		})
 	}
-	err = channel.PublishBatch(context.Background(), msgs)
+	err = channel.PublishMultiple(context.Background(), msgs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestRSL1g(t *testing.T) {
 	}
 	t.Run("RSL1g1b", func(ts *testing.T) {
 		channel := client.Channels.Get("RSL1g1b")
-		err := channel.PublishBatch(context.Background(), []*ably.Message{
+		err := channel.PublishMultiple(context.Background(), []*ably.Message{
 			{Name: "some 1"},
 			{Name: "some 2"},
 			{Name: "some 3"},
@@ -93,7 +93,7 @@ func TestRSL1g(t *testing.T) {
 	})
 	t.Run("RSL1g2", func(ts *testing.T) {
 		channel := client.Channels.Get("RSL1g2")
-		err := channel.PublishBatch(context.Background(), []*ably.Message{
+		err := channel.PublishMultiple(context.Background(), []*ably.Message{
 			{Name: "1", ClientID: clientID},
 			{Name: "2", ClientID: clientID},
 			{Name: "3", ClientID: clientID},
@@ -114,7 +114,7 @@ func TestRSL1g(t *testing.T) {
 	})
 	t.Run("RSL1g3", func(ts *testing.T) {
 		channel := client.Channels.Get("RSL1g3")
-		err := channel.PublishBatch(context.Background(), []*ably.Message{
+		err := channel.PublishMultiple(context.Background(), []*ably.Message{
 			{Name: "1", ClientID: clientID},
 			{Name: "2", ClientID: "other client"},
 			{Name: "3", ClientID: clientID},
@@ -136,7 +136,7 @@ func TestHistory_RSL2_RSL2b3(t *testing.T) {
 			channel := rest.Channels.Get("test")
 
 			fixtures := historyFixtures()
-			channel.PublishBatch(context.Background(), fixtures)
+			channel.PublishMultiple(context.Background(), fixtures)
 
 			err := ablytest.TestPagination(
 				reverseMessages(fixtures),
@@ -174,7 +174,7 @@ func TestHistory_Direction_RSL2b2(t *testing.T) {
 			channel := rest.Channels.Get("test")
 
 			fixtures := historyFixtures()
-			channel.PublishBatch(context.Background(), fixtures)
+			channel.PublishMultiple(context.Background(), fixtures)
 
 			expected := c.expected
 
