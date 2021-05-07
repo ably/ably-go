@@ -134,6 +134,9 @@ func NewREST(options ...ClientOption) (*REST, error) {
 		cache:  make(map[string]*RESTChannel),
 		client: c,
 	}
+	c.successFallbackHost = &fallbackCache{
+		duration: c.opts.fallbackRetryTimeout(),
+	}
 	return c, nil
 }
 
@@ -566,12 +569,6 @@ func (f *fallbackCache) put(host string) {
 
 func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
 	log := c.opts.Logger.sugar()
-	if c.successFallbackHost == nil {
-		c.successFallbackHost = &fallbackCache{
-			duration: c.opts.fallbackRetryTimeout(),
-		}
-		log.Verbosef("RestClient: setup fallback duration to %v", c.successFallbackHost.duration)
-	}
 	req, err := c.newHTTPRequest(ctx, r)
 	if err != nil {
 		return nil, err
