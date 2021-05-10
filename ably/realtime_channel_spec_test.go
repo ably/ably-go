@@ -964,7 +964,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	t.Run("RTL5k: When receive ATTACH in detaching state, send new DETACH message", func(t *testing.T) {
 		t.Parallel()
 
-		in, out, _, channel, stateChanges, afterCalls := setup(t)
+		in, out, _, channel, stateChanges, _ := setup(t)
 		channel.OnAll(stateChanges.Receive)
 
 		var outMsg *proto.ProtocolMessage
@@ -998,11 +998,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		}
 
 		channel.Detach(cancelledContext)
-
-		// Cause a timeout.
-		var afterCall ablytest.AfterCall
-		ablytest.Soon.Recv(t, &afterCall, afterCalls, t.Fatalf)
-		afterCall.Fire()
 
 		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
 		if expected, got := proto.ActionDetach, outMsg.Action; expected != got {
