@@ -174,7 +174,7 @@ func (c *Connection) Connect() {
 		return
 	}
 	// set state to connecting for initial connect
-	c.lockSetState(ConnectionStateConnecting, nil, 0)
+	c.lockSetState(ConnectionStateConnecting, nil, -1)
 
 	go func() {
 		c.connect(connArgs{})
@@ -973,11 +973,14 @@ func (c *Connection) ctxCancelOnStateTransition() (context.Context, context.Canc
 	ctx, cancel := context.WithCancel(context.Background())
 
 	off := c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
+		//  RTN11C - cancel the retry when fresh connect is called
+		if change.Current == ConnectionStateConnecting && change.RetryIn == -1 {
+			cancel()
+		}
 		// RTN12d - cancel the retry when connectionStateClosed
 		if change.Current == ConnectionStateClosed {
 			cancel()
 		}
-
 	})
 
 	return ctx, func() {
