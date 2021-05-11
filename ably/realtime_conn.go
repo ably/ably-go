@@ -141,7 +141,7 @@ func (c *Connection) connectAfterSuspension(arg connArgs) (result, error) {
 		if !ok {
 			return nil, parentCtx.Err()
 		}
-		res, err := c.connectWith(arg, parentCtxCancel)
+		res, err := c.connectWith(arg)
 		if err != nil {
 			if recoverable(err) {
 				c.setState(ConnectionStateSuspended, err, retryIn)
@@ -289,7 +289,7 @@ const connectionStateTTLErrFmt = "Exceeded connectionStateTtl=%v while in DISCON
 
 func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	lg := c.logger().sugar()
-	res, err := c.connectWith(arg, nil)
+	res, err := c.connectWith(arg)
 	if err == nil {
 		return res, nil
 	}
@@ -342,7 +342,7 @@ loop:
 			}
 
 			lg.Debug("Attemting to open connection")
-			res, err := c.connectWith(arg, parentCtxCancel)
+			res, err := c.connectWith(arg)
 			if err == nil {
 				return res, nil
 			}
@@ -368,7 +368,7 @@ loop:
 	return c.connectAfterSuspension(arg)
 }
 
-func (c *Connection) connectWith(arg connArgs, ctxCancel context.CancelFunc) (result, error) {
+func (c *Connection) connectWith(arg connArgs) (result, error) {
 	c.mtx.Lock()
 	// set ably connection state to connecting, connecting state exists regardless of whether raw connection is successful or not
 	if !c.isActive() { // check if already in connecting state
@@ -402,10 +402,6 @@ func (c *Connection) connectWith(arg connArgs, ctxCancel context.CancelFunc) (re
 	conn, err := c.dial(proto, u)
 	if err != nil {
 		return nil, err
-	} else {
-		if ctxCancel != nil {
-			ctxCancel() // break reconnection loop, eventloop will be responsible for next reconnection iterations
-		}
 	}
 
 	c.mtx.Lock()
