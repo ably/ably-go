@@ -485,9 +485,9 @@ func (c *Connection) Key() string {
 // Ping returns non-nil error without any attempt of communication with Ably
 // if the connection state is ConnectionStateClosed or ConnectionStateFailed.
 // RTN13
-func (c *Connection) Ping() (ping, pong time.Duration, err error) {
-	return 0, 0, errors.New("TODO")
-}
+//func (c *Connection) Ping() (ping, pong time.Duration, err error) {
+//	return 0, 0, errors.New("TODO")
+//}
 
 // ErrorReason gives last known error that caused connection transit to
 // ConnectionStateFailed state.
@@ -840,7 +840,8 @@ func (c *Connection) eventloop() {
 			} else {
 				// preserve old behavior.
 				c.mtx.Lock()
-				c.lockSetState(ConnectionStateConnected, nil, 0)
+				// RTN24
+				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 				c.mtx.Unlock()
 			}
 			c.queue.Flush()

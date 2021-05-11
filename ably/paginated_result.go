@@ -16,6 +16,164 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
+type Direction string
+
+const (
+	Backwards Direction = "backwards"
+	Forwards  Direction = "forwards"
+)
+
+type paginatedRequestNew struct {
+	path   string
+	params url.Values
+
+	query queryFunc
+}
+
+func (r *REST) newPaginatedRequest(path string, params url.Values) paginatedRequestNew {
+	return paginatedRequestNew{
+		path:   path,
+		params: params,
+
+		query: query(r.get),
+	}
+}
+
+// PaginatedResultNew is a generic iterator for PaginatedResult pagination.
+// Items decoding is delegated to type-specific wrappers.
+//
+// See "Paginated results" section in the package-level documentation.
+type PaginatedResultNew struct {
+	basePath  string
+	nextLink  string
+	firstLink string
+	res       *http.Response
+	err       error
+
+	query queryFunc
+	first bool
+}
+
+// load loads the first page of results. Must be called from the type-specific
+// wrapper Pages method that creates the PaginatedResult object.
+func (p *PaginatedResultNew) load(ctx context.Context, r paginatedRequestNew) error {
+	p.basePath = path.Dir(r.path)
+	p.firstLink = (&url.URL{
+		Path:     r.path,
+		RawQuery: r.params.Encode(),
+	}).String()
+	p.query = r.query
+	return p.First(ctx)
+}
+
+// loadItems loads the first page of results and returns a next function. Must
+// be called from the type-specific wrapper Items method that creates the
+// PaginatedItems object.
+//
+// The returned next function must be called from the wrapper's Next method, and
+// returns the index of the object that should be returned by the Item method,
+// previously loading the next page if necessary.
+//
+// pageDecoder will be called each time a new page is retrieved under the hood.
+// It should return a destination object on which the page of results will be
+// decoded, and a pageLength function that, when called after the page has been
+// decoded, must return the length of the page.
+func (p *PaginatedResultNew) loadItems(
+	ctx context.Context,
+	r paginatedRequestNew,
+	pageDecoder func() (page interface{}, pageLength func() int),
+) (
+	next func(context.Context) (int, bool),
+	err error,
+) {
+	err = p.load(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
+	var page interface{}
+	var pageLen int
+	nextItem := 0
+
+	return func(ctx context.Context) (int, bool) {
+		if nextItem == 0 {
+			var getLen func() int
+			page, getLen = pageDecoder()
+			hasNext := p.next(ctx, &page)
+			if !hasNext {
+				return 0, false
+			}
+			pageLen = getLen()
+			if pageLen == 0 { // compatible with hasNext if first page is empty
+				return 0, false
+			}
+		}
+
+		idx := nextItem
+		nextItem = (nextItem + 1) % pageLen
+		return idx, true
+	}, nil
+}
+
+func (p *PaginatedResultNew) goTo(ctx context.Context, link string) error {
+	var err error
+	p.res, err = p.query(ctx, link)
+	if err != nil {
+		return err
+	}
+	p.nextLink = ""
+	for _, rawLink := range p.res.Header["Link"] {
+		m := relLinkRegexp.FindStringSubmatch(rawLink)
+		if len(m) == 0 {
+			continue
+		}
+		relPath, rel := m[1], m[2]
+		path := path.Join(p.basePath, relPath)
+		switch rel {
+		case "first":
+			p.firstLink = path
+		case "next":
+			p.nextLink = path
+		}
+	}
+	return nil
+}
+
+// next loads the next page of items, if there is one. It returns whether a page
+// was successfully loaded or not; after it returns false, Err should be
+// called to check for any errors.
+//
+// Items can then be inspected with the type-specific Items method.
+//
+// For items iterators, use the next function returned by loadItems instead.
+func (p *PaginatedResultNew) next(ctx context.Context, into interface{}) bool {
+	if !p.first {
+		if p.nextLink == "" {
+			return false
+		}
+		p.err = p.goTo(ctx, p.nextLink)
+		if p.err != nil {
+			return false
+		}
+	}
+	p.first = false
+
+	p.err = decodeResp(p.res, into)
+	return p.err == nil
+}
+
+// First loads the first page of items. Next should be called before inspecting
+// the Items.
+func (p *PaginatedResultNew) First(ctx context.Context) error {
+	p.first = true
+	return p.goTo(ctx, p.firstLink)
+}
+
+// Err returns the error that caused Next to fail, if there was one.
+func (p *PaginatedResultNew) Err() error {
+	return p.err
+}
+
 // relLinkRegexp is the regexp that matches our pagination format
 var relLinkRegexp = regexp.MustCompile(`<(?P<url>[^>]+)>; rel="(?P<rel>[^"]+)"`)
 
@@ -60,52 +218,11 @@ type paginatedRequest struct {
 }
 
 func decodePaginatedResult(opts *proto.ChannelOptions, typ reflect.Type, resp *http.Response) (interface{}, error) {
-	switch typ {
-	case msgType:
-		var o []map[string]interface{}
-		err := decodeResp(resp, &o)
-		if err != nil {
-			return nil, err
-		}
-		rs := make([]*proto.Message, len(o))
-		for k, v := range o {
-			m := &proto.Message{
-				ChannelOptions: opts,
-			}
-			err = m.FromMap(v)
-			if err != nil {
-				return nil, err
-			}
-			rs[k] = m
-		}
-		return rs, nil
-	case presMsgType:
-		var o []map[string]interface{}
-		err := decodeResp(resp, &o)
-		if err != nil {
-			return nil, err
-		}
-		rs := make([]*proto.PresenceMessage, len(o))
-		for k, v := range o {
-			m := &proto.PresenceMessage{
-				Message: proto.Message{
-					ChannelOptions: opts,
-				},
-			}
-			err = m.FromMap(v)
-			if err != nil {
-				return nil, err
-			}
-			rs[k] = m
-		}
-		return rs, nil
-	default:
-		v := reflect.New(typ)
-		if err := decodeResp(resp, v.Interface()); err != nil {
-			return nil, err
-		}
-		return v.Elem().Interface(), nil
+	v := reflect.New(typ)
+	if err := decodeResp(resp, v.Interface()); err != nil {
+		return nil, err
 	}
+	return v.Elem().Interface(), nil
 }
 
 func newPaginatedResult(ctx context.Context, opts *proto.ChannelOptions, req paginatedRequest) (*PaginatedResult, error) {
@@ -210,16 +327,6 @@ func (p *PaginatedResult) Items() []interface{} {
 	return p.items
 }
 
-// Messages gives a slice of messages for the current page. The method panics if
-// the underlying paginated result is not a message.
-func (p *PaginatedResult) Messages() []*Message {
-	items, ok := p.typItems.([]*proto.Message)
-	if !ok {
-		panic(errInvalidType{typ: p.req.typ})
-	}
-	return items
-}
-
 // PresenceMessages gives a slice of presence messages for the current path.
 // The method panics if the underlying paginated result is not a presence message.
 func (p *PaginatedResult) PresenceMessages() []*PresenceMessage {
@@ -230,18 +337,9 @@ func (p *PaginatedResult) PresenceMessages() []*PresenceMessage {
 	return items
 }
 
-// Stats gives a slice of statistics for the current page. The method panics if
-// the underlying paginated result is not statistics.
-func (p *PaginatedResult) Stats() []*Stats {
-	items, ok := p.typItems.([]*proto.Stats)
-	if !ok {
-		panic(errInvalidType{typ: p.req.typ})
-	}
-	return items
-}
-
 type Stats = proto.Stats
 type StatsMessageTypes = proto.MessageTypes
+type StatsMessageCount = proto.MessageCount
 type StatsMessageTraffic = proto.MessageTraffic
 type StatsConnectionTypes = proto.ConnectionTypes
 type StatsResourceCount = proto.ResourceCount

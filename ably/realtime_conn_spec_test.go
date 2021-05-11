@@ -2777,3 +2777,97 @@ func TestRealtimeConn_RTN19a(t *testing.T) {
 		t.Fatalf("expected %v got %v", expect, got)
 	}
 }
+
+func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Connected(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithToken("fake:token"),
+		ably.WithDial(ablytest.MessagePipe(in, out)),
+	)
+
+	connDetails := proto.ConnectionDetails{
+		ClientID:           "id1",
+		ConnectionKey:      "foo",
+		MaxFrameSize:       12,
+		MaxInboundRate:     14,
+		MaxMessageSize:     67,
+		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 2),
+		MaxIdleInterval:    proto.DurationFromMsecs(time.Second),
+	}
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id-1",
+		ConnectionDetails: &connDetails,
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newConnDetails := proto.ConnectionDetails{
+		ClientID:           "id2",
+		ConnectionKey:      "bar",
+		MaxFrameSize:       13,
+		MaxInboundRate:     15,
+		MaxMessageSize:     70,
+		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 2),
+		MaxIdleInterval:    proto.DurationFromMsecs(time.Second),
+	}
+
+	errInfo := proto.ErrorInfo{
+		StatusCode: 500,
+		Code:       50500,
+		Message:    "fake error",
+	}
+
+	changes := make(ably.ConnStateChanges, 3)
+	off := c.Connection.OnAll(changes.Receive)
+	defer off()
+
+	//  Send new connection details
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id-2",
+		ConnectionDetails: &newConnDetails,
+		Error:             &errInfo,
+	}
+
+	var newConnectionState ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &newConnectionState, changes, t.Fatalf)
+
+	// RTN4h - can emit UPDATE event
+	if expected, got := ably.ConnectionEventUpdate, newConnectionState.Event; expected != got {
+		t.Fatalf("expected %v; got %v (event: %+v)", expected, got, newConnectionState)
+	}
+	if expected, got := ably.ConnectionStateConnected, newConnectionState.Current; expected != got {
+		t.Fatalf("expected %v; got %v (event: %+v)", expected, got, newConnectionState)
+	}
+	if expected, got := ably.ConnectionStateConnected, newConnectionState.Previous; expected != got {
+		t.Fatalf("expected %v; got %v (event: %+v)", expected, got, newConnectionState)
+	}
+	if got := fmt.Sprint(newConnectionState.Reason); !strings.Contains(got, errInfo.Message) {
+		t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, newConnectionState.Reason)
+	}
+	if got := c.Connection.ErrorReason().Message(); !strings.Contains(got, errInfo.Message) {
+		t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, c.Connection.ErrorReason().Message())
+	}
+	// RTN21 - new connection details over write old values
+	if c.Connection.Key() != newConnDetails.ConnectionKey {
+		t.Fatalf("expected %v; got %v", newConnDetails.ConnectionKey, c.Connection.Key())
+	}
+
+	if c.Auth.ClientID() != newConnDetails.ClientID {
+		t.Fatalf("expected %v; got %v", newConnDetails.ClientID, c.Auth.ClientID())
+	}
+
+	if c.Connection.ID() != "connection-id-2" {
+		t.Fatalf("expected %v; got %v", "connection-id-2", c.Connection.ID())
+	}
+}
