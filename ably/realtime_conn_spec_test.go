@@ -228,6 +228,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	}
 
 	t.Run("RTN12a: transition to closed on connection close", func(t *testing.T) {
+		t.Parallel()
 		app, client, _ := setUpWithEOF()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
@@ -252,6 +253,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12b: transition to closed on close request timeout", func(t *testing.T) {
+		t.Parallel()
 		connDetails := proto.ConnectionDetails{
 			ConnectionKey:      "foo",
 			ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 20),
@@ -330,6 +332,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12c: transition to closed on transport error", func(t *testing.T) {
+		t.Parallel()
 		app, client, doEOF := setUpWithEOF()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
@@ -361,6 +364,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12d : should abort reconnection timer while disconnected on closed", func(t *testing.T) {
+		t.Parallel()
 		ttl := 400 * time.Millisecond
 		disconnectTTl := 2 * ttl
 		connDetails := proto.ConnectionDetails{
@@ -458,6 +462,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12d: should abort reconnection timer while suspended on closed", func(t *testing.T) {
+		t.Parallel()
 		ttl := 400 * time.Millisecond
 		disconnectTTl := 2 * ttl
 		suspendTTL := time.Second
@@ -562,7 +567,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12f: transition to closed when close is called intermittently", func(t *testing.T) {
-
+		t.Parallel()
 		app, client, interrupt, waitTillConnecting := setUpWithConnectingInterrupt()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
