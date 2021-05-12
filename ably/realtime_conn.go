@@ -129,30 +129,6 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 	return conn, err
 }
 
-func (c *Connection) connectAfterSuspension(arg connArgs) (result, error) {
-	retryIn := c.opts.suspendedRetryTimeout()
-	lg := c.logger().sugar()
-	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", retryIn)
-	parentCtx, parentCtxCancel := c.ctxCancelOnStateTransition()
-	defer parentCtxCancel()
-	tick := ablyutil.NewTicker(c.opts.After)(parentCtx, retryIn)
-	for {
-		_, ok := <-tick
-		if !ok {
-			return nil, parentCtx.Err()
-		}
-		res, err := c.connectWith(arg)
-		if err != nil {
-			if recoverable(err) {
-				c.setState(ConnectionStateSuspended, err, retryIn)
-				continue
-			}
-			return nil, c.setState(ConnectionStateFailed, err, 0)
-		}
-		return res, nil
-	}
-}
-
 // recoverable returns true if err is recoverable, err is from making a
 // connection
 func recoverable(err error) bool {
@@ -301,71 +277,51 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	retryIn := c.opts.disconnectedRetryTimeout()
 	c.setState(ConnectionStateDisconnected, err, retryIn)
 
-	parentCtx, parentCtxCancel := c.ctxCancelOnStateTransition()
-	defer parentCtxCancel()
+	// If we spend more than the connection state TTL retrying, we move from
+	// DISCONNECTED to SUSPENDED, which also changes the retry timeout period.
+	stateTTLCtx, cancelStateTTLTimer := context.WithCancel(context.Background())
+	defer cancelStateTTLTimer()
+	stateTTLTimer := c.opts.After(stateTTLCtx, c.opts.connectionStateTTL())
 
-	// The initial DISCONNECTED event has been fired. If we reach stateTTL without
-	// any state changes, we transition to SUSPENDED state
-	stateTTL := c.opts.connectionStateTTL()
-	stateDeadlineCtx, cancelStateDeadline := context.WithCancel(parentCtx)
-	defer cancelStateDeadline()
-	stateDeadline := c.opts.After(stateDeadlineCtx, stateTTL)
-
-	nextCtx, cancelNext := context.WithCancel(parentCtx)
-	next := c.opts.After(nextCtx, retryIn)
-	reset := func() {
-		lg.Debugf("Retry in %v", retryIn)
-		cancelNext()
-		nextCtx, cancelNext = context.WithCancel(parentCtx)
-		next = c.opts.After(nextCtx, retryIn)
-	}
-
-loop:
 	for {
-		select {
-		case _, ok := <-stateDeadline:
-			if !ok {
-				return nil, parentCtx.Err()
-			}
-			break loop
-		case _, ok := <-next:
-			if !ok {
-				return nil, parentCtx.Err()
-			}
-			// Prioritize stateDeadline.
+		// If the connection transitions, it's because Connect or Close was called
+		// explicitly. In that case, skip the wait and either retry connecting
+		// immediately (RTN11c) or exit the loop (RTN12d).
+		timerCtx, cancelTimer := c.ctxCancelOnStateTransition()
+		<-c.opts.After(timerCtx, retryIn)
+		cancelTimer()
+
+		preRetryState := c.State()
+
+		// Before attempting to connect, move from DISCONNETCED to SUSPENDED if
+		// more than connectionStateTTL has passed.
+		if preRetryState == ConnectionStateDisconnected {
 			select {
-			case _, ok := <-stateDeadline:
-				if !ok {
-					return nil, parentCtx.Err()
-				}
+			case <-stateTTLTimer:
+				// (RTN14e)
+				err = fmt.Errorf(connectionStateTTLErrFmt, c.opts.connectionStateTTL())
+				c.setState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
+				// (RTN14f)
+				lg.Debug("Reached SUSPENDED state while opening connection")
+				retryIn = c.opts.suspendedRetryTimeout()
 			default:
 			}
-
-			lg.Debug("Attemting to open connection")
-			res, err := c.connectWith(arg)
-			if err == nil {
-				return res, nil
-			}
-			if recoverable(err) {
-				lg.Errorf("Received recoverable error %v", err)
-				// No need to reset stateDeadline as we are still in DISCONNECTED state. so
-				// another DISCONNECTED implies we haven't transitioned from DISCONNECTED
-				// state
-				c.setState(ConnectionStateDisconnected, err, retryIn)
-				reset()
-				continue
-			}
-			return nil, c.setState(ConnectionStateFailed, err, 0)
 		}
-	}
 
-	// (RTN14e)
-	lg.Debug("Transition to SUSPENDED state")
-	err = fmt.Errorf(connectionStateTTLErrFmt, stateTTL)
-	c.setState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
-	// (RTN14f)
-	lg.Debug("Reached SUSPENDED state while opening connection")
-	return c.connectAfterSuspension(arg)
+		lg.Debug("Attemting to open connection")
+		res, err := c.connectWith(arg)
+		if err == nil {
+			return res, nil
+		}
+		if recoverable(err) {
+			// Go back to previous state and wait again until the next
+			// connection attempt.
+			lg.Errorf("Received recoverable error %v", err)
+			c.setState(preRetryState, err, retryIn)
+			continue
+		}
+		return nil, c.setState(ConnectionStateFailed, err, 0)
+	}
 }
 
 func (c *Connection) connectWith(arg connArgs) (result, error) {
@@ -965,19 +921,17 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 	return c.errorReason.unwrapNil()
 }
 
+// ctxCancelOnStateTransition returns a context that is canceled when the
+// connection transitions to any state.
+//
+// This is useful for stopping timers when
+// another event has caused the connection to transition, thus invalidating the
+// original connection state at the time the timer was set.
 func (c *Connection) ctxCancelOnStateTransition() (context.Context, context.CancelFunc) {
-	// Returns parent context for retry process
 	ctx, cancel := context.WithCancel(context.Background())
 
 	off := c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
-		//  RTN11C - cancel the retry when fresh connect is called
-		if change.Current == ConnectionStateConnecting && change.RetryIn == -1 {
-			cancel()
-		}
-		// RTN12d - cancel the retry when connectionStateClosed
-		if change.Current == ConnectionStateClosed {
-			cancel()
-		}
+		cancel()
 	})
 
 	return ctx, func() {
