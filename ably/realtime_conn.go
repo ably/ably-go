@@ -276,6 +276,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	lg.Errorf("Received recoverable error %v", err)
 	retryIn := c.opts.disconnectedRetryTimeout()
 	c.setState(ConnectionStateDisconnected, err, retryIn)
+	idleState := ConnectionStateDisconnected
 
 	// If we spend more than the connection state TTL retrying, we move from
 	// DISCONNECTED to SUSPENDED, which also changes the retry timeout period.
@@ -291,16 +292,15 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 		<-c.opts.After(timerCtx, retryIn)
 		cancelTimer()
 
-		preRetryState := c.State()
-
 		// Before attempting to connect, move from DISCONNETCED to SUSPENDED if
 		// more than connectionStateTTL has passed.
-		if preRetryState == ConnectionStateDisconnected {
+		if idleState == ConnectionStateDisconnected {
 			select {
 			case <-stateTTLTimer:
 				// (RTN14e)
 				err = fmt.Errorf(connectionStateTTLErrFmt, c.opts.connectionStateTTL())
 				c.setState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
+				idleState = ConnectionStateSuspended
 				// (RTN14f)
 				lg.Debug("Reached SUSPENDED state while opening connection")
 				retryIn = c.opts.suspendedRetryTimeout()
@@ -317,7 +317,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 			// Go back to previous state and wait again until the next
 			// connection attempt.
 			lg.Errorf("Received recoverable error %v", err)
-			c.setState(preRetryState, err, retryIn)
+			c.setState(idleState, err, retryIn)
 			continue
 		}
 		return nil, c.setState(ConnectionStateFailed, err, 0)
