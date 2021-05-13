@@ -91,12 +91,6 @@ func (c *Connection) MsgSerial() int64 {
 	return c.msgSerial
 }
 
-func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
-	return func(os *clientOptions) {
-		os.RealtimeRequestTimeout = d
-	}
-}
-
 func WithTrace(trace *httptrace.ClientTrace) ClientOption {
 	return func(os *clientOptions) {
 		os.Trace = trace
