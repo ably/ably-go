@@ -78,17 +78,19 @@ func DefaultConfig() *Config {
 		Channels: []Channel{
 			{
 				Name:     "persisted:presence_fixtures",
-				Presence: PresenceFixtures,
+				Presence: PresenceFixtures(),
 			},
 		},
 	}
 }
 
-var PresenceFixtures = []Presence{
-	{ClientID: "client_bool", Data: "true"},
-	{ClientID: "client_int", Data: "true"},
-	{ClientID: "client_string", Data: "true"},
-	{ClientID: "client_json", Data: `{"test": "This is a JSONObject clientData payload"}`},
+var PresenceFixtures = func() []Presence {
+	return []Presence{
+		{ClientID: "client_bool", Data: "true"},
+		{ClientID: "client_int", Data: "true"},
+		{ClientID: "client_string", Data: "true"},
+		{ClientID: "client_json", Data: `{"test": "This is a JSONObject clientData payload"}`},
+	}
 }
 
 type Sandbox struct {

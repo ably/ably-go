@@ -262,7 +262,7 @@ func presenceEqual(x, y interface{}) bool {
 func persistedPresenceFixtures(filter ...func(ablytest.Presence) bool) []interface{} {
 	var expected []interface{}
 fixtures:
-	for _, p := range ablytest.PresenceFixtures {
+	for _, p := range ablytest.PresenceFixtures() {
 		for _, f := range filter {
 			if !f(p) {
 				continue fixtures
