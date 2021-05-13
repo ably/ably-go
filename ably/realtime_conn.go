@@ -263,6 +263,8 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 
 const connectionStateTTLErrFmt = "Exceeded connectionStateTtl=%v while in DISCONNECTED state"
 
+var errClosedWhileReconnecting = errors.New("connection explicitly closed while trying to reconnect")
+
 func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	lg := c.logger().sugar()
 	res, err := c.connectWith(arg)
@@ -291,6 +293,11 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 		timerCtx, cancelTimer := c.ctxCancelOnStateTransition()
 		<-c.opts.After(timerCtx, retryIn)
 		cancelTimer()
+
+		if c.State() == ConnectionStateClosing {
+			// Close was explicitly called, so stop trying to connect (RTN12d).
+			return nil, errClosedWhileReconnecting
+		}
 
 		// Before attempting to connect, move from DISCONNETCED to SUSPENDED if
 		// more than connectionStateTTL has passed.
