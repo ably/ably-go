@@ -149,8 +149,15 @@ func (c *Connection) Connect() {
 	if isActive {
 		return
 	}
+
+	hasConnLoop := c.state == ConnectionStateDisconnected || c.state == ConnectionStateSuspended
+
 	// set state to connecting for initial connect
 	c.lockSetState(ConnectionStateConnecting, nil, -1)
+
+	if hasConnLoop {
+		return
+	}
 
 	go func() {
 		c.connect(connArgs{})
