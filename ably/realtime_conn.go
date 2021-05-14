@@ -301,9 +301,13 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 		<-c.opts.After(timerCtx, retryIn)
 		cancelTimer()
 
-		if c.State() == ConnectionStateClosing {
+		switch state := c.State(); state {
+		case ConnectionStateConnecting:
+		case ConnectionStateClosing:
 			// Close was explicitly called, so stop trying to connect (RTN12d).
 			return nil, errClosedWhileReconnecting
+		default:
+			panic(fmt.Errorf("unexpected state transition: %v -> %v", idleState, state))
 		}
 
 		// Before attempting to connect, move from DISCONNETCED to SUSPENDED if
