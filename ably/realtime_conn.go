@@ -150,12 +150,12 @@ func (c *Connection) Connect() {
 		return
 	}
 
-	hasConnLoop := c.state == ConnectionStateDisconnected || c.state == ConnectionStateSuspended
+	IsInReconnectionLoop := c.state == ConnectionStateDisconnected || c.state == ConnectionStateSuspended
 
 	// set state to connecting for initial connect
-	c.lockSetState(ConnectionStateConnecting, nil, -1)
+	c.lockSetState(ConnectionStateConnecting, nil, 0)
 
-	if hasConnLoop {
+	if IsInReconnectionLoop {
 		return
 	}
 
@@ -302,8 +302,8 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 		cancelTimer()
 
 		switch state := c.State(); state {
-		case ConnectionStateConnecting:
-		case ConnectionStateClosing:
+		case ConnectionStateConnecting, ConnectionStateDisconnected, ConnectionStateSuspended:
+		case ConnectionStateClosed:
 			// Close was explicitly called, so stop trying to connect (RTN12d).
 			return nil, errClosedWhileReconnecting
 		default:
