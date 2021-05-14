@@ -340,7 +340,7 @@ func (opts *clientOptions) httpclient() *http.Client {
 		return opts.HTTPClient
 	}
 	return &http.Client{
-		Timeout: defaultOptions.HTTPRequestTimeout,
+		Timeout: opts.HTTPRequestTimeout,
 	}
 }
 
@@ -609,6 +609,12 @@ func WithRESTHost(host string) ClientOption {
 	}
 }
 
+func WithHTTPRequestTimeout(timeout time.Duration) ClientOption {
+	return func(os *clientOptions) {
+		os.HTTPRequestTimeout = timeout
+	}
+}
+
 func WithRealtimeHost(host string) ClientOption {
 	return func(os *clientOptions) {
 		os.RealtimeHost = host
@@ -660,6 +666,12 @@ func WithDisconnectedRetryTimeout(d time.Duration) ClientOption {
 func WithHTTPOpenTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.HTTPOpenTimeout = d
+	}
+}
+
+func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
+		os.RealtimeRequestTimeout = d
 	}
 }
 
