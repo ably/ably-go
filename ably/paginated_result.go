@@ -267,11 +267,13 @@ func newPaginatedResult(ctx context.Context, opts *proto.ChannelOptions, req pag
 	}
 	p.path = builtPath
 	p.links = resp.Header["Link"]
-	v, err := p.req.decoder(opts, p.req.typ, resp)
-	if err != nil {
-		return nil, err
+	if p.statusCode != 204 { // Don't try to decode when there is no content.
+		v, err := p.req.decoder(opts, p.req.typ, resp)
+		if err != nil {
+			return nil, err
+		}
+		p.typItems = v
 	}
-	p.typItems = v
 	return p, nil
 }
 
