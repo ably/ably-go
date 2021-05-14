@@ -3,6 +3,7 @@ package ably_test
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"reflect"
 	"sort"
 	"testing"
@@ -26,37 +27,43 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Run("request_time", func(ts *testing.T) {
-		res, err := client.Request(context.Background(), "get", "/time", nil, nil, nil)
+		res, err := client.Request("get", "/time").Pages(context.Background())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		if res.StatusCode != http.StatusOK {
-			ts.Errorf("expected %d got %d", http.StatusOK, res.StatusCode)
+		if res.StatusCode() != http.StatusOK {
+			ts.Errorf("expected %d got %d", http.StatusOK, res.StatusCode())
 		}
-		if !res.Success {
+		if !res.Success() {
 			ts.Error("expected success to be true")
 		}
-		n := len(res.Items())
+		res.Next(context.Background())
+		var items []interface{}
+		err = res.Items(&items)
+		if err != nil {
+			ts.Error(err)
+		}
+		n := len(items)
 		if n != 1 {
 			ts.Errorf("expected 1 item got %d", n)
 		}
 	})
 
 	t.Run("request_404", func(ts *testing.T) {
-		res, err := client.Request(context.Background(), "get", "/keys/ablyjs.test/requestToken", nil, nil, nil)
+		res, err := client.Request("get", "/keys/ablyjs.test/requestToken").Pages(context.Background())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		if res.StatusCode != http.StatusNotFound {
-			ts.Errorf("expected %d got %d", http.StatusNotFound, res.StatusCode)
+		if res.StatusCode() != http.StatusNotFound {
+			ts.Errorf("expected %d got %d", http.StatusNotFound, res.StatusCode())
 		}
-		if res.ErrorCode != ably.ErrNotFound {
-			ts.Errorf("expected %d got %d", ably.ErrNotFound, res.ErrorCode)
+		if res.ErrorCode() != ably.ErrNotFound {
+			ts.Errorf("expected %d got %d", ably.ErrNotFound, res.ErrorCode())
 		}
-		if res.Success {
+		if res.Success() {
 			ts.Error("expected success to be false")
 		}
-		if res.ErrorMessage == "" {
+		if res.ErrorMessage() == "" {
 			ts.Error("expected error message")
 		}
 	})
@@ -71,17 +78,23 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 		ts.Run("post", func(ts *testing.T) {
 			for _, message := range msgs {
-				res, err := client.Request(context.Background(), "POST", channelPath, nil, message, nil)
+				res, err := client.Request("POST", channelPath, ably.RequestWithBody(message)).Pages(context.Background())
 				if err != nil {
 					ts.Fatal(err)
 				}
-				if res.StatusCode != http.StatusCreated {
-					ts.Errorf("expected %d got %d", http.StatusCreated, res.StatusCode)
+				if res.StatusCode() != http.StatusCreated {
+					ts.Errorf("expected %d got %d", http.StatusCreated, res.StatusCode())
 				}
-				if !res.Success {
+				if !res.Success() {
 					ts.Error("expected success to be true")
 				}
-				n := len(res.Items())
+				res.Next(context.Background())
+				var items []interface{}
+				err = res.Items(&items)
+				if err != nil {
+					ts.Error(err)
+				}
+				n := len(items)
 				if n != 1 {
 					ts.Errorf("expected 1 item got %d", n)
 				}
@@ -89,21 +102,27 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 		})
 
 		ts.Run("get", func(ts *testing.T) {
-			res, err := client.Request(context.Background(), "get", channelPath, &ably.PaginateParams{
-				Limit:     1,
-				Direction: "forwards",
-			}, nil, nil)
+			res, err := client.Request("get", channelPath, ably.RequestWithParams(url.Values{
+				"limit":     {"1"},
+				"direction": {"forwards"},
+			})).Pages(context.Background())
 			if err != nil {
 				ts.Fatal(err)
 			}
-			if res.StatusCode != http.StatusOK {
-				ts.Errorf("expected %d got %d", http.StatusOK, res.StatusCode)
+			if res.StatusCode() != http.StatusOK {
+				ts.Errorf("expected %d got %d", http.StatusOK, res.StatusCode())
 			}
-			n := len(res.Items())
+			res.Next(context.Background())
+			var items []interface{}
+			err = res.Items(&items)
+			if err != nil {
+				ts.Error(err)
+			}
+			n := len(items)
 			if n != 1 {
 				ts.Fatalf("expected 1 item got %d", n)
 			}
-			m := res.Items()[0].(map[string]interface{})
+			m := items[0].(map[string]interface{})
 			name := m["name"].(string)
 			data := m["data"].(string)
 			if name != msgs[0].Name {
@@ -113,15 +132,18 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 				ts.Errorf("expected %v got %s", msgs[0].Data, data)
 			}
 
-			res, err = res.Next(context.Background())
-			if err != nil {
-				ts.Fatal(err)
+			if !res.Next(context.Background()) {
+				ts.Fatal(res.Err())
 			}
-			n = len(res.Items())
+			err = res.Items(&items)
+			if err != nil {
+				ts.Error(err)
+			}
+			n = len(items)
 			if n != 1 {
 				ts.Fatalf("expected 1 item got %d", n)
 			}
-			m = res.Items()[0].(map[string]interface{})
+			m = items[0].(map[string]interface{})
 			name = m["name"].(string)
 			data = m["data"].(string)
 			if name != msgs[1].Name {
@@ -133,11 +155,11 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 		})
 
-		res, err := client.Channels.Get(channelName).History(context.Background(), nil)
+		var m []*ably.Message
+		err := ablytest.AllPages(&m, client.Channels.Get(channelName).History())
 		if err != nil {
 			ts.Fatal(err)
 		}
-		m := res.Messages()
 		sort.Slice(m, func(i, j int) bool {
 			return m[i].Name < m[j].Name
 		})
