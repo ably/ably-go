@@ -322,6 +322,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 				// (RTN14f)
 				lg.Debug("Reached SUSPENDED state while opening connection")
 				retryIn = c.opts.suspendedRetryTimeout()
+				continue // wait for re-connection with new retry timeout for suspended
 			default:
 			}
 		}

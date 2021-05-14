@@ -160,7 +160,7 @@ func (c ConnTransitioner) finishConnecting(err error) connTransitionFunc {
 
 			return connNextStates{
 					connecting: c.recover(reconnect),
-					suspended:  c.fireSuspend(suspend),
+					suspended:  c.fireSuspend(reconnect, suspend),
 				}, func() {
 					c.Realtime.Close() // cancel timers; don't reconnect
 				}
@@ -220,9 +220,10 @@ func (c ConnTransitioner) recover(timer ablytest.AfterCall) connTransitionFunc {
 	}
 }
 
-func (c ConnTransitioner) fireSuspend(timer ablytest.AfterCall) connTransitionFunc {
+func (c ConnTransitioner) fireSuspend(reconnectTimer ablytest.AfterCall, suspendTimer ablytest.AfterCall) connTransitionFunc {
 	return func() (connNextStates, func()) {
-		timer.Fire()
+		suspendTimer.Fire()
+		reconnectTimer.Fire()
 		return c.suspend()
 	}
 }

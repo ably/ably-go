@@ -544,7 +544,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		}
 
 		dialErr <- errors.New("can't reconnect once disconnected")
-		// first reconnect failed (raw connection can't be established, outside retry loop), so returned disconnect
+		// first connect failed (raw connection can't be established), so returned disconnect
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
 		if expected, got := ably.ConnectionStateDisconnected, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
