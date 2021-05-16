@@ -279,7 +279,7 @@ func TestRSC7(t *testing.T) {
 	})
 }
 
-func TestRest_hostfallback(t *testing.T) {
+func TestRest_RSC15_HostFallback(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -419,6 +419,8 @@ func TestRest_hostfallback(t *testing.T) {
 	})
 }
 
+func TestRealtime_RTN17_HostFallback(t *testing.T) {
+}
 func TestRest_rememberHostFallback(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
