@@ -20,7 +20,8 @@ const (
 	protocolMsgPack = "application/x-msgpack"
 
 	// restHost is the primary ably host .
-	restHost = "rest.ably.io"
+	restHost         = "rest.ably.io"
+	internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
 )
 
 var defaultOptions = clientOptions{

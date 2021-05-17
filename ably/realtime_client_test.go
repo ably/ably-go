@@ -82,6 +82,37 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			t.Fatalf("expected %v; got %v", expectedHost, retriedHost)
 		}
 	})
+
+	t.Run("RTN17b: Fallback behaviour", func(t *testing.T) {
+		t.Parallel()
+		t.Run("does not apply when the default custom endpoint is used", func(t *testing.T) {
+
+		})
+
+		t.Run("apply when HTTP client is using same fallback endpoint and default realtime endpoint not overriden", func(t *testing.T) {
+
+		})
+
+		t.Run("does not apply when environment is overriden and fallback not specified", func(t *testing.T) {
+
+		})
+
+		t.Run("apply when environment is overriden and fallback specified, the fallback is used", func(t *testing.T) {
+
+		})
+	})
+
+	t.Run("RTN17c: Verifies internet connection is active in case of error necessitating use of an alternative host", func(t *testing.T) {
+
+	})
+
+	t.Run("RTN17d: Check for compatible errors before attempting to reconnect to a fallback host", func(t *testing.T) {
+
+	})
+
+	t.Run("RTN17e: Same fallback host should be used for REST as Realtime Fallback Host for a given active connection", func(t *testing.T) {
+
+	})
 }
 
 func checkUnique(ch chan string, typ string, n int) error {
