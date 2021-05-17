@@ -613,7 +613,13 @@ func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
 
 			err := ablytest.TestPagination(
 				reverseStats(fixtures),
-				rest.Stats(ably.StatsWithLimit(limit)),
+				rest.Stats(
+					ably.StatsWithLimit(limit),
+
+					// We must set an end parameter. Otherwise, we may get the
+					// *current* minute's stats alongside the fixtures.
+					ably.StatsWithEnd(time.Date(2020, time.January, 29, 0, 0, 0, 0, time.UTC)),
+				),
 				limit,
 			)
 			if err != nil {
@@ -688,6 +694,10 @@ func TestStats_Direction_RSC6b2(t *testing.T) {
 			pages, err := rest.Stats(
 				ably.StatsWithLimit(len(expected)),
 				ably.StatsWithDirection(c.direction),
+
+				// We must set an end parameter. Otherwise, we may get the
+				// *current* minute's stats alongside the fixtures.
+				ably.StatsWithEnd(time.Date(2020, time.January, 29, 0, 0, 0, 0, time.UTC)),
 			).Pages(ctx)
 			if err != nil {
 				t.Fatal(err)
@@ -720,6 +730,10 @@ func TestStats_Unit_RSC6b4(t *testing.T) {
 
 	pages, err := rest.Stats(
 		ably.StatsWithUnit(ably.PeriodMonth),
+
+		// We must set an end parameter. Otherwise, we may get the
+		// *current* minute's stats alongside the fixtures.
+		ably.StatsWithEnd(time.Date(2020, time.January, 29, 0, 0, 0, 0, time.UTC)),
 	).Pages(ctx)
 	if err != nil {
 		t.Fatal(err)

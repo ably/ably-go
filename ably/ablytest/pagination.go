@@ -10,7 +10,7 @@ import (
 // request into the slice pointed to by dst, which must be a pointer to a slice
 // of the same type as the paginated response's items.
 func AllPages(dst, paginatedRequest interface{}) error {
-	_, getItems := generalizePagination(reflect.ValueOf(paginatedRequest))
+	_, getItems := generalizePaginatedRequest(reflect.ValueOf(paginatedRequest))
 	items, err := getItems()
 	if err != nil {
 		return err
@@ -41,6 +41,10 @@ func PaginationWithSortResult(sort func([]interface{})) PaginationOption {
 	}
 }
 
+// TestPagination takes a PaginatedRequest and the unwrapped expected items its
+// resulting pages should contain, and tests that the pages do contain those
+// items, plus some generic PaginatedResponse functionality, such as Pages and
+// Items methods, and the First method.
 func TestPagination(expected, request interface{}, perPage int, options ...PaginationOption) error {
 	opts := paginationOptions{
 		equal:      reflect.DeepEqual,
@@ -59,7 +63,7 @@ func TestPagination(expected, request interface{}, perPage int, options ...Pagin
 }
 
 func testPagination(request reflect.Value, expectedItems []interface{}, perPage int, opts paginationOptions) error {
-	getPages, getItems := generalizePagination(request)
+	getPages, getItems := generalizePaginatedRequest(request)
 
 	for i := 0; i < 2; i++ {
 		pages, err := getPages()
@@ -135,7 +139,17 @@ type paginatedItems struct {
 	item func() interface{}
 }
 
-func generalizePagination(request reflect.Value) (func() (paginatedResult, error), func() (paginatedItems, error)) {
+// generalizePaginatedRequest takes a non-generic PaginationRequest and returns
+// functions that call its Pages and Items methods, mapping paginated items
+// to interface{}.
+//
+// This can be used both to test that the provided PaginationRequest implements
+// the informal PaginationRequest interface correctly and that the resulting
+// paginated items are the ones we expect.
+func generalizePaginatedRequest(request reflect.Value) (
+	pages func() (paginatedResult, error),
+	items func() (paginatedItems, error),
+) {
 	ctx := reflect.ValueOf(context.Background())
 
 	generalizeCommon := func(r reflect.Value) paginated {
@@ -154,7 +168,7 @@ func generalizePagination(request reflect.Value) (func() (paginatedResult, error
 		}
 	}
 
-	pages := func() (paginatedResult, error) {
+	pages = func() (paginatedResult, error) {
 		ret := request.MethodByName("Pages").Call([]reflect.Value{ctx})
 		if err, ok := ret[1].Interface().(error); ok && err != nil {
 			return paginatedResult{}, err
@@ -173,7 +187,7 @@ func generalizePagination(request reflect.Value) (func() (paginatedResult, error
 		}, nil
 	}
 
-	items := func() (paginatedItems, error) {
+	items = func() (paginatedItems, error) {
 		ret := request.MethodByName("Items").Call([]reflect.Value{ctx})
 		if err, ok := ret[1].Interface().(error); ok && err != nil {
 			return paginatedItems{}, err
