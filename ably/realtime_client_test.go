@@ -59,7 +59,14 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 				c, err := rec.Dial(protocol, u, timeout)
 				return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 			}))
+		return
+	}
 
+	// todo - we can add check after getting disconnected and connected again
+	t.Run("RTN17a: First attempt should be on default host first", func(t *testing.T) {
+		t.Parallel()
+		app, client, _, recorder := setUpWithEOF()
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 		err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 		if err != nil {
 			t.Fatal(err)
@@ -68,14 +75,6 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 		if connectionState != ably.ConnectionStateConnected {
 			t.Fatalf("expected %v; got %v", ably.ConnectionStateConnected, connectionState)
 		}
-		return
-	}
-
-	// todo - we can add check after getting disconnected and connected again
-	t.Run("RTN17a: Should retry on default host first", func(t *testing.T) {
-		t.Parallel()
-		app, client, _, recorder := setUpWithEOF()
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 		retriedHost := recorder.URLs()[0].Hostname()
 		expectedHost := "sandbox-realtime.ably.io"
 		if retriedHost != expectedHost {
@@ -86,7 +85,18 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 	t.Run("RTN17b: Fallback behaviour", func(t *testing.T) {
 		t.Parallel()
 		t.Run("does not apply when the default custom endpoint is used", func(t *testing.T) {
-
+			t.Parallel()
+			rec := ablytest.NewMessageRecorder()
+			app, client := ablytest.NewRealtime(
+				ably.WithAutoConnect(false),
+				ably.WithRealtimeHost("un.reachable.host.example.com"),
+				ably.WithDial(rec.Dial))
+			defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+			err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventDisconnected), nil)
+			if err == nil {
+				t.Fatal("Should return error for unreachable host")
+			}
+			// Explicit check to not retry on fallbacks
 		})
 
 		t.Run("apply when HTTP client is using same fallback endpoint and default realtime endpoint not overriden", func(t *testing.T) {
