@@ -133,7 +133,7 @@ func TestHistory_RSL2_RSL2b3(t *testing.T) {
 			t.Parallel()
 			app, rest := ablytest.NewREST()
 			defer app.Close()
-			channel := rest.Channels.Get("test")
+			channel := rest.Channels.Get("persisted:test")
 
 			fixtures := historyFixtures()
 			channel.PublishMultiple(context.Background(), fixtures)
@@ -171,7 +171,7 @@ func TestHistory_Direction_RSL2b2(t *testing.T) {
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
 			app, rest := ablytest.NewREST()
 			defer app.Close()
-			channel := rest.Channels.Get("test")
+			channel := rest.Channels.Get("persisted:test")
 
 			fixtures := historyFixtures()
 			channel.PublishMultiple(context.Background(), fixtures)
