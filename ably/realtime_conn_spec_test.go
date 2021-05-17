@@ -1,18 +1,12 @@
 package ably_test
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
-	"log"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -2251,69 +2245,61 @@ func (w *writerLogger) Printf(level ably.LogLevel, format string, v ...interface
 	fmt.Fprintf(w.w, format, v...)
 }
 
-func TestRealtimeConn_RTN14c(t *testing.T) {
+func TestRealtimeConn_RTN14c_ConnectedTimeout(t *testing.T) {
 	t.Parallel()
-	ts := httptest.NewUnstartedServer(nil)
-	reqTimeout := 5 * time.Millisecond
-	ts.Config = &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(reqTimeout + 5*time.Millisecond)
-		}),
-	}
-	ts.TLS = &tls.Config{
-		GetConfigForClient: func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
-			time.Sleep(reqTimeout * 2)
-			return nil, context.DeadlineExceeded
-		},
-	}
-	ts.StartTLS()
-	defer ts.Close()
 
-	host, port, err := net.SplitHostPort(strings.TrimPrefix(ts.URL, "https://"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, _ := strconv.Atoi(port)
-	var buf bytes.Buffer
-	lg := &writerLogger{w: &buf}
-	client, err := ably.NewRealtime(
-		ably.WithKey("xxx:xxx"),
-		ably.WithRealtimeHost(host),
-		ably.WithTLSPort(p),
-		ably.WithRealtimeRequestTimeout(reqTimeout),
-		ably.WithLogHandler(lg),
-		ably.WithLogLevel(ably.LogDebug),
+	afterCalls := make(chan ablytest.AfterCall)
+	now, after := ablytest.TimeFuncs(afterCalls)
+
+	in := make(chan *proto.ProtocolMessage, 10)
+	out := make(chan *proto.ProtocolMessage, 10)
+
+	c, err := ably.NewRealtime(
 		ably.WithAutoConnect(false),
+		ably.WithToken("fake:token"),
+		ably.WithNow(now),
+		ably.WithAfter(after),
+		ably.WithDial(ablytest.MessagePipe(in, out,
+			ablytest.MessagePipeWithNowFunc(now),
+			ablytest.MessagePipeWithAfterFunc(after),
+		)),
 	)
 	if err != nil {
-		log.Fatal(err)
-	}
-	defer client.Close()
-	ok := make(chan struct{}, 1)
-	client.Connection.On(ably.ConnectionEventDisconnected, func(csc ably.ConnectionStateChange) {
-		ok <- struct{}{}
-	})
-	client.Connect()
-	ablytest.Soon.Recv(t, nil, ok, t.Fatalf)
-	sub := "Dial Failed in "
-	x := buf.String()
-	idx := strings.Index(x, sub)
-	if idx == -1 {
-		t.Fatal("Missing Dial i/o timeout error")
-	}
-	x = x[idx+len(sub):]
-	x = strings.TrimSpace(x)
-	x = strings.Split(x, " ")[0]
-
-	d, err := time.ParseDuration(x)
-	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Close()
 
-	// We can't be precise here so just an estimate. Manual tests ranges between 5ms -10ms
-	// TODO: Find a proper way to record Dial i/o timeouts duration.
-	if d < reqTimeout || d > reqTimeout+(2*time.Millisecond) {
-		t.Errorf("expected i/o timeout to be %v got %v", reqTimeout, d)
+	stateChanges := make(ably.ConnStateChanges, 10)
+	off := c.Connection.OnAll(stateChanges.Receive)
+	defer off()
+
+	c.Connect()
+
+	var change ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+	if expected, got := connecting, change.Current; expected != got {
+		t.Fatalf("expected %v; got %v", expected, got)
+	}
+
+	// Once dialed, expect a timer for realtimeRequestTimeout.
+
+	const realtimeRequestTimeout = 10 * time.Second // DF1b
+
+	var receiveTimer ablytest.AfterCall
+	ablytest.Instantly.Recv(t, &receiveTimer, afterCalls, t.Fatalf)
+
+	if expected, got := realtimeRequestTimeout, receiveTimer.D; expected != got {
+		t.Fatalf("expected %v; got %v", expected, got)
+	}
+
+	// Expect a state change to DISCONNECTED when the timer expires.
+	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+
+	receiveTimer.Fire()
+
+	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+	if expected, got := disconnected, change.Current; expected != got {
+		t.Fatalf("expected %v; got %v", expected, got)
 	}
 }
 
