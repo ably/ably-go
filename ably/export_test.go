@@ -141,11 +141,3 @@ func (c *Connection) PendingItems() int {
 	defer c.mtx.Unlock()
 	return c.pending.Len()
 }
-
-type Result = result
-
-func (c *RESTChannels) Len() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return len(c.chans)
-}

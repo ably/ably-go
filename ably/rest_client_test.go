@@ -519,7 +519,7 @@ func TestRESTChannels_RSN1(t *testing.T) {
 		for _, v := range sample {
 			client.Channels.Get(v.name)
 		}
-		size := client.Channels.Len()
+		size := len(client.Channels.Iterate())
 		if size != len(sample) {
 			ts.Errorf("expected %d got %d", len(sample), size)
 		}
@@ -529,7 +529,7 @@ func TestRESTChannels_RSN1(t *testing.T) {
 			ch := client.Channels.Get(v.name)
 			client.Channels.Release(ch.Name)
 		}
-		size := client.Channels.Len()
+		size := len(client.Channels.Iterate())
 		if size != 0 {
 			ts.Errorf("expected 0 channels  got %d", size)
 		}
