@@ -280,7 +280,7 @@ func (pc pipeConn) Close() error {
 // MessageRecorder
 type MessageRecorder struct {
 	mu       sync.Mutex
-	url      []*url.URL
+	urls     []*url.URL
 	sent     []*proto.ProtocolMessage
 	received []*proto.ProtocolMessage
 }
@@ -296,7 +296,7 @@ func NewMessageRecorder() *MessageRecorder {
 // Dial
 func (rec *MessageRecorder) Dial(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 	rec.mu.Lock()
-	rec.url = append(rec.url, u)
+	rec.urls = append(rec.urls, u)
 	rec.mu.Unlock()
 	conn, err := ablyutil.DialWebsocket(proto, u, timeout)
 	if err != nil {
@@ -309,12 +309,12 @@ func (rec *MessageRecorder) Dial(proto string, u *url.URL, timeout time.Duration
 }
 
 // URL
-func (rec *MessageRecorder) URL() []*url.URL {
+func (rec *MessageRecorder) URLs() []*url.URL {
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
-	url := make([]*url.URL, len(rec.url))
-	copy(url, rec.url)
-	return url
+	urls := make([]*url.URL, len(rec.urls))
+	copy(urls, rec.urls)
+	return urls
 }
 
 // Sent

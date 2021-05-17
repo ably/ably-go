@@ -793,7 +793,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
 		t.Fatalf("Close()=%v", err)
 	}
-	urls := rec.URL()
+	urls := rec.URLs()
 	if len(urls) == 0 {
 		t.Fatal("want urls to be non-empty")
 	}
