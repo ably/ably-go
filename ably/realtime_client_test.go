@@ -48,6 +48,42 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 	}
 }
 
+func TestRealtime_RTN17_HostFallback(t *testing.T) {
+
+	setUpWithEOF := func() (app *ablytest.Sandbox, client *ably.Realtime, doEOF chan struct{}, rec *ablytest.MessageRecorder) {
+		doEOF = make(chan struct{}, 1)
+		rec = ablytest.NewMessageRecorder()
+		app, client = ablytest.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				c, err := rec.Dial(protocol, u, timeout)
+				return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
+			}))
+
+		err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		connectionState := client.Connection.State()
+		if connectionState != ably.ConnectionStateConnected {
+			t.Fatalf("expected %v; got %v", ably.ConnectionStateConnected, connectionState)
+		}
+		return
+	}
+
+	// todo - we can add check after getting disconnected and connected again
+	t.Run("RTN17a: Should retry on default host first", func(t *testing.T) {
+		t.Parallel()
+		app, client, _, recorder := setUpWithEOF()
+		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		retriedHost := recorder.URLs()[0].Hostname()
+		expectedHost := "sandbox-realtime.ably.io"
+		if retriedHost != expectedHost {
+			t.Fatalf("expected %v; got %v", expectedHost, retriedHost)
+		}
+	})
+}
+
 func checkUnique(ch chan string, typ string, n int) error {
 	close(ch)
 	uniq := make(map[string]struct{}, n)
