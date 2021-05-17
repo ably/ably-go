@@ -46,10 +46,10 @@ func goWaiter(f func() error) result {
 }
 
 var (
-	errDisconnected   = newErrorf(80003, "Connection temporarily unavailable")
-	errSuspended      = newErrorf(80002, "Connection unavailable")
-	errFailed         = newErrorf(80000, "Connection failed")
-	errNeverConnected = newErrorf(80002, "Unable to establish connection")
+	errDisconnected   = newErrorf(ErrDisconnected, "Connection temporarily unavailable")
+	errSuspended      = newErrorf(ErrConnectionSuspended, "Connection unavailable")
+	errFailed         = newErrorf(ErrConnectionFailed, "Connection failed")
+	errNeverConnected = newErrorf(ErrConnectionSuspended, "Unable to establish connection")
 
 	errSerialSkipped = newErrorf(ErrInternalError, "Serial for message was skipped by acknowledgement")
 )
@@ -79,8 +79,12 @@ func connStateError(state ConnectionState, err error) *ErrorInfo {
 	return newError(0, err)
 }
 
+var (
+	errChannelFailed = newErrorf(ErrChannelOperationFailed, "Channel state is failed")
+)
+
 var channelStateErrors = map[ChannelState]ErrorInfo{
-	ChannelStateFailed: *errFailed,
+	ChannelStateFailed: *errChannelFailed,
 }
 
 func channelStateError(state ChannelState, err error) *ErrorInfo {
