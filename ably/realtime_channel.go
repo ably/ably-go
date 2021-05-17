@@ -11,8 +11,13 @@ import (
 )
 
 var (
-	errAttach = errors.New("attempted to attach channel to inactive connection")
-	errDetach = errors.New("attempted to detach channel from inactive connection")
+	errConnAttach = errors.New("attempted to attach channel to inactive connection")
+	errConnDetach = func(connState ConnectionState) error {
+		return errors.New("cannot Detach channel because connection is in " + connState.String() + " state")
+	}
+	errChannelDetach = func(channelState ChannelState) error {
+		return errors.New("cannot Detach channel because it is in " + channelState.String() + " state")
+	}
 )
 
 type chanSlice []*RealtimeChannel
@@ -218,7 +223,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 		ConnectionStateClosed,
 		ConnectionStateClosing,
 		ConnectionStateFailed:
-		return nil, newError(80000, errAttach)
+		return nil, newError(ErrConnectionFailed, errConnAttach)
 	}
 
 	c.lockSetState(ChannelStateAttaching, err, false)
@@ -240,18 +245,53 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be detached anyway.
 func (c *RealtimeChannel) Detach(ctx context.Context) error {
+	prevChannelState := c.State()
 	res, err := c.detach()
 	if err != nil {
 		return err
 	}
-	return res.Wait(ctx)
+
+	detachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
+	timeoutCtx, cancel := c.opts().contextWithTimeout(ctx, detachTimeout)
+	defer cancel()
+	err = res.Wait(timeoutCtx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		err = newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
+		c.setState(prevChannelState, err, false)
+	}
+	return err
 }
 
 func (c *RealtimeChannel) detach() (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if !c.isActive() {
+	if c.client.Connection.State() == ConnectionStateClosing || c.client.Connection.State() == ConnectionStateFailed { // RTL5g
+		return nil, connStateError(c.client.Connection.State(), errConnDetach(c.client.Connection.State()))
+	}
+	if c.state == ChannelStateInitialized || c.state == ChannelStateDetached { //RTL5a
 		return nopResult, nil
+	}
+	if c.state == ChannelStateFailed { // RTL5b
+		return nil, channelStateError(ChannelStateFailed, errChannelDetach(c.state))
+	}
+	if c.state == ChannelStateSuspended { // RTL5j
+		c.lockSetState(ChannelStateDetached, nil, false)
+		return nopResult, nil
+	}
+	if c.state == ChannelStateDetaching { // RTL5i
+		return c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed), nil
+	}
+	if c.state == ChannelStateAttaching { //RTL5i
+		attachRes := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
+		return resultFunc(func(ctx context.Context) error {                                                                                // runs inside goroutine, need to check for locks again before accessing state
+			err := attachRes.Wait(ctx) // error can be suspended or failed, so send back error right away
+			if err != nil {
+				return err
+			}
+			c.setState(ChannelStateDetaching, nil, false)
+			res, _ := c.sendDetachMsg()
+			return res.Wait(ctx)
+		}), nil
 	}
 	return c.detachUnsafe()
 }
@@ -262,14 +302,7 @@ func (c *RealtimeChannel) detachSkipVerifyActive() (result, error) {
 	return c.detachUnsafe()
 }
 
-func (c *RealtimeChannel) detachUnsafe() (result, error) {
-	if c.state == ChannelStateFailed {
-		return nil, channelStateError(ChannelStateFailed, errDetach)
-	}
-	if !c.client.Connection.lockIsActive() {
-		return nil, c.lockSetState(ChannelStateFailed, errDetach, false)
-	}
-	c.lockSetState(ChannelStateDetaching, nil, false)
+func (c *RealtimeChannel) sendDetachMsg() (result, error) {
 	res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
 	msg := &proto.ProtocolMessage{
 		Action:  proto.ActionDetach,
@@ -277,6 +310,11 @@ func (c *RealtimeChannel) detachUnsafe() (result, error) {
 	}
 	c.client.Connection.send(msg, nil)
 	return res, nil
+}
+
+func (c *RealtimeChannel) detachUnsafe() (result, error) {
+	c.lockSetState(ChannelStateDetaching, nil, false) // no need to check for locks, method is already under lock context
+	return c.sendDetachMsg()
 }
 
 type subscriptionName string
@@ -510,8 +548,11 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 
 func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
-
 	case proto.ActionAttached:
+		if c.State() == ChannelStateDetaching { // RTL5K
+			c.sendDetachMsg()
+			return
+		}
 		c.Presence.onAttach(msg)
 		// RTL12
 		c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(proto.FlagResumed))
@@ -611,10 +652,6 @@ func (c *RealtimeChannel) retryAttach(stateChange channelStateChanges) (done boo
 	// TODO: Move to SUSPENDED; move it to DETACHED for now.
 	c.setState(ChannelStateDetached, err, false)
 	return false
-}
-
-func (c *RealtimeChannel) isActive() bool {
-	return c.state == ChannelStateAttaching || c.state == ChannelStateAttached
 }
 
 func (c *RealtimeChannel) opts() *clientOptions {
