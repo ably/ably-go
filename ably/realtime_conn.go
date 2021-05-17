@@ -129,30 +129,6 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 	return conn, err
 }
 
-func (c *Connection) connectAfterSuspension(arg connArgs) (result, error) {
-	retryIn := c.opts.suspendedRetryTimeout()
-	lg := c.logger().sugar()
-	lg.Debugf("Attemting to periodically establish connection after suspension with timeout %v", retryIn)
-	ctx, cancel := c.ctxCancelOnStateTransition()
-	defer cancel()
-	tick := ablyutil.NewTicker(c.opts.After)(ctx, retryIn)
-	for {
-		_, ok := <-tick
-		if !ok {
-			return nil, ctx.Err()
-		}
-		res, err := c.connectWith(arg)
-		if err != nil {
-			if recoverable(err) {
-				c.setState(ConnectionStateSuspended, err, retryIn)
-				continue
-			}
-			return nil, c.setState(ConnectionStateFailed, err, 0)
-		}
-		return res, nil
-	}
-}
-
 // recoverable returns true if err is recoverable, err is from making a
 // connection
 func recoverable(err error) bool {
@@ -174,7 +150,14 @@ func (c *Connection) Connect() {
 		return
 	}
 
+	IsInReconnectionLoop := c.state == ConnectionStateDisconnected || c.state == ConnectionStateSuspended
+
+	// set state to connecting for initial connect
 	c.lockSetState(ConnectionStateConnecting, nil, 0)
+
+	if IsInReconnectionLoop {
+		return
+	}
 
 	go func() {
 		c.connect(connArgs{})
@@ -287,6 +270,8 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 
 const connectionStateTTLErrFmt = "Exceeded connectionStateTtl=%v while in DISCONNECTED state"
 
+var errClosedWhileReconnecting = errors.New("connection explicitly closed while trying to reconnect")
+
 func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	lg := c.logger().sugar()
 	res, err := c.connectWith(arg)
@@ -300,81 +285,71 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	lg.Errorf("Received recoverable error %v", err)
 	retryIn := c.opts.disconnectedRetryTimeout()
 	c.setState(ConnectionStateDisconnected, err, retryIn)
+	idleState := ConnectionStateDisconnected
 
-	ctx, cancel := c.ctxCancelOnStateTransition()
-	defer cancel()
+	// If we spend more than the connection state TTL retrying, we move from
+	// DISCONNECTED to SUSPENDED, which also changes the retry timeout period.
+	stateTTLCtx, cancelStateTTLTimer := context.WithCancel(context.Background())
+	defer cancelStateTTLTimer()
+	stateTTLTimer := c.opts.After(stateTTLCtx, c.opts.connectionStateTTL())
 
-	// The initial DISCONNECTED event has been fired. If we reach stateTTL without
-	// any state changes, we transition to SUSPENDED state
-	stateTTL := c.opts.connectionStateTTL()
-	stateDeadlineCtx, cancelStateDeadline := context.WithCancel(ctx)
-	defer cancelStateDeadline()
-	stateDeadline := c.opts.After(stateDeadlineCtx, stateTTL)
-
-	nextCtx, cancelNext := context.WithCancel(ctx)
-	next := c.opts.After(nextCtx, retryIn)
-	reset := func() {
-		lg.Debugf("Retry in %v", retryIn)
-		cancelNext()
-		nextCtx, cancelNext = context.WithCancel(ctx)
-		next = c.opts.After(nextCtx, retryIn)
-	}
-
-loop:
 	for {
-		select {
-		case _, ok := <-stateDeadline:
-			if !ok {
-				return nil, ctx.Err()
-			}
-			break loop
-		case _, ok := <-next:
-			if !ok {
-				return nil, ctx.Err()
-			}
-			// Prioritize stateDeadline.
+		// If the connection transitions, it's because Connect or Close was called
+		// explicitly. In that case, skip the wait and either retry connecting
+		// immediately (RTN11c) or exit the loop (RTN12d).
+		timerCtx, cancelTimer := c.ctxCancelOnStateTransition()
+		<-c.opts.After(timerCtx, retryIn)
+		cancelTimer()
+
+		switch state := c.State(); state {
+		case ConnectionStateConnecting, ConnectionStateDisconnected, ConnectionStateSuspended:
+		case ConnectionStateClosed:
+			// Close was explicitly called, so stop trying to connect (RTN12d).
+			return nil, errClosedWhileReconnecting
+		default:
+			panic(fmt.Errorf("unexpected state transition: %v -> %v", idleState, state))
+		}
+
+		// Before attempting to connect, move from DISCONNETCED to SUSPENDED if
+		// more than connectionStateTTL has passed.
+		if idleState == ConnectionStateDisconnected {
 			select {
-			case _, ok := <-stateDeadline:
-				if !ok {
-					return nil, ctx.Err()
-				}
+			case <-stateTTLTimer:
+				// (RTN14e)
+				err = fmt.Errorf(connectionStateTTLErrFmt, c.opts.connectionStateTTL())
+				c.setState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
+				idleState = ConnectionStateSuspended
+				// (RTN14f)
+				lg.Debug("Reached SUSPENDED state while opening connection")
+				retryIn = c.opts.suspendedRetryTimeout()
+				continue // wait for re-connection with new retry timeout for suspended
 			default:
 			}
-
-			lg.Debug("Attemting to open connection")
-			res, err := c.connectWith(arg)
-			if err == nil {
-				return res, nil
-			}
-			if recoverable(err) {
-				lg.Errorf("Received recoverable error %v", err)
-				// No need to reset stateDeadline as we are still in DISCONNECTED state. so
-				// another DISCONNECTED implies we haven't transitioned from DISCONNECTED
-				// state
-				c.setState(ConnectionStateDisconnected, err, retryIn)
-				reset()
-				continue
-			}
-			return nil, c.setState(ConnectionStateFailed, err, 0)
 		}
-	}
 
-	// (RTN14e)
-	lg.Debug("Transition to SUSPENDED state")
-	err = fmt.Errorf(connectionStateTTLErrFmt, stateTTL)
-	c.setState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
-	// (RTN14f)
-	lg.Debug("Reached SUSPENDED state while opening connection")
-	return c.connectAfterSuspension(arg)
+		lg.Debug("Attemting to open connection")
+		res, err := c.connectWith(arg)
+		if err == nil {
+			return res, nil
+		}
+		if recoverable(err) {
+			// Go back to previous state and wait again until the next
+			// connection attempt.
+			lg.Errorf("Received recoverable error %v", err)
+			c.setState(idleState, err, retryIn)
+			continue
+		}
+		return nil, c.setState(ConnectionStateFailed, err, 0)
+	}
 }
 
 func (c *Connection) connectWith(arg connArgs) (result, error) {
 	c.mtx.Lock()
-	if !c.isActive() {
+	// set ably connection state to connecting, connecting state exists regardless of whether raw connection is successful or not
+	if !c.isActive() { // check if already in connecting state
 		c.lockSetState(ConnectionStateConnecting, nil, 0)
 	}
 	c.mtx.Unlock()
-
 	u, err := url.Parse(c.opts.realtimeURL())
 	if err != nil {
 		return nil, err
@@ -393,6 +368,12 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 	}
 	u.RawQuery = query.Encode()
 	proto := c.opts.protocol()
+
+	if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
+		return nopResult, nil
+	}
+
+	// if err is nil, raw connection with server is successful
 	conn, err := c.dial(proto, u)
 	if err != nil {
 		return nil, err
@@ -400,11 +381,15 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+
 	if c.logger().Is(LogVerbose) {
 		c.setConn(verboseConn{conn: conn, logger: c.logger()})
 	} else {
 		c.setConn(conn)
 	}
+	// Start eventloop
+	go c.eventloop()
+
 	c.reconnecting = arg.mode == recoveryMode || arg.mode == resumeMode
 	c.arg = arg
 	return res, nil
@@ -470,6 +455,7 @@ func (c *Connection) Key() string {
 //
 // Ping returns non-nil error without any attempt of communication with Ably
 // if the connection state is ConnectionStateClosed or ConnectionStateFailed.
+// RTN13
 //func (c *Connection) Ping() (ping, pong time.Duration, err error) {
 //	return 0, 0, errors.New("TODO")
 //}
@@ -669,7 +655,6 @@ func (c *Connection) setConn(conn proto.Conn) {
 	c.connMtx.Lock()
 	c.conn = conn
 	c.connMtx.Unlock()
-	go c.eventloop()
 }
 
 func (c *Connection) logger() *LoggerOptions {
@@ -707,11 +692,16 @@ func (c *Connection) eventloop() {
 		c.connMtx.Unlock()
 		if err != nil {
 			c.mtx.Lock()
+			if c.state == ConnectionStateClosing {
+				// RTN12b, RTN12c
+				c.lockSetState(ConnectionStateClosed, err, 0)
+				c.mtx.Unlock()
+				return
+			}
 			if c.state == ConnectionStateClosed {
 				c.mtx.Unlock()
 				return
 			}
-
 			// RTN23a
 			c.lockSetState(ConnectionStateDisconnected, err, 0)
 			c.mtx.Unlock()
@@ -803,7 +793,7 @@ func (c *Connection) eventloop() {
 				// RTN12f
 				c.sendClose()
 				c.mtx.Unlock()
-				return
+				continue
 			}
 
 			c.mtx.Unlock()
@@ -950,10 +940,16 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 	return c.errorReason.unwrapNil()
 }
 
+// ctxCancelOnStateTransition returns a context that is canceled when the
+// connection transitions to any state.
+//
+// This is useful for stopping timers when
+// another event has caused the connection to transition, thus invalidating the
+// original connection state at the time the timer was set.
 func (c *Connection) ctxCancelOnStateTransition() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	off := c.internalEmitter.OnceAll(func(ConnectionStateChange) {
+	off := c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
 		cancel()
 	})
 
