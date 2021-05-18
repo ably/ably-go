@@ -49,27 +49,26 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 		return
 	}
 
-	getProtocol := func(useBinaryProtocol bool) string {
-		if useBinaryProtocol {
-			return "msgpack"
-		}
-		return "json"
-	}
-
 	t.Run("RTN2a: format should be msgPack or json", func(t *testing.T) {
 		t.Parallel()
-		useBinaryProtocol := false
-		requestParams := setup(ably.WithUseBinaryProtocol(useBinaryProtocol))
-		expectedProtocol := getProtocol(useBinaryProtocol)
+		requestParams := setup(ably.WithUseBinaryProtocol(false)) // default protocol is false
 		protocol := requestParams["format"]
-		assertDeepEquals(t, []string{expectedProtocol}, protocol)
+		assertDeepEquals(t, []string{"json"}, protocol)
+
+		requestParams = setup(ably.WithUseBinaryProtocol(true))
+		protocol = requestParams["format"]
+		assertDeepEquals(t, []string{"msgpack"}, protocol)
 	})
 
 	t.Run("RTN2b: echo should be true by default", func(t *testing.T) {
 		t.Parallel()
-		requestParams := setup()
+		requestParams := setup() // default echo value is true
 		echo := requestParams["echo"]
 		assertDeepEquals(t, []string{"true"}, echo)
+
+		requestParams = setup(ably.WithEchoMessages(false))
+		echo = requestParams["echo"]
+		assertDeepEquals(t, []string{"false"}, echo)
 	})
 
 	t.Run("RTN2d: clientId contains provided clientId", func(t *testing.T) {
@@ -77,6 +76,13 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 		requestParams := setup()
 		clientId := requestParams["clientId"]
 		assertNil(t, clientId)
+
+		// todo - Need to verify if clientId is only valid for Basic Auth Mode
+		clientIdParam := "123"
+		key := "fake:key"
+		requestParams = setup(ably.WithToken(""), ably.WithKey(key), ably.WithClientID(clientIdParam)) // Client Id is only enabled for basic auth
+		clientId = requestParams["clientId"]
+		assertDeepEquals(t, []string{clientIdParam}, clientId)
 	})
 
 	t.Run("RTN2e: depending on the auth scheme, accessToken contains token string or key contains api key", func(t *testing.T) {
@@ -85,6 +91,11 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 		requestParams := setup(ably.WithToken(token))
 		actualToken := requestParams["access_token"]
 		assertDeepEquals(t, []string{token}, actualToken)
+
+		key := "fake:key"
+		requestParams = setup(ably.WithToken(""), ably.WithKey(key)) // disable token, use key instead
+		actualKey := requestParams["key"]
+		assertDeepEquals(t, []string{key}, actualKey)
 	})
 
 	t.Run("RTN2f: api version v should be the API version", func(t *testing.T) {
