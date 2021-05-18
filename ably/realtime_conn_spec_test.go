@@ -19,6 +19,77 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
+func Test_RTN2_WebsocketQueryParams(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *proto.ProtocolMessage, 1)
+	out := make(chan *proto.ProtocolMessage, 16)
+	token := "fake:token"
+	useBinaryProtocol := false
+	var urls []url.URL
+	c, _ := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithToken(token),
+		ably.WithUseBinaryProtocol(useBinaryProtocol),
+		ably.WithDial(func(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+			urls = append(urls, *u)
+			return ablytest.MessagePipe(in, out)(proto, u, timeout)
+		}))
+
+	in <- &proto.ProtocolMessage{
+		Action:            proto.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &proto.ConnectionDetails{},
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	requestParams := urls[0].Query()
+
+	t.Run("RTN2a: format should be msgPack or json", func(t *testing.T) {
+		t.Parallel()
+		expectedProtocol := "json"
+		if useBinaryProtocol {
+			expectedProtocol = "msgpack"
+		}
+		protocol := requestParams["format"]
+		assertDeepEquals(t, []string{expectedProtocol}, protocol)
+	})
+
+	t.Run("RTN2b: echo should be true by default", func(t *testing.T) {
+		t.Parallel()
+		echo := requestParams["echo"]
+		assertDeepEquals(t, []string{"true"}, echo)
+	})
+
+	t.Run("RTN2d: clientId contains provided clientId", func(t *testing.T) {
+		t.Parallel()
+		clientId := requestParams["clientId"]
+		assertNil(t, clientId)
+	})
+
+	t.Run("RTN2e: depending on the auth scheme, accessToken contains token string or key contains api key", func(t *testing.T) {
+		t.Parallel()
+		actualToken := requestParams["access_token"]
+		assertDeepEquals(t, []string{token}, actualToken)
+	})
+
+	t.Run("RTN2f: api version v should be the API version", func(t *testing.T) {
+		t.Parallel()
+		libVersion := requestParams["v"]
+		assertDeepEquals(t, []string{"1.2"}, libVersion)
+	})
+
+	t.Run("RTN2g: library and version should be included as the value of lib param", func(t *testing.T) {
+		t.Parallel()
+		lib := requestParams["lib"]
+		assertDeepEquals(t, []string{"go-1.2.0-apipreview.4"}, lib)
+	})
+}
+
 func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnecting), func(t *testing.T) {
 		t.Parallel()
