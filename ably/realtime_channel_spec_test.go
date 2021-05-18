@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1179,7 +1180,6 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 	})
 
-	t.Skip("RTL4j2: Rewind flag should allow to receive historic messages")
 	t.Run("RTL4j2: Rewind flag should allow to receive historic messages", func(t *testing.T) {
 		t.Parallel()
 
@@ -1198,22 +1198,22 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, ablytest.FullRealtimeCloser(client2))
 
-		client.Connect()
-		client1.Connect()
-		client2.Connect()
+		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+		ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
+		ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
 
-		channel := client.Channels.Get("TestChannel")
+		channel := client.Channels.Get("persisted:test")
 		err := channel.Publish(context.Background(), "test", "testData")
 		if err != nil {
 			t.Fatalf("error publishing message : %v", err)
 		}
-		channel1 := client1.Channels.Get("TestChannel",
+		channel1 := client1.Channels.Get("persisted:test",
 			ably.ChannelWithRewind("1"))
 		channel1.SetAttachResume(true)
 
-		var messages1 []ably.Message
+		var chan1MsgCount uint64
 		unsubscribe1, err := channel1.SubscribeAll(context.Background(), func(message *ably.Message) {
-			messages1 = append(messages1, *message)
+			atomic.AddUint64(&chan1MsgCount, 1)
 		})
 
 		defer unsubscribe1()
@@ -1222,12 +1222,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			t.Fatalf("error subscribing channel 1 : %v", err)
 		}
 
-		channel2 := client2.Channels.Get("TestChannel",
+		channel2 := client2.Channels.Get("persisted:test",
 			ably.ChannelWithRewind("1")) // attach resume is false by default
 
-		var messages2 []ably.Message
+		var chan2MsgCount uint64
 		unsubscribe2, err := channel2.SubscribeAll(context.Background(), func(message *ably.Message) {
-			messages2 = append(messages2, *message)
+			atomic.AddUint64(&chan2MsgCount, 1)
 		})
 
 		defer unsubscribe2()
@@ -1237,7 +1237,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 
 		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
-			return len(messages2) == 1
+			return atomic.LoadUint64(&chan2MsgCount) == 1
 		}), nil)
 
 		if err != nil {
@@ -1245,7 +1245,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 
 		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
-			return len(messages1) == 0
+			return atomic.LoadUint64(&chan1MsgCount) == 0
 		}), nil)
 
 		if err != nil {
@@ -1262,7 +1262,9 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			ably.WithDial(recorder.Dial))
 
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-		client.Connect()
+
+		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+
 		channel := client.Channels.Get("test",
 			ably.ChannelWithParams("test", "blah"),
 			ably.ChannelWithParams("test2", "blahblah"),
@@ -1297,14 +1299,16 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 	})
 
-	t.Run(" RTL4k1: If params given channel options, should be exposed as readonly field on ATTACHED message", func(t *testing.T) {
+	t.Run("RTL4k1: If params given channel options, should be exposed as readonly field on ATTACHED message", func(t *testing.T) {
 		t.Parallel()
 
 		app, client := ablytest.NewRealtime(
 			ably.WithAutoConnect(false))
 
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-		client.Connect()
+
+		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+
 		channel := client.Channels.Get("test",
 			ably.ChannelWithParams("test", "blah"),
 			ably.ChannelWithParams("test2", "blahblah"),
@@ -1326,7 +1330,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Soon.Recv(t, nil, channelStateChanges, t.Fatalf) // CONSUME ATTACHED
 
 		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
-			return channel.Params() != nil
+			return len(channel.Params()) > 0
 		}), nil)
 
 		if err != nil {
@@ -1348,7 +1352,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			ably.WithDial(recorder.Dial))
 
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-		client.Connect()
+		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 
 		channelModes := []ably.ChannelMode{proto.ChannelModePresence, proto.ChannelModePublish, proto.ChannelModeSubscribe}
 
@@ -1379,7 +1383,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			ably.WithAutoConnect(false))
 
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-		client.Connect()
+		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 
 		channelModes := []ably.ChannelMode{proto.ChannelModePresence, proto.ChannelModePublish, proto.ChannelModeSubscribe}
 
