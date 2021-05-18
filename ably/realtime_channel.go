@@ -596,7 +596,7 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 	switch msg.Action {
 	case proto.ActionAttached:
-		if msg.Params != nil {
+		if len(msg.Params) > 0 {
 			c.setParams(msg.Params)
 		}
 		if msg.Flags != 0 {
@@ -722,13 +722,19 @@ func (c *RealtimeChannel) setModes(modes []ChannelMode) {
 func (c *RealtimeChannel) Modes() []ChannelMode {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	return c.modes
+	var modes []ChannelMode
+	modes = append(modes, c.modes...)
+	return modes
 }
 
 func (c *RealtimeChannel) Params() ChannelParams {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	return c.params
+	params := make(ChannelParams)
+	for key, value := range c.params {
+		params[key] = value
+	}
+	return params
 }
 
 func (c *RealtimeChannel) opts() *clientOptions {
