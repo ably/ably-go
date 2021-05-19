@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-func (p *PaginatedResult) BuildPath(base, rel string) string {
-	return p.buildPath(base, rel)
-}
-
 func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }
@@ -105,12 +101,6 @@ func (c *Connection) MsgSerial() int64 {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.msgSerial
-}
-
-func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
-	return func(os *clientOptions) {
-		os.RealtimeRequestTimeout = d
-	}
 }
 
 func WithTrace(trace *httptrace.ClientTrace) ClientOption {

@@ -13,7 +13,7 @@ import (
 type custom struct{}
 
 func (custom) MarshalJSON() ([]byte, error) {
-	return json.Marshal("custom")
+	return json.Marshal([]string{"custom"})
 }
 
 func TestMessage(t *testing.T) {
@@ -63,8 +63,8 @@ func TestMessage(t *testing.T) {
 		{
 			desc:        "with a json encoding RSL4d3 json.Marshaler data",
 			data:        custom{},
-			encodedJSON: `{"data":"\"custom\"","encoding":"json"}`,
-			decoded:     "custom",
+			encodedJSON: `{"data":"[\"custom\"]","encoding":"json"}`,
+			decoded:     []interface{}{"custom"},
 		},
 		{
 			desc:        "with a base64 encoding RSL4d3 binary data",
@@ -88,29 +88,34 @@ func TestMessage(t *testing.T) {
 	for _, v := range sample {
 		// pin
 		v := v
-		t.Run(v.desc, func(ts *testing.T) {
-			msg := &proto.Message{
-				Data:           v.data,
-				ChannelOptions: v.opts,
+		t.Run(v.desc, func(t *testing.T) {
+			cipher, _ := v.opts.GetCipher()
+			msg, err := proto.Message{
+				Data: v.data,
+			}.WithEncodedData(cipher)
+			if err != nil {
+				t.Fatal(err)
 			}
 			b, err := json.Marshal(msg)
 			if err != nil {
-				ts.Fatal(err)
+				t.Fatal(err)
 			}
 			got := string(b)
 			if got != v.encodedJSON {
-				ts.Errorf("expected %s got %s", v.encodedJSON, got)
+				t.Errorf("expected %s got %s", v.encodedJSON, got)
 			}
 
-			decoded := &proto.Message{
-				ChannelOptions: v.opts,
-			}
-			err = decoded.UnmarshalJSON(b)
+			var encoded proto.Message
+			err = json.Unmarshal(b, &encoded)
 			if err != nil {
-				ts.Fatal(err)
+				t.Fatal(err)
+			}
+			decoded, err := encoded.WithDecodedData(cipher)
+			if err != nil {
+				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(decoded.Data, v.decoded) {
-				ts.Errorf("expected %#v got %v", v.decoded, decoded.Data)
+				t.Errorf("expected %#v got %#v", v.decoded, decoded.Data)
 			}
 		})
 	}
@@ -128,10 +133,10 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 	for _, fixture := range fixtures {
 		// pin
 		fixture := fixture
-		t.Run(fixture.desc, func(ts *testing.T) {
+		t.Run(fixture.desc, func(t *testing.T) {
 			test, key, iv, err := ablytest.LoadCryptoData(fixture.file)
 			if err != nil {
-				ts.Fatal(err)
+				t.Fatal(err)
 			}
 			opts := &proto.ChannelOptions{
 				Cipher: proto.CipherParams{
@@ -140,26 +145,35 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 					IV:        iv,
 				},
 			}
-			ts.Run("fixture encode", func(ts *testing.T) {
+			t.Run("fixture encode", func(t *testing.T) {
 				for _, item := range test.Items {
-					// All test-cases from the common fixtures files are encoded
-					// for binary transports. Decode the input message first,
-					// to ensure we're not encrypting base64d payloads.
-					encoded := &proto.Message{ChannelOptions: opts}
-					err := encoded.FromMap(item.Encoded)
+					cipher, _ := opts.GetCipher()
+
+					var encoded proto.Message
+					err := json.Unmarshal(item.Encoded, &encoded)
 					if err != nil {
-						ts.Fatal(err)
+						t.Fatal(err)
 					}
-					encrypted := &proto.Message{ChannelOptions: opts}
-					err = encrypted.FromMap(item.Encrypted)
+					encoded, err = encoded.WithDecodedData(cipher)
 					if err != nil {
-						ts.Fatal(err)
+						t.Fatal(err)
 					}
+
+					var encrypted proto.Message
+					err = json.Unmarshal(item.Encoded, &encrypted)
+					if err != nil {
+						t.Fatal(err)
+					}
+					encrypted, err = encrypted.WithDecodedData(cipher)
+					if err != nil {
+						t.Fatal(err)
+					}
+
 					if encoded.Name != encrypted.Name {
-						ts.Errorf("expected %s got %s", encoded.Name, encrypted.Name)
+						t.Errorf("expected %s got %s", encoded.Name, encrypted.Name)
 					}
 					if !reflect.DeepEqual(encoded.Data, encrypted.Data) {
-						ts.Errorf("expected %s got %s :encoding %s",
+						t.Errorf("expected %s got %s :encoding %s",
 							encoded.Data, encrypted.Data, encoded.Encoding)
 					}
 				}

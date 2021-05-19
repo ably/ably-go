@@ -51,11 +51,9 @@ func (c *Realtime) Close() {
 	c.Connection.Close()
 }
 
-// Stats gives the clients metrics according to the given parameters. The
-// returned result can be inspected for the statistics via the Stats()
-// method.
-func (c *Realtime) Stats(ctx context.Context, params *PaginateParams) (*PaginatedResult, error) {
-	return c.rest.Stats(ctx, params)
+// Stats is the same as REST.Stats.
+func (c *Realtime) Stats(o ...StatsOption) StatsRequest {
+	return c.rest.Stats(o...)
 }
 
 // Time
@@ -82,9 +80,9 @@ func (c *Realtime) onReconnected(isNewID bool) {
 	for _, ch := range c.Channels.All() {
 		switch ch.State() {
 		// TODO: SUSPENDED
-		case ChannelStateAttaching, ChannelStateAttached:
+		case ChannelStateAttaching, ChannelStateAttached: //RTN19b
 			ch.mayAttach(false)
-		case ChannelStateDetaching:
+		case ChannelStateDetaching: //RTN19b
 			ch.detachSkipVerifyActive()
 		}
 	}
@@ -94,7 +92,7 @@ func (c *Realtime) onReconnected(isNewID bool) {
 
 func (c *Realtime) onReconnectionFailed(err *proto.ErrorInfo) {
 	for _, ch := range c.Channels.All() {
-		ch.setState(ChannelStateFailed, newErrorFromProto(err))
+		ch.setState(ChannelStateFailed, newErrorFromProto(err), false)
 	}
 }
 

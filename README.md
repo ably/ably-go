@@ -231,8 +231,8 @@ if err != nil {
 	panic(err)
 }
 
-// You can also publish a batch of messages in a single request.
-err = channel.PublishBatch(ctx, []*ably.Message{
+// You can also publish multiple messages in a single request.
+err = channel.PublishMultiple(ctx, []*ably.Message{
 	{Name: "HelloEvent", Data: "Hello!"},
 	{Name: "ByeEvent", Data: "Bye!"},
 })
@@ -243,59 +243,104 @@ if err != nil {
 
 ### Querying the History
 
+<!-- GO EXAMPLE
+{
+-->
+
 ```go
-page, err := channel.History(ctx, nil)
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
-	for _, message := range page.Messages() {
+pages, err := channel.History().Pages(ctx)
+if err != nil {
+	panic(err)
+}
+for pages.Next(ctx) {
+	for _, message := range pages.Items() {
 		fmt.Println(message)
 	}
 }
-if err != nil {
+if err := pages.Err(); err != nil {
 	panic(err)
 }
+
 ```
+
+<!-- GO EXAMPLE
+}
+-->
 
 ### Presence on a channel
 
+<!-- GO EXAMPLE
+{
+-->
+
 ```go
-page, err = channel.Presence.Get(ctx, nil)
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
-	for _, presence := range page.PresenceMessages() {
-		fmt.Println(presence)
-	}
-}
+pages, err := channel.Presence.Get().Pages(ctx)
 if err != nil {
 	panic(err)
 }
+for pages.Next(ctx) {
+	for _, presence := range pages.Items() {
+		fmt.Println(presence)
+	}
+}
+if err := pages.Err(); err != nil {
+	panic(err)
+}
 ```
+
+<!-- GO EXAMPLE
+}
+-->
 
 ### Querying the Presence History
 
+<!-- GO EXAMPLE
+{
+-->
+
 ```go
-page, err = channel.Presence.History(ctx, nil)
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
-	for _, presence := range page.PresenceMessages() {
+pages, err := channel.Presence.History().Pages(ctx)
+if err != nil {
+	panic(err)
+}
+for pages.Next(ctx) {
+	for _, presence := range pages.Items() {
 		fmt.Println(presence)
 	}
 }
-if err != nil {
+if err := pages.Err(); err != nil {
 	panic(err)
 }
 ```
+
+<!-- GO EXAMPLE
+}
+-->
 
 ### Fetching your application's stats
 
+<!-- GO EXAMPLE
+{
+-->
+
 ```go
-page, err = client.Stats(ctx, &ably.PaginateParams{})
-for ; err == nil && page != nil; page, err = page.Next(ctx) {
-	for _, stat := range page.Stats() {
-		fmt.Println(stat)
-	}
-}
+pages, err := client.Stats().Pages(ctx)
 if err != nil {
 	panic(err)
 }
+for pages.Next(ctx) {
+	for _, stat := range pages.Items() {
+		fmt.Println(stat)
+	}
+}
+if err := pages.Err(); err != nil {
+	panic(err)
+}
 ```
+
+<!-- GO EXAMPLE
+}
+-->
 
 <!-- GO EXAMPLE
 }

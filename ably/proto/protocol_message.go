@@ -1,11 +1,11 @@
 package proto
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 )
 
+// TR3
 const (
 	FlagHasPresence       Flag = 1 << 0
 	FlagHasBacklog        Flag = 1 << 1
@@ -105,87 +105,12 @@ type ProtocolMessage struct {
 	Params            ChannelParams      `json:"params,omitempty" codec:"params,omitempty"`
 }
 
-func (p *ProtocolMessage) UnmarshalJSON(b []byte) error {
-	ctx := make(map[string]interface{})
-	err := json.Unmarshal(b, &ctx)
-	if err != nil {
-		return err
-	}
-	p.FromMap(ctx)
-	return nil
-}
-
 func (p *ProtocolMessage) SetModesAsFlag(modes []ChannelMode) {
 	for _, mode := range modes {
 		flag := mode.ToFlag()
 		if flag != 0 {
 			p.Flags.Set(flag)
 		}
-	}
-}
-
-func (p *ProtocolMessage) FromMap(ctx map[string]interface{}) {
-	if v, ok := ctx["messages"]; ok {
-		i := v.([]interface{})
-		for _, v := range i {
-			var msg Message
-			msg.FromMap(v.(map[string]interface{}))
-			p.Messages = append(p.Messages, &msg)
-		}
-	}
-	if v, ok := ctx["presence"]; ok {
-		i := v.([]interface{})
-		for _, v := range i {
-			var msg PresenceMessage
-			msg.FromMap(v.(map[string]interface{}))
-			p.Presence = append(p.Presence, &msg)
-		}
-	}
-	if v, ok := ctx["id"]; ok {
-		p.ID = v.(string)
-	}
-	if v, ok := ctx["applicationId"]; ok {
-		p.ApplicationID = v.(string)
-	}
-	if v, ok := ctx["connectionId"]; ok {
-		p.ConnectionID = v.(string)
-	}
-	if v, ok := ctx["connectionKey"]; ok {
-		p.ConnectionKey = v.(string)
-	}
-	if v, ok := ctx["channel"]; ok {
-		p.Channel = v.(string)
-	}
-	if v, ok := ctx["channelSerial"]; ok {
-		p.ChannelSerial = v.(string)
-	}
-	if v, ok := ctx["connectionDetails"]; ok {
-		c := &ConnectionDetails{}
-		c.FromMap(v.(map[string]interface{}))
-		p.ConnectionDetails = c
-	}
-	if v, ok := ctx["error"]; ok {
-		c := &ErrorInfo{}
-		c.FromMap(v.(map[string]interface{}))
-		p.Error = c
-	}
-	if v, ok := ctx["msgSerial"]; ok {
-		p.MsgSerial = coerceInt64(v)
-	}
-	if v, ok := ctx["connectionSerial"]; ok {
-		p.ConnectionSerial = coerceInt64(v)
-	}
-	if v, ok := ctx["timestamp"]; ok {
-		p.Timestamp = coerceInt64(v)
-	}
-	if v, ok := ctx["count"]; ok {
-		p.Count = int(coerceInt64(v))
-	}
-	if v, ok := ctx["action"]; ok {
-		p.Action = Action(coerceInt8(v))
-	}
-	if v, ok := ctx["flags"]; ok {
-		p.Flags = Flag(coerceInt64(v))
 	}
 }
 

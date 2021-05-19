@@ -2,7 +2,6 @@ package ably_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -103,52 +102,6 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	}
 	if err := expectMsg(sub2, "hello", "client2", timeout, false); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestRealtimeChannel_Detach(t *testing.T) {
-	t.Parallel()
-	app, client := ablytest.NewRealtime()
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
-		t.Fatal(err)
-	}
-	channel := client.Channels.Get("test")
-	sub, unsub, err := ablytest.ReceiveMessages(channel, "")
-	if err != nil {
-		t.Fatalf("ablytest.ReceiveMessages(channel)=%v", err)
-	}
-	defer unsub()
-	if err := channel.Publish(context.Background(), "hello", "world"); err != nil {
-		t.Fatalf("channel.Publish()=%v", err)
-	}
-	done := make(chan error)
-	go func() {
-		msg, ok := <-sub
-		if !ok {
-			done <- errors.New("did not receive published message")
-		}
-		if msg.Name != "hello" || !reflect.DeepEqual(msg.Data, "world") {
-			done <- fmt.Errorf(`want name="hello", data="world"; got %s, %v`, msg.Name, msg.Data)
-		}
-		done <- nil
-	}()
-	if state := channel.State(); state != ably.ChannelStateAttached {
-		t.Fatalf("want state=%v; got %v", ably.ChannelStateAttached, state)
-	}
-	if err := channel.Detach(context.Background()); err != nil {
-		t.Fatalf("channel.Detach(context.Background())=%v", err)
-	}
-	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
-		t.Fatalf("ablytest.FullRealtimeCloser(client).Close()=%v", err)
-	}
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("waiting on subscribed channel close failed: err=%s", err)
-		}
-	case <-time.After(ablytest.Timeout):
-		t.Fatalf("waiting on subscribed channel close timed out after %v", ablytest.Timeout)
 	}
 }
 

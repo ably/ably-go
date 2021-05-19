@@ -129,6 +129,9 @@ type ChannelOptions struct {
 // GetCipher returns a ChannelCipher based on the algorithms set in the
 // ChannelOptions.CipherParams.
 func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
+	if c == nil {
+		return nil, errors.New("no cipher configured")
+	}
 	if c.cipher != nil {
 		return c.cipher, nil
 	}
