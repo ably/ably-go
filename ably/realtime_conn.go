@@ -671,174 +671,195 @@ func (c *Connection) resendPending() {
 }
 
 func (c *Connection) eventloop() {
-	var lastActivityAt time.Time
-	var connDetails *proto.ConnectionDetails
+	(&connLoop{Connection: c}).loop()
+}
+
+type connLoop struct {
+	*Connection
+	lastActivityAt time.Time
+	connDetails    *proto.ConnectionDetails
+}
+
+func (c *connLoop) loop() {
 	for c.lockCanReceiveMessages() {
 		receiveTimeout := c.opts.realtimeRequestTimeout()
-		if connDetails != nil {
-			maxIdleInterval := time.Duration(connDetails.MaxIdleInterval)
+		if c.connDetails != nil {
+			maxIdleInterval := time.Duration(c.connDetails.MaxIdleInterval)
 			receiveTimeout += maxIdleInterval // RTN23a
 		}
 		c.connMtx.Lock()
 		msg, err := c.conn.Receive(c.opts.Now().Add(receiveTimeout))
 		c.connMtx.Unlock()
-		if err != nil {
-			c.mtx.Lock()
-			if c.state == ConnectionStateClosing {
-				// RTN12b, RTN12c
-				c.lockSetState(ConnectionStateClosed, err, 0)
-				c.mtx.Unlock()
-				return
-			}
-			if c.state == ConnectionStateClosed {
-				c.mtx.Unlock()
-				return
-			}
-			// RTN23a
-			c.lockSetState(ConnectionStateDisconnected, err, 0)
-			c.mtx.Unlock()
-			arg := connArgs{
-				lastActivityAt: lastActivityAt,
-				connDetails:    connDetails,
-			}
-			c.reconnect(arg)
+
+		done := c.handleMessage(msg, err)
+		if done {
 			return
-		}
-		lastActivityAt = c.opts.Now()
-		if msg.ConnectionSerial != 0 {
-			c.mtx.Lock()
-			c.setSerial(msg.ConnectionSerial)
-			c.mtx.Unlock()
-		}
-		switch msg.Action {
-		case proto.ActionHeartbeat:
-		case proto.ActionAck:
-			c.mtx.Lock()
-			c.pending.Ack(msg, newErrorFromProto(msg.Error))
-			c.setSerial(c.serial + 1)
-			c.mtx.Unlock()
-		case proto.ActionNack:
-			c.mtx.Lock()
-			c.pending.Nack(msg, newErrorFromProto(msg.Error))
-			c.mtx.Unlock()
-		case proto.ActionError:
-
-			if msg.Channel != "" {
-				c.callbacks.onChannelMsg(msg)
-				break
-			}
-
-			c.mtx.Lock()
-			reauthorizing := c.reauthorizing
-			c.reauthorizing = false
-			if isTokenError(msg.Error) {
-				if reauthorizing {
-					c.lockedReauthorizationFailed(newErrorFromProto(msg.Error))
-					c.mtx.Unlock()
-					return
-				}
-				// RTN14b
-				c.mtx.Unlock()
-				c.reauthorize(connArgs{
-					lastActivityAt: lastActivityAt,
-					connDetails:    connDetails,
-					dialOnce:       true,
-				})
-				return
-			}
-			c.mtx.Unlock()
-
-			c.failedConnSideEffects(msg.Error)
-		case proto.ActionConnected:
-			c.mtx.Lock()
-
-			// we need to get this before we set c.key so as to be sure if we were
-			// resuming or recovering the connection.
-			mode := c.getMode()
-			if msg.ConnectionDetails != nil {
-				connDetails = msg.ConnectionDetails
-				c.key = connDetails.ConnectionKey //(RTN15e) (RTN16d)
-
-				// Spec RSA7b3, RSA7b4, RSA12a
-				c.auth.updateClientID(connDetails.ClientID)
-			}
-			reconnecting := c.reconnecting
-			if reconnecting {
-				// reset the mode
-				c.reconnecting = false
-				c.reauthorizing = false
-			}
-			previousID := c.id
-			c.id = msg.ConnectionID
-			c.msgSerial = 0
-			if reconnecting && mode == recoveryMode && msg.Error == nil {
-				// we are setting msgSerial as per (RTN16f)
-				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
-				if err != nil {
-					//TODO: how to handle this? Panic?
-				}
-				c.msgSerial = msgSerial
-			}
-			c.setSerial(-1)
-
-			if c.state == ConnectionStateClosing {
-				// RTN12f
-				c.sendClose()
-				c.mtx.Unlock()
-				continue
-			}
-
-			c.mtx.Unlock()
-
-			if reconnecting {
-				// (RTN15c1) (RTN15c2)
-				c.mtx.Lock()
-				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
-				c.mtx.Unlock()
-				// (RTN15c3)
-				// we are calling this outside of locks to avoid deadlock because in the
-				// RealtimeClient client where this callback is implemented we do some ops
-				// with this Conn where we re acquire Conn.Lock again.
-				c.callbacks.onReconnected(previousID != msg.ConnectionID)
-			} else {
-				// preserve old behavior.
-				c.mtx.Lock()
-				// RTN24
-				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
-				c.mtx.Unlock()
-			}
-			c.queue.Flush()
-		case proto.ActionDisconnected:
-			if !isTokenError(msg.Error) {
-				// The spec doesn't say what to do in this case, so do nothing.
-				// Ably is supposed to then close the transport, which will
-				// trigger a transition to DISCONNECTED.
-				continue
-			}
-
-			if !c.auth.isTokenRenewable() {
-				// RTN15h1
-				c.failedConnSideEffects(msg.Error)
-				return
-			}
-
-			// RTN15h2
-			c.reauthorize(connArgs{
-				lastActivityAt: lastActivityAt,
-				connDetails:    connDetails,
-			})
-			return
-		case proto.ActionClosed:
-			c.mtx.Lock()
-			c.lockSetState(ConnectionStateClosed, nil, 0)
-			c.mtx.Unlock()
-			if c.conn != nil {
-				c.conn.Close()
-			}
-		default:
-			c.callbacks.onChannelMsg(msg)
 		}
 	}
+}
+
+func (c *connLoop) handleMessage(msg *proto.ProtocolMessage, err error) (done bool) {
+	_, _, end := c.log().Begin(context.Background(), LogVerbose, "recvProtoMsg", "action", msg.Action)
+	defer end(nil)
+
+	if err != nil {
+		c.mtx.Lock()
+		if c.state == ConnectionStateClosing {
+			// RTN12b, RTN12c
+			c.lockSetState(ConnectionStateClosed, err, 0)
+			c.mtx.Unlock()
+			return true
+		}
+		if c.state == ConnectionStateClosed {
+			c.mtx.Unlock()
+			return true
+		}
+		// RTN23a
+		c.lockSetState(ConnectionStateDisconnected, err, 0)
+		c.mtx.Unlock()
+		arg := connArgs{
+			lastActivityAt: c.lastActivityAt,
+			connDetails:    c.connDetails,
+		}
+		c.reconnect(arg)
+		return true
+	}
+	c.lastActivityAt = c.opts.Now()
+	if msg.ConnectionSerial != 0 {
+		c.mtx.Lock()
+		c.setSerial(msg.ConnectionSerial)
+		c.mtx.Unlock()
+	}
+	switch msg.Action {
+	case proto.ActionHeartbeat:
+	case proto.ActionAck:
+		c.mtx.Lock()
+		c.pending.Ack(msg, newErrorFromProto(msg.Error))
+		c.setSerial(c.serial + 1)
+		c.mtx.Unlock()
+	case proto.ActionNack:
+		c.mtx.Lock()
+		c.pending.Nack(msg, newErrorFromProto(msg.Error))
+		c.mtx.Unlock()
+	case proto.ActionError:
+
+		if msg.Channel != "" {
+			c.callbacks.onChannelMsg(msg)
+			return false
+		}
+
+		c.mtx.Lock()
+		reauthorizing := c.reauthorizing
+		c.reauthorizing = false
+		if isTokenError(msg.Error) {
+			if reauthorizing {
+				c.lockedReauthorizationFailed(newErrorFromProto(msg.Error))
+				c.mtx.Unlock()
+				return true
+			}
+			// RTN14b
+			c.mtx.Unlock()
+			c.reauthorize(connArgs{
+				lastActivityAt: c.lastActivityAt,
+				connDetails:    c.connDetails,
+				dialOnce:       true,
+			})
+			return true
+		}
+		c.mtx.Unlock()
+
+		c.failedConnSideEffects(msg.Error)
+	case proto.ActionConnected:
+		c.mtx.Lock()
+
+		// we need to get this before we set c.key so as to be sure if we were
+		// resuming or recovering the connection.
+		mode := c.getMode()
+		if msg.ConnectionDetails != nil {
+			c.connDetails = msg.ConnectionDetails
+			c.key = c.connDetails.ConnectionKey //(RTN15e) (RTN16d)
+
+			// Spec RSA7b3, RSA7b4, RSA12a
+			c.auth.updateClientID(c.connDetails.ClientID)
+		}
+		reconnecting := c.reconnecting
+		if reconnecting {
+			// reset the mode
+			c.reconnecting = false
+			c.reauthorizing = false
+		}
+		previousID := c.id
+		c.id = msg.ConnectionID
+		c.msgSerial = 0
+		if reconnecting && mode == recoveryMode && msg.Error == nil {
+			// we are setting msgSerial as per (RTN16f)
+			msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
+			if err != nil {
+				//TODO: how to handle this? Panic?
+			}
+			c.msgSerial = msgSerial
+		}
+		c.setSerial(-1)
+
+		if c.state == ConnectionStateClosing {
+			// RTN12f
+			c.sendClose()
+			c.mtx.Unlock()
+			return false
+		}
+
+		c.mtx.Unlock()
+
+		if reconnecting {
+			// (RTN15c1) (RTN15c2)
+			c.mtx.Lock()
+			c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
+			c.mtx.Unlock()
+			// (RTN15c3)
+			// we are calling this outside of locks to avoid deadlock because in the
+			// RealtimeClient client where this callback is implemented we do some ops
+			// with this Conn where we re acquire Conn.Lock again.
+			c.callbacks.onReconnected(previousID != msg.ConnectionID)
+		} else {
+			// preserve old behavior.
+			c.mtx.Lock()
+			// RTN24
+			c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
+			c.mtx.Unlock()
+		}
+		c.queue.Flush()
+	case proto.ActionDisconnected:
+		if !isTokenError(msg.Error) {
+			// The spec doesn't say what to do in this case, so do nothing.
+			// Ably is supposed to then close the transport, which will
+			// trigger a transition to DISCONNECTED.
+			return false
+		}
+
+		if !c.auth.isTokenRenewable() {
+			// RTN15h1
+			c.failedConnSideEffects(msg.Error)
+			return true
+		}
+
+		// RTN15h2
+		c.reauthorize(connArgs{
+			lastActivityAt: c.lastActivityAt,
+			connDetails:    c.connDetails,
+		})
+		return true
+	case proto.ActionClosed:
+		c.mtx.Lock()
+		c.lockSetState(ConnectionStateClosed, nil, 0)
+		c.mtx.Unlock()
+		if c.conn != nil {
+			c.conn.Close()
+		}
+	default:
+		c.callbacks.onChannelMsg(msg)
+	}
+
+	return false
 }
 
 func (c *Connection) failedConnSideEffects(err *proto.ErrorInfo) {
@@ -927,8 +948,12 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 	} else {
 		change.Event = ConnectionEvent(change.Current)
 	}
+
+	c.log().Infof("Connection state change: %s → %s (reason=%s)", previous, state, c.errorReason)
+
 	c.internalEmitter.emitter.Emit(change.Event, change)
 	c.emitter.Emit(change.Event, change)
+
 	return c.errorReason.unwrapNil()
 }
 
