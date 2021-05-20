@@ -1,7 +1,6 @@
 package ably_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -150,16 +149,6 @@ func TestAuth_TokenAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-type bufferLogger struct {
-	buf bytes.Buffer
-}
-
-func (b *bufferLogger) Print(level ably.LogLevel, v ...interface{}) {
-	v = append([]interface{}{level}, v...)
-	fmt.Fprint(&b.buf, v...)
-}
-func (b *bufferLogger) Printf(level ably.LogLevel, str string, v ...interface{}) {}
 
 func TestAuth_TimestampRSA10k(t *testing.T) {
 	t.Parallel()

@@ -597,7 +597,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 				if c.opts.FallbackHosts != nil {
 					fallback = c.opts.FallbackHosts
 				}
-				c.log.Info("RestClient: trying to fallback with hosts=%v", fallback)
+				c.log.Infof("RestClient: trying to fallback with hosts=%v", fallback)
 				if len(fallback) > 0 {
 					left := fallback
 					iteration := 0

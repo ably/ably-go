@@ -39,8 +39,6 @@ func emit(msg *proto.ProtocolMessage, fn func(*pendingEmitter, *proto.ProtocolMe
 
 type discardLogger struct{}
 
-func (discardLogger) Print(level LogLevel, v ...interface{}) {}
-
 func (discardLogger) Printf(level LogLevel, format string, v ...interface{}) {}
 
 func testQueuedEmitter(t *testing.T, serials, ack, nack []int64, emit func(*pendingEmitter)) {

@@ -33,12 +33,6 @@ func (l filteredLogger) Is(level LogLevel) bool {
 	return l.Level != LogNone && l.Level >= level
 }
 
-func (l filteredLogger) Print(level LogLevel, v ...interface{}) {
-	if l.Is(level) {
-		l.Logger.Print(level, v...)
-	}
-}
-
 func (l filteredLogger) Printf(level LogLevel, format string, v ...interface{}) {
 	if l.Is(level) {
 		l.Logger.Printf(level, format, v...)
@@ -47,7 +41,6 @@ func (l filteredLogger) Printf(level LogLevel, format string, v ...interface{}) 
 
 // Logger is an interface for ably loggers.
 type Logger interface {
-	Print(level LogLevel, v ...interface{})
 	Printf(level LogLevel, format string, v ...interface{})
 }
 
@@ -60,13 +53,6 @@ func (s *stdLogger) Printf(level LogLevel, format string, v ...interface{}) {
 	s.Logger.Printf(logLevels[level]+format, v...)
 }
 
-func (s *stdLogger) Print(level LogLevel, v ...interface{}) {
-	if len(v) != 0 {
-		v[0] = fmt.Sprintf(logLevels[level]+"%v", v[0])
-		s.Logger.Print(v...)
-	}
-}
-
 // logger is the internal logger type, with helper methods that wrap the raw
 // Logger interface.
 type logger struct {
@@ -74,7 +60,7 @@ type logger struct {
 }
 
 func (l logger) Error(v ...interface{}) {
-	l.l.Print(LogError, v...)
+	l.print(LogError, v...)
 }
 
 func (l logger) Errorf(fmt string, v ...interface{}) {
@@ -82,7 +68,7 @@ func (l logger) Errorf(fmt string, v ...interface{}) {
 }
 
 func (l logger) Warn(v ...interface{}) {
-	l.l.Print(LogWarning, v...)
+	l.print(LogWarning, v...)
 }
 
 func (l logger) Warnf(fmt string, v ...interface{}) {
@@ -90,7 +76,7 @@ func (l logger) Warnf(fmt string, v ...interface{}) {
 }
 
 func (l logger) Info(v ...interface{}) {
-	l.l.Print(LogInfo, v...)
+	l.print(LogInfo, v...)
 }
 
 func (l logger) Infof(fmt string, v ...interface{}) {
@@ -98,7 +84,7 @@ func (l logger) Infof(fmt string, v ...interface{}) {
 }
 
 func (l logger) Verbose(v ...interface{}) {
-	l.l.Print(LogVerbose, v...)
+	l.print(LogVerbose, v...)
 }
 
 func (l logger) Verbosef(fmt string, v ...interface{}) {
@@ -110,5 +96,9 @@ func (l logger) Debugf(fmt string, v ...interface{}) {
 }
 
 func (l logger) Debug(v ...interface{}) {
-	l.l.Print(LogDebug, v...)
+	l.print(LogDebug, v...)
+}
+
+func (l logger) print(level LogLevel, v ...interface{}) {
+	l.l.Printf(level, fmt.Sprint(v...))
 }
