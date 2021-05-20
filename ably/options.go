@@ -730,7 +730,7 @@ func applyOptionsWithDefaults(opts ...ClientOption) *clientOptions {
 	}
 
 	if to.LogHandler == nil {
-		to.LogHandler = &StdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)}
+		to.LogHandler = &stdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)}
 	}
 	to.LogHandler = LoggerOptions{Logger: to.LogHandler, Level: to.LogLevel}
 

@@ -55,16 +55,16 @@ type Logger interface {
 	Printf(level LogLevel, format string, v ...interface{})
 }
 
-// StdLogger wraps log.Logger to satisfy the Logger interface.
-type StdLogger struct {
+// stdLogger wraps log.Logger to satisfy the Logger interface.
+type stdLogger struct {
 	*log.Logger
 }
 
-func (s *StdLogger) Printf(level LogLevel, format string, v ...interface{}) {
+func (s *stdLogger) Printf(level LogLevel, format string, v ...interface{}) {
 	s.Logger.Printf(logLevels[level]+format, v...)
 }
 
-func (s *StdLogger) Print(level LogLevel, v ...interface{}) {
+func (s *stdLogger) Print(level LogLevel, v ...interface{}) {
 	if len(v) != 0 {
 		v[0] = fmt.Sprintf(logLevels[level]+"%v", v[0])
 		s.Logger.Print(v...)
