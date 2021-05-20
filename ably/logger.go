@@ -16,12 +16,16 @@ const (
 	LogDebug
 )
 
-var logLevels = map[LogLevel]string{
-	LogError:   "[ERROR] ",
-	LogWarning: "[WARN] ",
-	LogInfo:    "[INFO] ",
-	LogVerbose: "[VERBOSE] ",
-	LogDebug:   "[DEBUG] ",
+var logLevelNames = map[LogLevel]string{
+	LogError:   "ERROR",
+	LogWarning: "WARN",
+	LogInfo:    "INFO",
+	LogVerbose: "VERBOSE",
+	LogDebug:   "DEBUG",
+}
+
+func (l LogLevel) String() string {
+	return logLevelNames[l]
 }
 
 type filteredLogger struct {
@@ -50,7 +54,7 @@ type stdLogger struct {
 }
 
 func (s *stdLogger) Printf(level LogLevel, format string, v ...interface{}) {
-	s.Logger.Printf(logLevels[level]+format, v...)
+	s.Logger.Printf(fmt.Sprintf("[%s] %s", level, format), v...)
 }
 
 // logger is the internal logger type, with helper methods that wrap the raw
