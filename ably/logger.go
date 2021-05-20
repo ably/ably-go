@@ -3,7 +3,6 @@ package ably
 import (
 	"fmt"
 	"log"
-	"os"
 )
 
 type LogLevel uint
@@ -25,12 +24,6 @@ var logLevels = map[LogLevel]string{
 	LogDebug:   "[DEBUG] ",
 }
 
-var defaultLog = LoggerOptions{
-	Logger: &StdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)},
-	Level:  LogNone,
-}
-
-// LoggerOptions defines options for ably logging.
 type LoggerOptions struct {
 	Logger Logger
 	Level  LogLevel
@@ -42,23 +35,14 @@ func (l LoggerOptions) Is(level LogLevel) bool {
 
 func (l LoggerOptions) Print(level LogLevel, v ...interface{}) {
 	if l.Is(level) {
-		l.GetLogger().Print(level, v...)
+		l.Logger.Print(level, v...)
 	}
 }
 
 func (l LoggerOptions) Printf(level LogLevel, format string, v ...interface{}) {
 	if l.Is(level) {
-		l.GetLogger().Printf(level, format, v...)
+		l.Logger.Printf(level, format, v...)
 	}
-}
-
-// GetLogger returns the custom logger if any. This will return the default
-// logger if custom logger was not specified.
-func (l LoggerOptions) GetLogger() Logger {
-	if l.Logger != nil {
-		return l.Logger
-	}
-	return defaultLog.Logger
 }
 
 func (l LoggerOptions) sugar() *sugaredLogger {
