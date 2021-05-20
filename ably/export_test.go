@@ -143,3 +143,5 @@ func (c *RESTChannels) Len() int {
 func NewInternalLogger(l Logger) logger {
 	return logger{l: l}
 }
+
+type FilteredLogger = filteredLogger

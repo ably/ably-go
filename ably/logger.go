@@ -24,22 +24,22 @@ var logLevels = map[LogLevel]string{
 	LogDebug:   "[DEBUG] ",
 }
 
-type LoggerOptions struct {
+type filteredLogger struct {
 	Logger Logger
 	Level  LogLevel
 }
 
-func (l LoggerOptions) Is(level LogLevel) bool {
+func (l filteredLogger) Is(level LogLevel) bool {
 	return l.Level != LogNone && l.Level >= level
 }
 
-func (l LoggerOptions) Print(level LogLevel, v ...interface{}) {
+func (l filteredLogger) Print(level LogLevel, v ...interface{}) {
 	if l.Is(level) {
 		l.Logger.Print(level, v...)
 	}
 }
 
-func (l LoggerOptions) Printf(level LogLevel, format string, v ...interface{}) {
+func (l filteredLogger) Printf(level LogLevel, format string, v ...interface{}) {
 	if l.Is(level) {
 		l.Logger.Printf(level, format, v...)
 	}
