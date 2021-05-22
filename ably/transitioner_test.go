@@ -257,7 +257,19 @@ func (c ConnTransitioner) recover(timer ablytest.AfterCall) connTransitionFunc {
 func (c ConnTransitioner) fireSuspend(reconnectTimer ablytest.AfterCall, suspendTimer ablytest.AfterCall) connTransitionFunc {
 	return func() (connNextStates, func()) {
 		suspendTimer.Fire()
+		err := ablytest.Wait(ablytest.AssertionWaiter(func() bool { // Make sure suspend/connectionStateTTL timer is triggered first
+			return suspendTimer.IsTriggered()
+		}), nil)
+		if err != nil {
+			c.t.Fatalf("Failed to trigger suspend timeout with error %v", err)
+		}
 		reconnectTimer.Fire()
+		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool { // Make sure reconnect timer is triggered
+			return reconnectTimer.IsTriggered()
+		}), nil)
+		if err != nil {
+			c.t.Fatalf("Failed to trigger reconnect timeout with error %v", err)
+		}
 		return c.suspend()
 	}
 }
@@ -265,6 +277,10 @@ func (c ConnTransitioner) fireSuspend(reconnectTimer ablytest.AfterCall, suspend
 func (c ConnTransitioner) suspend() (connNextStates, func()) {
 	change := make(ably.ConnStateChanges, 1)
 	c.Realtime.Connection.Once(ably.ConnectionEventSuspended, change.Receive)
+
+	var timer ablytest.AfterCall
+	ablytest.Instantly.Recv(c.t, &timer, c.afterCalls, c.t.Fatalf) // Get timer with suspended timeout
+	timer.Fire()
 
 	c.dialErr <- errors.New("suspending")
 
@@ -342,7 +358,7 @@ type ChanTransitioner struct {
 	next    chanNextStates
 }
 
-func (c ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
+func (c *ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
 	c.t.Helper()
 
 	from := c.Channel.State()

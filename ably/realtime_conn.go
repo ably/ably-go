@@ -115,7 +115,7 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 	query := u.Query()
 	query.Add("heartbeats", "true")
 	u.RawQuery = query.Encode()
-	timeout := c.opts.httpOpenTimeout()
+	timeout := c.opts.realtimeRequestTimeout()
 	if c.opts.Dial != nil {
 		conn, err = c.opts.Dial(proto, u, timeout)
 	} else {
@@ -291,7 +291,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	// DISCONNECTED to SUSPENDED, which also changes the retry timeout period.
 	stateTTLCtx, cancelStateTTLTimer := context.WithCancel(context.Background())
 	defer cancelStateTTLTimer()
-	stateTTLTimer := c.opts.After(stateTTLCtx, c.opts.connectionStateTTL())
+	stateTTLTimer := c.opts.After(stateTTLCtx, c.connectionStateTTL())
 
 	for {
 		// If the connection transitions, it's because Connect or Close was called
