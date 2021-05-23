@@ -12,13 +12,13 @@ import (
 
 var (
 	errConnAttach = func(connState ConnectionState) error {
-		return errors.New("cannot Attach channel because connection is in " + connState.String() + " state")
+		return fmt.Errorf("cannot Attach channel because connection is in %v state", connState)
 	}
 	errConnDetach = func(connState ConnectionState) error {
-		return errors.New("cannot Detach channel because connection is in " + connState.String() + " state")
+		return fmt.Errorf("cannot Detach channel because connection is in %v state", connState)
 	}
 	errChannelDetach = func(channelState ChannelState) error {
-		return errors.New("cannot Detach channel because it is in " + channelState.String() + " state")
+		return fmt.Errorf("cannot Detach channel because it is in %v state", channelState)
 	}
 	errDetach = errors.New("attempted to detach channel from inactive connection")
 )
@@ -192,6 +192,8 @@ type RealtimeChannel struct {
 	params         ChannelParams
 	modes          []ChannelMode
 
+	//attachResume is True when the channel moves to the ChannelStateAttached state, and False
+	//when the channel moves to the ChannelStateDetaching or ChannelStateFailed states.
 	attachResume bool
 }
 
@@ -284,10 +286,10 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 			Action:  proto.ActionAttach,
 			Channel: c.Name,
 		}
-		if c.channelOpts().Params != nil {
+		if len(c.channelOpts().Params) > 0 {
 			msg.Params = c.channelOpts().Params
 		}
-		if c.channelOpts().Modes != nil {
+		if len(c.channelOpts().Modes) > 0 {
 			msg.SetModesAsFlag(c.channelOpts().Modes)
 		}
 		if c.attachResume {
