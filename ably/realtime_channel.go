@@ -101,7 +101,7 @@ func applyChannelOptions(os ...ChannelOption) *channelOptions {
 type CipherParams = proto.CipherParams
 type CipherAlgorith = proto.CipherAlgorithm
 type CipherMode = proto.CipherMode
-type ChannelParams = proto.ChannelParams
+type channelParams = proto.ChannelParams
 type ChannelMode = proto.ChannelMode
 
 // Get looks up a channel given by the name and creates it if it does not exist
@@ -189,7 +189,7 @@ type RealtimeChannel struct {
 	messageEmitter *eventEmitter
 	queue          *msgQueue
 	options        *channelOptions
-	params         ChannelParams
+	params         channelParams
 	modes          []ChannelMode
 
 	//attachResume is True when the channel moves to the ChannelStateAttached state, and False
@@ -750,7 +750,7 @@ func (c *RealtimeChannel) channelOpts() *channelOptions {
 	return c.options
 }
 
-func (c *RealtimeChannel) setParams(params ChannelParams) {
+func (c *RealtimeChannel) setParams(params channelParams) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	c.params = params
@@ -770,10 +770,10 @@ func (c *RealtimeChannel) Modes() []ChannelMode {
 	return modes
 }
 
-func (c *RealtimeChannel) Params() ChannelParams {
+func (c *RealtimeChannel) Params() channelParams {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	params := make(ChannelParams)
+	params := make(channelParams)
 	for key, value := range c.params {
 		params[key] = value
 	}
