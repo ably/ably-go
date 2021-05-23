@@ -1121,7 +1121,62 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 	})
 
-	t.Run("RTL4j1: AttachResume should be True when Attached", func(t *testing.T) {
+	t.Run("RTL4j RTL13a: If channel attach is not a clean attach, should set ATTACH_RESUME in the ATTACH message", func(t *testing.T) {
+		t.Parallel()
+		in, out, _, channel, stateChanges, _ := setup(t)
+
+		cancelledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+		channel.Attach(cancelledCtx)
+
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACHING
+		channel.OnAll(stateChanges.Receive)
+
+		// Get the channel to ATTACHED.
+
+		in <- &proto.ProtocolMessage{
+			Action:  proto.ActionAttached,
+			Channel: channel.Name,
+		}
+
+		var change ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		errInfo := proto.ErrorInfo{
+			StatusCode: 500,
+			Code:       50500,
+			Message:    "fake error",
+		}
+
+		in <- &proto.ProtocolMessage{
+			Action:  proto.ActionDetached,
+			Channel: channel.Name,
+			Error:   &errInfo,
+		}
+
+		// Expect a transition to ATTACHING with the error.
+
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		var msg *proto.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
+		if expected, got := proto.ActionAttach, msg.Action; expected != got {
+			t.Fatalf("expected %v; got %v (message: %+v)", expected, got, msg)
+		}
+
+		if !msg.Flags.Has(proto.FlagAttachResume) {
+			t.Fatalf("Attach message should have Flag Attach Resume set to true")
+		}
+	})
+
+	t.Run("RTL4j1: AttachResume should be True when Attached (Clean ATTACH)", func(t *testing.T) {
 		t.Parallel()
 
 		app, err := ablytest.NewSandbox(nil)
@@ -1170,7 +1225,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
 		}
 		if channel.GetAttachResume() != true {
-			t.Fatalf("Channel attach resume should be true when channel state is ATTCHED")
+			t.Fatalf("Channel attach resume should be true when channel state is ATTACHED")
 		}
 
 		channelTransitioner.To(chDetaching)
@@ -2814,7 +2869,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		if expected, got := channelRetryTimeout, call.D; expected != got {
 			t.Fatalf("expected %v; got %v", expected, got)
 		}
-		call.Time <- time.Time{}
+		call.Fire()
 
 		// Expect a transition to ATTACHING, and an ATTACH message.
 
@@ -2839,6 +2894,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
+
 		if change.Reason != nil {
 			t.Fatal(change.Reason)
 		}
@@ -2895,7 +2951,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		// Now trigger the channelRetryTimeout.
 
-		call.Time <- time.Time{}
+		call.Fire()
 
 		// Since the connection isn't CONNECTED, the retry loop should finish.
 
