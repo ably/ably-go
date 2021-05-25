@@ -21,11 +21,11 @@ const (
 )
 
 var logLevelNames = map[LogLevel]string{
-	LogError:   "ERROR",
+	LogError:   "ERRO",
 	LogWarning: "WARN",
 	LogInfo:    "INFO",
-	LogVerbose: "VERBOSE",
-	LogDebug:   "DEBUG",
+	LogVerbose: "VBOS",
+	LogDebug:   "DBUG",
 }
 
 func (l LogLevel) String() string {
