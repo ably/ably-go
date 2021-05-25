@@ -145,7 +145,7 @@ func (l logger) Begin(ctx context.Context, level LogLevel, name string, args ...
 	})
 
 	l = l.scoped(ctx)
-	l.l.Printf(level, "%s:begin %s", name, logKeyValues(false, args...))
+	l.l.Printf(level, "%s:begin%s", name, logKeyValues(false, args...))
 
 	return ctx, l, func(err *error, results ...interface{}) {
 		endLevel := level
@@ -157,7 +157,7 @@ func (l logger) Begin(ctx context.Context, level LogLevel, name string, args ...
 			}
 			results = append([]interface{}{"err", err}, results...)
 		}
-		l.l.Printf(endLevel, "%s:end %s", name, logKeyValues(true, results...))
+		l.l.Printf(endLevel, "%s:end%s", name, logKeyValues(true, results...))
 	}
 }
 
