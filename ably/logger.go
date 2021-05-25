@@ -145,7 +145,7 @@ func (l logger) Begin(ctx context.Context, level LogLevel, name string, args ...
 	})
 
 	l = l.scoped(ctx)
-	l.l.Printf(level, "BEGIN%s", logKeyValues(false, args...))
+	l.l.Printf(level, "%s:begin %s", name, logKeyValues(false, args...))
 
 	return ctx, l, func(err *error, results ...interface{}) {
 		endLevel := level
@@ -157,7 +157,7 @@ func (l logger) Begin(ctx context.Context, level LogLevel, name string, args ...
 			}
 			results = append([]interface{}{"err", err}, results...)
 		}
-		l.l.Printf(endLevel, "END%s", logKeyValues(true, results...))
+		l.l.Printf(endLevel, "%s:end %s", name, logKeyValues(true, results...))
 	}
 }
 
@@ -187,7 +187,7 @@ func (l logger) scoped(ctx context.Context) logger {
 		return l
 	}
 	return logger{
-		l: scopedLogger{l: l.l, scopePrefix: scope.String()},
+		l: scopedLogger{l: l.l, scope: scope.String()},
 	}
 }
 
@@ -229,10 +229,10 @@ func (id logScopeID) String() string {
 }
 
 type scopedLogger struct {
-	l           Logger
-	scopePrefix string
+	l     Logger
+	scope string
 }
 
 func (l scopedLogger) Printf(level LogLevel, fmt string, v ...interface{}) {
-	l.l.Printf(level, "["+l.scopePrefix+"] "+fmt, v...)
+	l.l.Printf(level, fmt+" @ "+l.scope, v...)
 }
