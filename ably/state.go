@@ -247,7 +247,7 @@ func (q *msgQueue) Fail(err error) {
 }
 
 func (q *msgQueue) log() logger {
-	return q.conn.log()
+	return q.conn.log
 }
 
 var nopResult *errResult
