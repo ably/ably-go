@@ -221,11 +221,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 
 		// Attach the channel again
-		err := channel.Attach(ctx)
+		channel.Attach(ctx)
 
-		if err != nil {
-			t.Fatal(err)
-		}
 		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
 	})
@@ -1279,7 +1276,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			t.Fatalf("error publishing message : %v", err)
 		}
 		channel1 := client1.Channels.Get("persisted:test",
-			ably.ChannelWithRewind("1"))
+			ably.ChannelWithParams("rewind", "1"))
 		channel1.SetAttachResume(true)
 
 		var chan1MsgCount uint64
@@ -1294,7 +1291,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 
 		channel2 := client2.Channels.Get("persisted:test",
-			ably.ChannelWithRewind("1")) // attach resume is false by default
+			ably.ChannelWithParams("rewind", "1")) // attach resume is false by default
 
 		var chan2MsgCount uint64
 		unsubscribe2, err := channel2.SubscribeAll(context.Background(), func(message *ably.Message) {

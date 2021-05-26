@@ -80,10 +80,6 @@ func ChannelWithParams(key string, value string) ChannelOption {
 	}
 }
 
-func ChannelWithRewind(numberOfMessages string) ChannelOption {
-	return ChannelWithParams("rewind", numberOfMessages)
-}
-
 func ChannelWithModes(modes ...ChannelMode) ChannelOption {
 	return func(o *channelOptions) {
 		o.Modes = append(o.Modes, modes...)
@@ -237,14 +233,22 @@ func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	}
 
 	attachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
-	timeoutCtx, cancel := c.opts().contextWithTimeout(ctx, attachTimeout)
+	timeoutCtx, cancel := c.opts().contextWithTimeout(context.Background(), attachTimeout)
 	defer cancel()
-	err = res.Wait(timeoutCtx)
-	if errors.Is(err, context.DeadlineExceeded) {
-		err = newError(ErrTimeoutError, errors.New("timed out before attaching channel"))
-		c.setState(ChannelStateSuspended, err, false)
+	internalOpErr := make(chan error, 1)
+	go func() {
+		internalOpErr <- res.Wait(timeoutCtx)
+	}()
+	select {
+	case <-ctx.Done(): //Unblock channel wait, when external context is cancelled
+		return ctx.Err()
+	case err = <-internalOpErr:
+		if errors.Is(err, context.DeadlineExceeded) {
+			err = newError(ErrTimeoutError, errors.New("timed out before attaching channel"))
+			c.setState(ChannelStateSuspended, err, false)
+		}
+		return err
 	}
-	return err
 }
 
 func (c *RealtimeChannel) attach() (result, error) {
@@ -335,14 +339,22 @@ func (c *RealtimeChannel) Detach(ctx context.Context) error {
 	}
 
 	detachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
-	timeoutCtx, cancel := c.opts().contextWithTimeout(ctx, detachTimeout)
+	timeoutCtx, cancel := c.opts().contextWithTimeout(context.Background(), detachTimeout)
 	defer cancel()
-	err = res.Wait(timeoutCtx)
-	if errors.Is(err, context.DeadlineExceeded) {
-		err = newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
-		c.setState(prevChannelState, err, false)
+	internalOpErr := make(chan error, 1)
+	go func() {
+		internalOpErr <- res.Wait(timeoutCtx)
+	}()
+	select {
+	case <-ctx.Done(): //Unblock channel wait, when external context is cancelled
+		return ctx.Err()
+	case err = <-internalOpErr:
+		if errors.Is(err, context.DeadlineExceeded) {
+			err = newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
+			c.setState(prevChannelState, err, false)
+		}
+		return err
 	}
-	return err
 }
 
 func (c *RealtimeChannel) detach() (result, error) {

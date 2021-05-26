@@ -402,14 +402,13 @@ func (c ChanTransitioner) attach() (chanNextStates, func()) {
 	c.Channel.Once(ably.ChannelEventAttaching, change.Receive)
 
 	async(func() error {
-		errCh := asyncAttach(c.Channel)
-		err := <-errCh
+		err := c.Channel.Attach(context.Background())
 		c.err[chAttaching] <- err
 		return err
 	})
 
 	// Attach sets a timeout; discard it.
-	ablytest.Instantly.Recv(c.t, nil, c.afterCalls, c.t.Fatalf)
+	ablytest.Soon.Recv(c.t, nil, c.afterCalls, c.t.Fatalf)
 
 	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
@@ -461,14 +460,13 @@ func (c ChanTransitioner) detach() (chanNextStates, func()) {
 	c.Channel.Once(ably.ChannelEventDetaching, change.Receive)
 
 	async(func() error {
-		errCh := asyncDetach(c.Channel)
-		err := <-errCh
+		err := c.Channel.Detach(context.Background())
 		c.err[chDetaching] <- err
 		return err
 	})
 
 	// Detach sets a timeout; discard it.
-	ablytest.Instantly.Recv(c.t, nil, c.afterCalls, c.t.Fatalf)
+	ablytest.Soon.Recv(c.t, nil, c.afterCalls, c.t.Fatalf)
 
 	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
