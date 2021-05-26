@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+func NewClientOptions(os ...ClientOption) *clientOptions {
+	return applyOptionsWithDefaults(os...)
+}
+
 func GetEnvFallbackHosts(env string) []string {
 	return getEnvFallbackHosts(env)
 }

@@ -21,7 +21,7 @@ const (
 	protocolMsgPack = "application/x-msgpack"
 
 	// restHost is the primary ably host .
-	restHost = "rest.ably.io"
+	restHost     = "rest.ably.io"
 	realtimeHost = "realtime.ably.io"
 	Port         = 80
 	TLSPort      = 443
@@ -797,6 +797,10 @@ func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (pro
 
 func applyOptionsWithDefaults(os ...ClientOption) *clientOptions {
 	to := defaultOptions
+	// No need to set hosts by default
+	to.RESTHost = ""
+	to.RealtimeHost = ""
+	to.FallbackHosts = nil
 
 	for _, set := range os {
 		set(&to)
@@ -807,7 +811,6 @@ func applyOptionsWithDefaults(os ...ClientOption) *clientOptions {
 			TTL: int64(60 * time.Minute / time.Millisecond),
 		}
 	}
-
 	return &to
 }
 
