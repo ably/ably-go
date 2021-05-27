@@ -10,28 +10,32 @@ import (
 
 func TestClientOptions(t *testing.T) {
 	t.Parallel()
-	t.Run("must return error on invalid key", func(ts *testing.T) {
+	t.Run("must return error on invalid key", func(t *testing.T) {
 		_, err := ably.NewREST([]ably.ClientOption{ably.WithKey("invalid")}...)
 		if err == nil {
-			ts.Error("expected an error")
+			t.Error("expected an error")
 		}
 	})
 }
 
 func TestScopeParams(t *testing.T) {
 	t.Parallel()
-	t.Run("must error when given invalid range", func(ts *testing.T) {
+	t.Run("must error when given invalid range", func(t *testing.T) {
+		t.Parallel()
+
 		params := ably.ScopeParams{
 			Start: time.Unix(0, 0).Add(123 * time.Millisecond),
 			End:   time.Unix(0, 0).Add(122 * time.Millisecond),
 		}
 		err := params.EncodeValues(nil)
 		if err == nil {
-			ts.Fatal("expected an error")
+			t.Fatal("expected an error")
 		}
 	})
 
-	t.Run("must set url values", func(ts *testing.T) {
+	t.Run("must set url values", func(t *testing.T) {
+		t.Parallel()
+
 		params := ably.ScopeParams{
 			Start: time.Unix(0, 0).Add(122 * time.Millisecond),
 			End:   time.Unix(0, 0).Add(123 * time.Millisecond),
@@ -39,7 +43,7 @@ func TestScopeParams(t *testing.T) {
 		u := make(url.Values)
 		err := params.EncodeValues(&u)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		start := u.Get("start")
 		end := u.Get("end")
@@ -54,12 +58,14 @@ func TestScopeParams(t *testing.T) {
 
 func TestPaginateParams(t *testing.T) {
 	t.Parallel()
-	t.Run("returns nil with no values", func(ts *testing.T) {
+	t.Run("returns nil with no values", func(t *testing.T) {
+		t.Parallel()
+
 		params := ably.PaginateParams{}
 		values := make(url.Values)
 		err := params.EncodeValues(&values)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		encode := values.Encode()
 		if encode != "" {
@@ -67,7 +73,9 @@ func TestPaginateParams(t *testing.T) {
 		}
 	})
 
-	t.Run("returns the full params encoded", func(ts *testing.T) {
+	t.Run("returns the full params encoded", func(t *testing.T) {
+		t.Parallel()
+
 		params := ably.PaginateParams{
 			Limit:     1,
 			Direction: "backwards",
@@ -80,7 +88,7 @@ func TestPaginateParams(t *testing.T) {
 		values := make(url.Values)
 		err := params.EncodeValues(&values)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		expect := "direction=backwards&end=124&limit=1&start=123&unit=hello"
 		got := values.Encode()
@@ -89,7 +97,9 @@ func TestPaginateParams(t *testing.T) {
 		}
 	})
 
-	t.Run("with value", func(ts *testing.T) {
+	t.Run("with value", func(t *testing.T) {
+		t.Parallel()
+
 		params := ably.PaginateParams{
 			Limit:     10,
 			Direction: "backwards",
@@ -97,39 +107,45 @@ func TestPaginateParams(t *testing.T) {
 		values := make(url.Values)
 		err := params.EncodeValues(&values)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 	})
 
-	t.Run("with a value for ScopeParams", func(ts *testing.T) {
+	t.Run("with a value for ScopeParams", func(t *testing.T) {
+		t.Parallel()
+
 		values := make(url.Values)
 		params := ably.PaginateParams{}
 		params.Start = time.Unix(0, 0).Add(123 * time.Millisecond)
 		err := params.EncodeValues(&values)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		start := values.Get("start")
 		if start != "123" {
-			ts.Errorf("expected 123 got %s", start)
+			t.Errorf("expected 123 got %s", start)
 		}
 	})
-	t.Run("with invalid value for direction", func(ts *testing.T) {
+	t.Run("with invalid value for direction", func(t *testing.T) {
+		t.Parallel()
+
 		values := make(url.Values)
 		params := ably.PaginateParams{}
 		params.Direction = "unknown"
 		err := params.EncodeValues(&values)
 		if err == nil {
-			ts.Fatal("expected an error")
+			t.Fatal("expected an error")
 		}
 	})
-	t.Run("with invalid value for limit", func(ts *testing.T) {
+	t.Run("with invalid value for limit", func(t *testing.T) {
+		t.Parallel()
+
 		values := make(url.Values)
 		params := ably.PaginateParams{}
 		params.Limit = -1
 		err := params.EncodeValues(&values)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		limit := values.Get("limit")
 		if limit != "100" {

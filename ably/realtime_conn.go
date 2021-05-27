@@ -84,12 +84,12 @@ type connCallbacks struct {
 func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connection {
 	c := &Connection{
 
-		ConnectionEventEmitter: ConnectionEventEmitter{newEventEmitter(auth.logger())},
+		ConnectionEventEmitter: ConnectionEventEmitter{newEventEmitter(auth.log())},
 		state:                  ConnectionStateInitialized,
-		internalEmitter:        ConnectionEventEmitter{newEventEmitter(auth.logger())},
+		internalEmitter:        ConnectionEventEmitter{newEventEmitter(auth.log())},
 
 		opts:      opts,
-		pending:   newPendingEmitter(auth.logger()),
+		pending:   newPendingEmitter(auth.log()),
 		auth:      auth,
 		callbacks: callbacks,
 	}
@@ -97,10 +97,9 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)
 		go func() {
-			lg := opts.Logger.sugar()
-			lg.Info("Trying to establish a connection asynchronously")
+			c.log().Info("Trying to establish a connection asynchronously")
 			if _, err := c.connect(connArgs{}); err != nil {
-				lg.Errorf("Failed to open connection with err:%v", err)
+				c.log().Errorf("Failed to open connection with err:%v", err)
 			}
 		}()
 	}
@@ -108,9 +107,8 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 }
 
 func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error) {
-	lg := c.logger().sugar()
 	start := time.Now()
-	lg.Debugf("Dial protocol=%q url %q ", proto, u.String())
+	c.log().Debugf("Dial protocol=%q url %q ", proto, u.String())
 	// (RTN23b)
 	query := u.Query()
 	query.Add("heartbeats", "true")
@@ -122,10 +120,10 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 		conn, err = ablyutil.DialWebsocket(proto, u, timeout)
 	}
 	if err != nil {
-		lg.Debugf("Dial Failed in %v with %v", time.Since(start), err)
+		c.log().Debugf("Dial Failed in %v with %v", time.Since(start), err)
 		return nil, err
 	}
-	lg.Debugf("Dial success in %v", time.Since(start))
+	c.log().Debugf("Dial success in %v", time.Since(start))
 	return conn, err
 }
 
@@ -273,7 +271,6 @@ const connectionStateTTLErrFmt = "Exceeded connectionStateTtl=%v while in DISCON
 var errClosedWhileReconnecting = errors.New("connection explicitly closed while trying to reconnect")
 
 func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
-	lg := c.logger().sugar()
 	res, err := c.connectWith(arg)
 	if err == nil {
 		return res, nil
@@ -282,7 +279,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 		return nil, c.setState(ConnectionStateFailed, err, 0)
 	}
 
-	lg.Errorf("Received recoverable error %v", err)
+	c.log().Errorf("Received recoverable error %v", err)
 	retryIn := c.opts.disconnectedRetryTimeout()
 	c.setState(ConnectionStateDisconnected, err, retryIn)
 	idleState := ConnectionStateDisconnected
@@ -320,14 +317,14 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 				c.setState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
 				idleState = ConnectionStateSuspended
 				// (RTN14f)
-				lg.Debug("Reached SUSPENDED state while opening connection")
+				c.log().Debug("Reached SUSPENDED state while opening connection")
 				retryIn = c.opts.suspendedRetryTimeout()
 				continue // wait for re-connection with new retry timeout for suspended
 			default:
 			}
 		}
 
-		lg.Debug("Attemting to open connection")
+		c.log().Debug("Attemting to open connection")
 		res, err := c.connectWith(arg)
 		if err == nil {
 			return res, nil
@@ -335,7 +332,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 		if recoverable(err) {
 			// Go back to previous state and wait again until the next
 			// connection attempt.
-			lg.Errorf("Received recoverable error %v", err)
+			c.log().Errorf("Received recoverable error %v", err)
 			c.setState(idleState, err, retryIn)
 			continue
 		}
@@ -382,11 +379,7 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
-	if c.logger().Is(LogVerbose) {
-		c.setConn(verboseConn{conn: conn, logger: c.logger()})
-	} else {
-		c.setConn(conn)
-	}
+	c.setConn(verboseConn{conn: conn, logger: c.log()})
 	// Start eventloop
 	go c.eventloop()
 
@@ -657,8 +650,8 @@ func (c *Connection) setConn(conn proto.Conn) {
 	c.connMtx.Unlock()
 }
 
-func (c *Connection) logger() *LoggerOptions {
-	return c.auth.logger()
+func (c *Connection) log() logger {
+	return c.auth.log()
 }
 
 func (c *Connection) setSerial(serial int64) {
@@ -666,13 +659,12 @@ func (c *Connection) setSerial(serial int64) {
 }
 
 func (c *Connection) resendPending() {
-	lg := c.logger().sugar()
 	c.mtx.Lock()
 	cx := make([]msgCh, len(c.pending.queue))
 	copy(cx, c.pending.queue)
 	c.pending.queue = []msgCh{}
 	c.mtx.Unlock()
-	lg.Debugf("resending %d messages waiting for ACK/NACK", len(cx))
+	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
 		c.send(v.msg, v.ch)
 	}
@@ -887,11 +879,11 @@ func (c *Connection) lockedReauthorizationFailed(err error) {
 
 type verboseConn struct {
 	conn   proto.Conn
-	logger *LoggerOptions
+	logger logger
 }
 
 func (vc verboseConn) Send(msg *proto.ProtocolMessage) error {
-	vc.logger.Printf(LogVerbose, "Realtime Connection: sending %s", msg)
+	vc.logger.Verbosef("Realtime Connection: sending %s", msg)
 	return vc.conn.Send(msg)
 }
 
@@ -900,12 +892,12 @@ func (vc verboseConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error
 	if err != nil {
 		return nil, err
 	}
-	vc.logger.Printf(LogVerbose, "Realtime Connection: received %s", msg)
+	vc.logger.Verbosef("Realtime Connection: received %s", msg)
 	return msg, nil
 }
 
 func (vc verboseConn) Close() error {
-	vc.logger.Printf(LogVerbose, "Realtime Connection: closed")
+	vc.logger.Verbosef("Realtime Connection: closed")
 	return vc.conn.Close()
 }
 

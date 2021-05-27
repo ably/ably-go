@@ -22,10 +22,10 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 
 			app, rest := ablytest.NewREST()
 			defer app.Close()
-			channel := rest.Channels.Get("test")
+			channel := rest.Channels.Get("persisted:test")
 
 			fixtures := presenceHistoryFixtures()
-			realtime := postPresenceHistoryFixtures(context.Background(), app, "test", fixtures)
+			realtime := postPresenceHistoryFixtures(t, context.Background(), app, "persisted:test", fixtures)
 			defer safeclose(t, realtime, app)
 
 			var err error
@@ -65,10 +65,10 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 			t.Parallel()
 
 			app, rest := ablytest.NewREST()
-			channel := rest.Channels.Get("test")
+			channel := rest.Channels.Get("persisted:test")
 
 			fixtures := presenceHistoryFixtures()
-			realtime := postPresenceHistoryFixtures(context.Background(), app, "test", fixtures)
+			realtime := postPresenceHistoryFixtures(t, context.Background(), app, "persisted:test", fixtures)
 			defer safeclose(t, realtime, app)
 
 			expected := c.expected
@@ -225,18 +225,22 @@ func presenceHistoryFixtures() []*ably.PresenceMessage {
 	return fixtures
 }
 
-func postPresenceHistoryFixtures(ctx context.Context, app *ablytest.Sandbox, channel string, fixtures []*ably.PresenceMessage) io.Closer {
+func postPresenceHistoryFixtures(t *testing.T, ctx context.Context, app *ablytest.Sandbox, channel string, fixtures []*ably.PresenceMessage) io.Closer {
 	realtime := app.NewRealtime()
 	p := realtime.Channels.Get(channel).Presence
 
-	for _, m := range fixtures {
+	for i, m := range fixtures {
+		var err error
 		switch m.Action {
 		case proto.PresenceEnter:
-			p.EnterClient(ctx, m.ClientID, m.Data)
+			err = p.EnterClient(ctx, m.ClientID, m.Data)
 		case proto.PresenceUpdate:
-			p.UpdateClient(ctx, m.ClientID, m.Data)
+			err = p.UpdateClient(ctx, m.ClientID, m.Data)
 		case proto.PresenceLeave:
-			p.LeaveClient(ctx, m.ClientID, m.Data)
+			err = p.LeaveClient(ctx, m.ClientID, m.Data)
+		}
+		if err != nil {
+			t.Errorf("at presence fixture #%d (%v): %w", i, m.Action, err)
 		}
 	}
 
