@@ -789,6 +789,12 @@ func WithHTTPClient(client *http.Client) ClientOption {
 	}
 }
 
+func WithFallbackHostsUseDefault(fallbackHostsUseDefault bool) ClientOption {
+	return func(os *clientOptions) {
+		os.FallbackHostsUseDefault = fallbackHostsUseDefault
+	}
+}
+
 func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error)) ClientOption {
 	return func(os *clientOptions) {
 		os.Dial = dial
