@@ -3,6 +3,7 @@ package ably
 import (
 	"fmt"
 	"log"
+	"os"
 )
 
 type LogLevel uint
@@ -16,93 +17,116 @@ const (
 	LogDebug
 )
 
-var logLevelNames = map[LogLevel]string{
-	LogError:   "ERROR",
-	LogWarning: "WARN",
-	LogInfo:    "INFO",
-	LogVerbose: "VERBOSE",
-	LogDebug:   "DEBUG",
+var logLevels = map[LogLevel]string{
+	LogError:   "[ERROR] ",
+	LogWarning: "[WARN] ",
+	LogInfo:    "[INFO] ",
+	LogVerbose: "[VERBOSE] ",
+	LogDebug:   "[DEBUG] ",
 }
 
-func (l LogLevel) String() string {
-	return logLevelNames[l]
+var defaultLog = LoggerOptions{
+	Logger: &StdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)},
+	Level:  LogNone,
 }
 
-type filteredLogger struct {
+// LoggerOptions defines options for ably logging.
+type LoggerOptions struct {
 	Logger Logger
 	Level  LogLevel
 }
 
-func (l filteredLogger) Is(level LogLevel) bool {
+func (l LoggerOptions) Is(level LogLevel) bool {
 	return l.Level != LogNone && l.Level >= level
 }
 
-func (l filteredLogger) Printf(level LogLevel, format string, v ...interface{}) {
+func (l LoggerOptions) Print(level LogLevel, v ...interface{}) {
 	if l.Is(level) {
-		l.Logger.Printf(level, format, v...)
+		l.GetLogger().Print(level, v...)
 	}
+}
+
+func (l LoggerOptions) Printf(level LogLevel, format string, v ...interface{}) {
+	if l.Is(level) {
+		l.GetLogger().Printf(level, format, v...)
+	}
+}
+
+// GetLogger returns the custom logger if any. This will return the default
+// logger if custom logger was not specified.
+func (l LoggerOptions) GetLogger() Logger {
+	if l.Logger != nil {
+		return l.Logger
+	}
+	return defaultLog.Logger
+}
+
+func (l LoggerOptions) sugar() *sugaredLogger {
+	return &sugaredLogger{LoggerOptions: l}
 }
 
 // Logger is an interface for ably loggers.
 type Logger interface {
+	Print(level LogLevel, v ...interface{})
 	Printf(level LogLevel, format string, v ...interface{})
 }
 
-// stdLogger wraps log.Logger to satisfy the Logger interface.
-type stdLogger struct {
+// StdLogger wraps log.Logger to satisfy the Logger interface.
+type StdLogger struct {
 	*log.Logger
 }
 
-func (s *stdLogger) Printf(level LogLevel, format string, v ...interface{}) {
-	s.Logger.Printf(fmt.Sprintf("[%s] %s", level, format), v...)
+func (s *StdLogger) Printf(level LogLevel, format string, v ...interface{}) {
+	s.Logger.Printf(logLevels[level]+format, v...)
 }
 
-// logger is the internal logger type, with helper methods that wrap the raw
-// Logger interface.
-type logger struct {
-	l Logger
+func (s *StdLogger) Print(level LogLevel, v ...interface{}) {
+	if len(v) != 0 {
+		v[0] = fmt.Sprintf(logLevels[level]+"%v", v[0])
+		s.Logger.Print(v...)
+	}
 }
 
-func (l logger) Error(v ...interface{}) {
-	l.print(LogError, v...)
+type sugaredLogger struct {
+	LoggerOptions
 }
 
-func (l logger) Errorf(fmt string, v ...interface{}) {
-	l.l.Printf(LogError, fmt, v...)
+func (s sugaredLogger) Error(v ...interface{}) {
+	s.Print(LogError, v...)
 }
 
-func (l logger) Warn(v ...interface{}) {
-	l.print(LogWarning, v...)
+func (s sugaredLogger) Errorf(fmt string, v ...interface{}) {
+	s.Printf(LogError, fmt, v...)
 }
 
-func (l logger) Warnf(fmt string, v ...interface{}) {
-	l.l.Printf(LogWarning, fmt, v...)
+func (s sugaredLogger) Warn(v ...interface{}) {
+	s.Print(LogWarning, v...)
 }
 
-func (l logger) Info(v ...interface{}) {
-	l.print(LogInfo, v...)
+func (s sugaredLogger) Warnf(fmt string, v ...interface{}) {
+	s.Printf(LogWarning, fmt, v...)
 }
 
-func (l logger) Infof(fmt string, v ...interface{}) {
-	l.l.Printf(LogInfo, fmt, v...)
+func (s sugaredLogger) Info(v ...interface{}) {
+	s.Print(LogInfo, v...)
 }
 
-func (l logger) Verbose(v ...interface{}) {
-	l.print(LogVerbose, v...)
+func (s sugaredLogger) Infof(fmt string, v ...interface{}) {
+	s.Printf(LogInfo, fmt, v...)
 }
 
-func (l logger) Verbosef(fmt string, v ...interface{}) {
-	l.l.Printf(LogVerbose, fmt, v...)
+func (s sugaredLogger) Verbose(v ...interface{}) {
+	s.Print(LogVerbose, v...)
 }
 
-func (l logger) Debugf(fmt string, v ...interface{}) {
-	l.l.Printf(LogDebug, fmt, v...)
+func (s sugaredLogger) Verbosef(fmt string, v ...interface{}) {
+	s.Printf(LogVerbose, fmt, v...)
 }
 
-func (l logger) Debug(v ...interface{}) {
-	l.print(LogDebug, v...)
+func (s sugaredLogger) Debugf(fmt string, v ...interface{}) {
+	s.Printf(LogDebug, fmt, v...)
 }
 
-func (l logger) print(level LogLevel, v ...interface{}) {
-	l.l.Printf(level, fmt.Sprint(v...))
+func (s sugaredLogger) Debug(v ...interface{}) {
+	s.Print(LogDebug, v...)
 }

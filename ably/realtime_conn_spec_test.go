@@ -2237,6 +2237,10 @@ type writerLogger struct {
 	w io.Writer
 }
 
+func (w *writerLogger) Print(level ably.LogLevel, v ...interface{}) {
+	fmt.Fprint(w.w, v...)
+}
+
 func (w *writerLogger) Printf(level ably.LogLevel, format string, v ...interface{}) {
 	fmt.Fprintf(w.w, format, v...)
 }

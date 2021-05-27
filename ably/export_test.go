@@ -139,9 +139,3 @@ func (c *RESTChannels) Len() int {
 	defer c.mu.RUnlock()
 	return len(c.cache)
 }
-
-func NewInternalLogger(l Logger) logger {
-	return logger{l: l}
-}
-
-type FilteredLogger = filteredLogger

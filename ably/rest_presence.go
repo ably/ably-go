@@ -56,8 +56,8 @@ func (o *getPresenceOptions) apply(opts ...GetPresenceOption) url.Values {
 	return o.params
 }
 
-func (p *RESTPresence) log() logger {
-	return p.client.log
+func (p *RESTPresence) logger() *LoggerOptions {
+	return p.client.logger()
 }
 
 // History gives the channel's presence history.
@@ -204,7 +204,7 @@ func (t *fullPresenceDecoder) decodeMessagesData() {
 		m.Message, err = m.Message.WithDecodedData(cipher)
 		if err != nil {
 			// RSL6b
-			t.c.log().Errorf("Couldn't fully decode presence message data from channel %q: %w", t.c.Name, err)
+			t.c.logger().sugar().Errorf("Couldn't fully decode presence message data from channel %q: %w", t.c.Name, err)
 		}
 	}
 }

@@ -287,7 +287,7 @@ func (t *fullMessagesDecoder) decodeMessagesData() {
 		*m, err = m.WithDecodedData(cipher)
 		if err != nil {
 			// RSL6b
-			t.c.log().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
+			t.c.logger().sugar().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
 		}
 	}
 }
@@ -318,6 +318,6 @@ func (p *MessagesPaginatedItems) Item() *Message {
 	return p.item
 }
 
-func (c *RESTChannel) log() logger {
-	return c.client.log
+func (c *RESTChannel) logger() *LoggerOptions {
+	return c.client.logger()
 }

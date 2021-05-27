@@ -160,14 +160,14 @@ type RealtimeChannel struct {
 
 func newRealtimeChannel(name string, client *Realtime) *RealtimeChannel {
 	c := &RealtimeChannel{
-		ChannelEventEmitter: ChannelEventEmitter{newEventEmitter(client.log())},
+		ChannelEventEmitter: ChannelEventEmitter{newEventEmitter(client.logger())},
 		Name:                name,
 
 		state:           ChannelStateInitialized,
-		internalEmitter: ChannelEventEmitter{newEventEmitter(client.log())},
+		internalEmitter: ChannelEventEmitter{newEventEmitter(client.logger())},
 
 		client:         client,
-		messageEmitter: newEventEmitter(client.log()),
+		messageEmitter: newEventEmitter(client.logger()),
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
@@ -658,8 +658,8 @@ func (c *RealtimeChannel) opts() *clientOptions {
 	return c.client.opts()
 }
 
-func (c *RealtimeChannel) log() logger {
-	return c.client.log()
+func (c *RealtimeChannel) logger() *LoggerOptions {
+	return c.client.logger()
 }
 
 func (c *RealtimeChannel) setState(state ChannelState, err error, resumed bool) error {

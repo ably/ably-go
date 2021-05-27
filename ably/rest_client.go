@@ -13,6 +13,7 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptrace"
+	"net/http/httputil"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -117,7 +118,6 @@ type REST struct {
 	Channels            *RESTChannels
 	opts                *clientOptions
 	successFallbackHost *fallbackCache
-	log                 logger
 }
 
 // NewREST constructs a new REST.
@@ -125,7 +125,6 @@ func NewREST(options ...ClientOption) (*REST, error) {
 	c := &REST{
 		opts: applyOptionsWithDefaults(options...),
 	}
-	c.log = logger{l: c.opts.LogHandler}
 	auth, err := newAuth(c)
 	if err != nil {
 		return nil, err
@@ -569,26 +568,45 @@ func (f *fallbackCache) put(host string) {
 }
 
 func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
+	log := c.opts.Logger.sugar()
 	req, err := c.newHTTPRequest(ctx, r)
 	if err != nil {
 		return nil, err
 	}
 	if h := c.successFallbackHost.get(); h != "" {
 		req.URL.Host = h // RSC15f
-		c.log.Verbosef("RestClient: setting URL.Host=%q", h)
+		log.Verbosef("RestClient: setting URL.Host=%q", h)
 	}
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
-		c.log.Verbose("RestClient: enabling httptrace")
+		log.Verbose("RestClient: enabling httptrace")
+	}
+	if log.Is(LogVerbose) {
+		b, err := httputil.DumpRequest(req, false)
+		if err != nil {
+			log.Error("RestClient: error trying to dump request: ", err)
+		} else {
+			log.Verbose("RestClient: ", string(b))
+		}
 	}
 	resp, err := c.opts.httpclient().Do(req)
 	if err != nil {
-		c.log.Error("RestClient: failed sending a request ", err)
+		log.Error("RestClient: failed sending a request ", err)
 		return nil, newError(ErrInternalError, err)
+	}
+	if log.Is(LogVerbose) {
+		typ, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+		// dumping msgpack body isn't that helpbul when debugging
+		b, err := httputil.DumpResponse(resp, typ != "application/x-msgpack")
+		if err != nil {
+			log.Error("RestClient: error trying to dump response: ", err)
+		} else {
+			log.Verbose("RestClient: ", string(b))
+		}
 	}
 	resp, err = handle(resp, r.Out)
 	if err != nil {
-		c.log.Error("RestClient: error handling response: ", err)
+		log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
 			if canFallBack(e.StatusCode) &&
 				(strings.HasPrefix(req.URL.Host, defaultOptions.RESTHost) ||
@@ -597,7 +615,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 				if c.opts.FallbackHosts != nil {
 					fallback = c.opts.FallbackHosts
 				}
-				c.log.Infof("RestClient: trying to fallback with hosts=%v", fallback)
+				log.Info("RestClient: trying to fallback with hosts=%v", fallback)
 				if len(fallback) > 0 {
 					left := fallback
 					iteration := 0
@@ -605,11 +623,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 					if maxLimit == 0 {
 						maxLimit = defaultOptions.HTTPMaxRetryCount
 					}
-					c.log.Infof("RestClient: maximum fallback retry limit=%d", maxLimit)
+					log.Infof("RestClient: maximum fallback retry limit=%d", maxLimit)
 
 					for {
 						if len(left) == 0 {
-							c.log.Errorf("RestClient: exhausted fallback hosts", err)
+							log.Errorf("RestClient: exhausted fallback hosts", err)
 							return nil, err
 						}
 						var h string
@@ -629,18 +647,26 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 						if err != nil {
 							return nil, err
 						}
-						c.log.Infof("RestClient:  chose fallback host=%q ", h)
+						log.Infof("RestClient:  chose fallback host=%q ", h)
 						req.URL.Host = h
 						req.Host = ""
 						req.Header.Set(proto.HostHeader, h)
+						if log.Is(LogVerbose) {
+							b, err := httputil.DumpRequest(req, true)
+							if err != nil {
+								log.Error("RestClient: error trying to dump retry request with fallback host: ", err)
+							} else {
+								log.Verbose("RestClient: ", string(b))
+							}
+						}
 						resp, err := c.opts.httpclient().Do(req)
 						if err != nil {
-							c.log.Error("RestClient: failed sending a request to a fallback host", err)
+							log.Error("RestClient: failed sending a request to a fallback host", err)
 							return nil, newError(ErrInternalError, err)
 						}
 						resp, err = handle(resp, r.Out)
 						if err != nil {
-							c.log.Error("RestClient: error handling response: ", err)
+							log.Error("RestClient: error handling response: ", err)
 							if iteration == maxLimit-1 {
 								return nil, err
 							}
@@ -651,6 +677,16 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 								}
 							}
 							return nil, err
+						}
+						if log.Is(LogVerbose) {
+							typ, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+							// dumping msgpack body isn't that helpbul when debugging
+							b, err := httputil.DumpResponse(resp, typ != "application/x-msgpack")
+							if err != nil {
+								log.Error("RestClient: error trying to dump retry response: ", err)
+							} else {
+								log.Verbose("RestClient:: ", string(b))
+							}
 						}
 						c.successFallbackHost.put(h)
 						return resp, nil
@@ -720,20 +756,25 @@ func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, e
 }
 
 func (c *REST) handleResponse(resp *http.Response, out interface{}) (*http.Response, error) {
-	c.log.Info("RestClient:checking valid http response")
+	log := c.opts.Logger.sugar()
+	log.Info("RestClient:checking valid http response")
 	if err := checkValidHTTPResponse(resp); err != nil {
-		c.log.Error("RestClient: failed to check valid http response ", err)
+		log.Error("RestClient: failed to check valid http response ", err)
 		return nil, err
 	}
 	if out == nil {
 		return resp, nil
 	}
-	c.log.Info("RestClient: decoding response")
+	log.Info("RestClient: decoding response")
 	if err := decodeResp(resp, out); err != nil {
-		c.log.Error("RestClient: failed to decode response ", err)
+		log.Error("RestClient: failed to decode response ", err)
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (c *REST) logger() *LoggerOptions {
+	return &c.opts.Logger
 }
 
 func encode(typ string, in interface{}) ([]byte, error) {

@@ -8,7 +8,7 @@ import (
 type eventEmitter struct {
 	sync.Mutex
 	listeners listenersForEvent
-	log       logger
+	logger    Logger
 }
 
 type emitterEvent interface {
@@ -30,7 +30,7 @@ type eventListener struct {
 	queue    []emitterData
 }
 
-func (l *eventListener) handle(e emitterData, log logger) {
+func (l *eventListener) handle(e emitterData, log Logger) {
 	// The goroutine that finds the queue empty launches a goroutine for emptying it,
 	// ie. process its emitterData and afterwards any emitterData that concurrent
 	// goroutines may have left in the queue in the meantime.
@@ -69,24 +69,24 @@ func (l *eventListener) handle(e emitterData, log logger) {
 	}()
 }
 
-func safeHandle(e emitterData, handle func(emitterData), log logger) {
+func safeHandle(e emitterData, handle func(emitterData), log Logger) {
 	defer func() {
 		r := recover()
 		if r == nil {
 			return
 		}
-		log.Errorf("EventEmitter: panic in event handler: %v\n%s", r, debug.Stack())
+		log.Printf(LogError, "EventEmitter: panic in event handler: %v\n%s", r, debug.Stack())
 	}()
 
 	handle(e)
 }
 
-func newEventEmitter(log logger) *eventEmitter {
+func newEventEmitter(logger Logger) *eventEmitter {
 	return &eventEmitter{
 		listeners: listenersForEvent{
 			nil: listenerSet{},
 		},
-		log: log,
+		logger: logger,
 	}
 }
 
@@ -173,11 +173,11 @@ func (em *eventEmitter) Emit(event emitterEvent, data emitterData) {
 	// which would otherwise deadlock.
 
 	for _, handle := range em.handlersForEvent(event) {
-		handle(data, em.log)
+		handle(data, em.logger)
 	}
 }
 
-func (em *eventEmitter) handlersForEvent(event emitterEvent) (handlers []func(emitterData, logger)) {
+func (em *eventEmitter) handlersForEvent(event emitterEvent) (handlers []func(emitterData, Logger)) {
 	em.Lock()
 	defer em.Unlock()
 

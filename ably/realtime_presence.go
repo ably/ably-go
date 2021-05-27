@@ -35,7 +35,7 @@ type RealtimePresence struct {
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	pres := &RealtimePresence{
-		messageEmitter: newEventEmitter(channel.log()),
+		messageEmitter: newEventEmitter(channel.logger()),
 		channel:        channel,
 		members:        make(map[string]*proto.PresenceMessage),
 		syncState:      syncInitial,
@@ -472,6 +472,6 @@ func (pres *RealtimePresence) auth() *Auth {
 	return pres.channel.client.Auth
 }
 
-func (pres *RealtimePresence) log() logger {
-	return pres.channel.log()
+func (pres *RealtimePresence) logger() *LoggerOptions {
+	return pres.channel.logger()
 }

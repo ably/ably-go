@@ -19,6 +19,10 @@ type testLogger struct {
 	messages chan<- LogMessage
 }
 
+func (l testLogger) Print(level ably.LogLevel, v ...interface{}) {
+	l.Printf(level, "%s", v...)
+}
+
 func (l testLogger) Printf(level ably.LogLevel, format string, v ...interface{}) {
 	l.messages <- LogMessage{
 		Level:   level,
@@ -29,5 +33,7 @@ func (l testLogger) Printf(level ably.LogLevel, format string, v ...interface{})
 var DiscardLogger ably.Logger = discardLogger{}
 
 type discardLogger struct{}
+
+func (discardLogger) Print(level ably.LogLevel, v ...interface{}) {}
 
 func (discardLogger) Printf(level ably.LogLevel, format string, v ...interface{}) {}

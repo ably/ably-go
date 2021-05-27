@@ -107,13 +107,13 @@ func channelStateError(state ChannelState, err error) *ErrorInfo {
 
 // queuedEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
-	queue []msgCh
-	log   logger
+	queue  []msgCh
+	logger *LoggerOptions
 }
 
-func newPendingEmitter(log logger) pendingEmitter {
+func newPendingEmitter(log *LoggerOptions) pendingEmitter {
 	return pendingEmitter{
-		log: log,
+		logger: log,
 	}
 }
 
@@ -143,7 +143,7 @@ func (q *pendingEmitter) Enqueue(msg *proto.ProtocolMessage, ch chan<- error) {
 	case i == q.Len():
 		q.queue = append(q.queue, msgCh{msg, ch})
 	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
-		q.log.Warnf("duplicated message serial: %d", msg.MsgSerial)
+		q.logger.Printf(LogWarning, "duplicated message serial: %d", msg.MsgSerial)
 	default:
 		q.queue = append(q.queue, msgCh{})
 		copy(q.queue[i+1:], q.queue[i:])
@@ -172,11 +172,11 @@ func (q *pendingEmitter) Ack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
 		err = errSerialSkipped
 	}
 	for _, sch := range q.queue[:nack] {
-		q.log.Verbosef("received NACK for message serial %d", sch.msg.MsgSerial)
+		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.msg.MsgSerial)
 		sch.ch <- err
 	}
 	for _, sch := range q.queue[nack:ack] {
-		q.log.Verbosef("received ACK for message serial %d", sch.msg.MsgSerial)
+		q.logger.Printf(LogVerbose, "received ACK for message serial %d", sch.msg.MsgSerial)
 		sch.ch <- nil
 	}
 	q.queue = q.queue[ack:]
@@ -197,7 +197,7 @@ func (q *pendingEmitter) Nack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
 	}
 	err := errInfo.unwrapNil()
 	for _, sch := range q.queue[:nack] {
-		q.log.Verbosef("received NACK for message serial %d", sch.msg.MsgSerial)
+		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.msg.MsgSerial)
 		sch.ch <- err
 	}
 	q.queue = q.queue[nack:]
@@ -239,15 +239,15 @@ func (q *msgQueue) Flush() {
 func (q *msgQueue) Fail(err error) {
 	q.mtx.Lock()
 	for _, msgch := range q.queue {
-		q.log().Errorf("failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
+		q.logger().Printf(LogError, "failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
 		msgch.ch <- newError(90000, err)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
 }
 
-func (q *msgQueue) log() logger {
-	return q.conn.log()
+func (q *msgQueue) logger() *LoggerOptions {
+	return q.conn.logger()
 }
 
 var nopResult *errResult

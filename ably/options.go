@@ -3,12 +3,10 @@ package ably
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -43,7 +41,6 @@ var defaultOptions = clientOptions{
 	TLSPort:                  443,
 	Now:                      time.Now,
 	After:                    ablyutil.After,
-	LogLevel:                 LogWarning, // RSC2
 }
 
 func defaultFallbackHosts() []string {
@@ -170,12 +167,13 @@ type clientOptions struct {
 	RESTHost string // optional; overwrite endpoint hostname for REST client
 
 	FallbackHosts   []string
-	RealtimeHost    string // optional; overwrite endpoint hostname for Realtime client
-	Environment     string // optional; prefixes both hostname with the environment string
-	Port            int    // optional: port to use for non-TLS connections and requests
-	TLSPort         int    // optional: port to use for TLS connections and requests
-	ClientID        string // optional; required for managing realtime presence of the current client
-	Recover         string // optional; used to recover client state
+	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
+	Environment     string        // optional; prefixes both hostname with the environment string
+	Port            int           // optional: port to use for non-TLS connections and requests
+	TLSPort         int           // optional: port to use for TLS connections and requests
+	ClientID        string        // optional; required for managing realtime presence of the current client
+	Recover         string        // optional; used to recover client state
+	Logger          LoggerOptions // optional; overwrite logging defaults
 	TransportParams url.Values
 
 	// max number of fallback hosts to use as a fallback.
@@ -237,9 +235,6 @@ type clientOptions struct {
 	// Now returns the time the library should take as current.
 	Now   func() time.Time
 	After func(context.Context, time.Duration) <-chan time.Time
-
-	LogLevel   LogLevel
-	LogHandler Logger
 }
 
 func (opts *clientOptions) timeoutConnect() time.Duration {
@@ -586,13 +581,13 @@ func WithEnvironment(env string) ClientOption {
 
 func WithLogHandler(handler Logger) ClientOption {
 	return func(os *clientOptions) {
-		os.LogHandler = handler
+		os.Logger.Logger = handler
 	}
 }
 
 func WithLogLevel(level LogLevel) ClientOption {
 	return func(os *clientOptions) {
-		os.LogLevel = level
+		os.Logger.Level = level
 	}
 }
 
@@ -716,10 +711,10 @@ func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (pro
 	}
 }
 
-func applyOptionsWithDefaults(opts ...ClientOption) *clientOptions {
+func applyOptionsWithDefaults(os ...ClientOption) *clientOptions {
 	to := defaultOptions
 
-	for _, set := range opts {
+	for _, set := range os {
 		set(&to)
 	}
 
@@ -728,11 +723,6 @@ func applyOptionsWithDefaults(opts ...ClientOption) *clientOptions {
 			TTL: int64(60 * time.Minute / time.Millisecond),
 		}
 	}
-
-	if to.LogHandler == nil {
-		to.LogHandler = &stdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)}
-	}
-	to.LogHandler = filteredLogger{Logger: to.LogHandler, Level: to.LogLevel}
 
 	return &to
 }
