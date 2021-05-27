@@ -17,7 +17,7 @@ import (
 
 var Timeout = 30 * time.Second
 var NoBinaryProtocol bool
-var DefaultLogger = ably.LoggerOptions{Level: ably.LogNone}
+var DefaultLogLevel = ably.LogNone
 var Environment = "sandbox"
 
 func nonil(err ...error) error {
@@ -39,7 +39,7 @@ func init() {
 		NoBinaryProtocol = true
 	}
 	if n, err := strconv.Atoi(os.Getenv("ABLY_LOGLEVEL")); err == nil {
-		DefaultLogger.Level = ably.LogLevel(n)
+		DefaultLogLevel = ably.LogLevel(n)
 	}
 	if s := os.Getenv("ABLY_ENV"); s != "" {
 		Environment = s
