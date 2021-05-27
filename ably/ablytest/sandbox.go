@@ -210,9 +210,8 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 		ably.WithKey(app.Key()),
 		ably.WithEnvironment(app.Environment),
 		ably.WithUseBinaryProtocol(!NoBinaryProtocol),
-		ably.WithLogHandler(DefaultLogger.GetLogger()),
-		ably.WithLogLevel(DefaultLogger.Level),
 		ably.WithHTTPClient(appHTTPClient),
+		ably.WithLogLevel(DefaultLogLevel),
 	}
 
 	// If opts want to record round trips inject the recording transport

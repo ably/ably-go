@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -46,6 +48,7 @@ var defaultOptions = clientOptions{
 	TLSPort:                  TLSPort,
 	Now:                      time.Now,
 	After:                    ablyutil.After,
+	LogLevel:                 LogWarning, // RSC2
 }
 
 func defaultFallbackHosts() []string {
@@ -184,13 +187,12 @@ type clientOptions struct {
 	FallbackHostsUseDefault bool
 
 	FallbackHosts   []string
-	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
-	Environment     string        // optional; prefixes both hostname with the environment string
-	Port            int           // optional: port to use for non-TLS connections and requests
-	TLSPort         int           // optional: port to use for TLS connections and requests
-	ClientID        string        // optional; required for managing realtime presence of the current client
-	Recover         string        // optional; used to recover client state
-	Logger          LoggerOptions // optional; overwrite logging defaults
+	RealtimeHost    string // optional; overwrite endpoint hostname for Realtime client
+	Environment     string // optional; prefixes both hostname with the environment string
+	Port            int    // optional: port to use for non-TLS connections and requests
+	TLSPort         int    // optional: port to use for TLS connections and requests
+	ClientID        string // optional; required for managing realtime presence of the current client
+	Recover         string // optional; used to recover client state
 	TransportParams url.Values
 
 	// max number of fallback hosts to use as a fallback.
@@ -252,13 +254,16 @@ type clientOptions struct {
 	// Now returns the time the library should take as current.
 	Now   func() time.Time
 	After func(context.Context, time.Duration) <-chan time.Time
+
+	LogLevel   LogLevel
+	LogHandler Logger
 }
 
 func (opts *clientOptions) validate() error {
 	_, err := opts.getFallbackHosts()
 	if err != nil {
-		log := opts.Logger.sugar()
-		log.Errorf("Error getting fallbackHosts : %v", err.Error())
+		logger := opts.LogHandler
+		logger.Printf(LogError, "Error getting fallbackHosts : %v", err.Error())
 		return err
 	}
 	return nil
@@ -305,8 +310,8 @@ func (opts *clientOptions) getRealtimeHost() string {
 		return opts.RealtimeHost
 	}
 	if !empty(opts.RESTHost) {
-		logger := opts.Logger.sugar()
-		logger.Warnf("restHost is set to %s but realtimeHost is not set so setting realtimeHost to %s too. If this is not what you want, please set realtimeHost explicitly.", opts.RESTHost, opts.RealtimeHost)
+		logger := opts.LogHandler
+		logger.Printf(LogWarning, "restHost is set to %s but realtimeHost is not set so setting realtimeHost to %s too. If this is not what you want, please set realtimeHost explicitly.", opts.RESTHost, opts.RealtimeHost)
 		return opts.RESTHost
 	}
 	if !opts.isProductionEnvironment() {
@@ -340,7 +345,7 @@ func (opts *clientOptions) realtimeURL() (realtimeUrl string) {
 }
 
 func (opts *clientOptions) getFallbackHosts() ([]string, error) {
-	logger := opts.Logger.sugar()
+	logger := opts.LogHandler
 	_, isDefaultPort := opts.activePort()
 	if opts.FallbackHostsUseDefault {
 		if opts.FallbackHosts != nil {
@@ -350,9 +355,9 @@ func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 			return nil, errors.New("fallbackHostsUseDefault cannot be set when port or tlsPort are set")
 		}
 		if !empty(opts.Environment) {
-			logger.Warn("Deprecated fallbackHostsUseDefault : There is no longer a need to set this when the environment option is also set since the library can generate the correct fallback hosts using the environment option.")
+			logger.Printf(LogWarning, "Deprecated fallbackHostsUseDefault : There is no longer a need to set this when the environment option is also set since the library can generate the correct fallback hosts using the environment option.")
 		}
-		logger.Warn("Deprecated fallbackHostsUseDefault : using default fallbackhosts")
+		logger.Printf(LogWarning, "Deprecated fallbackHostsUseDefault : using default fallbackhosts")
 		return defaultOptions.FallbackHosts, nil
 	}
 	if opts.FallbackHosts == nil && empty(opts.RESTHost) && empty(opts.RealtimeHost) && isDefaultPort {
@@ -665,13 +670,13 @@ func WithEnvironment(env string) ClientOption {
 
 func WithLogHandler(handler Logger) ClientOption {
 	return func(os *clientOptions) {
-		os.Logger.Logger = handler
+		os.LogHandler = handler
 	}
 }
 
 func WithLogLevel(level LogLevel) ClientOption {
 	return func(os *clientOptions) {
-		os.Logger.Level = level
+		os.LogLevel = level
 	}
 }
 
@@ -801,14 +806,14 @@ func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (pro
 	}
 }
 
-func applyOptionsWithDefaults(os ...ClientOption) *clientOptions {
+func applyOptionsWithDefaults(opts ...ClientOption) *clientOptions {
 	to := defaultOptions
 	// No need to set hosts by default
 	to.RESTHost = ""
 	to.RealtimeHost = ""
 	to.FallbackHosts = nil
 
-	for _, set := range os {
+	for _, set := range opts {
 		set(&to)
 	}
 
@@ -817,6 +822,12 @@ func applyOptionsWithDefaults(os ...ClientOption) *clientOptions {
 			TTL: int64(60 * time.Minute / time.Millisecond),
 		}
 	}
+
+	if to.LogHandler == nil {
+		to.LogHandler = &stdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)}
+	}
+	to.LogHandler = filteredLogger{Logger: to.LogHandler, Level: to.LogLevel}
+
 	return &to
 }
 

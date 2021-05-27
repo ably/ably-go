@@ -28,7 +28,7 @@ func Test_RTE3_EventEmitter_On(t *testing.T) {
 		t.Run(fmt.Sprintf("event: %s, data: %v", tc.event, tc.data), func(t *testing.T) {
 			t.Parallel()
 
-			em := ably.NewEventEmitter(ablytest.DiscardLogger)
+			em := ably.NewEventEmitter(ably.NewInternalLogger(ablytest.DiscardLogger))
 
 			received := map[ably.EmitterString]chan ably.EmitterData{
 				"*":   make(chan ably.EmitterData, 999),
@@ -88,7 +88,7 @@ func Test_RTE4_EventEmitter_Once(t *testing.T) {
 		t.Run(fmt.Sprintf("event: %s, data: %v", tc.event, tc.data), func(t *testing.T) {
 			t.Parallel()
 
-			em := ably.NewEventEmitter(ablytest.DiscardLogger)
+			em := ably.NewEventEmitter(ably.NewInternalLogger(ablytest.DiscardLogger))
 
 			received := map[ably.EmitterString]chan ably.EmitterData{
 				"*":   make(chan ably.EmitterData, 999),
@@ -154,7 +154,7 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 			"bar": make(chan ably.EmitterData, 999),
 		}
 
-		em = ably.NewEventEmitter(ablytest.DiscardLogger)
+		em = ably.NewEventEmitter(ably.NewInternalLogger(ablytest.DiscardLogger))
 
 		allOff = em.OnAll(func(v ably.EmitterData) {
 			received["*"] <- v
@@ -249,7 +249,7 @@ func Test_RTE6_EventEmitter_EmitPanic(t *testing.T) {
 	t.Parallel()
 
 	logs := make(chan ablytest.LogMessage, 999)
-	em := ably.NewEventEmitter(ablytest.NewLogger(logs))
+	em := ably.NewEventEmitter(ably.NewInternalLogger(ablytest.NewLogger(logs)))
 
 	shouldPanic := true
 	called := make(chan struct{}, 999)
@@ -281,7 +281,7 @@ func Test_RTE6a_EventEmitter_EmitToFixedListenersCollection(t *testing.T) {
 	// Give it a few tries; the order in which listeners are triggered isn't
 	// deterministic.
 	for i := 0; i < 10; i++ {
-		em := ably.NewEventEmitter(ablytest.DiscardLogger)
+		em := ably.NewEventEmitter(ably.NewInternalLogger(ablytest.DiscardLogger))
 
 		addedCalled := make(chan struct{}, 1)
 		removedCalled := make(chan struct{}, 1)
