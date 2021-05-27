@@ -237,16 +237,17 @@ func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	defer cancel()
 	internalOpErr := make(chan error, 1)
 	go func() {
-		internalOpErr <- res.Wait(timeoutCtx)
+		err := res.Wait(timeoutCtx)
+		if errors.Is(err, context.DeadlineExceeded) {
+			err = newError(ErrTimeoutError, errors.New("timed out before attaching channel"))
+			c.setState(ChannelStateSuspended, err, false)
+		}
+		internalOpErr <- err
 	}()
 	select {
 	case <-ctx.Done(): //Unblock channel wait, when external context is cancelled
 		return ctx.Err()
 	case err = <-internalOpErr:
-		if errors.Is(err, context.DeadlineExceeded) {
-			err = newError(ErrTimeoutError, errors.New("timed out before attaching channel"))
-			c.setState(ChannelStateSuspended, err, false)
-		}
 		return err
 	}
 }
@@ -343,16 +344,17 @@ func (c *RealtimeChannel) Detach(ctx context.Context) error {
 	defer cancel()
 	internalOpErr := make(chan error, 1)
 	go func() {
-		internalOpErr <- res.Wait(timeoutCtx)
+		err := res.Wait(timeoutCtx)
+		if errors.Is(err, context.DeadlineExceeded) {
+			err = newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
+			c.setState(prevChannelState, err, false)
+		}
+		internalOpErr <- err
 	}()
 	select {
 	case <-ctx.Done(): //Unblock channel wait, when external context is cancelled
 		return ctx.Err()
 	case err = <-internalOpErr:
-		if errors.Is(err, context.DeadlineExceeded) {
-			err = newError(ErrTimeoutError, errors.New("timed out before detaching channel"))
-			c.setState(prevChannelState, err, false)
-		}
 		return err
 	}
 }
