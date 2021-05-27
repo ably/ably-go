@@ -15,7 +15,9 @@ func (d *dummyLogger) Printf(level ably.LogLevel, format string, v ...interface{
 }
 
 func TestFilteredLogger(t *testing.T) {
-	t.Run("must log smaller or same level", func(ts *testing.T) {
+	t.Run("must log smaller or same level", func(t *testing.T) {
+		t.Parallel()
+
 		l := &dummyLogger{}
 		lg := &ably.FilteredLogger{
 			Level:  ably.LogDebug,
@@ -30,7 +32,9 @@ func TestFilteredLogger(t *testing.T) {
 			t.Errorf("expected 4 log messages got %d", l.printf)
 		}
 	})
-	t.Run("must log nothing  for LogNone", func(ts *testing.T) {
+	t.Run("must log nothing  for LogNone", func(t *testing.T) {
+		t.Parallel()
+
 		l := &dummyLogger{}
 		lg := &ably.FilteredLogger{
 			Logger: l,
@@ -41,7 +45,7 @@ func TestFilteredLogger(t *testing.T) {
 		lg.Printf(ably.LogWarning, say)
 		lg.Printf(ably.LogError, say)
 		if l.printf > 0 {
-			ts.Error("expected nothing to be logged")
+			t.Error("expected nothing to be logged")
 		}
 	})
 }

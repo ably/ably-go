@@ -70,7 +70,7 @@ func TestRSL1g(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Run("RSL1g1b", func(ts *testing.T) {
+	t.Run("RSL1g1b", func(t *testing.T) {
 		channel := client.Channels.Get("RSL1g1b")
 		err := channel.PublishMultiple(context.Background(), []*ably.Message{
 			{Name: "some 1"},
@@ -78,20 +78,20 @@ func TestRSL1g(t *testing.T) {
 			{Name: "some 3"},
 		})
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		var history []*ably.Message
 		err = ablytest.AllPages(&history, channel.History())
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		for _, m := range history {
 			if m.ClientID != clientID {
-				ts.Errorf("expected %s got %s", clientID, m.ClientID)
+				t.Errorf("expected %s got %s", clientID, m.ClientID)
 			}
 		}
 	})
-	t.Run("RSL1g2", func(ts *testing.T) {
+	t.Run("RSL1g2", func(t *testing.T) {
 		channel := client.Channels.Get("RSL1g2")
 		err := channel.PublishMultiple(context.Background(), []*ably.Message{
 			{Name: "1", ClientID: clientID},
@@ -99,20 +99,20 @@ func TestRSL1g(t *testing.T) {
 			{Name: "3", ClientID: clientID},
 		})
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		var history []*ably.Message
 		err = ablytest.AllPages(&history, channel.History())
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		for _, m := range history {
 			if m.ClientID != clientID {
-				ts.Errorf("expected %s got %s", clientID, m.ClientID)
+				t.Errorf("expected %s got %s", clientID, m.ClientID)
 			}
 		}
 	})
-	t.Run("RSL1g3", func(ts *testing.T) {
+	t.Run("RSL1g3", func(t *testing.T) {
 		channel := client.Channels.Get("RSL1g3")
 		err := channel.PublishMultiple(context.Background(), []*ably.Message{
 			{Name: "1", ClientID: clientID},
@@ -120,7 +120,7 @@ func TestRSL1g(t *testing.T) {
 			{Name: "3", ClientID: clientID},
 		})
 		if err == nil {
-			ts.Fatal("expected an error")
+			t.Fatal("expected an error")
 		}
 	})
 }
