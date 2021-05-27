@@ -72,12 +72,6 @@ type CipherParams struct {
 	Mode CipherMode
 }
 
-// ChannelOptions defines options provided for creating a new channel.
-type ChannelOptions struct {
-	Cipher CipherParams
-	cipher ChannelCipher
-}
-
 // GetCipher returns a ChannelCipher based on the algorithms set in the
 // ChannelOptions.CipherParams.
 func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {

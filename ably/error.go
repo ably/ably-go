@@ -131,6 +131,13 @@ func code(err error) ErrorCode {
 	return ErrNotSet
 }
 
+func statusCode(err error) int {
+	if e, ok := err.(*ErrorInfo); ok {
+		return e.StatusCode
+	}
+	return 0
+}
+
 func errFromUnprocessableBody(resp *http.Response) error {
 	errMsg, err := ioutil.ReadAll(resp.Body)
 	if err == nil {
