@@ -782,7 +782,7 @@ func (c *RealtimeChannel) Modes() []ChannelMode {
 	return modes
 }
 
-func (c *RealtimeChannel) Params() channelParams {
+func (c *RealtimeChannel) Params() map[string]string {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	params := make(channelParams)
