@@ -152,14 +152,6 @@ func (c *Connection) ConnectionStateTTL() time.Duration {
 	return c.connectionStateTTL()
 }
 
-type Result = result
-
-func (c *RESTChannels) Len() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return len(c.cache)
-}
-
 func NewInternalLogger(l Logger) logger {
 	return logger{l: l}
 }
