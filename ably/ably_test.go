@@ -100,9 +100,11 @@ func assertFalse(t *testing.T, value bool) {
 }
 
 func assertNil(t *testing.T, object interface{}) {
-	value := reflect.ValueOf(object)
-	if !value.IsNil() {
-		t.Errorf("%v is not nil", object)
+	if object != nil {
+		value := reflect.ValueOf(object)
+		if !value.IsNil() {
+			t.Errorf("%v is not nil", object)
+		}
 	}
 }
 

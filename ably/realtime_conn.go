@@ -49,7 +49,7 @@ type Connection struct {
 
 	id        string
 	key       string
-	serial    int64
+	serial    *int64
 	msgSerial int64
 	err       error
 	conn      proto.Conn
@@ -113,7 +113,7 @@ func (c *Connection) dial(proto string, u *url.URL) (conn proto.Conn, err error)
 	query := u.Query()
 	query.Add("heartbeats", "true")
 	u.RawQuery = query.Encode()
-	timeout := c.opts.httpOpenTimeout()
+	timeout := c.opts.realtimeRequestTimeout()
 	if c.opts.Dial != nil {
 		conn, err = c.opts.Dial(proto, u, timeout)
 	} else {
@@ -233,6 +233,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 		"timestamp": []string{strconv.FormatInt(unixMilli(c.opts.Now()), 10)},
 		"echo":      []string{"true"},
 		"format":    []string{"msgpack"},
+		"v":         []string{proto.AblyVersion},
 		"lib":       []string{proto.LibraryString},
 	}
 	if c.opts.NoEcho {
@@ -254,7 +255,9 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	switch mode {
 	case resumeMode:
 		query.Set("resume", c.key)
-		query.Set("connectionSerial", fmt.Sprint(c.serial))
+		if c.serial != nil {
+			query.Set("connectionSerial", fmt.Sprint(*c.serial))
+		}
 	case recoveryMode:
 		m := strings.Split(c.opts.Recover, ":")
 		if len(m) != 3 {
@@ -288,7 +291,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	// DISCONNECTED to SUSPENDED, which also changes the retry timeout period.
 	stateTTLCtx, cancelStateTTLTimer := context.WithCancel(context.Background())
 	defer cancelStateTTLTimer()
-	stateTTLTimer := c.opts.After(stateTTLCtx, c.opts.connectionStateTTL())
+	stateTTLTimer := c.opts.After(stateTTLCtx, c.connectionStateTTL())
 
 	for {
 		// If the connection transitions, it's because Connect or Close was called
@@ -467,12 +470,12 @@ func (c *Connection) RecoveryKey() string {
 	if c.key == "" {
 		return ""
 	}
-	return strings.Join([]string{c.key, fmt.Sprint(c.serial), fmt.Sprint(c.msgSerial)}, ":")
+	return strings.Join([]string{c.key, fmt.Sprint(*c.serial), fmt.Sprint(c.msgSerial)}, ":")
 }
 
 // Serial gives serial number of a message received most recently. Last known
 // serial number is used when recovering connection state.
-func (c *Connection) Serial() int64 {
+func (c *Connection) Serial() *int64 {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.serial
@@ -562,7 +565,7 @@ func (c *Connection) send(msg *proto.ProtocolMessage, listen chan<- error) {
 		if c.opts.NoQueueing {
 			listen <- connStateError(state, errQueueing)
 		}
-		c.queue.Enqueue(msg, listen)
+		c.queue.Enqueue(msg, listen) // RTL4i
 
 	case ConnectionStateConnected:
 		if err := c.verifyAndUpdateMessages(msg); err != nil {
@@ -654,7 +657,7 @@ func (c *Connection) log() logger {
 	return c.auth.log()
 }
 
-func (c *Connection) setSerial(serial int64) {
+func (c *Connection) setSerial(serial *int64) {
 	c.serial = serial
 }
 
@@ -707,7 +710,7 @@ func (c *Connection) eventloop() {
 		lastActivityAt = c.opts.Now()
 		if msg.ConnectionSerial != 0 {
 			c.mtx.Lock()
-			c.setSerial(msg.ConnectionSerial)
+			c.setSerial(&msg.ConnectionSerial)
 			c.mtx.Unlock()
 		}
 		switch msg.Action {
@@ -715,7 +718,6 @@ func (c *Connection) eventloop() {
 		case proto.ActionAck:
 			c.mtx.Lock()
 			c.pending.Ack(msg, newErrorFromProto(msg.Error))
-			c.setSerial(c.serial + 1)
 			c.mtx.Unlock()
 		case proto.ActionNack:
 			c.mtx.Lock()
@@ -779,7 +781,6 @@ func (c *Connection) eventloop() {
 				}
 				c.msgSerial = msgSerial
 			}
-			c.setSerial(-1)
 
 			if c.state == ConnectionStateClosing {
 				// RTN12f

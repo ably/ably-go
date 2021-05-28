@@ -39,37 +39,30 @@ func query(fn func(context.Context, string, interface{}) (*http.Response, error)
 // RESTChannels provides an API for managing collection of RESTChannel. This is
 // safe for concurrent use.
 type RESTChannels struct {
-	cache  map[string]*RESTChannel
+	chans  map[string]*RESTChannel
 	mu     sync.RWMutex
 	client *REST
 }
 
-// Range iterates over the channels calling fn on every iteration. If fn returns
-// false then the iteration is stopped.
+// Iterate returns a list of created channels.
 //
-// This uses locking to take a snapshot of the underlying RESTChannel map before
-// iteration to avoid any deadlock, meaning any modification (like creating new
-// RESTChannel, or removing one) that occurs during iteration will not have any
-// effect to the values passed to the fn.
-func (c *RESTChannels) Range(fn func(name string, channel *RESTChannel) bool) {
-	clone := make(map[string]*RESTChannel)
-	c.mu.RLock()
-	for k, v := range c.cache {
-		clone[k] = v
+// It is safe to call Iterate from multiple goroutines, however there's no guarantee
+// the returned list would not list a channel that was already released from
+// different goroutine.
+func (c *RESTChannels) Iterate() []*RESTChannel { // RSN2, RTS2
+	c.mu.Lock()
+	chans := make([]*RESTChannel, 0, len(c.chans))
+	for _, restChannel := range c.chans {
+		chans = append(chans, restChannel)
 	}
-	c.mu.RUnlock()
-	for k, v := range clone {
-		if !fn(k, v) {
-			break
-		}
-	}
-
+	c.mu.Unlock()
+	return chans
 }
 
 // Exists returns true if the channel by the given name exists.
-func (c *RESTChannels) Exists(name string) bool {
+func (c *RESTChannels) Exists(name string) bool { // RSN2, RTS2
 	c.mu.RLock()
-	_, ok := c.cache[name]
+	_, ok := c.chans[name]
 	c.mu.RUnlock()
 	return ok
 }
@@ -89,7 +82,7 @@ func (c *RESTChannels) Get(name string, options ...ChannelOption) *RESTChannel {
 
 func (c *RESTChannels) get(name string, opts *proto.ChannelOptions) *RESTChannel {
 	c.mu.RLock()
-	v, ok := c.cache[name]
+	v, ok := c.chans[name]
 	c.mu.RUnlock()
 	if ok {
 		if opts != nil {
@@ -100,15 +93,15 @@ func (c *RESTChannels) get(name string, opts *proto.ChannelOptions) *RESTChannel
 	v = newRESTChannel(name, c.client)
 	v.options = opts
 	c.mu.Lock()
-	c.cache[name] = v
+	c.chans[name] = v
 	c.mu.Unlock()
 	return v
 }
 
-// Release deletes the channel from the cache.
+// Release deletes the channel from the chans.
 func (c *RESTChannels) Release(name string) {
 	c.mu.Lock()
-	delete(c.cache, name)
+	delete(c.chans, name)
 	c.mu.Unlock()
 }
 
@@ -135,7 +128,7 @@ func NewREST(options ...ClientOption) (*REST, error) {
 	}
 	c.Auth = auth
 	c.Channels = &RESTChannels{
-		cache:  make(map[string]*RESTChannel),
+		chans:  make(map[string]*RESTChannel),
 		client: c,
 	}
 	c.successFallbackHost = &fallbackCache{

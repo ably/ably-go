@@ -128,14 +128,28 @@ func ReceivePresenceMessages(channel *ably.RealtimeChannel, action *ably.Presenc
 }
 
 type AfterCall struct {
-	Ctx      context.Context
-	D        time.Duration
-	Deadline time.Time
-	Time     chan<- time.Time
+	Ctx       context.Context
+	D         time.Duration
+	Deadline  time.Time
+	Time      chan<- time.Time
+	triggered *bool
+	mtx       *sync.Mutex
 }
 
 func (c AfterCall) Fire() {
 	c.Time <- c.Deadline
+}
+
+func (a AfterCall) setTriggered(value bool) {
+	a.mtx.Lock()
+	defer a.mtx.Unlock()
+	*a.triggered = value
+}
+
+func (a AfterCall) IsTriggered() bool {
+	a.mtx.Lock()
+	defer a.mtx.Unlock()
+	return *a.triggered
 }
 
 // TimeFuncs returns time functions to be passed as options.
@@ -165,9 +179,9 @@ func TimeFuncs(afterCalls chan<- AfterCall) (
 			mtx.Lock()
 			t := currentTime
 			mtx.Unlock()
-
+			afterCall := AfterCall{Ctx: ctx, D: d, Deadline: t.Add(d), Time: timeUpdate, triggered: new(bool), mtx: &sync.Mutex{}}
 			select {
-			case afterCalls <- AfterCall{Ctx: ctx, D: d, Deadline: t.Add(d), Time: timeUpdate}:
+			case afterCalls <- afterCall:
 			case <-ctx.Done():
 				// This allows tests to ignore a call if they expect the timer to
 				// be cancelled.
@@ -187,6 +201,7 @@ func TimeFuncs(afterCalls chan<- AfterCall) (
 				currentTime = t
 				mtx.Unlock()
 				ch <- t
+				afterCall.setTriggered(true)
 			}
 		}()
 
