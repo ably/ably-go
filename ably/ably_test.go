@@ -81,6 +81,40 @@ func checkError(code ably.ErrorCode, err error) error {
 	}
 }
 
+func assertEquals(t *testing.T, expected interface{}, actual interface{}) {
+	if expected != actual {
+		t.Errorf("%v is not equal to %v", expected, actual)
+	}
+}
+
+func assertTrue(t *testing.T, value bool) {
+	if !value {
+		t.Errorf("%v is not true", value)
+	}
+}
+
+func assertFalse(t *testing.T, value bool) {
+	if value {
+		t.Errorf("%v is not false", value)
+	}
+}
+
+func assertNil(t *testing.T, object interface{}) {
+	if object != nil {
+		value := reflect.ValueOf(object)
+		if !value.IsNil() {
+			t.Errorf("%v is not nil", object)
+		}
+	}
+}
+
+func assertDeepEquals(t *testing.T, expected interface{}, actual interface{}) {
+	areEqual := reflect.DeepEqual(expected, actual)
+	if !areEqual {
+		t.Errorf("%v is not equal to %v", expected, actual)
+	}
+}
+
 func init() {
 	ablytest.ClientOptionsInspector.UseBinaryProtocol = func(o []ably.ClientOption) bool {
 		return !ably.ApplyOptionsWithDefaults(o...).NoBinaryProtocol
@@ -112,19 +146,4 @@ func (r connMock) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
 
 func (r connMock) Close() error {
 	return r.CloseFunc()
-}
-func assertNil(t *testing.T, object interface{}) {
-	if object != nil {
-		value := reflect.ValueOf(object)
-		if !value.IsNil() {
-			t.Errorf("%v is not nil", object)
-		}
-	}
-}
-
-func assertDeepEquals(t *testing.T, expected interface{}, actual interface{}) {
-	areEqual := reflect.DeepEqual(expected, actual)
-	if !areEqual {
-		t.Errorf("%v is not equal to %v", expected, actual)
-	}
 }

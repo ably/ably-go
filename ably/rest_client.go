@@ -118,6 +118,9 @@ func NewREST(options ...ClientOption) (*REST, error) {
 	c := &REST{
 		opts: applyOptionsWithDefaults(options...),
 	}
+	if err := c.opts.validate(); err != nil {
+		return nil, err
+	}
 	c.log = logger{l: c.opts.LogHandler}
 	auth, err := newAuth(c)
 	if err != nil {
@@ -583,16 +586,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 	if err != nil {
 		c.log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
-			if canFallBack(e.StatusCode) &&
-				(strings.HasPrefix(req.URL.Host, defaultOptions.RESTHost) ||
-					c.opts.FallbackHosts != nil) {
-				fallback := defaultFallbackHosts()
-				if c.opts.FallbackHosts != nil {
-					fallback = c.opts.FallbackHosts
-				}
-				c.log.Infof("RestClient: trying to fallback with hosts=%v", fallback)
-				if len(fallback) > 0 {
-					left := fallback
+			if canFallBack(e.StatusCode) {
+				fallbacks, _ := c.opts.getFallbackHosts()
+				c.log.Infof("RestClient: trying to fallback with hosts=%v", fallbacks)
+				if len(fallbacks) > 0 {
+					left := fallbacks
 					iteration := 0
 					maxLimit := c.opts.HTTPMaxRetryCount
 					if maxLimit == 0 {

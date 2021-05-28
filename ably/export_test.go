@@ -7,6 +7,30 @@ import (
 	"time"
 )
 
+func NewClientOptions(os ...ClientOption) *clientOptions {
+	return applyOptionsWithDefaults(os...)
+}
+
+func GetEnvFallbackHosts(env string) []string {
+	return getEnvFallbackHosts(env)
+}
+
+func (opts *clientOptions) GetRestHost() string {
+	return opts.getRestHost()
+}
+
+func (opts *clientOptions) GetRealtimeHost() string {
+	return opts.getRealtimeHost()
+}
+
+func (opts *clientOptions) ActivePort() (int, bool) {
+	return opts.activePort()
+}
+
+func (opts *clientOptions) GetFallbackHosts() ([]string, error) {
+	return opts.getFallbackHosts()
+}
+
 func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }

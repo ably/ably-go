@@ -22,7 +22,7 @@ type Realtime struct {
 // NewRealtime constructs a new Realtime.
 func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c := &Realtime{}
-	rest, err := NewREST(options...)
+	rest, err := NewREST(options...) //options validated in NewREST
 	if err != nil {
 		return nil, err
 	}
