@@ -19,6 +19,100 @@ import (
 	"github.com/ably/ably-go/ably/proto"
 )
 
+func Test_RTN2_WebsocketQueryParams(t *testing.T) {
+	t.Parallel()
+	setup := func(options ...ably.ClientOption) (requestParams url.Values) {
+		in := make(chan *proto.ProtocolMessage, 1)
+		out := make(chan *proto.ProtocolMessage, 16)
+		var urls []url.URL
+		defaultOptions := []ably.ClientOption{
+			ably.WithToken("fake:token"),
+			ably.WithAutoConnect(false),
+			ably.WithDial(func(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+				urls = append(urls, *u)
+				return ablytest.MessagePipe(in, out)(proto, u, timeout)
+			}),
+		}
+		options = append(defaultOptions, options...)
+		c, _ := ably.NewRealtime(options...)
+		in <- &proto.ProtocolMessage{
+			Action:            proto.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &proto.ConnectionDetails{},
+		}
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requestParams = urls[0].Query()
+		return
+	}
+
+	t.Run("RTN2a: format should be msgPack or json", func(t *testing.T) {
+		t.Parallel()
+		requestParams := setup(ably.WithUseBinaryProtocol(false)) // default protocol is false
+		protocol := requestParams["format"]
+		assertDeepEquals(t, []string{"json"}, protocol)
+
+		requestParams = setup(ably.WithUseBinaryProtocol(true))
+		protocol = requestParams["format"]
+		assertDeepEquals(t, []string{"msgpack"}, protocol)
+	})
+
+	t.Run("RTN2b: echo should be true by default", func(t *testing.T) {
+		t.Parallel()
+		requestParams := setup() // default echo value is true
+		echo := requestParams["echo"]
+		assertDeepEquals(t, []string{"true"}, echo)
+
+		requestParams = setup(ably.WithEchoMessages(false))
+		echo = requestParams["echo"]
+		assertDeepEquals(t, []string{"false"}, echo)
+	})
+
+	t.Run("RTN2d: clientId contains provided clientId", func(t *testing.T) {
+		t.Parallel()
+		requestParams := setup()
+		clientId := requestParams["clientId"]
+		assertNil(t, clientId)
+
+		// todo - Need to verify if clientId is only valid for Basic Auth Mode
+		clientIdParam := "123"
+		key := "fake:key"
+		requestParams = setup(ably.WithToken(""), ably.WithKey(key), ably.WithClientID(clientIdParam)) // Client Id is only enabled for basic auth
+		clientId = requestParams["clientId"]
+		assertDeepEquals(t, []string{clientIdParam}, clientId)
+	})
+
+	t.Run("RTN2e: depending on the auth scheme, accessToken contains token string or key contains api key", func(t *testing.T) {
+		t.Parallel()
+		token := "fake:clientToken"
+		requestParams := setup(ably.WithToken(token))
+		actualToken := requestParams["access_token"]
+		assertDeepEquals(t, []string{token}, actualToken)
+
+		key := "fake:key"
+		requestParams = setup(ably.WithToken(""), ably.WithKey(key)) // disable token, use key instead
+		actualKey := requestParams["key"]
+		assertDeepEquals(t, []string{key}, actualKey)
+	})
+
+	t.Run("RTN2f: api version v should be the API version", func(t *testing.T) {
+		t.Parallel()
+		requestParams := setup()
+		libVersion := requestParams["v"]
+		assertDeepEquals(t, []string{"1.2"}, libVersion)
+	})
+
+	t.Run("RTN2g: library and version should be included as the value of lib param", func(t *testing.T) {
+		t.Parallel()
+		requestParams := setup()
+		lib := requestParams["lib"]
+		assertDeepEquals(t, []string{"go-1.2.0-apipreview.4"}, lib)
+	})
+}
+
 func Test_RTN3_ConnectionAutoConnect(t *testing.T) {
 	t.Parallel()
 
