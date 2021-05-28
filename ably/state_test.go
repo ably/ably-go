@@ -37,13 +37,17 @@ func emit(msg *proto.ProtocolMessage, fn func(*pendingEmitter, *proto.ProtocolMe
 	}
 }
 
+type discardLogger struct{}
+
+func (discardLogger) Printf(level LogLevel, format string, v ...interface{}) {}
+
 func testQueuedEmitter(t *testing.T, serials, ack, nack []int64, emit func(*pendingEmitter)) {
 	ch := chans(len(serials))
 	index := make(map[int64]int)
 	for i, serial := range serials {
 		index[serial] = i
 	}
-	q := &pendingEmitter{logger: &LoggerOptions{}}
+	q := &pendingEmitter{log: NewInternalLogger(discardLogger{})}
 	for serial, i := range index {
 		q.Enqueue(&proto.ProtocolMessage{MsgSerial: serial}, ch[i])
 	}

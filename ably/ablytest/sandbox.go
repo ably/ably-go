@@ -77,15 +77,19 @@ func DefaultConfig() *Config {
 		},
 		Channels: []Channel{
 			{
-				Name: "persisted:presence_fixtures",
-				Presence: []Presence{
-					{ClientID: "client_bool", Data: "true"},
-					{ClientID: "client_int", Data: "true"},
-					{ClientID: "client_string", Data: "true"},
-					{ClientID: "client_json", Data: `{"test": "This is a JSONObject clientData payload"}`},
-				},
+				Name:     "persisted:presence_fixtures",
+				Presence: PresenceFixtures(),
 			},
 		},
+	}
+}
+
+var PresenceFixtures = func() []Presence {
+	return []Presence{
+		{ClientID: "client_bool", Data: "true"},
+		{ClientID: "client_int", Data: "true"},
+		{ClientID: "client_string", Data: "true"},
+		{ClientID: "client_json", Data: `{"test": "This is a JSONObject clientData payload"}`},
 	}
 }
 
@@ -206,9 +210,8 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 		ably.WithKey(app.Key()),
 		ably.WithEnvironment(app.Environment),
 		ably.WithUseBinaryProtocol(!NoBinaryProtocol),
-		ably.WithLogHandler(DefaultLogger.GetLogger()),
-		ably.WithLogLevel(DefaultLogger.Level),
 		ably.WithHTTPClient(appHTTPClient),
+		ably.WithLogLevel(DefaultLogLevel),
 	}
 
 	// If opts want to record round trips inject the recording transport

@@ -3,10 +3,12 @@ package ably
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -41,6 +43,7 @@ var defaultOptions = clientOptions{
 	TLSPort:                  443,
 	Now:                      time.Now,
 	After:                    ablyutil.After,
+	LogLevel:                 LogWarning, // RSC2
 }
 
 func defaultFallbackHosts() []string {
@@ -167,13 +170,12 @@ type clientOptions struct {
 	RESTHost string // optional; overwrite endpoint hostname for REST client
 
 	FallbackHosts   []string
-	RealtimeHost    string        // optional; overwrite endpoint hostname for Realtime client
-	Environment     string        // optional; prefixes both hostname with the environment string
-	Port            int           // optional: port to use for non-TLS connections and requests
-	TLSPort         int           // optional: port to use for TLS connections and requests
-	ClientID        string        // optional; required for managing realtime presence of the current client
-	Recover         string        // optional; used to recover client state
-	Logger          LoggerOptions // optional; overwrite logging defaults
+	RealtimeHost    string // optional; overwrite endpoint hostname for Realtime client
+	Environment     string // optional; prefixes both hostname with the environment string
+	Port            int    // optional: port to use for non-TLS connections and requests
+	TLSPort         int    // optional: port to use for TLS connections and requests
+	ClientID        string // optional; required for managing realtime presence of the current client
+	Recover         string // optional; used to recover client state
 	TransportParams url.Values
 
 	// max number of fallback hosts to use as a fallback.
@@ -235,6 +237,9 @@ type clientOptions struct {
 	// Now returns the time the library should take as current.
 	Now   func() time.Time
 	After func(context.Context, time.Duration) <-chan time.Time
+
+	LogLevel   LogLevel
+	LogHandler Logger
 }
 
 func (opts *clientOptions) timeoutConnect() time.Duration {
@@ -340,7 +345,7 @@ func (opts *clientOptions) httpclient() *http.Client {
 		return opts.HTTPClient
 	}
 	return &http.Client{
-		Timeout: defaultOptions.HTTPRequestTimeout,
+		Timeout: opts.HTTPRequestTimeout,
 	}
 }
 
@@ -581,13 +586,13 @@ func WithEnvironment(env string) ClientOption {
 
 func WithLogHandler(handler Logger) ClientOption {
 	return func(os *clientOptions) {
-		os.Logger.Logger = handler
+		os.LogHandler = handler
 	}
 }
 
 func WithLogLevel(level LogLevel) ClientOption {
 	return func(os *clientOptions) {
-		os.Logger.Level = level
+		os.LogLevel = level
 	}
 }
 
@@ -606,6 +611,12 @@ func WithQueueMessages(queue bool) ClientOption {
 func WithRESTHost(host string) ClientOption {
 	return func(os *clientOptions) {
 		os.RESTHost = host
+	}
+}
+
+func WithHTTPRequestTimeout(timeout time.Duration) ClientOption {
+	return func(os *clientOptions) {
+		os.HTTPRequestTimeout = timeout
 	}
 }
 
@@ -663,6 +674,12 @@ func WithHTTPOpenTimeout(d time.Duration) ClientOption {
 	}
 }
 
+func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
+	return func(os *clientOptions) {
+		os.RealtimeRequestTimeout = d
+	}
+}
+
 func WithSuspendedRetryTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.SuspendedRetryTimeout = d
@@ -699,10 +716,10 @@ func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (pro
 	}
 }
 
-func applyOptionsWithDefaults(os ...ClientOption) *clientOptions {
+func applyOptionsWithDefaults(opts ...ClientOption) *clientOptions {
 	to := defaultOptions
 
-	for _, set := range os {
+	for _, set := range opts {
 		set(&to)
 	}
 
@@ -711,6 +728,11 @@ func applyOptionsWithDefaults(os ...ClientOption) *clientOptions {
 			TTL: int64(60 * time.Minute / time.Millisecond),
 		}
 	}
+
+	if to.LogHandler == nil {
+		to.LogHandler = &stdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)}
+	}
+	to.LogHandler = filteredLogger{Logger: to.LogHandler, Level: to.LogLevel}
 
 	return &to
 }
@@ -729,4 +751,8 @@ func applyAuthOptionsWithDefaults(os ...AuthOption) *authOptions {
 	}
 
 	return &to
+}
+
+func (o *clientOptions) contextWithTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	return ablyutil.ContextWithTimeout(ctx, o.After, timeout)
 }
