@@ -45,7 +45,7 @@ func Test_RTN3_ConnectionAutoConnect(t *testing.T) {
 	// Transition to connected without needing to explicitly connect
 	ablytest.Soon.Recv(t, &connectionChange, connectionStateChanges, t.Fatalf)
 	if expected, got := ably.ConnectionStateConnected, connectionChange.Current; expected != got {
-		t.Fatalf("expect ed %v; got %v (event: %+v)", expected, got, connectionChange)
+		t.Fatalf("expected %v; got %v (event: %+v)", expected, got, connectionChange)
 	}
 	ablytest.Instantly.NoRecv(t, nil, connectionStateChanges, t.Fatalf)
 }
