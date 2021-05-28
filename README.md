@@ -1,6 +1,6 @@
-## [Ably Go](https://www.ably.io) [![PkgGoDev](https://pkg.go.dev/badge/github.com/ably/ably-go@v1.2.0-apipreview.1/ably)](https://pkg.go.dev/github.com/ably/ably-go@v1.2.0-apipreview.1/ably)
+## [Ably Go](https://ably.com/)
 
-A Go client library for [www.ably.io](https://ably.io), the realtime messaging service.
+A Go client library for [https://ably.com/](https://ably.com/), the realtime messaging service.
 
 ## Installation
 
@@ -22,7 +22,7 @@ ctx := context.Background()
 ```go
 client, err := ably.NewRealtime(ably.WithKey("xxx:xxx"))
 if err != nil {
-	panic(err)
+panic(err)
 }
 
 channel := client.Channels.Get("test")
@@ -38,16 +38,16 @@ You may monitor events on connections and channels.
 
 ```go
 client, err = ably.NewRealtime(
-	ably.WithKey("xxx:xxx"),
-	ably.WithAutoConnect(false), // Set this option to avoid missing state changes.
+ably.WithKey("xxx:xxx"),
+ably.WithAutoConnect(false), // Set this option to avoid missing state changes.
 )
 if err != nil {
-	panic(err)
+panic(err)
 }
 
 // Set up connection events handler.
 client.Connection.OnAll(func(change ably.ConnectionStateChange) {
-	fmt.Printf("Connection event: %s state=%s reason=%s", change.Event, change.Current, change.Reason)
+fmt.Printf("Connection event: %s state=%s reason=%s", change.Event, change.Current, change.Reason)
 })
 
 // Then connect.
@@ -56,7 +56,7 @@ client.Connect()
 channel = client.Channels.Get("test")
 
 channel.OnAll(func(change ably.ChannelStateChange) {
-	fmt.Printf("Channel event event: %s channel=%s state=%s reason=%s", channel.Name, change.Event, change.Current, change.Reason)
+fmt.Printf("Channel event event: %s channel=%s state=%s reason=%s", channel.Name, change.Event, change.Current, change.Reason)
 })
 ```
 
@@ -64,10 +64,10 @@ channel.OnAll(func(change ably.ChannelStateChange) {
 
 ```go
 unsubscribe, err := channel.SubscribeAll(ctx, func(msg *ably.Message) {
-	fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
+fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
 })
 if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -79,17 +79,17 @@ unsubscribe()
 
 ```go
 unsubscribe1, err := channel.Subscribe(ctx, "EventName1", func(msg *ably.Message) {
-	fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
+fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
 })
 if err != nil {
-	panic(err)
+panic(err)
 }
 
 unsubscribe2, err := channel.Subscribe(ctx, "EventName2", func(msg *ably.Message) {
-	fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
+fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
 })
 if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -103,7 +103,7 @@ unsubscribe2()
 ```go
 err = channel.Publish(ctx, "EventName1", "EventData1")
 if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -116,14 +116,14 @@ Errors returned by this library may have an underlying `*ErrorInfo` type.
 ```go
 badClient, err := ably.NewRealtime(ably.WithKey("invalid:key"))
 if err != nil {
-	panic(err)
+panic(err)
 }
 
 err = badClient.Channels.Get("test").Publish(ctx, "event", "data")
 if errInfo := (*ably.ErrorInfo)(nil); errors.As(err, &errInfo) {
-	fmt.Printf("Error publishing message: code=%v status=%v cause=%v", errInfo.Code, errInfo.StatusCode, errInfo.Cause)
+fmt.Printf("Error publishing message: code=%v status=%v cause=%v", errInfo.Code, errInfo.StatusCode, errInfo.Cause)
 } else if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -132,7 +132,7 @@ if errInfo := (*ably.ErrorInfo)(nil); errors.As(err, &errInfo) {
 ```go
 err = channel.Presence.Enter(ctx, "presence data")
 if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -141,7 +141,7 @@ if err != nil {
 ```go
 err = channel.Presence.EnterClient(ctx, "clientID", "presence data")
 if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -151,13 +151,13 @@ if err != nil {
 // Update also has an UpdateClient variant.
 err = channel.Presence.Update(ctx, "new presence data")
 if err != nil {
-	panic(err)
+panic(err)
 }
 
 // Leave also has an LeaveClient variant.
 err = channel.Presence.Leave(ctx, "last presence data")
 if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -166,11 +166,11 @@ if err != nil {
 ```go
 clients, err := channel.Presence.Get(ctx)
 if err != nil {
-	panic(err)
+panic(err)
 }
 
 for _, client := range clients {
-	fmt.Println("Present client:", client)
+fmt.Println("Present client:", client)
 }
 ```
 
@@ -178,10 +178,10 @@ for _, client := range clients {
 
 ```go
 unsubscribe, err = channel.Presence.SubscribeAll(ctx, func(msg *ably.PresenceMessage) {
-	fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
+fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
 })
 if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -193,10 +193,10 @@ unsubscribe()
 
 ```go
 unsubscribe, err = channel.Presence.Subscribe(ctx, ably.PresenceActionEnter, func(msg *ably.PresenceMessage) {
-	fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
+fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
 })
 if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -217,7 +217,7 @@ All examples assume a client and/or channel has been created as follows:
 ```go
 client, err := ably.NewREST(ably.WithKey("xxx:xxx"))
 if err != nil {
-	panic(err)
+panic(err)
 }
 
 channel := client.Channels.Get("test")
@@ -228,16 +228,16 @@ channel := client.Channels.Get("test")
 ```go
 err = channel.Publish(ctx, "HelloEvent", "Hello!")
 if err != nil {
-	panic(err)
+panic(err)
 }
 
 // You can also publish multiple messages in a single request.
 err = channel.PublishMultiple(ctx, []*ably.Message{
-	{Name: "HelloEvent", Data: "Hello!"},
-	{Name: "ByeEvent", Data: "Bye!"},
+{Name: "HelloEvent", Data: "Hello!"},
+{Name: "ByeEvent", Data: "Bye!"},
 })
 if err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -250,15 +250,15 @@ if err != nil {
 ```go
 pages, err := channel.History().Pages(ctx)
 if err != nil {
-	panic(err)
+panic(err)
 }
 for pages.Next(ctx) {
-	for _, message := range pages.Items() {
-		fmt.Println(message)
-	}
+for _, message := range pages.Items() {
+fmt.Println(message)
+}
 }
 if err := pages.Err(); err != nil {
-	panic(err)
+panic(err)
 }
 
 ```
@@ -276,15 +276,15 @@ if err := pages.Err(); err != nil {
 ```go
 pages, err := channel.Presence.Get().Pages(ctx)
 if err != nil {
-	panic(err)
+panic(err)
 }
 for pages.Next(ctx) {
-	for _, presence := range pages.Items() {
-		fmt.Println(presence)
-	}
+for _, presence := range pages.Items() {
+fmt.Println(presence)
+}
 }
 if err := pages.Err(); err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -301,15 +301,15 @@ if err := pages.Err(); err != nil {
 ```go
 pages, err := channel.Presence.History().Pages(ctx)
 if err != nil {
-	panic(err)
+panic(err)
 }
 for pages.Next(ctx) {
-	for _, presence := range pages.Items() {
-		fmt.Println(presence)
-	}
+for _, presence := range pages.Items() {
+fmt.Println(presence)
+}
 }
 if err := pages.Err(); err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -326,15 +326,15 @@ if err := pages.Err(); err != nil {
 ```go
 pages, err := client.Stats().Pages(ctx)
 if err != nil {
-	panic(err)
+panic(err)
 }
 for pages.Next(ctx) {
-	for _, stat := range pages.Items() {
-		fmt.Println(stat)
-	}
+for _, stat := range pages.Items() {
+fmt.Println(stat)
+}
 }
 if err := pages.Err(); err != nil {
-	panic(err)
+panic(err)
 }
 ```
 
@@ -363,14 +363,14 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 ### Realtime API
 
 - There is no channel `suspended` state; this means that the client will not automatically reattach to channels if a
-connection becomes `suspended` and then resumes, and presence members associated with the client will not be
-automatically re-entered.
+  connection becomes `suspended` and then resumes, and presence members associated with the client will not be
+  automatically re-entered.
 
 - Transient realtime publishing is not supported, so a call to `publish()` on a realtime channel will trigger attachment
- of the channel.
+  of the channel.
 
 - Inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
-connection.
+  connection.
 
 - Realtime connection failure handling is partially implemented.
 
@@ -383,19 +383,26 @@ Starting with release 1.2, this library uses [semantic versioning](http://semver
 * Create a branch for the release, named like `release/1.2.0`
 * Replace all references of the current version number with the new version number and commit the changes
 * Run [`github_changelog_generator`](https://github.com/github-changelog-generator/github-changelog-generator) to automate the update of the [CHANGELOG](./CHANGELOG.md). This may require some manual intervention, both in terms of how the command is run and how the change log file is modified. Your mileage may vary:
-    * The command you will need to run will look something like this: `github_changelog_generator -u ably -p ably-go --since-tag v1.1.4 --output delta.md`
-    * Using the command above, `--output delta.md` writes changes made after `--since-tag` to a new file
-    * The contents of that new file (`delta.md`) then need to be manually inserted at the top of the `CHANGELOG.md`, changing the "Unreleased" heading and linking with the current version numbers
-    * Also ensure that the "Full Changelog" link points to the new version tag instead of the `HEAD`
-    * Commit this change: `git add CHANGELOG.md && git commit -m "Update change log."`
+  * The command you will need to run will look something like this: `github_changelog_generator -u ably -p ably-go --since-tag v1.1.4 --output delta.md`
+  * Using the command above, `--output delta.md` writes changes made after `--since-tag` to a new file
+  * The contents of that new file (`delta.md`) then need to be manually inserted at the top of the `CHANGELOG.md`, changing the "Unreleased" heading and linking with the current version numbers
+  * Also ensure that the "Full Changelog" link points to the new version tag instead of the `HEAD`
+  * Commit this change: `git add CHANGELOG.md && git commit -m "Update change log."`
 * Commit [CHANGELOG](./CHANGELOG.md)
 * Make a PR against `main`
 * Once the PR is approved, merge it into `main`
 * Add a tag to the new `main` head commit and push to origin such as `git tag v1.2.0 && git push origin v1.2.0`
 
+## Further information
+
+Broaden your knowledge of realtime in Go with these useful materials:
+
+* [Building realtime apps with Go and WebSockets: client-side considerations](https://ably.com/topic/websockets-golang)
+* [Guide to Pub/Sub in Golang](https://ably.com/blog/pubsub-golang)
+
 ## Support and feedback
 
-Please visit http://support.ably.io/ for access to our knowledgebase and to ask for any assistance.
+Please visit https://knowledge.ably.com/ for access to our knowledgebase and to ask for any assistance.
 
 You can also view the [community reported Github issues](https://github.com/ably/ably-go/issues).
 
