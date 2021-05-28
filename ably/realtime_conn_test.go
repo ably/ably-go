@@ -31,7 +31,7 @@ func TestRealtimeConn_Connect(t *testing.T) {
 	if err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
-	if serial := client.Connection.Serial(); serial != -1 {
+	if serial := client.Connection.Serial(); *serial != -1 {
 		t.Fatalf("want serial=-1; got %d", serial)
 	}
 	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
@@ -58,7 +58,7 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect()=%v", err)
 	}
-	if serial := client.Connection.Serial(); serial != -1 {
+	if serial := client.Connection.Serial(); *serial != -1 {
 		t.Fatalf("want serial=-1; got %d", serial)
 	}
 	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
