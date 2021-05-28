@@ -49,7 +49,7 @@ type Connection struct {
 
 	id        string
 	key       string
-	serial    int64
+	serial    *int64
 	msgSerial int64
 	err       error
 	conn      proto.Conn
@@ -254,7 +254,9 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	switch mode {
 	case resumeMode:
 		query.Set("resume", c.key)
-		query.Set("connectionSerial", fmt.Sprint(c.serial))
+		if c.serial != nil {
+			query.Set("connectionSerial", fmt.Sprint(*c.serial))
+		}
 	case recoveryMode:
 		m := strings.Split(c.opts.Recover, ":")
 		if len(m) != 3 {
@@ -467,12 +469,12 @@ func (c *Connection) RecoveryKey() string {
 	if c.key == "" {
 		return ""
 	}
-	return strings.Join([]string{c.key, fmt.Sprint(c.serial), fmt.Sprint(c.msgSerial)}, ":")
+	return strings.Join([]string{c.key, fmt.Sprint(*c.serial), fmt.Sprint(c.msgSerial)}, ":")
 }
 
 // Serial gives serial number of a message received most recently. Last known
 // serial number is used when recovering connection state.
-func (c *Connection) Serial() int64 {
+func (c *Connection) Serial() *int64 {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.serial
@@ -654,7 +656,7 @@ func (c *Connection) log() logger {
 	return c.auth.log()
 }
 
-func (c *Connection) setSerial(serial int64) {
+func (c *Connection) setSerial(serial *int64) {
 	c.serial = serial
 }
 
@@ -707,7 +709,7 @@ func (c *Connection) eventloop() {
 		lastActivityAt = c.opts.Now()
 		if msg.ConnectionSerial != 0 {
 			c.mtx.Lock()
-			c.setSerial(msg.ConnectionSerial)
+			c.setSerial(&msg.ConnectionSerial)
 			c.mtx.Unlock()
 		}
 		switch msg.Action {
@@ -715,7 +717,6 @@ func (c *Connection) eventloop() {
 		case proto.ActionAck:
 			c.mtx.Lock()
 			c.pending.Ack(msg, newErrorFromProto(msg.Error))
-			c.setSerial(c.serial + 1)
 			c.mtx.Unlock()
 		case proto.ActionNack:
 			c.mtx.Lock()
@@ -779,7 +780,6 @@ func (c *Connection) eventloop() {
 				}
 				c.msgSerial = msgSerial
 			}
-			c.setSerial(-1)
 
 			if c.state == ConnectionStateClosing {
 				// RTN12f
