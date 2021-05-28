@@ -4,7 +4,8 @@
 on:
   pull_request:
   push:
-    branches: [ $default-branch ]
+    branches:
+      - main
 
 jobs:
   check:
@@ -37,16 +38,12 @@ jobs:
         run: go generate ./... && [ -z "$(git status --porcelain)" ]
 
       - name: Test with JSON Protocol
-        env:
-          ABLY_PROTOCOL: application/json
-        run: go test -p 1 -race -v ./...
-      
+        run: scripts/test.sh --protocol application/json
+
       # We explicitly do this clean between test runs in preference to specifying the slightly opaque `-count=1`
       # argument to subsequent test run executions.
       - name: Clean Test Cache
         run: go clean -testcache
 
       - name: Test with MessagePack Protocol
-        env:
-          ABLY_PROTOCOL: application/x-msgpack
-        run: go test -p 1 -race -v ./...
+        run: scripts/test.sh --protocol application/x-msgpack
