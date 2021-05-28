@@ -80,9 +80,9 @@ func (c *Realtime) onReconnected(isNewID bool) {
 	for _, ch := range c.Channels.Iterate() {
 		switch ch.State() {
 		// TODO: SUSPENDED
-		case ChannelStateAttaching, ChannelStateAttached:
+		case ChannelStateAttaching, ChannelStateAttached: //RTN19b
 			ch.mayAttach(false)
-		case ChannelStateDetaching:
+		case ChannelStateDetaching: //RTN19b
 			ch.detachSkipVerifyActive()
 		}
 	}
@@ -104,6 +104,6 @@ func (c *Realtime) opts() *clientOptions {
 	return c.rest.opts
 }
 
-func (c *Realtime) logger() *LoggerOptions {
-	return c.rest.logger()
+func (c *Realtime) log() logger {
+	return c.rest.log
 }

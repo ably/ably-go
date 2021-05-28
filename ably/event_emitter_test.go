@@ -8,7 +8,7 @@ import (
 )
 
 func TestEventEmitterConcurrency(t *testing.T) {
-	em := ably.NewEventEmitter(ablytest.DiscardLogger)
+	em := ably.NewEventEmitter(ably.NewInternalLogger(ablytest.DiscardLogger))
 
 	type called struct {
 		i    int
