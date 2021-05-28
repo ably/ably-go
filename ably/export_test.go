@@ -172,6 +172,10 @@ func (c *Connection) PendingItems() int {
 	return c.pending.Len()
 }
 
+func (c *Connection) ConnectionStateTTL() time.Duration {
+	return c.connectionStateTTL()
+}
+
 func NewInternalLogger(l Logger) logger {
 	return logger{l: l}
 }

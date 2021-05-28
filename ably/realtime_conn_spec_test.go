@@ -622,8 +622,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 
 	t.Run("RTN12d : should abort reconnection timer while disconnected on closed", func(t *testing.T) {
 		t.Parallel()
-		ttl := 400 * time.Millisecond
-		disconnectTTl := 2 * ttl
 		connDetails := proto.ConnectionDetails{
 			ConnectionKey:      "foo",
 			ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 20),
@@ -642,10 +640,8 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			ably.WithAutoConnect(false),
 			ably.WithToken("fake:token"),
 			ably.WithRealtimeRequestTimeout(realtimeRequestTimeout),
-			ably.WithConnectionStateTTL(ttl),
-			ably.WithDisconnectedRetryTimeout(disconnectTTl),
 			ably.WithNow(now),
-			ably.WithAfter(ablyutil.After),
+			ably.WithAfter(after),
 			ably.WithDial(func(p string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 				if err := <-dialErr; err != nil {
 					return nil, err
@@ -678,6 +674,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		// Expect timer for a message receive.
 		var timer ablytest.AfterCall
 
+		// receive message request timeout inside eventloop
 		ablytest.Instantly.Recv(t, &timer, afterCalls, t.Fatalf)
 		if expected, got := receiveTimeout, timer.D; expected != got {
 			t.Fatalf("expected %v, got %v", expected, got)
@@ -708,9 +705,14 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
 		}
 
+		// consume parent suspend timer with timeout connectionState TTL
+		ablytest.Instantly.Recv(t, nil, afterCalls, t.Fatalf)
 		// Went inside retry loop for connecting with server again
-		c.Close()
+		// consume and wait for disconnect retry timer with disconnectedRetryTimeout
+		ablytest.Instantly.Recv(t, nil, afterCalls, t.Fatalf)
 
+		c.Close()
+		// state change should triggger disconnect timer to trigger and stop the loop due to ConnectionStateClosed
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
 		if expected, got := ably.ConnectionStateClosed, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
@@ -720,9 +722,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 
 	t.Run("RTN12d: should abort reconnection timer while suspended on closed", func(t *testing.T) {
 		t.Parallel()
-		ttl := 400 * time.Millisecond
-		disconnectTTl := 2 * ttl
-		suspendTTL := time.Second
 
 		connDetails := proto.ConnectionDetails{
 			ConnectionKey:      "foo",
@@ -742,10 +741,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			ably.WithToken("fake:token"),
 			ably.WithRealtimeRequestTimeout(realtimeRequestTimeout),
 			ably.WithNow(now),
-			ably.WithConnectionStateTTL(ttl),
-			ably.WithDisconnectedRetryTimeout(disconnectTTl),
-			ably.WithSuspendedRetryTimeout(suspendTTL),
-			ably.WithAfter(ablyutil.After),
+			ably.WithAfter(after),
 			ably.WithDial(func(p string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 				if err := <-dialErr; err != nil {
 					return nil, err
@@ -778,6 +774,7 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 		// Expect timer for a message receive.
 		var timer ablytest.AfterCall
 
+		// receive message request timeout inside eventloop
 		ablytest.Instantly.Recv(t, &timer, afterCalls, t.Fatalf)
 		if expected, got := receiveTimeout, timer.D; expected != got {
 			t.Fatalf("expected %v, got %v", expected, got)
@@ -807,11 +804,26 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
 		}
 
-		// after suspended state goes into suspend retry loop indefinitely
+		// consume parent suspend timer with timeout connectionStateTTL
+		reconnect, suspend := ablytest.GetReconnectionTimersFrom(t, afterCalls)
+		suspend.Fire()                                       // fire suspend timer
+		ablytest.Wait(ablytest.AssertionWaiter(func() bool { // make sure suspend timer is triggered
+			return suspend.IsTriggered()
+		}), nil)
+		// Went inside retry loop for connecting with server again
+		// consume and wait for disconnect retry timer with disconnectedRetryTimeout
+		reconnect.Fire()                                     // fire disconnect timer
+		ablytest.Wait(ablytest.AssertionWaiter(func() bool { // make sure disconnect timer is triggered
+			return reconnect.IsTriggered()
+		}), nil)
+
 		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
 		if expected, got := ably.ConnectionStateSuspended, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change.Current)
 		}
+
+		// consume and wait for suspend retry timer with suspendedRetryTimeout
+		ablytest.Instantly.Recv(t, nil, afterCalls, t.Fatalf)
 
 		c.Close()
 
@@ -3062,7 +3074,7 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 		MaxFrameSize:       13,
 		MaxInboundRate:     15,
 		MaxMessageSize:     70,
-		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 2),
+		ConnectionStateTTL: proto.DurationFromMsecs(time.Minute * 3),
 		MaxIdleInterval:    proto.DurationFromMsecs(time.Second),
 	}
 
@@ -3110,6 +3122,10 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 
 	if c.Auth.ClientID() != newConnDetails.ClientID {
 		t.Fatalf("expected %v; got %v", newConnDetails.ClientID, c.Auth.ClientID())
+	}
+
+	if c.Connection.ConnectionStateTTL() != time.Duration(newConnDetails.ConnectionStateTTL) {
+		t.Fatalf("expected %v; got %v", newConnDetails.ConnectionStateTTL, c.Connection.ConnectionStateTTL())
 	}
 
 	if c.Connection.ID() != "connection-id-2" {

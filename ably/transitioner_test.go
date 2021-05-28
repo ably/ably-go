@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/url"
-	"sort"
 	"testing"
 	"time"
 
@@ -154,18 +153,7 @@ func (c ConnTransitioner) finishConnecting(err error) connTransitionFunc {
 			// Should be DISCONNECTED.
 
 			// Expect to timers: one for reconnecting, another for suspending.
-
-			var timers []ablytest.AfterCall
-			for i := 0; i < 2; i++ {
-				var timer ablytest.AfterCall
-				ablytest.Instantly.Recv(c.t, &timer, c.afterCalls, c.t.Fatalf)
-				timers = append(timers, timer)
-			}
-			// Shortest timer is for reconnection.
-			sort.Slice(timers, func(i, j int) bool {
-				return timers[i].D < timers[j].D
-			})
-			reconnect, suspend := timers[0], timers[1]
+			reconnect, suspend := ablytest.GetReconnectionTimersFrom(c.t, c.afterCalls)
 
 			return connNextStates{
 					connecting: c.recover(reconnect),

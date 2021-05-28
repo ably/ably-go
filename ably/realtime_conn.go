@@ -47,16 +47,17 @@ type Connection struct {
 	errorReason     *ErrorInfo
 	internalEmitter ConnectionEventEmitter
 
-	id        string
-	key       string
-	serial    *int64
-	msgSerial int64
-	err       error
-	conn      proto.Conn
-	opts      *clientOptions
-	pending   pendingEmitter
-	queue     *msgQueue
-	auth      *Auth
+	id           string
+	key          string
+	serial       *int64
+	msgSerial    int64
+	connStateTTL proto.DurationFromMsecs
+	err          error
+	conn         proto.Conn
+	opts         *clientOptions
+	pending      pendingEmitter
+	queue        *msgQueue
+	auth         *Auth
 
 	callbacks connCallbacks
 	// reconnecting tracks if we have issued a reconnection request. If we receive any message
@@ -394,6 +395,9 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 func (c *Connection) connectionStateTTL() time.Duration {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+	if c.connStateTTL != 0 { // RTN21
+		return time.Duration(c.connStateTTL)
+	}
 	if c.arg.connDetails != nil && c.arg.connDetails.ConnectionStateTTL != 0 {
 		return time.Duration(c.arg.connDetails.ConnectionStateTTL)
 	}
@@ -757,10 +761,10 @@ func (c *Connection) eventloop() {
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
 			mode := c.getMode()
-			if msg.ConnectionDetails != nil {
+			if msg.ConnectionDetails != nil { // RTN21
 				connDetails = msg.ConnectionDetails
 				c.key = connDetails.ConnectionKey //(RTN15e) (RTN16d)
-
+				c.connStateTTL = connDetails.ConnectionStateTTL
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(connDetails.ClientID)
 			}
