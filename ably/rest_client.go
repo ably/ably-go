@@ -13,7 +13,6 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptrace"
-	"net/http/httputil"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -118,6 +117,7 @@ type REST struct {
 	Channels            *RESTChannels
 	opts                *clientOptions
 	successFallbackHost *fallbackCache
+	log                 logger
 }
 
 // NewREST constructs a new REST.
@@ -125,6 +125,7 @@ func NewREST(options ...ClientOption) (*REST, error) {
 	c := &REST{
 		opts: applyOptionsWithDefaults(options...),
 	}
+	c.log = logger{l: c.opts.LogHandler}
 	auth, err := newAuth(c)
 	if err != nil {
 		return nil, err
@@ -133,6 +134,9 @@ func NewREST(options ...ClientOption) (*REST, error) {
 	c.Channels = &RESTChannels{
 		cache:  make(map[string]*RESTChannel),
 		client: c,
+	}
+	c.successFallbackHost = &fallbackCache{
+		duration: c.opts.fallbackRetryTimeout(),
 	}
 	return c, nil
 }
@@ -218,7 +222,7 @@ func (o *statsOptions) apply(opts ...StatsOption) url.Values {
 // StatsRequest represents a request prepared by the REST.Stats or
 // Realtime.Stats method, ready to be performed by its Pages or Items methods.
 type StatsRequest struct {
-	r paginatedRequestNew
+	r paginatedRequest
 }
 
 // Pages returns an iterator for whole pages of Stats.
@@ -233,7 +237,7 @@ func (r StatsRequest) Pages(ctx context.Context) (*StatsPaginatedResult, error) 
 //
 // See "Paginated results" section in the package-level documentation.
 type StatsPaginatedResult struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []*Stats
 }
 
@@ -267,7 +271,7 @@ func (r StatsRequest) Items(ctx context.Context) (*StatsPaginatedItems, error) {
 }
 
 type StatsPaginatedItems struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []*Stats
 	item  *Stats
 	next  func(context.Context) (int, bool)
@@ -308,30 +312,174 @@ type request struct {
 	header  http.Header
 }
 
-// Request sends http request to ably.
-// spec RSC19
-func (c *REST) Request(ctx context.Context, method string, path string, params *PaginateParams, body interface{}, headers http.Header) (*HTTPPaginatedResponse, error) {
+// Request prepares an arbitrary request to the REST API.
+func (c *REST) Request(method string, path string, o ...RequestOption) RESTRequest {
 	method = strings.ToUpper(method)
-	switch method {
-	case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
-		return newHTTPPaginatedResult(ctx, path, params, func(ctx context.Context, p string) (*http.Response, error) {
+	var opts requestOptions
+	opts.apply(o...)
+	return RESTRequest{r: paginatedRequest{
+		path:   path,
+		params: opts.params,
+		query: func(ctx context.Context, path string) (*http.Response, error) {
+			switch method {
+			case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
+			default:
+				return nil, fmt.Errorf("invalid HTTP method: %q", method)
+			}
+
 			req := &request{
 				Method: method,
-				Path:   p,
-				In:     body,
-				header: headers,
+				Path:   path,
+				In:     opts.body,
+				header: opts.headers,
 			}
 			return c.doWithHandle(ctx, req, func(resp *http.Response, out interface{}) (*http.Response, error) {
 				return resp, nil
 			})
-		}, c.logger())
-	default:
-		return nil, newErrorFromProto(&proto.ErrorInfo{
-			Message:    fmt.Sprintf("%s method is not supported", method),
-			Code:       int(ErrMethodNotAllowed),
-			StatusCode: http.StatusMethodNotAllowed,
-		})
+		},
+	}}
+}
+
+type requestOptions struct {
+	params  url.Values
+	headers http.Header
+	body    interface{}
+}
+
+// A RequestOption configures a call to REST.Request.
+type RequestOption func(*requestOptions)
+
+func RequestWithParams(params url.Values) RequestOption {
+	return func(o *requestOptions) {
+		o.params = params
 	}
+}
+
+func RequestWithHeaders(headers http.Header) RequestOption {
+	return func(o *requestOptions) {
+		o.headers = headers
+	}
+}
+
+func RequestWithBody(body interface{}) RequestOption {
+	return func(o *requestOptions) {
+		o.body = body
+	}
+}
+
+func (o *requestOptions) apply(opts ...RequestOption) {
+	o.params = make(url.Values)
+	for _, opt := range opts {
+		opt(o)
+	}
+}
+
+// RESTRequest represents a request prepared by the REST.Request method, ready
+// to be performed by its Pages or Items methods.
+type RESTRequest struct {
+	r paginatedRequest
+}
+
+// Pages returns an iterator for whole pages of results.
+//
+// See "Paginated results" section in the package-level documentation.
+func (r RESTRequest) Pages(ctx context.Context) (*HTTPPaginatedResponse, error) {
+	var res HTTPPaginatedResponse
+	return &res, res.load(ctx, r.r)
+}
+
+// A HTTPPaginatedResponse is an iterator for the response of a REST request.
+//
+// See "Paginated results" section in the package-level documentation.
+type HTTPPaginatedResponse struct {
+	PaginatedResult
+	items jsonRawArray
+}
+
+func (r *HTTPPaginatedResponse) StatusCode() int {
+	return r.res.StatusCode
+}
+
+func (r *HTTPPaginatedResponse) Success() bool {
+	return 200 <= r.res.StatusCode && r.res.StatusCode < 300
+}
+
+func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
+	codeStr := r.res.Header.Get(proto.AblyErrorCodeHeader)
+	if codeStr == "" {
+		return ErrNotSet
+	}
+	code, err := strconv.Atoi(codeStr)
+	if err != nil {
+		return ErrNotSet
+	}
+	return ErrorCode(code)
+}
+
+func (r *HTTPPaginatedResponse) ErrorMessage() string {
+	return r.res.Header.Get(proto.AblyErrorMessageHeader)
+}
+
+func (r *HTTPPaginatedResponse) Headers() http.Header {
+	return r.res.Header
+}
+
+// Next retrieves the next page of results.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *HTTPPaginatedResponse) Next(ctx context.Context) bool {
+	p.items = nil
+	return p.next(ctx, &p.items)
+}
+
+// Items unmarshals the current page of results as JSON into the provided
+// variable.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
+	return json.Unmarshal(p.items, dst)
+}
+
+// Items returns a convenience iterator for single items, over an underlying
+// paginated iterator.
+//
+// For each item,
+//
+// See "Paginated results" section in the package-level documentation.
+func (r RESTRequest) Items(ctx context.Context) (*RESTPaginatedItems, error) {
+	var res RESTPaginatedItems
+	var err error
+	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
+		res.items = nil
+		return &res.items, func() int { return len(res.items) }
+	})
+	return &res, err
+}
+
+type RESTPaginatedItems struct {
+	PaginatedResult
+	items []json.RawMessage
+	item  json.RawMessage
+	next  func(context.Context) (int, bool)
+}
+
+// Next retrieves the next result.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *RESTPaginatedItems) Next(ctx context.Context) bool {
+	i, ok := p.next(ctx)
+	if !ok {
+		return false
+	}
+	p.item = p.items[i]
+	return true
+}
+
+// Item unmarshal the current result as JSON into the provided variable.
+//
+// See the "Paginated results" section in the package-level documentation.
+func (p *RESTPaginatedItems) Item(dst interface{}) error {
+	return json.Unmarshal(p.item, dst)
 }
 
 func (c *REST) get(ctx context.Context, path string, out interface{}) (*http.Response, error) {
@@ -421,51 +569,26 @@ func (f *fallbackCache) put(host string) {
 }
 
 func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
-	log := c.opts.Logger.sugar()
-	if c.successFallbackHost == nil {
-		c.successFallbackHost = &fallbackCache{
-			duration: c.opts.fallbackRetryTimeout(),
-		}
-		log.Verbosef("RestClient: setup fallback duration to %v", c.successFallbackHost.duration)
-	}
 	req, err := c.newHTTPRequest(ctx, r)
 	if err != nil {
 		return nil, err
 	}
 	if h := c.successFallbackHost.get(); h != "" {
 		req.URL.Host = h // RSC15f
-		log.Verbosef("RestClient: setting URL.Host=%q", h)
+		c.log.Verbosef("RestClient: setting URL.Host=%q", h)
 	}
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
-		log.Verbose("RestClient: enabling httptrace")
-	}
-	if log.Is(LogVerbose) {
-		b, err := httputil.DumpRequest(req, false)
-		if err != nil {
-			log.Error("RestClient: error trying to dump request: ", err)
-		} else {
-			log.Verbose("RestClient: ", string(b))
-		}
+		c.log.Verbose("RestClient: enabling httptrace")
 	}
 	resp, err := c.opts.httpclient().Do(req)
 	if err != nil {
-		log.Error("RestClient: failed sending a request ", err)
+		c.log.Error("RestClient: failed sending a request ", err)
 		return nil, newError(ErrInternalError, err)
-	}
-	if log.Is(LogVerbose) {
-		typ, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
-		// dumping msgpack body isn't that helpbul when debugging
-		b, err := httputil.DumpResponse(resp, typ != "application/x-msgpack")
-		if err != nil {
-			log.Error("RestClient: error trying to dump response: ", err)
-		} else {
-			log.Verbose("RestClient: ", string(b))
-		}
 	}
 	resp, err = handle(resp, r.Out)
 	if err != nil {
-		log.Error("RestClient: error handling response: ", err)
+		c.log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
 			if canFallBack(e.StatusCode) &&
 				(strings.HasPrefix(req.URL.Host, defaultOptions.RESTHost) ||
@@ -474,7 +597,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 				if c.opts.FallbackHosts != nil {
 					fallback = c.opts.FallbackHosts
 				}
-				log.Info("RestClient: trying to fallback with hosts=%v", fallback)
+				c.log.Infof("RestClient: trying to fallback with hosts=%v", fallback)
 				if len(fallback) > 0 {
 					left := fallback
 					iteration := 0
@@ -482,11 +605,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 					if maxLimit == 0 {
 						maxLimit = defaultOptions.HTTPMaxRetryCount
 					}
-					log.Infof("RestClient: maximum fallback retry limit=%d", maxLimit)
+					c.log.Infof("RestClient: maximum fallback retry limit=%d", maxLimit)
 
 					for {
 						if len(left) == 0 {
-							log.Errorf("RestClient: exhausted fallback hosts", err)
+							c.log.Errorf("RestClient: exhausted fallback hosts", err)
 							return nil, err
 						}
 						var h string
@@ -506,26 +629,18 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 						if err != nil {
 							return nil, err
 						}
-						log.Infof("RestClient:  chose fallback host=%q ", h)
+						c.log.Infof("RestClient:  chose fallback host=%q ", h)
 						req.URL.Host = h
 						req.Host = ""
 						req.Header.Set(proto.HostHeader, h)
-						if log.Is(LogVerbose) {
-							b, err := httputil.DumpRequest(req, true)
-							if err != nil {
-								log.Error("RestClient: error trying to dump retry request with fallback host: ", err)
-							} else {
-								log.Verbose("RestClient: ", string(b))
-							}
-						}
 						resp, err := c.opts.httpclient().Do(req)
 						if err != nil {
-							log.Error("RestClient: failed sending a request to a fallback host", err)
+							c.log.Error("RestClient: failed sending a request to a fallback host", err)
 							return nil, newError(ErrInternalError, err)
 						}
 						resp, err = handle(resp, r.Out)
 						if err != nil {
-							log.Error("RestClient: error handling response: ", err)
+							c.log.Error("RestClient: error handling response: ", err)
 							if iteration == maxLimit-1 {
 								return nil, err
 							}
@@ -536,16 +651,6 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 								}
 							}
 							return nil, err
-						}
-						if log.Is(LogVerbose) {
-							typ, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
-							// dumping msgpack body isn't that helpbul when debugging
-							b, err := httputil.DumpResponse(resp, typ != "application/x-msgpack")
-							if err != nil {
-								log.Error("RestClient: error trying to dump retry response: ", err)
-							} else {
-								log.Verbose("RestClient:: ", string(b))
-							}
 						}
 						c.successFallbackHost.put(h)
 						return resp, nil
@@ -615,25 +720,20 @@ func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, e
 }
 
 func (c *REST) handleResponse(resp *http.Response, out interface{}) (*http.Response, error) {
-	log := c.opts.Logger.sugar()
-	log.Info("RestClient:checking valid http response")
+	c.log.Info("RestClient:checking valid http response")
 	if err := checkValidHTTPResponse(resp); err != nil {
-		log.Error("RestClient: failed to check valid http response ", err)
+		c.log.Error("RestClient: failed to check valid http response ", err)
 		return nil, err
 	}
 	if out == nil {
 		return resp, nil
 	}
-	log.Info("RestClient: decoding response")
+	c.log.Info("RestClient: decoding response")
 	if err := decodeResp(resp, out); err != nil {
-		log.Error("RestClient: failed to decode response ", err)
+		c.log.Error("RestClient: failed to decode response ", err)
 		return nil, err
 	}
 	return resp, nil
-}
-
-func (c *REST) logger() *LoggerOptions {
-	return &c.opts.Logger
 }
 
 func encode(typ string, in interface{}) ([]byte, error) {
@@ -680,4 +780,26 @@ func decodeResp(resp *http.Response, out interface{}) error {
 	b, _ := ioutil.ReadAll(resp.Body)
 
 	return decode(typ, bytes.NewReader(b), out)
+}
+
+// jsonRawArray is a json.RawMessage that, if it's not an array already, wrap
+// itself in a JSON array when marshaled into.
+type jsonRawArray json.RawMessage
+
+func (m *jsonRawArray) UnmarshalJSON(data []byte) error {
+	err := (*json.RawMessage)(m).UnmarshalJSON(data)
+	if err != nil {
+		return err
+	}
+	token, _ := json.NewDecoder(bytes.NewReader(*m)).Token()
+	if token != json.Delim('[') {
+		*m = append(
+			jsonRawArray("["),
+			append(
+				*m,
+				']',
+			)...,
+		)
+	}
+	return nil
 }

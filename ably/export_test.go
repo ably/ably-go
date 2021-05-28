@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-func (p *PaginatedResult) BuildPath(base, rel string) string {
-	return p.buildPath(base, rel)
-}
-
 func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }
@@ -40,6 +36,10 @@ func UnwrapErrorCode(err error) ErrorCode {
 	return code(err)
 }
 
+func UnwrapStatusCode(err error) int {
+	return statusCode(err)
+}
+
 func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
 	return a.timestamp(ctx, query)
 }
@@ -58,6 +58,18 @@ func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
 
 func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
+}
+
+func (c *RealtimeChannel) GetAttachResume() bool {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.attachResume
+}
+
+func (c *RealtimeChannel) SetAttachResume(value bool) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.attachResume = value
 }
 
 func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
@@ -89,12 +101,6 @@ func (c *Connection) MsgSerial() int64 {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.msgSerial
-}
-
-func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
-	return func(os *clientOptions) {
-		os.RealtimeRequestTimeout = d
-	}
 }
 
 func WithTrace(trace *httptrace.ClientTrace) ClientOption {
@@ -153,3 +159,9 @@ func (c *RESTChannels) Len() int {
 	defer c.mu.RUnlock()
 	return len(c.cache)
 }
+
+func NewInternalLogger(l Logger) logger {
+	return logger{l: l}
+}
+
+type FilteredLogger = filteredLogger

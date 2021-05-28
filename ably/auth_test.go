@@ -1,7 +1,6 @@
 package ably_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -151,16 +150,6 @@ func TestAuth_TokenAuth(t *testing.T) {
 	}
 }
 
-type bufferLogger struct {
-	buf bytes.Buffer
-}
-
-func (b *bufferLogger) Print(level ably.LogLevel, v ...interface{}) {
-	v = append([]interface{}{level}, v...)
-	fmt.Fprint(&b.buf, v...)
-}
-func (b *bufferLogger) Printf(level ably.LogLevel, str string, v ...interface{}) {}
-
 func TestAuth_TimestampRSA10k(t *testing.T) {
 	t.Parallel()
 	now, err := time.Parse(time.RFC822, time.RFC822)
@@ -168,7 +157,9 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("must use local time when UseQueryTime is false", func(ts *testing.T) {
+	t.Run("must use local time when UseQueryTime is false", func(t *testing.T) {
+		t.Parallel()
+
 		rest, _ := ably.NewREST(
 			ably.WithKey("fake:key"),
 			ably.WithNow(func() time.Time {
@@ -180,13 +171,15 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		})
 		stamp, err := a.Timestamp(context.Background(), false)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		if !stamp.Equal(now) {
-			ts.Errorf("expected %s got %s", now, stamp)
+			t.Errorf("expected %s got %s", now, stamp)
 		}
 	})
-	t.Run("must use server time when UseQueryTime is true", func(ts *testing.T) {
+	t.Run("must use server time when UseQueryTime is true", func(t *testing.T) {
+		t.Parallel()
+
 		rest, _ := ably.NewREST(
 			ably.WithKey("fake:key"),
 			ably.WithNow(func() time.Time {
@@ -198,14 +191,16 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		})
 		stamp, err := rest.Timestamp(true)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		serverTime := now.Add(time.Minute)
 		if !stamp.Equal(serverTime) {
-			ts.Errorf("expected %s got %s", serverTime, stamp)
+			t.Errorf("expected %s got %s", serverTime, stamp)
 		}
 	})
-	t.Run("must use server time offset ", func(ts *testing.T) {
+	t.Run("must use server time offset ", func(t *testing.T) {
+		t.Parallel()
+
 		now := now
 		rest, _ := ably.NewREST(
 			ably.WithKey("fake:key"),
@@ -218,11 +213,11 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		})
 		stamp, err := rest.Timestamp(true)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		serverTime := now.Add(time.Minute)
 		if !stamp.Equal(serverTime) {
-			ts.Errorf("expected %s got %s", serverTime, stamp)
+			t.Errorf("expected %s got %s", serverTime, stamp)
 		}
 
 		now = now.Add(time.Minute)
@@ -231,11 +226,11 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		})
 		stamp, err = rest.Timestamp(true)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		serverTime = now.Add(time.Minute)
 		if !stamp.Equal(serverTime) {
-			ts.Errorf("expected %s got %s", serverTime, stamp)
+			t.Errorf("expected %s got %s", serverTime, stamp)
 		}
 	})
 }
@@ -710,60 +705,60 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 		TTL:        (5 * time.Second).Milliseconds(),
 		Capability: `{"presence":["read", "write"]}`,
 	}
-	t.Run("RSA9h", func(ts *testing.T) {
-		ts.Run("parameters are optional", func(ts *testing.T) {
+	t.Run("RSA9h", func(t *testing.T) {
+		t.Run("parameters are optional", func(t *testing.T) {
 			_, err := client.Auth.CreateTokenRequest(params)
 			if err != nil {
-				ts.Fatalf("expected no error to occur got %v instead", err)
+				t.Fatalf("expected no error to occur got %v instead", err)
 			}
 			_, err = client.Auth.CreateTokenRequest(nil, opts...)
 			if err != nil {
-				ts.Fatalf("expected no error to occur got %v instead", err)
+				t.Fatalf("expected no error to occur got %v instead", err)
 			}
 			_, err = client.Auth.CreateTokenRequest(nil)
 			if err != nil {
-				ts.Fatalf("expected no error to occur got %v instead", err)
+				t.Fatalf("expected no error to occur got %v instead", err)
 			}
 		})
-		ts.Run("authOptions must not be merged", func(ts *testing.T) {
+		t.Run("authOptions must not be merged", func(t *testing.T) {
 			opts := []ably.AuthOption{ably.AuthWithQueryTime(true)}
 			_, err := client.Auth.CreateTokenRequest(params, opts...)
 			if err == nil {
-				ts.Fatal("expected an error")
+				t.Fatal("expected an error")
 			}
 			e := err.(*ably.ErrorInfo)
 			if e.Code != ably.ErrInvalidCredentials {
-				ts.Errorf("expected error code %d got %d", ably.ErrInvalidCredentials, e.Code)
+				t.Errorf("expected error code %d got %d", ably.ErrInvalidCredentials, e.Code)
 			}
 
 			// override with bad key
 			opts = append(opts, ably.AuthWithKey("some bad key"))
 			_, err = client.Auth.CreateTokenRequest(params, opts...)
 			if err == nil {
-				ts.Fatal("expected an error")
+				t.Fatal("expected an error")
 			}
 			e = err.(*ably.ErrorInfo)
 			if e.Code != ably.ErrIncompatibleCredentials {
-				ts.Errorf("expected error code %d got %d", ably.ErrIncompatibleCredentials, e.Code)
+				t.Errorf("expected error code %d got %d", ably.ErrIncompatibleCredentials, e.Code)
 			}
 		})
 	})
-	t.Run("RSA9c must generate a unique 16+ character nonce", func(ts *testing.T) {
+	t.Run("RSA9c must generate a unique 16+ character nonce", func(t *testing.T) {
 		req, err := client.Auth.CreateTokenRequest(params, opts...)
 		if err != nil {
-			ts.Fatalf("CreateTokenRequest()=%v", err)
+			t.Fatalf("CreateTokenRequest()=%v", err)
 		}
 		if len(req.Nonce) < 16 {
-			ts.Fatalf("want len(nonce)>=16; got %d", len(req.Nonce))
+			t.Fatalf("want len(nonce)>=16; got %d", len(req.Nonce))
 		}
 	})
-	t.Run("RSA9g generate a signed request", func(ts *testing.T) {
+	t.Run("RSA9g generate a signed request", func(t *testing.T) {
 		req, err := client.Auth.CreateTokenRequest(nil)
 		if err != nil {
-			ts.Fatalf("CreateTokenRequest()=%v", err)
+			t.Fatalf("CreateTokenRequest()=%v", err)
 		}
 		if req.MAC == "" {
-			ts.Fatalf("want mac to be not empty")
+			t.Fatalf("want mac to be not empty")
 		}
 	})
 }

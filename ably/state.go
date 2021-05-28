@@ -46,10 +46,10 @@ func goWaiter(f func() error) result {
 }
 
 var (
-	errDisconnected   = newErrorf(80003, "Connection temporarily unavailable")
-	errSuspended      = newErrorf(80002, "Connection unavailable")
-	errFailed         = newErrorf(80000, "Connection failed")
-	errNeverConnected = newErrorf(80002, "Unable to establish connection")
+	errDisconnected   = newErrorf(ErrDisconnected, "Connection temporarily unavailable")
+	errSuspended      = newErrorf(ErrConnectionSuspended, "Connection unavailable")
+	errFailed         = newErrorf(ErrConnectionFailed, "Connection failed")
+	errNeverConnected = newErrorf(ErrConnectionSuspended, "Unable to establish connection")
 
 	errSerialSkipped = newErrorf(ErrInternalError, "Serial for message was skipped by acknowledgement")
 )
@@ -79,8 +79,12 @@ func connStateError(state ConnectionState, err error) *ErrorInfo {
 	return newError(0, err)
 }
 
+var (
+	errChannelFailed = newErrorf(ErrChannelOperationFailed, "Channel state is failed")
+)
+
 var channelStateErrors = map[ChannelState]ErrorInfo{
-	ChannelStateFailed: *errFailed,
+	ChannelStateFailed: *errChannelFailed,
 }
 
 func channelStateError(state ChannelState, err error) *ErrorInfo {
@@ -103,13 +107,13 @@ func channelStateError(state ChannelState, err error) *ErrorInfo {
 
 // queuedEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
-	queue  []msgCh
-	logger *LoggerOptions
+	queue []msgCh
+	log   logger
 }
 
-func newPendingEmitter(log *LoggerOptions) pendingEmitter {
+func newPendingEmitter(log logger) pendingEmitter {
 	return pendingEmitter{
-		logger: log,
+		log: log,
 	}
 }
 
@@ -139,7 +143,7 @@ func (q *pendingEmitter) Enqueue(msg *proto.ProtocolMessage, ch chan<- error) {
 	case i == q.Len():
 		q.queue = append(q.queue, msgCh{msg, ch})
 	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
-		q.logger.Printf(LogWarning, "duplicated message serial: %d", msg.MsgSerial)
+		q.log.Warnf("duplicated message serial: %d", msg.MsgSerial)
 	default:
 		q.queue = append(q.queue, msgCh{})
 		copy(q.queue[i+1:], q.queue[i:])
@@ -168,11 +172,11 @@ func (q *pendingEmitter) Ack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
 		err = errSerialSkipped
 	}
 	for _, sch := range q.queue[:nack] {
-		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.msg.MsgSerial)
+		q.log.Verbosef("received NACK for message serial %d", sch.msg.MsgSerial)
 		sch.ch <- err
 	}
 	for _, sch := range q.queue[nack:ack] {
-		q.logger.Printf(LogVerbose, "received ACK for message serial %d", sch.msg.MsgSerial)
+		q.log.Verbosef("received ACK for message serial %d", sch.msg.MsgSerial)
 		sch.ch <- nil
 	}
 	q.queue = q.queue[ack:]
@@ -193,7 +197,7 @@ func (q *pendingEmitter) Nack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
 	}
 	err := errInfo.unwrapNil()
 	for _, sch := range q.queue[:nack] {
-		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.msg.MsgSerial)
+		q.log.Verbosef("received NACK for message serial %d", sch.msg.MsgSerial)
 		sch.ch <- err
 	}
 	q.queue = q.queue[nack:]
@@ -235,15 +239,15 @@ func (q *msgQueue) Flush() {
 func (q *msgQueue) Fail(err error) {
 	q.mtx.Lock()
 	for _, msgch := range q.queue {
-		q.logger().Printf(LogError, "failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
+		q.log().Errorf("failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
 		msgch.ch <- newError(90000, err)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
 }
 
-func (q *msgQueue) logger() *LoggerOptions {
-	return q.conn.logger()
+func (q *msgQueue) log() logger {
+	return q.conn.log()
 }
 
 var nopResult *errResult

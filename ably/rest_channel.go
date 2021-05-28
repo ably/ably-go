@@ -194,7 +194,7 @@ func (o *historyOptions) apply(opts ...HistoryOption) url.Values {
 // HistoryRequest represents a request prepared by the RESTChannel.History or
 // RealtimeChannel.History method, ready to be performed by its Pages or Items methods.
 type HistoryRequest struct {
-	r       paginatedRequestNew
+	r       paginatedRequest
 	channel *RESTChannel
 }
 
@@ -210,7 +210,7 @@ func (r HistoryRequest) Pages(ctx context.Context) (*MessagesPaginatedResult, er
 //
 // See "Paginated results" section in the package-level documentation.
 type MessagesPaginatedResult struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []*Message
 }
 
@@ -287,13 +287,13 @@ func (t *fullMessagesDecoder) decodeMessagesData() {
 		*m, err = m.WithDecodedData(cipher)
 		if err != nil {
 			// RSL6b
-			t.c.logger().sugar().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
+			t.c.log().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
 		}
 	}
 }
 
 type MessagesPaginatedItems struct {
-	PaginatedResultNew
+	PaginatedResult
 	items []*Message
 	item  *Message
 	next  func(context.Context) (int, bool)
@@ -318,6 +318,6 @@ func (p *MessagesPaginatedItems) Item() *Message {
 	return p.item
 }
 
-func (c *RESTChannel) logger() *LoggerOptions {
-	return c.client.logger()
+func (c *RESTChannel) log() logger {
+	return c.client.log
 }
