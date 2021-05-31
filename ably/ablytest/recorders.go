@@ -296,7 +296,7 @@ func NewMessageRecorder() *MessageRecorder {
 // Reset resets the recorded urls, sent and received messages
 func (rec *MessageRecorder) Reset() {
 	rec.mu.Lock()
-	rec.url = nil
+	rec.urls = nil
 	rec.sent = nil
 	rec.received = nil
 	rec.mu.Unlock()
