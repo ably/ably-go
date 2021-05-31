@@ -293,6 +293,15 @@ func NewMessageRecorder() *MessageRecorder {
 	return &MessageRecorder{}
 }
 
+// Reset resets the recorded urls, sent and received messages
+func (rec *MessageRecorder) Reset() {
+	rec.mu.Lock()
+	rec.url = nil
+	rec.sent = nil
+	rec.received = nil
+	rec.mu.Unlock()
+}
+
 // Dial
 func (rec *MessageRecorder) Dial(proto string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
 	rec.mu.Lock()
@@ -324,6 +333,30 @@ func (rec *MessageRecorder) Sent() []*proto.ProtocolMessage {
 	sent := make([]*proto.ProtocolMessage, len(rec.sent))
 	copy(sent, rec.sent)
 	return sent
+}
+
+func (rec *MessageRecorder) CheckIfSent(action proto.Action, times int) func() bool {
+	return func() bool {
+		counter := 0
+		for _, m := range rec.Sent() {
+			if m.Action == action {
+				counter++
+				if counter == times {
+					return true
+				}
+			}
+		}
+		return false
+	}
+}
+
+func (rec *MessageRecorder) FindFirst(action proto.Action) *proto.ProtocolMessage {
+	for _, m := range rec.Sent() {
+		if m.Action == action {
+			return m
+		}
+	}
+	return nil
 }
 
 // Received

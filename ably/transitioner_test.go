@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/url"
-	"sort"
 	"testing"
 	"time"
 
@@ -68,14 +67,23 @@ func TransitionConn(t *testing.T, dial ablytest.DialFunc, options ...ably.Client
 
 	c.next = connNextStates{
 		connecting: c.connect,
-		closed:     c.closeNow,
 	}
 
 	return c, ablytest.FullRealtimeCloser(c.Realtime)
 }
 
 func (c ConnTransitioner) Channel(name string) ChanTransitioner {
-	return ChanTransitioner{c, c.Realtime.Channels.Get(name)}
+	chanStateErrMap := map[ably.ChannelState]chan error{}
+
+	// add mapping to channel states to capture respective errors
+	chanStateErrMap[chAttaching] = make(chan error, 1)
+	chanStateErrMap[chDetaching] = make(chan error, 1)
+
+	transitioner := ChanTransitioner{c, c.Realtime.Channels.Get(name), chanStateErrMap, nil}
+	transitioner.next = chanNextStates{
+		chAttaching: transitioner.attach,
+	}
+	return transitioner
 }
 
 func (c *ConnTransitioner) To(path ...ably.ConnectionState) io.Closer {
@@ -145,22 +153,11 @@ func (c ConnTransitioner) finishConnecting(err error) connTransitionFunc {
 			// Should be DISCONNECTED.
 
 			// Expect to timers: one for reconnecting, another for suspending.
-
-			var timers []ablytest.AfterCall
-			for i := 0; i < 2; i++ {
-				var timer ablytest.AfterCall
-				ablytest.Instantly.Recv(c.t, &timer, c.afterCalls, c.t.Fatalf)
-				timers = append(timers, timer)
-			}
-			// Shortest timer is for reconnection.
-			sort.Slice(timers, func(i, j int) bool {
-				return timers[i].D < timers[j].D
-			})
-			reconnect, suspend := timers[0], timers[1]
+			reconnect, suspend := ablytest.GetReconnectionTimersFrom(c.t, c.afterCalls)
 
 			return connNextStates{
 					connecting: c.recover(reconnect),
-					suspended:  c.fireSuspend(suspend),
+					suspended:  c.fireSuspend(reconnect, suspend),
 				}, func() {
 					c.Realtime.Close() // cancel timers; don't reconnect
 				}
@@ -169,7 +166,32 @@ func (c ConnTransitioner) finishConnecting(err error) connTransitionFunc {
 		// Should be CONNECTED.
 		return connNextStates{
 			disconnected: c.disconnect,
+			closing:      c.close,
 		}, nil
+	}
+}
+
+func (c ConnTransitioner) failOnIntercept(msg <-chan *proto.ProtocolMessage, cancelIntercept func()) connTransitionFunc {
+	return func() (connNextStates, func()) {
+
+		var incomingMsg *proto.ProtocolMessage
+		ablytest.Soon.Recv(c.t, &incomingMsg, msg, c.t.Fatalf)
+
+		incomingMsg.Action = proto.ActionError
+		incomingMsg.Error = &proto.ErrorInfo{
+			StatusCode: 400,
+			Code:       int(ably.ErrUnauthorized),
+			Message:    "fake error",
+		}
+
+		change := make(ably.ConnStateChanges, 1)
+		c.Realtime.Connection.Once(ably.ConnectionEventFailed, change.Receive)
+
+		cancelIntercept()
+
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+		return nil, nil
 	}
 }
 
@@ -220,9 +242,22 @@ func (c ConnTransitioner) recover(timer ablytest.AfterCall) connTransitionFunc {
 	}
 }
 
-func (c ConnTransitioner) fireSuspend(timer ablytest.AfterCall) connTransitionFunc {
+func (c ConnTransitioner) fireSuspend(reconnectTimer ablytest.AfterCall, suspendTimer ablytest.AfterCall) connTransitionFunc {
 	return func() (connNextStates, func()) {
-		timer.Fire()
+		suspendTimer.Fire()
+		err := ablytest.Wait(ablytest.AssertionWaiter(func() bool { // Make sure suspend/connectionStateTTL timer is triggered first
+			return suspendTimer.IsTriggered()
+		}), nil)
+		if err != nil {
+			c.t.Fatalf("Failed to trigger suspend timeout with error %v", err)
+		}
+		reconnectTimer.Fire()
+		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool { // Make sure reconnect timer is triggered
+			return reconnectTimer.IsTriggered()
+		}), nil)
+		if err != nil {
+			c.t.Fatalf("Failed to trigger reconnect timeout with error %v", err)
+		}
 		return c.suspend()
 	}
 }
@@ -230,6 +265,10 @@ func (c ConnTransitioner) fireSuspend(timer ablytest.AfterCall) connTransitionFu
 func (c ConnTransitioner) suspend() (connNextStates, func()) {
 	change := make(ably.ConnStateChanges, 1)
 	c.Realtime.Connection.Once(ably.ConnectionEventSuspended, change.Receive)
+
+	var timer ablytest.AfterCall
+	ablytest.Instantly.Recv(c.t, &timer, c.afterCalls, c.t.Fatalf) // Get timer with suspended timeout
+	timer.Fire()
 
 	c.dialErr <- errors.New("suspending")
 
@@ -265,9 +304,35 @@ func (c ConnTransitioner) reconnectSuspended(timer ablytest.AfterCall) connTrans
 	}
 }
 
-func (c ConnTransitioner) closeNow() (connNextStates, func()) {
+func (c ConnTransitioner) close() (connNextStates, func()) {
+	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
+	msg := c.intercept(ctx, proto.ActionClosed)
+
+	change := make(ably.ConnStateChanges, 1)
+	c.Realtime.Connection.Once(ably.ConnectionEventClosing, change.Receive)
+
 	c.Realtime.Close()
-	return nil, nil
+
+	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
+
+	return connNextStates{
+		closed: c.finishClosing(cancel),
+		failed: c.failOnIntercept(msg, cancel),
+	}, cancel
+}
+
+func (c ConnTransitioner) finishClosing(cancelIntercept func()) connTransitionFunc {
+	return func() (connNextStates, func()) {
+
+		change := make(ably.ConnStateChanges, 1)
+		c.Realtime.Connection.Once(ably.ConnectionEventClosed, change.Receive)
+
+		cancelIntercept()
+
+		ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
+
+		return nil, nil
+	}
 }
 
 type connTransitionFunc func() (next connNextStates, cleanUp func())
@@ -277,17 +342,16 @@ type connNextStates map[ably.ConnectionState]connTransitionFunc
 type ChanTransitioner struct {
 	ConnTransitioner
 	Channel *ably.RealtimeChannel
+	err     map[ably.ChannelState]chan error
+	next    chanNextStates
 }
 
-func (c ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
+func (c *ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, io.Closer) {
 	c.t.Helper()
 
-	from := chInitialized
+	from := c.Channel.State()
 	c.assertState(from)
 
-	next := chanNextStates{
-		chAttaching: c.attach,
-	}
 	var cleanUp func()
 
 	for _, to := range path {
@@ -295,13 +359,12 @@ func (c ChanTransitioner) To(path ...ably.ChannelState) (*ably.RealtimeChannel, 
 			continue
 		}
 
-		transition, ok := next[to]
+		transition, ok := c.next[to]
 		if !ok {
 			c.t.Fatalf("no transition from %v to %v", from, to)
 		}
-		next, cleanUp = transition()
+		c.next, cleanUp = transition()
 		from = to
-		c.assertState(from)
 	}
 
 	return c.Channel, closeFunc(func() error {
@@ -326,17 +389,25 @@ func (c ChanTransitioner) attach() (chanNextStates, func()) {
 	change := make(ably.ChannelStateChanges, 1)
 	c.Channel.Once(ably.ChannelEventAttaching, change.Receive)
 
-	asyncAttach(c.Channel)
+	async(func() error {
+		err := c.Channel.Attach(context.Background())
+		c.err[chAttaching] <- err
+		return err
+	})
+
+	// Attach sets a timeout; discard it.
+	ablytest.Soon.Recv(c.t, nil, c.afterCalls, c.t.Fatalf)
 
 	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 	return chanNextStates{
-		chAttached: c.finishAttach(msg, cancel, nil),
-		chFailed:   c.finishAttach(msg, cancel, &proto.ErrorInfo{Message: "fake error"}),
+		chAttached: c.finishAttach(msg, cancel, nil, chAttached),
+		chFailed:   c.finishAttach(msg, cancel, &proto.ErrorInfo{Message: "fake error", Code: 50001}, chFailed),
+		chDetached: c.finishAttach(msg, cancel, &proto.ErrorInfo{Message: "fake error", Code: 50001}, chDetached),
 	}, cancel
 }
 
-func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancelIntercept func(), err *proto.ErrorInfo) chanTransitionFunc {
+func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancelIntercept func(), err *proto.ErrorInfo, channelState ably.ChannelState) chanTransitionFunc {
 	return func() (chanNextStates, func()) {
 		var attachMsg *proto.ProtocolMessage
 		ablytest.Soon.Recv(c.t, &attachMsg, msg, c.t.Fatalf)
@@ -345,8 +416,13 @@ func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancel
 		if err != nil {
 			// Ideally, for moving to FAILED, we'd arrange a real capabilities error
 			// to keep things real. But it's too much hassle for now.
-			attachMsg.Action = proto.ActionError
 			attachMsg.Error = err
+			if channelState == chFailed {
+				attachMsg.Action = proto.ActionError
+			}
+			if channelState == chDetached {
+				attachMsg.Action = proto.ActionDetached
+			}
 		} else {
 			next = chanNextStates{
 				chDetaching: c.detach,
@@ -366,28 +442,47 @@ func (c ChanTransitioner) finishAttach(msg <-chan *proto.ProtocolMessage, cancel
 
 func (c ChanTransitioner) detach() (chanNextStates, func()) {
 	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
-	c.intercept(ctx, proto.ActionDetached)
+	msg := c.intercept(ctx, proto.ActionDetached)
 
 	change := make(ably.ChannelStateChanges, 1)
 	c.Channel.Once(ably.ChannelEventDetaching, change.Receive)
 
-	asyncDetach(c.Channel)
+	async(func() error {
+		err := c.Channel.Detach(context.Background())
+		c.err[chDetaching] <- err
+		return err
+	})
+
+	// Detach sets a timeout; discard it.
+	ablytest.Soon.Recv(c.t, nil, c.afterCalls, c.t.Fatalf)
 
 	ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 	return chanNextStates{
-		chDetached: c.finishDetach(cancel),
+		chDetached: c.finishDetach(msg, cancel, nil),
+		chFailed:   c.finishDetach(msg, cancel, &proto.ErrorInfo{Message: "fake error", Code: 50001}),
 	}, cancel
 }
 
-func (c ChanTransitioner) finishDetach(cancelIntercept func()) chanTransitionFunc {
+func (c ChanTransitioner) finishDetach(msg <-chan *proto.ProtocolMessage, cancelIntercept func(), err *proto.ErrorInfo) chanTransitionFunc {
 	return func() (chanNextStates, func()) {
+
+		var detachMsg *proto.ProtocolMessage
+		ablytest.Soon.Recv(c.t, &detachMsg, msg, c.t.Fatalf)
+
+		if err != nil {
+			// Ideally, for moving to FAILED, we'd arrange a real capabilities error
+			// to keep things real. But it's too much hassle for now.
+			detachMsg.Action = proto.ActionError
+			detachMsg.Error = err
+		}
+
 		change := make(ably.ChannelStateChanges, 1)
-		c.Channel.Once(ably.ChannelEventDetached, change.Receive)
+		c.Channel.OnceAll(change.Receive)
 
 		cancelIntercept()
 
-		ablytest.Soon.Recv(c.t, nil, change, c.t.Fatalf)
+		ablytest.Instantly.Recv(c.t, nil, change, c.t.Fatalf)
 
 		return nil, nil
 	}

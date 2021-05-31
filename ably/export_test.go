@@ -7,6 +7,30 @@ import (
 	"time"
 )
 
+func NewClientOptions(os ...ClientOption) *clientOptions {
+	return applyOptionsWithDefaults(os...)
+}
+
+func GetEnvFallbackHosts(env string) []string {
+	return getEnvFallbackHosts(env)
+}
+
+func (opts *clientOptions) GetRestHost() string {
+	return opts.getRestHost()
+}
+
+func (opts *clientOptions) GetRealtimeHost() string {
+	return opts.getRealtimeHost()
+}
+
+func (opts *clientOptions) ActivePort() (int, bool) {
+	return opts.activePort()
+}
+
+func (opts *clientOptions) GetFallbackHosts() ([]string, error) {
+	return opts.getFallbackHosts()
+}
+
 func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }
@@ -36,6 +60,10 @@ func UnwrapErrorCode(err error) ErrorCode {
 	return code(err)
 }
 
+func UnwrapStatusCode(err error) int {
+	return statusCode(err)
+}
+
 func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
 	return a.timestamp(ctx, query)
 }
@@ -54,6 +82,18 @@ func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
 
 func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
+}
+
+func (c *RealtimeChannel) GetAttachResume() bool {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.attachResume
+}
+
+func (c *RealtimeChannel) SetAttachResume(value bool) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.attachResume = value
 }
 
 func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
@@ -85,12 +125,6 @@ func (c *Connection) MsgSerial() int64 {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return c.msgSerial
-}
-
-func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
-	return func(os *clientOptions) {
-		os.RealtimeRequestTimeout = d
-	}
 }
 
 func WithTrace(trace *httptrace.ClientTrace) ClientOption {
@@ -138,10 +172,12 @@ func (c *Connection) PendingItems() int {
 	return c.pending.Len()
 }
 
-type Result = result
-
-func (c *RESTChannels) Len() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return len(c.cache)
+func (c *Connection) ConnectionStateTTL() time.Duration {
+	return c.connectionStateTTL()
 }
+
+func NewInternalLogger(l Logger) logger {
+	return logger{l: l}
+}
+
+type FilteredLogger = filteredLogger

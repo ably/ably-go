@@ -22,7 +22,7 @@ type Realtime struct {
 // NewRealtime constructs a new Realtime.
 func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c := &Realtime{}
-	rest, err := NewREST(options...)
+	rest, err := NewREST(options...) //options validated in NewREST
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (c *Realtime) onReconnected(isNewID bool) {
 	if !isNewID /* RTN15c3, RTN15g3 */ {
 		// No need to reattach: state is preserved. We just need to flush the
 		// queue of pending messages.
-		for _, ch := range c.Channels.All() {
+		for _, ch := range c.Channels.Iterate() {
 			ch.queue.Flush()
 		}
 		//RTN19a
@@ -77,12 +77,12 @@ func (c *Realtime) onReconnected(isNewID bool) {
 		return
 	}
 
-	for _, ch := range c.Channels.All() {
+	for _, ch := range c.Channels.Iterate() {
 		switch ch.State() {
 		// TODO: SUSPENDED
-		case ChannelStateAttaching, ChannelStateAttached:
+		case ChannelStateAttaching, ChannelStateAttached: //RTN19b
 			ch.mayAttach(false)
-		case ChannelStateDetaching:
+		case ChannelStateDetaching: //RTN19b
 			ch.detachSkipVerifyActive()
 		}
 	}
@@ -91,7 +91,7 @@ func (c *Realtime) onReconnected(isNewID bool) {
 }
 
 func (c *Realtime) onReconnectionFailed(err *proto.ErrorInfo) {
-	for _, ch := range c.Channels.All() {
+	for _, ch := range c.Channels.Iterate() {
 		ch.setState(ChannelStateFailed, newErrorFromProto(err), false)
 	}
 }
@@ -104,6 +104,6 @@ func (c *Realtime) opts() *clientOptions {
 	return c.rest.opts
 }
 
-func (c *Realtime) logger() *LoggerOptions {
-	return c.rest.logger()
+func (c *Realtime) log() logger {
+	return c.rest.log
 }
