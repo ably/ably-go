@@ -55,12 +55,9 @@ type channelOptions proto.ChannelOptions
 // CipherKey is like Cipher with an AES algorithm and CBC mode.
 func ChannelWithCipherKey(key []byte) ChannelOption {
 	return func(o *channelOptions) {
-		o.Cipher = proto.CipherParams{
-			Algorithm: proto.DefaultCipherAlgorithm,
-			Key:       key,
-			KeyLength: proto.DefaultKeyLength,
-			Mode:      proto.DefaultCipherMode,
-		}
+		o.Cipher = Crypto.GetDefaultParams(proto.CipherParams{
+			Key: key,
+		})
 	}
 }
 

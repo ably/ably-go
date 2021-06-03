@@ -25,6 +25,15 @@ func (c CipherAlgorithm) String() string {
 	}
 }
 
+func (c CipherAlgorithm) IsValidKeyLength(l int) bool {
+	switch c {
+	case AES:
+		return l == 128 || l == 256
+	default:
+		return false
+	}
+}
+
 // CipherMode defines supported  ciphers.
 type CipherMode uint
 
@@ -122,40 +131,6 @@ func NewCBCCipher(opts CipherParams) (*CBCCipher, error) {
 		algorithm: algo,
 		params:    opts,
 	}, nil
-}
-
-// GenerateRandomKey returns a random key. keyLength is optional if provided it
-// should be  in bits, it defaults to DefaultKeyLength when not provided.
-//
-// Spec RSE2, RSE2a, RSE2b.
-func GenerateRandomKey(keyLength ...int) ([]byte, error) {
-	length := DefaultKeyLength
-	if len(keyLength) > 0 {
-		length = keyLength[0]
-	}
-	key := make([]byte, length/8)
-	if _, err := io.ReadFull(rand.Reader, key); err != nil {
-		return nil, err
-	}
-	return key, nil
-}
-
-// DefaultCipherParams returns CipherParams with fields set to default values.
-// This generates random secret key and iv values
-func DefaultCipherParams() (*CipherParams, error) {
-	c := &CipherParams{
-		Algorithm: DefaultCipherAlgorithm,
-	}
-	c.Key = make([]byte, DefaultKeyLength/8)
-	if _, err := io.ReadFull(rand.Reader, c.Key); err != nil {
-		return nil, err
-	}
-	c.KeyLength = len(c.Key) * 8
-	c.IV = make([]byte, aes.BlockSize)
-	if _, err := io.ReadFull(rand.Reader, c.IV); err != nil {
-		return nil, err
-	}
-	return c, nil
 }
 
 // Encrypt encrypts plainText using AES algorithm and returns encoded bytes.
