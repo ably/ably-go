@@ -1,6 +1,7 @@
 package proto_test
 
 import (
+	"crypto/aes"
 	"testing"
 
 	"github.com/ably/ably-go/ably/proto"
@@ -28,4 +29,30 @@ func TestGenerateRandomKey(t *testing.T) {
 			ts.Errorf("expected %d got %d", keyLength, got)
 		}
 	})
+}
+
+func Test_Issue330_IVReuse(t *testing.T) {
+	t.Parallel()
+
+	params, err := proto.DefaultCipherParams()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cipher, err := proto.NewCBCCipher(*params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cipherText1, err := cipher.Encrypt([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cipherText2, err := cipher.Encrypt([]byte("foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	iv1 := string(cipherText1[:aes.BlockSize])
+	iv2 := string(cipherText2[:aes.BlockSize])
+	if iv1 == iv2 {
+		t.Fatal("IV shouldn't be reused")
+	}
 }
