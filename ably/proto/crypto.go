@@ -13,7 +13,7 @@ import (
 type CipherAlgorithm uint
 
 const (
-	AES CipherAlgorithm = 1 << iota
+	AES CipherAlgorithm = 1 + iota
 )
 
 func (c CipherAlgorithm) String() string {
@@ -39,7 +39,7 @@ type CipherMode uint
 
 const (
 	// CBC defines cbc mode.
-	CBC CipherMode = 1 << iota
+	CBC CipherMode = 1 + iota
 )
 
 func (c CipherMode) String() string {
