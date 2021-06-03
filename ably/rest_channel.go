@@ -11,8 +11,6 @@ import (
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ugorji/go/codec"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 // based on HttpUtils::encodeURIComponent from ably-java library
@@ -37,7 +35,7 @@ type RESTChannel struct {
 
 	client  *REST
 	baseURL string
-	options *proto.ChannelOptions
+	options *ChannelOptions
 }
 
 func newRESTChannel(name string, client *REST) *RESTChannel {
@@ -59,9 +57,6 @@ func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}
 		{Name: name, Data: data},
 	})
 }
-
-// Message is what Ably channels send and receive.
-type Message = proto.Message
 
 // PublishMultiple publishes multiple messages in a batch.
 func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message) error {

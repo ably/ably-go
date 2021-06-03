@@ -1,13 +1,13 @@
-package proto
+package ably
 
 import (
 	"fmt"
 )
 
-type PresenceAction int64
+type Proto_PresenceAction int64
 
 const (
-	PresenceAbsent PresenceAction = iota
+	PresenceAbsent Proto_PresenceAction = iota
 	PresencePresent
 	PresenceEnter
 	PresenceLeave
@@ -16,7 +16,7 @@ const (
 
 type PresenceMessage struct {
 	Message
-	Action PresenceAction `json:"action" codec:"action"`
+	Action Proto_PresenceAction `json:"action" codec:"action"`
 }
 
 func (m PresenceMessage) String() string {

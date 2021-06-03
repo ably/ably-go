@@ -22,7 +22,7 @@ type CryptoData struct {
 
 func LoadCryptoData(rel string) (*CryptoData, []byte, []byte, error) {
 	data := &CryptoData{}
-	f, err := os.Open(filepath.Join("..", "..", "common", filepath.FromSlash(rel)))
+	f, err := os.Open(filepath.Join("..", "common", filepath.FromSlash(rel)))
 	if err != nil {
 		return nil, nil, nil, errors.New("missing common subrepo - ensure git submodules are initialized")
 	}

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 var Crypto struct {
@@ -26,7 +24,7 @@ func init() {
 
 func generateRandomKey(keyLength int) ([]byte, error) {
 	if keyLength <= 0 {
-		keyLength = proto.DefaultKeyLength
+		keyLength = DefaultKeyLength
 	}
 	key := make([]byte, keyLength/8)
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
@@ -40,14 +38,14 @@ func defaultCipherParams(c CipherParams) CipherParams {
 		panic(errors.New("cipher key must be provided"))
 	}
 	if c.Algorithm == 0 {
-		c.Algorithm = proto.DefaultCipherAlgorithm
+		c.Algorithm = DefaultCipherAlgorithm
 	}
 	c.KeyLength = len(c.Key) * 8
 	if !c.Algorithm.IsValidKeyLength(c.KeyLength) {
 		panic(fmt.Sprintf("invalid key length for algorithm %v: %d", c.Algorithm, c.KeyLength))
 	}
 	if c.Mode == 0 {
-		c.Mode = proto.DefaultCipherMode
+		c.Mode = DefaultCipherMode
 	}
 	return c
 }

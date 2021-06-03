@@ -6,8 +6,6 @@ import (
 	"sort"
 	"sync"
 	"time"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 // result awaits completion of asynchronous operation.
@@ -118,7 +116,7 @@ func newPendingEmitter(log logger) pendingEmitter {
 }
 
 type msgCh struct {
-	msg *proto.ProtocolMessage
+	msg *ProtocolMessage
 	ch  chan<- error
 }
 
@@ -134,11 +132,11 @@ func (q pendingEmitter) Swap(i, j int) {
 	q.queue[i], q.queue[j] = q.queue[j], q.queue[i]
 }
 
-func (q pendingEmitter) Search(msg *proto.ProtocolMessage) int {
+func (q pendingEmitter) Search(msg *ProtocolMessage) int {
 	return sort.Search(q.Len(), func(i int) bool { return q.queue[i].msg.MsgSerial >= msg.MsgSerial })
 }
 
-func (q *pendingEmitter) Enqueue(msg *proto.ProtocolMessage, ch chan<- error) {
+func (q *pendingEmitter) Enqueue(msg *ProtocolMessage, ch chan<- error) {
 	switch i := q.Search(msg); {
 	case i == q.Len():
 		q.queue = append(q.queue, msgCh{msg, ch})
@@ -151,7 +149,7 @@ func (q *pendingEmitter) Enqueue(msg *proto.ProtocolMessage, ch chan<- error) {
 	}
 }
 
-func (q *pendingEmitter) Ack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
+func (q *pendingEmitter) Ack(msg *ProtocolMessage, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
@@ -182,7 +180,7 @@ func (q *pendingEmitter) Ack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
 	q.queue = q.queue[ack:]
 }
 
-func (q *pendingEmitter) Nack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
+func (q *pendingEmitter) Nack(msg *ProtocolMessage, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
@@ -204,7 +202,7 @@ func (q *pendingEmitter) Nack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
 }
 
 type msgch struct {
-	msg *proto.ProtocolMessage
+	msg *ProtocolMessage
 	ch  chan<- error
 }
 
@@ -220,7 +218,7 @@ func newMsgQueue(conn *Connection) *msgQueue {
 	}
 }
 
-func (q *msgQueue) Enqueue(msg *proto.ProtocolMessage, listen chan<- error) {
+func (q *msgQueue) Enqueue(msg *ProtocolMessage, listen chan<- error) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
 	q.queue = append(q.queue, msgch{msg, listen})

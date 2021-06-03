@@ -3,8 +3,6 @@ package ably
 import (
 	"errors"
 	"testing"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 var errNotEmitted = errors.New("not emitted")
@@ -31,7 +29,7 @@ func receive(ch ...chan error) []error {
 	return errs
 }
 
-func emit(msg *proto.ProtocolMessage, fn func(*pendingEmitter, *proto.ProtocolMessage, *ErrorInfo), err *ErrorInfo) func(*pendingEmitter) {
+func emit(msg *ProtocolMessage, fn func(*pendingEmitter, *ProtocolMessage, *ErrorInfo), err *ErrorInfo) func(*pendingEmitter) {
 	return func(q *pendingEmitter) {
 		fn(q, msg, err)
 	}
@@ -49,7 +47,7 @@ func testQueuedEmitter(t *testing.T, serials, ack, nack []int64, emit func(*pend
 	}
 	q := &pendingEmitter{log: NewInternalLogger(discardLogger{})}
 	for serial, i := range index {
-		q.Enqueue(&proto.ProtocolMessage{MsgSerial: serial}, ch[i])
+		q.Enqueue(&ProtocolMessage{MsgSerial: serial}, ch[i])
 	}
 	emit(q)
 	errs := receive(ch...)
@@ -76,8 +74,8 @@ func testQueuedEmitter(t *testing.T, serials, ack, nack []int64, emit func(*pend
 }
 
 func TestQueuedEmitter(t *testing.T) {
-	msg := func(serial int64, count int) *proto.ProtocolMessage {
-		return &proto.ProtocolMessage{MsgSerial: serial, Count: count}
+	msg := func(serial int64, count int) *ProtocolMessage {
+		return &ProtocolMessage{MsgSerial: serial, Count: count}
 	}
 	cases := [...]struct {
 		serial, ack, nack []int64

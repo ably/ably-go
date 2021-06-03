@@ -10,11 +10,9 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/internal/ablytest"
-	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ably/proto"
 )
 
-func expectMsg(ch <-chan *proto.Message, name string, data interface{}, t time.Duration, received bool) error {
+func expectMsg(ch <-chan *ably.Message, name string, data interface{}, t time.Duration, received bool) error {
 	select {
 	case msg := <-ch:
 		if !received {
@@ -114,9 +112,9 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
-		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 			<-allowDial
-			c, err := ablyutil.DialWebsocket(protocol, u, timeout)
+			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)

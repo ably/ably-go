@@ -14,7 +14,6 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/internal/ablytest"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func single() *ably.PaginateParams {
@@ -587,8 +586,8 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 
 func TestAuth_ClientID(t *testing.T) {
 	t.Parallel()
-	in := make(chan *proto.ProtocolMessage, 16)
-	out := make(chan *proto.ProtocolMessage, 16)
+	in := make(chan *ably.ProtocolMessage, 16)
+	out := make(chan *ably.ProtocolMessage, 16)
 	app := ablytest.MustSandbox(nil)
 	defer safeclose(t, app)
 	opts := []ably.ClientOption{
@@ -602,7 +601,7 @@ func TestAuth_ClientID(t *testing.T) {
 	opts = []ably.ClientOption{
 		ably.WithAuthURL(proxy.URL("details")),
 		ably.WithUseTokenAuth(true),
-		ably.WithDial(ablytest.MessagePipe(in, out)),
+		ably.WithDial(MessagePipe(in, out)),
 		ably.WithAutoConnect(false),
 	}
 	client := app.NewRealtime(opts...) // no client.Close as the connection is mocked
@@ -617,10 +616,10 @@ func TestAuth_ClientID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Authorize()=%v", err)
 	}
-	connected := &proto.ProtocolMessage{
-		Action:       proto.ActionConnected,
+	connected := &ably.ProtocolMessage{
+		Action:       ably.ActionConnected,
 		ConnectionID: "connection-id",
-		ConnectionDetails: &proto.ConnectionDetails{
+		ConnectionDetails: &ably.ConnectionDetails{
 			ClientID: "client-id",
 		},
 	}
@@ -668,8 +667,8 @@ func TestAuth_ClientID(t *testing.T) {
 		}
 
 		err = ablytest.Wait(ablytest.ConnWaiter(client, func() {
-			closed := &proto.ProtocolMessage{
-				Action: proto.ActionClosed,
+			closed := &ably.ProtocolMessage{
+				Action: ably.ActionClosed,
 			}
 			in <- closed
 		}, ably.ConnectionEventClosed), nil)
@@ -765,7 +764,7 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 
 func TestAuth_RealtimeAccessToken(t *testing.T) {
 	t.Parallel()
-	rec := ablytest.NewMessageRecorder()
+	rec := NewMessageRecorder()
 	const explicitClientID = "explicit"
 	opts := []ably.ClientOption{
 		ably.WithClientID(explicitClientID),

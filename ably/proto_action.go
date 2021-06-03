@@ -1,4 +1,4 @@
-package proto
+package ably
 
 type Action int8
 

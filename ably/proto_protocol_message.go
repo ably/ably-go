@@ -1,4 +1,4 @@
-package proto
+package ably
 
 import (
 	"fmt"
@@ -95,14 +95,14 @@ type ProtocolMessage struct {
 	Channel           string             `json:"channel,omitempty" codec:"channel,omitempty"`
 	ChannelSerial     string             `json:"channelSerial,omitempty" codec:"channelSerial,omitempty"`
 	ConnectionDetails *ConnectionDetails `json:"connectionDetails,omitempty" codec:"connectionDetails,omitempty"`
-	Error             *ErrorInfo         `json:"error,omitempty" codec:"error,omitempty"`
+	Error             *Proto_ErrorInfo   `json:"error,omitempty" codec:"error,omitempty"`
 	MsgSerial         int64              `json:"msgSerial" codec:"msgSerial"`
 	ConnectionSerial  int64              `json:"connectionSerial" codec:"connectionSerial"`
 	Timestamp         int64              `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
 	Count             int                `json:"count,omitempty" codec:"count,omitempty"`
 	Action            Action             `json:"action,omitempty" codec:"action,omitempty"`
 	Flags             Flag               `json:"flags,omitempty" codec:"flags,omitempty"`
-	Params            ChannelParams      `json:"params,omitempty" codec:"params,omitempty"`
+	Params            channelParams      `json:"params,omitempty" codec:"params,omitempty"`
 }
 
 func (p *ProtocolMessage) SetModesAsFlag(modes []ChannelMode) {

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 type syncState uint8
@@ -26,9 +24,9 @@ type RealtimePresence struct {
 	serial         string
 	messageEmitter *eventEmitter
 	channel        *RealtimeChannel
-	members        map[string]*proto.PresenceMessage
+	members        map[string]*PresenceMessage
 	stale          map[string]struct{}
-	state          proto.PresenceAction
+	state          Proto_PresenceAction
 	syncMtx        sync.Mutex
 	syncState      syncState
 }
@@ -37,7 +35,7 @@ func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	pres := &RealtimePresence{
 		messageEmitter: newEventEmitter(channel.log()),
 		channel:        channel,
-		members:        make(map[string]*proto.PresenceMessage),
+		members:        make(map[string]*PresenceMessage),
 		syncState:      syncInitial,
 	}
 	// Lock syncMtx to make all callers to Get(true) wait until the presence
@@ -56,7 +54,7 @@ func (pres *RealtimePresence) verifyChanState() error {
 	}
 }
 
-func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (result, error) {
+func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	attached, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
@@ -64,10 +62,10 @@ func (pres *RealtimePresence) send(msg *proto.PresenceMessage) (result, error) {
 	if err := pres.verifyChanState(); err != nil {
 		return nil, err
 	}
-	protomsg := &proto.ProtocolMessage{
-		Action:   proto.ActionPresence,
+	protomsg := &ProtocolMessage{
+		Action:   ActionPresence,
 		Channel:  pres.channel.Name,
-		Presence: []*proto.PresenceMessage{msg},
+		Presence: []*PresenceMessage{msg},
 	}
 	return resultFunc(func(ctx context.Context) error {
 		err := attached.Wait(ctx)
@@ -86,19 +84,19 @@ func (pres *RealtimePresence) syncWait() {
 	pres.syncMtx.Unlock()
 }
 
-func syncSerial(msg *proto.ProtocolMessage) string {
+func syncSerial(msg *ProtocolMessage) string {
 	if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 {
 		return msg.ChannelSerial[i+1:]
 	}
 	return ""
 }
 
-func (pres *RealtimePresence) onAttach(msg *proto.ProtocolMessage) {
+func (pres *RealtimePresence) onAttach(msg *ProtocolMessage) {
 	serial := syncSerial(msg)
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
 	switch {
-	case msg.Flags.Has(proto.FlagHasPresence) || serial != "":
+	case msg.Flags.Has(FlagHasPresence) || serial != "":
 		pres.syncStart(serial)
 	case pres.syncState == syncInitial:
 		pres.syncState = syncComplete
@@ -138,7 +136,7 @@ func (pres *RealtimePresence) syncEnd() {
 		delete(pres.members, memberKey)
 	}
 	for memberKey, presence := range pres.members {
-		if presence.Action == proto.PresenceAbsent {
+		if presence.Action == PresenceAbsent {
 			delete(pres.members, memberKey)
 		}
 	}
@@ -149,7 +147,7 @@ func (pres *RealtimePresence) syncEnd() {
 	pres.syncMtx.Unlock()
 }
 
-func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage, syncSerial string) {
+func (pres *RealtimePresence) processIncomingMessage(msg *ProtocolMessage, syncSerial string) {
 	for _, presmsg := range msg.Presence {
 		if presmsg.Timestamp == 0 {
 			presmsg.Timestamp = msg.Timestamp
@@ -160,7 +158,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 		pres.syncStart(syncSerial)
 	}
 	// Filter out old messages by their timestamp.
-	messages := make([]*proto.PresenceMessage, 0, len(msg.Presence))
+	messages := make([]*PresenceMessage, 0, len(msg.Presence))
 	// Update presence map / channel's member state.
 	for _, member := range msg.Presence {
 		memberKey := member.ConnectionID + member.ClientID
@@ -170,13 +168,13 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 			}
 		}
 		switch member.Action {
-		case proto.PresenceUpdate:
-			member.Action = proto.PresencePresent
+		case PresenceUpdate:
+			member.Action = PresencePresent
 			fallthrough
-		case proto.PresencePresent:
+		case PresencePresent:
 			delete(pres.stale, memberKey)
 			pres.members[memberKey] = member
-		case proto.PresenceLeave:
+		case PresenceLeave:
 			delete(pres.members, memberKey)
 		}
 		messages = append(messages, member)
@@ -190,15 +188,15 @@ func (pres *RealtimePresence) processIncomingMessage(msg *proto.ProtocolMessage,
 	for _, msg := range msg.Presence {
 		var action PresenceAction
 		switch msg.Action {
-		case proto.PresenceAbsent:
+		case PresenceAbsent:
 			action = PresenceActionAbsent
-		case proto.PresencePresent:
+		case PresencePresent:
 			action = PresenceActionPresent
-		case proto.PresenceEnter:
+		case PresenceEnter:
 			action = PresenceActionEnter
-		case proto.PresenceLeave:
+		case PresenceLeave:
 			action = PresenceActionLeave
-		case proto.PresenceUpdate:
+		case PresenceUpdate:
 			action = PresenceActionUpdate
 		}
 		pres.messageEmitter.Emit(action, (*subscriptionPresenceMessage)(msg))
@@ -260,7 +258,7 @@ func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...Pre
 
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
-	members := make([]*proto.PresenceMessage, 0, len(pres.members))
+	members := make([]*PresenceMessage, 0, len(pres.members))
 	for _, member := range pres.members {
 		members = append(members, member)
 	}
@@ -285,8 +283,6 @@ func (e PresenceAction) String() string {
 }
 
 func (PresenceAction) isEmitterEvent() {}
-
-type PresenceMessage = proto.PresenceMessage
 
 type subscriptionPresenceMessage PresenceMessage
 
@@ -393,10 +389,10 @@ func (pres *RealtimePresence) Leave(ctx context.Context, data interface{}) error
 func (pres *RealtimePresence) EnterClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
 	pres.data = data
-	pres.state = proto.PresenceEnter
+	pres.state = PresenceEnter
 	pres.mtx.Unlock()
-	msg := proto.PresenceMessage{
-		Action: proto.PresenceEnter,
+	msg := PresenceMessage{
+		Action: PresenceEnter,
 	}
 	msg.Data = data
 	msg.ClientID = clientID
@@ -424,15 +420,15 @@ func nonnil(a, b interface{}) interface{} {
 // presence data may eventually be updated anyway.
 func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
-	if pres.state != proto.PresenceEnter {
+	if pres.state != PresenceEnter {
 		oldData := pres.data
 		pres.mtx.Unlock()
 		return pres.EnterClient(ctx, clientID, nonnil(data, oldData))
 	}
 	pres.data = data
 	pres.mtx.Unlock()
-	msg := proto.PresenceMessage{
-		Action: proto.PresenceUpdate,
+	msg := PresenceMessage{
+		Action: PresenceUpdate,
 	}
 	msg.ClientID = clientID
 	msg.Data = data
@@ -456,8 +452,8 @@ func (pres *RealtimePresence) LeaveClient(ctx context.Context, clientID string, 
 	}
 	pres.mtx.Unlock()
 
-	msg := proto.PresenceMessage{
-		Action: proto.PresenceLeave,
+	msg := PresenceMessage{
+		Action: PresenceLeave,
 	}
 	msg.ClientID = clientID
 	msg.Data = data

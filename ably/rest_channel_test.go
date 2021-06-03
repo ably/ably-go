@@ -19,7 +19,6 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/internal/ablytest"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func TestRESTChannel(t *testing.T) {
@@ -44,30 +43,30 @@ func TestRESTChannel(t *testing.T) {
 		m := make(map[string]dataSample)
 		if ablytest.NoBinaryProtocol {
 			m["string"] = dataSample{
-				encoding: proto.UTF8,
+				encoding: ably.UTF8,
 				data:     "string",
 			}
 			m["binary"] = dataSample{
-				encoding: proto.Base64,
+				encoding: ably.Base64,
 				data:     []byte("string"),
 			}
 			m["json"] = dataSample{
-				encoding: proto.JSON,
+				encoding: ably.JSON,
 				data: map[string]interface{}{
 					"key": "value",
 				},
 			}
 		} else {
 			m["string"] = dataSample{
-				encoding: proto.UTF8,
+				encoding: ably.UTF8,
 				data:     "string",
 			}
 			m["binary"] = dataSample{
-				encoding: proto.UTF8,
+				encoding: ably.UTF8,
 				data:     "string",
 			}
 			m["json"] = dataSample{
-				encoding: proto.JSON,
+				encoding: ably.JSON,
 				data: map[string]interface{}{
 					"key": "value",
 				},
@@ -120,11 +119,11 @@ func TestRESTChannel(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		opts := []ably.ChannelOption{ably.ChannelWithCipher(proto.CipherParams{
+		opts := []ably.ChannelOption{ably.ChannelWithCipher(ably.CipherParams{
 			Key:       key,
 			KeyLength: 128,
 			IV:        iv,
-			Algorithm: proto.AES,
+			Algorithm: ably.AES,
 		})}
 		channelName := "encrypted_channel"
 		channel := client.Channels.Get(channelName, opts...)

@@ -1,4 +1,4 @@
-package proto
+package ably
 
 import (
 	"encoding/json"

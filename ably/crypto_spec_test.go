@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func TestCrypto_RSE1_GetDefaultParams(t *testing.T) {
@@ -13,47 +12,47 @@ func TestCrypto_RSE1_GetDefaultParams(t *testing.T) {
 
 	for _, c := range []struct {
 		name          string
-		in            proto.CipherParams
-		expected      proto.CipherParams
+		in            ably.CipherParams
+		expected      ably.CipherParams
 		expectedPanic bool
 	}{
 		{
 			name: "RSE1a, RSE1b, RSE1d: sets defaults",
-			in: proto.CipherParams{
+			in: ably.CipherParams{
 				Key: make([]byte, 256/8),
 			},
-			expected: proto.CipherParams{
+			expected: ably.CipherParams{
 				Key:       make([]byte, 256/8),
 				KeyLength: 256,
-				Algorithm: proto.AES,
-				Mode:      proto.CBC,
+				Algorithm: ably.AES,
+				Mode:      ably.CBC,
 			},
 		},
 		{
 			name: "RSE1b: no key panics",
-			in: proto.CipherParams{
-				Algorithm: proto.AES,
-				Mode:      proto.CBC,
+			in: ably.CipherParams{
+				Algorithm: ably.AES,
+				Mode:      ably.CBC,
 			},
 			expectedPanic: true,
 		},
 		{
 			name: "RSE1e: wrong key length panics (AES 256)",
-			in: proto.CipherParams{
+			in: ably.CipherParams{
 				Key: make([]byte, 256/8-1),
 			},
 			expectedPanic: true,
 		},
 		{
 			name: "RSE1e: valid key length works (AES 128)",
-			in: proto.CipherParams{
+			in: ably.CipherParams{
 				Key: make([]byte, 128/8),
 			},
-			expected: proto.CipherParams{
+			expected: ably.CipherParams{
 				Key:       make([]byte, 128/8),
 				KeyLength: 128,
-				Algorithm: proto.AES,
-				Mode:      proto.CBC,
+				Algorithm: ably.AES,
+				Mode:      ably.CBC,
 			},
 		},
 	} {
@@ -85,8 +84,8 @@ func TestCrypto_RSE2_GenerateRandomKey(t *testing.T) {
 			ts.Fatal(err)
 		}
 		got := len(key) * 8 // count bits
-		if got != proto.DefaultKeyLength {
-			ts.Errorf("expected %d got %d", proto.DefaultKeyLength, got)
+		if got != ably.DefaultKeyLength {
+			ts.Errorf("expected %d got %d", ably.DefaultKeyLength, got)
 		}
 	})
 	t.Run("must use optional key length", func(ts *testing.T) {

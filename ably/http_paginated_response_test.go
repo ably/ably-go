@@ -11,7 +11,6 @@ import (
 	"github.com/ably/ably-go/ably"
 
 	"github.com/ably/ably-go/ably/internal/ablytest"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func TestHTTPPaginatedResponse(t *testing.T) {
@@ -74,7 +73,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 	t.Run("request_post_get_messages", func(t *testing.T) {
 		channelName := "http-paginated-result"
 		channelPath := "/channels/" + channelName + "/messages"
-		msgs := []proto.Message{
+		msgs := []ably.Message{
 			{Name: "faye", Data: "whittaker"},
 			{Name: "martin", Data: "reed"},
 		}

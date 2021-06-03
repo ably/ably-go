@@ -21,12 +21,11 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 var (
-	msgType     = reflect.TypeOf((*[]*proto.Message)(nil)).Elem()
-	presMsgType = reflect.TypeOf((*[]*proto.PresenceMessage)(nil)).Elem()
+	msgType     = reflect.TypeOf((*[]*Message)(nil)).Elem()
+	presMsgType = reflect.TypeOf((*[]*PresenceMessage)(nil)).Elem()
 	arrayTyp    = reflect.TypeOf((*[]interface{})(nil)).Elem()
 )
 
@@ -77,10 +76,10 @@ func (c *RESTChannels) Get(name string, options ...ChannelOption) *RESTChannel {
 	for _, set := range options {
 		set(&o)
 	}
-	return c.get(name, (*proto.ChannelOptions)(&o))
+	return c.get(name, (*ChannelOptions)(&o))
 }
 
-func (c *RESTChannels) get(name string, opts *proto.ChannelOptions) *RESTChannel {
+func (c *RESTChannels) get(name string, opts *ChannelOptions) *RESTChannel {
 	c.mu.RLock()
 	v, ok := c.chans[name]
 	c.mu.RUnlock()
@@ -401,7 +400,7 @@ func (r *HTTPPaginatedResponse) Success() bool {
 }
 
 func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
-	codeStr := r.res.Header.Get(proto.AblyErrorCodeHeader)
+	codeStr := r.res.Header.Get(AblyErrorCodeHeader)
 	if codeStr == "" {
 		return ErrNotSet
 	}
@@ -413,7 +412,7 @@ func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
 }
 
 func (r *HTTPPaginatedResponse) ErrorMessage() string {
-	return r.res.Header.Get(proto.AblyErrorMessageHeader)
+	return r.res.Header.Get(AblyErrorMessageHeader)
 }
 
 func (r *HTTPPaginatedResponse) Headers() http.Header {
@@ -623,7 +622,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 						c.log.Infof("RestClient:  chose fallback host=%q ", h)
 						req.URL.Host = h
 						req.Host = ""
-						req.Header.Set(proto.HostHeader, h)
+						req.Header.Set(HostHeader, h)
 						resp, err := c.opts.httpclient().Do(req)
 						if err != nil {
 							c.log.Error("RestClient: failed sending a request to a fallback host", err)
@@ -694,12 +693,12 @@ func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, e
 		copyHeader(req.Header, r.header)
 	}
 	req.Header.Set("Accept", protocol) //spec RSC19c
-	req.Header.Set(proto.AblyVersionHeader, proto.AblyVersion)
-	req.Header.Set(proto.AblyLibHeader, proto.LibraryString)
+	req.Header.Set(AblyVersionHeader, AblyVersion)
+	req.Header.Set(AblyLibHeader, LibraryString)
 	if c.opts.ClientID != "" && c.Auth.method == authBasic {
 		// References RSA7e2
 		h := base64.StdEncoding.EncodeToString([]byte(c.opts.ClientID))
-		req.Header.Set(proto.AblyClientIDHeader, h)
+		req.Header.Set(AblyClientIDHeader, h)
 	}
 	if !r.NoAuth {
 		//spec RSC19b

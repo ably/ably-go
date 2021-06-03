@@ -1,4 +1,4 @@
-package proto
+package ably
 
 import (
 	"bytes"
@@ -18,6 +18,7 @@ const (
 	Cipher = "cipher"
 )
 
+// Message is what Ably channels send and receive.
 type Message struct {
 	ID           string                 `json:"id,omitempty" codec:"id,omitempty"`
 	ClientID     string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`

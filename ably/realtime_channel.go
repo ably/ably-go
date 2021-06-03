@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 var (
@@ -48,14 +46,14 @@ func newChannels(client *Realtime) *RealtimeChannels {
 // A ChannelOption configures a channel.
 type ChannelOption func(*channelOptions)
 
-// channelOptions wraps proto.ChannelOptions. It exists so that users can't
+// channelOptions wraps ChannelOptions. It exists so that users can't
 // implement their own ChannelOption.
-type channelOptions proto.ChannelOptions
+type channelOptions ChannelOptions
 
 // CipherKey is like Cipher with an AES algorithm and CBC mode.
 func ChannelWithCipherKey(key []byte) ChannelOption {
 	return func(o *channelOptions) {
-		o.Cipher = Crypto.GetDefaultParams(proto.CipherParams{
+		o.Cipher = Crypto.GetDefaultParams(CipherParams{
 			Key: key,
 		})
 	}
@@ -90,12 +88,6 @@ func applyChannelOptions(os ...ChannelOption) *channelOptions {
 	}
 	return &to
 }
-
-type CipherParams = proto.CipherParams
-type CipherAlgorith = proto.CipherAlgorithm
-type CipherMode = proto.CipherMode
-type channelParams = proto.ChannelParams
-type ChannelMode = proto.ChannelMode
 
 // Get looks up a channel given by the name and creates it if it does not exist
 // already.
@@ -281,8 +273,8 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 
 	sendAttachMsg := func() (result, error) {
 		res := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
-		msg := &proto.ProtocolMessage{
-			Action:  proto.ActionAttach,
+		msg := &ProtocolMessage{
+			Action:  ActionAttach,
 			Channel: c.Name,
 		}
 		if len(c.channelOpts().Params) > 0 {
@@ -292,7 +284,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 			msg.SetModesAsFlag(c.channelOpts().Modes)
 		}
 		if c.attachResume {
-			msg.Flags.Set(proto.FlagAttachResume)
+			msg.Flags.Set(FlagAttachResume)
 		}
 		c.client.Connection.send(msg, nil)
 		return res, nil
@@ -395,8 +387,8 @@ func (c *RealtimeChannel) detachSkipVerifyActive() (result, error) {
 
 func (c *RealtimeChannel) sendDetachMsg() (result, error) {
 	res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
-	msg := &proto.ProtocolMessage{
-		Action:  proto.ActionDetach,
+	msg := &ProtocolMessage{
+		Action:  ActionDetach,
 		Channel: c.Name,
 	}
 	c.client.Connection.send(msg, nil)
@@ -548,8 +540,8 @@ func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Messa
 			return fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
 		}
 	}
-	msg := &proto.ProtocolMessage{
-		Action:   proto.ActionMessage,
+	msg := &ProtocolMessage{
+		Action:   ActionMessage,
 		Channel:  c.Name,
 		Messages: messages,
 	}
@@ -565,7 +557,7 @@ func (c *RealtimeChannel) History(o ...HistoryOption) HistoryRequest {
 	return c.client.rest.Channels.Get(c.Name).History(o...)
 }
 
-func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (result, error) {
+func (c *RealtimeChannel) send(msg *ProtocolMessage) (result, error) {
 	if res, enqueued := c.maybeEnqueue(msg); enqueued {
 		return res, nil
 	}
@@ -579,7 +571,7 @@ func (c *RealtimeChannel) send(msg *proto.ProtocolMessage) (result, error) {
 	return res, nil
 }
 
-func (c *RealtimeChannel) maybeEnqueue(msg *proto.ProtocolMessage) (_ result, enqueued bool) {
+func (c *RealtimeChannel) maybeEnqueue(msg *ProtocolMessage) (_ result, enqueued bool) {
 	// RTL6c2
 	if c.opts().NoQueueing {
 		return nil, false
@@ -637,9 +629,9 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 	return c.errorReason
 }
 
-func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
+func (c *RealtimeChannel) notify(msg *ProtocolMessage) {
 	switch msg.Action {
-	case proto.ActionAttached:
+	case ActionAttached:
 		if c.State() == ChannelStateDetaching { // RTL5K
 			c.sendDetachMsg()
 			return
@@ -648,13 +640,13 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 			c.setParams(msg.Params)
 		}
 		if msg.Flags != 0 {
-			c.setModes(proto.FromFlag(msg.Flags))
+			c.setModes(FromFlag(msg.Flags))
 		}
 		c.Presence.onAttach(msg)
 		// RTL12
-		c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(proto.FlagResumed))
+		c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(FlagResumed))
 		c.queue.Flush()
-	case proto.ActionDetached:
+	case ActionDetached:
 		c.mtx.Lock()
 		err := error(newErrorFromProto(msg.Error))
 		switch c.state {
@@ -692,14 +684,14 @@ func (c *RealtimeChannel) notify(msg *proto.ProtocolMessage) {
 		}
 
 		c.lockStartRetryAttachLoop(err)
-	case proto.ActionSync:
+	case ActionSync:
 		c.Presence.processIncomingMessage(msg, syncSerial(msg))
-	case proto.ActionPresence:
+	case ActionPresence:
 		c.Presence.processIncomingMessage(msg, "")
-	case proto.ActionError:
+	case ActionError:
 		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error), false)
 		c.queue.Fail(newErrorFromProto(msg.Error))
-	case proto.ActionMessage:
+	case ActionMessage:
 		if c.State() == ChannelStateAttached {
 			for _, msg := range msg.Messages {
 				c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))

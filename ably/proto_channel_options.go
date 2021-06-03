@@ -1,6 +1,6 @@
-package proto
+package ably
 
-type ChannelParams map[string]string
+type channelParams map[string]string
 type ChannelMode int64
 
 const (
@@ -50,6 +50,6 @@ func FromFlag(flags Flag) []ChannelMode {
 type ChannelOptions struct {
 	Cipher CipherParams
 	cipher ChannelCipher
-	Params ChannelParams
+	Params channelParams
 	Modes  []ChannelMode
 }

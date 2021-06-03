@@ -1,4 +1,4 @@
-package proto
+package ably
 
 // constants for rsc7
 const (

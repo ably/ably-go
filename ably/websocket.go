@@ -1,4 +1,4 @@
-package ablyutil
+package ably
 
 import (
 	"errors"
@@ -6,8 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ably/ably-go/ably/proto"
-
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"golang.org/x/net/websocket"
 )
 
@@ -16,12 +15,12 @@ type WebsocketConn struct {
 	codec websocket.Codec
 }
 
-func (ws *WebsocketConn) Send(msg *proto.ProtocolMessage) error {
+func (ws *WebsocketConn) Send(msg *ProtocolMessage) error {
 	return ws.codec.Send(ws.conn, msg)
 }
 
-func (ws *WebsocketConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
-	msg := &proto.ProtocolMessage{}
+func (ws *WebsocketConn) Receive(deadline time.Time) (*ProtocolMessage, error) {
+	msg := &ProtocolMessage{}
 	if !deadline.IsZero() {
 		err := ws.conn.SetReadDeadline(deadline)
 		if err != nil {
@@ -75,10 +74,10 @@ func dialWebsocketTimeout(uri, protocol, origin string, timeout time.Duration) (
 
 var msgpackCodec = websocket.Codec{
 	Marshal: func(v interface{}) ([]byte, byte, error) {
-		p, err := MarshalMsgpack(v)
+		p, err := ablyutil.MarshalMsgpack(v)
 		return p, websocket.BinaryFrame, err
 	},
 	Unmarshal: func(p []byte, _ byte, v interface{}) error {
-		return UnmarshalMsgpack(p, v)
+		return ablyutil.UnmarshalMsgpack(p, v)
 	},
 }

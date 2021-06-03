@@ -8,8 +8,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func (code ErrorCode) toStatusCode() int {
@@ -105,7 +103,7 @@ func newErrorf(code ErrorCode, format string, v ...interface{}) *ErrorInfo {
 	return newError(code, fmt.Errorf(format, v...))
 }
 
-func newErrorFromProto(err *proto.ErrorInfo) *ErrorInfo {
+func newErrorFromProto(err *Proto_ErrorInfo) *ErrorInfo {
 	if err == nil {
 		return nil
 	}
@@ -148,7 +146,7 @@ func errFromUnprocessableBody(resp *http.Response) error {
 
 func checkValidHTTPResponse(resp *http.Response) error {
 	type errorBody struct {
-		Error proto.ErrorInfo `json:"error,omitempty" codec:"error,omitempty"`
+		Error Proto_ErrorInfo `json:"error,omitempty" codec:"error,omitempty"`
 	}
 	if resp.StatusCode < 300 {
 		return nil
