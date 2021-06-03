@@ -26,7 +26,7 @@ type RealtimePresence struct {
 	channel        *RealtimeChannel
 	members        map[string]*PresenceMessage
 	stale          map[string]struct{}
-	state          Proto_PresenceAction
+	state          PresenceAction
 	syncMtx        sync.Mutex
 	syncState      syncState
 }
@@ -136,7 +136,7 @@ func (pres *RealtimePresence) syncEnd() {
 		delete(pres.members, memberKey)
 	}
 	for memberKey, presence := range pres.members {
-		if presence.Action == PresenceAbsent {
+		if presence.Action == PresenceActionAbsent {
 			delete(pres.members, memberKey)
 		}
 	}
@@ -168,13 +168,13 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 			}
 		}
 		switch member.Action {
-		case PresenceUpdate:
-			member.Action = PresencePresent
+		case PresenceActionUpdate:
+			member.Action = PresenceActionPresent
 			fallthrough
-		case PresencePresent:
+		case PresenceActionPresent:
 			delete(pres.stale, memberKey)
 			pres.members[memberKey] = member
-		case PresenceLeave:
+		case PresenceActionLeave:
 			delete(pres.members, memberKey)
 		}
 		messages = append(messages, member)
@@ -188,15 +188,15 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	for _, msg := range msg.Presence {
 		var action PresenceAction
 		switch msg.Action {
-		case PresenceAbsent:
+		case PresenceActionAbsent:
 			action = PresenceActionAbsent
-		case PresencePresent:
+		case PresenceActionPresent:
 			action = PresenceActionPresent
-		case PresenceEnter:
+		case PresenceActionEnter:
 			action = PresenceActionEnter
-		case PresenceLeave:
+		case PresenceActionLeave:
 			action = PresenceActionLeave
-		case PresenceUpdate:
+		case PresenceActionUpdate:
 			action = PresenceActionUpdate
 		}
 		pres.messageEmitter.Emit(action, (*subscriptionPresenceMessage)(msg))
@@ -264,25 +264,6 @@ func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...Pre
 	}
 	return members, nil
 }
-
-// A PresenceAction is a kind of action involving presence in a channel.
-type PresenceAction struct {
-	name string
-}
-
-var (
-	PresenceActionAbsent  PresenceAction = PresenceAction{name: "ABSENT"}
-	PresenceActionPresent PresenceAction = PresenceAction{name: "PRESENT"}
-	PresenceActionEnter   PresenceAction = PresenceAction{name: "ENTER"}
-	PresenceActionLeave   PresenceAction = PresenceAction{name: "LEAVE"}
-	PresenceActionUpdate  PresenceAction = PresenceAction{name: "UPDATE"}
-)
-
-func (e PresenceAction) String() string {
-	return e.name
-}
-
-func (PresenceAction) isEmitterEvent() {}
 
 type subscriptionPresenceMessage PresenceMessage
 
@@ -389,10 +370,10 @@ func (pres *RealtimePresence) Leave(ctx context.Context, data interface{}) error
 func (pres *RealtimePresence) EnterClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
 	pres.data = data
-	pres.state = PresenceEnter
+	pres.state = PresenceActionEnter
 	pres.mtx.Unlock()
 	msg := PresenceMessage{
-		Action: PresenceEnter,
+		Action: PresenceActionEnter,
 	}
 	msg.Data = data
 	msg.ClientID = clientID
@@ -420,7 +401,7 @@ func nonnil(a, b interface{}) interface{} {
 // presence data may eventually be updated anyway.
 func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
-	if pres.state != PresenceEnter {
+	if pres.state != PresenceActionEnter {
 		oldData := pres.data
 		pres.mtx.Unlock()
 		return pres.EnterClient(ctx, clientID, nonnil(data, oldData))
@@ -428,7 +409,7 @@ func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string,
 	pres.data = data
 	pres.mtx.Unlock()
 	msg := PresenceMessage{
-		Action: PresenceUpdate,
+		Action: PresenceActionUpdate,
 	}
 	msg.ClientID = clientID
 	msg.Data = data
@@ -453,7 +434,7 @@ func (pres *RealtimePresence) LeaveClient(ctx context.Context, clientID string, 
 	pres.mtx.Unlock()
 
 	msg := PresenceMessage{
-		Action: PresenceLeave,
+		Action: PresenceActionLeave,
 	}
 	msg.ClientID = clientID
 	msg.Data = data

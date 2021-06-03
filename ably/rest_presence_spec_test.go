@@ -182,7 +182,7 @@ func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 			if !ablytest.Soon.IsTrue(func() bool {
 				err = ablytest.TestPagination(
 					[]*ably.PresenceMessage{{
-						Action:  ably.PresencePresent,
+						Action:  ably.PresenceActionPresent,
 						Message: expected,
 					}},
 					channel.Presence.Get(ably.GetPresenceWithConnectionID(connID)),
@@ -204,10 +204,10 @@ func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 }
 
 func presenceHistoryFixtures() []*ably.PresenceMessage {
-	actions := []ably.Proto_PresenceAction{
-		ably.PresenceEnter,
-		ably.PresenceUpdate,
-		ably.PresenceLeave,
+	actions := []ably.PresenceAction{
+		ably.PresenceActionEnter,
+		ably.PresenceActionUpdate,
+		ably.PresenceActionLeave,
 	}
 	var fixtures []*ably.PresenceMessage
 	for i := 0; i < 10; i++ {
@@ -231,11 +231,11 @@ func postPresenceHistoryFixtures(t *testing.T, ctx context.Context, app *ablytes
 	for i, m := range fixtures {
 		var err error
 		switch m.Action {
-		case ably.PresenceEnter:
+		case ably.PresenceActionEnter:
 			err = p.EnterClient(ctx, m.ClientID, m.Data)
-		case ably.PresenceUpdate:
+		case ably.PresenceActionUpdate:
 			err = p.UpdateClient(ctx, m.ClientID, m.Data)
-		case ably.PresenceLeave:
+		case ably.PresenceActionLeave:
 			err = p.LeaveClient(ctx, m.ClientID, m.Data)
 		}
 		if err != nil {
@@ -272,7 +272,7 @@ fixtures:
 			}
 		}
 		expected = append(expected, &ably.PresenceMessage{
-			Action: ably.PresencePresent,
+			Action: ably.PresenceActionPresent,
 			Message: ably.Message{
 				ClientID: p.ClientID,
 				Data:     p.Data,

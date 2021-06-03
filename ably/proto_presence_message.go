@@ -4,19 +4,38 @@ import (
 	"fmt"
 )
 
-type Proto_PresenceAction int64
+// A PresenceAction is a kind of action involving presence in a channel.
+type PresenceAction int64
 
 const (
-	PresenceAbsent Proto_PresenceAction = iota
-	PresencePresent
-	PresenceEnter
-	PresenceLeave
-	PresenceUpdate
+	PresenceActionAbsent PresenceAction = iota
+	PresenceActionPresent
+	PresenceActionEnter
+	PresenceActionLeave
+	PresenceActionUpdate
 )
+
+func (e PresenceAction) String() string {
+	switch e {
+	case PresenceActionAbsent:
+		return "ABSENT"
+	case PresenceActionPresent:
+		return "PRESENT"
+	case PresenceActionEnter:
+		return "ENTER"
+	case PresenceActionLeave:
+		return "LEAVE"
+	case PresenceActionUpdate:
+		return "UPDATE"
+	}
+	return ""
+}
+
+func (PresenceAction) isEmitterEvent() {}
 
 type PresenceMessage struct {
 	Message
-	Action Proto_PresenceAction `json:"action" codec:"action"`
+	Action PresenceAction `json:"action" codec:"action"`
 }
 
 func (m PresenceMessage) String() string {

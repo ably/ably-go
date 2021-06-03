@@ -10,11 +10,11 @@ import (
 )
 
 func TestPresenceMessage(t *testing.T) {
-	actions := []ably.Proto_PresenceAction{
-		ably.PresenceAbsent,
-		ably.PresencePresent,
-		ably.PresenceEnter,
-		ably.PresenceLeave,
+	actions := []ably.PresenceAction{
+		ably.PresenceActionAbsent,
+		ably.PresenceActionPresent,
+		ably.PresenceActionEnter,
+		ably.PresenceActionLeave,
 	}
 
 	for _, a := range actions {
