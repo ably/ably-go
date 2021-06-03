@@ -90,9 +90,9 @@ func TestMessage(t *testing.T) {
 		v := v
 		t.Run(v.desc, func(t *testing.T) {
 			cipher, _ := v.opts.GetCipher()
-			msg, err := ably.Message{
+			msg, err := ably.MessageWithEncodedData(ably.Message{
 				Data: v.data,
-			}.WithEncodedData(cipher)
+			}, cipher)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -110,7 +110,7 @@ func TestMessage(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			decoded, err := encoded.WithDecodedData(cipher)
+			decoded, err := ably.MessageWithDecodedData(encoded, cipher)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -154,7 +154,7 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					encoded, err = encoded.WithDecodedData(cipher)
+					encoded, err = ably.MessageWithDecodedData(encoded, cipher)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -164,7 +164,7 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					encrypted, err = encrypted.WithDecodedData(cipher)
+					encrypted, err = ably.MessageWithDecodedData(encrypted, cipher)
 					if err != nil {
 						t.Fatal(err)
 					}

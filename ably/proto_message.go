@@ -38,7 +38,7 @@ func unencodableDataErr(data interface{}) error {
 	return fmt.Errorf("message data type %T must be string, []byte, or a value that can be encoded as a JSON object or array", data)
 }
 
-func (m Message) WithEncodedData(cipher channelCipher) (Message, error) {
+func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 	// TODO: Unexport once proto gets merged into package ably.
 	if m.Data == nil {
 		return m, nil
@@ -99,7 +99,7 @@ func (m Message) WithEncodedData(cipher channelCipher) (Message, error) {
 	return m, nil
 }
 
-func (m Message) WithDecodedData(cipher channelCipher) (Message, error) {
+func (m Message) withDecodedData(cipher channelCipher) (Message, error) {
 	// TODO: Unexport once proto gets merged into package ably.
 
 	// strings.Split on empty string returns []string{""}
@@ -182,8 +182,8 @@ func coerceBytes(i interface{}) ([]byte, error) {
 	}
 }
 
-// MemberKey returns string that allows to uniquely identify connected clients.
-func (m *Message) MemberKey() string {
+// memberKey returns string that allows to uniquely identify connected clients.
+func (m *Message) memberKey() string {
 	return m.ConnectionID + ":" + m.ClientID
 }
 

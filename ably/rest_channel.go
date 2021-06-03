@@ -87,7 +87,7 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 	for i, m := range messages {
 		cipher, _ := c.options.GetCipher()
 		var err error
-		*m, err = (*m).WithEncodedData(cipher)
+		*m, err = (*m).withEncodedData(cipher)
 		if err != nil {
 			return fmt.Errorf("encoding data for message #%d: %w", i, err)
 		}
@@ -279,7 +279,7 @@ func (t *fullMessagesDecoder) decodeMessagesData() {
 	cipher, _ := t.c.options.GetCipher()
 	for _, m := range *t.dst {
 		var err error
-		*m, err = m.WithDecodedData(cipher)
+		*m, err = m.withDecodedData(cipher)
 		if err != nil {
 			// RSL6b
 			t.c.log().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
