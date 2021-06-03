@@ -48,9 +48,9 @@ type Connection struct {
 	key          string
 	serial       *int64
 	msgSerial    int64
-	connStateTTL DurationFromMsecs
+	connStateTTL durationFromMsecs
 	err          error
-	conn         Conn
+	conn         conn
 	opts         *clientOptions
 	pending      pendingEmitter
 	queue        *msgQueue
@@ -68,7 +68,7 @@ type Connection struct {
 }
 
 type connCallbacks struct {
-	onChannelMsg func(*ProtocolMessage)
+	onChannelMsg func(*protocolMessage)
 	// onReconnected is called when we get a CONNECTED response from reconnect request. We
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels and we dont have it here so we let RealtimeClient do the
@@ -76,7 +76,7 @@ type connCallbacks struct {
 	onReconnected func(isNewID bool)
 	// onReconnectionFailed is called when we get a FAILED response from a
 	// reconnection request.
-	onReconnectionFailed func(*Proto_ErrorInfo)
+	onReconnectionFailed func(*errorInfo)
 }
 
 func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connection {
@@ -104,7 +104,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 	return c
 }
 
-func (c *Connection) dial(proto string, u *url.URL) (conn Conn, err error) {
+func (c *Connection) dial(proto string, u *url.URL) (conn conn, err error) {
 	start := time.Now()
 	c.log().Debugf("Dial protocol=%q url %q ", proto, u.String())
 	// (RTN23b)
@@ -115,7 +115,7 @@ func (c *Connection) dial(proto string, u *url.URL) (conn Conn, err error) {
 	if c.opts.Dial != nil {
 		conn, err = c.opts.Dial(proto, u, timeout)
 	} else {
-		conn, err = DialWebsocket(proto, u, timeout)
+		conn, err = dialWebsocket(proto, u, timeout)
 	}
 	if err != nil {
 		c.log().Debugf("Dial Failed in %v with %v", time.Since(start), err)
@@ -175,7 +175,7 @@ func (c *Connection) connect(arg connArgs) (result, error) {
 
 type connArgs struct {
 	lastActivityAt time.Time
-	connDetails    *ConnectionDetails
+	connDetails    *connectionDetails
 	result         bool
 	dialOnce       bool
 	mode           connectionMode
@@ -231,8 +231,8 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 		"timestamp": []string{strconv.FormatInt(unixMilli(c.opts.Now()), 10)},
 		"echo":      []string{"true"},
 		"format":    []string{"msgpack"},
-		"v":         []string{AblyVersion},
-		"lib":       []string{LibraryString},
+		"v":         []string{ablyVersion},
+		"lib":       []string{libraryString},
 	}
 	if c.opts.NoEcho {
 		query.Set("echo", "false")
@@ -418,7 +418,7 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) sendClose() {
-	msg := &ProtocolMessage{Action: ActionClose}
+	msg := &protocolMessage{Action: actionClose}
 
 	// TODO: handle error. If you can't send a message, the fail-fast way to
 	// deal with it is to discard the WebSocket and perform a normal
@@ -554,7 +554,7 @@ func (c *Connection) advanceSerial() {
 	c.msgSerial = (c.msgSerial + 1) % maxint64
 }
 
-func (c *Connection) send(msg *ProtocolMessage, listen chan<- error) {
+func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
 	c.mtx.Lock()
 	switch state := c.state; state {
 	default:
@@ -602,11 +602,11 @@ func (c *Connection) send(msg *ProtocolMessage, listen chan<- error) {
 //
 // If both user was not authenticated with a wildcard ClientID and the one
 // being sent does not match it, the method return non-nil error.
-func (c *Connection) verifyAndUpdateMessages(msg *ProtocolMessage) (err error) {
+func (c *Connection) verifyAndUpdateMessages(msg *protocolMessage) (err error) {
 	clientID := c.auth.clientIDForCheck()
 	connectionID := c.id
 	switch msg.Action {
-	case ActionMessage:
+	case actionMessage:
 		for _, msg := range msg.Messages {
 			if !isClientIDAllowed(clientID, msg.ClientID) {
 				return newError(90000, fmt.Errorf("unable to send message as %q", msg.ClientID))
@@ -616,7 +616,7 @@ func (c *Connection) verifyAndUpdateMessages(msg *ProtocolMessage) (err error) {
 			}
 			msg.ConnectionID = connectionID
 		}
-	case ActionPresence:
+	case actionPresence:
 		for _, presmsg := range msg.Presence {
 			switch {
 			case !isClientIDAllowed(clientID, presmsg.ClientID):
@@ -648,7 +648,7 @@ func (c *Connection) lockIsActive() bool {
 	return c.isActive()
 }
 
-func (c *Connection) setConn(conn Conn) {
+func (c *Connection) setConn(conn conn) {
 	c.connMtx.Lock()
 	c.conn = conn
 	c.connMtx.Unlock()
@@ -676,7 +676,7 @@ func (c *Connection) resendPending() {
 
 func (c *Connection) eventloop() {
 	var lastActivityAt time.Time
-	var connDetails *ConnectionDetails
+	var connDetails *connectionDetails
 	for c.lockCanReceiveMessages() {
 		receiveTimeout := c.opts.realtimeRequestTimeout()
 		if connDetails != nil {
@@ -715,16 +715,16 @@ func (c *Connection) eventloop() {
 			c.mtx.Unlock()
 		}
 		switch msg.Action {
-		case ActionHeartbeat:
-		case ActionAck:
+		case actionHeartbeat:
+		case actionAck:
 			c.mtx.Lock()
 			c.pending.Ack(msg, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
-		case ActionNack:
+		case actionNack:
 			c.mtx.Lock()
 			c.pending.Nack(msg, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
-		case ActionError:
+		case actionError:
 
 			if msg.Channel != "" {
 				c.callbacks.onChannelMsg(msg)
@@ -752,7 +752,7 @@ func (c *Connection) eventloop() {
 			c.mtx.Unlock()
 
 			c.failedConnSideEffects(msg.Error)
-		case ActionConnected:
+		case actionConnected:
 			c.mtx.Lock()
 
 			// we need to get this before we set c.key so as to be sure if we were
@@ -810,7 +810,7 @@ func (c *Connection) eventloop() {
 				c.mtx.Unlock()
 			}
 			c.queue.Flush()
-		case ActionDisconnected:
+		case actionDisconnected:
 			if !isTokenError(msg.Error) {
 				// The spec doesn't say what to do in this case, so do nothing.
 				// Ably is supposed to then close the transport, which will
@@ -830,7 +830,7 @@ func (c *Connection) eventloop() {
 				connDetails:    connDetails,
 			})
 			return
-		case ActionClosed:
+		case actionClosed:
 			c.mtx.Lock()
 			c.lockSetState(ConnectionStateClosed, nil, 0)
 			c.mtx.Unlock()
@@ -843,7 +843,7 @@ func (c *Connection) eventloop() {
 	}
 }
 
-func (c *Connection) failedConnSideEffects(err *Proto_ErrorInfo) {
+func (c *Connection) failedConnSideEffects(err *errorInfo) {
 	c.mtx.Lock()
 	if c.reconnecting {
 		c.reconnecting = false
@@ -880,16 +880,16 @@ func (c *Connection) lockedReauthorizationFailed(err error) {
 }
 
 type verboseConn struct {
-	conn   Conn
+	conn   conn
 	logger logger
 }
 
-func (vc verboseConn) Send(msg *ProtocolMessage) error {
+func (vc verboseConn) Send(msg *protocolMessage) error {
 	vc.logger.Verbosef("Realtime Connection: sending %s", msg)
 	return vc.conn.Send(msg)
 }
 
-func (vc verboseConn) Receive(deadline time.Time) (*ProtocolMessage, error) {
+func (vc verboseConn) Receive(deadline time.Time) (*protocolMessage, error) {
 	msg, err := vc.conn.Receive(deadline)
 	if err != nil {
 		return nil, err

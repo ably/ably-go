@@ -1,47 +1,47 @@
 package ably
 
-type Action int8
+type protoAction int8
 
 const (
-	ActionHeartbeat Action = iota
-	ActionAck
-	ActionNack
-	ActionConnect
-	ActionConnected
-	ActionDisconnect
-	ActionDisconnected
-	ActionClose
-	ActionClosed
-	ActionError
-	ActionAttach
-	ActionAttached
-	ActionDetach
-	ActionDetached
-	ActionPresence
-	ActionMessage
-	ActionSync
+	actionHeartbeat protoAction = iota
+	actionAck
+	actionNack
+	actionConnect
+	actionConnected
+	actionDisconnect
+	actionDisconnected
+	actionClose
+	actionClosed
+	actionError
+	actionAttach
+	actionAttached
+	actionDetach
+	actionDetached
+	actionPresence
+	actionMessage
+	actionSync
 )
 
-var actions = map[Action]string{
-	ActionHeartbeat:    "heartbeat",
-	ActionAck:          "ack",
-	ActionNack:         "nack",
-	ActionConnect:      "connect",
-	ActionConnected:    "connected",
-	ActionDisconnect:   "disconnect",
-	ActionDisconnected: "disconnected",
-	ActionClose:        "close",
-	ActionClosed:       "closed",
-	ActionError:        "error",
-	ActionAttach:       "attach",
-	ActionAttached:     "attached",
-	ActionDetach:       "detach",
-	ActionDetached:     "detached",
-	ActionPresence:     "presence",
-	ActionMessage:      "message",
-	ActionSync:         "sync",
+var actions = map[protoAction]string{
+	actionHeartbeat:    "heartbeat",
+	actionAck:          "ack",
+	actionNack:         "nack",
+	actionConnect:      "connect",
+	actionConnected:    "connected",
+	actionDisconnect:   "disconnect",
+	actionDisconnected: "disconnected",
+	actionClose:        "close",
+	actionClosed:       "closed",
+	actionError:        "error",
+	actionAttach:       "attach",
+	actionAttached:     "attached",
+	actionDetach:       "detach",
+	actionDetached:     "detached",
+	actionPresence:     "presence",
+	actionMessage:      "message",
+	actionSync:         "sync",
 }
 
-func (a Action) String() string {
+func (a protoAction) String() string {
 	return actions[a]
 }

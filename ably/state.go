@@ -116,7 +116,7 @@ func newPendingEmitter(log logger) pendingEmitter {
 }
 
 type msgCh struct {
-	msg *ProtocolMessage
+	msg *protocolMessage
 	ch  chan<- error
 }
 
@@ -132,11 +132,11 @@ func (q pendingEmitter) Swap(i, j int) {
 	q.queue[i], q.queue[j] = q.queue[j], q.queue[i]
 }
 
-func (q pendingEmitter) Search(msg *ProtocolMessage) int {
+func (q pendingEmitter) Search(msg *protocolMessage) int {
 	return sort.Search(q.Len(), func(i int) bool { return q.queue[i].msg.MsgSerial >= msg.MsgSerial })
 }
 
-func (q *pendingEmitter) Enqueue(msg *ProtocolMessage, ch chan<- error) {
+func (q *pendingEmitter) Enqueue(msg *protocolMessage, ch chan<- error) {
 	switch i := q.Search(msg); {
 	case i == q.Len():
 		q.queue = append(q.queue, msgCh{msg, ch})
@@ -149,7 +149,7 @@ func (q *pendingEmitter) Enqueue(msg *ProtocolMessage, ch chan<- error) {
 	}
 }
 
-func (q *pendingEmitter) Ack(msg *ProtocolMessage, errInfo *ErrorInfo) {
+func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
@@ -180,7 +180,7 @@ func (q *pendingEmitter) Ack(msg *ProtocolMessage, errInfo *ErrorInfo) {
 	q.queue = q.queue[ack:]
 }
 
-func (q *pendingEmitter) Nack(msg *ProtocolMessage, errInfo *ErrorInfo) {
+func (q *pendingEmitter) Nack(msg *protocolMessage, errInfo *ErrorInfo) {
 	if q.Len() == 0 {
 		return
 	}
@@ -202,7 +202,7 @@ func (q *pendingEmitter) Nack(msg *ProtocolMessage, errInfo *ErrorInfo) {
 }
 
 type msgch struct {
-	msg *ProtocolMessage
+	msg *protocolMessage
 	ch  chan<- error
 }
 
@@ -218,7 +218,7 @@ func newMsgQueue(conn *Connection) *msgQueue {
 	}
 }
 
-func (q *msgQueue) Enqueue(msg *ProtocolMessage, listen chan<- error) {
+func (q *msgQueue) Enqueue(msg *protocolMessage, listen chan<- error) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
 	q.queue = append(q.queue, msgch{msg, listen})

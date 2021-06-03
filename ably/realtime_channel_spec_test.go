@@ -1142,7 +1142,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
-		errInfo := ably.Proto_ErrorInfo{
+		errInfo := ably.ProtoErrorInfo{
 			StatusCode: 500,
 			Code:       50500,
 			Message:    "fake error",
@@ -1437,7 +1437,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		attachMessage := recorder.FindFirst(ably.ActionAttach)
 		flags := attachMessage.Flags // RTL4k
-		modes := ably.FromFlag(flags)
+		modes := ably.ChannelModeFromFlag(flags)
 
 		if !reflect.DeepEqual(channelModes, modes) {
 			t.Fatalf("expected %v; got %v", channelModes, modes)
@@ -2626,7 +2626,7 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 		return
 	}
 
-	flags := make(map[ably.Flag]string)
+	flags := make(map[ably.ProtoFlag]string)
 	flags[ably.FlagHasPresence] = "flag has_presence is provided"
 	flags[ably.FlagHasBacklog] = "flag has_backlog is provided"
 	flags[ably.FlagResumed] = "flag resumed is provided"
@@ -2679,7 +2679,7 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 		}
 
 		// Re-attach the channel
-		errInfo := ably.Proto_ErrorInfo{
+		errInfo := ably.ProtoErrorInfo{
 			StatusCode: 500,
 			Code:       50500,
 			Message:    "fake error",
@@ -2783,7 +2783,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
 
-		errInfo := ably.Proto_ErrorInfo{
+		errInfo := ably.ProtoErrorInfo{
 			StatusCode: 500,
 			Code:       50500,
 			Message:    "fake error",
@@ -2835,7 +2835,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		in, out, _, channel, stateChanges, afterCalls := setup(t)
 
-		errInfo := ably.Proto_ErrorInfo{
+		errInfo := ably.ProtoErrorInfo{
 			StatusCode: 500,
 			Code:       50500,
 			Message:    "fake error",
@@ -2905,7 +2905,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		in, out, c, channel, stateChanges, afterCalls := setup(t)
 
-		errInfo := ably.Proto_ErrorInfo{
+		errInfo := ably.ProtoErrorInfo{
 			StatusCode: 500,
 			Code:       50500,
 			Message:    "fake error",
@@ -3152,7 +3152,7 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 		t.Parallel()
 		in, out, _, channel, stateChanges, afterCalls := setup(t)
 
-		errInfo := ably.Proto_ErrorInfo{
+		errInfo := ably.ProtoErrorInfo{
 			StatusCode: 500,
 			Code:       50500,
 			Message:    "fake error",

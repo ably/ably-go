@@ -35,7 +35,7 @@ type RESTChannel struct {
 
 	client  *REST
 	baseURL string
-	options *ChannelOptions
+	options *protoChannelOptions
 }
 
 func newRESTChannel(name string, client *REST) *RESTChannel {

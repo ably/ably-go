@@ -24,15 +24,15 @@ func TestCrypto_RSE1_GetDefaultParams(t *testing.T) {
 			expected: ably.CipherParams{
 				Key:       make([]byte, 256/8),
 				KeyLength: 256,
-				Algorithm: ably.AES,
-				Mode:      ably.CBC,
+				Algorithm: ably.CipherAES,
+				Mode:      ably.CipherCBC,
 			},
 		},
 		{
 			name: "RSE1b: no key panics",
 			in: ably.CipherParams{
-				Algorithm: ably.AES,
-				Mode:      ably.CBC,
+				Algorithm: ably.CipherAES,
+				Mode:      ably.CipherCBC,
 			},
 			expectedPanic: true,
 		},
@@ -51,8 +51,8 @@ func TestCrypto_RSE1_GetDefaultParams(t *testing.T) {
 			expected: ably.CipherParams{
 				Key:       make([]byte, 128/8),
 				KeyLength: 128,
-				Algorithm: ably.AES,
-				Mode:      ably.CBC,
+				Algorithm: ably.CipherAES,
+				Mode:      ably.CipherCBC,
 			},
 		},
 	} {
@@ -84,8 +84,8 @@ func TestCrypto_RSE2_GenerateRandomKey(t *testing.T) {
 			ts.Fatal(err)
 		}
 		got := len(key) * 8 // count bits
-		if got != ably.DefaultKeyLength {
-			ts.Errorf("expected %d got %d", ably.DefaultKeyLength, got)
+		if got != ably.DefaultCipherKeyLength {
+			ts.Errorf("expected %d got %d", ably.DefaultCipherKeyLength, got)
 		}
 	})
 	t.Run("must use optional key length", func(ts *testing.T) {

@@ -290,7 +290,7 @@ func (rec *MessageRecorder) Sent() []*ably.ProtocolMessage {
 	return sent
 }
 
-func (rec *MessageRecorder) CheckIfSent(action ably.Action, times int) func() bool {
+func (rec *MessageRecorder) CheckIfSent(action ably.ProtoAction, times int) func() bool {
 	return func() bool {
 		counter := 0
 		for _, m := range rec.Sent() {
@@ -305,7 +305,7 @@ func (rec *MessageRecorder) CheckIfSent(action ably.Action, times int) func() bo
 	}
 }
 
-func (rec *MessageRecorder) FindFirst(action ably.Action) *ably.ProtocolMessage {
+func (rec *MessageRecorder) FindFirst(action ably.ProtoAction) *ably.ProtocolMessage {
 	for _, m := range rec.Sent() {
 		if m.Action == action {
 			return m
@@ -481,7 +481,7 @@ func (c connWithFakeDisconnect) Receive(deadline time.Time) (*ably.ProtocolMessa
 
 		return &ably.ProtocolMessage{
 			Action: ably.ActionDisconnected,
-			Error:  &ably.Proto_ErrorInfo{Message: "fake disconnection"},
+			Error:  &ably.ProtoErrorInfo{Message: "fake disconnection"},
 		}, nil
 	}
 }
@@ -502,10 +502,10 @@ func (c connWithFakeDisconnect) Close() error {
 // makes the processing of the next received protocol message with any of the given
 // actions. The processing remains blocked until the passed context expires. The
 // intercepted message is sent to the returned channel.
-func DialIntercept(dial DialFunc) (_ DialFunc, intercept func(context.Context, ...ably.Action) <-chan *ably.ProtocolMessage) {
+func DialIntercept(dial DialFunc) (_ DialFunc, intercept func(context.Context, ...ably.ProtoAction) <-chan *ably.ProtocolMessage) {
 	active := &activeIntercept{}
 
-	intercept = func(ctx context.Context, actions ...ably.Action) <-chan *ably.ProtocolMessage {
+	intercept = func(ctx context.Context, actions ...ably.ProtoAction) <-chan *ably.ProtocolMessage {
 		msg := make(chan *ably.ProtocolMessage, 1)
 		active.Lock()
 		defer active.Unlock()
@@ -527,7 +527,7 @@ func DialIntercept(dial DialFunc) (_ DialFunc, intercept func(context.Context, .
 type activeIntercept struct {
 	sync.Mutex
 	ctx     context.Context
-	actions []ably.Action
+	actions []ably.ProtoAction
 	msg     chan<- *ably.ProtocolMessage
 }
 

@@ -176,9 +176,9 @@ func TestRestClient(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		stats[0].IntervalID = ably.IntervalFormatFor(lastInterval.Add(-120*time.Minute), ably.StatGranularityMinute)
-		stats[1].IntervalID = ably.IntervalFormatFor(lastInterval.Add(-60*time.Minute), ably.StatGranularityMinute)
-		stats[2].IntervalID = ably.IntervalFormatFor(lastInterval.Add(-1*time.Minute), ably.StatGranularityMinute)
+		stats[0].IntervalID = intervalFormatFor(lastInterval.Add(-120*time.Minute), ably.StatGranularityMinute)
+		stats[1].IntervalID = intervalFormatFor(lastInterval.Add(-60*time.Minute), ably.StatGranularityMinute)
+		stats[2].IntervalID = intervalFormatFor(lastInterval.Add(-1*time.Minute), ably.StatGranularityMinute)
 
 		res, err := client.Post(context.Background(), "/stats", &stats, nil)
 		if err != nil {
@@ -820,4 +820,17 @@ func reverseStats(stats []*ably.Stats) []*ably.Stats {
 		reversed = append(reversed, stats[i])
 	}
 	return reversed
+}
+
+var (
+	intervalFormats = map[string]string{
+		ably.StatGranularityMinute: "2006-01-02:15:04",
+		ably.StatGranularityHour:   "2006-01-02:15",
+		ably.StatGranularityDay:    "2006-01-02",
+		ably.StatGranularityMonth:  "2006-01",
+	}
+)
+
+func intervalFormatFor(t time.Time, granulatity string) string {
+	return t.Format(intervalFormats[granulatity])
 }

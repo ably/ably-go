@@ -12,10 +12,10 @@ import (
 
 // encodings
 const (
-	UTF8   = "utf-8"
-	JSON   = "json"
-	Base64 = "base64"
-	Cipher = "cipher"
+	encUTF8   = "utf-8"
+	encJSON   = "json"
+	encBase64 = "base64"
+	encCipher = "cipher"
 )
 
 // Message is what Ably channels send and receive.
@@ -38,7 +38,7 @@ func unencodableDataErr(data interface{}) error {
 	return fmt.Errorf("message data type %T must be string, []byte, or a value that can be encoded as a JSON object or array", data)
 }
 
-func (m Message) WithEncodedData(cipher ChannelCipher) (Message, error) {
+func (m Message) WithEncodedData(cipher channelCipher) (Message, error) {
 	// TODO: Unexport once proto gets merged into package ably.
 	if m.Data == nil {
 		return m, nil
@@ -47,7 +47,7 @@ func (m Message) WithEncodedData(cipher ChannelCipher) (Message, error) {
 	switch d := m.Data.(type) {
 	case string:
 		if utf8.ValidString(d) {
-			m.Encoding = mergeEncoding(m.Encoding, UTF8)
+			m.Encoding = mergeEncoding(m.Encoding, encUTF8)
 		} else {
 			// If string isn't UTF-8, convert to []byte to encode it as base64
 			// below.
@@ -58,7 +58,7 @@ func (m Message) WithEncodedData(cipher ChannelCipher) (Message, error) {
 	case string:
 	case []byte:
 		m.Data = base64.StdEncoding.EncodeToString(d)
-		m.Encoding = mergeEncoding(m.Encoding, Base64)
+		m.Encoding = mergeEncoding(m.Encoding, encBase64)
 	default:
 		// RSL4c3, RSL4d3: JSON is only for objects and arrays. So marshal data
 		// into JSON, then check if if's one of those.
@@ -71,7 +71,7 @@ func (m Message) WithEncodedData(cipher ChannelCipher) (Message, error) {
 			return Message{}, fmt.Errorf("%s; encoded as JSON %T", unencodableDataErr(d), token)
 		}
 		m.Data = string(b)
-		m.Encoding = mergeEncoding(m.Encoding, JSON)
+		m.Encoding = mergeEncoding(m.Encoding, encJSON)
 	}
 
 	if cipher == nil {
@@ -91,15 +91,15 @@ func (m Message) WithEncodedData(cipher ChannelCipher) (Message, error) {
 	if _, ok := m.Data.(string); ok {
 		// Not sure why this is useful, and can't find the requirement in the
 		// spec, but test fixtures expect this.
-		m.Encoding = mergeEncoding(m.Encoding, UTF8)
+		m.Encoding = mergeEncoding(m.Encoding, encUTF8)
 	}
 	m.Data = base64.StdEncoding.EncodeToString(e)
 	m.Encoding = mergeEncoding(m.Encoding, cipher.GetAlgorithm())
-	m.Encoding = mergeEncoding(m.Encoding, Base64)
+	m.Encoding = mergeEncoding(m.Encoding, encBase64)
 	return m, nil
 }
 
-func (m Message) WithDecodedData(cipher ChannelCipher) (Message, error) {
+func (m Message) WithDecodedData(cipher channelCipher) (Message, error) {
 	// TODO: Unexport once proto gets merged into package ably.
 
 	// strings.Split on empty string returns []string{""}
@@ -111,7 +111,7 @@ func (m Message) WithDecodedData(cipher ChannelCipher) (Message, error) {
 		encoding := encodings[len(encodings)-1]
 		encodings = encodings[:len(encodings)-1]
 		switch encoding {
-		case Base64:
+		case encBase64:
 			d, err := coerceString(m.Data)
 			if err != nil {
 				return m, err
@@ -121,13 +121,13 @@ func (m Message) WithDecodedData(cipher ChannelCipher) (Message, error) {
 				return m, err
 			}
 			m.Data = data
-		case UTF8:
+		case encUTF8:
 			d, err := coerceString(m.Data)
 			if err != nil {
 				return m, err
 			}
 			m.Data = d
-		case JSON:
+		case encJSON:
 			d, err := coerceBytes(m.Data)
 			if err != nil {
 				return m, err
@@ -138,7 +138,7 @@ func (m Message) WithDecodedData(cipher ChannelCipher) (Message, error) {
 			}
 			m.Data = result
 		default:
-			if strings.HasPrefix(encoding, Cipher) {
+			if strings.HasPrefix(encoding, encCipher) {
 				if cipher == nil {
 					return m, fmt.Errorf("message data is encrypted as %s, but cipher wasn't provided", encoding)
 				}

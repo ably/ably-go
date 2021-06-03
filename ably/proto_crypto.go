@@ -9,42 +9,41 @@ import (
 	"io"
 )
 
-// CipherAlgorithm algorithms used for channel encryption.
+// CipherAlgorithm is a supported algorithm for channel encryption.
 type CipherAlgorithm uint
 
 const (
-	AES CipherAlgorithm = 1 + iota
+	CipherAES CipherAlgorithm = 1 + iota
 )
 
 func (c CipherAlgorithm) String() string {
 	switch c {
-	case AES:
+	case CipherAES:
 		return "aes"
 	default:
 		return ""
 	}
 }
 
-func (c CipherAlgorithm) IsValidKeyLength(l int) bool {
+func (c CipherAlgorithm) isValidKeyLength(l int) bool {
 	switch c {
-	case AES:
+	case CipherAES:
 		return l == 128 || l == 256
 	default:
 		return false
 	}
 }
 
-// CipherMode defines supported  ciphers.
+// CipherMode is a supported cipher mode for channel encryption.
 type CipherMode uint
 
 const (
-	// CBC defines cbc mode.
-	CBC CipherMode = 1 + iota
+	CipherCBC CipherMode = 1 + iota
 )
 
 func (c CipherMode) String() string {
 	switch c {
-	case CBC:
+	case CipherCBC:
 		return "cbs"
 	default:
 		return ""
@@ -52,9 +51,9 @@ func (c CipherMode) String() string {
 }
 
 const (
-	DefaultKeyLength       = 256
-	DefaultCipherAlgorithm = AES
-	DefaultCipherMode      = CBC
+	defaultCipherKeyLength = 256
+	defaultCipherAlgorithm = CipherAES
+	defaultCipherMode      = CipherCBC
 )
 
 // CipherParams  provides parameters for configuring encryption  for channels.
@@ -83,7 +82,7 @@ type CipherParams struct {
 
 // GetCipher returns a ChannelCipher based on the algorithms set in the
 // ChannelOptions.CipherParams.
-func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
+func (c *protoChannelOptions) GetCipher() (channelCipher, error) {
 	if c == nil {
 		return nil, errors.New("no cipher configured")
 	}
@@ -91,8 +90,8 @@ func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
 		return c.cipher, nil
 	}
 	switch c.Cipher.Algorithm {
-	case AES:
-		cipher, err := NewCBCCipher(c.Cipher)
+	case CipherAES:
+		cipher, err := newCBCCipher(c.Cipher)
 		if err != nil {
 			return nil, err
 		}
@@ -103,38 +102,38 @@ func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
 	}
 }
 
-// ChannelCipher is an interface for encrypting and decrypting channel messages.
-type ChannelCipher interface {
+// channelCipher is an interface for encrypting and decrypting channel messages.
+type channelCipher interface {
 	Encrypt(plainText []byte) ([]byte, error)
 	Decrypt(plainText []byte) ([]byte, error)
 	GetAlgorithm() string
 }
 
-var _ ChannelCipher = (*CBCCipher)(nil)
+var _ channelCipher = (*cbcCipher)(nil)
 
-// CBCCipher implements ChannelCipher that uses CBC mode.
-type CBCCipher struct {
+// cbcCipher implements ChannelCipher that uses CBC mode.
+type cbcCipher struct {
 	algorithm string
 	params    CipherParams
 }
 
-// NewCBCCipher returns a new CBCCipher that uses opts to initialize.
-func NewCBCCipher(opts CipherParams) (*CBCCipher, error) {
-	if opts.Algorithm != AES {
+// newCBCCipher returns a new CBCCipher that uses opts to initialize.
+func newCBCCipher(opts CipherParams) (*cbcCipher, error) {
+	if opts.Algorithm != CipherAES {
 		return nil, errors.New("unknown cipher algorithm")
 	}
-	if opts.Mode != 0 && opts.Mode != CBC {
+	if opts.Mode != 0 && opts.Mode != CipherCBC {
 		return nil, errors.New("unknown cipher mode")
 	}
 	algo := fmt.Sprintf("cipher+%s-%d-cbc", opts.Algorithm, opts.KeyLength)
-	return &CBCCipher{
+	return &cbcCipher{
 		algorithm: algo,
 		params:    opts,
 	}, nil
 }
 
 // Encrypt encrypts plainText using AES algorithm and returns encoded bytes.
-func (c *CBCCipher) Encrypt(plainText []byte) ([]byte, error) {
+func (c *cbcCipher) Encrypt(plainText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.params.Key)
 	if err != nil {
 		return nil, err
@@ -164,7 +163,7 @@ func (c *CBCCipher) Encrypt(plainText []byte) ([]byte, error) {
 
 // Decrypt decrypts cipherText using CBC mode and AES algorithm and returns
 // decrypted bytes.
-func (c *CBCCipher) Decrypt(cipherText []byte) ([]byte, error) {
+func (c *cbcCipher) Decrypt(cipherText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.params.Key)
 	if err != nil {
 		return nil, err
@@ -184,6 +183,6 @@ func (c *CBCCipher) Decrypt(cipherText []byte) ([]byte, error) {
 }
 
 // GetAlgorithm returns the cipher algorithm used by this CBCCipher which is AES.
-func (c *CBCCipher) GetAlgorithm() string {
+func (c *cbcCipher) GetAlgorithm() string {
 	return c.algorithm
 }

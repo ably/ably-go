@@ -10,17 +10,17 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-type WebsocketConn struct {
+type websocketConn struct {
 	conn  *websocket.Conn
 	codec websocket.Codec
 }
 
-func (ws *WebsocketConn) Send(msg *ProtocolMessage) error {
+func (ws *websocketConn) Send(msg *protocolMessage) error {
 	return ws.codec.Send(ws.conn, msg)
 }
 
-func (ws *WebsocketConn) Receive(deadline time.Time) (*ProtocolMessage, error) {
-	msg := &ProtocolMessage{}
+func (ws *websocketConn) Receive(deadline time.Time) (*protocolMessage, error) {
+	msg := &protocolMessage{}
 	if !deadline.IsZero() {
 		err := ws.conn.SetReadDeadline(deadline)
 		if err != nil {
@@ -34,12 +34,12 @@ func (ws *WebsocketConn) Receive(deadline time.Time) (*ProtocolMessage, error) {
 	return msg, nil
 }
 
-func (ws *WebsocketConn) Close() error {
+func (ws *websocketConn) Close() error {
 	return ws.conn.Close()
 }
 
-func DialWebsocket(proto string, u *url.URL, timeout time.Duration) (*WebsocketConn, error) {
-	ws := &WebsocketConn{}
+func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketConn, error) {
+	ws := &websocketConn{}
 	switch proto {
 	case "application/json":
 		ws.codec = websocket.JSON

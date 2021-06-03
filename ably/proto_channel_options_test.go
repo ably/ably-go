@@ -9,25 +9,25 @@ import (
 
 func TestRealtimeChannelModes_ToFlag(t *testing.T) {
 	mode := ably.ChannelModePresence
-	flag := mode.ToFlag()
+	flag := ably.ChannelModeToFlag(mode)
 	if flag != ably.FlagPresence {
 		t.Fatalf("Expected %v, received %v", ably.FlagPresence, flag)
 	}
 
 	mode = ably.ChannelModeSubscribe
-	flag = mode.ToFlag()
+	flag = ably.ChannelModeToFlag(mode)
 	if flag != ably.FlagSubscribe {
 		t.Fatalf("Expected %v, received %v", ably.FlagSubscribe, flag)
 	}
 
 	mode = ably.ChannelModePublish
-	flag = mode.ToFlag()
+	flag = ably.ChannelModeToFlag(mode)
 	if flag != ably.FlagPublish {
 		t.Fatalf("Expected %v, received %v", ably.FlagPublish, flag)
 	}
 
 	mode = ably.ChannelModePresenceSubscribe
-	flag = mode.ToFlag()
+	flag = ably.ChannelModeToFlag(mode)
 	if flag != ably.FlagPresenceSubscribe {
 		t.Fatalf("Expected %v, received %v", ably.FlagPresenceSubscribe, flag)
 	}
@@ -51,7 +51,7 @@ func TestRealtimeChannelModes_FromFlag(t *testing.T) {
 	}
 
 	flags := ably.FlagPresence | ably.FlagPresenceSubscribe | ably.FlagSubscribe
-	modes := ably.FromFlag(flags)
+	modes := ably.ChannelModeFromFlag(flags)
 
 	if !inArray(ably.ChannelModePresence, modes) {
 		t.Fatalf("Expected %v to be present in %v", ably.ChannelModePresence, modes)

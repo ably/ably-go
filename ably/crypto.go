@@ -24,7 +24,7 @@ func init() {
 
 func generateRandomKey(keyLength int) ([]byte, error) {
 	if keyLength <= 0 {
-		keyLength = DefaultKeyLength
+		keyLength = defaultCipherKeyLength
 	}
 	key := make([]byte, keyLength/8)
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
@@ -38,14 +38,14 @@ func defaultCipherParams(c CipherParams) CipherParams {
 		panic(errors.New("cipher key must be provided"))
 	}
 	if c.Algorithm == 0 {
-		c.Algorithm = DefaultCipherAlgorithm
+		c.Algorithm = defaultCipherAlgorithm
 	}
 	c.KeyLength = len(c.Key) * 8
-	if !c.Algorithm.IsValidKeyLength(c.KeyLength) {
+	if !c.Algorithm.isValidKeyLength(c.KeyLength) {
 		panic(fmt.Sprintf("invalid key length for algorithm %v: %d", c.Algorithm, c.KeyLength))
 	}
 	if c.Mode == 0 {
-		c.Mode = DefaultCipherMode
+		c.Mode = defaultCipherMode
 	}
 	return c
 }

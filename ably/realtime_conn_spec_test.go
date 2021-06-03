@@ -1110,7 +1110,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	}
 }
 
-func recent(msgs []*ably.ProtocolMessage, action ably.Action) *ably.ProtocolMessage {
+func recent(msgs []*ably.ProtocolMessage, action ably.ProtoAction) *ably.ProtocolMessage {
 	for i := len(msgs) - 1; i >= 0; i-- {
 		if msgs[i].Action == action {
 			return msgs[i]
@@ -1243,7 +1243,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	}
 
 	var metaList []*meta
-	errInfo := &ably.Proto_ErrorInfo{
+	errInfo := &ably.ProtoErrorInfo{
 		StatusCode: 401,
 	}
 
@@ -1371,7 +1371,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	}
 
 	var metaList []*meta
-	errInfo := &ably.Proto_ErrorInfo{
+	errInfo := &ably.ProtoErrorInfo{
 		StatusCode: 401,
 	}
 	connID := "new-conn-id"
@@ -1479,7 +1479,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 	}
 
 	var metaList []*meta
-	errInfo := &ably.Proto_ErrorInfo{
+	errInfo := &ably.ProtoErrorInfo{
 		StatusCode: 401,
 	}
 	connID := "new-conn-id"
@@ -1589,7 +1589,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	}
 
 	var metaList []*meta
-	errInfo := &ably.Proto_ErrorInfo{
+	errInfo := &ably.ProtoErrorInfo{
 		StatusCode: http.StatusBadRequest,
 	}
 	gotDial := make(chan chan struct{})
@@ -1976,7 +1976,7 @@ func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tokenErr := ably.Proto_ErrorInfo{
+	tokenErr := ably.ProtoErrorInfo{
 		StatusCode: 401,
 		Code:       40141,
 		Message:    "fake token error",
@@ -2033,7 +2033,7 @@ func TestRealtimeConn_RTN15h2_ReauthFails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tokenErr := ably.Proto_ErrorInfo{
+	tokenErr := ably.ProtoErrorInfo{
 		StatusCode: 401,
 		Code:       40141,
 		Message:    "fake token error",
@@ -2083,7 +2083,7 @@ func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
 
 	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf)
 
-	tokenErr := ably.Proto_ErrorInfo{
+	tokenErr := ably.ProtoErrorInfo{
 		StatusCode: 401,
 		Code:       40141,
 		Message:    "fake token error",
@@ -2170,7 +2170,7 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 
 	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf)
 
-	tokenErr := ably.Proto_ErrorInfo{
+	tokenErr := ably.ProtoErrorInfo{
 		StatusCode: 401,
 		Code:       40141,
 		Message:    "fake token error",
@@ -2267,7 +2267,7 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 	err = ablytest.Wait(ablytest.ConnWaiter(c, func() {
 		in <- &ably.ProtocolMessage{
 			Action: ably.ActionError,
-			Error: &ably.Proto_ErrorInfo{
+			Error: &ably.ProtoErrorInfo{
 				StatusCode: 500,
 				Code:       errorCode,
 				Message:    "fake error",
@@ -2599,7 +2599,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 			}),
 			ably.WithDial(MessagePipe(in, out)))
 		// Get the connection to CONNECTED.
-		tokenError := &ably.Proto_ErrorInfo{
+		tokenError := &ably.ProtoErrorInfo{
 			StatusCode: http.StatusUnauthorized,
 			Code:       40140,
 		}
@@ -2644,7 +2644,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 				return MessagePipe(in, out)(protocol, u, timeout)
 			}))
 		// Get the connection to CONNECTED.
-		tokenError := &ably.Proto_ErrorInfo{
+		tokenError := &ably.ProtoErrorInfo{
 			StatusCode: http.StatusUnauthorized,
 			Code:       40140,
 		}
@@ -2656,7 +2656,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 		change := make(ably.ConnStateChanges, 1)
 		c.Connection.OnAll(change.Receive)
 		c.Connect()
-		bad := &ably.Proto_ErrorInfo{
+		bad := &ably.ProtoErrorInfo{
 			StatusCode: http.StatusUnauthorized,
 			Code:       40140,
 			Message:    "bad token request",
@@ -2729,7 +2729,7 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 				ls = &closeConn{Conn: w}
 				return ls, nil
 			}))
-		badReqErr := &ably.Proto_ErrorInfo{
+		badReqErr := &ably.ProtoErrorInfo{
 			StatusCode: http.StatusBadRequest,
 		}
 		in <- &ably.ProtocolMessage{
@@ -3076,7 +3076,7 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 		MaxIdleInterval:    ably.DurationFromMsecs(time.Second),
 	}
 
-	errInfo := ably.Proto_ErrorInfo{
+	errInfo := ably.ProtoErrorInfo{
 		StatusCode: 500,
 		Code:       50500,
 		Message:    "fake error",

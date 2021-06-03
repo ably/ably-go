@@ -18,7 +18,7 @@ type ConnTransitioner struct {
 	t              *testing.T
 	dialErr        chan<- error
 	fakeDisconnect func() error
-	intercept      func(context.Context, ...ably.Action) <-chan *ably.ProtocolMessage
+	intercept      func(context.Context, ...ably.ProtoAction) <-chan *ably.ProtocolMessage
 	afterCalls     <-chan ablytest.AfterCall
 
 	next connNextStates
@@ -177,7 +177,7 @@ func (c ConnTransitioner) failOnIntercept(msg <-chan *ably.ProtocolMessage, canc
 		ablytest.Soon.Recv(c.t, &incomingMsg, msg, c.t.Fatalf)
 
 		incomingMsg.Action = ably.ActionError
-		incomingMsg.Error = &ably.Proto_ErrorInfo{
+		incomingMsg.Error = &ably.ProtoErrorInfo{
 			StatusCode: 400,
 			Code:       int(ably.ErrUnauthorized),
 			Message:    "fake error",
@@ -204,7 +204,7 @@ func (c ConnTransitioner) fail() (connNextStates, func()) {
 
 	msg := <-intercepted
 	msg.Action = ably.ActionError
-	msg.Error = &ably.Proto_ErrorInfo{
+	msg.Error = &ably.ProtoErrorInfo{
 		StatusCode: 400,
 		Code:       int(ably.ErrUnauthorized),
 		Message:    "fake error",
@@ -401,12 +401,12 @@ func (c ChanTransitioner) attach() (chanNextStates, func()) {
 
 	return chanNextStates{
 		chAttached: c.finishAttach(msg, cancel, nil, chAttached),
-		chFailed:   c.finishAttach(msg, cancel, &ably.Proto_ErrorInfo{Message: "fake error", Code: 50001}, chFailed),
-		chDetached: c.finishAttach(msg, cancel, &ably.Proto_ErrorInfo{Message: "fake error", Code: 50001}, chDetached),
+		chFailed:   c.finishAttach(msg, cancel, &ably.ProtoErrorInfo{Message: "fake error", Code: 50001}, chFailed),
+		chDetached: c.finishAttach(msg, cancel, &ably.ProtoErrorInfo{Message: "fake error", Code: 50001}, chDetached),
 	}, cancel
 }
 
-func (c ChanTransitioner) finishAttach(msg <-chan *ably.ProtocolMessage, cancelIntercept func(), err *ably.Proto_ErrorInfo, channelState ably.ChannelState) chanTransitionFunc {
+func (c ChanTransitioner) finishAttach(msg <-chan *ably.ProtocolMessage, cancelIntercept func(), err *ably.ProtoErrorInfo, channelState ably.ChannelState) chanTransitionFunc {
 	return func() (chanNextStates, func()) {
 		var attachMsg *ably.ProtocolMessage
 		ablytest.Soon.Recv(c.t, &attachMsg, msg, c.t.Fatalf)
@@ -459,11 +459,11 @@ func (c ChanTransitioner) detach() (chanNextStates, func()) {
 
 	return chanNextStates{
 		chDetached: c.finishDetach(msg, cancel, nil),
-		chFailed:   c.finishDetach(msg, cancel, &ably.Proto_ErrorInfo{Message: "fake error", Code: 50001}),
+		chFailed:   c.finishDetach(msg, cancel, &ably.ProtoErrorInfo{Message: "fake error", Code: 50001}),
 	}, cancel
 }
 
-func (c ChanTransitioner) finishDetach(msg <-chan *ably.ProtocolMessage, cancelIntercept func(), err *ably.Proto_ErrorInfo) chanTransitionFunc {
+func (c ChanTransitioner) finishDetach(msg <-chan *ably.ProtocolMessage, cancelIntercept func(), err *ably.ProtoErrorInfo) chanTransitionFunc {
 	return func() (chanNextStates, func()) {
 
 		var detachMsg *ably.ProtocolMessage

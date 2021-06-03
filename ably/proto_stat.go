@@ -2,7 +2,6 @@ package ably
 
 import (
 	"fmt"
-	"time"
 )
 
 const (
@@ -11,19 +10,6 @@ const (
 	StatGranularityDay    = "day"
 	StatGranularityMonth  = "month"
 )
-
-var (
-	intervalFormats = map[string]string{
-		StatGranularityMinute: "2006-01-02:15:04",
-		StatGranularityHour:   "2006-01-02:15",
-		StatGranularityDay:    "2006-01-02",
-		StatGranularityMonth:  "2006-01",
-	}
-)
-
-func IntervalFormatFor(t time.Time, granulatity string) string {
-	return t.Format(intervalFormats[granulatity])
-}
 
 type StatsResourceCount struct {
 	Peak    float64 `json:"peak" codec:"peak"`

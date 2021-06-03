@@ -48,7 +48,7 @@ type ChannelOption func(*channelOptions)
 
 // channelOptions wraps ChannelOptions. It exists so that users can't
 // implement their own ChannelOption.
-type channelOptions ChannelOptions
+type channelOptions protoChannelOptions
 
 // CipherKey is like Cipher with an AES algorithm and CBC mode.
 func ChannelWithCipherKey(key []byte) ChannelOption {
@@ -273,8 +273,8 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 
 	sendAttachMsg := func() (result, error) {
 		res := c.internalEmitter.listenResult(ChannelStateAttached, ChannelStateDetached, ChannelStateSuspended, ChannelStateFailed) //RTL4d
-		msg := &ProtocolMessage{
-			Action:  ActionAttach,
+		msg := &protocolMessage{
+			Action:  actionAttach,
 			Channel: c.Name,
 		}
 		if len(c.channelOpts().Params) > 0 {
@@ -284,7 +284,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 			msg.SetModesAsFlag(c.channelOpts().Modes)
 		}
 		if c.attachResume {
-			msg.Flags.Set(FlagAttachResume)
+			msg.Flags.Set(flagAttachResume)
 		}
 		c.client.Connection.send(msg, nil)
 		return res, nil
@@ -387,8 +387,8 @@ func (c *RealtimeChannel) detachSkipVerifyActive() (result, error) {
 
 func (c *RealtimeChannel) sendDetachMsg() (result, error) {
 	res := c.internalEmitter.listenResult(ChannelStateDetached, ChannelStateFailed)
-	msg := &ProtocolMessage{
-		Action:  ActionDetach,
+	msg := &protocolMessage{
+		Action:  actionDetach,
 		Channel: c.Name,
 	}
 	c.client.Connection.send(msg, nil)
@@ -540,8 +540,8 @@ func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Messa
 			return fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
 		}
 	}
-	msg := &ProtocolMessage{
-		Action:   ActionMessage,
+	msg := &protocolMessage{
+		Action:   actionMessage,
 		Channel:  c.Name,
 		Messages: messages,
 	}
@@ -557,7 +557,7 @@ func (c *RealtimeChannel) History(o ...HistoryOption) HistoryRequest {
 	return c.client.rest.Channels.Get(c.Name).History(o...)
 }
 
-func (c *RealtimeChannel) send(msg *ProtocolMessage) (result, error) {
+func (c *RealtimeChannel) send(msg *protocolMessage) (result, error) {
 	if res, enqueued := c.maybeEnqueue(msg); enqueued {
 		return res, nil
 	}
@@ -571,7 +571,7 @@ func (c *RealtimeChannel) send(msg *ProtocolMessage) (result, error) {
 	return res, nil
 }
 
-func (c *RealtimeChannel) maybeEnqueue(msg *ProtocolMessage) (_ result, enqueued bool) {
+func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage) (_ result, enqueued bool) {
 	// RTL6c2
 	if c.opts().NoQueueing {
 		return nil, false
@@ -629,9 +629,9 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 	return c.errorReason
 }
 
-func (c *RealtimeChannel) notify(msg *ProtocolMessage) {
+func (c *RealtimeChannel) notify(msg *protocolMessage) {
 	switch msg.Action {
-	case ActionAttached:
+	case actionAttached:
 		if c.State() == ChannelStateDetaching { // RTL5K
 			c.sendDetachMsg()
 			return
@@ -640,13 +640,13 @@ func (c *RealtimeChannel) notify(msg *ProtocolMessage) {
 			c.setParams(msg.Params)
 		}
 		if msg.Flags != 0 {
-			c.setModes(FromFlag(msg.Flags))
+			c.setModes(channelModeFromFlag(msg.Flags))
 		}
 		c.Presence.onAttach(msg)
 		// RTL12
-		c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(FlagResumed))
+		c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(flagResumed))
 		c.queue.Flush()
-	case ActionDetached:
+	case actionDetached:
 		c.mtx.Lock()
 		err := error(newErrorFromProto(msg.Error))
 		switch c.state {
@@ -684,14 +684,14 @@ func (c *RealtimeChannel) notify(msg *ProtocolMessage) {
 		}
 
 		c.lockStartRetryAttachLoop(err)
-	case ActionSync:
+	case actionSync:
 		c.Presence.processIncomingMessage(msg, syncSerial(msg))
-	case ActionPresence:
+	case actionPresence:
 		c.Presence.processIncomingMessage(msg, "")
-	case ActionError:
+	case actionError:
 		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error), false)
 		c.queue.Fail(newErrorFromProto(msg.Error))
-	case ActionMessage:
+	case actionMessage:
 		if c.State() == ChannelStateAttached {
 			for _, msg := range msg.Messages {
 				c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))

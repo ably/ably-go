@@ -76,10 +76,10 @@ func (c *RESTChannels) Get(name string, options ...ChannelOption) *RESTChannel {
 	for _, set := range options {
 		set(&o)
 	}
-	return c.get(name, (*ChannelOptions)(&o))
+	return c.get(name, (*protoChannelOptions)(&o))
 }
 
-func (c *RESTChannels) get(name string, opts *ChannelOptions) *RESTChannel {
+func (c *RESTChannels) get(name string, opts *protoChannelOptions) *RESTChannel {
 	c.mu.RLock()
 	v, ok := c.chans[name]
 	c.mu.RUnlock()
@@ -400,7 +400,7 @@ func (r *HTTPPaginatedResponse) Success() bool {
 }
 
 func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
-	codeStr := r.res.Header.Get(AblyErrorCodeHeader)
+	codeStr := r.res.Header.Get(ablyErrorCodeHeader)
 	if codeStr == "" {
 		return ErrNotSet
 	}
@@ -412,7 +412,7 @@ func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
 }
 
 func (r *HTTPPaginatedResponse) ErrorMessage() string {
-	return r.res.Header.Get(AblyErrorMessageHeader)
+	return r.res.Header.Get(ablyErrorMessageHeader)
 }
 
 func (r *HTTPPaginatedResponse) Headers() http.Header {
@@ -622,7 +622,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 						c.log.Infof("RestClient:  chose fallback host=%q ", h)
 						req.URL.Host = h
 						req.Host = ""
-						req.Header.Set(HostHeader, h)
+						req.Header.Set(hostHeader, h)
 						resp, err := c.opts.httpclient().Do(req)
 						if err != nil {
 							c.log.Error("RestClient: failed sending a request to a fallback host", err)
@@ -693,12 +693,12 @@ func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, e
 		copyHeader(req.Header, r.header)
 	}
 	req.Header.Set("Accept", protocol) //spec RSC19c
-	req.Header.Set(AblyVersionHeader, AblyVersion)
-	req.Header.Set(AblyLibHeader, LibraryString)
+	req.Header.Set(ablyVersionHeader, ablyVersion)
+	req.Header.Set(ablyLibHeader, libraryString)
 	if c.opts.ClientID != "" && c.Auth.method == authBasic {
 		// References RSA7e2
 		h := base64.StdEncoding.EncodeToString([]byte(c.opts.ClientID))
-		req.Header.Set(AblyClientIDHeader, h)
+		req.Header.Set(ablyClientIDHeader, h)
 	}
 	if !r.NoAuth {
 		//spec RSC19b

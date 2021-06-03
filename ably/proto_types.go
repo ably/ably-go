@@ -7,54 +7,29 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-type Type int64
-
-const (
-	TypeNONE Type = iota
-	TypeTRUE
-	TypeFALSE
-	TypeINT32
-	TypeINT64
-	TypeDOUBLE
-	TypeSTRING
-	TypeBUFFER
-	TypeJSONARRAY
-	TypeJSONOBJECT
-)
-
-type Data struct {
-	Type       Type    `json:"type" codec:"type"`
-	I32Data    int32   `json:"i32Data" codec:"i32Data"`
-	I64Data    int64   `json:"i64Data" codec:"i64Data"`
-	DoubleData float64 `json:"doubleData" codec:"doubleData"`
-	StringData string  `json:"stringData" codec:"stringData"`
-	BinaryData []byte  `json:"binaryData" codec:"binaryData"`
-	CipherData []byte  `json:"cipherData" codec:"cipherData"`
-}
-
-// DurationFromMsecs is a time.Duration that is marshaled as a JSON whole number
+// durationFromMsecs is a time.Duration that is marshaled as a JSON whole number
 // of milliseconds.
-type DurationFromMsecs time.Duration
+type durationFromMsecs time.Duration
 
 var _ interface {
 	json.Marshaler
 	json.Unmarshaler
 	codec.Selfer
-} = (*DurationFromMsecs)(nil)
+} = (*durationFromMsecs)(nil)
 
-func (t DurationFromMsecs) asMsecs() int64 {
+func (t durationFromMsecs) asMsecs() int64 {
 	return time.Duration(t).Milliseconds()
 }
 
-func (t *DurationFromMsecs) setFromMsecs(ms int64) {
-	*t = DurationFromMsecs(time.Duration(ms) * time.Millisecond)
+func (t *durationFromMsecs) setFromMsecs(ms int64) {
+	*t = durationFromMsecs(time.Duration(ms) * time.Millisecond)
 }
 
-func (t DurationFromMsecs) MarshalJSON() ([]byte, error) {
+func (t durationFromMsecs) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.asMsecs())
 }
 
-func (t *DurationFromMsecs) UnmarshalJSON(js []byte) error {
+func (t *durationFromMsecs) UnmarshalJSON(js []byte) error {
 	var ms int64
 	err := json.Unmarshal(js, &ms)
 	if err != nil {
@@ -64,11 +39,11 @@ func (t *DurationFromMsecs) UnmarshalJSON(js []byte) error {
 	return nil
 }
 
-func (t DurationFromMsecs) CodecEncodeSelf(encoder *codec.Encoder) {
+func (t durationFromMsecs) CodecEncodeSelf(encoder *codec.Encoder) {
 	encoder.MustEncode(t.asMsecs())
 }
 
-func (t *DurationFromMsecs) CodecDecodeSelf(decoder *codec.Decoder) {
+func (t *durationFromMsecs) CodecDecodeSelf(decoder *codec.Decoder) {
 	var ms int64
 	decoder.MustDecode(&ms)
 	t.setFromMsecs(ms)

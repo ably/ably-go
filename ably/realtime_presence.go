@@ -62,8 +62,8 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	if err := pres.verifyChanState(); err != nil {
 		return nil, err
 	}
-	protomsg := &ProtocolMessage{
-		Action:   ActionPresence,
+	protomsg := &protocolMessage{
+		Action:   actionPresence,
 		Channel:  pres.channel.Name,
 		Presence: []*PresenceMessage{msg},
 	}
@@ -84,19 +84,19 @@ func (pres *RealtimePresence) syncWait() {
 	pres.syncMtx.Unlock()
 }
 
-func syncSerial(msg *ProtocolMessage) string {
+func syncSerial(msg *protocolMessage) string {
 	if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 {
 		return msg.ChannelSerial[i+1:]
 	}
 	return ""
 }
 
-func (pres *RealtimePresence) onAttach(msg *ProtocolMessage) {
+func (pres *RealtimePresence) onAttach(msg *protocolMessage) {
 	serial := syncSerial(msg)
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
 	switch {
-	case msg.Flags.Has(FlagHasPresence) || serial != "":
+	case msg.Flags.Has(flagHasPresence) || serial != "":
 		pres.syncStart(serial)
 	case pres.syncState == syncInitial:
 		pres.syncState = syncComplete
@@ -147,7 +147,7 @@ func (pres *RealtimePresence) syncEnd() {
 	pres.syncMtx.Unlock()
 }
 
-func (pres *RealtimePresence) processIncomingMessage(msg *ProtocolMessage, syncSerial string) {
+func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncSerial string) {
 	for _, presmsg := range msg.Presence {
 		if presmsg.Timestamp == 0 {
 			presmsg.Timestamp = msg.Timestamp

@@ -103,7 +103,7 @@ func newErrorf(code ErrorCode, format string, v ...interface{}) *ErrorInfo {
 	return newError(code, fmt.Errorf(format, v...))
 }
 
-func newErrorFromProto(err *Proto_ErrorInfo) *ErrorInfo {
+func newErrorFromProto(err *errorInfo) *ErrorInfo {
 	if err == nil {
 		return nil
 	}
@@ -146,7 +146,7 @@ func errFromUnprocessableBody(resp *http.Response) error {
 
 func checkValidHTTPResponse(resp *http.Response) error {
 	type errorBody struct {
-		Error Proto_ErrorInfo `json:"error,omitempty" codec:"error,omitempty"`
+		Error errorInfo `json:"error,omitempty" codec:"error,omitempty"`
 	}
 	if resp.StatusCode < 300 {
 		return nil

@@ -190,7 +190,7 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 	t.Parallel()
 
-	for _, action := range []ably.Action{
+	for _, action := range []ably.ProtoAction{
 		ably.ActionDisconnect,
 		ably.ActionError,
 		ably.ActionClosed,

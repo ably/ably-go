@@ -43,30 +43,30 @@ func TestRESTChannel(t *testing.T) {
 		m := make(map[string]dataSample)
 		if ablytest.NoBinaryProtocol {
 			m["string"] = dataSample{
-				encoding: ably.UTF8,
+				encoding: ably.EncUTF8,
 				data:     "string",
 			}
 			m["binary"] = dataSample{
-				encoding: ably.Base64,
+				encoding: ably.EncBase64,
 				data:     []byte("string"),
 			}
 			m["json"] = dataSample{
-				encoding: ably.JSON,
+				encoding: ably.EncJSON,
 				data: map[string]interface{}{
 					"key": "value",
 				},
 			}
 		} else {
 			m["string"] = dataSample{
-				encoding: ably.UTF8,
+				encoding: ably.EncUTF8,
 				data:     "string",
 			}
 			m["binary"] = dataSample{
-				encoding: ably.UTF8,
+				encoding: ably.EncUTF8,
 				data:     "string",
 			}
 			m["json"] = dataSample{
-				encoding: ably.JSON,
+				encoding: ably.EncJSON,
 				data: map[string]interface{}{
 					"key": "value",
 				},
@@ -123,7 +123,7 @@ func TestRESTChannel(t *testing.T) {
 			Key:       key,
 			KeyLength: 128,
 			IV:        iv,
-			Algorithm: ably.AES,
+			Algorithm: ably.CipherAES,
 		})}
 		channelName := "encrypted_channel"
 		channel := client.Channels.Get(channelName, opts...)

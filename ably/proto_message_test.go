@@ -25,28 +25,28 @@ func TestMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts := &ably.ChannelOptions{
+	opts := &ably.ProtoChannelOptions{
 		Cipher: ably.CipherParams{
 			Key:       key,
 			KeyLength: 128,
 			IV:        iv,
-			Algorithm: ably.AES,
+			Algorithm: ably.CipherAES,
 		},
 	}
 	sample := []struct {
 		desc        string
 		data        interface{}
-		opts        *ably.ChannelOptions
+		opts        *ably.ProtoChannelOptions
 		encodedJSON string
 		decoded     interface{}
 	}{
 		{
 			desc: "with a json encoding RSL4d3 map data",
 			data: map[string]interface{}{
-				"string": ably.UTF8,
+				"string": ably.EncUTF8,
 			},
 			decoded: map[string]interface{}{
-				"string": ably.UTF8,
+				"string": ably.EncUTF8,
 			},
 			encodedJSON: `{"data":"{\"string\":\"utf-8\"}","encoding":"json"}`,
 		},
@@ -68,8 +68,8 @@ func TestMessage(t *testing.T) {
 		},
 		{
 			desc:        "with a base64 encoding RSL4d3 binary data",
-			data:        []byte(ably.Base64),
-			decoded:     []byte(ably.Base64),
+			data:        []byte(ably.EncBase64),
+			decoded:     []byte(ably.EncBase64),
 			encodedJSON: `{"data":"YmFzZTY0","encoding":"base64"}`,
 		},
 		{
@@ -138,9 +138,9 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			opts := &ably.ChannelOptions{
+			opts := &ably.ProtoChannelOptions{
 				Cipher: ably.CipherParams{
-					Algorithm: ably.AES,
+					Algorithm: ably.CipherAES,
 					Key:       key,
 					IV:        iv,
 				},
