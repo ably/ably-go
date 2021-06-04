@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 	"time"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 // The Realtime libraries establish and maintain a persistent connection
@@ -61,7 +59,7 @@ func (c *Realtime) Time(ctx context.Context) (time.Time, error) {
 	return c.rest.Time(ctx)
 }
 
-func (c *Realtime) onChannelMsg(msg *proto.ProtocolMessage) {
+func (c *Realtime) onChannelMsg(msg *protocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
 }
 
@@ -90,13 +88,13 @@ func (c *Realtime) onReconnected(isNewID bool) {
 	c.Connection.resendPending()
 }
 
-func (c *Realtime) onReconnectionFailed(err *proto.ErrorInfo) {
+func (c *Realtime) onReconnectionFailed(err *errorInfo) {
 	for _, ch := range c.Channels.Iterate() {
 		ch.setState(ChannelStateFailed, newErrorFromProto(err), false)
 	}
 }
 
-func isTokenError(err *proto.ErrorInfo) bool {
+func isTokenError(err *errorInfo) bool {
 	return err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
 }
 

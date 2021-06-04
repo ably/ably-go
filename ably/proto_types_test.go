@@ -1,12 +1,12 @@
-package proto_test
+package ably_test
 
 import (
 	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func TestDurationFromMsecsMarshal(t *testing.T) {
@@ -25,7 +25,7 @@ func TestDurationFromMsecsMarshal(t *testing.T) {
 		t.Run(codec.name, func(t *testing.T) {
 			t.Parallel()
 
-			js, err := codec.marshal(proto.DurationFromMsecs(d))
+			js, err := codec.marshal(ably.DurationFromMsecs(d))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -39,7 +39,7 @@ func TestDurationFromMsecsMarshal(t *testing.T) {
 				t.Fatalf("expected marshaling as JSON number of milliseconds; got %d (JSON: %q)", got, js)
 			}
 
-			var decoded proto.DurationFromMsecs
+			var decoded ably.DurationFromMsecs
 			err = codec.unmarshal(js, &decoded)
 			if err != nil {
 				t.Fatal(err)

@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/ablytest"
-	"github.com/ably/ably-go/ably/proto"
+	"github.com/ably/ably-go/ably/internal/ablytest"
 )
 
 func TestRealtime_RealtimeHost(t *testing.T) {
@@ -27,9 +26,9 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 			ably.WithKey("xxx:xxx"),
 			ably.WithRealtimeHost(host),
 			ably.WithAutoConnect(false),
-			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 				dial <- u.Host
-				return ablytest.MessagePipe(nil, nil)(protocol, u, timeout)
+				return MessagePipe(nil, nil)(protocol, u, timeout)
 			}),
 		)
 		if err != nil {

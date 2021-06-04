@@ -1,7 +1,7 @@
-package proto
+package ably
 
-// ErrorInfo describes an error returned via ProtocolMessage.
-type ErrorInfo struct {
+// errorInfo describes an error returned via ProtocolMessage.
+type errorInfo struct {
 	StatusCode int    `json:"statusCode,omitempty" codec:"statusCode,omitempty"`
 	Code       int    `json:"code,omitempty" codec:"code,omitempty"`
 	HRef       string `json:"href,omitempty" codec:"href,omitempty"` //spec TI4
@@ -9,7 +9,7 @@ type ErrorInfo struct {
 	Server     string `json:"serverId,omitempty" codec:"serverId,omitempty"`
 }
 
-func (e *ErrorInfo) FromMap(ctx map[string]interface{}) {
+func (e *errorInfo) FromMap(ctx map[string]interface{}) {
 	if v, ok := ctx["statusCode"]; ok {
 		e.StatusCode = coerceInt(v)
 	}

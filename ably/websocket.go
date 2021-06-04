@@ -1,4 +1,4 @@
-package ablyutil
+package ably
 
 import (
 	"errors"
@@ -6,22 +6,21 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ably/ably-go/ably/proto"
-
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"golang.org/x/net/websocket"
 )
 
-type WebsocketConn struct {
+type websocketConn struct {
 	conn  *websocket.Conn
 	codec websocket.Codec
 }
 
-func (ws *WebsocketConn) Send(msg *proto.ProtocolMessage) error {
+func (ws *websocketConn) Send(msg *protocolMessage) error {
 	return ws.codec.Send(ws.conn, msg)
 }
 
-func (ws *WebsocketConn) Receive(deadline time.Time) (*proto.ProtocolMessage, error) {
-	msg := &proto.ProtocolMessage{}
+func (ws *websocketConn) Receive(deadline time.Time) (*protocolMessage, error) {
+	msg := &protocolMessage{}
 	if !deadline.IsZero() {
 		err := ws.conn.SetReadDeadline(deadline)
 		if err != nil {
@@ -35,12 +34,12 @@ func (ws *WebsocketConn) Receive(deadline time.Time) (*proto.ProtocolMessage, er
 	return msg, nil
 }
 
-func (ws *WebsocketConn) Close() error {
+func (ws *websocketConn) Close() error {
 	return ws.conn.Close()
 }
 
-func DialWebsocket(proto string, u *url.URL, timeout time.Duration) (*WebsocketConn, error) {
-	ws := &WebsocketConn{}
+func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketConn, error) {
+	ws := &websocketConn{}
 	switch proto {
 	case "application/json":
 		ws.codec = websocket.JSON
@@ -75,10 +74,10 @@ func dialWebsocketTimeout(uri, protocol, origin string, timeout time.Duration) (
 
 var msgpackCodec = websocket.Codec{
 	Marshal: func(v interface{}) ([]byte, byte, error) {
-		p, err := MarshalMsgpack(v)
+		p, err := ablyutil.MarshalMsgpack(v)
 		return p, websocket.BinaryFrame, err
 	},
 	Unmarshal: func(p []byte, _ byte, v interface{}) error {
-		return UnmarshalMsgpack(p, v)
+		return ablyutil.UnmarshalMsgpack(p, v)
 	},
 }

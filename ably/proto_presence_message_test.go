@@ -1,28 +1,28 @@
-package proto_test
+package ably_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"testing"
 
+	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func TestPresenceMessage(t *testing.T) {
-	actions := []proto.PresenceAction{
-		proto.PresenceAbsent,
-		proto.PresencePresent,
-		proto.PresenceEnter,
-		proto.PresenceLeave,
+	actions := []ably.PresenceAction{
+		ably.PresenceActionAbsent,
+		ably.PresenceActionPresent,
+		ably.PresenceActionEnter,
+		ably.PresenceActionLeave,
 	}
 
 	for _, a := range actions {
 		// pin
 		a := a
 		id := fmt.Sprint(a)
-		m := proto.PresenceMessage{
-			Message: proto.Message{
+		m := ably.PresenceMessage{
+			Message: ably.Message{
 				ID: id,
 			},
 			Action: a,
@@ -33,7 +33,7 @@ func TestPresenceMessage(t *testing.T) {
 			if err != nil {
 				ts.Fatal(err)
 			}
-			msg := proto.PresenceMessage{}
+			msg := ably.PresenceMessage{}
 			err = json.Unmarshal(b, &msg)
 			if err != nil {
 				ts.Fatal(err)
@@ -50,7 +50,7 @@ func TestPresenceMessage(t *testing.T) {
 			if err != nil {
 				ts.Fatal(err)
 			}
-			msg := proto.PresenceMessage{}
+			msg := ably.PresenceMessage{}
 			err = ablyutil.UnmarshalMsgpack(b, &msg)
 			if err != nil {
 				ts.Fatal(err)

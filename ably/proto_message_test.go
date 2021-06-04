@@ -1,4 +1,4 @@
-package proto_test
+package ably_test
 
 import (
 	"encoding/base64"
@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ably/ably-go/ably/ablytest"
-	"github.com/ably/ably-go/ably/proto"
+	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/internal/ablytest"
 )
 
 type custom struct{}
@@ -25,28 +25,28 @@ func TestMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts := &proto.ChannelOptions{
-		Cipher: proto.CipherParams{
+	opts := &ably.ProtoChannelOptions{
+		Cipher: ably.CipherParams{
 			Key:       key,
 			KeyLength: 128,
 			IV:        iv,
-			Algorithm: proto.AES,
+			Algorithm: ably.CipherAES,
 		},
 	}
 	sample := []struct {
 		desc        string
 		data        interface{}
-		opts        *proto.ChannelOptions
+		opts        *ably.ProtoChannelOptions
 		encodedJSON string
 		decoded     interface{}
 	}{
 		{
 			desc: "with a json encoding RSL4d3 map data",
 			data: map[string]interface{}{
-				"string": proto.UTF8,
+				"string": ably.EncUTF8,
 			},
 			decoded: map[string]interface{}{
-				"string": proto.UTF8,
+				"string": ably.EncUTF8,
 			},
 			encodedJSON: `{"data":"{\"string\":\"utf-8\"}","encoding":"json"}`,
 		},
@@ -68,8 +68,8 @@ func TestMessage(t *testing.T) {
 		},
 		{
 			desc:        "with a base64 encoding RSL4d3 binary data",
-			data:        []byte(proto.Base64),
-			decoded:     []byte(proto.Base64),
+			data:        []byte(ably.EncBase64),
+			decoded:     []byte(ably.EncBase64),
 			encodedJSON: `{"data":"YmFzZTY0","encoding":"base64"}`,
 		},
 		{
@@ -90,9 +90,9 @@ func TestMessage(t *testing.T) {
 		v := v
 		t.Run(v.desc, func(t *testing.T) {
 			cipher, _ := v.opts.GetCipher()
-			msg, err := proto.Message{
+			msg, err := ably.MessageWithEncodedData(ably.Message{
 				Data: v.data,
-			}.WithEncodedData(cipher)
+			}, cipher)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -105,12 +105,12 @@ func TestMessage(t *testing.T) {
 				t.Errorf("expected %s got %s", v.encodedJSON, got)
 			}
 
-			var encoded proto.Message
+			var encoded ably.Message
 			err = json.Unmarshal(b, &encoded)
 			if err != nil {
 				t.Fatal(err)
 			}
-			decoded, err := encoded.WithDecodedData(cipher)
+			decoded, err := ably.MessageWithDecodedData(encoded, cipher)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -138,9 +138,9 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			opts := &proto.ChannelOptions{
-				Cipher: proto.CipherParams{
-					Algorithm: proto.AES,
+			opts := &ably.ProtoChannelOptions{
+				Cipher: ably.CipherParams{
+					Algorithm: ably.CipherAES,
 					Key:       key,
 					IV:        iv,
 				},
@@ -149,22 +149,22 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 				for _, item := range test.Items {
 					cipher, _ := opts.GetCipher()
 
-					var encoded proto.Message
+					var encoded ably.Message
 					err := json.Unmarshal(item.Encoded, &encoded)
 					if err != nil {
 						t.Fatal(err)
 					}
-					encoded, err = encoded.WithDecodedData(cipher)
+					encoded, err = ably.MessageWithDecodedData(encoded, cipher)
 					if err != nil {
 						t.Fatal(err)
 					}
 
-					var encrypted proto.Message
+					var encrypted ably.Message
 					err = json.Unmarshal(item.Encoded, &encrypted)
 					if err != nil {
 						t.Fatal(err)
 					}
-					encrypted, err = encrypted.WithDecodedData(cipher)
+					encrypted, err = ably.MessageWithDecodedData(encrypted, cipher)
 					if err != nil {
 						t.Fatal(err)
 					}

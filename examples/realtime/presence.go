@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/proto"
 	"github.com/joho/godotenv"
 )
 
@@ -90,9 +89,9 @@ func leavePresence(channel *ably.RealtimeChannel) {
 func subscribeAllPresence(channel *ably.RealtimeChannel) func() {
 	// Subscribe to presence events (people entering and leaving) on the channel
 	unsubscribeAll, pErr := channel.Presence.SubscribeAll(context.Background(), func(msg *ably.PresenceMessage) {
-		if msg.Action == proto.PresenceEnter {
+		if msg.Action == PresenceEnter {
 			fmt.Printf("%v has entered the chat\n", msg.ClientID)
-		} else if msg.Action == proto.PresenceLeave {
+		} else if msg.Action == PresenceLeave {
 			fmt.Printf("%v has left the chat\n", msg.ClientID)
 		}
 	})
@@ -107,7 +106,7 @@ func subscribeAllPresence(channel *ably.RealtimeChannel) func() {
 func subscribePresenceEnter(channel *ably.RealtimeChannel) func() {
 	// Subscribe to presence events entering the channel
 	unsubscribe, pErr := channel.Presence.Subscribe(context.Background(), ably.PresenceActionEnter, func(msg *ably.PresenceMessage) {
-		if msg.Action == proto.PresenceEnter {
+		if msg.Action == PresenceEnter {
 			fmt.Printf("%v has entered the chat\n", msg.ClientID)
 		} else {
 			panic("Not supposed to get presence related to actions other than presence enter")
@@ -124,7 +123,7 @@ func subscribePresenceEnter(channel *ably.RealtimeChannel) func() {
 func subscribePresenceLeave(channel *ably.RealtimeChannel) func() {
 	// Subscribe to presence events leaving the channel
 	unsubscribe, pErr := channel.Presence.Subscribe(context.Background(), ably.PresenceActionLeave, func(msg *ably.PresenceMessage) {
-		if msg.Action == proto.PresenceLeave {
+		if msg.Action == PresenceLeave {
 			fmt.Printf("%v has left the chat\n", msg.ClientID)
 		} else {
 			panic("Not supposed to get presence related actions other than presence leave")

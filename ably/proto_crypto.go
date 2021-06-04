@@ -1,4 +1,4 @@
-package proto
+package ably
 
 import (
 	"crypto/aes"
@@ -9,33 +9,41 @@ import (
 	"io"
 )
 
-// CipherAlgorithm algorithms used for channel encryption.
+// CipherAlgorithm is a supported algorithm for channel encryption.
 type CipherAlgorithm uint
 
 const (
-	AES CipherAlgorithm = 1 << iota
+	CipherAES CipherAlgorithm = 1 + iota
 )
 
 func (c CipherAlgorithm) String() string {
 	switch c {
-	case AES:
+	case CipherAES:
 		return "aes"
 	default:
 		return ""
 	}
 }
 
-// CipherMode defines supported  ciphers.
+func (c CipherAlgorithm) isValidKeyLength(l int) bool {
+	switch c {
+	case CipherAES:
+		return l == 128 || l == 256
+	default:
+		return false
+	}
+}
+
+// CipherMode is a supported cipher mode for channel encryption.
 type CipherMode uint
 
 const (
-	// CBC defines cbc mode.
-	CBC CipherMode = 1 << iota
+	CipherCBC CipherMode = 1 + iota
 )
 
 func (c CipherMode) String() string {
 	switch c {
-	case CBC:
+	case CipherCBC:
 		return "cbs"
 	default:
 		return ""
@@ -43,9 +51,9 @@ func (c CipherMode) String() string {
 }
 
 const (
-	DefaultKeyLength       = 256
-	DefaultCipherAlgorithm = AES
-	DefaultCipherMode      = CBC
+	defaultCipherKeyLength = 256
+	defaultCipherAlgorithm = CipherAES
+	defaultCipherMode      = CipherCBC
 )
 
 // CipherParams  provides parameters for configuring encryption  for channels.
@@ -74,7 +82,7 @@ type CipherParams struct {
 
 // GetCipher returns a ChannelCipher based on the algorithms set in the
 // ChannelOptions.CipherParams.
-func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
+func (c *protoChannelOptions) GetCipher() (channelCipher, error) {
 	if c == nil {
 		return nil, errors.New("no cipher configured")
 	}
@@ -82,8 +90,8 @@ func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
 		return c.cipher, nil
 	}
 	switch c.Cipher.Algorithm {
-	case AES:
-		cipher, err := NewCBCCipher(c.Cipher)
+	case CipherAES:
+		cipher, err := newCBCCipher(c.Cipher)
 		if err != nil {
 			return nil, err
 		}
@@ -94,72 +102,38 @@ func (c *ChannelOptions) GetCipher() (ChannelCipher, error) {
 	}
 }
 
-// ChannelCipher is an interface for encrypting and decrypting channel messages.
-type ChannelCipher interface {
+// channelCipher is an interface for encrypting and decrypting channel messages.
+type channelCipher interface {
 	Encrypt(plainText []byte) ([]byte, error)
 	Decrypt(plainText []byte) ([]byte, error)
 	GetAlgorithm() string
 }
 
-var _ ChannelCipher = (*CBCCipher)(nil)
+var _ channelCipher = (*cbcCipher)(nil)
 
-// CBCCipher implements ChannelCipher that uses CBC mode.
-type CBCCipher struct {
+// cbcCipher implements ChannelCipher that uses CBC mode.
+type cbcCipher struct {
 	algorithm string
 	params    CipherParams
 }
 
-// NewCBCCipher returns a new CBCCipher that uses opts to initialize.
-func NewCBCCipher(opts CipherParams) (*CBCCipher, error) {
-	if opts.Algorithm != AES {
+// newCBCCipher returns a new CBCCipher that uses opts to initialize.
+func newCBCCipher(opts CipherParams) (*cbcCipher, error) {
+	if opts.Algorithm != CipherAES {
 		return nil, errors.New("unknown cipher algorithm")
 	}
-	if opts.Mode != 0 && opts.Mode != CBC {
+	if opts.Mode != 0 && opts.Mode != CipherCBC {
 		return nil, errors.New("unknown cipher mode")
 	}
 	algo := fmt.Sprintf("cipher+%s-%d-cbc", opts.Algorithm, opts.KeyLength)
-	return &CBCCipher{
+	return &cbcCipher{
 		algorithm: algo,
 		params:    opts,
 	}, nil
 }
 
-// GenerateRandomKey returns a random key. keyLength is optional if provided it
-// should be  in bits, it defaults to DefaultKeyLength when not provided.
-//
-// Spec RSE2, RSE2a, RSE2b.
-func GenerateRandomKey(keyLength ...int) ([]byte, error) {
-	length := DefaultKeyLength
-	if len(keyLength) > 0 {
-		length = keyLength[0]
-	}
-	key := make([]byte, length/8)
-	if _, err := io.ReadFull(rand.Reader, key); err != nil {
-		return nil, err
-	}
-	return key, nil
-}
-
-// DefaultCipherParams returns CipherParams with fields set to default values.
-// This generates random secret key and iv values
-func DefaultCipherParams() (*CipherParams, error) {
-	c := &CipherParams{
-		Algorithm: DefaultCipherAlgorithm,
-	}
-	c.Key = make([]byte, DefaultKeyLength/8)
-	if _, err := io.ReadFull(rand.Reader, c.Key); err != nil {
-		return nil, err
-	}
-	c.KeyLength = len(c.Key) * 8
-	c.IV = make([]byte, aes.BlockSize)
-	if _, err := io.ReadFull(rand.Reader, c.IV); err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
 // Encrypt encrypts plainText using AES algorithm and returns encoded bytes.
-func (c *CBCCipher) Encrypt(plainText []byte) ([]byte, error) {
+func (c *cbcCipher) Encrypt(plainText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.params.Key)
 	if err != nil {
 		return nil, err
@@ -189,7 +163,7 @@ func (c *CBCCipher) Encrypt(plainText []byte) ([]byte, error) {
 
 // Decrypt decrypts cipherText using CBC mode and AES algorithm and returns
 // decrypted bytes.
-func (c *CBCCipher) Decrypt(cipherText []byte) ([]byte, error) {
+func (c *cbcCipher) Decrypt(cipherText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.params.Key)
 	if err != nil {
 		return nil, err
@@ -209,6 +183,6 @@ func (c *CBCCipher) Decrypt(cipherText []byte) ([]byte, error) {
 }
 
 // GetAlgorithm returns the cipher algorithm used by this CBCCipher which is AES.
-func (c *CBCCipher) GetAlgorithm() string {
+func (c *cbcCipher) GetAlgorithm() string {
 	return c.algorithm
 }
