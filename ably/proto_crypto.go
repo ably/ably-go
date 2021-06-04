@@ -65,19 +65,15 @@ type CipherParams struct {
 	KeyLength int // Spec item (TZ2b)
 	// This is the private key used to  encrypt/decrypt payloads.
 	Key []byte // Spec item (TZ2d)
-
-	// This is a sequence of bytes used as initialization vector.This is used to
-	// user distinct ciphertexts are produced even when the same plaintext is
-	// encrypted multiple times independently with the same key.
-	//
-	// This field is optional. A random value will be generated if this is set to
-	// nil.
-	IV []byte
-
 	// The cipher mode to be used for encryption default is CBC.
 	//
 	// Spec item (TZ2c)
 	Mode CipherMode
+
+	// iv is the initialization vector. Used only for comparing resulting
+	// ciphertext with test fixtures; production code should always use a random
+	// unique IV per encrypted message.
+	iv []byte
 }
 
 // GetCipher returns a ChannelCipher based on the algorithms set in the
@@ -148,7 +144,7 @@ func (c *cbcCipher) Encrypt(plainText []byte) ([]byte, error) {
 		}
 		plainText = data
 	}
-	iv := c.params.IV
+	iv := c.params.iv
 	if iv == nil {
 		iv = make([]byte, aes.BlockSize)
 		if _, err = io.ReadFull(rand.Reader, iv); err != nil {

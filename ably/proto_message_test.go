@@ -25,13 +25,14 @@ func TestMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	params := ably.CipherParams{
+		Key:       key,
+		KeyLength: 128,
+		Algorithm: ably.CipherAES,
+	}
+	params.SetIV(iv)
 	opts := &ably.ProtoChannelOptions{
-		Cipher: ably.CipherParams{
-			Key:       key,
-			KeyLength: 128,
-			IV:        iv,
-			Algorithm: ably.CipherAES,
-		},
+		Cipher: params,
 	}
 	sample := []struct {
 		desc        string
@@ -138,12 +139,13 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			params := ably.CipherParams{
+				Algorithm: ably.CipherAES,
+				Key:       key,
+			}
+			params.SetIV(iv)
 			opts := &ably.ProtoChannelOptions{
-				Cipher: ably.CipherParams{
-					Algorithm: ably.CipherAES,
-					Key:       key,
-					IV:        iv,
-				},
+				Cipher: params,
 			}
 			t.Run("fixture encode", func(t *testing.T) {
 				for _, item := range test.Items {
