@@ -48,7 +48,8 @@ var (
 	errFailed         = newErrorf(ErrConnectionFailed, "Connection failed")
 	errNeverConnected = newErrorf(ErrConnectionSuspended, "Unable to establish connection")
 
-	errNackWithoutError = newErrorf(ErrInternalError, "NACK without error")
+	errNACKWithoutError = newErrorf(ErrInternalError, "NACK without error")
+	errImplictNACK      = newErrorf(ErrInternalError, "implicit NACK")
 )
 
 var connStateErrors = map[ConnectionState]ErrorInfo{
@@ -139,22 +140,28 @@ func (q *pendingEmitter) Enqueue(msg *protocolMessage, ch chan<- error) {
 }
 
 func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
-	expected := q.queue[0].msg.MsgSerial
-	if expected != msg.MsgSerial {
-		panic(fmt.Sprintf("protocol violation: expected msgSerial=%d in ACK/NACK message; got %d", expected, msg.MsgSerial))
+	// The msgSerial from the server may not be the same we're waiting. If the
+	// server skipped some messages, they get implicitly NACKed. If the server
+	// ACKed some messages again, we ignore those. In both cases, we just need
+	// to correct the number of messages that get ACKed by that difference.
+	serialShift := int(msg.MsgSerial - q.queue[0].msg.MsgSerial)
+	count := msg.Count + serialShift
+	if count > len(q.queue) {
+		panic(fmt.Sprintf("protocol violation: ACKed %d messages, but only %d pending", count, len(q.queue)))
 	}
-	if msg.Count > len(q.queue) {
-		panic(fmt.Sprintf("protocol violation: ACKed %d messages, but only %d pending", msg.Count, len(q.queue)))
-	}
-	acked := q.queue[:msg.Count]
-	q.queue = q.queue[msg.Count:]
+	acked := q.queue[:count]
+	q.queue = q.queue[count:]
 
 	err := errInfo.unwrapNil()
 	if msg.Action == actionNack && err == nil {
-		err = errNackWithoutError
+		err = errNACKWithoutError
 	}
 
-	for _, sch := range acked {
+	for i, sch := range acked {
+		err := err
+		if i < serialShift {
+			err = errImplictNACK
+		}
 		q.log.Verbosef("received %v for message serial %d", msg.Action, sch.msg.MsgSerial)
 		sch.ch <- err
 	}

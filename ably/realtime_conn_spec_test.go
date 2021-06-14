@@ -3269,3 +3269,153 @@ func Test_RTN7b_ACK_NACK(t *testing.T) {
 
 	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 }
+
+func TestImplicitNACK(t *testing.T) {
+	// From https://docs.ably.io/client-lib-development-guide/protocol/#message-acknowledgement:
+	//
+	// It is a protocol error if the system sends an ACK or NACK that skips past
+	// one or more msgSerial without there having been either and ACK or NACK;
+	// but a client in this situation should treat this case as
+	// implicitly @NACK@ing the skipped messages.
+
+	t.Parallel()
+
+	in := make(chan *ably.ProtocolMessage, 16)
+	out := make(chan *ably.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithToken("fake:token"),
+		ably.WithDial(MessagePipe(in, out)),
+	)
+
+	in <- &ably.ProtocolMessage{
+		Action:       ably.ActionConnected,
+		ConnectionID: "connection-id-1",
+		ConnectionDetails: &ably.ConnectionDetails{
+			ClientID:      "id1",
+			ConnectionKey: "foo",
+		},
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := c.Channels.Get("test")
+	publishErrs := map[int]<-chan error{}
+	for i := 0; i < 4; i++ {
+		err := make(chan error, 1)
+		publishErrs[i] = err
+		go func() {
+			err <- ch.Publish(ctx, "msg", nil)
+		}()
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf, i)
+	}
+
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 2, // skip 2
+		Count:     2,
+	}
+
+	for i := 0; i < 2; i++ {
+		var err error
+		ablytest.Instantly.Recv(t, &err, publishErrs[i], t.Fatalf, i)
+		if err == nil {
+			t.Fatalf("expected implicit NACK for msg %d", i)
+		}
+	}
+	for i := 2; i < 4; i++ {
+		var err error
+		ablytest.Instantly.Recv(t, &err, publishErrs[i], t.Fatalf, i)
+		if err != nil {
+			t.Fatalf("expected ACK for msg %d", i)
+		}
+	}
+
+	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+}
+
+func TestIdempotentACK(t *testing.T) {
+	// From https://docs.ably.io/client-lib-development-guide/protocol/#message-acknowledgement:
+	//
+	// It is also a protocol error if the system sends an ACK or NACK that
+	// covers a msgSerial that was covered by an earlier ACK or NACK; in such
+	// cases the client library must silently ignore the response insofar as it
+	// relates to @msgSerial@s that were covered previously (whether the
+	// response is the same now or different).
+
+	t.Parallel()
+
+	in := make(chan *ably.ProtocolMessage, 16)
+	out := make(chan *ably.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithToken("fake:token"),
+		ably.WithDial(MessagePipe(in, out)),
+	)
+
+	in <- &ably.ProtocolMessage{
+		Action:       ably.ActionConnected,
+		ConnectionID: "connection-id-1",
+		ConnectionDetails: &ably.ConnectionDetails{
+			ClientID:      "id1",
+			ConnectionKey: "foo",
+		},
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := c.Channels.Get("test")
+	publishErrs := map[int]<-chan error{}
+	for i := 0; i < 4; i++ {
+		err := make(chan error, 1)
+		publishErrs[i] = err
+		go func() {
+			err <- ch.Publish(ctx, "msg", nil)
+		}()
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf, i)
+	}
+
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 0,
+		Count:     2,
+	}
+
+	for i := 0; i < 2; i++ {
+		var err error
+		ablytest.Instantly.Recv(t, &err, publishErrs[i], t.Fatalf, i)
+		if err != nil {
+			t.Fatalf("expected ACK for msg %d", i)
+		}
+	}
+
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 1, // repeat ACK for msgSerial 1; ACK 2 more
+		Count:     3,
+	}
+
+	for i := 2; i < 4; i++ {
+		var err error
+		ablytest.Instantly.Recv(t, &err, publishErrs[i], t.Fatalf, i)
+		if err != nil {
+			t.Fatalf("expected ACK for msg %d", i)
+		}
+	}
+
+	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+}
