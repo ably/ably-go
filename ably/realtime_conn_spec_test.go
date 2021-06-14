@@ -3130,3 +3130,142 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 		t.Fatalf("expected %v; got %v", "connection-id-2", c.Connection.ID())
 	}
 }
+
+func Test_RTN7b_ACK_NACK(t *testing.T) {
+	t.Parallel()
+
+	// See also https://docs.ably.io/client-lib-development-guide/protocol/#message-acknowledgement
+
+	in := make(chan *ably.ProtocolMessage, 16)
+	out := make(chan *ably.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithToken("fake:token"),
+		ably.WithDial(MessagePipe(in, out)),
+	)
+
+	connDetails := ably.ConnectionDetails{
+		ClientID:      "id1",
+		ConnectionKey: "foo",
+	}
+
+	in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "connection-id-1",
+		ConnectionDetails: &connDetails,
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := c.Channels.Get("test")
+	publishErrs := map[int]chan error{}
+	for i := 0; i < 7; i++ {
+		publishErrs[i] = make(chan error, 1)
+	}
+	serial := 0
+	publish := func() {
+		go func(serial int) {
+			// Hacky, but only way to order publishes while blocking for their
+			// resulting errors.
+			time.Sleep(time.Duration(serial) * time.Millisecond)
+
+			publishErrs[serial] <- ch.Publish(ctx, fmt.Sprintf("msg%d", serial), nil)
+		}(serial)
+
+		serial++
+	}
+	gotSerial := 0
+	receiveAck := func() error {
+		var err error
+		ablytest.Instantly.Recv(t, &err, publishErrs[gotSerial], t.Fatalf, gotSerial)
+		gotSerial++
+		return err
+	}
+
+	// Publish 5 messages, get ACK-2, NACK-1. Then publish 2 more, get
+	// NACK-1, ACK-2, ACK-1.
+
+	// Publish 5 messages...
+	for i := 0; i < 5; i++ {
+		publish()
+	}
+	for i := int64(0); i < 5; i++ {
+		var msg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf, i)
+		if msg.MsgSerial != i {
+			t.Fatalf("expected MESSAGE %d to have msgSerial %d; got %d", i, i, msg.MsgSerial)
+		}
+	}
+
+	// ... get ACK-2, NACK-1 ...
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 0,
+		Count:     2,
+	}
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionNack,
+		MsgSerial: 2,
+		Count:     1,
+		Error: &ably.ProtoErrorInfo{
+			StatusCode: 500,
+			Code:       50500,
+			Message:    "fake error",
+		},
+	}
+	for i, expectErr := range []bool{false, false, true} {
+		err := receiveAck()
+		if hasErr := err != nil; hasErr != expectErr {
+			t.Fatalf("%v [%d]", err, i)
+		}
+	}
+
+	// ... publish 2 more ...
+	for i := 0; i < 2; i++ {
+		publish()
+	}
+	for i := int64(5); i < 7; i++ {
+		var msg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf, i)
+		if msg.MsgSerial != i {
+			t.Fatalf("expected MESSAGE %d to have msgSerial %d; got %d", i, i, msg.MsgSerial)
+		}
+	}
+
+	// ... get NACK-1, ACK-2, ACK-1
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionNack,
+		MsgSerial: 3,
+		Count:     1,
+		Error: &ably.ProtoErrorInfo{
+			StatusCode: 500,
+			Code:       50500,
+			Message:    "fake error",
+		},
+	}
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 4,
+		Count:     2,
+	}
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 6,
+		Count:     1,
+	}
+	for i, expectErr := range []bool{true, false, false, false} {
+		err := receiveAck()
+		if hasErr := err != nil; hasErr != expectErr {
+			t.Fatalf("%v [%d]", err, i)
+		}
+	}
+
+	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+}
