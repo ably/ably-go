@@ -120,20 +120,8 @@ type msgCh struct {
 	ch  chan<- error
 }
 
-func (q pendingEmitter) Len() int {
-	return len(q.queue)
-}
-
-func (q pendingEmitter) Less(i, j int) bool {
-	return q.queue[i].msg.MsgSerial < q.queue[j].msg.MsgSerial
-}
-
-func (q pendingEmitter) Swap(i, j int) {
-	q.queue[i], q.queue[j] = q.queue[j], q.queue[i]
-}
-
 func (q pendingEmitter) Search(msg *protocolMessage) int {
-	return sort.Search(q.Len(), func(i int) bool { return q.queue[i].msg.MsgSerial >= msg.MsgSerial })
+	return sort.Search(len(q.queue), func(i int) bool { return q.queue[i].msg.MsgSerial >= msg.MsgSerial })
 }
 
 // Dismiss lets go of the channels that are waiting for an error on this queue.
@@ -159,20 +147,20 @@ func (q *pendingEmitter) Enqueue(msg *protocolMessage, ch chan<- error) {
 }
 
 func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
-	if q.Len() == 0 {
+	if len(q.queue) == 0 {
 		return
 	}
 	ack, nack := 0, 0
 	// Ensure range [serial,serial+count] fits inside q.
 	switch i := q.Search(msg); {
-	case i == q.Len():
-		nack = q.Len()
+	case i == len(q.queue):
+		nack = len(q.queue)
 	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
 		nack = i
-		ack = min(i+msg.Count, q.Len())
+		ack = min(i+msg.Count, len(q.queue))
 	default:
 		nack = i + 1
-		ack = min(i+1+msg.Count, q.Len())
+		ack = min(i+1+msg.Count, len(q.queue))
 	}
 	err := errInfo.unwrapNil()
 	if err == nil && nack > 0 {
@@ -190,17 +178,17 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 }
 
 func (q *pendingEmitter) Nack(msg *protocolMessage, errInfo *ErrorInfo) {
-	if q.Len() == 0 {
+	if len(q.queue) == 0 {
 		return
 	}
 	nack := 0
 	switch i := q.Search(msg); {
-	case i == q.Len():
-		nack = q.Len()
+	case i == len(q.queue):
+		nack = len(q.queue)
 	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
-		nack = min(i+msg.Count, q.Len())
+		nack = min(i+msg.Count, len(q.queue))
 	default:
-		nack = min(i+1+msg.Count, q.Len())
+		nack = min(i+1+msg.Count, len(q.queue))
 	}
 	err := errInfo.unwrapNil()
 	for _, sch := range q.queue[:nack] {
