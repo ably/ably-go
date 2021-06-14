@@ -136,6 +136,15 @@ func (q pendingEmitter) Search(msg *protocolMessage) int {
 	return sort.Search(q.Len(), func(i int) bool { return q.queue[i].msg.MsgSerial >= msg.MsgSerial })
 }
 
+// Dismiss lets go of the channels that are waiting for an error on this queue.
+// The queue can continue sending messages.
+func (q *pendingEmitter) Dismiss() []msgCh {
+	cx := make([]msgCh, len(q.queue))
+	copy(cx, q.queue)
+	q.queue = nil
+	return cx
+}
+
 func (q *pendingEmitter) Enqueue(msg *protocolMessage, ch chan<- error) {
 	switch i := q.Search(msg); {
 	case i == q.Len():

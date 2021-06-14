@@ -664,9 +664,7 @@ func (c *Connection) setSerial(serial *int64) {
 
 func (c *Connection) resendPending() {
 	c.mtx.Lock()
-	cx := make([]msgCh, len(c.pending.queue))
-	copy(cx, c.pending.queue)
-	c.pending.queue = []msgCh{}
+	cx := c.pending.Dismiss()
 	c.mtx.Unlock()
 	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
