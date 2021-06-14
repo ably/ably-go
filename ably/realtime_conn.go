@@ -720,7 +720,7 @@ func (c *Connection) eventloop() {
 			c.mtx.Unlock()
 		case actionNack:
 			c.mtx.Lock()
-			c.pending.Nack(msg, newErrorFromProto(msg.Error))
+			c.pending.Ack(msg, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
 		case actionError:
 
