@@ -1238,6 +1238,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	doEOF := make(chan struct{}, 1)
 
 	type meta struct {
+		sync.Mutex
 		dial     *url.URL
 		messages []*ably.ProtocolMessage
 	}
@@ -1260,6 +1261,8 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 			}
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
+				m.Lock()
+				defer m.Unlock()
 				if len(metaList) == 2 && len(m.messages) == 0 {
 					msg.Error = errInfo
 				}
@@ -1344,10 +1347,14 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	if change.Previous != change.Current {
 		t.Errorf("expected no state change; got %+v", change)
 	}
-	if client.Connection.ID() != metaList[1].messages[0].ConnectionID {
-		t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].messages[0].ConnectionID)
+
+	m := metaList[1]
+	m.Lock()
+	defer m.Unlock()
+	if client.Connection.ID() != m.messages[0].ConnectionID {
+		t.Errorf("expected %q to equal %q", client.Connection.ID(), m.messages[0].ConnectionID)
 	}
-	if metaList[1].messages[0].Error == nil {
+	if m.messages[0].Error == nil {
 		t.Error("expected resume error")
 	}
 	err = client.Connection.ErrorReason()
