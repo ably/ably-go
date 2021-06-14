@@ -1,6 +1,7 @@
 package ablytest
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -28,35 +29,42 @@ type WithTimeout struct {
 //
 // It returns the second, boolean value returned by the receive operation,
 // or false if the operation times out.
-func (wt WithTimeout) Recv(t *testing.T, into, from interface{}, fail func(fmt string, args ...interface{})) (ok bool) {
+func (wt WithTimeout) Recv(t *testing.T, into, from interface{}, fail func(fmt string, args ...interface{}), failExtraArgs ...interface{}) (ok bool) {
 	t.Helper()
 	ok, timeout := wt.recv(into, from)
 	if timeout {
-		fail("timed out waiting for channel receive")
+		fail("timed out waiting for channel receive" + fmtExtraArgs(failExtraArgs))
 	}
 	return ok
 }
 
 // NoRecv is like Recv, except it asserts no value is received.
-func (wt WithTimeout) NoRecv(t *testing.T, into, from interface{}, fail func(fmt string, args ...interface{})) (ok bool) {
+func (wt WithTimeout) NoRecv(t *testing.T, into, from interface{}, fail func(fmt string, args ...interface{}), failExtraArgs ...interface{}) (ok bool) {
 	t.Helper()
 	if into == nil {
 		into = &into
 	}
 	ok, timeout := wt.recv(into, from)
 	if !timeout {
-		fail("unexpectedly received in channel: %v", into)
+		fail("unexpectedly received in channel: %v"+fmtExtraArgs(failExtraArgs), into)
 	}
 	return ok
 }
 
 // Send is like Recv, except it sends.
-func (wt WithTimeout) Send(t *testing.T, ch, v interface{}, fail func(fmt string, args ...interface{})) (ok bool) {
+func (wt WithTimeout) Send(t *testing.T, ch, v interface{}, fail func(fmt string, args ...interface{}), failExtraArgs ...interface{}) (ok bool) {
 	t.Helper()
 	if timeout := wt.send(ch, v); timeout {
-		fail("timed out waiting for channel send")
+		fail("timed out waiting for channel send" + fmtExtraArgs(failExtraArgs))
 	}
 	return ok
+}
+
+func fmtExtraArgs(args []interface{}) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return fmt.Sprintf(" [%s]", fmt.Sprint(args...))
 }
 
 func (wt WithTimeout) recv(into, from interface{}) (ok, timeout bool) {
