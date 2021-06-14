@@ -1294,6 +1294,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 		stateChanges <- c
 	})
 
+	prevMsgSerial := client.Connection.MsgSerial()
 	doEOF <- struct{}{}
 
 	var state ably.ConnectionStateChange
@@ -1361,6 +1362,10 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	reason := err.(*ably.ErrorInfo)
 	if reason.StatusCode != errInfo.StatusCode {
 		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
+	}
+
+	if client.Connection.MsgSerial() != prevMsgSerial {
+		t.Fatalf("msgSerial shouldn't be reset on resumed connection")
 	}
 }
 
@@ -1464,6 +1469,10 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	}
 	if reason.StatusCode != errInfo.StatusCode {
 		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
+	}
+
+	if msgSerial := client.Connection.MsgSerial(); msgSerial != 1 {
+		t.Fatalf("expected msgSerial to be reset, then advance to 1; got %d", msgSerial)
 	}
 }
 
@@ -1569,6 +1578,10 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 	}
 	if reason.StatusCode != errInfo.StatusCode {
 		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
+	}
+
+	if msgSerial := client.Connection.MsgSerial(); msgSerial != 1 {
+		t.Fatalf("expected msgSerial to be reset, then advance to 1; got %d", msgSerial)
 	}
 }
 

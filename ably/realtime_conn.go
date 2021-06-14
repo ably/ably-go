@@ -771,7 +771,7 @@ func (c *Connection) eventloop() {
 			}
 			previousID := c.id
 			c.id = msg.ConnectionID
-			c.msgSerial = 0
+			isNewID := previousID != msg.ConnectionID
 			if reconnecting && mode == recoveryMode && msg.Error == nil {
 				// we are setting msgSerial as per (RTN16f)
 				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
@@ -779,6 +779,8 @@ func (c *Connection) eventloop() {
 					//TODO: how to handle this? Panic?
 				}
 				c.msgSerial = msgSerial
+			} else if isNewID {
+				c.msgSerial = 0
 			}
 
 			if c.state == ConnectionStateClosing {
@@ -799,7 +801,7 @@ func (c *Connection) eventloop() {
 				// we are calling this outside of locks to avoid deadlock because in the
 				// RealtimeClient client where this callback is implemented we do some ops
 				// with this Conn where we re acquire Conn.Lock again.
-				c.callbacks.onReconnected(previousID != msg.ConnectionID)
+				c.callbacks.onReconnected(isNewID)
 			} else {
 				// preserve old behavior.
 				c.mtx.Lock()
