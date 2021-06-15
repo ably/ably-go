@@ -3271,13 +3271,22 @@ func TestImplicitNACK(t *testing.T) {
 	ch := c.Channels.Get("test")
 	publish, receiveAck := testConcurrentPublisher(t, ch, out)
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 2; i++ {
+		publish()
+	}
+
+	// Intersperse an ATTACH to increase msgSerial, so that skipped MESSAGEs
+	// pending ACK don't have consecutive msgSerials.
+	c.Channels.Get("test2").Attach(canceledCtx)
+	ablytest.Instantly.Recv(t, nil, out, t.Fatalf)
+
+	for i := 0; i < 2; i++ {
 		publish()
 	}
 
 	in <- &ably.ProtocolMessage{
 		Action:    ably.ActionAck,
-		MsgSerial: 2, // skip 2
+		MsgSerial: 3, // skip 2
 		Count:     2,
 	}
 

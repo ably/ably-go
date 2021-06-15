@@ -130,41 +130,54 @@ func (q *pendingEmitter) Dismiss() []msgCh {
 }
 
 func (q *pendingEmitter) Enqueue(msg *protocolMessage, ch chan<- error) {
-	if len(q.queue) > 0 {
-		expected := q.queue[len(q.queue)-1].msg.MsgSerial + 1
-		if got := msg.MsgSerial; expected != got {
-			panic(fmt.Sprintf("protocol violation: expected next enqueued message to have msgSerial %d; got %d", expected, got))
-		}
-	}
 	q.queue = append(q.queue, msgCh{msg, ch})
 }
 
 func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
+	// The protocol spec doesn't explicitly says this, but we assume it's
+	// impossible that a single ACK message resolves multiple MESSAGEs with
+	// non-consecutive msgSerials.
+	resolved := msg.Count
+
 	// The msgSerial from the server may not be the same we're waiting. If the
 	// server skipped some messages, they get implicitly NACKed. If the server
-	// ACKed some messages again, we ignore those. In both cases, we just need
-	// to correct the number of messages that get ACKed by that difference.
-	serialShift := int(msg.MsgSerial - q.queue[0].msg.MsgSerial)
-	count := msg.Count + serialShift
-	if count > len(q.queue) {
-		panic(fmt.Sprintf("protocol violation: ACKed %d messages, but only %d pending", count, len(q.queue)))
+	// ACKed some messages again, we ignore those.
+
+	// Messages in the queue with a msgSerial lower than the one on the
+	// incoming message get implicitly NACKed.
+	implicitlyNACKed := 0
+	for i := 0; q.queue[i].msg.MsgSerial < msg.MsgSerial; i++ {
+		implicitlyNACKed++
 	}
-	acked := q.queue[:count]
-	q.queue = q.queue[count:]
+	resolved += implicitlyNACKed
+
+	// If, on the other hand, the first message in the queue has a higher
+	// msgSerial that the incoming message's, it's a redundant ACK and we adjust
+	// the number of actually resolved messages accordingly, substracting those
+	// that got redundantly ACKed.
+	if diff := int(q.queue[0].msg.MsgSerial - msg.MsgSerial); diff > 0 {
+		resolved -= diff
+	}
+
+	if resolved > len(q.queue) {
+		panic(fmt.Sprintf("protocol violation: ACKed %d messages, but only %d pending", resolved, len(q.queue)))
+	}
 
 	err := errInfo.unwrapNil()
 	if msg.Action == actionNack && err == nil {
 		err = errNACKWithoutError
 	}
 
-	for i, sch := range acked {
+	for i, sch := range q.queue[:resolved] {
 		err := err
-		if i < serialShift {
+		if i < implicitlyNACKed {
 			err = errImplictNACK
 		}
 		q.log.Verbosef("received %v for message serial %d", msg.Action, sch.msg.MsgSerial)
 		sch.ch <- err
 	}
+
+	q.queue = q.queue[resolved:]
 }
 
 type msgch struct {
