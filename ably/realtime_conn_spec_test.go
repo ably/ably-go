@@ -3167,23 +3167,24 @@ func Test_RTN7b_ACK_NACK(t *testing.T) {
 	defer cancel()
 
 	ch := c.Channels.Get("test")
-	publishErrs := map[int]chan error{}
-	for i := 0; i < 7; i++ {
-		publishErrs[i] = make(chan error, 1)
-	}
-	serial := 0
+	publishErrs := map[int64]<-chan error{}
+	var serial int64
 	publish := func() {
-		go func(serial int) {
-			// Hacky, but only way to order publishes while blocking for their
-			// resulting errors.
-			time.Sleep(time.Duration(serial) * time.Millisecond)
-
-			publishErrs[serial] <- ch.Publish(ctx, fmt.Sprintf("msg%d", serial), nil)
+		err := make(chan error, 1)
+		publishErrs[serial] = err
+		go func(serial int64) {
+			err <- ch.Publish(ctx, fmt.Sprintf("msg%d", serial), nil)
 		}(serial)
+
+		var msg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf, serial)
+		if msg.MsgSerial != serial {
+			t.Fatalf("expected MESSAGE to have msgSerial %d; got %d", serial, msg.MsgSerial)
+		}
 
 		serial++
 	}
-	gotSerial := 0
+	var gotSerial int64
 	receiveAck := func() error {
 		var err error
 		ablytest.Instantly.Recv(t, &err, publishErrs[gotSerial], t.Fatalf, gotSerial)
@@ -3197,13 +3198,6 @@ func Test_RTN7b_ACK_NACK(t *testing.T) {
 	// Publish 5 messages...
 	for i := 0; i < 5; i++ {
 		publish()
-	}
-	for i := int64(0); i < 5; i++ {
-		var msg *ably.ProtocolMessage
-		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf, i)
-		if msg.MsgSerial != i {
-			t.Fatalf("expected MESSAGE %d to have msgSerial %d; got %d", i, i, msg.MsgSerial)
-		}
 	}
 
 	// ... get ACK-2, NACK-1 ...
@@ -3232,13 +3226,6 @@ func Test_RTN7b_ACK_NACK(t *testing.T) {
 	// ... publish 2 more ...
 	for i := 0; i < 2; i++ {
 		publish()
-	}
-	for i := int64(5); i < 7; i++ {
-		var msg *ably.ProtocolMessage
-		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf, i)
-		if msg.MsgSerial != i {
-			t.Fatalf("expected MESSAGE %d to have msgSerial %d; got %d", i, i, msg.MsgSerial)
-		}
 	}
 
 	// ... get NACK-1, ACK-2, ACK-1
