@@ -3163,34 +3163,10 @@ func Test_RTN7b_ACK_NACK(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Set things up.
 
 	ch := c.Channels.Get("test")
-	publishErrs := map[int64]<-chan error{}
-	var serial int64
-	publish := func() {
-		err := make(chan error, 1)
-		publishErrs[serial] = err
-		go func(serial int64) {
-			err <- ch.Publish(ctx, fmt.Sprintf("msg%d", serial), nil)
-		}(serial)
-
-		var msg *ably.ProtocolMessage
-		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf, serial)
-		if msg.MsgSerial != serial {
-			t.Fatalf("expected MESSAGE to have msgSerial %d; got %d", serial, msg.MsgSerial)
-		}
-
-		serial++
-	}
-	var gotSerial int64
-	receiveAck := func() error {
-		var err error
-		ablytest.Instantly.Recv(t, &err, publishErrs[gotSerial], t.Fatalf, gotSerial)
-		gotSerial++
-		return err
-	}
+	publish, receiveAck := testConcurrentPublisher(t, ch, out)
 
 	// Publish 5 messages, get ACK-2, NACK-1. Then publish 2 more, get
 	// NACK-1, ACK-2, ACK-1.
@@ -3292,18 +3268,11 @@ func TestImplicitNACK(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	ch := c.Channels.Get("test")
-	publishErrs := map[int]<-chan error{}
+	publish, receiveAck := testConcurrentPublisher(t, ch, out)
+
 	for i := 0; i < 4; i++ {
-		err := make(chan error, 1)
-		publishErrs[i] = err
-		go func() {
-			err <- ch.Publish(ctx, "msg", nil)
-		}()
-		ablytest.Instantly.Recv(t, nil, out, t.Fatalf, i)
+		publish()
 	}
 
 	in <- &ably.ProtocolMessage{
@@ -3313,15 +3282,13 @@ func TestImplicitNACK(t *testing.T) {
 	}
 
 	for i := 0; i < 2; i++ {
-		var err error
-		ablytest.Instantly.Recv(t, &err, publishErrs[i], t.Fatalf, i)
+		err := receiveAck()
 		if err == nil {
 			t.Fatalf("expected implicit NACK for msg %d", i)
 		}
 	}
 	for i := 2; i < 4; i++ {
-		var err error
-		ablytest.Instantly.Recv(t, &err, publishErrs[i], t.Fatalf, i)
+		err := receiveAck()
 		if err != nil {
 			t.Fatalf("expected ACK for msg %d", i)
 		}
@@ -3364,18 +3331,10 @@ func TestIdempotentACK(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	ch := c.Channels.Get("test")
-	publishErrs := map[int]<-chan error{}
+	publish, receiveAck := testConcurrentPublisher(t, ch, out)
 	for i := 0; i < 4; i++ {
-		err := make(chan error, 1)
-		publishErrs[i] = err
-		go func() {
-			err <- ch.Publish(ctx, "msg", nil)
-		}()
-		ablytest.Instantly.Recv(t, nil, out, t.Fatalf, i)
+		publish()
 	}
 
 	in <- &ably.ProtocolMessage{
@@ -3385,8 +3344,7 @@ func TestIdempotentACK(t *testing.T) {
 	}
 
 	for i := 0; i < 2; i++ {
-		var err error
-		ablytest.Instantly.Recv(t, &err, publishErrs[i], t.Fatalf, i)
+		err := receiveAck()
 		if err != nil {
 			t.Fatalf("expected ACK for msg %d", i)
 		}
@@ -3399,12 +3357,45 @@ func TestIdempotentACK(t *testing.T) {
 	}
 
 	for i := 2; i < 4; i++ {
-		var err error
-		ablytest.Instantly.Recv(t, &err, publishErrs[i], t.Fatalf, i)
+		err := receiveAck()
 		if err != nil {
 			t.Fatalf("expected ACK for msg %d", i)
 		}
 	}
 
 	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+}
+
+func testConcurrentPublisher(t *testing.T, ch *ably.RealtimeChannel, out <-chan *ably.ProtocolMessage) (
+	publish func(),
+	receiveAck func() error,
+) {
+	publishErrs := map[int64]<-chan error{}
+
+	var i int64
+	publish = func() {
+		t.Helper()
+
+		err := make(chan error, 1)
+		publishErrs[i] = err
+		go func(serial int64) {
+			err <- ch.Publish(context.Background(), fmt.Sprintf("msg%d", serial), nil)
+		}(i)
+
+		var msg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf, i)
+		i++
+	}
+
+	var got int64
+	receiveAck = func() error {
+		t.Helper()
+
+		var err error
+		ablytest.Instantly.Recv(t, &err, publishErrs[got], t.Fatalf, got)
+		got++
+		return err
+	}
+
+	return
 }
