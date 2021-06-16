@@ -560,3 +560,9 @@ func (c interceptConn) Receive(deadline time.Time) (*ably.ProtocolMessage, error
 
 	return msg, err
 }
+
+var canceledCtx context.Context = func() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	return ctx
+}()

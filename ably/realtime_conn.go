@@ -555,6 +555,7 @@ func (c *Connection) advanceSerial() {
 }
 
 func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
+	hasMsgSerial := msg.Action == actionMessage || msg.Action == actionPresence
 	c.mtx.Lock()
 	switch state := c.state; state {
 	default:
@@ -574,7 +575,9 @@ func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
 			listen <- err
 			return
 		}
-		msg.MsgSerial = c.msgSerial
+		if hasMsgSerial {
+			msg.MsgSerial = c.msgSerial
+		}
 		err := c.conn.Send(msg)
 		if err != nil {
 			// An error here means there has been some transport-level failure in the
@@ -587,7 +590,9 @@ func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
 			c.mtx.Unlock()
 			c.queue.Enqueue(msg, listen)
 		} else {
-			c.advanceSerial()
+			if hasMsgSerial {
+				c.advanceSerial()
+			}
 			if listen != nil {
 				c.pending.Enqueue(msg, listen)
 			}

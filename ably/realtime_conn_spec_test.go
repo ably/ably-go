@@ -1405,6 +1405,12 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 		t.Fatalf("Connect=%s", err)
 	}
 
+	// Increase msgSerial, to test that it gets reset later.
+	err := client.Channels.Get("publish").Publish(context.Background(), "test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	channel := client.Channels.Get("channel")
 	if err := channel.Attach(context.Background()); err != nil {
 		t.Fatal(err)
@@ -1471,8 +1477,8 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
 	}
 
-	if msgSerial := client.Connection.MsgSerial(); msgSerial != 1 {
-		t.Fatalf("expected msgSerial to be reset, then advance to 1; got %d", msgSerial)
+	if msgSerial := client.Connection.MsgSerial(); msgSerial != 0 {
+		t.Fatalf("expected msgSerial to be reset; got %d", msgSerial)
 	}
 }
 
@@ -1513,6 +1519,12 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 
 	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
+	}
+
+	// Increase msgSerial, to test that it gets reset later.
+	err := client.Channels.Get("publish").Publish(context.Background(), "test", nil)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	channel := client.Channels.Get("channel")
@@ -1580,8 +1592,8 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
 	}
 
-	if msgSerial := client.Connection.MsgSerial(); msgSerial != 1 {
-		t.Fatalf("expected msgSerial to be reset, then advance to 1; got %d", msgSerial)
+	if msgSerial := client.Connection.MsgSerial(); msgSerial != 0 {
+		t.Fatalf("expected msgSerial to be reset; got %d", msgSerial)
 	}
 }
 
@@ -3172,7 +3184,19 @@ func Test_RTN7b_ACK_NACK(t *testing.T) {
 	// NACK-1, ACK-2, ACK-1.
 
 	// Publish 5 messages...
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 3; i++ {
+		publish()
+	}
+
+	// Intersperse an ATTACH, which used to increase msgSerial, but shouldn't.
+	// Regression test for https://github.com/ably/docs/pull/1115
+	c.Channels.Get("test2").Attach(canceledCtx)
+	var attachMsg *ably.ProtocolMessage
+	ablytest.Instantly.Recv(t, &attachMsg, out, t.Fatalf)
+	assertEquals(t, ably.ActionAttach, attachMsg.Action)
+	assertEquals(t, int64(0), attachMsg.MsgSerial)
+
+	for i := 0; i < 2; i++ {
 		publish()
 	}
 
