@@ -555,6 +555,7 @@ func (c *Connection) advanceSerial() {
 }
 
 func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
+	hasMsgSerial := msg.Action == actionMessage || msg.Action == actionPresence
 	c.mtx.Lock()
 	switch state := c.state; state {
 	default:
@@ -574,7 +575,9 @@ func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
 			listen <- err
 			return
 		}
-		msg.MsgSerial = c.msgSerial
+		if hasMsgSerial {
+			msg.MsgSerial = c.msgSerial
+		}
 		err := c.conn.Send(msg)
 		if err != nil {
 			// An error here means there has been some transport-level failure in the
@@ -587,7 +590,9 @@ func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
 			c.mtx.Unlock()
 			c.queue.Enqueue(msg, listen)
 		} else {
-			c.advanceSerial()
+			if hasMsgSerial {
+				c.advanceSerial()
+			}
 			if listen != nil {
 				c.pending.Enqueue(msg, listen)
 			}
@@ -664,9 +669,7 @@ func (c *Connection) setSerial(serial *int64) {
 
 func (c *Connection) resendPending() {
 	c.mtx.Lock()
-	cx := make([]msgCh, len(c.pending.queue))
-	copy(cx, c.pending.queue)
-	c.pending.queue = []msgCh{}
+	cx := c.pending.Dismiss()
 	c.mtx.Unlock()
 	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
@@ -722,7 +725,7 @@ func (c *Connection) eventloop() {
 			c.mtx.Unlock()
 		case actionNack:
 			c.mtx.Lock()
-			c.pending.Nack(msg, newErrorFromProto(msg.Error))
+			c.pending.Ack(msg, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
 		case actionError:
 
@@ -773,7 +776,7 @@ func (c *Connection) eventloop() {
 			}
 			previousID := c.id
 			c.id = msg.ConnectionID
-			c.msgSerial = 0
+			isNewID := previousID != msg.ConnectionID
 			if reconnecting && mode == recoveryMode && msg.Error == nil {
 				// we are setting msgSerial as per (RTN16f)
 				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
@@ -781,6 +784,8 @@ func (c *Connection) eventloop() {
 					//TODO: how to handle this? Panic?
 				}
 				c.msgSerial = msgSerial
+			} else if isNewID {
+				c.msgSerial = 0
 			}
 
 			if c.state == ConnectionStateClosing {
@@ -801,7 +806,7 @@ func (c *Connection) eventloop() {
 				// we are calling this outside of locks to avoid deadlock because in the
 				// RealtimeClient client where this callback is implemented we do some ops
 				// with this Conn where we re acquire Conn.Lock again.
-				c.callbacks.onReconnected(previousID != msg.ConnectionID)
+				c.callbacks.onReconnected(isNewID)
 			} else {
 				// preserve old behavior.
 				c.mtx.Lock()

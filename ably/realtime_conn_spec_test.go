@@ -990,22 +990,35 @@ func (c protoConnWithFakeEOF) Receive(deadline time.Time) (*ably.ProtocolMessage
 	}
 }
 
+type transportMessages struct {
+	sync.Mutex
+	dial     *url.URL
+	messages []*ably.ProtocolMessage
+}
+
+func (tm *transportMessages) Add(m *ably.ProtocolMessage) {
+	tm.Lock()
+	defer tm.Unlock()
+	tm.messages = append(tm.messages, m)
+}
+
+func (tm *transportMessages) Messages() []*ably.ProtocolMessage {
+	tm.Lock()
+	defer tm.Unlock()
+	return tm.messages
+}
+
 func TestRealtimeConn_RTN15b(t *testing.T) {
 	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 
-	type meta struct {
-		dial     *url.URL
-		messages []*ably.ProtocolMessage
-	}
-
-	var metaList []*meta
+	var metaList []*transportMessages
 	gotDial := make(chan chan struct{})
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &meta{dial: u}
+			m := &transportMessages{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
 				goOn := make(chan struct{})
@@ -1014,7 +1027,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 			}
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				m.messages = append(m.messages, msg)
+				m.Add(msg)
 			}}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -1088,7 +1101,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	{ //(RTN15b1)
 		u := metaList[1].dial
 		resume := u.Query().Get("resume")
-		connKey := recent(metaList[0].messages, ably.ActionConnected).ConnectionDetails.ConnectionKey
+		connKey := recent(metaList[0].Messages(), ably.ActionConnected).ConnectionDetails.ConnectionKey
 		if resume == "" {
 			t.Fatal("expected resume query param to be set")
 		}
@@ -1100,7 +1113,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	{ //(RTN15b2)
 		u := metaList[1].dial
 		serial := u.Query().Get("connectionSerial")
-		connSerial := fmt.Sprint(metaList[0].messages[0].ConnectionSerial)
+		connSerial := fmt.Sprint(metaList[0].Messages()[0].ConnectionSerial)
 		if serial == "" {
 			t.Fatal("expected connectionSerial query param to be set")
 		}
@@ -1124,18 +1137,13 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	type meta struct {
-		dial     *url.URL
-		messages []*ably.ProtocolMessage
-	}
-
-	var metaList []*meta
+	var metaList []*transportMessages
 	gotDial := make(chan chan struct{})
 
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &meta{dial: u}
+			m := &transportMessages{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
 				goOn := make(chan struct{})
@@ -1144,7 +1152,7 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 			}
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				m.messages = append(m.messages, msg)
+				m.Add(msg)
 			}}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -1224,10 +1232,10 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	if change.Previous != change.Current {
 		t.Errorf("expected no state change; got %+v", change)
 	}
-	if client.Connection.ID() != metaList[1].messages[0].ConnectionID {
-		t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].messages[0].ConnectionID)
+	if client.Connection.ID() != metaList[1].Messages()[0].ConnectionID {
+		t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].Messages()[0].ConnectionID)
 	}
-	if metaList[1].messages[0].Error != nil {
+	if metaList[1].Messages()[0].Error != nil {
 		t.Error("expected resume error to be nil")
 	}
 }
@@ -1237,12 +1245,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	type meta struct {
-		dial     *url.URL
-		messages []*ably.ProtocolMessage
-	}
-
-	var metaList []*meta
+	var metaList []*transportMessages
 	errInfo := &ably.ProtoErrorInfo{
 		StatusCode: 401,
 	}
@@ -1251,7 +1254,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &meta{dial: u}
+			m := &transportMessages{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
 				goOn := make(chan struct{})
@@ -1260,10 +1263,10 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 			}
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				if len(metaList) == 2 && len(m.messages) == 0 {
+				if len(metaList) == 2 && len(m.Messages()) == 0 {
 					msg.Error = errInfo
 				}
-				m.messages = append(m.messages, msg)
+				m.Add(msg)
 			}}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -1291,6 +1294,7 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 		stateChanges <- c
 	})
 
+	prevMsgSerial := client.Connection.MsgSerial()
 	doEOF <- struct{}{}
 
 	var state ably.ConnectionStateChange
@@ -1344,10 +1348,11 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	if change.Previous != change.Current {
 		t.Errorf("expected no state change; got %+v", change)
 	}
-	if client.Connection.ID() != metaList[1].messages[0].ConnectionID {
-		t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].messages[0].ConnectionID)
+
+	if client.Connection.ID() != metaList[1].Messages()[0].ConnectionID {
+		t.Errorf("expected %q to equal %q", client.Connection.ID(), metaList[1].Messages()[0].ConnectionID)
 	}
-	if metaList[1].messages[0].Error == nil {
+	if metaList[1].Messages()[0].Error == nil {
 		t.Error("expected resume error")
 	}
 	err = client.Connection.ErrorReason()
@@ -1358,6 +1363,10 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 	if reason.StatusCode != errInfo.StatusCode {
 		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
 	}
+
+	if client.Connection.MsgSerial() != prevMsgSerial {
+		t.Fatalf("msgSerial shouldn't be reset on resumed connection")
+	}
 }
 
 func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
@@ -1365,12 +1374,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	type meta struct {
-		dial     *url.URL
-		messages []*ably.ProtocolMessage
-	}
-
-	var metaList []*meta
+	var metaList []*transportMessages
 	errInfo := &ably.ProtoErrorInfo{
 		StatusCode: 401,
 	}
@@ -1379,7 +1383,7 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &meta{dial: u}
+			m := &transportMessages{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
 				goOn := make(chan struct{})
@@ -1388,17 +1392,23 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 			}
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				if len(metaList) == 2 && len(m.messages) == 0 {
+				if len(metaList) == 2 && len(m.Messages()) == 0 {
 					msg.Error = errInfo
 					msg.ConnectionID = connID
 				}
-				m.messages = append(m.messages, msg)
+				m.Add(msg)
 			}}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
+	}
+
+	// Increase msgSerial, to test that it gets reset later.
+	err := client.Channels.Get("publish").Publish(context.Background(), "test", nil)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	channel := client.Channels.Get("channel")
@@ -1466,6 +1476,10 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 	if reason.StatusCode != errInfo.StatusCode {
 		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
 	}
+
+	if msgSerial := client.Connection.MsgSerial(); msgSerial != 0 {
+		t.Fatalf("expected msgSerial to be reset; got %d", msgSerial)
+	}
 }
 
 func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
@@ -1473,12 +1487,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	type meta struct {
-		dial     *url.URL
-		messages []*ably.ProtocolMessage
-	}
-
-	var metaList []*meta
+	var metaList []*transportMessages
 	errInfo := &ably.ProtoErrorInfo{
 		StatusCode: 401,
 	}
@@ -1487,7 +1496,7 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &meta{dial: u}
+			m := &transportMessages{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
 				goOn := make(chan struct{})
@@ -1496,20 +1505,26 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 			}
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				if len(metaList) == 2 && len(m.messages) == 0 {
+				if len(metaList) == 2 && len(m.Messages()) == 0 {
 					msg.Error = errInfo
 					msg.ConnectionID = connID
 				}
 				if msg.Action == ably.ActionAttached {
 					msg.Action = ably.ActionHeartbeat
 				}
-				m.messages = append(m.messages, msg)
+				m.Add(msg)
 			}}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatalf("Connect=%s", err)
+	}
+
+	// Increase msgSerial, to test that it gets reset later.
+	err := client.Channels.Get("publish").Publish(context.Background(), "test", nil)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	channel := client.Channels.Get("channel")
@@ -1576,6 +1591,10 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 	if reason.StatusCode != errInfo.StatusCode {
 		t.Errorf("expected %d got %d", errInfo.StatusCode, reason.StatusCode)
 	}
+
+	if msgSerial := client.Connection.MsgSerial(); msgSerial != 0 {
+		t.Fatalf("expected msgSerial to be reset; got %d", msgSerial)
+	}
 }
 
 func TestRealtimeConn_RTN15c4(t *testing.T) {
@@ -1583,12 +1602,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	type meta struct {
-		dial     *url.URL
-		messages []*ably.ProtocolMessage
-	}
-
-	var metaList []*meta
+	var metaList []*transportMessages
 	errInfo := &ably.ProtoErrorInfo{
 		StatusCode: http.StatusBadRequest,
 	}
@@ -1596,7 +1610,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &meta{dial: u}
+			m := &transportMessages{dial: u}
 			metaList = append(metaList, m)
 			if len(metaList) > 1 {
 				goOn := make(chan struct{})
@@ -1605,11 +1619,11 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 			}
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				if len(metaList) == 2 && len(m.messages) == 0 {
+				if len(metaList) == 2 && len(m.Messages()) == 0 {
 					msg.Action = ably.ActionError
 					msg.Error = errInfo
 				}
-				m.messages = append(m.messages, msg)
+				m.Add(msg)
 			}}, err
 		}))
 	defer safeclose(t, &closeClient{Closer: ablytest.FullRealtimeCloser(client), skip: []int{http.StatusBadRequest}}, app)
@@ -3129,4 +3143,283 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 	if c.Connection.ID() != "connection-id-2" {
 		t.Fatalf("expected %v; got %v", "connection-id-2", c.Connection.ID())
 	}
+}
+
+func Test_RTN7b_ACK_NACK(t *testing.T) {
+	t.Parallel()
+
+	// See also https://docs.ably.io/client-lib-development-guide/protocol/#message-acknowledgement
+
+	in := make(chan *ably.ProtocolMessage, 16)
+	out := make(chan *ably.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithToken("fake:token"),
+		ably.WithDial(MessagePipe(in, out)),
+	)
+
+	connDetails := ably.ConnectionDetails{
+		ClientID:      "id1",
+		ConnectionKey: "foo",
+	}
+
+	in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "connection-id-1",
+		ConnectionDetails: &connDetails,
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set things up.
+
+	ch := c.Channels.Get("test")
+	publish, receiveAck := testConcurrentPublisher(t, ch, out)
+
+	// Publish 5 messages, get ACK-2, NACK-1. Then publish 2 more, get
+	// NACK-1, ACK-2, ACK-1.
+
+	// Publish 5 messages...
+	for i := 0; i < 3; i++ {
+		publish()
+	}
+
+	// Intersperse an ATTACH, which used to increase msgSerial, but shouldn't.
+	// Regression test for https://github.com/ably/docs/pull/1115
+	c.Channels.Get("test2").Attach(canceledCtx)
+	var attachMsg *ably.ProtocolMessage
+	ablytest.Instantly.Recv(t, &attachMsg, out, t.Fatalf)
+	assertEquals(t, ably.ActionAttach, attachMsg.Action)
+	assertEquals(t, int64(0), attachMsg.MsgSerial)
+
+	for i := 0; i < 2; i++ {
+		publish()
+	}
+
+	// ... get ACK-2, NACK-1 ...
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 0,
+		Count:     2,
+	}
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionNack,
+		MsgSerial: 2,
+		Count:     1,
+		Error: &ably.ProtoErrorInfo{
+			StatusCode: 500,
+			Code:       50500,
+			Message:    "fake error",
+		},
+	}
+	for i, expectErr := range []bool{false, false, true} {
+		err := receiveAck()
+		if hasErr := err != nil; hasErr != expectErr {
+			t.Fatalf("%v [%d]", err, i)
+		}
+	}
+
+	// ... publish 2 more ...
+	for i := 0; i < 2; i++ {
+		publish()
+	}
+
+	// ... get NACK-1, ACK-2, ACK-1
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionNack,
+		MsgSerial: 3,
+		Count:     1,
+		Error: &ably.ProtoErrorInfo{
+			StatusCode: 500,
+			Code:       50500,
+			Message:    "fake error",
+		},
+	}
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 4,
+		Count:     2,
+	}
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 6,
+		Count:     1,
+	}
+	for i, expectErr := range []bool{true, false, false, false} {
+		err := receiveAck()
+		if hasErr := err != nil; hasErr != expectErr {
+			t.Fatalf("%v [%d]", err, i)
+		}
+	}
+
+	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+}
+
+func TestImplicitNACK(t *testing.T) {
+	// From https://docs.ably.io/client-lib-development-guide/protocol/#message-acknowledgement:
+	//
+	// It is a protocol error if the system sends an ACK or NACK that skips past
+	// one or more msgSerial without there having been either and ACK or NACK;
+	// but a client in this situation should treat this case as
+	// implicitly @NACK@ing the skipped messages.
+
+	t.Parallel()
+
+	in := make(chan *ably.ProtocolMessage, 16)
+	out := make(chan *ably.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithToken("fake:token"),
+		ably.WithDial(MessagePipe(in, out)),
+	)
+
+	in <- &ably.ProtocolMessage{
+		Action:       ably.ActionConnected,
+		ConnectionID: "connection-id-1",
+		ConnectionDetails: &ably.ConnectionDetails{
+			ClientID:      "id1",
+			ConnectionKey: "foo",
+		},
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ch := c.Channels.Get("test")
+	publish, receiveAck := testConcurrentPublisher(t, ch, out)
+
+	for i := 0; i < 4; i++ {
+		publish()
+	}
+
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 2, // skip 2
+		Count:     2,
+	}
+
+	for i := 0; i < 2; i++ {
+		err := receiveAck()
+		if err == nil {
+			t.Fatalf("expected implicit NACK for msg %d", i)
+		}
+	}
+	for i := 2; i < 4; i++ {
+		err := receiveAck()
+		if err != nil {
+			t.Fatalf("expected ACK for msg %d", i)
+		}
+	}
+
+	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+}
+
+func TestIdempotentACK(t *testing.T) {
+	// From https://docs.ably.io/client-lib-development-guide/protocol/#message-acknowledgement:
+	//
+	// It is also a protocol error if the system sends an ACK or NACK that
+	// covers a msgSerial that was covered by an earlier ACK or NACK; in such
+	// cases the client library must silently ignore the response insofar as it
+	// relates to @msgSerial@s that were covered previously (whether the
+	// response is the same now or different).
+
+	t.Parallel()
+
+	in := make(chan *ably.ProtocolMessage, 16)
+	out := make(chan *ably.ProtocolMessage, 16)
+
+	c, _ := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithToken("fake:token"),
+		ably.WithDial(MessagePipe(in, out)),
+	)
+
+	in <- &ably.ProtocolMessage{
+		Action:       ably.ActionConnected,
+		ConnectionID: "connection-id-1",
+		ConnectionDetails: &ably.ConnectionDetails{
+			ClientID:      "id1",
+			ConnectionKey: "foo",
+		},
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ch := c.Channels.Get("test")
+	publish, receiveAck := testConcurrentPublisher(t, ch, out)
+	for i := 0; i < 4; i++ {
+		publish()
+	}
+
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 0,
+		Count:     2,
+	}
+
+	for i := 0; i < 2; i++ {
+		err := receiveAck()
+		if err != nil {
+			t.Fatalf("expected ACK for msg %d", i)
+		}
+	}
+
+	in <- &ably.ProtocolMessage{
+		Action:    ably.ActionAck,
+		MsgSerial: 1, // repeat ACK for msgSerial 1; ACK 2 more
+		Count:     3,
+	}
+
+	for i := 2; i < 4; i++ {
+		err := receiveAck()
+		if err != nil {
+			t.Fatalf("expected ACK for msg %d", i)
+		}
+	}
+
+	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+}
+
+func testConcurrentPublisher(t *testing.T, ch *ably.RealtimeChannel, out <-chan *ably.ProtocolMessage) (
+	publish func(),
+	receiveAck func() error,
+) {
+	publishErrs := map[int64]<-chan error{}
+
+	var i int64
+	publish = func() {
+		t.Helper()
+
+		err := make(chan error, 1)
+		publishErrs[i] = err
+		go func(serial int64) {
+			err <- ch.Publish(context.Background(), fmt.Sprintf("msg%d", serial), nil)
+		}(i)
+
+		var msg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf, i)
+		i++
+	}
+
+	var got int64
+	receiveAck = func() error {
+		t.Helper()
+
+		var err error
+		ablytest.Instantly.Recv(t, &err, publishErrs[got], t.Fatalf, got)
+		got++
+		return err
+	}
+
+	return
 }

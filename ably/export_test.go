@@ -170,7 +170,7 @@ func DefaultFallbackHosts() []string {
 func (c *Connection) PendingItems() int {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	return c.pending.Len()
+	return len(c.pending.queue)
 }
 
 func (c *Connection) ConnectionStateTTL() time.Duration {
