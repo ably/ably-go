@@ -86,24 +86,32 @@ func checkError(code ably.ErrorCode, err error) error {
 }
 
 func assertEquals(t *testing.T, expected interface{}, actual interface{}) {
+	t.Helper()
+
 	if expected != actual {
 		t.Errorf("%v is not equal to %v", expected, actual)
 	}
 }
 
 func assertTrue(t *testing.T, value bool) {
+	t.Helper()
+
 	if !value {
 		t.Errorf("%v is not true", value)
 	}
 }
 
 func assertFalse(t *testing.T, value bool) {
+	t.Helper()
+
 	if value {
 		t.Errorf("%v is not false", value)
 	}
 }
 
 func assertNil(t *testing.T, object interface{}) {
+	t.Helper()
+
 	if object != nil {
 		value := reflect.ValueOf(object)
 		if !value.IsNil() {
@@ -113,6 +121,8 @@ func assertNil(t *testing.T, object interface{}) {
 }
 
 func assertDeepEquals(t *testing.T, expected interface{}, actual interface{}) {
+	t.Helper()
+
 	areEqual := reflect.DeepEqual(expected, actual)
 	if !areEqual {
 		t.Errorf("%v is not equal to %v", expected, actual)
