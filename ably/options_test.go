@@ -10,7 +10,7 @@ import (
 
 func TestDefaultFallbacks_RSC15h(t *testing.T) {
 	t.Parallel()
-	t.Run("with env should return environment fallback hosts", func(t *testing.T) {
+	t.Run("should return default fallback hosts", func(t *testing.T) {
 		expectedFallBackHosts := []string{
 			"a.ably-realtime.com",
 			"b.ably-realtime.com",
