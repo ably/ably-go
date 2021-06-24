@@ -68,6 +68,10 @@ type Auth struct {
 	host     string       // a host part of AuthURL
 	clientID string       // clientID of the authenticated user or wildcard "*"
 
+	// onClientAuthorize is the callback that Realtime sets to reauthorize with the
+	// server when Authorize is explicitly called.
+	onClientAuthorize func(context.Context, *TokenDetails)
+
 	serverTimeOffset time.Duration
 
 	// ServerTimeHandler when provided this will be used to query server time.
@@ -76,7 +80,8 @@ type Auth struct {
 
 func newAuth(client *REST) (*Auth, error) {
 	a := &Auth{
-		client: client,
+		client:            client,
+		onClientAuthorize: func(context.Context, *TokenDetails) {},
 	}
 	method, err := detectAuthMethod(a.opts())
 	if err != nil {
@@ -266,8 +271,13 @@ func (a *Auth) Authorize(ctx context.Context, params *TokenParams, setOpts ...Au
 		opts = applyAuthOptionsWithDefaults(setOpts...)
 	}
 	a.mtx.Lock()
-	defer a.mtx.Unlock()
-	return a.authorize(ctx, params, opts, true)
+	token, err := a.authorize(ctx, params, opts, true)
+	a.mtx.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	a.onClientAuthorize(ctx, token)
+	return token, nil
 }
 
 func (a *Auth) authorize(ctx context.Context, params *TokenParams, opts *authOptions, force bool) (*TokenDetails, error) {
