@@ -352,29 +352,21 @@ This library targets the Ably 1.2 [client library specification](https://www.abl
 
 ### Known limitations
 
-As of release 1.2.0, the following are not implemented and will be covered in future 1.2.x releases. If there are features that are currently missing that are a high priority for your use-case then please [contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
-
-### REST API
+REST API limitations:
 
 - [Push notifications admin API](https://www.ably.io/documentation/general/push/admin) is not implemented.
-
 - [JWT authentication](https://www.ably.io/documentation/core-features/authentication#ably-jwt-process) is not implemented.
 
-### Realtime API
+Realtime API limitations:
 
-- There is no channel `suspended` state; this means that the client will not automatically reattach to channels if a
-  connection becomes `suspended` and then resumes, and presence members associated with the client will not be
-  automatically re-entered.
-
-- Transient realtime publishing is not supported, so a call to `publish()` on a realtime channel will trigger attachment
-  of the channel.
-
-- Inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
-  connection.
-
+- There is no channel `suspended` state. This means that the client will not automatically reattach to channels if a connection becomes `suspended` and then resumes, and presence members associated with the client will not be automatically re-entered.
+- Transient realtime publishing is not supported, so a call to `publish()` on a realtime channel will trigger attachment of the channel.
+- Inband reauthentication is not supported, so expiring tokens will trigger a disconnection and resume of a realtime connection.
 - Realtime connection failure handling is partially implemented.
-
 - Realtime Ping function is not implemented.
+- Subscriber support for decoding streams of Vcdiff formatted delta messages is not yet implemented.
+
+If there are features that are currently missing and are a high priority for your use-case then please [contact Ably customer support](https://support.ably.com). Pull Requests are also welcomed.
 
 ## Release process
 
