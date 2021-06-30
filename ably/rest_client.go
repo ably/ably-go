@@ -109,7 +109,7 @@ type REST struct {
 	Auth                *Auth
 	Channels            *RESTChannels
 	opts                *clientOptions
-	successFallbackHost *fallbackCache
+	successFallbackHost *restFallbackCache
 	log                 logger
 }
 
@@ -131,7 +131,7 @@ func NewREST(options ...ClientOption) (*REST, error) {
 		chans:  make(map[string]*RESTChannel),
 		client: c,
 	}
-	c.successFallbackHost = &fallbackCache{
+	c.successFallbackHost = &restFallbackCache{
 		duration: c.opts.fallbackRetryTimeout(),
 	}
 	return c, nil
@@ -499,69 +499,6 @@ func (c *REST) post(ctx context.Context, path string, in, out interface{}) (*htt
 
 func (c *REST) do(ctx context.Context, r *request) (*http.Response, error) {
 	return c.doWithHandle(ctx, r, c.handleResponse)
-}
-
-// fallbackCache this caches a successful fallback host for 10 minutes.
-type fallbackCache struct {
-	running  bool
-	host     string
-	duration time.Duration
-	cancel   func()
-	mu       sync.RWMutex
-}
-
-func (f *fallbackCache) get() string {
-	if f.isRunning() {
-		f.mu.RLock()
-		h := f.host
-		f.mu.RUnlock()
-		return h
-	}
-	return ""
-}
-
-func (f *fallbackCache) isRunning() bool {
-	f.mu.RLock()
-	v := f.running
-	f.mu.RUnlock()
-	return v
-}
-
-func (f *fallbackCache) run(host string) {
-	f.mu.Lock()
-	now := time.Now()
-	duration := defaultOptions.FallbackRetryTimeout // spec RSC15f
-	if f.duration != 0 {
-		duration = f.duration
-	}
-	ctx, cancel := context.WithDeadline(context.Background(), now.Add(duration))
-	f.running = true
-	f.host = host
-	f.cancel = cancel
-	f.mu.Unlock()
-	<-ctx.Done()
-	f.mu.Lock()
-	f.running = false
-	f.mu.Unlock()
-}
-
-func (f *fallbackCache) stop() {
-	f.cancel()
-	// we make sure we have stopped
-	for {
-		if !f.isRunning() {
-			return
-		}
-	}
-}
-
-func (f *fallbackCache) put(host string) {
-	if f.get() != host {
-		if f.isRunning() {
-			f.stop()
-		}
-		go f.run(host)
-	}
 }
 
 func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {

@@ -39,6 +39,10 @@ func (opts *clientOptions) RealtimeURL() string {
 	return opts.realtimeURL()
 }
 
+func (opts *clientOptions) CheckInternetConnection() bool {
+	return opts.checkInternetConnection()
+}
+
 func (c *REST) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
 	return c.post(ctx, path, in, out)
 }
@@ -77,7 +81,7 @@ func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 }
 
 func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
-	c.successFallbackHost = &fallbackCache{duration: duration}
+	c.successFallbackHost = &restFallbackCache{duration: duration}
 }
 
 func (c *REST) GetCachedFallbackHost() string {

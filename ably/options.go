@@ -29,7 +29,7 @@ const (
 	Port             = 80
 	TLSPort          = 443
 	internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
-	internetCheckOk  = "yes"
+	internetCheckOk  = "yes\n"
 )
 
 var defaultOptions = clientOptions{

@@ -38,7 +38,13 @@ func TestEnvFallbackHosts_RSC15i(t *testing.T) {
 	})
 }
 
-func TestFallbackHosts_RSC15b(t *testing.T) {
+func TestInternetConnectionCheck_RTN17c(t *testing.T) {
+	t.Parallel()
+	clientOptions := ably.NewClientOptions()
+	assertTrue(t, clientOptions.CheckInternetConnection())
+}
+
+func TestFallbackHosts_RSC15(t *testing.T) {
 	t.Parallel()
 	t.Run("RSC15e RSC15g3 with default options", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
