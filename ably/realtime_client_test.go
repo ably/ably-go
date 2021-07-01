@@ -49,12 +49,12 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 
 func TestRealtime_RTN17_HostFallback(t *testing.T) {
 
-	setUpWithEOF := func() (app *ablytest.Sandbox, client *ably.Realtime, doEOF chan struct{}, rec *ablytest.MessageRecorder) {
+	setUpWithEOF := func() (app *ablytest.Sandbox, client *ably.Realtime, doEOF chan struct{}, rec *MessageRecorder) {
 		doEOF = make(chan struct{}, 1)
-		rec = ablytest.NewMessageRecorder()
+		rec = NewMessageRecorder()
 		app, client = ablytest.NewRealtime(
 			ably.WithAutoConnect(false),
-			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error) {
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 				c, err := rec.Dial(protocol, u, timeout)
 				return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 			}))
@@ -85,7 +85,7 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 		t.Parallel()
 		t.Run("does not apply when the default custom endpoint is used", func(t *testing.T) {
 			t.Parallel()
-			rec := ablytest.NewMessageRecorder()
+			rec := NewMessageRecorder()
 			app, client := ablytest.NewRealtime(
 				ably.WithAutoConnect(false),
 				ably.WithRealtimeHost("un.reachable.host.example.com"),
