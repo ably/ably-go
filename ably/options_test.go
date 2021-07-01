@@ -40,8 +40,7 @@ func TestEnvFallbackHosts_RSC15i(t *testing.T) {
 
 func TestInternetConnectionCheck_RTN17c(t *testing.T) {
 	t.Parallel()
-	clientOptions := ably.NewClientOptions()
-	assertTrue(t, clientOptions.CheckInternetConnection())
+	assertTrue(t, ably.IsActiveInternetConnection())
 }
 
 func TestFallbackHosts_RSC15(t *testing.T) {
@@ -149,7 +148,7 @@ func TestFallbackHosts_RSC15(t *testing.T) {
 		assertDeepEquals(t, ably.DefaultFallbackHosts(), fallbackHosts)
 	})
 
-	t.Run("RSC15g1 with fallbackHosts", func(t *testing.T) {
+	t.Run("RSC15g1 with hosts", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions(ably.WithFallbackHosts([]string{"a.example.com", "b.example.com"}))
 		assertEquals(t, "realtime.ably.io", clientOptions.GetRealtimeHost())
 		assertEquals(t, "rest.ably.io", clientOptions.GetRestHost())
@@ -161,12 +160,12 @@ func TestFallbackHosts_RSC15(t *testing.T) {
 		assertDeepEquals(t, []string{"a.example.com", "b.example.com"}, fallbackHosts)
 	})
 
-	t.Run("RSC15b with fallbackHosts and fallbackHostsUseDefault", func(t *testing.T) {
+	t.Run("RSC15b with hosts and fallbackHostsUseDefault", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions(
 			ably.WithFallbackHosts([]string{"a.example.com", "b.example.com"}),
 			ably.WithFallbackHostsUseDefault(true))
 		_, err := clientOptions.GetFallbackHosts()
-		assertEquals(t, err.Error(), "fallbackHosts and fallbackHostsUseDefault cannot both be set")
+		assertEquals(t, err.Error(), "hosts and fallbackHostsUseDefault cannot both be set")
 	})
 
 	t.Run("RSC15b with fallbackHostsUseDefault And custom port", func(t *testing.T) {

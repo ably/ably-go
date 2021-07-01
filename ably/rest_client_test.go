@@ -377,7 +377,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 				}
 			}
 		})
-		t.Run("must occur when fallbackHosts is set", func(t *testing.T) {
+		t.Run("must occur when hosts is set", func(t *testing.T) {
 			t.Parallel()
 
 			customHost := "example.com"

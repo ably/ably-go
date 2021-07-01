@@ -39,8 +39,8 @@ func (opts *clientOptions) RealtimeURL() string {
 	return opts.realtimeURL()
 }
 
-func (opts *clientOptions) CheckInternetConnection() bool {
-	return opts.checkInternetConnection()
+func IsActiveInternetConnection() bool {
+	return isActiveInternetConnection()
 }
 
 func (c *REST) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
@@ -80,12 +80,12 @@ func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
 }
 
-func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
-	c.successFallbackHost = &restFallbackCache{duration: duration}
-}
+//func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
+//	c.successFallbackHost = &hostCache{duration: duration}
+//}
 
 func (c *REST) GetCachedFallbackHost() string {
-	return c.successFallbackHost.get()
+	return c.hosts.getFallbackHost()
 }
 
 func (c *RealtimeChannel) GetAttachResume() bool {

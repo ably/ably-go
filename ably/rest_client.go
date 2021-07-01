@@ -106,11 +106,11 @@ func (c *RESTChannels) Release(name string) {
 }
 
 type REST struct {
-	Auth                *Auth
-	Channels            *RESTChannels
-	opts                *clientOptions
-	successFallbackHost *restFallbackCache
-	log                 logger
+	Auth     *Auth
+	Channels *RESTChannels
+	opts     *clientOptions
+	hosts    hosts
+	log      logger
 }
 
 // NewREST constructs a new REST.
@@ -131,9 +131,7 @@ func NewREST(options ...ClientOption) (*REST, error) {
 		chans:  make(map[string]*RESTChannel),
 		client: c,
 	}
-	c.successFallbackHost = &restFallbackCache{
-		duration: c.opts.fallbackRetryTimeout(),
-	}
+	c.hosts = newRestHosts(c.opts)
 	return c, nil
 }
 
@@ -506,7 +504,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 	if err != nil {
 		return nil, err
 	}
-	if h := c.successFallbackHost.get(); h != "" {
+	if h := c.hosts.getFallbackHost(); h != "" {
 		req.URL.Host = h // RSC15f
 		c.log.Verbosef("RestClient: setting URL.Host=%q", h)
 	}
@@ -580,7 +578,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 							}
 							return nil, err
 						}
-						c.successFallbackHost.put(h)
+						c.hosts.setPreferredFallbackHost(h)
 						return resp, nil
 					}
 				}

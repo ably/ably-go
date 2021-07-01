@@ -266,7 +266,7 @@ func (opts *clientOptions) validate() error {
 	_, err := opts.getFallbackHosts()
 	if err != nil {
 		logger := opts.LogHandler
-		logger.Printf(LogError, "Error getting fallbackHosts : %v", err.Error())
+		logger.Printf(LogError, "Error getting hosts : %v", err.Error())
 		return err
 	}
 	return nil
@@ -327,7 +327,7 @@ func empty(s string) bool {
 	return len(strings.TrimSpace(s)) == 0
 }
 
-func (opts *clientOptions) restURL() (restUrl string) {
+func (opts *clientOptions) restURL() string {
 	restHost := opts.getRestHost()
 	port, _ := opts.activePort()
 	baseUrl := net.JoinHostPort(restHost, strconv.Itoa(port))
@@ -337,7 +337,7 @@ func (opts *clientOptions) restURL() (restUrl string) {
 	return "https://" + baseUrl
 }
 
-func (opts *clientOptions) realtimeURL() (realtimeUrl string) {
+func (opts *clientOptions) realtimeURL() string {
 	realtimeHost := opts.getRealtimeHost()
 	port, _ := opts.activePort()
 	baseUrl := net.JoinHostPort(realtimeHost, strconv.Itoa(port))
@@ -352,7 +352,7 @@ func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 	_, isDefaultPort := opts.activePort()
 	if opts.FallbackHostsUseDefault {
 		if opts.FallbackHosts != nil {
-			return nil, errors.New("fallbackHosts and fallbackHostsUseDefault cannot both be set")
+			return nil, errors.New("hosts and fallbackHostsUseDefault cannot both be set")
 		}
 		if !isDefaultPort {
 			return nil, errors.New("fallbackHostsUseDefault cannot be set when port or tlsPort are set")
@@ -447,7 +447,7 @@ func (opts *clientOptions) idempotentRESTPublishing() bool {
 	return opts.IdempotentRESTPublishing
 }
 
-func (opts *clientOptions) checkInternetConnection() bool {
+func isActiveInternetConnection() bool {
 	res, err := http.Get(internetCheckUrl)
 	if err != nil {
 		return false
