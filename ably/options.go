@@ -266,7 +266,7 @@ func (opts *clientOptions) validate() error {
 	_, err := opts.getFallbackHosts()
 	if err != nil {
 		logger := opts.LogHandler
-		logger.Printf(LogError, "Error getting hosts : %v", err.Error())
+		logger.Printf(LogError, "Error getting fallbackHosts : %v", err.Error())
 		return err
 	}
 	return nil
@@ -274,7 +274,7 @@ func (opts *clientOptions) validate() error {
 
 func (opts *clientOptions) isProductionEnvironment() bool {
 	env := opts.Environment
-	return empty(env) || strings.EqualFold(env, "production")
+	return ablyutil.Empty(env) || strings.EqualFold(env, "production")
 }
 
 func (opts *clientOptions) activePort() (port int, isDefault bool) {
@@ -299,7 +299,7 @@ func (opts *clientOptions) activePort() (port int, isDefault bool) {
 }
 
 func (opts *clientOptions) getRestHost() string {
-	if !empty(opts.RESTHost) {
+	if !ablyutil.Empty(opts.RESTHost) {
 		return opts.RESTHost
 	}
 	if !opts.isProductionEnvironment() {
@@ -309,10 +309,10 @@ func (opts *clientOptions) getRestHost() string {
 }
 
 func (opts *clientOptions) getRealtimeHost() string {
-	if !empty(opts.RealtimeHost) {
+	if !ablyutil.Empty(opts.RealtimeHost) {
 		return opts.RealtimeHost
 	}
-	if !empty(opts.RESTHost) {
+	if !ablyutil.Empty(opts.RESTHost) {
 		logger := opts.LogHandler
 		logger.Printf(LogWarning, "restHost is set to %s but realtimeHost is not set so setting realtimeHost to %s too. If this is not what you want, please set realtimeHost explicitly.", opts.RESTHost, opts.RealtimeHost)
 		return opts.RESTHost
@@ -323,11 +323,7 @@ func (opts *clientOptions) getRealtimeHost() string {
 	return defaultOptions.RealtimeHost
 }
 
-func empty(s string) bool {
-	return len(strings.TrimSpace(s)) == 0
-}
-
-func (opts *clientOptions) restURL() string {
+func (opts *clientOptions) restURL() (restUrl string) {
 	restHost := opts.getRestHost()
 	port, _ := opts.activePort()
 	baseUrl := net.JoinHostPort(restHost, strconv.Itoa(port))
@@ -352,18 +348,18 @@ func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 	_, isDefaultPort := opts.activePort()
 	if opts.FallbackHostsUseDefault {
 		if opts.FallbackHosts != nil {
-			return nil, errors.New("hosts and fallbackHostsUseDefault cannot both be set")
+			return nil, errors.New("fallbackHosts and fallbackHostsUseDefault cannot both be set")
 		}
 		if !isDefaultPort {
 			return nil, errors.New("fallbackHostsUseDefault cannot be set when port or tlsPort are set")
 		}
-		if !empty(opts.Environment) {
+		if !ablyutil.Empty(opts.Environment) {
 			logger.Printf(LogWarning, "Deprecated fallbackHostsUseDefault : There is no longer a need to set this when the environment option is also set since the library can generate the correct fallback hosts using the environment option.")
 		}
 		logger.Printf(LogWarning, "Deprecated fallbackHostsUseDefault : using default fallbackhosts")
 		return defaultOptions.FallbackHosts, nil
 	}
-	if opts.FallbackHosts == nil && empty(opts.RESTHost) && empty(opts.RealtimeHost) && isDefaultPort {
+	if opts.FallbackHosts == nil && ablyutil.Empty(opts.RESTHost) && ablyutil.Empty(opts.RealtimeHost) && isDefaultPort {
 		if opts.isProductionEnvironment() {
 			return defaultOptions.FallbackHosts, nil
 		}

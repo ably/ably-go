@@ -165,7 +165,7 @@ func TestFallbackHosts_RSC15(t *testing.T) {
 			ably.WithFallbackHosts([]string{"a.example.com", "b.example.com"}),
 			ably.WithFallbackHostsUseDefault(true))
 		_, err := clientOptions.GetFallbackHosts()
-		assertEquals(t, err.Error(), "hosts and fallbackHostsUseDefault cannot both be set")
+		assertEquals(t, err.Error(), "fallbackHosts and fallbackHostsUseDefault cannot both be set")
 	})
 
 	t.Run("RSC15b with fallbackHostsUseDefault And custom port", func(t *testing.T) {
