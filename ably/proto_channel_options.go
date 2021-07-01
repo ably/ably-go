@@ -1,6 +1,6 @@
-package proto
+package ably
 
-type ChannelParams map[string]string
+type channelParams map[string]string
 type ChannelMode int64
 
 const (
@@ -14,42 +14,42 @@ const (
 	ChannelModePresenceSubscribe
 )
 
-func (mode ChannelMode) ToFlag() Flag {
+func (mode ChannelMode) toFlag() protoFlag {
 	switch mode {
 	case ChannelModePresence:
-		return FlagPresence
+		return flagPresence
 	case ChannelModePublish:
-		return FlagPublish
+		return flagPublish
 	case ChannelModeSubscribe:
-		return FlagSubscribe
+		return flagSubscribe
 	case ChannelModePresenceSubscribe:
-		return FlagPresenceSubscribe
+		return flagPresenceSubscribe
 	default:
 		return 0
 	}
 }
 
-func FromFlag(flags Flag) []ChannelMode {
+func channelModeFromFlag(flags protoFlag) []ChannelMode {
 	var modes []ChannelMode
-	if flags.Has(FlagPresence) {
+	if flags.Has(flagPresence) {
 		modes = append(modes, ChannelModePresence)
 	}
-	if flags.Has(FlagPublish) {
+	if flags.Has(flagPublish) {
 		modes = append(modes, ChannelModePublish)
 	}
-	if flags.Has(FlagSubscribe) {
+	if flags.Has(flagSubscribe) {
 		modes = append(modes, ChannelModeSubscribe)
 	}
-	if flags.Has(FlagPresenceSubscribe) {
+	if flags.Has(flagPresenceSubscribe) {
 		modes = append(modes, ChannelModePresenceSubscribe)
 	}
 	return modes
 }
 
-// ChannelOptions defines options provided for creating a new channel.
-type ChannelOptions struct {
+// protoChannelOptions defines options provided for creating a new channel.
+type protoChannelOptions struct {
 	Cipher CipherParams
-	cipher ChannelCipher
-	Params ChannelParams
+	cipher channelCipher
+	Params channelParams
 	Modes  []ChannelMode
 }

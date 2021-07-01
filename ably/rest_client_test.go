@@ -20,9 +20,8 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/internal/ablytest"
 	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func newHTTPClientMock(srv *httptest.Server) *http.Client {
@@ -150,7 +149,7 @@ func TestRestClient(t *testing.T) {
 			t.Fatal(err)
 		}
 		lastInterval := time.Now().Add(-365 * 24 * time.Hour)
-		var stats []*proto.Stats
+		var stats []*ably.Stats
 
 		var jsonStats = `
 		[
@@ -177,9 +176,9 @@ func TestRestClient(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		stats[0].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-120*time.Minute), proto.StatGranularityMinute)
-		stats[1].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-60*time.Minute), proto.StatGranularityMinute)
-		stats[2].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-1*time.Minute), proto.StatGranularityMinute)
+		stats[0].IntervalID = intervalFormatFor(lastInterval.Add(-120*time.Minute), ably.StatGranularityMinute)
+		stats[1].IntervalID = intervalFormatFor(lastInterval.Add(-60*time.Minute), ably.StatGranularityMinute)
+		stats[2].IntervalID = intervalFormatFor(lastInterval.Add(-1*time.Minute), ably.StatGranularityMinute)
 
 		res, err := client.Post(context.Background(), "/stats", &stats, nil)
 		if err != nil {
@@ -187,7 +186,7 @@ func TestRestClient(t *testing.T) {
 		}
 		res.Body.Close()
 
-		statsCh := make(chan []*proto.Stats, 1)
+		statsCh := make(chan []*ably.Stats, 1)
 		errCh := make(chan error, 1)
 
 		go func() {
@@ -266,15 +265,15 @@ func TestRSC7(t *testing.T) {
 	ablytest.Instantly.Recv(t, &req, requests, t.Fatalf)
 
 	t.Run("must set version header", func(t *testing.T) {
-		h := req.Header.Get(proto.AblyVersionHeader)
-		if h != proto.AblyVersion {
-			t.Errorf("expected %s got %s", proto.AblyVersion, h)
+		h := req.Header.Get(ably.AblyVersionHeader)
+		if h != ably.AblyVersion {
+			t.Errorf("expected %s got %s", ably.AblyVersion, h)
 		}
 	})
 	t.Run("must set lib header", func(t *testing.T) {
-		h := req.Header.Get(proto.AblyLibHeader)
-		if h != proto.LibraryString {
-			t.Errorf("expected %s got %s", proto.LibraryString, h)
+		h := req.Header.Get(ably.AblyLibHeader)
+		if h != ably.LibraryString {
+			t.Errorf("expected %s got %s", ably.LibraryString, h)
 		}
 	})
 }
@@ -821,4 +820,17 @@ func reverseStats(stats []*ably.Stats) []*ably.Stats {
 		reversed = append(reversed, stats[i])
 	}
 	return reversed
+}
+
+var (
+	intervalFormats = map[string]string{
+		ably.StatGranularityMinute: "2006-01-02:15:04",
+		ably.StatGranularityHour:   "2006-01-02:15",
+		ably.StatGranularityDay:    "2006-01-02",
+		ably.StatGranularityMonth:  "2006-01",
+	}
+)
+
+func intervalFormatFor(t time.Time, granulatity string) string {
+	return t.Format(intervalFormats[granulatity])
 }

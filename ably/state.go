@@ -3,11 +3,8 @@ package ably
 import (
 	"context"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 // result awaits completion of asynchronous operation.
@@ -51,7 +48,8 @@ var (
 	errFailed         = newErrorf(ErrConnectionFailed, "Connection failed")
 	errNeverConnected = newErrorf(ErrConnectionSuspended, "Unable to establish connection")
 
-	errSerialSkipped = newErrorf(ErrInternalError, "Serial for message was skipped by acknowledgement")
+	errNACKWithoutError = newErrorf(ErrInternalError, "NACK without error")
+	errImplictNACK      = newErrorf(ErrInternalError, "implicit NACK")
 )
 
 var connStateErrors = map[ConnectionState]ErrorInfo{
@@ -118,93 +116,59 @@ func newPendingEmitter(log logger) pendingEmitter {
 }
 
 type msgCh struct {
-	msg *proto.ProtocolMessage
+	msg *protocolMessage
 	ch  chan<- error
 }
 
-func (q pendingEmitter) Len() int {
-	return len(q.queue)
+// Dismiss lets go of the channels that are waiting for an error on this queue.
+// The queue can continue sending messages.
+func (q *pendingEmitter) Dismiss() []msgCh {
+	cx := make([]msgCh, len(q.queue))
+	copy(cx, q.queue)
+	q.queue = nil
+	return cx
 }
 
-func (q pendingEmitter) Less(i, j int) bool {
-	return q.queue[i].msg.MsgSerial < q.queue[j].msg.MsgSerial
-}
-
-func (q pendingEmitter) Swap(i, j int) {
-	q.queue[i], q.queue[j] = q.queue[j], q.queue[i]
-}
-
-func (q pendingEmitter) Search(msg *proto.ProtocolMessage) int {
-	return sort.Search(q.Len(), func(i int) bool { return q.queue[i].msg.MsgSerial >= msg.MsgSerial })
-}
-
-func (q *pendingEmitter) Enqueue(msg *proto.ProtocolMessage, ch chan<- error) {
-	switch i := q.Search(msg); {
-	case i == q.Len():
-		q.queue = append(q.queue, msgCh{msg, ch})
-	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
-		q.log.Warnf("duplicated message serial: %d", msg.MsgSerial)
-	default:
-		q.queue = append(q.queue, msgCh{})
-		copy(q.queue[i+1:], q.queue[i:])
-		q.queue[i] = msgCh{msg, ch}
+func (q *pendingEmitter) Enqueue(msg *protocolMessage, ch chan<- error) {
+	if len(q.queue) > 0 {
+		expected := q.queue[len(q.queue)-1].msg.MsgSerial + 1
+		if got := msg.MsgSerial; expected != got {
+			panic(fmt.Sprintf("protocol violation: expected next enqueued message to have msgSerial %d; got %d", expected, got))
+		}
 	}
+	q.queue = append(q.queue, msgCh{msg, ch})
 }
 
-func (q *pendingEmitter) Ack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
-	if q.Len() == 0 {
-		return
+func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
+	// The msgSerial from the server may not be the same we're waiting. If the
+	// server skipped some messages, they get implicitly NACKed. If the server
+	// ACKed some messages again, we ignore those. In both cases, we just need
+	// to correct the number of messages that get ACKed by that difference.
+	serialShift := int(msg.MsgSerial - q.queue[0].msg.MsgSerial)
+	count := msg.Count + serialShift
+	if count > len(q.queue) {
+		panic(fmt.Sprintf("protocol violation: ACKed %d messages, but only %d pending", count, len(q.queue)))
 	}
-	ack, nack := 0, 0
-	// Ensure range [serial,serial+count] fits inside q.
-	switch i := q.Search(msg); {
-	case i == q.Len():
-		nack = q.Len()
-	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
-		nack = i
-		ack = min(i+msg.Count, q.Len())
-	default:
-		nack = i + 1
-		ack = min(i+1+msg.Count, q.Len())
-	}
+	acked := q.queue[:count]
+	q.queue = q.queue[count:]
+
 	err := errInfo.unwrapNil()
-	if err == nil && nack > 0 {
-		err = errSerialSkipped
+	if msg.Action == actionNack && err == nil {
+		err = errNACKWithoutError
 	}
-	for _, sch := range q.queue[:nack] {
-		q.log.Verbosef("received NACK for message serial %d", sch.msg.MsgSerial)
+
+	for i, sch := range acked {
+		err := err
+		if i < serialShift {
+			err = errImplictNACK
+		}
+		q.log.Verbosef("received %v for message serial %d", msg.Action, sch.msg.MsgSerial)
 		sch.ch <- err
 	}
-	for _, sch := range q.queue[nack:ack] {
-		q.log.Verbosef("received ACK for message serial %d", sch.msg.MsgSerial)
-		sch.ch <- nil
-	}
-	q.queue = q.queue[ack:]
-}
-
-func (q *pendingEmitter) Nack(msg *proto.ProtocolMessage, errInfo *ErrorInfo) {
-	if q.Len() == 0 {
-		return
-	}
-	nack := 0
-	switch i := q.Search(msg); {
-	case i == q.Len():
-		nack = q.Len()
-	case q.queue[i].msg.MsgSerial == msg.MsgSerial:
-		nack = min(i+msg.Count, q.Len())
-	default:
-		nack = min(i+1+msg.Count, q.Len())
-	}
-	err := errInfo.unwrapNil()
-	for _, sch := range q.queue[:nack] {
-		q.log.Verbosef("received NACK for message serial %d", sch.msg.MsgSerial)
-		sch.ch <- err
-	}
-	q.queue = q.queue[nack:]
 }
 
 type msgch struct {
-	msg *proto.ProtocolMessage
+	msg *protocolMessage
 	ch  chan<- error
 }
 
@@ -220,7 +184,7 @@ func newMsgQueue(conn *Connection) *msgQueue {
 	}
 }
 
-func (q *msgQueue) Enqueue(msg *proto.ProtocolMessage, listen chan<- error) {
+func (q *msgQueue) Enqueue(msg *protocolMessage, listen chan<- error) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
 	q.queue = append(q.queue, msgch{msg, listen})

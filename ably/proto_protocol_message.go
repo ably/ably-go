@@ -1,4 +1,4 @@
-package proto
+package ably
 
 import (
 	"fmt"
@@ -7,38 +7,38 @@ import (
 
 // TR3
 const (
-	FlagHasPresence       Flag = 1 << 0
-	FlagHasBacklog        Flag = 1 << 1
-	FlagResumed           Flag = 1 << 2
-	FlagTransient         Flag = 1 << 4
-	FlagAttachResume      Flag = 1 << 5
-	FlagPresence          Flag = 1 << 16
-	FlagPublish           Flag = 1 << 17
-	FlagSubscribe         Flag = 1 << 18
-	FlagPresenceSubscribe Flag = 1 << 19
+	flagHasPresence       protoFlag = 1 << 0
+	flagHasBacklog        protoFlag = 1 << 1
+	flagResumed           protoFlag = 1 << 2
+	flagTransient         protoFlag = 1 << 4
+	flagAttachResume      protoFlag = 1 << 5
+	flagPresence          protoFlag = 1 << 16
+	flagPublish           protoFlag = 1 << 17
+	flagSubscribe         protoFlag = 1 << 18
+	flagPresenceSubscribe protoFlag = 1 << 19
 )
 
-type Flag int64
+type protoFlag int64
 
-func (flags Flag) Has(flag Flag) bool {
+func (flags protoFlag) Has(flag protoFlag) bool {
 	return flags&flag == flag
 }
 
-func (flags *Flag) Set(flag Flag) {
+func (flags *protoFlag) Set(flag protoFlag) {
 	*flags |= flag
 }
 
-type ConnectionDetails struct {
+type connectionDetails struct {
 	ClientID           string            `json:"clientId,omitempty" codec:"clientId,omitempty"`
 	ConnectionKey      string            `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
 	MaxMessageSize     int64             `json:"maxMessageSize,omitempty" codec:"maxMessageSize,omitempty"`
 	MaxFrameSize       int64             `json:"maxFrameSize,omitempty" codec:"maxFrameSize,omitempty"`
 	MaxInboundRate     int64             `json:"maxInboundRate,omitempty" codec:"maxInboundRate,omitempty"`
-	ConnectionStateTTL DurationFromMsecs `json:"connectionStateTtl,omitempty" codec:"connectionStateTtl,omitempty"`
-	MaxIdleInterval    DurationFromMsecs `json:"maxIdleInterval,omitempty" codec:"maxIdleInterval,omitempty"`
+	ConnectionStateTTL durationFromMsecs `json:"connectionStateTtl,omitempty" codec:"connectionStateTtl,omitempty"`
+	MaxIdleInterval    durationFromMsecs `json:"maxIdleInterval,omitempty" codec:"maxIdleInterval,omitempty"`
 }
 
-func (c *ConnectionDetails) FromMap(ctx map[string]interface{}) {
+func (c *connectionDetails) FromMap(ctx map[string]interface{}) {
 	if v, ok := ctx["clientId"]; ok {
 		c.ClientID = v.(string)
 	}
@@ -55,7 +55,7 @@ func (c *ConnectionDetails) FromMap(ctx map[string]interface{}) {
 		c.MaxInboundRate = coerceInt64(v)
 	}
 	if v, ok := ctx["connectionStateTtl"]; ok {
-		c.ConnectionStateTTL = DurationFromMsecs(coerceInt64(v) * int64(time.Millisecond))
+		c.ConnectionStateTTL = durationFromMsecs(coerceInt64(v) * int64(time.Millisecond))
 	}
 }
 
@@ -85,7 +85,7 @@ func coerceInt64(v interface{}) int64 {
 	}
 }
 
-type ProtocolMessage struct {
+type protocolMessage struct {
 	Messages          []*Message         `json:"messages,omitempty" codec:"messages,omitempty"`
 	Presence          []*PresenceMessage `json:"presence,omitempty" codec:"presence,omitempty"`
 	ID                string             `json:"id,omitempty" codec:"id,omitempty"`
@@ -94,59 +94,59 @@ type ProtocolMessage struct {
 	ConnectionKey     string             `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
 	Channel           string             `json:"channel,omitempty" codec:"channel,omitempty"`
 	ChannelSerial     string             `json:"channelSerial,omitempty" codec:"channelSerial,omitempty"`
-	ConnectionDetails *ConnectionDetails `json:"connectionDetails,omitempty" codec:"connectionDetails,omitempty"`
-	Error             *ErrorInfo         `json:"error,omitempty" codec:"error,omitempty"`
+	ConnectionDetails *connectionDetails `json:"connectionDetails,omitempty" codec:"connectionDetails,omitempty"`
+	Error             *errorInfo         `json:"error,omitempty" codec:"error,omitempty"`
 	MsgSerial         int64              `json:"msgSerial" codec:"msgSerial"`
 	ConnectionSerial  int64              `json:"connectionSerial" codec:"connectionSerial"`
 	Timestamp         int64              `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
 	Count             int                `json:"count,omitempty" codec:"count,omitempty"`
-	Action            Action             `json:"action,omitempty" codec:"action,omitempty"`
-	Flags             Flag               `json:"flags,omitempty" codec:"flags,omitempty"`
-	Params            ChannelParams      `json:"params,omitempty" codec:"params,omitempty"`
+	Action            protoAction        `json:"action,omitempty" codec:"action,omitempty"`
+	Flags             protoFlag          `json:"flags,omitempty" codec:"flags,omitempty"`
+	Params            channelParams      `json:"params,omitempty" codec:"params,omitempty"`
 }
 
-func (p *ProtocolMessage) SetModesAsFlag(modes []ChannelMode) {
+func (p *protocolMessage) SetModesAsFlag(modes []ChannelMode) {
 	for _, mode := range modes {
-		flag := mode.ToFlag()
+		flag := mode.toFlag()
 		if flag != 0 {
 			p.Flags.Set(flag)
 		}
 	}
 }
 
-func (msg *ProtocolMessage) String() string {
+func (msg *protocolMessage) String() string {
 	switch msg.Action {
-	case ActionHeartbeat:
+	case actionHeartbeat:
 		return fmt.Sprintf("(action=%q)", msg.Action)
-	case ActionAck, ActionNack:
+	case actionAck, actionNack:
 		return fmt.Sprintf("(action=%q, serial=%d, count=%d)", msg.Action, msg.MsgSerial, msg.Count)
-	case ActionConnect:
+	case actionConnect:
 		return fmt.Sprintf("(action=%q)", msg.Action)
-	case ActionConnected:
+	case actionConnected:
 		return fmt.Sprintf("(action=%q, id=%q, details=%# v)", msg.Action, msg.ConnectionID, msg.ConnectionDetails)
-	case ActionDisconnect:
+	case actionDisconnect:
 		return fmt.Sprintf("(action=%q)", msg.Action)
-	case ActionDisconnected:
+	case actionDisconnected:
 		return fmt.Sprintf("(action=%q)", msg.Action)
-	case ActionClose:
+	case actionClose:
 		return fmt.Sprintf("(action=%q)", msg.Action)
-	case ActionClosed:
+	case actionClosed:
 		return fmt.Sprintf("(action=%q)", msg.Action)
-	case ActionError:
+	case actionError:
 		return fmt.Sprintf("(action=%q, error=%# v)", msg.Action, msg.Error)
-	case ActionAttach:
+	case actionAttach:
 		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
-	case ActionAttached:
+	case actionAttached:
 		return fmt.Sprintf("(action=%q, channel=%q, channelSerial=%q, flags=%x)",
 			msg.Action, msg.Channel, msg.ChannelSerial, msg.Flags)
-	case ActionDetach:
+	case actionDetach:
 		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
-	case ActionDetached:
+	case actionDetached:
 		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
-	case ActionPresence, ActionSync:
+	case actionPresence, actionSync:
 		return fmt.Sprintf("(action=%q, id=%q, channel=%q, timestamp=%d, presenceMessages=%v)",
 			msg.Action, msg.ConnectionID, msg.Channel, msg.Timestamp, msg.Presence)
-	case ActionMessage:
+	case actionMessage:
 		return fmt.Sprintf("(action=%q, id=%q, messages=%v)", msg.Action,
 			msg.ConnectionID, msg.Messages)
 	default:
@@ -154,17 +154,17 @@ func (msg *ProtocolMessage) String() string {
 	}
 }
 
-type Conn interface {
+type conn interface {
 	// Send write the given ProtocolMessage to the connection.
 	// It is expected to block until whole message is written.
-	Send(*ProtocolMessage) error
+	Send(*protocolMessage) error
 
 	// Receive reads ProtocolMessage from the connection.
 	// It is expected to block until whole message is read.
 	//
 	// If the deadline is greater than zero and no message is received before
 	// then, a net.Error with Timeout() == true is returned.
-	Receive(deadline time.Time) (*ProtocolMessage, error)
+	Receive(deadline time.Time) (*protocolMessage, error)
 
 	// Close closes the connection.
 	Close() error

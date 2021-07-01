@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptrace"
+	"net/url"
 	"time"
 )
 
@@ -173,7 +174,7 @@ func DefaultFallbackHosts() []string {
 func (c *Connection) PendingItems() int {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	return c.pending.Len()
+	return len(c.pending.queue)
 }
 
 func (c *Connection) ConnectionStateTTL() time.Duration {
@@ -185,3 +186,80 @@ func NewInternalLogger(l Logger) logger {
 }
 
 type FilteredLogger = filteredLogger
+
+type ProtoAction = protoAction
+type ProtoChannelOptions = protoChannelOptions
+type Conn = conn
+type ConnectionDetails = connectionDetails
+type DurationFromMsecs = durationFromMsecs
+type ProtoErrorInfo = errorInfo
+type ProtoFlag = protoFlag
+type ProtocolMessage = protocolMessage
+
+const (
+	DefaultCipherKeyLength = defaultCipherKeyLength
+	DefaultCipherAlgorithm = defaultCipherAlgorithm
+	DefaultCipherMode      = defaultCipherMode
+
+	LibraryString     = libraryString
+	AblyVersionHeader = ablyVersionHeader
+	AblyVersion       = ablyVersion
+	AblyLibHeader     = ablyLibHeader
+
+	EncUTF8   = encUTF8
+	EncJSON   = encJSON
+	EncBase64 = encBase64
+	EncCipher = encCipher
+
+	ActionHeartbeat    = actionHeartbeat
+	ActionAck          = actionAck
+	ActionNack         = actionNack
+	ActionConnect      = actionConnect
+	ActionConnected    = actionConnected
+	ActionDisconnect   = actionDisconnect
+	ActionDisconnected = actionDisconnected
+	ActionClose        = actionClose
+	ActionClosed       = actionClosed
+	ActionError        = actionError
+	ActionAttach       = actionAttach
+	ActionAttached     = actionAttached
+	ActionDetach       = actionDetach
+	ActionDetached     = actionDetached
+	ActionPresence     = actionPresence
+	ActionMessage      = actionMessage
+	ActionSync         = actionSync
+
+	FlagHasPresence       = flagHasPresence
+	FlagHasBacklog        = flagHasBacklog
+	FlagResumed           = flagResumed
+	FlagTransient         = flagTransient
+	FlagAttachResume      = flagAttachResume
+	FlagPresence          = flagPresence
+	FlagPublish           = flagPublish
+	FlagSubscribe         = flagSubscribe
+	FlagPresenceSubscribe = flagPresenceSubscribe
+)
+
+func MessageWithEncodedData(m Message, cipher channelCipher) (Message, error) {
+	return m.withEncodedData(cipher)
+}
+
+func MessageWithDecodedData(m Message, cipher channelCipher) (Message, error) {
+	return m.withDecodedData(cipher)
+}
+
+func ChannelModeFromFlag(flags ProtoFlag) []ChannelMode {
+	return channelModeFromFlag(flags)
+}
+
+func ChannelModeToFlag(mode ChannelMode) ProtoFlag {
+	return mode.toFlag()
+}
+
+func DialWebsocket(proto string, u *url.URL, timeout time.Duration) (Conn, error) {
+	return dialWebsocket(proto, u, timeout)
+}
+
+func (p *CipherParams) SetIV(iv []byte) {
+	p.iv = iv
+}

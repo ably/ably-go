@@ -9,8 +9,7 @@ import (
 	"testing"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/ablytest"
-	"github.com/ably/ably-go/ably/proto"
+	"github.com/ably/ably-go/ably/internal/ablytest"
 )
 
 func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
@@ -183,7 +182,7 @@ func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 			if !ablytest.Soon.IsTrue(func() bool {
 				err = ablytest.TestPagination(
 					[]*ably.PresenceMessage{{
-						Action:  proto.PresencePresent,
+						Action:  ably.PresenceActionPresent,
 						Message: expected,
 					}},
 					channel.Presence.Get(ably.GetPresenceWithConnectionID(connID)),
@@ -205,10 +204,10 @@ func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 }
 
 func presenceHistoryFixtures() []*ably.PresenceMessage {
-	actions := []proto.PresenceAction{
-		proto.PresenceEnter,
-		proto.PresenceUpdate,
-		proto.PresenceLeave,
+	actions := []ably.PresenceAction{
+		ably.PresenceActionEnter,
+		ably.PresenceActionUpdate,
+		ably.PresenceActionLeave,
 	}
 	var fixtures []*ably.PresenceMessage
 	for i := 0; i < 10; i++ {
@@ -232,11 +231,11 @@ func postPresenceHistoryFixtures(t *testing.T, ctx context.Context, app *ablytes
 	for i, m := range fixtures {
 		var err error
 		switch m.Action {
-		case proto.PresenceEnter:
+		case ably.PresenceActionEnter:
 			err = p.EnterClient(ctx, m.ClientID, m.Data)
-		case proto.PresenceUpdate:
+		case ably.PresenceActionUpdate:
 			err = p.UpdateClient(ctx, m.ClientID, m.Data)
-		case proto.PresenceLeave:
+		case ably.PresenceActionLeave:
 			err = p.LeaveClient(ctx, m.ClientID, m.Data)
 		}
 		if err != nil {
@@ -273,7 +272,7 @@ fixtures:
 			}
 		}
 		expected = append(expected, &ably.PresenceMessage{
-			Action: proto.PresencePresent,
+			Action: ably.PresenceActionPresent,
 			Message: ably.Message{
 				ClientID: p.ClientID,
 				Data:     p.Data,

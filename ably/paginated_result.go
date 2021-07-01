@@ -7,8 +7,6 @@ import (
 	"path"
 	"reflect"
 	"regexp"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 type Direction string
@@ -191,14 +189,3 @@ func copyHeader(dest, src http.Header) {
 		dest[k] = v
 	}
 }
-
-type Stats = proto.Stats
-type StatsMessageTypes = proto.MessageTypes
-type StatsMessageCount = proto.MessageCount
-type StatsMessageTraffic = proto.MessageTraffic
-type StatsConnectionTypes = proto.ConnectionTypes
-type StatsResourceCount = proto.ResourceCount
-type StatsRequestCount = proto.RequestCount
-type StatsPushStats = proto.PushStats
-type StatsXchgMessages = proto.XchgMessages
-type PushStats = proto.PushStats

@@ -8,9 +8,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/ablytest"
-	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ably/proto"
+	"github.com/ably/ably-go/ably/internal/ablytest"
 )
 
 var connTransitions = []ably.ConnectionState{
@@ -134,20 +132,20 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 	const maxIdleInterval = 20
 	const realtimeRequestTimeout = 10 * time.Millisecond
 
-	in := make(chan *proto.ProtocolMessage, 16)
-	out := make(chan *proto.ProtocolMessage, 16)
+	in := make(chan *ably.ProtocolMessage, 16)
+	out := make(chan *ably.ProtocolMessage, 16)
 
-	connected := &proto.ProtocolMessage{
-		Action:       proto.ActionConnected,
+	connected := &ably.ProtocolMessage{
+		Action:       ably.ActionConnected,
 		ConnectionID: "connection-id",
-		ConnectionDetails: &proto.ConnectionDetails{
+		ConnectionDetails: &ably.ConnectionDetails{
 			MaxIdleInterval: maxIdleInterval,
 		},
 	}
 	in <- connected
 
 	app, client := ablytest.NewRealtime(
-		ably.WithDial(ablytest.MessagePipe(in, out, ablytest.MessagePipeWithNowFunc(time.Now))),
+		ably.WithDial(MessagePipe(in, out, MessagePipeWithNowFunc(time.Now))),
 		ably.WithRealtimeRequestTimeout(10*time.Millisecond),
 		ably.WithAutoConnect(false),
 	)
@@ -192,25 +190,25 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 	t.Parallel()
 
-	for _, action := range []proto.Action{
-		proto.ActionDisconnect,
-		proto.ActionError,
-		proto.ActionClosed,
+	for _, action := range []ably.ProtoAction{
+		ably.ActionDisconnect,
+		ably.ActionError,
+		ably.ActionClosed,
 	} {
 		t.Run(action.String(), func(t *testing.T) {
 			t.Parallel()
-			in := make(chan *proto.ProtocolMessage)
-			out := make(chan *proto.ProtocolMessage, 16)
+			in := make(chan *ably.ProtocolMessage)
+			out := make(chan *ably.ProtocolMessage, 16)
 
 			app, client := ablytest.NewRealtime(
-				ably.WithDial(ablytest.MessagePipe(in, out)),
+				ably.WithDial(MessagePipe(in, out)),
 			)
 			defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-			connected := &proto.ProtocolMessage{
-				Action:            proto.ActionConnected,
+			connected := &ably.ProtocolMessage{
+				Action:            ably.ActionConnected,
 				ConnectionID:      "connection-id",
-				ConnectionDetails: &proto.ConnectionDetails{},
+				ConnectionDetails: &ably.ConnectionDetails{},
 			}
 			select {
 			case in <- connected:
@@ -219,7 +217,7 @@ func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 			}
 
 			select {
-			case in <- &proto.ProtocolMessage{
+			case in <- &ably.ProtocolMessage{
 				Action: action,
 			}:
 			case <-time.After(10 * time.Millisecond):
@@ -227,7 +225,7 @@ func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 			}
 
 			select {
-			case in <- &proto.ProtocolMessage{}:
+			case in <- &ably.ProtocolMessage{}:
 				t.Fatal("called Receive again; expected end of connection loop")
 			case <-time.After(10 * time.Millisecond):
 			}
@@ -240,14 +238,14 @@ func TestRealtimeConn_SendErrorReconnects(t *testing.T) {
 	closed := make(chan struct{}, 1)
 	allowDial := make(chan struct{})
 
-	dial := ablytest.DialFunc(func(p string, url *url.URL, timeout time.Duration) (proto.Conn, error) {
+	dial := DialFunc(func(p string, url *url.URL, timeout time.Duration) (ably.Conn, error) {
 		<-allowDial
-		ws, err := ablyutil.DialWebsocket(p, url, timeout)
+		ws, err := ably.DialWebsocket(p, url, timeout)
 		if err != nil {
 			return nil, err
 		}
 		return connMock{
-			SendFunc: func(m *proto.ProtocolMessage) error {
+			SendFunc: func(m *ably.ProtocolMessage) error {
 				select {
 				case err := <-sendErr:
 					return err

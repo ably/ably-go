@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 const (
@@ -244,7 +243,7 @@ type clientOptions struct {
 	// by Realtime.
 	//
 	// If Dial is nil, the default websocket connection is used.
-	Dial func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error)
+	Dial func(protocol string, u *url.URL, timeout time.Duration) (conn, error)
 
 	// HTTPClient specifies the client used for HTTP communication by REST.
 	//
@@ -815,7 +814,7 @@ func WithFallbackHostsUseDefault(fallbackHostsUseDefault bool) ClientOption {
 	}
 }
 
-func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (proto.Conn, error)) ClientOption {
+func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (conn, error)) ClientOption {
 	return func(os *clientOptions) {
 		os.Dial = dial
 	}

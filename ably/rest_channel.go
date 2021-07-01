@@ -11,8 +11,6 @@ import (
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ugorji/go/codec"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
 // based on HttpUtils::encodeURIComponent from ably-java library
@@ -37,7 +35,7 @@ type RESTChannel struct {
 
 	client  *REST
 	baseURL string
-	options *proto.ChannelOptions
+	options *protoChannelOptions
 }
 
 func newRESTChannel(name string, client *REST) *RESTChannel {
@@ -59,9 +57,6 @@ func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}
 		{Name: name, Data: data},
 	})
 }
-
-// Message is what Ably channels send and receive.
-type Message = proto.Message
 
 // PublishMultiple publishes multiple messages in a batch.
 func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message) error {
@@ -92,7 +87,7 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 	for i, m := range messages {
 		cipher, _ := c.options.GetCipher()
 		var err error
-		*m, err = (*m).WithEncodedData(cipher)
+		*m, err = (*m).withEncodedData(cipher)
 		if err != nil {
 			return fmt.Errorf("encoding data for message #%d: %w", i, err)
 		}
@@ -284,7 +279,7 @@ func (t *fullMessagesDecoder) decodeMessagesData() {
 	cipher, _ := t.c.options.GetCipher()
 	for _, m := range *t.dst {
 		var err error
-		*m, err = m.WithDecodedData(cipher)
+		*m, err = m.withDecodedData(cipher)
 		if err != nil {
 			// RSL6b
 			t.c.log().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)

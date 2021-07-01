@@ -97,7 +97,7 @@ func (w *writer) writeHeader() state {
 	w.writeln(`package ably_test`)
 	w.writeln(`import "testing"`)
 	w.writeln(`import "github.com/ably/ably-go/ably"`)
-	w.writeln(`import "github.com/ably/ably-go/ably/ablytest"`)
+	w.writeln(`import "github.com/ably/ably-go/ably/internal/ablytest"`)
 
 loop:
 	for {

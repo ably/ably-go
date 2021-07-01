@@ -201,7 +201,7 @@ func (t *fullPresenceDecoder) decodeMessagesData() {
 	cipher, _ := t.c.options.GetCipher()
 	for _, m := range *t.dst {
 		var err error
-		m.Message, err = m.Message.WithDecodedData(cipher)
+		m.Message, err = m.Message.withDecodedData(cipher)
 		if err != nil {
 			// RSL6b
 			t.c.log().Errorf("Couldn't fully decode presence message data from channel %q: %w", t.c.Name, err)
