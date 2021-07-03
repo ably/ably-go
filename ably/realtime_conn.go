@@ -90,7 +90,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 		auth:      auth,
 		callbacks: callbacks,
 	}
-	auth.onClientAuthorize = c.onClientAuthorize
+	auth.onExplicitAuthorize = c.onClientAuthorize
 	c.queue = newMsgQueue(c)
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)

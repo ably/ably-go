@@ -68,9 +68,9 @@ type Auth struct {
 	host     string       // a host part of AuthURL
 	clientID string       // clientID of the authenticated user or wildcard "*"
 
-	// onClientAuthorize is the callback that Realtime sets to reauthorize with the
+	// onExplicitAuthorize is the callback that Realtime sets to reauthorize with the
 	// server when Authorize is explicitly called.
-	onClientAuthorize func(context.Context, *TokenDetails)
+	onExplicitAuthorize func(context.Context, *TokenDetails)
 
 	serverTimeOffset time.Duration
 
@@ -80,8 +80,8 @@ type Auth struct {
 
 func newAuth(client *REST) (*Auth, error) {
 	a := &Auth{
-		client:            client,
-		onClientAuthorize: func(context.Context, *TokenDetails) {},
+		client:              client,
+		onExplicitAuthorize: func(context.Context, *TokenDetails) {},
 	}
 	method, err := detectAuthMethod(a.opts())
 	if err != nil {
@@ -276,7 +276,7 @@ func (a *Auth) Authorize(ctx context.Context, params *TokenParams, setOpts ...Au
 	if err != nil {
 		return nil, err
 	}
-	a.onClientAuthorize(ctx, token)
+	a.onExplicitAuthorize(ctx, token)
 	return token, nil
 }
 
