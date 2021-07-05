@@ -16,6 +16,15 @@ func Shuffle(l []string) []string {
 	return l
 }
 
+func Contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
 func Empty(s string) bool {
 	return len(strings.TrimSpace(s)) == 0
 }

@@ -410,7 +410,8 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			t.Fatalf("expected 4 http calls got %d", retryCount)
 		}
 		firstHostCalled := hosts[0]
-		restURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(options...).RestURL())
+		opts := ably.ApplyOptionsWithDefaults(options...)
+		restURL, _ := url.Parse(opts.RestURL(opts.GetPrimaryRestHost()))
 		if !strings.HasPrefix(firstHostCalled, restURL.Hostname()) {
 			t.Errorf("expected primary host got %s", firstHostCalled)
 		}
@@ -462,7 +463,8 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		// set up the proxy to forward all requests except a specific fallback to the server,
 		// whilst that fallback goes to the regular endpoint
 		serverURL, _ := url.Parse(server.URL)
-		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(nopts...).RestURL())
+		opts := ably.ApplyOptionsWithDefaults(nopts...)
+		defaultURL, _ := url.Parse(opts.RestURL(opts.GetPrimaryRestHost()))
 
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if r.URL.Hostname() == "fallback2" {

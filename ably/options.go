@@ -297,7 +297,7 @@ func (opts *clientOptions) activePort() (port int, isDefault bool) {
 	return
 }
 
-func (opts *clientOptions) getRestHost() string {
+func (opts *clientOptions) getPrimaryRestHost() string {
 	if !ablyutil.Empty(opts.RESTHost) {
 		return opts.RESTHost
 	}
@@ -307,7 +307,7 @@ func (opts *clientOptions) getRestHost() string {
 	return defaultOptions.RESTHost
 }
 
-func (opts *clientOptions) getRealtimeHost() string {
+func (opts *clientOptions) getPrimaryRealtimeHost() string {
 	if !ablyutil.Empty(opts.RealtimeHost) {
 		return opts.RealtimeHost
 	}
@@ -322,8 +322,7 @@ func (opts *clientOptions) getRealtimeHost() string {
 	return defaultOptions.RealtimeHost
 }
 
-func (opts *clientOptions) restURL() (restUrl string) {
-	restHost := opts.getRestHost()
+func (opts *clientOptions) restURL(restHost string) string {
 	port, _ := opts.activePort()
 	baseUrl := net.JoinHostPort(restHost, strconv.Itoa(port))
 	if opts.NoTLS {
@@ -332,8 +331,7 @@ func (opts *clientOptions) restURL() (restUrl string) {
 	return "https://" + baseUrl
 }
 
-func (opts *clientOptions) realtimeURL() string {
-	realtimeHost := opts.getRealtimeHost()
+func (opts *clientOptions) realtimeURL(realtimeHost string) string {
 	port, _ := opts.activePort()
 	baseUrl := net.JoinHostPort(realtimeHost, strconv.Itoa(port))
 	if opts.NoTLS {

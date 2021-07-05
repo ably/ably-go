@@ -403,7 +403,8 @@ func TestIdempotent_retry(t *testing.T) {
 		}
 
 		serverURL, _ := url.Parse(server.URL)
-		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(nopts...).RestURL())
+		opts := ably.ApplyOptionsWithDefaults(nopts...)
+		defaultURL, _ := url.Parse(opts.RestURL(opts.GetPrimaryRestHost()))
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if !strings.HasPrefix(r.URL.Path, "/channels/") {
 				// this is to handle token requests

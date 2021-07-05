@@ -65,6 +65,7 @@ type Connection struct {
 	// after a reauthorization, to avoid re-reauthorizing.
 	reauthorizing bool
 	arg           connArgs
+	hosts         *realtimeHosts
 }
 
 type connCallbacks struct {
@@ -92,6 +93,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 		callbacks: callbacks,
 	}
 	c.queue = newMsgQueue(c)
+	c.hosts = newRealtimeHosts(c.opts)
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)
 		go func() {
@@ -348,7 +350,7 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 		c.lockSetState(ConnectionStateConnecting, nil, 0)
 	}
 	c.mtx.Unlock()
-	u, err := url.Parse(c.opts.realtimeURL())
+	u, err := url.Parse(c.opts.realtimeURL(c.hosts.getPreferredHost()))
 	if err != nil {
 		return nil, err
 	}

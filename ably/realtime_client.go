@@ -13,8 +13,7 @@ type Realtime struct {
 	Auth       *Auth
 	Channels   *RealtimeChannels
 	Connection *Connection
-
-	rest *REST
+	rest       *REST
 }
 
 // NewRealtime constructs a new Realtime.

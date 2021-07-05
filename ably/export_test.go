@@ -16,12 +16,12 @@ func GetEnvFallbackHosts(env string) []string {
 	return getEnvFallbackHosts(env)
 }
 
-func (opts *clientOptions) GetRestHost() string {
-	return opts.getRestHost()
+func (opts *clientOptions) GetPrimaryRestHost() string {
+	return opts.getPrimaryRestHost()
 }
 
-func (opts *clientOptions) GetRealtimeHost() string {
-	return opts.getRealtimeHost()
+func (opts *clientOptions) GetPrimaryRealtimeHost() string {
+	return opts.getPrimaryRealtimeHost()
 }
 
 func (opts *clientOptions) ActivePort() (int, bool) {
@@ -32,12 +32,12 @@ func (opts *clientOptions) GetFallbackHosts() ([]string, error) {
 	return opts.getFallbackHosts()
 }
 
-func (opts *clientOptions) RestURL() string {
-	return opts.restURL()
+func (opts *clientOptions) RestURL(restHost string) string {
+	return opts.restURL(restHost)
 }
 
-func (opts *clientOptions) RealtimeURL() string {
-	return opts.realtimeURL()
+func (opts *clientOptions) RealtimeURL(realtimeHost string) string {
+	return opts.realtimeURL(realtimeHost)
 }
 
 func IsActiveInternetConnection() bool {
@@ -86,7 +86,7 @@ func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 //}
 
 func (c *REST) GetCachedFallbackHost() string {
-	return c.hosts.getFallbackHost()
+	return c.hosts.cache.get()
 }
 
 func (c *RealtimeChannel) GetAttachResume() bool {

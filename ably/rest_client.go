@@ -108,7 +108,7 @@ type REST struct {
 	Auth     *Auth
 	Channels *RESTChannels
 	opts     *clientOptions
-	hosts    hosts
+	hosts    *restHosts
 	log      logger
 }
 
@@ -577,7 +577,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 							}
 							return nil, err
 						}
-						c.hosts.setPreferredFallbackHost(h)
+						c.hosts.cacheHost(h)
 						return resp, nil
 					}
 				}
@@ -617,7 +617,7 @@ func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, e
 		body = bytes.NewReader(p)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, r.Method, c.opts.restURL()+r.Path, body)
+	req, err := http.NewRequestWithContext(ctx, r.Method, c.opts.restURL(c.hosts.getPreferredHost())+r.Path, body)
 	if err != nil {
 		return nil, newError(ErrInternalError, err)
 	}
