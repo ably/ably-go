@@ -36,17 +36,17 @@ func newRestHosts(opts *clientOptions) *restHosts {
 	}
 }
 
-func (fallbackHosts *restHosts) getPrimaryHost() string {
-	return fallbackHosts.opts.getPrimaryRestHost()
+func (restHosts *restHosts) getPrimaryHost() string {
+	return restHosts.opts.getPrimaryRestHost()
 }
 
-func (fallbackHosts *restHosts) getFallbackHost() string {
-	hosts, _ := fallbackHosts.opts.getFallbackHosts()
+func (restHosts *restHosts) getFallbackHost() string {
+	hosts, _ := restHosts.opts.getFallbackHosts()
 	shuffledFallbackHosts := ablyutil.Shuffle(hosts)
 	getNonVisitedHost := func() string {
-		visitedHosts := fallbackHosts.visitedHosts
-		if !ablyutil.Contains(visitedHosts, fallbackHosts.getPrimaryHost()) {
-			return fallbackHosts.getPrimaryHost()
+		visitedHosts := restHosts.visitedHosts
+		if !ablyutil.Contains(visitedHosts, restHosts.getPrimaryHost()) {
+			return restHosts.getPrimaryHost()
 		}
 		for _, host := range shuffledFallbackHosts {
 			if !ablyutil.Contains(visitedHosts, host) {
@@ -57,41 +57,46 @@ func (fallbackHosts *restHosts) getFallbackHost() string {
 	}
 	nonVisitedHost := getNonVisitedHost()
 	if !ablyutil.Empty(nonVisitedHost) {
-		fallbackHosts.visitedHosts = append(fallbackHosts.visitedHosts, nonVisitedHost)
+		restHosts.visitedHosts = append(restHosts.visitedHosts, nonVisitedHost)
 	}
 	return nonVisitedHost
 }
 
-func (fallbackHosts *restHosts) resetVisitedFallbackHosts() {
-	fallbackHosts.visitedHosts = nil
+func (restHosts *restHosts) resetVisitedFallbackHosts() {
+	restHosts.visitedHosts = nil
 }
 
-func (fallbackHosts *restHosts) fallbackHostsRemaining() int {
-	hosts, _ := fallbackHosts.opts.getFallbackHosts()
-	return len(hosts) + 1 - len(fallbackHosts.visitedHosts)
+func (restHosts *restHosts) fallbackHostsRemaining() int {
+	hosts, _ := restHosts.opts.getFallbackHosts()
+	return len(hosts) + 1 - len(restHosts.visitedHosts)
 }
 
-func (fallbackHosts *restHosts) setPrimaryFallbackHost(host string) {
-	fallbackHosts.primaryFallbackHost = host
+func (restHosts *restHosts) setPrimaryFallbackHost(host string) {
+	restHosts.primaryFallbackHost = host
 }
 
-func (fallbackHosts *restHosts) getPreferredHost() string {
-	host := fallbackHosts.cache.get()
+func (restHosts *restHosts) getPreferredHost() string {
+	host := restHosts.cache.get()
 	if ablyutil.Empty(host) {
-		if ablyutil.Empty(fallbackHosts.primaryFallbackHost) {
-			host = fallbackHosts.getPrimaryHost()
+		if ablyutil.Empty(restHosts.primaryFallbackHost) {
+			host = restHosts.getPrimaryHost()
 		} else {
-			host = fallbackHosts.primaryFallbackHost
+			host = restHosts.primaryFallbackHost
 		}
 	}
-	if !ablyutil.Contains(fallbackHosts.visitedHosts, host) {
-		fallbackHosts.visitedHosts = append(fallbackHosts.visitedHosts, host)
+	if !ablyutil.Contains(restHosts.visitedHosts, host) {
+		restHosts.visitedHosts = append(restHosts.visitedHosts, host)
 	}
 	return host
 }
 
-func (fallbackHosts *restHosts) cacheHost(host string) {
-	fallbackHosts.cache.put(host)
+func (restHosts *restHosts) cacheHost(host string) {
+	select {
+	case <-restHosts.cache.put(host):
+		return
+	case <-time.After(time.Second): // timeout of a second to cache the host
+		return
+	}
 }
 
 // RTN17
@@ -106,17 +111,17 @@ func newRealtimeHosts(opts *clientOptions) *realtimeHosts {
 	}
 }
 
-func (fallbackHosts *realtimeHosts) getPrimaryHost() string {
-	return fallbackHosts.opts.getPrimaryRealtimeHost()
+func (realtimeHosts *realtimeHosts) getPrimaryHost() string {
+	return realtimeHosts.opts.getPrimaryRealtimeHost()
 }
 
-func (fallbackHosts *realtimeHosts) getFallbackHost() string {
-	hosts, _ := fallbackHosts.opts.getFallbackHosts()
+func (realtimeHosts *realtimeHosts) getFallbackHost() string {
+	hosts, _ := realtimeHosts.opts.getFallbackHosts()
 	shuffledFallbackHosts := ablyutil.Shuffle(hosts)
 	getNonVisitedHost := func() string {
-		visitedHosts := fallbackHosts.visitedHosts
-		if !ablyutil.Contains(visitedHosts, fallbackHosts.getPrimaryHost()) {
-			return fallbackHosts.getPrimaryHost()
+		visitedHosts := realtimeHosts.visitedHosts
+		if !ablyutil.Contains(visitedHosts, realtimeHosts.getPrimaryHost()) {
+			return realtimeHosts.getPrimaryHost()
 		}
 		for _, host := range shuffledFallbackHosts {
 			if !ablyutil.Contains(visitedHosts, host) {
@@ -127,24 +132,24 @@ func (fallbackHosts *realtimeHosts) getFallbackHost() string {
 	}
 	nonVisitedHost := getNonVisitedHost()
 	if !ablyutil.Empty(nonVisitedHost) {
-		fallbackHosts.visitedHosts = append(fallbackHosts.visitedHosts, nonVisitedHost)
+		realtimeHosts.visitedHosts = append(realtimeHosts.visitedHosts, nonVisitedHost)
 	}
 	return nonVisitedHost
 }
 
-func (fallbackHosts *realtimeHosts) resetVisitedFallbackHosts() {
-	fallbackHosts.visitedHosts = nil
+func (realtimeHosts *realtimeHosts) resetVisitedFallbackHosts() {
+	realtimeHosts.visitedHosts = nil
 }
 
-func (fallbackHosts *realtimeHosts) fallbackHostsRemaining() int {
-	hosts, _ := fallbackHosts.opts.getFallbackHosts()
-	return len(hosts) + 1 - len(fallbackHosts.visitedHosts)
+func (realtimeHosts *realtimeHosts) fallbackHostsRemaining() int {
+	hosts, _ := realtimeHosts.opts.getFallbackHosts()
+	return len(hosts) + 1 - len(realtimeHosts.visitedHosts)
 }
 
-func (fallbackHosts *realtimeHosts) getPreferredHost() string {
-	host := fallbackHosts.getPrimaryHost() // primary host is always preferred host/ fallback host in realtime
-	if !ablyutil.Contains(fallbackHosts.visitedHosts, host) {
-		fallbackHosts.visitedHosts = append(fallbackHosts.visitedHosts, host)
+func (realtimeHosts *realtimeHosts) getPreferredHost() string {
+	host := realtimeHosts.getPrimaryHost() // primary host is always preferred host/ fallback host in realtime
+	if !ablyutil.Contains(realtimeHosts.visitedHosts, host) {
+		realtimeHosts.visitedHosts = append(realtimeHosts.visitedHosts, host)
 	}
 	return host
 }
@@ -159,13 +164,17 @@ type hostCache struct {
 	mu       sync.RWMutex
 }
 
-func (f *hostCache) put(host string) {
+func (f *hostCache) put(host string) chan struct{} {
+	isCached := make(chan struct{}, 1)
 	if f.get() != host {
 		if f.isRunning() {
 			f.stop()
 		}
-		go f.run(host)
+		go f.run(host, isCached)
+		return isCached
 	}
+	isCached <- struct{}{}
+	return isCached
 }
 
 func (f *hostCache) get() string {
@@ -185,7 +194,7 @@ func (f *hostCache) isRunning() bool {
 	return v
 }
 
-func (f *hostCache) run(host string) {
+func (f *hostCache) run(host string, isCached chan struct{}) {
 	f.mu.Lock()
 	now := time.Now()
 	duration := defaultOptions.FallbackRetryTimeout // spec RSC15f
@@ -197,6 +206,7 @@ func (f *hostCache) run(host string) {
 	f.host = host
 	f.cancel = cancel
 	f.mu.Unlock()
+	isCached <- struct{}{}
 	<-ctx.Done()
 	f.mu.Lock()
 	f.running = false

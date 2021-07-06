@@ -11,6 +11,61 @@ import (
 func NewClientOptions(os ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(os...)
 }
+func NewRestHosts(opts *clientOptions) *restHosts {
+	return newRestHosts(opts)
+}
+
+func (restHosts *restHosts) GetPrimaryHost() string {
+	return restHosts.getPrimaryHost()
+}
+
+func (restHosts *restHosts) GetFallbackHost() string {
+	return restHosts.getFallbackHost()
+}
+
+func (restHosts *restHosts) ResetVisitedFallbackHosts() {
+	restHosts.resetVisitedFallbackHosts()
+}
+
+func (restHosts *restHosts) FallbackHostsRemaining() int {
+	return restHosts.fallbackHostsRemaining()
+}
+
+func (restHosts *restHosts) SetPrimaryFallbackHost(host string) {
+	restHosts.setPrimaryFallbackHost(host)
+}
+
+func (restHosts *restHosts) GetPreferredHost() string {
+	return restHosts.getPreferredHost()
+}
+
+func (restHosts *restHosts) CacheHost(host string) {
+	restHosts.cacheHost(host)
+}
+
+func NewRealtimeHosts(opts *clientOptions) *realtimeHosts {
+	return newRealtimeHosts(opts)
+}
+
+func (realtimeHosts *realtimeHosts) GetPrimaryHost() string {
+	return realtimeHosts.getPrimaryHost()
+}
+
+func (realtimeHosts *realtimeHosts) GetFallbackHost() string {
+	return realtimeHosts.getFallbackHost()
+}
+
+func (realtimeHosts *realtimeHosts) ResetVisitedFallbackHosts() {
+	realtimeHosts.resetVisitedFallbackHosts()
+}
+
+func (realtimeHosts *realtimeHosts) FallbackHostsRemaining() int {
+	return realtimeHosts.fallbackHostsRemaining()
+}
+
+func (realtimeHosts *realtimeHosts) GetPreferredHost() string {
+	return realtimeHosts.getPreferredHost()
+}
 
 func GetEnvFallbackHosts(env string) []string {
 	return getEnvFallbackHosts(env)

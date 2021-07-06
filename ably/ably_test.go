@@ -1,6 +1,7 @@
 package ably_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -110,6 +111,85 @@ func assertNil(t *testing.T, object interface{}) {
 			t.Errorf("%v is not nil", object)
 		}
 	}
+}
+
+// ObjectsAreEqual determines if two objects are considered equal.
+//
+// This function does no assertion of any kind.
+func objectsAreEqual(expected, actual interface{}) bool {
+
+	if expected == nil || actual == nil {
+		return expected == actual
+	}
+	if exp, ok := expected.([]byte); ok {
+		act, ok := actual.([]byte)
+		if !ok {
+			return false
+		} else if exp == nil || act == nil {
+			return exp == nil && act == nil
+		}
+		return bytes.Equal(exp, act)
+	}
+	return reflect.DeepEqual(expected, actual)
+
+}
+
+// ElementsMatch asserts that the specified listA(array, slice...) is equal to specified
+// listB(array, slice...) ignoring the order of the elements. If there are duplicate elements,
+// the number of appearances of each of them in both lists should match.
+//
+// assert.ElementsMatch(t, [1, 3, 2, 3], [1, 3, 3, 2]))
+//
+// Returns whether the assertion was successful (true) or not (false).
+func assertElementsMatch(t *testing.T, listA, listB interface{}) (ok bool) {
+
+	if listA == nil || listB == nil {
+		return listA == listB
+	}
+
+	aKind := reflect.TypeOf(listA).Kind()
+	bKind := reflect.TypeOf(listB).Kind()
+
+	if aKind != reflect.Array && aKind != reflect.Slice {
+		t.Errorf("%q has an unsupported type %s", listA, aKind)
+		return false
+	}
+
+	if bKind != reflect.Array && bKind != reflect.Slice {
+		t.Errorf("%q has an unsupported type %s", listB, bKind)
+		return false
+	}
+
+	aValue := reflect.ValueOf(listA)
+	bValue := reflect.ValueOf(listB)
+
+	if aValue.Len() != bValue.Len() {
+		return false
+	}
+
+	// Mark indexes in bValue that we already used
+	visited := make([]bool, bValue.Len())
+
+	for i := 0; i < aValue.Len(); i++ {
+		element := aValue.Index(i).Interface()
+
+		found := false
+		for j := 0; j < bValue.Len(); j++ {
+			if visited[j] {
+				continue
+			}
+
+			if objectsAreEqual(bValue.Index(j).Interface(), element) {
+				visited[j] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 func assertDeepEquals(t *testing.T, expected interface{}, actual interface{}) {
