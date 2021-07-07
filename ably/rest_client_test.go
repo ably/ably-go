@@ -290,7 +290,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		var retryCount int
 		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			hosts = append(hosts, r.Host)
+			hosts = append(hosts, strings.Split(r.Host, ":")[0])
 			retryCount++
 			w.WriteHeader(http.StatusInternalServerError)
 		}))

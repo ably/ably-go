@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"mime"
 	"net/http"
 	"net/http/httptrace"
@@ -499,14 +498,15 @@ func (c *REST) do(ctx context.Context, r *request) (*http.Response, error) {
 }
 
 func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
-	req, err := c.newHTTPRequest(ctx, r)
+	prefHost := c.hosts.getPreferredHost()
+	req, err := c.newHTTPRequest(ctx, r, prefHost)
 	if err != nil {
 		return nil, err
 	}
-	if h := c.hosts.getFallbackHost(); h != "" {
-		req.URL.Host = h // RSC15f
-		c.log.Verbosef("RestClient: setting URL.Host=%q", h)
-	}
+	//if h := c.hosts.getFallbackHost(); h != "" {
+	//	req.URL.Host = h // RSC15f
+	//	c.log.Verbosef("RestClient: setting URL.Host=%q", h)
+	//}
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
 		c.log.Verbose("RestClient: enabling httptrace")
@@ -524,7 +524,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 				fallbacks, _ := c.opts.getFallbackHosts()
 				c.log.Infof("RestClient: trying to fallback with hosts=%v", fallbacks)
 				if len(fallbacks) > 0 {
-					left := fallbacks
+					//left := fallbacks
 					iteration := 0
 					maxLimit := c.opts.HTTPMaxRetryCount
 					if maxLimit == 0 {
@@ -533,31 +533,31 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 					c.log.Infof("RestClient: maximum fallback retry limit=%d", maxLimit)
 
 					for {
-						if len(left) == 0 {
+						if c.hosts.fallbackHostsRemaining() == 0 {
 							c.log.Errorf("RestClient: exhausted fallback hosts", err)
 							return nil, err
 						}
-						var h string
-						if len(left) == 1 {
-							h = left[0]
-						} else {
-							h = left[rand.Intn(len(left)-1)]
-						}
-						var n []string
-						for _, v := range left {
-							if v != h {
-								n = append(n, v)
-							}
-						}
-						left = n
-						req, err := c.newHTTPRequest(ctx, r)
+						host := c.hosts.getFallbackHost()
+						//if len(left) == 1 {
+						//	h = left[0]
+						//} else {
+						//	h = left[rand.Intn(len(left)-1)]
+						//}
+						//var n []string
+						//for _, v := range left {
+						//	if v != h {
+						//		n = append(n, v)
+						//	}
+						//}
+						//left = n
+						req, err := c.newHTTPRequest(ctx, r, host)
 						if err != nil {
 							return nil, err
 						}
-						c.log.Infof("RestClient:  chose fallback host=%q ", h)
-						req.URL.Host = h
-						req.Host = ""
-						req.Header.Set(hostHeader, h)
+						c.log.Infof("RestClient:  chose fallback host=%q ", host)
+						//req.URL.Host = h
+						//req.Host = ""
+						req.Header.Set(hostHeader, host)
 						resp, err := c.opts.httpclient().Do(req)
 						if err != nil {
 							c.log.Error("RestClient: failed sending a request to a fallback host", err)
@@ -577,7 +577,8 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 							}
 							return nil, err
 						}
-						c.hosts.cacheHost(h)
+						c.hosts.cacheHost(host)
+						c.hosts.resetVisitedFallbackHosts() // clear visited fallback hosts after successful response
 						return resp, nil
 					}
 				}
@@ -596,6 +597,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 		}
 		return nil, err
 	}
+	c.hosts.resetVisitedFallbackHosts() // clear visited fallback hosts after successful response
 	return resp, nil
 }
 
@@ -606,7 +608,7 @@ func canFallBack(code int) bool {
 
 // newHTTPRequest creates a new http.Request that can be sent to ably endpoints.
 // This makes sure necessary headers are set.
-func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, error) {
+func (c *REST) newHTTPRequest(ctx context.Context, r *request, host string) (*http.Request, error) {
 	var body io.Reader
 	var protocol = c.opts.protocol()
 	if r.In != nil {
@@ -617,7 +619,7 @@ func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, e
 		body = bytes.NewReader(p)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, r.Method, c.opts.restURL(c.hosts.getPreferredHost())+r.Path, body)
+	req, err := http.NewRequestWithContext(ctx, r.Method, c.opts.restURL(host)+r.Path, body)
 	if err != nil {
 		return nil, newError(ErrInternalError, err)
 	}

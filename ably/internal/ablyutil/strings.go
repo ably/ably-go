@@ -6,14 +6,20 @@ import (
 	"time"
 )
 
-func Shuffle(l []string) []string {
+func Shuffle(list []string) []string {
+	strListLen := len(list)
+	var shuffledList []string
+	shuffledList = append(shuffledList, list...)
+	if strListLen == 0 || strListLen == 1 {
+		return list
+	}
 	src := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(src)
-	for i := range l {
-		n := r.Intn(len(l) - 1)
-		l[i], l[n] = l[n], l[i]
+	for i := range shuffledList {
+		n := r.Intn(strListLen - 1)
+		shuffledList[i], shuffledList[n] = shuffledList[n], shuffledList[i]
 	}
-	return l
+	return shuffledList
 }
 
 func Contains(s []string, str string) bool {
