@@ -164,17 +164,17 @@ type hostCache struct {
 	mu       sync.RWMutex
 }
 
-func (f *hostCache) put(host string) chan struct{} {
-	isCached := make(chan struct{}, 1)
+func (f *hostCache) put(host string) (isCached chan struct{}) {
+	isCached = make(chan struct{}, 1)
 	if f.get() != host {
 		if f.isRunning() {
 			f.stop()
 		}
 		go f.run(host, isCached)
-		return isCached
+		return
 	}
 	isCached <- struct{}{}
-	return isCached
+	return
 }
 
 func (f *hostCache) get() string {

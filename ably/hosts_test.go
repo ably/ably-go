@@ -145,6 +145,28 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		prefHost := restHosts.GetPreferredHost()
 		assertEquals(t, "custom-ably.rest", prefHost)
 	})
+
+	t.Run("should get remaining fallback hosts count", func(t *testing.T) {
+		clientOptions := ably.NewClientOptions()
+		restHosts := ably.NewRealtimeHosts(clientOptions)
+
+		// Get first preferred restHost
+		restHosts.GetPreferredHost()
+
+		assertEquals(t, 5, restHosts.FallbackHostsRemaining())
+		// Get some fallback hosts
+		restHosts.GetFallbackHost()
+		assertEquals(t, 4, restHosts.FallbackHostsRemaining())
+
+		restHosts.GetFallbackHost()
+		assertEquals(t, 3, restHosts.FallbackHostsRemaining())
+
+		restHosts.GetFallbackHost()
+		restHosts.GetFallbackHost()
+		restHosts.GetFallbackHost()
+
+		assertEquals(t, 0, restHosts.FallbackHostsRemaining())
+	})
 }
 
 func Test_RTN17_RealtimeHostFallback(t *testing.T) {
@@ -156,11 +178,130 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		assertEquals(t, "realtime.ably.io", prefHost)
 	})
 
+	t.Run("RTN17a: should always get primary host as pref. host", func(t *testing.T) {
+		clientOptions := ably.NewClientOptions(ably.WithRealtimeHost("custom-realtime.ably.io"))
+		realtimeHosts := ably.NewRealtimeHosts(clientOptions)
+		prefHost := realtimeHosts.GetPreferredHost()
+		assertEquals(t, "custom-realtime.ably.io", prefHost)
+	})
+
+	t.Run("RTN17c, RSC15g: should get fallback hosts in random order", func(t *testing.T) {
+		clientOptions := ably.NewClientOptions()
+		realtimeHosts := ably.NewRealtimeHosts(clientOptions)
+		// All expected hosts supposed to be tried upon
+		expectedHosts := []string{
+			"realtime.ably.io",
+			"a.ably-realtime.com",
+			"b.ably-realtime.com",
+			"c.ably-realtime.com",
+			"d.ably-realtime.com",
+			"e.ably-realtime.com",
+		}
+
+		// Get first preferred restHost
+		var actualHosts []string
+		prefHost := realtimeHosts.GetPreferredHost()
+		actualHosts = append(actualHosts, prefHost)
+
+		// Get all fallback hosts in random order
+		for true {
+			fallbackHost := realtimeHosts.GetFallbackHost()
+			actualHosts = append(actualHosts, fallbackHost)
+			if ablyutil.Empty(fallbackHost) {
+				break
+			}
+		}
+		assertElementsMatch(t, expectedHosts, actualHosts)
+	})
+
+	t.Run("RTN17c, RSC15g: should get all fallback hosts again, when visited hosts are cleared after reconnection", func(t *testing.T) {
+		clientOptions := ably.NewClientOptions()
+		realtimeHosts := ably.NewRealtimeHosts(clientOptions)
+		// All expected hosts supposed to be tried upon
+		expectedHosts := []string{
+			"rest.ably.io",
+			"a.ably-realtime.com",
+			"b.ably-realtime.com",
+			"c.ably-realtime.com",
+			"d.ably-realtime.com",
+			"e.ably-realtime.com",
+		}
+
+		// Get first preferred restHost
+		var actualHosts []string
+		realtimeHosts.GetPreferredHost()
+
+		// Get some fallback hosts
+		realtimeHosts.GetFallbackHost()
+		realtimeHosts.GetFallbackHost()
+
+		// Clear visited hosts, after reconnection
+		realtimeHosts.ResetVisitedFallbackHosts()
+
+		// Get all fallback hosts in random order
+		for true {
+			fallbackHost := realtimeHosts.GetFallbackHost()
+			actualHosts = append(actualHosts, fallbackHost)
+			if ablyutil.Empty(fallbackHost) {
+				break
+			}
+		}
+		assertElementsMatch(t, expectedHosts, actualHosts)
+	})
+
+	t.Run("RTN17c, RSC15g: should get all fallback hosts, including primary host when preferred host is not requested", func(t *testing.T) {
+		clientOptions := ably.NewClientOptions()
+		realtimeHosts := ably.NewRealtimeHosts(clientOptions)
+		// All expected hosts supposed to be tried upon
+		expectedHosts := []string{
+			"rest.ably.io",
+			"a.ably-realtime.com",
+			"b.ably-realtime.com",
+			"c.ably-realtime.com",
+			"d.ably-realtime.com",
+			"e.ably-realtime.com",
+		}
+
+		var actualHosts []string
+
+		// Get all fallback hosts in random order
+		for true {
+			fallbackHost := realtimeHosts.GetFallbackHost()
+			actualHosts = append(actualHosts, fallbackHost)
+			if ablyutil.Empty(fallbackHost) {
+				break
+			}
+		}
+		assertElementsMatch(t, expectedHosts, actualHosts)
+	})
+
 	t.Run("RTN17e: rest host should use active realtime host as pref. host", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
 		restHosts := ably.NewRestHosts(clientOptions)
 		restHosts.SetPrimaryFallbackHost("custom-ably.realtime") // set by realtime in accordance with active connection with given host
 		prefHost := restHosts.GetPreferredHost()
 		assertEquals(t, "custom-ably.realtime", prefHost)
+	})
+
+	t.Run("should get remaining fallback hosts count", func(t *testing.T) {
+		clientOptions := ably.NewClientOptions()
+		realtimeHosts := ably.NewRealtimeHosts(clientOptions)
+
+		// Get first preferred restHost
+		realtimeHosts.GetPreferredHost()
+
+		assertEquals(t, 5, realtimeHosts.FallbackHostsRemaining())
+		// Get some fallback hosts
+		realtimeHosts.GetFallbackHost()
+		assertEquals(t, 4, realtimeHosts.FallbackHostsRemaining())
+
+		realtimeHosts.GetFallbackHost()
+		assertEquals(t, 3, realtimeHosts.FallbackHostsRemaining())
+
+		realtimeHosts.GetFallbackHost()
+		realtimeHosts.GetFallbackHost()
+		realtimeHosts.GetFallbackHost()
+
+		assertEquals(t, 0, realtimeHosts.FallbackHostsRemaining())
 	})
 }
