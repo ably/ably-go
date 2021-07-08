@@ -3528,10 +3528,13 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		connectedMsg := intercept(ctx, ably.ActionConnected)
 
 		authorizeDone := make(chan struct{})
-		go func() {
+		var rg ablytest.ResultGroup
+		defer rg.Wait()
+		rg.GoAdd(func(ctx context.Context) error {
 			defer close(authorizeDone)
-			c.Auth.Authorize(context.Background(), nil)
-		}()
+			_, err := c.Auth.Authorize(ctx, nil)
+			return err
+		})
 
 		handleAuth(getToken, nil)
 
