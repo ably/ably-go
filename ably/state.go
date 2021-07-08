@@ -1,454 +1,190 @@
 package ably
 
 import (
+	"context"
 	"fmt"
-	"sort"
 	"sync"
-
-	"github.com/ably/ably-go/ably/proto"
+	"time"
 )
 
-// StateType specifies which group of states is relevant in given context;
-// either:
-//
-//   - StateConn* group describing Conn states
-//   - StateChan* group describing RealtimeChannel states
-//
-type StateType int
-
-const (
-	StateConn StateType = 1 + iota
-	StateChan
-)
-
-// Strings implements the fmt.Stringer interface.
-func (st StateType) String() string {
-	switch st {
-	case StateConn:
-		return "connection"
-	case StateChan:
-		return "channel"
-	default:
-		return "invalid"
-	}
-}
-
-// Contains returns true when the state belongs to the given type.
-func (st StateType) Contains(state StateEnum) bool {
-	return stateMasks[st]&state == state
-}
-
-// StateEnum is an enumeration type for connection and channel states.
-type StateEnum int
-
-// String implements the fmt.Stringer interface.
-func (sc StateEnum) String() string {
-	if s, ok := stateText[sc]; ok {
-		return s
-	}
-	return "invalid"
-}
-
-// StateConn describes states of realtime connection.
-const (
-	StateConnInitialized StateEnum = 1 << iota
-	StateConnConnecting
-	StateConnConnected
-	StateConnDisconnected
-	StateConnSuspended
-	StateConnClosing
-	StateConnClosed
-	StateConnFailed
-)
-
-// StateChan describes states of realtime channel.
-const (
-	StateChanInitialized StateEnum = 1 << (iota + 8)
-	StateChanAttaching
-	StateChanAttached
-	StateChanDetaching
-	StateChanDetached
-	StateChanClosing
-	StateChanClosed
-	StateChanFailed
-)
-
-// Result awaits completion of asynchronous operation.
-type Result interface {
+// result awaits completion of asynchronous operation.
+type result interface {
 	// Wait blocks until asynchronous operation is completed. Upon its completion,
 	// the method returns nil error if it was successful and non-nil error otherwise.
 	// It's allowed to call Wait multiple times.
-	Wait() error
+	Wait(context.Context) error
 }
 
-func wait(res Result, err error) error {
-	if err != nil {
-		return err
+func wait(ctx context.Context) func(result, error) error {
+	return func(res result, err error) error {
+		if err != nil {
+			return err
+		}
+		return res.Wait(ctx)
 	}
-	return res.Wait()
 }
 
-type resultFunc func() error
-
-func (f resultFunc) Wait() error {
-	return f()
-}
-
-func goWaiter(f resultFunc) Result {
+// goWaiter immediately calls the given function in a separate goroutine. The
+// returned Result waits for its completion and returns its error.
+func goWaiter(f func() error) result {
 	err := make(chan error, 1)
 	go func() {
 		defer close(err)
 		err <- f()
 	}()
-	return resultFunc(func() error {
-		return <-err
+	return resultFunc(func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-err:
+			return err
+		}
 	})
 }
 
-var stateText = map[StateEnum]string{
-	StateConnInitialized:  "ably.StateConnInitialized",
-	StateConnConnecting:   "ably.StateConnConnecting",
-	StateConnConnected:    "ably.StateConnConnected",
-	StateConnDisconnected: "ably.StateConnDisconnected",
-	StateConnSuspended:    "ably.StateConnSuspended",
-	StateConnClosing:      "ably.StateConnClosing",
-	StateConnClosed:       "ably.StateConnClosed",
-	StateConnFailed:       "ably.StateConnFailed",
-	StateChanInitialized:  "ably.StateChanInitialized",
-	StateChanAttaching:    "ably.StateChanAttaching",
-	StateChanAttached:     "ably.StateChanAttached",
-	StateChanDetaching:    "ably.StateChanDetaching",
-	StateChanDetached:     "ably.StateChanDetached",
-	StateChanClosing:      "ably.StateChanClosing",
-	StateChanClosed:       "ably.StateChanClosed",
-	StateChanFailed:       "ably.StateChanFailed",
-}
-
-// stateAll lists all valid connection and channel state values.
-var stateAll = map[StateType][]StateEnum{
-	StateConn: {
-		StateConnInitialized,
-		StateConnConnecting,
-		StateConnConnected,
-		StateConnDisconnected,
-		StateConnSuspended,
-		StateConnClosing,
-		StateConnClosed,
-		StateConnFailed,
-	},
-	StateChan: {
-		StateChanInitialized,
-		StateChanAttaching,
-		StateChanAttached,
-		StateChanDetaching,
-		StateChanClosed,
-		StateChanDetached,
-		StateChanFailed,
-	},
-}
-
-// stateMasks is used for testing connection and channel state values.
-var stateMasks = map[StateType]StateEnum{
-	StateConn: StateConnInitialized | StateConnConnecting | StateConnConnected |
-		StateConnDisconnected | StateConnSuspended | StateConnClosing | StateConnClosed |
-		StateConnFailed,
-	StateChan: StateChanInitialized | StateChanAttaching | StateChanAttached |
-		StateChanDetaching | StateChanDetached | StateChanClosing | StateChanClosed |
-		StateChanFailed,
-}
-
 var (
-	errClosed         = newErrorf(10000, "Connection closed by client")
-	errDisconnected   = newErrorf(80003, "Connection temporarily unavailable")
-	errSuspended      = newErrorf(80002, "Connection unavailable")
-	errFailed         = newErrorf(80000, "Connection failed")
-	errNeverConnected = newErrorf(80002, "Unable to establish connection")
+	errDisconnected   = newErrorf(ErrDisconnected, "Connection temporarily unavailable")
+	errSuspended      = newErrorf(ErrConnectionSuspended, "Connection unavailable")
+	errFailed         = newErrorf(ErrConnectionFailed, "Connection failed")
+	errNeverConnected = newErrorf(ErrConnectionSuspended, "Unable to establish connection")
+
+	errNACKWithoutError = newErrorf(ErrInternalError, "NACK without error")
+	errImplictNACK      = newErrorf(ErrInternalError, "implicit NACK")
 )
 
-var stateErrors = map[StateEnum]Error{
-	StateConnInitialized:  *errNeverConnected,
-	StateConnClosed:       *errClosed,
-	StateConnClosing:      *errClosed,
-	StateConnDisconnected: *errDisconnected,
-	StateConnFailed:       *errFailed,
-	StateConnSuspended:    *errSuspended,
-	StateChanClosed:       *errClosed,
-	StateChanFailed:       *errFailed,
+var connStateErrors = map[ConnectionState]ErrorInfo{
+	ConnectionStateInitialized:  *errNeverConnected,
+	ConnectionStateDisconnected: *errDisconnected,
+	ConnectionStateFailed:       *errFailed,
+	ConnectionStateSuspended:    *errSuspended,
 }
 
-func stateError(state StateEnum, err error) error {
+func connStateError(state ConnectionState, err error) *ErrorInfo {
 	// Set default error information associated with the target state.
-	e, ok := err.(*Error)
-	if ok {
+	e, ok := err.(*ErrorInfo)
+	if ok && e != nil {
 		return e
 	}
-	if e, ok := stateErrors[state]; ok {
+	if e, ok := connStateErrors[state]; ok {
 		if err != nil {
-			e.Err = err
+			e.err = err
 		}
 		err = &e
 	}
-	return err
-}
-
-// State describes a single state transition of either realtime connection or channel
-// that occurred due to some external condition (dropped connection, retried etc.).
-//
-// Each realtime connection and channel maintains its state to ensure high availability
-// and resilience, which is inherently asynchronous. In order to listen to transition
-// between states for both realtime connection and realtime channel user may provide
-// a channel, which will get notified with single State value for each transition
-// than takes place.
-type State struct {
-	Channel string    // channel name or empty if Type is StateConn
-	Err     error     // eventual error value associated with transition
-	State   StateEnum // state which connection or channel has transitioned to
-	Type    StateType // whether transition happened on connection or channel
-}
-
-type stateEmitter struct {
-	sync.Mutex
-	channel   string
-	listeners map[StateEnum]map[chan<- State]struct{}
-	onetime   map[StateEnum]map[chan<- State]struct{}
-	err       error
-	current   StateEnum
-	typ       StateType
-	logger    *LoggerOptions
-}
-
-func newStateEmitter(typ StateType, startState StateEnum, channel string, log *LoggerOptions) *stateEmitter {
-	if !typ.Contains(startState) {
-		panic(`invalid start state: "` + startState.String() + `"`)
+	if err == nil {
+		return nil
 	}
-	return &stateEmitter{
-		channel:   channel,
-		listeners: make(map[StateEnum]map[chan<- State]struct{}),
-		onetime:   make(map[StateEnum]map[chan<- State]struct{}),
-		current:   startState,
-		typ:       typ,
-		logger:    log,
-	}
+	return newError(0, err)
 }
 
-func (s *stateEmitter) set(state StateEnum, err error) error {
-	doemit := s.current != state
-	s.current = state
-	s.err = stateError(state, err)
-	if doemit {
-		s.emit(State{
-			Channel: s.channel,
-			Err:     s.err,
-			State:   s.current,
-			Type:    s.typ,
-		})
-	}
-	return s.err
+var (
+	errChannelFailed = newErrorf(ErrChannelOperationFailed, "Channel state is failed")
+)
+
+var channelStateErrors = map[ChannelState]ErrorInfo{
+	ChannelStateFailed: *errChannelFailed,
 }
 
-func (s *stateEmitter) emit(st State) {
-	for ch := range s.listeners[st.State] {
-		select {
-		case ch <- st:
-		default:
-			s.logger.Printf(LogWarning, "dropping %s due to slow receiver", st)
+func channelStateError(state ChannelState, err error) *ErrorInfo {
+	// Set default error information associated with the target state.
+	e, ok := err.(*ErrorInfo)
+	if ok && e != nil {
+		return e
+	}
+	if e, ok := channelStateErrors[state]; ok {
+		if err != nil {
+			e.err = err
 		}
+		err = &e
 	}
-	onetime := s.onetime[st.State]
-	if len(onetime) != 0 {
-		delete(s.onetime, st.State)
-		for ch := range onetime {
-			select {
-			case ch <- st:
-			default:
-				s.logger.Printf(LogWarning, "dropping %s due to slow receiver", st)
-			}
-			for _, l := range s.onetime {
-				delete(l, ch)
-			}
-		}
+	if err == nil {
+		return nil
 	}
-}
-
-func (s *stateEmitter) syncSet(state StateEnum, err error) error {
-	s.Lock()
-	defer s.Unlock()
-	return s.set(state, err)
-}
-
-func (s *stateEmitter) once(ch chan<- State, states ...StateEnum) {
-	if len(states) == 0 {
-		states = stateAll[s.typ]
-	}
-	for _, state := range states {
-		l, ok := s.onetime[state]
-		if !ok {
-			l = make(map[chan<- State]struct{})
-			s.onetime[state] = l
-		}
-		l[ch] = struct{}{}
-	}
-}
-
-func (s *stateEmitter) on(ch chan<- State, states ...StateEnum) {
-	if ch == nil {
-		panic(fmt.Sprintf("ably: %s On using nil channel", s.typ))
-	}
-	if len(states) == 0 {
-		states = stateAll[s.typ]
-	}
-	s.Lock()
-	for _, state := range states {
-		if !s.typ.Contains(state) {
-			panic(fmt.Sprintf("ably: %s On using invalid state value: %s", s.typ, state.String()))
-		}
-		l, ok := s.listeners[state]
-		if !ok {
-			l = make(map[chan<- State]struct{})
-			s.listeners[state] = l
-		}
-		l[ch] = struct{}{}
-	}
-	s.Unlock()
-}
-
-func (s *stateEmitter) off(ch chan<- State, states ...StateEnum) {
-	if ch == nil {
-		panic(fmt.Sprintf("ably: %s Off using nil channel", s.typ))
-	}
-	if len(states) == 0 {
-		states = stateAll[s.typ]
-	}
-	s.Lock()
-	for _, state := range states {
-		if !s.typ.Contains(state) {
-			panic(fmt.Sprintf("ably: %s Off using invalid state value: %s", s.typ, state.String()))
-		}
-		delete(s.listeners[state], ch)
-		if len(s.listeners[state]) == 0 {
-			delete(s.listeners, state)
-		}
-	}
-	s.Unlock()
+	return newError(0, err)
 }
 
 // queuedEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
-	queue  []serialCh
-	logger *LoggerOptions
+	queue []msgCh
+	log   logger
 }
 
-func newPendingEmitter(log *LoggerOptions) pendingEmitter {
+func newPendingEmitter(log logger) pendingEmitter {
 	return pendingEmitter{
-		logger: log,
+		log: log,
 	}
 }
 
-type serialCh struct {
-	serial int64
-	ch     chan<- error
+type msgCh struct {
+	msg *protocolMessage
+	ch  chan<- error
 }
 
-func (q pendingEmitter) Len() int {
-	return len(q.queue)
+// Dismiss lets go of the channels that are waiting for an error on this queue.
+// The queue can continue sending messages.
+func (q *pendingEmitter) Dismiss() []msgCh {
+	cx := make([]msgCh, len(q.queue))
+	copy(cx, q.queue)
+	q.queue = nil
+	return cx
 }
 
-func (q pendingEmitter) Less(i, j int) bool {
-	return q.queue[i].serial < q.queue[j].serial
-}
-
-func (q pendingEmitter) Swap(i, j int) {
-	q.queue[i], q.queue[j] = q.queue[j], q.queue[i]
-}
-
-func (q pendingEmitter) Search(serial int64) int {
-	return sort.Search(q.Len(), func(i int) bool { return q.queue[i].serial >= serial })
-}
-
-func (q *pendingEmitter) Enqueue(serial int64, ch chan<- error) {
-	switch i := q.Search(serial); {
-	case i == q.Len():
-		q.queue = append(q.queue, serialCh{serial, ch})
-	case q.queue[i].serial == serial:
-		q.logger.Printf(LogWarning, "duplicated message serial: %d", serial)
-	default:
-		q.queue = append(q.queue, serialCh{})
-		copy(q.queue[i+1:], q.queue[i:])
-		q.queue[i] = serialCh{serial, ch}
+func (q *pendingEmitter) Enqueue(msg *protocolMessage, ch chan<- error) {
+	if len(q.queue) > 0 {
+		expected := q.queue[len(q.queue)-1].msg.MsgSerial + 1
+		if got := msg.MsgSerial; expected != got {
+			panic(fmt.Sprintf("protocol violation: expected next enqueued message to have msgSerial %d; got %d", expected, got))
+		}
 	}
+	q.queue = append(q.queue, msgCh{msg, ch})
 }
 
-func (q *pendingEmitter) Ack(serial int64, count int, err error) {
-	if q.Len() == 0 {
-		return
+func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
+	// The msgSerial from the server may not be the same we're waiting. If the
+	// server skipped some messages, they get implicitly NACKed. If the server
+	// ACKed some messages again, we ignore those. In both cases, we just need
+	// to correct the number of messages that get ACKed by that difference.
+	serialShift := int(msg.MsgSerial - q.queue[0].msg.MsgSerial)
+	count := msg.Count + serialShift
+	if count > len(q.queue) {
+		panic(fmt.Sprintf("protocol violation: ACKed %d messages, but only %d pending", count, len(q.queue)))
 	}
-	ack, nack := 0, 0
-	// Ensure range [serial,serial+count] fits inside q.
-	switch i := q.Search(serial); {
-	case i == q.Len():
-		nack = q.Len()
-	case q.queue[i].serial == serial:
-		nack = i
-		ack = min(i+count, q.Len())
-	default:
-		nack = i + 1
-		ack = min(i+1+count, q.Len())
+	acked := q.queue[:count]
+	q.queue = q.queue[count:]
+
+	err := errInfo.unwrapNil()
+	if msg.Action == actionNack && err == nil {
+		err = errNACKWithoutError
 	}
-	if err == nil {
-		err = newError(50000, err)
-	}
-	for _, sch := range q.queue[:nack] {
-		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
+
+	for i, sch := range acked {
+		err := err
+		if i < serialShift {
+			err = errImplictNACK
+		}
+		q.log.Verbosef("received %v for message serial %d", msg.Action, sch.msg.MsgSerial)
 		sch.ch <- err
 	}
-	for _, sch := range q.queue[nack:ack] {
-		q.logger.Printf(LogVerbose, "received ACK for message serial %d", sch.serial)
-		sch.ch <- nil
-	}
-	q.queue = q.queue[ack:]
-}
-
-func (q *pendingEmitter) Nack(serial int64, count int, err error) {
-	if q.Len() == 0 {
-		return
-	}
-	nack := 0
-	switch i := q.Search(serial); {
-	case i == q.Len():
-		nack = q.Len()
-	case q.queue[i].serial == serial:
-		nack = min(i+count, q.Len())
-	default:
-		nack = min(i+1+count, q.Len())
-	}
-	if err == nil {
-		err = newError(50000, err)
-	}
-	for _, sch := range q.queue[:nack] {
-		q.logger.Printf(LogVerbose, "received NACK for message serial %d", sch.serial)
-		sch.ch <- err
-	}
-	q.queue = q.queue[nack:]
 }
 
 type msgch struct {
-	msg *proto.ProtocolMessage
+	msg *protocolMessage
 	ch  chan<- error
 }
 
 type msgQueue struct {
 	mtx   sync.Mutex
 	queue []msgch
-	conn  *Conn
+	conn  *Connection
 }
 
-func newMsgQueue(conn *Conn) *msgQueue {
+func newMsgQueue(conn *Connection) *msgQueue {
 	return &msgQueue{
 		conn: conn,
 	}
 }
 
-func (q *msgQueue) Enqueue(msg *proto.ProtocolMessage, listen chan<- error) {
+func (q *msgQueue) Enqueue(msg *protocolMessage, listen chan<- error) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
 	q.queue = append(q.queue, msgch{msg, listen})
@@ -458,11 +194,7 @@ func (q *msgQueue) Enqueue(msg *proto.ProtocolMessage, listen chan<- error) {
 func (q *msgQueue) Flush() {
 	q.mtx.Lock()
 	for _, msgch := range q.queue {
-		err := q.conn.send(msgch.msg, msgch.ch)
-		if err != nil {
-			q.logger().Printf(LogError, "failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
-			msgch.ch <- newError(90000, err)
-		}
+		q.conn.send(msgch.msg, msgch.ch)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
@@ -471,15 +203,15 @@ func (q *msgQueue) Flush() {
 func (q *msgQueue) Fail(err error) {
 	q.mtx.Lock()
 	for _, msgch := range q.queue {
-		q.logger().Printf(LogError, "failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
+		q.log().Errorf("failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
 		msgch.ch <- newError(90000, err)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
 }
 
-func (q *msgQueue) logger() *LoggerOptions {
-	return q.conn.logger()
+func (q *msgQueue) log() logger {
+	return q.conn.log()
 }
 
 var nopResult *errResult
@@ -489,63 +221,225 @@ type errResult struct {
 	listen <-chan error
 }
 
-func newErrResult() (Result, chan<- error) {
+func newErrResult() (result, chan<- error) {
 	listen := make(chan error, 1)
 	res := &errResult{listen: listen}
 	return res, listen
 }
 
 // Wait implements the Result interface.
-func (res *errResult) Wait() error {
+func (res *errResult) Wait(ctx context.Context) error {
 	if res == nil {
 		return nil
 	}
-	if res.listen != nil {
-		res.err = <-res.listen
+	if l := res.listen; l != nil {
 		res.listen = nil
-	}
-	return res.err
-}
-
-type stateResult struct {
-	err      error
-	listen   <-chan State
-	expected StateEnum
-}
-
-func newResult(expected StateEnum) (Result, chan<- State) {
-	listen := make(chan State, 1)
-	res := &stateResult{listen: listen, expected: expected}
-	return res, listen
-}
-
-func (s *stateEmitter) listenResult(states ...StateEnum) Result {
-	res, listen := newResult(states[0])
-	s.once(listen, states...)
-	return res
-}
-
-// Wait implements the Result interface.
-func (res *stateResult) Wait() error {
-	if res == nil {
-		return nil
-	}
-	if res.listen != nil {
-		switch state := <-res.listen; {
-		case state.State == res.expected:
-		case state.Err != nil:
-			res.err = state.Err
-		default:
-			code := 50001
-			if state.Type == StateConn {
-				code = 50002
-			}
-			res.err = &Error{
-				Code: code,
-				Err:  fmt.Errorf("failed %s state: %s", state.Type, state.State),
-			}
+		select {
+		case res.err = <-l:
+		case <-ctx.Done():
+			res.err = ctx.Err()
 		}
-		res.listen = nil
 	}
 	return res.err
 }
+
+type resultFunc func(context.Context) error
+
+func (f resultFunc) Wait(ctx context.Context) error {
+	return f(ctx)
+}
+
+func (e ChannelEventEmitter) listenResult(expected ChannelState, failed ...ChannelState) result {
+	// Make enough room not to block the sender if the Result is never waited on.
+	changes := make(channelStateChanges, 1+len(failed))
+
+	var offs []func()
+	offs = append(offs, e.Once(ChannelEvent(expected), changes.Receive))
+	for _, ev := range failed {
+		offs = append(offs, e.Once(ChannelEvent(ev), changes.Receive))
+	}
+
+	return resultFunc(func(ctx context.Context) error {
+		defer func() {
+			for _, off := range offs {
+				off()
+			}
+		}()
+
+		var change ChannelStateChange
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case change = <-changes:
+		}
+
+		switch {
+		case change.Current == expected:
+		case change.Reason != nil:
+			return change.Reason
+		default:
+			code := ErrInternalChannelError
+			return newError(code, fmt.Errorf("failed channel change: %s", change.Current))
+		}
+
+		return nil
+	})
+}
+
+func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ...ConnectionState) result {
+	// Make enough room not to block the sender if the Result is never waited on.
+	changes := make(connStateChanges, 1+len(failed))
+
+	var offs []func()
+	offs = append(offs, e.Once(ConnectionEvent(expected), changes.Receive))
+	for _, ev := range failed {
+		offs = append(offs, e.Once(ConnectionEvent(ev), changes.Receive))
+	}
+
+	return resultFunc(func(ctx context.Context) error {
+		defer func() {
+			for _, off := range offs {
+				off()
+			}
+		}()
+
+		var change ConnectionStateChange
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case change = <-changes:
+		}
+
+		switch {
+		case change.Current == expected:
+		case change.Reason != nil:
+			return change.Reason
+		default:
+			code := ErrInternalConnectionError
+			return newError(code, fmt.Errorf("failed connection change: %s", change.Current))
+		}
+
+		return nil
+	})
+}
+
+// A ConnectionState identifies the state of an Ably realtime connection.
+type ConnectionState struct {
+	name string
+}
+
+var (
+	ConnectionStateInitialized  ConnectionState = ConnectionState{name: "INITIALIZED"}
+	ConnectionStateConnecting   ConnectionState = ConnectionState{name: "CONNECTING"}
+	ConnectionStateConnected    ConnectionState = ConnectionState{name: "CONNECTED"}
+	ConnectionStateDisconnected ConnectionState = ConnectionState{name: "DISCONNECTED"}
+	ConnectionStateSuspended    ConnectionState = ConnectionState{name: "SUSPENDED"}
+	ConnectionStateClosing      ConnectionState = ConnectionState{name: "CLOSING"}
+	ConnectionStateClosed       ConnectionState = ConnectionState{name: "CLOSED"}
+	ConnectionStateFailed       ConnectionState = ConnectionState{name: "FAILED"}
+)
+
+func (e ConnectionState) String() string {
+	return e.name
+}
+
+// A ConnectionEvent identifies an event in the lifetime of an Ably realtime
+// connection.
+type ConnectionEvent struct {
+	name string
+}
+
+func (ConnectionEvent) isEmitterEvent() {}
+
+var (
+	ConnectionEventInitialized  ConnectionEvent = ConnectionEvent(ConnectionStateInitialized)
+	ConnectionEventConnecting   ConnectionEvent = ConnectionEvent(ConnectionStateConnecting)
+	ConnectionEventConnected    ConnectionEvent = ConnectionEvent(ConnectionStateConnected)
+	ConnectionEventDisconnected ConnectionEvent = ConnectionEvent(ConnectionStateDisconnected)
+	ConnectionEventSuspended    ConnectionEvent = ConnectionEvent(ConnectionStateSuspended)
+	ConnectionEventClosing      ConnectionEvent = ConnectionEvent(ConnectionStateClosing)
+	ConnectionEventClosed       ConnectionEvent = ConnectionEvent(ConnectionStateClosed)
+	ConnectionEventFailed       ConnectionEvent = ConnectionEvent(ConnectionStateFailed)
+	ConnectionEventUpdate       ConnectionEvent = ConnectionEvent{name: "UPDATE"}
+)
+
+func (e ConnectionEvent) String() string {
+	return e.name
+}
+
+// A ConnectionStateChange is the data associated with a ConnectionEvent.
+//
+// If the Event is a ConnectionEventUpdated, Current and Previous are the
+// the same. Otherwise, the event is a state transition from Previous to
+// Current.
+type ConnectionStateChange struct {
+	Current  ConnectionState
+	Event    ConnectionEvent
+	Previous ConnectionState
+	RetryIn  time.Duration //RTN14d, TA2
+	// Reason, if any, is an error that caused the state change.
+	Reason *ErrorInfo
+}
+
+func (ConnectionStateChange) isEmitterData() {}
+
+// A ChannelState identifies the state of an Ably realtime channel.
+type ChannelState struct {
+	name string
+}
+
+var (
+	ChannelStateInitialized ChannelState = ChannelState{name: "INITIALIZED"}
+	ChannelStateAttaching   ChannelState = ChannelState{name: "ATTACHING"}
+	ChannelStateAttached    ChannelState = ChannelState{name: "ATTACHED"}
+	ChannelStateDetaching   ChannelState = ChannelState{name: "DETACHING"}
+	ChannelStateDetached    ChannelState = ChannelState{name: "DETACHED"}
+	ChannelStateSuspended   ChannelState = ChannelState{name: "SUSPENDED"}
+	ChannelStateFailed      ChannelState = ChannelState{name: "FAILED"}
+)
+
+func (e ChannelState) String() string {
+	return e.name
+}
+
+// A ChannelEvent identifies an event in the lifetime of an Ably realtime
+// channel.
+type ChannelEvent struct {
+	name string
+}
+
+func (ChannelEvent) isEmitterEvent() {}
+
+var (
+	ChannelEventInitialized ChannelEvent = ChannelEvent(ChannelStateInitialized)
+	ChannelEventAttaching   ChannelEvent = ChannelEvent(ChannelStateAttaching)
+	ChannelEventAttached    ChannelEvent = ChannelEvent(ChannelStateAttached)
+	ChannelEventDetaching   ChannelEvent = ChannelEvent(ChannelStateDetaching)
+	ChannelEventDetached    ChannelEvent = ChannelEvent(ChannelStateDetached)
+	ChannelEventSuspended   ChannelEvent = ChannelEvent(ChannelStateSuspended)
+	ChannelEventFailed      ChannelEvent = ChannelEvent(ChannelStateFailed)
+	ChannelEventUpdate      ChannelEvent = ChannelEvent{name: "UPDATE"}
+)
+
+func (e ChannelEvent) String() string {
+	return e.name
+}
+
+// A ChannelStateChange is the data associated with a ChannelEvent.
+//
+// If the Event is a ChannelEventUpdated, Current and Previous are the
+// the same. Otherwise, the event is a state transition from Previous to
+// Current.
+type ChannelStateChange struct {
+	Current  ChannelState
+	Event    ChannelEvent
+	Previous ChannelState
+	// Reason, if any, is an error that caused the state change.
+	Reason *ErrorInfo
+	// Resumed is set to true for Attached and Update events when channel state
+	// has been maintainted without interruption in the server, so there has
+	// been no loss of message continuity.
+	Resumed bool
+}
+
+func (ChannelStateChange) isEmitterData() {}

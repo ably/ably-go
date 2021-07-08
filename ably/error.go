@@ -7,83 +7,131 @@ import (
 	"mime"
 	"net"
 	"net/http"
-
-	"github.com/ably/ably-go/ably/proto"
+	"strings"
 )
 
-func toStatusCode(code int) int {
-	switch status := code / 100; status {
-	case 400, 401, 403, 404, 405, 500:
+func (code ErrorCode) toStatusCode() int {
+	switch status := int(code) / 100; status {
+	case
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusMethodNotAllowed,
+		http.StatusInternalServerError:
 		return status
 	default:
 		return 0
 	}
 }
 
-// Error describes error returned from Ably API. It always has non-zero error
+func codeFromStatus(statusCode int) ErrorCode {
+	switch code := ErrorCode(statusCode * 100); code {
+	case
+		ErrBadRequest,
+		ErrUnauthorized,
+		ErrForbidden,
+		ErrNotFound,
+		ErrMethodNotAllowed,
+		ErrInternalError:
+		return code
+	default:
+		return ErrNotSet
+	}
+}
+
+// ErrorInfo describes error returned from Ably API. It always has non-zero error
 // code. It may contain underlying error value which caused the failure
 // condition.
-type Error struct {
-	Code       int    // internal error code
-	StatusCode int    // HTTP status code
-	Err        error  // underlying error responsible for the failure; may be nil
-	Server     string // non-empty ID of the Ably server which the error was received from
+type ErrorInfo struct {
+	StatusCode int
+	Code       ErrorCode
+	HRef       string
+	Cause      *ErrorInfo
+
+	// err is the application-level error we're wrapping, or just a message.
+	// If Cause is non-nil, err == *Cause.
+	err error
 }
 
-// Error implements builtin error interface.
-func (err *Error) Error() string {
-	if err.Err != nil {
-		return fmt.Sprintf("%s (status=%d, internal=%d)", err.Err, err.StatusCode, err.Code)
+// Error implements the builtin error interface.
+func (e ErrorInfo) Error() string {
+	errorHref := e.HRef
+	if errorHref == "" && e.Code != 0 {
+		errorHref = fmt.Sprintf("https://help.ably.io/error/%d", e.Code)
 	}
-	return errCodeText[err.Code]
+	msg := e.Message()
+	var see string
+	if !strings.Contains(msg, errorHref) {
+		see = " See " + errorHref
+	}
+	return fmt.Sprintf("[ErrorInfo :%s code=%d %[2]v statusCode=%d]%s", msg, e.Code, e.StatusCode, see)
+
 }
 
-func newError(code int, err error) *Error {
+// Unwrap implements the implicit interface that errors.Unwrap understands.
+func (e ErrorInfo) Unwrap() error {
+	return e.err
+}
+
+// Message returns the undecorated error message.
+func (e ErrorInfo) Message() string {
+	if e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func newError(defaultCode ErrorCode, err error) *ErrorInfo {
 	switch err := err.(type) {
-	case *Error:
-		if _, ok := err.Err.(genericError); ok {
-			// If err was returned from http.Response but we were unable to
-			// parse the internal error code, we overwrite it here.
-			err.Code = code
-			return err
-		}
+	case *ErrorInfo:
 		return err
 	case net.Error:
 		if err.Timeout() {
-			return &Error{Code: ErrTimeoutError, StatusCode: 500, Err: err}
+			return &ErrorInfo{Code: ErrTimeoutError, StatusCode: 500, err: err}
 		}
 	}
-	return &Error{
-		Code:       code,
-		StatusCode: toStatusCode(code),
-		Err:        err,
+	return &ErrorInfo{
+		Code:       defaultCode,
+		StatusCode: defaultCode.toStatusCode(),
+
+		err: err,
 	}
 }
 
-func newErrorf(code int, format string, v ...interface{}) *Error {
-	return &Error{
-		Code:       code,
-		StatusCode: toStatusCode(code),
-		Err:        fmt.Errorf(format, v...),
-	}
+func newErrorf(code ErrorCode, format string, v ...interface{}) *ErrorInfo {
+	return newError(code, fmt.Errorf(format, v...))
 }
 
-func newErrorProto(err *proto.ErrorInfo) *Error {
+func newErrorFromProto(err *errorInfo) *ErrorInfo {
 	if err == nil {
 		return nil
 	}
-	return &Error{
-		Code:       err.Code,
+	return &ErrorInfo{
+		Code:       ErrorCode(err.Code),
 		StatusCode: err.StatusCode,
-		Err:        errors.New(err.Message),
+		HRef:       err.HRef,
+		err:        errors.New(err.Message),
 	}
 }
 
-type genericError error
+func (e *ErrorInfo) unwrapNil() error {
+	if e == nil {
+		return nil
+	}
+	return e
+}
 
-func code(err error) int {
-	if e, ok := err.(*Error); ok {
+func code(err error) ErrorCode {
+	if e, ok := err.(*ErrorInfo); ok {
 		return e.Code
+	}
+	return ErrNotSet
+}
+
+func statusCode(err error) int {
+	if e, ok := err.(*ErrorInfo); ok {
+		return e.StatusCode
 	}
 	return 0
 }
@@ -93,12 +141,12 @@ func errFromUnprocessableBody(resp *http.Response) error {
 	if err == nil {
 		err = errors.New(string(errMsg))
 	}
-	return &Error{Code: 40000, StatusCode: resp.StatusCode, Err: err}
+	return &ErrorInfo{Code: ErrBadRequest, StatusCode: resp.StatusCode, err: err}
 }
 
 func checkValidHTTPResponse(resp *http.Response) error {
 	type errorBody struct {
-		Error proto.ErrorInfo `json:"error,omitempty" codec:"error,omitempty"`
+		Error errorInfo `json:"error,omitempty" codec:"error,omitempty"`
 	}
 	if resp.StatusCode < 300 {
 		return nil
@@ -106,10 +154,10 @@ func checkValidHTTPResponse(resp *http.Response) error {
 	defer resp.Body.Close()
 	typ, _, mimeErr := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if mimeErr != nil {
-		return &Error{
+		return &ErrorInfo{
 			Code:       50000,
 			StatusCode: resp.StatusCode,
-			Err:        mimeErr,
+			err:        mimeErr,
 		}
 	}
 	if typ != protocolJSON && typ != protocolMsgPack {
@@ -118,23 +166,15 @@ func checkValidHTTPResponse(resp *http.Response) error {
 
 	body := &errorBody{}
 	if err := decode(typ, resp.Body, &body); err != nil {
-		return &Error{
-			Code:       50000,
-			StatusCode: resp.StatusCode,
-			Err:        genericError(errors.New(http.StatusText(resp.StatusCode))),
-		}
+		return newError(codeFromStatus(resp.StatusCode), errors.New(http.StatusText(resp.StatusCode)))
 	}
 
-	err := &Error{
-		Code:       body.Error.Code,
-		StatusCode: body.Error.StatusCode,
-		Server:     body.Error.Server,
-	}
+	err := newErrorFromProto(&body.Error)
 	if body.Error.Message != "" {
-		err.Err = errors.New(body.Error.Message)
+		err.err = errors.New(body.Error.Message)
 	}
 	if err.Code == 0 && err.StatusCode == 0 {
-		err.Code, err.StatusCode = resp.StatusCode*100, resp.StatusCode
+		err.Code, err.StatusCode = codeFromStatus(resp.StatusCode), resp.StatusCode
 	}
 	return err
 }

@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: [1.13, 1.14, 1.15]
+        go-version: [1.13, 1.14, 1.15, 1.16]
 
     steps:
       - uses: actions/checkout@v2
@@ -32,7 +32,10 @@ jobs:
         run: go get -t -v ./ably/...
 
       - name: Vet
-        run: go vet ./ably ./scripts
+        run: go vet ./ably/... ./scripts/...
+
+      - name: Ensure generated code is up-to-date
+        run: go generate ./... && [ -z "$(git status --porcelain)" ]
 
       - name: Test with JSON Protocol
         run: scripts/test.sh --protocol application/json

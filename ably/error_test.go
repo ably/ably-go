@@ -1,11 +1,14 @@
 package ably_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -13,16 +16,16 @@ import (
 )
 
 func TestErrorResponseWithInvalidKey(t *testing.T) {
-	opts := ably.NewClientOptions(":")
-	_, e := ably.NewRestClient(opts)
+	opts := []ably.ClientOption{ably.WithKey(":")}
+	_, e := ably.NewREST(opts...)
 	if e == nil {
-		t.Fatal("NewRestClient(): expected err != nil")
+		t.Fatal("NewREST(): expected err != nil")
 	}
-	err, ok := e.(*ably.Error)
+	err, ok := e.(*ably.ErrorInfo)
 	assert.True(t, ok, fmt.Sprintf("want e be *ably.Error; was %T", e))
 	assert.Equal(t, 400, err.StatusCode, fmt.Sprintf("want StatusCode=400; got %d", err.StatusCode))
-	assert.Equal(t, 40005, err.Code, fmt.Sprintf("want Code=40005; got %d", err.Code))
-	assert.NotNil(t, err.Err)
+	assert.Equal(t, ably.ErrInvalidCredential, err.Code, fmt.Sprintf("want Code=	; got %d", err.Code))
+	assert.NotNil(t, err.Unwrap())
 }
 
 func TestIssue127ErrorResponse(t *testing.T) {
@@ -41,19 +44,98 @@ func TestIssue127ErrorResponse(t *testing.T) {
 
 	endpointURL, err := url.Parse(server.URL)
 	assert.Nil(t, err)
-	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz")
-	opts.NoTLS = true
-	opts.UseTokenAuth = true
-	opts.RestHost = endpointURL.Hostname()
+	opts := []ably.ClientOption{
+		ably.WithKey("xxxxxxx.yyyyyyy:zzzzzzz"),
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithRESTHost(endpointURL.Hostname()),
+	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
-	opts.Port = int(port)
-	client, e := ably.NewRestClient(opts)
+	opts = append(opts, ably.WithPort(int(port)))
+	client, e := ably.NewREST(opts...)
 	assert.Nil(t, e)
 
-	_, err = client.Time()
+	_, err = client.Time(context.Background())
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), errMsg)
 }
+
+func TestErrorInfo(t *testing.T) {
+	t.Run("without an error code", func(t *testing.T) {
+		t.Parallel()
+
+		e := &ably.ErrorInfo{
+			StatusCode: 401,
+		}
+		h := "help.ably.io"
+		if strings.Contains(e.Error(), h) {
+			t.Errorf("expected error message not to contain %s", h)
+		}
+	})
+	t.Run("with an error code", func(t *testing.T) {
+		t.Parallel()
+
+		e := &ably.ErrorInfo{
+			Code: 44444,
+		}
+		h := "https://help.ably.io/error/44444"
+		if !strings.Contains(e.Error(), h) {
+			t.Errorf("expected error message %s  to contain %s", e.Error(), h)
+		}
+	})
+	t.Run("with an error code and an href attribute", func(t *testing.T) {
+		t.Parallel()
+
+		href := "http://foo.bar.com/"
+		e := &ably.ErrorInfo{
+			Code: 44444,
+			HRef: href,
+		}
+		h := "https://help.ably.io/error/44444"
+		if strings.Contains(e.Error(), h) {
+			t.Errorf("expected error message %s not to contain %s", e.Error(), h)
+		}
+		if !strings.Contains(e.Error(), href) {
+			t.Errorf("expected error message %s  to contain %s", e.Error(), href)
+		}
+	})
+
+	t.Run("with an error code and a message with the same error URL", func(t *testing.T) {
+		t.Parallel()
+
+		e := ably.NewErrorInfo(44444, errors.New("error https://help.ably.io/error/44444"))
+		h := "https://help.ably.io/error/44444"
+		if !strings.Contains(e.Error(), h) {
+			t.Errorf("expected error message %s  to contain %s", e.Error(), h)
+		}
+		n := strings.Count(e.Error(), h)
+		if n != 1 {
+			t.Errorf("expected 1 occupance of %s got %d", h, n)
+		}
+	})
+	t.Run("with an error code and a message with a different error URL", func(t *testing.T) {
+		t.Parallel()
+
+		e := ably.NewErrorInfo(44444, errors.New("error https://help.ably.io/error/123123"))
+		h := "https://help.ably.io/error/44444"
+		if !strings.Contains(e.Error(), h) {
+			t.Errorf("expected error message %s  to contain %s", e.Error(), h)
+		}
+		n := strings.Count(e.Error(), "help.ably.io")
+		if n != 2 {
+			t.Errorf("expected 2 got %d", n)
+		}
+		n = strings.Count(e.Error(), "/123123")
+		if n != 1 {
+			t.Errorf("expected 1 got %d", n)
+		}
+		n = strings.Count(e.Error(), "/44444")
+		if n != 1 {
+			t.Errorf("expected 1 got %d", n)
+		}
+	})
+}
+
 func TestIssue_154(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Set("Content-Type", "text/html")
@@ -63,19 +145,21 @@ func TestIssue_154(t *testing.T) {
 
 	endpointURL, err := url.Parse(server.URL)
 	assert.Nil(t, err)
-	opts := ably.NewClientOptions("xxxxxxx.yyyyyyy:zzzzzzz")
-	opts.NoTLS = true
-	opts.UseTokenAuth = true
-	opts.RestHost = endpointURL.Hostname()
+	opts := []ably.ClientOption{
+		ably.WithKey("xxxxxxx.yyyyyyy:zzzzzzz"),
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithRESTHost(endpointURL.Hostname()),
+	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
-	opts.Port = int(port)
-	client, e := ably.NewRestClient(opts)
+	opts = append(opts, ably.WithPort(int(port)))
+	client, e := ably.NewREST(opts...)
 	assert.Nil(t, e)
 
-	_, err = client.Time()
+	_, err = client.Time(context.Background())
 	assert.NotNil(t, err)
-	et := err.(*ably.Error)
+	et := err.(*ably.ErrorInfo)
 	if et.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("expected %d got %d", http.StatusMethodNotAllowed, et.StatusCode)
+		t.Errorf("expected %d got %d: %v", http.StatusMethodNotAllowed, et.StatusCode, err)
 	}
 }

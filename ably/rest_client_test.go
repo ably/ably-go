@@ -1,24 +1,27 @@
 package ably_test
 
 import (
+	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httptrace"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/internal/ablytest"
 	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ably/proto"
 )
 
 func newHTTPClientMock(srv *httptest.Server) *http.Client {
@@ -36,8 +39,8 @@ func TestRestClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	t.Run("encoding messages", func(ts *testing.T) {
-		ts.Run("json", func(ts *testing.T) {
+	t.Run("encoding messages", func(t *testing.T) {
+		t.Run("json", func(t *testing.T) {
 			var buffer []byte
 			mockType := "application/json"
 			mockBody := []byte("{}")
@@ -45,36 +48,34 @@ func TestRestClient(t *testing.T) {
 				var err error
 				buffer, err = ioutil.ReadAll(r.Body)
 				if err != nil {
-					ts.Fatal(err)
+					t.Fatal(err)
 				}
 				w.Header().Set("Content-Type", mockType)
 				w.WriteHeader(200)
 				w.Write(mockBody)
 			}))
-			options := &ably.ClientOptions{
-				NoTLS:            true,
-				NoBinaryProtocol: true,
-				HTTPClient:       newHTTPClientMock(server),
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
+			options := []ably.ClientOption{
+				ably.WithTLS(false),
+				ably.WithUseTokenAuth(true),
+				ably.WithUseBinaryProtocol(false),
+				ably.WithHTTPClient(newHTTPClientMock(server)),
 			}
 
-			client, err := ably.NewRestClient(app.Options(options))
+			client, err := ably.NewREST(app.Options(options...)...)
 			if err != nil {
-				ts.Fatal(err)
+				t.Fatal(err)
 			}
-			err = client.Channels.Get("test", nil).Publish("ping", "pong")
+			err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
 			if err != nil {
-				ts.Fatal(err)
+				t.Fatal(err)
 			}
 			var anyJson []map[string]interface{}
 			err = json.Unmarshal(buffer, &anyJson)
 			if err != nil {
-				ts.Error(err)
+				t.Error(err)
 			}
 		})
-		ts.Run("msgpack", func(ts *testing.T) {
+		t.Run("msgpack", func(t *testing.T) {
 			var buffer []byte
 			mockType := "application/x-msgpack"
 			mockBody := []byte{0x80}
@@ -82,34 +83,31 @@ func TestRestClient(t *testing.T) {
 				var err error
 				buffer, err = ioutil.ReadAll(r.Body)
 				if err != nil {
-					ts.Fatal(err)
+					t.Fatal(err)
 				}
 				w.Header().Set("Content-Type", mockType)
 				w.WriteHeader(200)
 				w.Write(mockBody)
 			}))
-			options := &ably.ClientOptions{
-				NoTLS:            true,
-				NoBinaryProtocol: true,
-				HTTPClient:       newHTTPClientMock(server),
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
+			options := []ably.ClientOption{
+				ably.WithTLS(false),
+				ably.WithUseTokenAuth(true),
+				ably.WithUseBinaryProtocol(true),
+				ably.WithHTTPClient(newHTTPClientMock(server)),
 			}
-			options = app.Options(options)
-			options.NoBinaryProtocol = false
-			client, err := ably.NewRestClient(options)
+
+			client, err := ably.NewREST(app.Options(options...)...)
 			if err != nil {
-				ts.Fatal(err)
+				t.Fatal(err)
 			}
-			err = client.Channels.Get("test", nil).Publish("ping", "pong")
+			err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
 			if err != nil {
-				ts.Fatal(err)
+				t.Fatal(err)
 			}
 			var anyMsgPack []map[string]interface{}
-			err = ablyutil.Unmarshal(buffer, &anyMsgPack)
+			err = ablyutil.UnmarshalMsgpack(buffer, &anyMsgPack)
 			if err != nil {
-				ts.Fatal(err)
+				t.Fatal(err)
 			}
 			name := anyMsgPack[0]["name"].(string)
 			data := anyMsgPack[0]["data"].(string)
@@ -117,41 +115,41 @@ func TestRestClient(t *testing.T) {
 			expectName := "ping"
 			expectData := "pong"
 			if name != expectName {
-				ts.Errorf("expected %s got %s", expectName, string(name))
+				t.Errorf("expected %s got %s", expectName, string(name))
 			}
 			if data != expectData {
-				ts.Errorf("expected %s got %s", expectData, string(data))
+				t.Errorf("expected %s got %s", expectData, string(data))
 			}
 		})
 	})
 
-	t.Run("Time", func(ts *testing.T) {
-		client, err := ably.NewRestClient(app.Options())
+	t.Run("Time", func(t *testing.T) {
+		client, err := ably.NewREST(app.Options()...)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
-		t, err := client.Time()
+		ti, err := client.Time(context.Background())
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		before := time.Now().Add(2 * time.Second).Unix()
 		after := time.Now().Add(-2 * time.Second).Unix()
-		n := t.Unix()
+		n := ti.Unix()
 		if n > before {
-			ts.Errorf("expected %d <= %d", n, before)
+			t.Errorf("expected %d <= %d", n, before)
 		}
 		if n < after {
-			ts.Errorf("expected %d >= %d", n, before)
+			t.Errorf("expected %d >= %d", n, before)
 		}
 	})
 
-	t.Run("Stats", func(ts *testing.T) {
-		client, err := ably.NewRestClient(app.Options())
+	t.Run("Stats", func(t *testing.T) {
+		client, err := ably.NewREST(app.Options()...)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		lastInterval := time.Now().Add(-365 * 24 * time.Hour)
-		var stats []*proto.Stats
+		var stats []*ably.Stats
 
 		var jsonStats = `
 		[
@@ -176,19 +174,19 @@ func TestRestClient(t *testing.T) {
 	`
 		err = json.Unmarshal([]byte(jsonStats), &stats)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
-		stats[0].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-120*time.Minute), proto.StatGranularityMinute)
-		stats[1].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-60*time.Minute), proto.StatGranularityMinute)
-		stats[2].IntervalID = proto.IntervalFormatFor(lastInterval.Add(-1*time.Minute), proto.StatGranularityMinute)
+		stats[0].IntervalID = intervalFormatFor(lastInterval.Add(-120*time.Minute), ably.StatGranularityMinute)
+		stats[1].IntervalID = intervalFormatFor(lastInterval.Add(-60*time.Minute), ably.StatGranularityMinute)
+		stats[2].IntervalID = intervalFormatFor(lastInterval.Add(-1*time.Minute), ably.StatGranularityMinute)
 
-		res, err := client.Post("/stats", &stats, nil)
+		res, err := client.Post(context.Background(), "/stats", &stats, nil)
 		if err != nil {
-			ts.Error(err)
+			t.Error(err)
 		}
 		res.Body.Close()
 
-		statsCh := make(chan []*proto.Stats, 1)
+		statsCh := make(chan []*ably.Stats, 1)
 		errCh := make(chan error, 1)
 
 		go func() {
@@ -204,19 +202,20 @@ func TestRestClient(t *testing.T) {
 					errCh <- errors.New("timeout waiting for client.Stats to return nonempty value")
 					return
 				case <-tick:
-					page, err := client.Stats(&ably.PaginateParams{
-						Limit: 1,
-						ScopeParams: ably.ScopeParams{
-							Start: ably.Time(longAgo),
-							Unit:  proto.StatGranularityMinute,
-						},
-					})
+					page, err := client.Stats(
+						ably.StatsWithLimit(1),
+						ably.StatsWithStart(longAgo),
+						ably.StatsWithUnit(ably.PeriodMinute),
+					).Pages(context.Background())
 					if err != nil {
 						errCh <- err
 						return
 					}
-
-					if stats := page.Stats(); len(stats) != 0 {
+					if !page.Next(context.Background()) {
+						errCh <- page.Err()
+						return
+					}
+					if stats := page.Items(); len(stats) != 0 {
 						statsCh <- stats
 						return
 					}
@@ -229,40 +228,49 @@ func TestRestClient(t *testing.T) {
 			re := regexp.MustCompile("[0-9]+\\-[0-9]+\\-[0-9]+:[0-9]+:[0-9]+")
 			interval := pageStats[0].IntervalID
 			if !re.MatchString(interval) {
-				ts.Errorf("got %s which is wrong interval format", interval)
+				t.Errorf("got %s which is wrong interval format", interval)
 			}
 		case err := <-errCh:
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 	})
 }
 
+type httpRoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f httpRoundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
 func TestRSC7(t *testing.T) {
 	t.Parallel()
-	app, err := ablytest.NewSandbox(nil)
+
+	client := &http.Client{}
+	requests := make(chan *http.Request, 1)
+	client.Transport = httpRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		requests <- req
+		return nil, errors.New("fake round tripper")
+	})
+
+	c, err := ably.NewREST(
+		ably.WithKey("fake:key"),
+		ably.WithHTTPClient(client))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer app.Close()
-	c, err := ably.NewRestClient(app.Options())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Run("must set version header", func(ts *testing.T) {
-		req, err := c.NewHTTPRequest(&ably.Request{})
-		if err != nil {
-			ts.Fatal(err)
-		}
+
+	_, _ = c.Request("POST", "/foo").Pages(context.Background())
+
+	var req *http.Request
+	ablytest.Instantly.Recv(t, &req, requests, t.Fatalf)
+
+	t.Run("must set version header", func(t *testing.T) {
 		h := req.Header.Get(ably.AblyVersionHeader)
 		if h != ably.AblyVersion {
 			t.Errorf("expected %s got %s", ably.AblyVersion, h)
 		}
 	})
-	t.Run("must set lib header", func(ts *testing.T) {
-		req, err := c.NewHTTPRequest(&ably.Request{})
-		if err != nil {
-			ts.Fatal(err)
-		}
+	t.Run("must set lib header", func(t *testing.T) {
 		h := req.Header.Get(ably.AblyLibHeader)
 		if h != ably.LibraryString {
 			t.Errorf("expected %s got %s", ably.LibraryString, h)
@@ -271,12 +279,14 @@ func TestRSC7(t *testing.T) {
 }
 
 func TestRest_hostfallback(t *testing.T) {
+	t.Parallel()
+
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	runTestServer := func(ts *testing.T, options *ably.ClientOptions) (int, []string) {
+	runTestServer := func(t *testing.T, options []ably.ClientOption) (int, []string) {
 		var retryCount int
 		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -285,35 +295,34 @@ func TestRest_hostfallback(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
-		options.HTTPClient = newHTTPClientMock(server)
-		client, err := ably.NewRestClient(app.Options(options))
+		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(newHTTPClientMock(server)))...)...)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
-		err = client.Channels.Get("test", nil).Publish("ping", "pong")
+		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
 		if err == nil {
-			ts.Error("expected an error")
+			t.Error("expected an error")
 		}
 		return retryCount, hosts
 	}
-	t.Run("RSC15d RSC15a must use alternative host", func(ts *testing.T) {
-		options := &ably.ClientOptions{
-			FallbackHostsUseDefault: true,
-			NoTLS:                   true,
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
+	t.Run("RSC15d RSC15a must use alternative host", func(t *testing.T) {
+		t.Parallel()
+
+		options := []ably.ClientOption{
+			ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
+			ably.WithTLS(false),
+			ably.WithUseTokenAuth(true),
 		}
-		retryCount, hosts := runTestServer(ts, options)
+		retryCount, hosts := runTestServer(t, options)
 		if retryCount != 4 {
-			ts.Fatalf("expected 4 http calls got %d", retryCount)
+			t.Fatalf("expected 4 http calls got %d", retryCount)
 		}
 		// make sure the host header is set. Since we are using defaults from the spec
 		// the hosts should be in [a..e].ably-realtime.com
 		expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
 		for _, host := range hosts[1:] {
 			if !strings.Contains(expect, host) {
-				ts.Errorf("expected %s got be in %s", host, expect)
+				t.Errorf("expected %s got be in %s", host, expect)
 			}
 		}
 
@@ -321,44 +330,44 @@ func TestRest_hostfallback(t *testing.T) {
 		uniq := make(map[string]bool)
 		for _, h := range hosts {
 			if _, ok := uniq[h]; ok {
-				ts.Errorf("duplicate fallback %s", h)
+				t.Errorf("duplicate fallback %s", h)
 			} else {
 				uniq[h] = true
 			}
 		}
 	})
-	t.Run("rsc15b", func(ts *testing.T) {
-		ts.Run("must not occur when default  rest.ably.io is overriden", func(ts *testing.T) {
+	t.Run("rsc15b", func(t *testing.T) {
+		t.Run("must not occur when default  rest.ably.io is overriden", func(t *testing.T) {
+			t.Parallel()
+
 			customHost := "example.com"
-			options := &ably.ClientOptions{
-				NoTLS:    true,
-				RestHost: customHost,
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
+			options := []ably.ClientOption{
+				ably.WithTLS(false),
+				ably.WithRESTHost(customHost),
+				ably.WithUseTokenAuth(true),
 			}
-			retryCount, hosts := runTestServer(ts, options)
+			retryCount, hosts := runTestServer(t, options)
 			if retryCount != 1 {
-				ts.Fatalf("expected 1 http call got %d", retryCount)
+				t.Fatalf("expected 1 http call got %d", retryCount)
 			}
 			host := hosts[0]
 			if !strings.Contains(host, customHost) {
-				ts.Errorf("expected %s got %s", customHost, host)
+				t.Errorf("expected %s got %s", customHost, host)
 			}
 		})
-		ts.Run("must occur when fallbackHostsUseDefault is true", func(ts *testing.T) {
+		t.Run("must occur when fallbackHostsUseDefault is true", func(t *testing.T) {
+			t.Parallel()
+
 			customHost := "example.com"
-			options := &ably.ClientOptions{
-				NoTLS:                   true,
-				RestHost:                customHost,
-				FallbackHostsUseDefault: true,
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
+			options := []ably.ClientOption{
+				ably.WithTLS(false),
+				ably.WithRESTHost(customHost),
+				ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
+				ably.WithUseTokenAuth(true),
 			}
-			retryCount, hosts := runTestServer(ts, options)
+			retryCount, hosts := runTestServer(t, options)
 			if retryCount != 4 {
-				ts.Fatalf("expected 4 http call got %d", retryCount)
+				t.Fatalf("expected 4 http call got %d", retryCount)
 			}
 			expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
 			for _, host := range hosts[1:] {
@@ -367,20 +376,20 @@ func TestRest_hostfallback(t *testing.T) {
 				}
 			}
 		})
-		ts.Run("must occur when fallbackHosts is set", func(ts *testing.T) {
+		t.Run("must occur when fallbackHosts is set", func(t *testing.T) {
+			t.Parallel()
+
 			customHost := "example.com"
 			fallback := "a.example.com"
-			options := &ably.ClientOptions{
-				NoTLS:         true,
-				RestHost:      customHost,
-				FallbackHosts: []string{fallback},
-				AuthOptions: ably.AuthOptions{
-					UseTokenAuth: true,
-				},
+			options := []ably.ClientOption{
+				ably.WithTLS(false),
+				ably.WithRESTHost(customHost),
+				ably.WithFallbackHosts([]string{fallback}),
+				ably.WithUseTokenAuth(true),
 			}
-			retryCount, hosts := runTestServer(ts, options)
+			retryCount, hosts := runTestServer(t, options)
 			if retryCount != 2 {
-				ts.Fatalf("expected 2 http call got %d", retryCount)
+				t.Fatalf("expected 2 http call got %d", retryCount)
 			}
 			host := hosts[1]
 			if host != fallback {
@@ -388,42 +397,44 @@ func TestRest_hostfallback(t *testing.T) {
 			}
 		})
 	})
-	t.Run("RSC15e must start with default host", func(ts *testing.T) {
-		options := &ably.ClientOptions{
-			Environment: "production",
-			NoTLS:       true,
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
+	t.Run("RSC15e must start with default host", func(t *testing.T) {
+		t.Parallel()
+
+		options := []ably.ClientOption{
+			ably.WithEnvironment("production"),
+			ably.WithTLS(false),
+			ably.WithUseTokenAuth(true),
 		}
-		retryCount, hosts := runTestServer(ts, options)
+		retryCount, hosts := runTestServer(t, options)
 		if retryCount != 4 {
-			ts.Fatalf("expected 4 http calls got %d", retryCount)
+			t.Fatalf("expected 4 http calls got %d", retryCount)
 		}
 		firstHostCalled := hosts[0]
-		restURL, _ := url.Parse(options.RestURL())
+		restURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(options...).RestURL())
 		if !strings.HasPrefix(firstHostCalled, restURL.Hostname()) {
-			ts.Errorf("expected primary host got %s", firstHostCalled)
+			t.Errorf("expected primary host got %s", firstHostCalled)
 		}
 	})
-	t.Run("must not occur when FallbackHosts is an empty array", func(ts *testing.T) {
+	t.Run("must not occur when FallbackHosts is an empty array", func(t *testing.T) {
+		t.Parallel()
+
 		customHost := "example.com"
-		options := &ably.ClientOptions{
-			NoTLS:         true,
-			RestHost:      customHost,
-			FallbackHosts: []string{},
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
+		options := []ably.ClientOption{
+			ably.WithTLS(false),
+			ably.WithRESTHost(customHost),
+			ably.WithFallbackHosts([]string{}),
+			ably.WithUseTokenAuth(true),
 		}
-		retryCount, _ := runTestServer(ts, options)
+		retryCount, _ := runTestServer(t, options)
 		if retryCount != 1 {
-			ts.Fatalf("expected 1 http calls got %d", retryCount)
+			t.Fatalf("expected 1 http calls got %d", retryCount)
 		}
 	})
 }
 
 func TestRest_rememberHostFallback(t *testing.T) {
+	t.Parallel()
+
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -431,9 +442,9 @@ func TestRest_rememberHostFallback(t *testing.T) {
 	defer app.Close()
 
 	fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
-	var nopts *ably.ClientOptions
+	var nopts []ably.ClientOption
 
-	t.Run("remember success host RSC15f", func(ts *testing.T) {
+	t.Run("remember success host RSC15f", func(t *testing.T) {
 		var retryCount int
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			retryCount++
@@ -441,19 +452,17 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		}))
 		defer server.Close()
 
-		nopts = &ably.ClientOptions{
-			Environment:   ablytest.Environment,
-			NoTLS:         true,
-			FallbackHosts: fallbackHosts,
-			AuthOptions: ably.AuthOptions{
-				UseTokenAuth: true,
-			},
+		nopts = []ably.ClientOption{
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithFallbackHosts(fallbackHosts),
+			ably.WithUseTokenAuth(true),
 		}
 
 		// set up the proxy to forward all requests except a specific fallback to the server,
 		// whilst that fallback goes to the regular endpoint
 		serverURL, _ := url.Parse(server.URL)
-		defaultURL, _ := url.Parse(nopts.RestURL())
+		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(nopts...).RestURL())
 
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if r.URL.Hostname() == "fallback2" {
@@ -464,69 +473,51 @@ func TestRest_rememberHostFallback(t *testing.T) {
 				return serverURL, nil
 			}
 		}
-
-		nopts.HTTPClient = &http.Client{
+		nopts = append(nopts, ably.WithHTTPClient(&http.Client{
 			Transport: &http.Transport{
 				Proxy:        proxy,
 				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
 			},
-		}
-		client, err := ably.NewRestClient(app.Options(nopts))
+		}))
+
+		client, err := ably.NewREST(app.Options(nopts...)...)
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
-		channel := client.Channels.Get("remember_fallback_host", nil)
-		err = channel.Publish("ping", "pong")
+		channel := client.Channels.Get("remember_fallback_host")
+		err = channel.Publish(context.Background(), "ping", "pong")
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		cachedHost := client.GetCachedFallbackHost()
 		if cachedHost != fallbackHosts[2] {
-			ts.Errorf("expected cached host to be %s got %s", fallbackHosts[2], cachedHost)
+			t.Errorf("expected cached host to be %s got %s", fallbackHosts[2], cachedHost)
 		}
 		retryCount = 0
 
 		// the same cached host is used again
-		err = channel.Publish("pong", "ping")
+		err = channel.Publish(context.Background(), "pong", "ping")
 		if err != nil {
-			ts.Fatal(err)
+			t.Fatal(err)
 		}
 		cachedHost = client.GetCachedFallbackHost()
 		if cachedHost != fallbackHosts[2] {
-			ts.Errorf("expected cached host to be %s got %s", fallbackHosts[2], cachedHost)
+			t.Errorf("expected cached host to be %s got %s", fallbackHosts[2], cachedHost)
 		}
 		if retryCount != 0 {
-			ts.Errorf("expected 0 retries got %d retries", retryCount)
+			t.Errorf("expected 0 retries got %d retries", retryCount)
 		}
 	})
-
-	t.Run("configurable fallbackRetryTimeout", func(ts *testing.T) {
-		ts.Run("defaults to 10 minutes", func(ts *testing.T) {
-			opts := &ably.ClientOptions{}
-			expect := 10 * time.Minute
-			got := opts.GetFallbackRetryTimeout()
-			if got != expect {
-				ts.Errorf("expected %s got %s", expect, got)
-			}
-		})
-
-		ts.Run("uses FallbackRetryTimeout if set", func(ts *testing.T) {
-			expect := 10 * time.Second
-			opts := &ably.ClientOptions{FallbackRetryTimeout: expect}
-			got := opts.GetFallbackRetryTimeout()
-			if got != expect {
-				ts.Errorf("expected %s got %s", expect, got)
-			}
-		})
-	})
 }
-func TestRestChannels_RSN1(t *testing.T) {
+func TestRESTChannels_RSN1(t *testing.T) {
+	t.Parallel()
+
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	client, err := ably.NewRestClient(app.Options())
+	client, err := ably.NewREST(app.Options()...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -541,73 +532,305 @@ func TestRestChannels_RSN1(t *testing.T) {
 		{name: "third_channel"},
 	}
 
-	t.Run("RSN3 RSN3a  must create new channels when they don't exist", func(ts *testing.T) {
+	t.Run("RSN3 RSN3a  must create new channels when they don't exist", func(t *testing.T) {
 		for _, v := range sample {
-			client.Channels.Get(v.name, nil)
+			client.Channels.Get(v.name)
 		}
-		size := client.Channels.Len()
+		size := len(client.Channels.Iterate())
 		if size != len(sample) {
-			ts.Errorf("expected %d got %d", len(sample), size)
+			t.Errorf("expected %d got %d", len(sample), size)
 		}
 	})
-	t.Run("RSN4 RSN4a must release channels", func(ts *testing.T) {
+	t.Run("RSN4 RSN4a must release channels", func(t *testing.T) {
 		for _, v := range sample {
-			ch := client.Channels.Get(v.name, nil)
-			client.Channels.Release(ch)
+			ch := client.Channels.Get(v.name)
+			client.Channels.Release(ch.Name)
 		}
-		size := client.Channels.Len()
+		size := len(client.Channels.Iterate())
 		if size != 0 {
-			ts.Errorf("expected 0 channels  got %d", size)
+			t.Errorf("expected 0 channels  got %d", size)
 		}
-	})
-	t.Run("ensure no deadlock in Range", func(ts *testing.T) {
-		for _, v := range sample {
-			client.Channels.Get(v.name, nil)
-		}
-		client.Channels.Range(func(name string, _ *ably.RestChannel) bool {
-			n := client.Channels.Get(name+"_range", nil)
-			return client.Channels.Exists(n.Name)
-		})
 	})
 }
 
 func TestFixConnLeak_ISSUE89(t *testing.T) {
-	var trackRecord []httptrace.GotConnInfo
-	trace := &httptrace.ClientTrace{
-		GotConn: func(c httptrace.GotConnInfo) {
-			trackRecord = append(trackRecord, c)
-		},
-	}
+	t.Parallel()
+
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	opts := app.Options()
-	opts.HTTPClient = ablytest.NewHTTPClientNoKeepAlive()
-	opts.Trace = trace
-	client, err := ably.NewRestClient(opts)
+
+	var conns []*connCloseTracker
+
+	httpClient := ablytest.NewHTTPClientNoKeepAlive()
+	transport := httpClient.Transport.(*http.Transport)
+	dial := transport.Dial
+	transport.Dial = func(network, address string) (net.Conn, error) {
+		c, err := dial(network, address)
+		if err != nil {
+			return nil, err
+		}
+		tracked := &connCloseTracker{Conn: c}
+		conns = append(conns, tracked)
+		return tracked, nil
+	}
+
+	opts := app.Options(ably.WithHTTPClient(httpClient))
+	client, err := ably.NewREST(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	channel := client.Channels.Get("issue89", nil)
+	channel := client.Channels.Get("issue89")
 	for i := 0; i < 10; i++ {
-		err := channel.Publish(fmt.Sprintf("msg_%d", i), fmt.Sprint(i))
+		err := channel.Publish(context.Background(), fmt.Sprintf("msg_%d", i), fmt.Sprint(i))
 		if err != nil {
 			t.Error(err)
 		}
 	}
 
-	for _, v := range trackRecord {
-		v.Conn.SetReadDeadline(time.Now())
-		if _, err := v.Conn.Read(make([]byte, 1)); err != nil {
-			if !connIsClosed(err) {
-				t.Errorf("expected conn %s to be closed", v.Conn.LocalAddr())
-			}
+	for _, c := range conns {
+		if !ablytest.Before(1 * time.Second).IsTrue(func() bool {
+			return atomic.LoadUintptr(&c.closed) != 0
+		}) {
+			t.Errorf("conn to %v wasn't closed", c.RemoteAddr())
 		}
 	}
 }
 
-func connIsClosed(err error) bool {
-	return strings.Contains(err.Error(), "use of closed network connection")
+type connCloseTracker struct {
+	net.Conn
+	closed uintptr
+}
+
+func (c *connCloseTracker) Close() error {
+	atomic.StoreUintptr(&c.closed, 1)
+	return c.Conn.Close()
+}
+
+func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
+	t.Parallel()
+
+	for _, limit := range []int{2, 3, 20} {
+		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
+			t.Parallel()
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+
+			fixtures := statsFixtures()
+			postStats(app, fixtures)
+
+			err := ablytest.TestPagination(
+				reverseStats(fixtures),
+				rest.Stats(
+					ably.StatsWithLimit(limit),
+
+					// We must set an end parameter. Otherwise, we may get the
+					// *current* minute's stats alongside the fixtures.
+					ably.StatsWithEnd(time.Date(2020, time.January, 29, 0, 0, 0, 0, time.UTC)),
+				),
+				limit,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestStats_StartEnd_RSC6b1(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	app, rest := ablytest.NewREST()
+	defer app.Close()
+
+	fixtures := statsFixtures()
+	postStats(app, fixtures)
+
+	expected := reverseStats(fixtures[1:3])
+
+	pages, err := rest.Stats(
+		ably.StatsWithStart(time.Date(2020, time.January, 28, 14, 1, 0, 0, time.UTC)),
+		ably.StatsWithEnd(time.Date(2020, time.January, 28, 14, 2, 30, 0, time.UTC)),
+	).Pages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []*ably.Stats
+	for pages.Next(ctx) {
+		got = append(got, pages.Items()...)
+	}
+	if err := pages.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(expected, got) {
+		t.Fatalf("expected: %+v; got: %+v", expected, got)
+	}
+}
+
+func TestStats_Direction_RSC6b2(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		direction ably.Direction
+		expected  []*ably.Stats
+	}{
+		{
+			direction: ably.Backwards,
+			expected:  reverseStats(statsFixtures()),
+		},
+		{
+			direction: ably.Forwards,
+			expected:  statsFixtures(),
+		},
+	} {
+		c := c
+		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			app, rest := ablytest.NewREST()
+			defer app.Close()
+
+			fixtures := statsFixtures()
+			postStats(app, fixtures)
+
+			expected := c.expected
+
+			pages, err := rest.Stats(
+				ably.StatsWithLimit(len(expected)),
+				ably.StatsWithDirection(c.direction),
+
+				// We must set an end parameter. Otherwise, we may get the
+				// *current* minute's stats alongside the fixtures.
+				ably.StatsWithEnd(time.Date(2020, time.January, 29, 0, 0, 0, 0, time.UTC)),
+			).Pages(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []*ably.Stats
+			for pages.Next(ctx) {
+				got = append(got, pages.Items()...)
+			}
+			if err := pages.Err(); err != nil {
+				t.Fatal(err)
+			}
+
+			if !reflect.DeepEqual(expected, got) {
+				t.Fatalf("expected: %+v; got: %+v", expected, got)
+			}
+		})
+	}
+}
+
+func TestStats_Unit_RSC6b4(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	app, rest := ablytest.NewREST()
+	defer app.Close()
+
+	fixtures := statsFixtures()
+	postStats(app, fixtures)
+
+	pages, err := rest.Stats(
+		ably.StatsWithUnit(ably.PeriodMonth),
+
+		// We must set an end parameter. Otherwise, we may get the
+		// *current* minute's stats alongside the fixtures.
+		ably.StatsWithEnd(time.Date(2020, time.January, 29, 0, 0, 0, 0, time.UTC)),
+	).Pages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []*ably.Stats
+	for pages.Next(ctx) {
+		got = append(got, pages.Items()...)
+	}
+	if err := pages.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	if expected, got := 1, len(got); expected != got {
+		t.Fatalf("expected: %v; got: %v", expected, got)
+	}
+
+	stats := got[0]
+	if expected, got := "month", stats.Unit; expected != got {
+		t.Fatalf("expected: %v; got: %v", expected, got)
+	}
+}
+
+func statsFixtures() []*ably.Stats {
+	var fixtures []*ably.Stats
+	baseDate := time.Date(2020, time.January, 28, 14, 0, 0, 0, time.UTC)
+	msgCounts := ably.StatsMessageCount{
+		Count: 50,
+		Data:  5000,
+	}
+	msgTypes := ably.StatsMessageTypes{
+		All:      msgCounts,
+		Messages: msgCounts,
+	}
+	for i := time.Duration(0); i < 10; i++ {
+		fixtures = append(fixtures, &ably.Stats{
+			IntervalID: baseDate.Add(i * time.Minute).Format("2006-01-02:15:04"),
+			Unit:       "minute",
+			All:        msgTypes,
+			Inbound: ably.StatsMessageTraffic{
+				All:      msgTypes,
+				RealTime: msgTypes,
+			},
+		})
+	}
+	return fixtures
+}
+
+func postStats(app *ablytest.Sandbox, stats []*ably.Stats) error {
+	ctx, cancel := context.WithTimeout(context.Background(), ablytest.Timeout)
+	defer cancel()
+
+	statsJSON, err := json.Marshal(stats)
+	if err != nil {
+		return fmt.Errorf("marshaling stats: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://sandbox-rest.ably.io/stats", bytes.NewReader(statsJSON))
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+	req = req.WithContext(ctx)
+	req.SetBasicAuth(app.KeyParts())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("performing request: %w", err)
+	}
+	resp.Body.Close()
+	return nil
+}
+
+func reverseStats(stats []*ably.Stats) []*ably.Stats {
+	var reversed []*ably.Stats
+	for i := len(stats) - 1; i >= 0; i-- {
+		reversed = append(reversed, stats[i])
+	}
+	return reversed
+}
+
+var (
+	intervalFormats = map[string]string{
+		ably.StatGranularityMinute: "2006-01-02:15:04",
+		ably.StatGranularityHour:   "2006-01-02:15",
+		ably.StatGranularityDay:    "2006-01-02",
+		ably.StatGranularityMonth:  "2006-01",
+	}
+)
+
+func intervalFormatFor(t time.Time, granulatity string) string {
+	return t.Format(intervalFormats[granulatity])
 }

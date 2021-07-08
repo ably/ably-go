@@ -1,7 +1,7 @@
 package ably_test
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -9,12 +9,10 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/ablytest"
-	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ably/proto"
+	"github.com/ably/ably-go/ably/internal/ablytest"
 )
 
-func expectMsg(ch <-chan *proto.Message, name string, data interface{}, t time.Duration, received bool) error {
+func expectMsg(ch <-chan *ably.Message, name string, data interface{}, t time.Duration, received bool) error {
 	select {
 	case msg := <-ch:
 		if !received {
@@ -37,140 +35,72 @@ func expectMsg(ch <-chan *proto.Message, name string, data interface{}, t time.D
 
 func TestRealtimeChannel_Publish(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtimeClient(nil)
-	defer safeclose(t, client, app)
-
+	app, client := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
+		t.Fatal(err)
+	}
 	channel := client.Channels.Get("test")
-	if err := ablytest.Wait(channel.Publish("hello", "world")); err != nil {
+	if err := channel.Publish(context.Background(), "hello", "world"); err != nil {
 		t.Fatalf("Publish()=%v", err)
 	}
 }
 
 func TestRealtimeChannel_Subscribe(t *testing.T) {
 	t.Parallel()
-	app, client1 := ablytest.NewRealtimeClient(nil)
-	defer safeclose(t, client1, app)
-	client2 := app.NewRealtimeClient(&ably.ClientOptions{NoEcho: true})
-	defer safeclose(t, client2)
-
+	app, client1 := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+	client2 := app.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+	if err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil); err != nil {
+		t.Fatal(err)
+	}
 	channel1 := client1.Channels.Get("test")
 	channel2 := client2.Channels.Get("test")
 
-	if err := ablytest.Wait(channel1.Attach()); err != nil {
+	if err := channel1.Attach(context.Background()); err != nil {
 		t.Fatalf("client1: Attach()=%v", err)
 	}
-	if err := ablytest.Wait(channel2.Attach()); err != nil {
+	if err := channel2.Attach(context.Background()); err != nil {
 		t.Fatalf("client2: Attach()=%v", err)
 	}
 
-	sub1, err := channel1.Subscribe()
+	sub1, unsub1, err := ablytest.ReceiveMessages(channel1, "")
 	if err != nil {
-		t.Fatalf("client1: Subscribe()=%v", err)
+		t.Fatalf("client1:.Subscribe(context.Background())=%v", err)
 	}
-	defer sub1.Close()
+	defer unsub1()
 
-	sub2, err := channel2.Subscribe()
+	sub2, unsub2, err := ablytest.ReceiveMessages(channel2, "")
 	if err != nil {
-		t.Fatalf("client2: Subscribe()=%v", err)
+		t.Fatalf("client2:.Subscribe(context.Background())=%v", err)
 	}
-	defer sub2.Close()
+	defer unsub2()
 
-	if err := ablytest.Wait(channel1.Publish("hello", "client1")); err != nil {
+	if err := channel1.Publish(context.Background(), "hello", "client1"); err != nil {
 		t.Fatalf("client1: Publish()=%v", err)
 	}
-	if err := ablytest.Wait(channel2.Publish("hello", "client2")); err != nil {
+	if err := channel2.Publish(context.Background(), "hello", "client2"); err != nil {
 		t.Fatalf("client2: Publish()=%v", err)
 	}
 
 	timeout := 15 * time.Second
 
-	if err := expectMsg(sub1.MessageChannel(), "hello", "client1", timeout, true); err != nil {
+	if err := expectMsg(sub1, "hello", "client1", timeout, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := expectMsg(sub1.MessageChannel(), "hello", "client2", timeout, true); err != nil {
+	if err := expectMsg(sub1, "hello", "client2", timeout, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := expectMsg(sub2.MessageChannel(), "hello", "client1", timeout, true); err != nil {
+	if err := expectMsg(sub2, "hello", "client1", timeout, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := expectMsg(sub2.MessageChannel(), "hello", "client2", timeout, false); err != nil {
+	if err := expectMsg(sub2, "hello", "client2", timeout, false); err != nil {
 		t.Fatal(err)
 	}
-}
-
-var chanCloseTransitions = [][]ably.StateEnum{{
-	ably.StateConnConnecting,
-	ably.StateChanAttaching,
-	ably.StateConnConnected,
-	ably.StateChanAttached,
-	ably.StateChanDetaching,
-	ably.StateChanDetached,
-	ably.StateConnClosing,
-	ably.StateConnClosed,
-}, {
-	ably.StateConnConnecting,
-	ably.StateConnConnected,
-	ably.StateChanAttaching,
-	ably.StateChanAttached,
-	ably.StateChanDetaching,
-	ably.StateChanDetached,
-	ably.StateConnClosing,
-	ably.StateConnClosed,
-}}
-
-func TestRealtimeChannel_Close(t *testing.T) {
-	t.Parallel()
-	rec := ablytest.NewStateRecorder(8)
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{Listener: rec.Channel()})
-	defer safeclose(t, client, app)
-
-	channel := client.Channels.Get("test")
-	sub, err := channel.Subscribe()
-	if err != nil {
-		t.Fatalf("channel.Subscribe()=%v", err)
-	}
-	defer sub.Close()
-	if err := ablytest.Wait(channel.Publish("hello", "world")); err != nil {
-		t.Fatalf("channel.Publish()=%v", err)
-	}
-	done := make(chan error)
-	go func() {
-		msg, ok := <-sub.MessageChannel()
-		if !ok {
-			done <- errors.New("did not receive published message")
-		}
-		if msg.Name != "hello" || !reflect.DeepEqual(msg.Data, "world") {
-			done <- fmt.Errorf(`want name="hello", data="world"; got %s, %v`, msg.Name, msg.Data)
-		}
-		if _, ok = <-sub.MessageChannel(); ok {
-			done <- fmt.Errorf("expected channel to be closed")
-		}
-		done <- nil
-	}()
-	if state := channel.State(); state != ably.StateChanAttached {
-		t.Fatalf("want state=%v; got %v", ably.StateChanAttached, state)
-	}
-	if err := channel.Close(); err != nil {
-		t.Fatalf("channel.Close()=%v", err)
-	}
-	if err := client.Close(); err != nil {
-		t.Fatalf("client.Close()=%v", err)
-	}
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("waiting on subscribed channel close failed: err=%s", err)
-		}
-	case <-time.After(ablytest.Timeout):
-		t.Fatalf("waiting on subscribed channel close timed out after %v", ablytest.Timeout)
-	}
-	rec.Stop()
-	for _, expected := range chanCloseTransitions {
-		if err = rec.WaitFor(expected); err != nil {
-			return
-		}
-	}
-	t.Error(err)
 }
 
 func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
@@ -180,38 +110,37 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	allowDial := make(chan struct{}, 1)
 	allowDial <- struct{}{}
 
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{
-		NoConnect: true,
-		Dial: func(protocol string, u *url.URL) (proto.Conn, error) {
+	app, client := ablytest.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 			<-allowDial
-			c, err := ablyutil.DialWebsocket(protocol, u)
+			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
-		},
-	})
-	defer safeclose(t, client, app)
+		}))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	channel := client.Channels.Get("test")
 
-	if err := ablytest.Wait(client.Connection.Connect()); err != nil {
+	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
 		t.Fatal(err)
 	}
 
 	// Move to DISCONNECTED.
 
-	disconnected := make(chan ably.State, 1)
-	client.Connection.On(disconnected, ably.StateConnDisconnected)
+	disconnected := make(ably.ConnStateChanges, 1)
+	off := client.Connection.On(ably.ConnectionEventDisconnected, disconnected.Receive)
 	doEOF <- struct{}{}
-	client.Connection.Off(disconnected, ably.StateConnDisconnected)
+	off()
 
 	// Attempt ATTACH. It should be blocked until we're CONNECTED again.
 
-	attached := make(chan ably.State, 1)
-	channel.On(attached, ably.StateChanAttached)
+	attached := make(ably.ChannelStateChanges, 1)
+	channel.On(ably.ChannelEventAttached, attached.Receive)
 
-	res, err := channel.Attach()
-	if err != nil {
-		t.Fatal(err)
-	}
+	res := make(chan Result)
+	go func() {
+		res <- ablytest.ResultFunc.Go(func(ctx context.Context) error { return channel.Attach(ctx) })
+	}()
 	ablytest.Before(1*time.Second).NoRecv(t, nil, attached, t.Fatalf)
 
 	// Allow another dial, which should eventually move the connection to
@@ -221,7 +150,7 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	ablytest.Soon.Recv(t, nil, attached, t.Fatalf)
 
-	if err := ablytest.Wait(res, nil); err != nil {
+	if err := ablytest.Wait(<-res, nil); err != nil {
 		t.Fatal(err)
 	}
 }

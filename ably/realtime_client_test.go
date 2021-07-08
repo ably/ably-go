@@ -1,76 +1,48 @@
 package ably_test
 
 import (
+	"context"
 	"fmt"
+	"net"
+	"net/url"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/ablytest"
+	"github.com/ably/ably-go/ably/internal/ablytest"
 )
 
-func TestRealtimeClient_RealtimeHost(t *testing.T) {
+func TestRealtime_RealtimeHost(t *testing.T) {
 	t.Parallel()
-	httpClient := ablytest.NewHTTPClient()
-	app, err := ablytest.NewSandbox(nil)
-	if err != nil {
-		t.Fatalf("NewSandbox=%s", err)
-	}
-	defer safeclose(t, app)
-
-	rec := ablytest.NewRecorder(httpClient)
 	hosts := []string{
 		"127.0.0.1",
 		"localhost",
 		"::1",
 	}
-	stateRec := ablytest.NewStateRecorder(len(hosts))
 	for _, host := range hosts {
-		opts := rec.Options(host)
-		opts.Listener = stateRec.Channel()
-		client, err := ably.NewRealtimeClient(app.Options(opts))
+		dial := make(chan string, 1)
+		client, err := ably.NewRealtime(
+			ably.WithKey("xxx:xxx"),
+			ably.WithRealtimeHost(host),
+			ably.WithAutoConnect(false),
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+				dial <- u.Host
+				return MessagePipe(nil, nil)(protocol, u, timeout)
+			}),
+		)
 		if err != nil {
-			t.Errorf("NewRealtimeClient=%s (host=%s)", err, host)
-			continue
+			t.Fatal(err)
 		}
-		if state := client.Connection.State(); state != ably.StateConnInitialized {
-			t.Errorf("want state=%v; got %s", ably.StateConnInitialized, state)
-			continue
+		client.Connect()
+		var recordedHost string
+		ablytest.Instantly.Recv(t, &recordedHost, dial, t.Fatalf)
+		h, _, err := net.SplitHostPort(recordedHost)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if err := checkError(80000, ablytest.Wait(client.Connection.Connect())); err != nil {
-			t.Errorf("%s (host=%s)", err, host)
-			continue
-		}
-		if state := client.Connection.State(); state != ably.StateConnFailed {
-			t.Errorf("want state=%v; got %s", ably.StateConnFailed, state)
-			continue
-		}
-		if err := client.Close(); err != nil {
-			t.Errorf("%s (host=%s)", err, host)
-			continue
-		}
-		if _, ok := rec.Hosts[host]; !ok {
-			t.Errorf("host %s was not recorded (recorded %v)", host, rec.Hosts)
-		}
-	}
-	want := []ably.StateEnum{
-		ably.StateConnConnecting,
-		ably.StateConnFailed,
-		ably.StateConnConnecting,
-		ably.StateConnFailed,
-		ably.StateConnConnecting,
-		ably.StateConnFailed,
-	}
-	if err := stateRec.WaitFor(want); err != nil {
-		t.Fatal(err)
-	}
-	errors := stateRec.Errors()
-	if len(errors) != len(hosts) {
-		t.Fatalf("want len(errors)=%d; got %d", len(hosts), len(errors))
-	}
-	for i, err := range errors {
-		if err := checkError(80000, err); err != nil {
-			t.Errorf("%s (host=%s)", err, hosts[i])
+		if h != host {
+			t.Errorf(" expected %q got %q", host, h)
 		}
 	}
 }
@@ -90,7 +62,7 @@ func checkUnique(ch chan string, typ string, n int) error {
 	return nil
 }
 
-func TestRealtimeClient_multiple(t *testing.T) {
+func TestRealtime_multiple(t *testing.T) {
 	t.Parallel()
 	const N = 3
 	var all ablytest.ResultGroup
@@ -106,44 +78,57 @@ func TestRealtimeClient_multiple(t *testing.T) {
 	for i := 0; i < N; i++ {
 		go func(i int) {
 			defer wg.Done()
-			opts := app.Options(nil)
-			opts.ClientID = fmt.Sprintf("client/%d", i)
-			opts.NoConnect = true
-			c, err := ably.NewRealtimeClient(opts)
+			opts := app.Options()
+			opts = append(opts, ably.WithClientID(fmt.Sprintf("client/%d", i)))
+			opts = append(opts, ably.WithAutoConnect(false))
+			c, err := ably.NewRealtime(opts...)
 			if err != nil {
 				all.Add(nil, err)
 				return
 			}
+			defer safeclose(t, ablytest.FullRealtimeCloser(c))
+			if err = ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil); err != nil {
+				t.Error(err)
+				return
+			}
 			var rg ablytest.ResultGroup
-			rg.Add(c.Connection.Connect())
+			rg.Add(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
-				rg.Add(channel.Attach())
-				rg.Add(channel.Attach())
-				rg.Add(channel.Presence.Enter(""))
+				rg.GoAdd(func(ctx context.Context) error { return channel.Attach(ctx) })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Attach(ctx) })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Presence.Enter(ctx, "") })
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
+				return
 			}
 			for j := 0; j < 25; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
-				rg.Add(channel.Publish(fmt.Sprintf("event/%d/%d", i, j), fmt.Sprintf("data/%d/%d", i, j)))
+				event, data := fmt.Sprintf("event/%d/%d", i, j), fmt.Sprintf("data/%d/%d", i, j)
+				rg.GoAdd(func(ctx context.Context) error {
+					return channel.Publish(ctx, event, data)
+				})
+			}
+			if err := rg.Wait(); err != nil {
+				all.Add(nil, err)
+				return
+			}
+			for j := 0; j < 10; j++ {
+				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
+				rg.GoAdd(func(ctx context.Context) error { return channel.Presence.Leave(ctx, "") })
 			}
 			if err := rg.Wait(); err != nil {
 				all.Add(nil, err)
 			}
 			for j := 0; j < 10; j++ {
 				channel := c.Channels.Get(fmt.Sprintf("client/%d/channel/%d", i, j))
-				rg.Add(channel.Presence.Leave(""))
-				rg.Add(channel.Detach())
-				rg.Add(channel.Detach())
-			}
-			if err := rg.Wait(); err != nil {
-				all.Add(nil, err)
+				rg.GoAdd(func(ctx context.Context) error { return channel.Detach(ctx) })
+				rg.GoAdd(func(ctx context.Context) error { return channel.Detach(ctx) })
 			}
 			idch <- c.Connection.ID()
 			keych <- c.Connection.Key()
-			if err := c.Close(); err != nil {
+			if err := ablytest.FullRealtimeCloser(c).Close(); err != nil {
 				all.Add(nil, err)
 			}
 		}(i)
@@ -160,8 +145,8 @@ func TestRealtimeClient_multiple(t *testing.T) {
 	}
 }
 
-func TestRealtimeClient_DontCrashOnCloseWhenEchoOff(t *testing.T) {
+func TestRealtime_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 	t.Parallel()
-	app, client := ablytest.NewRealtimeClient(&ably.ClientOptions{NoConnect: true})
-	defer safeclose(t, app, client)
+	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 }

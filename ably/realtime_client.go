@@ -1,107 +1,107 @@
 package ably
 
 import (
+	"context"
 	"net/http"
 	"time"
-
-	"github.com/ably/ably-go/ably/proto"
 )
 
-// The RealtimeClient libraries establish and maintain a persistent connection
+// The Realtime libraries establish and maintain a persistent connection
 // to Ably enabling extremely low latency broadcasting of messages and presence
 // state.
-type RealtimeClient struct {
+type Realtime struct {
 	Auth       *Auth
-	Channels   *Channels
-	Connection *Conn
+	Channels   *RealtimeChannels
+	Connection *Connection
 
-	rest *RestClient
+	rest *REST
 }
 
-// NewRealtimeClient
-func NewRealtimeClient(opts *ClientOptions) (*RealtimeClient, error) {
-	if opts == nil {
-		panic("called NewRealtimeClient with nil ClientOptions")
-	}
-	if err := opts.validate(); err != nil {
-		return nil, err
-	}
-	c := &RealtimeClient{}
-	rest, err := NewRestClient(opts)
+// NewRealtime constructs a new Realtime.
+func NewRealtime(options ...ClientOption) (*Realtime, error) {
+	c := &Realtime{}
+	rest, err := NewREST(options...) //options validated in NewREST
 	if err != nil {
 		return nil, err
 	}
 	c.rest = rest
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
-	conn, err := newConn(c.opts(), rest.Auth, connCallbacks{
-		c.onChannelMsg, c.onReconnectMsg, c.onConnStateChange,
+	conn := newConn(c.opts(), rest.Auth, connCallbacks{
+		c.onChannelMsg,
+		c.onReconnected,
+		c.onReconnectionFailed,
 	})
-	if err != nil {
-		return nil, err
-	}
+	conn.internalEmitter.OnAll(func(change ConnectionStateChange) {
+		c.Channels.broadcastConnStateChange(change)
+	})
 	c.Connection = conn
 	return c, nil
 }
 
-// Close
-func (c *RealtimeClient) Close() error {
-	return c.Connection.Close()
+// Connect is the same as Connection.Connect.
+func (c *Realtime) Connect() {
+	c.Connection.Connect()
 }
 
-// Stats gives the clients metrics according to the given parameters. The
-// returned result can be inspected for the statistics via the Stats()
-// method.
-func (c *RealtimeClient) Stats(params *PaginateParams) (*PaginatedResult, error) {
-	return c.rest.Stats(params)
+// Close is the same as Connection.Close.
+func (c *Realtime) Close() {
+	c.Connection.Close()
+}
+
+// Stats is the same as REST.Stats.
+func (c *Realtime) Stats(o ...StatsOption) StatsRequest {
+	return c.rest.Stats(o...)
 }
 
 // Time
-func (c *RealtimeClient) Time() (time.Time, error) {
-	return c.rest.Time()
+func (c *Realtime) Time(ctx context.Context) (time.Time, error) {
+	return c.rest.Time(ctx)
 }
 
-func (c *RealtimeClient) onChannelMsg(msg *proto.ProtocolMessage) {
+func (c *Realtime) onChannelMsg(msg *protocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
 }
 
-func (c *RealtimeClient) onReconnectMsg(msg *proto.ProtocolMessage) {
-	switch msg.Action {
-	case proto.ActionConnected:
-		if msg.Error != nil {
-			// (RTN15c3)
-			for _, ch := range c.Channels.All() {
-				switch ch.State() {
-				case StateConnSuspended:
-					ch.attach(false)
-				case StateChanAttaching, StateChanAttached:
-					ch.mayAttach(false, false)
-				}
-			}
+func (c *Realtime) onReconnected(isNewID bool) {
+	if !isNewID /* RTN15c3, RTN15g3 */ {
+		// No need to reattach: state is preserved. We just need to flush the
+		// queue of pending messages.
+		for _, ch := range c.Channels.Iterate() {
+			ch.queue.Flush()
 		}
+		//RTN19a
+		c.Connection.resendPending()
+		return
+	}
 
-	case proto.ActionError:
-		// (RTN15c4)
-
-		for _, ch := range c.Channels.All() {
-			ch.state.syncSet(StateChanFailed, msg.Error)
+	for _, ch := range c.Channels.Iterate() {
+		switch ch.State() {
+		// TODO: SUSPENDED
+		case ChannelStateAttaching, ChannelStateAttached: //RTN19b
+			ch.mayAttach(false)
+		case ChannelStateDetaching: //RTN19b
+			ch.detachSkipVerifyActive()
 		}
+	}
+	//RTN19a
+	c.Connection.resendPending()
+}
+
+func (c *Realtime) onReconnectionFailed(err *errorInfo) {
+	for _, ch := range c.Channels.Iterate() {
+		ch.setState(ChannelStateFailed, newErrorFromProto(err), false)
 	}
 }
 
-func tokenError(err *proto.ErrorInfo) bool {
+func isTokenError(err *errorInfo) bool {
 	return err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
 }
 
-func (c *RealtimeClient) onConnStateChange(state State) {
-	// TODO: Replace with EventEmitter https://github.com/ably/ably-go/pull/144
-	c.Channels.broadcastConnStateChange(state)
+func (c *Realtime) opts() *clientOptions {
+	return c.rest.opts
 }
 
-func (c *RealtimeClient) opts() *ClientOptions {
-	return &c.rest.opts
-}
-
-func (c *RealtimeClient) logger() *LoggerOptions {
-	return c.rest.logger()
+func (c *Realtime) log() logger {
+	return c.rest.log
 }
