@@ -503,10 +503,6 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 	if err != nil {
 		return nil, err
 	}
-	//if h := c.hosts.getFallbackHost(); h != "" {
-	//	req.URL.Host = h // RSC15f
-	//	c.log.Verbosef("RestClient: setting URL.Host=%q", h)
-	//}
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
 		c.log.Verbose("RestClient: enabling httptrace")
@@ -524,7 +520,6 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 				fallbacks, _ := c.opts.getFallbackHosts()
 				c.log.Infof("RestClient: trying to fallback with hosts=%v", fallbacks)
 				if len(fallbacks) > 0 {
-					//left := fallbacks
 					iteration := 0
 					maxLimit := c.opts.HTTPMaxRetryCount
 					if maxLimit == 0 {
@@ -538,25 +533,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 							return nil, err
 						}
 						host := c.hosts.getFallbackHost()
-						//if len(left) == 1 {
-						//	h = left[0]
-						//} else {
-						//	h = left[rand.Intn(len(left)-1)]
-						//}
-						//var n []string
-						//for _, v := range left {
-						//	if v != h {
-						//		n = append(n, v)
-						//	}
-						//}
-						//left = n
 						req, err := c.newHTTPRequest(ctx, r, host)
 						if err != nil {
 							return nil, err
 						}
 						c.log.Infof("RestClient:  chose fallback host=%q ", host)
-						//req.URL.Host = h
-						//req.Host = ""
 						req.Header.Set(hostHeader, host)
 						resp, err := c.opts.httpclient().Do(req)
 						if err != nil {
