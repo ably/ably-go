@@ -87,7 +87,7 @@ func (c *protoChannelOptions) GetCipher() (channelCipher, error) {
 	}
 	switch c.Cipher.Algorithm {
 	case CipherAES:
-		cipher, err := newCBCCipher(c.Cipher)
+		cipher, err := NewCBCCipher(c.Cipher)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +114,7 @@ type cbcCipher struct {
 }
 
 // newCBCCipher returns a new CBCCipher that uses opts to initialize.
-func newCBCCipher(opts CipherParams) (*cbcCipher, error) {
+func NewCBCCipher(opts CipherParams) (*cbcCipher, error) {
 	if opts.Algorithm != CipherAES {
 		return nil, errors.New("unknown cipher algorithm")
 	}
@@ -126,6 +126,36 @@ func newCBCCipher(opts CipherParams) (*cbcCipher, error) {
 		algorithm: algo,
 		params:    opts,
 	}, nil
+}
+
+// GenerateRandomKey returns a random key. keyLength is optional if provided it
+// should be  in bits, it defaults to DefaultKeyLength when not provided.
+//
+// Spec RSE2, RSE2a, RSE2b.
+func GenerateRandomKey(keyLength ...int) ([]byte, error) {
+	length := defaultCipherKeyLength
+	if len(keyLength) > 0 {
+		length = keyLength[0]
+	}
+	key := make([]byte, length/8)
+	if _, err := io.ReadFull(rand.Reader, key); err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+// DefaultCipherParams returns CipherParams with fields set to default values.
+// This generates random secret key and iv values
+func DefaultCipherParams() (*CipherParams, error) {
+	c := &CipherParams{
+		Algorithm: defaultCipherAlgorithm,
+	}
+	c.Key = make([]byte, defaultCipherKeyLength/8)
+	if _, err := io.ReadFull(rand.Reader, c.Key); err != nil {
+		return nil, err
+	}
+	c.KeyLength = len(c.Key) * 8
+	return c, nil
 }
 
 // Encrypt encrypts plainText using AES algorithm and returns encoded bytes.
