@@ -256,6 +256,10 @@ func DialWebsocket(proto string, u *url.URL, timeout time.Duration) (Conn, error
 	return dialWebsocket(proto, u, timeout)
 }
 
+func NewCBCCipher(opts CipherParams) (*cbcCipher, error) {
+	return newCBCCipher(opts)
+}
+
 func (p *CipherParams) SetIV(iv []byte) {
 	p.iv = iv
 }

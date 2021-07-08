@@ -87,7 +87,7 @@ func (c *protoChannelOptions) GetCipher() (channelCipher, error) {
 	}
 	switch c.Cipher.Algorithm {
 	case CipherAES:
-		cipher, err := NewCBCCipher(c.Cipher)
+		cipher, err := newCBCCipher(c.Cipher)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +114,7 @@ type cbcCipher struct {
 }
 
 // newCBCCipher returns a new CBCCipher that uses opts to initialize.
-func NewCBCCipher(opts CipherParams) (*cbcCipher, error) {
+func newCBCCipher(opts CipherParams) (*cbcCipher, error) {
 	if opts.Algorithm != CipherAES {
 		return nil, errors.New("unknown cipher algorithm")
 	}
