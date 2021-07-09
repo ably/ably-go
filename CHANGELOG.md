@@ -184,14 +184,12 @@ Version 1.2.0 is out of pre-release!
 
 **Fixed bugs:**
 
-- Please ignore this issue \(testing sync\) [\#203](https://github.com/ably/ably-go/issues/203)
 - Rest.request call timing out doesn't result in the errorMessage being set in the httpPaginatedResponse? [\#192](https://github.com/ably/ably-go/issues/192)
 - Channel attach fails in the DISCONNECTED state [\#189](https://github.com/ably/ably-go/issues/189)
 - TestFixConnLeak\_ISSUE89 is flaky [\#132](https://github.com/ably/ably-go/issues/132)
 
 **Closed issues:**
 
-- Second sync test \(ignore\) [\#204](https://github.com/ably/ably-go/issues/204)
 - Reauthentication with Presence [\#164](https://github.com/ably/ably-go/issues/164)
 
 **Merged pull requests:**
