@@ -842,6 +842,18 @@ func (c *Connection) eventloop() {
 			if c.conn != nil {
 				c.conn.Close()
 			}
+		case actionAuth:
+			token, err := c.auth.reauthorize(context.Background())
+			if err != nil {
+				// The spec doesn't say what to do here. Let's just ignore the
+				// AUTH; the server will disconnect us.
+				continue
+			}
+			c.send(&protocolMessage{
+				Action: actionAuth,
+				Auth:   &authDetails{AccessToken: token.Token},
+			}, nil)
+
 		default:
 			c.callbacks.onChannelMsg(msg)
 		}

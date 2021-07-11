@@ -3846,6 +3846,109 @@ func TestRealtimeConn_RTC8c_ExplicitAuthorizeConnects(t *testing.T) {
 	})
 }
 
+// newConnWithFakeAuth returns a connection and a function to simulate an AUTH
+// sent by the server on that connection.
+func newConnWithFakeAuth(c ably.Conn) (_ ably.Conn, fakeAuth func()) {
+	fac := &connWithFakeAuth{
+		Conn:             c,
+		fakeAuthRequests: make(chan struct{}, 1),
+	}
+	return fac, fac.fakeAuth
+}
+
+type connWithFakeAuth struct {
+	ably.Conn
+	fakeAuthRequests chan struct{}
+
+	mtx             sync.Mutex
+	receiving       bool
+	received        chan struct{}
+	receivedMessage *ably.ProtocolMessage
+	receivedErr     error
+}
+
+func (c *connWithFakeAuth) Receive(deadline time.Time) (*ably.ProtocolMessage, error) {
+	// This is a bit tricky. Receive is repeatedly called by the connection
+	// loop, and blocks until the server sends a message. So, to simulate an
+	// incoming message, we must return early from Receive, while the real
+	// Receive is still running on the background. Next time the conn loop calls
+	// Receive, it needs to hook again with the real Receive that's running
+	// in the background. We achieve this with a flag c.receiving that tells
+	// if there's already a real Receive running.
+
+	c.mtx.Lock()
+	if !c.receiving {
+		c.receiving = true
+		c.received = make(chan struct{})
+		go func() {
+			m, err := c.Conn.Receive(deadline)
+
+			c.mtx.Lock()
+			defer c.mtx.Unlock()
+			c.receivedMessage, c.receivedErr = m, err
+			c.receiving = false
+			close(c.received)
+		}()
+	}
+	c.mtx.Unlock()
+
+	select {
+	case <-c.received:
+		c.mtx.Lock()
+		defer c.mtx.Unlock()
+		return c.receivedMessage, c.receivedErr
+
+	case <-c.fakeAuthRequests:
+		return &ably.ProtocolMessage{
+			Action: ably.ActionAuth,
+		}, nil
+	}
+}
+
+func (c *connWithFakeAuth) fakeAuth() {
+	c.fakeAuthRequests <- struct{}{}
+}
+
+func TestRealtimeConn_RTN22_ServerInitiatedAuth(t *testing.T) {
+	t.Parallel()
+
+	recorder := NewMessageRecorder()
+
+	var fakeAuth func()
+	dialTokens := make(chan string, 1)
+	dial := func(proto string, url *url.URL, timeout time.Duration) (ably.Conn, error) {
+		c, err := recorder.Dial(proto, url, timeout)
+		if err != nil {
+			return nil, err
+		}
+		dialTokens <- url.Query().Get("access_token")
+		c, fakeAuth = newConnWithFakeAuth(c)
+		return c, nil
+	}
+	app, c := ablytest.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithDial(dial),
+	)
+	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
+
+	connectAndWait(t, c)
+
+	var firstToken string
+	ablytest.Instantly.Recv(t, &firstToken, dialTokens, t.Fatalf)
+
+	stateChanges, off := listenStateChanges(c)
+	defer off()
+
+	fakeAuth()
+
+	stateChanges.expect(t, ably.ConnectionEventUpdate)
+
+	currToken := recorder.FindFirst(ably.ActionAuth).Auth.AccessToken
+	if currToken == firstToken {
+		t.Fatalf("expected reauth token %q to be different to first token %q", currToken, firstToken)
+	}
+}
+
 func testConcurrentPublisher(t *testing.T, ch *ably.RealtimeChannel, out <-chan *ably.ProtocolMessage) (
 	publish func(),
 	receiveAck func() error,
