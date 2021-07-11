@@ -3691,6 +3691,161 @@ func TestRealtimeConn_RTC8b_ExplicitAuthorizeWhileConnecting(t *testing.T) {
 	})
 }
 
+func TestRealtimeConn_RTC8c_ExplicitAuthorizeConnects(t *testing.T) {
+	t.Parallel()
+
+	test := func(t *testing.T, initialState ably.ConnectionState) {
+		// Set up a Realtime with AuthCallback that the test controls.
+		auth := newTestAuthCallbackHandler()
+		// We'll use this REST to get real, working tokens.
+		app, rest := ablytest.NewREST()
+		defer safeclose(t, app)
+
+		var expectedToken, gotToken string
+
+		// Set a DialFunc that lets us make connection attempts fail.
+		gotDial := make(chan chan error, 1)
+		var lastDialURL *url.URL
+		dial := func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+			dialErr := make(chan error)
+			lastDialURL = u
+			gotDial <- dialErr
+			err := <-dialErr
+			if err != nil {
+				return nil, err
+			}
+			return ably.DialWebsocket(protocol, u, timeout)
+		}
+
+		// Set fake timers to move to SUSPENDED.
+		afterCalls := make(ablytest.AfterCalls, 10)
+		now, after := ablytest.TimeFuncs(afterCalls)
+
+		dial, intercept := DialIntercept(dial)
+
+		c := app.NewRealtime(
+			ably.WithDial(dial),
+			ably.WithNow(now),
+			ably.WithAfter(after),
+			ably.WithAutoConnect(false),
+			ably.WithAuthCallback(auth.authCallback),
+		)
+		defer safeclose(t, ablytest.FullRealtimeCloser(c))
+
+		// Move to the initial state for this specific test, from which we'll
+		// call Authorize.
+
+		change := make(ably.ConnStateChanges, 1)
+		off := c.Connection.Once(ably.ConnectionEvent(initialState), change.Receive)
+		defer off()
+
+		switch initialState {
+		case disconnected, suspended:
+			c.Connect()
+
+			var finishDial chan error
+			auth.handleAuth(t, getRealToken(t, rest), nil)
+			ablytest.Instantly.Recv(t, &finishDial, gotDial, t.Fatalf)
+
+			finishDial <- errors.New("test")
+
+			if initialState == suspended {
+				// Fire both the state TTL and the retryIn DISCONNECTED timers,
+				// which causes a transition to SUSPENDED.
+				stateTTLTimer := afterCalls.Next(t)
+				assertEquals(t, c.Connection.ConnectionStateTTL(), stateTTLTimer.D)
+				stateTTLTimer.Fire()
+
+				retryTimer := afterCalls.Next(t)
+				retryTimer.Fire()
+			}
+
+		case failed:
+			c.Connect()
+
+			auth.handleAuth(t, func(ably.TokenParams) ably.Tokener {
+				return ably.TokenString("made:up")
+			}, nil)
+
+			var finishDial chan error
+			ablytest.Instantly.Recv(t, &finishDial, gotDial, t.Fatalf)
+
+			finishDial <- nil
+
+		case closed:
+			c.Connect()
+
+			auth.handleAuth(t, getRealToken(t, rest), nil)
+
+			var finishDial chan error
+			ablytest.Instantly.Recv(t, &finishDial, gotDial, t.Fatalf)
+			finishDial <- nil
+
+			c.Close()
+		}
+
+		ablytest.Soon.Recv(t, nil, change, t.Fatalf)
+
+		// Now call Authorize, which should connect with the new token.
+
+		// Intercept CONNECTED, to check that Authorize doesn't return
+		// before the reauthorization it initiated finishes (RTC8b1).
+		ctx, stopIntercepting := context.WithCancel(context.Background())
+		defer stopIntercepting()
+		connectedMsg := intercept(ctx, ably.ActionConnected)
+
+		authorizeDone := make(chan struct{})
+		var rg ablytest.ResultGroup
+		defer rg.Wait()
+		rg.GoAdd(func(ctx context.Context) error {
+			defer close(authorizeDone)
+			_, err := c.Auth.Authorize(ctx, nil)
+			return err
+		})
+
+		auth.handleAuth(t, func(params ably.TokenParams) ably.Tokener {
+			t := getRealToken(t, rest)(params)
+			expectedToken = t.(*ably.TokenDetails).Token
+			return t
+		}, nil)
+
+		// Expect a new dial. Check that the URL carries the new token.
+		var finishDial chan error
+		ablytest.Soon.Recv(t, &finishDial, gotDial, t.Fatalf)
+		gotToken = lastDialURL.Query().Get("access_token")
+		finishDial <- nil
+
+		ablytest.Instantly.NoRecv(t, nil, authorizeDone, t.Fatalf)
+
+		// Now let the reauthorization finish.
+		stopIntercepting()
+		ablytest.Soon.Recv(t, nil, connectedMsg, t.Fatalf)
+		ablytest.Instantly.Recv(t, nil, authorizeDone, t.Fatalf)
+
+		assertEquals(t, expectedToken, gotToken)
+	}
+
+	t.Run("DISCONNECTED", func(t *testing.T) {
+		t.Parallel()
+		test(t, disconnected)
+	})
+
+	t.Run("SUSPENDED", func(t *testing.T) {
+		t.Parallel()
+		test(t, suspended)
+	})
+
+	t.Run("FAILED", func(t *testing.T) {
+		t.Parallel()
+		test(t, failed)
+	})
+
+	t.Run("CLOSED", func(t *testing.T) {
+		t.Parallel()
+		test(t, closed)
+	})
+}
+
 func testConcurrentPublisher(t *testing.T, ch *ably.RealtimeChannel, out <-chan *ably.ProtocolMessage) (
 	publish func(),
 	receiveAck func() error,

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -150,6 +151,16 @@ func (a AfterCall) IsTriggered() bool {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 	return *a.triggered
+}
+
+type AfterCalls chan AfterCall
+
+func (cs AfterCalls) Next(t *testing.T) AfterCall {
+	t.Helper()
+
+	var c AfterCall
+	Instantly.Recv(t, &c, cs, t.Fatalf)
+	return c
 }
 
 // TimeFuncs returns time functions to be passed as options.

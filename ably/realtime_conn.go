@@ -881,7 +881,7 @@ func (c *Connection) reauthorize(arg connArgs) {
 }
 
 func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetails) {
-	switch c.State() {
+	switch state := c.State(); state {
 	case ConnectionStateConnecting:
 		// RTC8b says: "all current connection attempts should be halted, and
 		// after obtaining a new token the library should immediately initiate a
@@ -904,7 +904,7 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 				return
 			}
 
-			c.log().Info("Reconnect with new token.")
+			c.log().Info("continuing client-requested authorization with new token")
 			var off func()
 			off = c.internalEmitter.OnAll(func(c ConnectionStateChange) {
 				switch c.Current {
@@ -943,6 +943,31 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 		select {
 		case <-ctx.Done():
 		case <-changes:
+		}
+
+	case
+		ConnectionStateDisconnected,
+		ConnectionStateSuspended,
+		ConnectionStateFailed,
+		ConnectionStateClosed:
+		c.log().Infof("client-requested authorization while %s: connecting with new token", state)
+
+		var off func()
+		done := make(chan struct{})
+		off = c.internalEmitter.OnAll(func(c ConnectionStateChange) {
+			switch c.Current {
+			case ConnectionStateConnecting:
+				return
+			}
+			off()
+			close(done)
+		})
+
+		c.Connect()
+
+		select {
+		case <-ctx.Done():
+		case <-done:
 		}
 	}
 }
