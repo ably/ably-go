@@ -576,3 +576,81 @@ var canceledCtx context.Context = func() context.Context {
 	cancel()
 	return ctx
 }()
+
+func listenStateChanges(c *ably.Realtime) (changes testStateChanges, off func()) {
+	changes = testStateChanges{make(ably.ConnStateChanges, 100)}
+	off = c.Connection.OnAll(changes.Receive)
+	return changes, off
+}
+
+type testStateChanges struct {
+	ably.ConnStateChanges
+}
+
+func (c testStateChanges) expect(t *testing.T, expected ably.ConnectionEvent) {
+	t.Helper()
+
+	var change ably.ConnectionStateChange
+	ablytest.Soon.Recv(t, &change, c.ConnStateChanges, t.Fatalf)
+	if got := change.Event; expected != got {
+		t.Fatalf("expected: %v; got: %v", expected, got)
+	}
+}
+
+func newTestAuthCallbackHandler() testAuthCallbackHandler {
+	return testAuthCallbackHandler{
+		authRequests: make(chan authRequest, 1),
+	}
+}
+
+// testAuthCallbackHandler provides an authCallback that forwards its calls to a
+// channel. The calls can be handled with the handleAuth method, which gets the
+// response from a getToken function.
+type testAuthCallbackHandler struct {
+	authRequests chan authRequest
+}
+
+type authRequest struct {
+	params ably.TokenParams
+	resp   chan<- authResponse
+}
+
+type authResponse struct {
+	token ably.Tokener
+	err   error
+}
+
+func (at testAuthCallbackHandler) authCallback(ctx context.Context, params ably.TokenParams) (ably.Tokener, error) {
+	respCh := make(chan authResponse, 1)
+	at.authRequests <- authRequest{
+		params: params,
+		resp:   respCh,
+	}
+	resp := <-respCh
+	return resp.token, resp.err
+}
+
+func (at testAuthCallbackHandler) handleAuth(t *testing.T, getToken func(ably.TokenParams) ably.Tokener, err error) {
+	t.Helper()
+
+	var authReq authRequest
+	ablytest.Soon.Recv(t, &authReq, at.authRequests, t.Fatalf)
+	ablytest.Instantly.Send(t, authReq.resp, authResponse{
+		token: getToken(authReq.params),
+		err:   err,
+	}, t.Fatalf)
+}
+
+// getRealToken returns a function, to be passed to
+// testAuthCallbackHandler.handleAuth, that returns a real token obtained from
+// a REST instance.
+func getRealToken(t *testing.T, rest *ably.REST) func(params ably.TokenParams) ably.Tokener {
+	return func(params ably.TokenParams) ably.Tokener {
+		t.Helper()
+		token, err := rest.Auth.RequestToken(context.Background(), &params)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return token
+	}
+}
