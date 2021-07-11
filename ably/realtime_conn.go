@@ -90,7 +90,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 		auth:      auth,
 		callbacks: callbacks,
 	}
-	auth.onExplicitAuthorize = c.onClientAuthorize
+	auth.onExplicitAuthorize = c.onExplicitAuthorize
 	c.queue = newMsgQueue(c)
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)
@@ -880,7 +880,7 @@ func (c *Connection) reauthorize(arg connArgs) {
 	c.reconnect(arg)
 }
 
-func (c *Connection) onClientAuthorize(ctx context.Context, token *TokenDetails) {
+func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetails) {
 	switch c.State() {
 	case ConnectionStateConnected:
 		c.log().Verbosef("starting client-requested reauthorization with token: %+v", token)
