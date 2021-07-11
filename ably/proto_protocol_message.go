@@ -103,6 +103,11 @@ type protocolMessage struct {
 	Action            protoAction        `json:"action,omitempty" codec:"action,omitempty"`
 	Flags             protoFlag          `json:"flags,omitempty" codec:"flags,omitempty"`
 	Params            channelParams      `json:"params,omitempty" codec:"params,omitempty"`
+	Auth              *authDetails       `json:"auth,omitempty" codec:"auth,omitempty"`
+}
+
+type authDetails struct {
+	AccessToken string `json:"accessToken,omitempty" codec:"accessToken,omitempty"`
 }
 
 func (p *protocolMessage) SetModesAsFlag(modes []ChannelMode) {

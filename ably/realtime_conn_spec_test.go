@@ -3390,6 +3390,188 @@ func TestIdempotentACK(t *testing.T) {
 	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 }
 
+func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
+	t.Parallel()
+
+	// Set up a Realtime with AuthCallback that the test controls. Auth requests
+	// are sent to the authRequested channel.
+
+	type authResponse struct {
+		token ably.Tokener
+		err   error
+	}
+	type authRequest struct {
+		params ably.TokenParams
+		resp   chan<- authResponse
+	}
+	authRequests := make(chan authRequest, 1)
+	handleAuth := func(getToken func(ably.TokenParams) ably.Tokener, err error) {
+		t.Helper()
+
+		var authReq authRequest
+		ablytest.Soon.Recv(t, &authReq, authRequests, t.Fatalf)
+		ablytest.Instantly.Send(t, authReq.resp, authResponse{
+			token: getToken(authReq.params),
+			err:   err,
+		}, t.Fatalf)
+	}
+
+	// We'll use this REST to get real, working tokens.
+	app, rest := ablytest.NewREST()
+	getToken := func(params ably.TokenParams) ably.Tokener {
+		t.Helper()
+		token, err := rest.Auth.RequestToken(context.Background(), &params)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return token
+	}
+	dial, intercept := DialIntercept(ably.DialWebsocket)
+	c := app.NewRealtime(
+		ably.WithDial(dial),
+		ably.WithDefaultTokenParams(ably.TokenParams{
+			Capability: `{"foo":["subscribe"]}`,
+		}),
+		ably.WithAuthCallback(func(ctx context.Context, params ably.TokenParams) (ably.Tokener, error) {
+			respCh := make(chan authResponse, 1)
+			authRequests <- authRequest{
+				params: params,
+				resp:   respCh,
+			}
+			resp := <-respCh
+			return resp.token, resp.err
+		}),
+	)
+	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
+
+	stateChanges := make(ably.ConnStateChanges, 1)
+	off := c.Connection.OnAll(stateChanges.Receive)
+	defer off()
+	expectConnEvent := func(expected ably.ConnectionEvent) {
+		t.Helper()
+
+		var change ably.ConnectionStateChange
+		ablytest.Soon.Recv(t, &change, stateChanges, t.Fatalf)
+		if got := change.Event; expected != got {
+			t.Fatalf("expected: %v; got: %v", expected, got)
+		}
+	}
+
+	// Expect a first auth when connecting.
+	handleAuth(getToken, nil)
+	expectConnEvent(ably.ConnectionEventConnected)
+
+	t.Run("RTC8a1: Successful reauth with more capabilities", func(t *testing.T) {
+		var rg ablytest.ResultGroup
+		rg.GoAdd(func(ctx context.Context) error {
+			_, err := c.Auth.Authorize(ctx, nil)
+			return err
+		})
+
+		handleAuth(getToken, nil)
+		expectConnEvent(ably.ConnectionEventUpdate)
+		assertEquals(t, connected, c.Connection.State())
+
+		rg.Wait()
+	})
+
+	t.Run("RTC8a1: Successful reauth with more capabilities", func(t *testing.T) {
+		var rg ablytest.ResultGroup
+		rg.GoAdd(func(ctx context.Context) error {
+			_, err := c.Auth.Authorize(ctx, &ably.TokenParams{
+				Capability: `{"*":["*"]}`,
+			})
+			return err
+		})
+
+		handleAuth(getToken, nil)
+		expectConnEvent(ably.ConnectionEventUpdate)
+		assertEquals(t, connected, c.Connection.State())
+
+		rg.Wait()
+	})
+
+	t.Run("RTC8a1: Unsuccessful reauth with capabilities downgrade", func(t *testing.T) {
+		ch := c.Channels.Get("notfoo")
+		err := ch.Attach(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		channelChanges := make(ably.ChannelStateChanges, 1)
+		off := ch.OnAll(channelChanges.Receive)
+		defer off()
+
+		var rg ablytest.ResultGroup
+		rg.GoAdd(func(ctx context.Context) error {
+			_, err := c.Auth.Authorize(ctx, &ably.TokenParams{
+				Capability: `{"foo":["publish"]}`,
+			})
+			return err
+		})
+
+		handleAuth(getToken, nil)
+		expectConnEvent(ably.ConnectionEventUpdate)
+		assertEquals(t, connected, c.Connection.State())
+
+		rg.Wait()
+
+		var change ably.ChannelStateChange
+		ablytest.Soon.Recv(t, &change, channelChanges, t.Fatalf)
+		assertEquals(t, ably.ChannelEventFailed, change.Event)
+		assertEquals(t, chFailed, ch.State())
+	})
+
+	t.Run("RTC8a3: Authorize waits for connection update", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		connectedMsg := intercept(ctx, ably.ActionConnected)
+
+		authorizeDone := make(chan struct{})
+		var rg ablytest.ResultGroup
+		defer rg.Wait()
+		rg.GoAdd(func(ctx context.Context) error {
+			defer close(authorizeDone)
+			_, err := c.Auth.Authorize(ctx, nil)
+			return err
+		})
+
+		handleAuth(getToken, nil)
+
+		ablytest.Soon.Recv(t, nil, connectedMsg, t.Fatalf)
+
+		// At this point, we have a new token and the server has sent a CONNECTED
+		// message, but the library hasn't got it yet. So Authorize should still
+		// be waiting.
+		ablytest.Instantly.NoRecv(t, nil, authorizeDone, t.Fatalf)
+
+		// Let go of the CONNECTED message, completing Authorization.
+		cancel()
+		expectConnEvent(ably.ConnectionEventUpdate)
+		ablytest.Instantly.Recv(t, nil, authorizeDone, t.Fatalf)
+	})
+
+	t.Run("RTC8a4: reauthorize with JWT token", func(t *testing.T) {
+		t.Skip("not implemented")
+	})
+
+	t.Run("RTC8a2: Failed reauth moves connection to FAILED", func(t *testing.T) {
+		var rg ablytest.ResultGroup
+		rg.GoAdd(func(ctx context.Context) error {
+			_, err := c.Auth.Authorize(ctx, nil)
+			return err
+		})
+
+		handleAuth(func(ably.TokenParams) ably.Tokener {
+			return ably.TokenString("made:up")
+		}, nil)
+		expectConnEvent(ably.ConnectionEventFailed)
+		assertEquals(t, failed, c.Connection.State())
+
+		rg.Wait()
+	})
+}
+
 func testConcurrentPublisher(t *testing.T, ch *ably.RealtimeChannel, out <-chan *ably.ProtocolMessage) (
 	publish func(),
 	receiveAck func() error,

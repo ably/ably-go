@@ -81,7 +81,6 @@ type connCallbacks struct {
 
 func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connection {
 	c := &Connection{
-
 		ConnectionEventEmitter: ConnectionEventEmitter{newEventEmitter(auth.log())},
 		state:                  ConnectionStateInitialized,
 		internalEmitter:        ConnectionEventEmitter{newEventEmitter(auth.log())},
@@ -91,6 +90,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 		auth:      auth,
 		callbacks: callbacks,
 	}
+	auth.onExplicitAuthorize = c.onClientAuthorize
 	c.queue = newMsgQueue(c)
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)
@@ -878,6 +878,33 @@ func (c *Connection) reauthorize(arg connArgs) {
 	c.reauthorizing = true
 	c.mtx.Unlock()
 	c.reconnect(arg)
+}
+
+func (c *Connection) onClientAuthorize(ctx context.Context, token *TokenDetails) {
+	switch c.State() {
+	case ConnectionStateConnected:
+		c.log().Verbosef("starting client-requested reauthorization with token: %+v", token)
+
+		changes := make(connStateChanges, 2)
+		{
+			off := c.internalEmitter.Once(ConnectionEventUpdate, changes.Receive)
+			defer off()
+		}
+		{
+			off := c.internalEmitter.Once(ConnectionEventFailed, changes.Receive)
+			defer off()
+		}
+
+		c.send(&protocolMessage{
+			Action: actionAuth,
+			Auth:   &authDetails{AccessToken: token.Token},
+		}, nil)
+
+		select {
+		case <-ctx.Done():
+		case <-changes:
+		}
+	}
 }
 
 func (c *Connection) lockedReauthorizationFailed(err error) {
