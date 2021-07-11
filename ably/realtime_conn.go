@@ -882,6 +882,46 @@ func (c *Connection) reauthorize(arg connArgs) {
 
 func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetails) {
 	switch c.State() {
+	case ConnectionStateConnecting:
+		// RTC8b says: "all current connection attempts should be halted, and
+		// after obtaining a new token the library should immediately initiate a
+		// connection attempt using the new token". But the WebSocket library
+		// doesn't really allow us to halt the connection attempt. Instead, once
+		// the connection transitions out of CONNECTING (either to CONNECTED or
+		// to a failure state), we attempt to connect again, which will use
+		// the new token.
+		c.log().Info("client-requested authorization while CONNECTING. Will reconnect with new token.")
+		done := make(chan struct{})
+
+		c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
+			switch change.Current {
+			case ConnectionStateClosing, ConnectionStateClosed:
+				close(done)
+				return
+			case ConnectionStateConnected:
+				c.onExplicitAuthorize(ctx, token)
+				close(done)
+				return
+			}
+
+			c.log().Info("Reconnect with new token.")
+			var off func()
+			off = c.internalEmitter.OnAll(func(c ConnectionStateChange) {
+				switch c.Current {
+				case ConnectionStateConnecting:
+					return
+				}
+				off()
+				close(done)
+			})
+			c.Connect()
+		})
+
+		select {
+		case <-ctx.Done():
+		case <-done:
+		}
+
 	case ConnectionStateConnected:
 		c.log().Verbosef("starting client-requested reauthorization with token: %+v", token)
 

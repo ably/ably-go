@@ -89,7 +89,7 @@ func assertEquals(t *testing.T, expected interface{}, actual interface{}) {
 	t.Helper()
 
 	if expected != actual {
-		t.Errorf("%v is not equal to %v", expected, actual)
+		t.Errorf("expected: %+v; actual: %+v", expected, actual)
 	}
 }
 

@@ -3528,6 +3528,169 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 	})
 }
 
+func TestRealtimeConn_RTC8b_ExplicitAuthorizeWhileConnecting(t *testing.T) {
+	t.Parallel()
+
+	// RTC8b says to halt the connection attempt, but since we can't really do
+	// that with the current WebSocket library, we let it finish and then
+	// reauthorize.
+
+	t.Run("connection succeeds, client-initiated AUTH", func(t *testing.T) {
+		t.Parallel()
+
+		// Set up a Realtime with AuthCallback that the test controls.
+		auth := newTestAuthCallbackHandler()
+		// We'll use this REST to get real, working tokens.
+		app, rest := ablytest.NewREST()
+		defer safeclose(t, app)
+
+		var expectedToken, gotToken string
+
+		dial, intercept := DialIntercept(ably.DialWebsocket)
+		c := app.NewRealtime(
+			ably.WithDial(dial),
+			ably.WithAutoConnect(false),
+			ably.WithAuthCallback(auth.authCallback),
+		)
+		defer safeclose(t, ablytest.FullRealtimeCloser(c))
+
+		// Move to CONNECTING; call Authorize while there.
+		c.Connect()
+
+		// We don't want our Authorize call below to race with the Connect when
+		// calling the authCallback, so ensure the Connect's goes first. But
+		// don't let the connection transition to CONNECTED until after we've
+		// called Authorize.
+		ctx, stopIntercepting := context.WithCancel(context.Background())
+		defer stopIntercepting()
+		connectedMsg := intercept(ctx, ably.ActionConnected)
+		auth.handleAuth(t, getRealToken(t, rest), nil)
+
+		// Now call Authorize.
+		authorizeDone := make(chan struct{})
+		var rg ablytest.ResultGroup
+		defer rg.Wait()
+		rg.GoAdd(func(ctx context.Context) error {
+			defer close(authorizeDone)
+			t, err := c.Auth.Authorize(ctx, nil)
+			gotToken = t.Token
+			return err
+		})
+
+		// Stop intercepting the CONNECTED message, to allow the transition
+		// to CONNECTED. That should trigger an client-initiated AUTH, as in
+		// RTC8a, because we've called Authorize above.
+		stopIntercepting()
+		ablytest.Soon.Recv(t, nil, connectedMsg, t.Fatalf)
+
+		// Intercept CONNECTED again, to check that Authorize doesn't return
+		// before the reauthorization it initiated finishes (RTC8b1).
+		ablytest.Instantly.NoRecv(t, nil, authorizeDone, t.Fatalf)
+		ctx, stopIntercepting = context.WithCancel(context.Background())
+		defer stopIntercepting()
+		connectedMsg = intercept(ctx, ably.ActionConnected)
+
+		auth.handleAuth(t, func(params ably.TokenParams) ably.Tokener {
+			t := getRealToken(t, rest)(params)
+			expectedToken = t.(*ably.TokenDetails).Token
+			return t
+		}, nil)
+
+		ablytest.Instantly.NoRecv(t, nil, authorizeDone, t.Fatalf)
+
+		// Now let the reauthorization finish.
+		stopIntercepting()
+		ablytest.Soon.Recv(t, nil, connectedMsg, t.Fatalf)
+		ablytest.Instantly.Recv(t, nil, authorizeDone, t.Fatalf)
+
+		assertEquals(t, expectedToken, gotToken)
+	})
+
+	t.Run("connection fails, normal reconnect", func(t *testing.T) {
+		t.Parallel()
+
+		// Set up a Realtime with AuthCallback that the test controls.
+		auth := newTestAuthCallbackHandler()
+		// We'll use this REST to get real, working tokens.
+		app, rest := ablytest.NewREST()
+		defer safeclose(t, app)
+
+		var expectedToken, gotToken string
+
+		// Set a DialFunc that lets us make connection attempts fail.
+		gotDial := make(chan chan error, 1)
+		var lastDialURL *url.URL
+		dial := func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+			dialErr := make(chan error)
+			lastDialURL = u
+			gotDial <- dialErr
+			err := <-dialErr
+			if err != nil {
+				return nil, err
+			}
+			return ably.DialWebsocket(protocol, u, timeout)
+		}
+		dial, intercept := DialIntercept(dial)
+		c := app.NewRealtime(
+			ably.WithDial(dial),
+			ably.WithAutoConnect(false),
+			ably.WithAuthCallback(auth.authCallback),
+		)
+		defer safeclose(t, ablytest.FullRealtimeCloser(c))
+
+		// Move to CONNECTING; call Authorize while there.
+		c.Connect()
+		var finishDial chan error
+		auth.handleAuth(t, getRealToken(t, rest), nil)
+		ablytest.Instantly.Recv(t, &finishDial, gotDial, t.Fatalf)
+
+		// Now call Authorize.
+		authorizeDone := make(chan struct{})
+		var rg ablytest.ResultGroup
+		defer rg.Wait()
+		rg.GoAdd(func(ctx context.Context) error {
+			defer close(authorizeDone)
+			_, err := c.Auth.Authorize(ctx, nil)
+			return err
+		})
+		auth.handleAuth(t, func(params ably.TokenParams) ably.Tokener {
+			t := getRealToken(t, rest)(params)
+			expectedToken = t.(*ably.TokenDetails).Token
+			return t
+		}, nil)
+		// Wait a bit to ensure we don't move to DISCONNECTED before
+		// onExplicitAuthorize sees that the current state is CONNECTING.
+		// (Doing this deterministically would need more hooks inside
+		// onExplicitAuthorize. Can be done, but probably not worth the trouble.)
+		time.Sleep(100 * time.Millisecond)
+
+		// Move to DISCONNECTED. This should then try to connect again right
+		// away, which will use the new token.
+		finishDial <- errors.New("test")
+
+		// Intercept CONNECTED, to check that Authorize doesn't return
+		// before the reauthorization it initiated finishes (RTC8b1).
+		ablytest.Instantly.NoRecv(t, nil, authorizeDone, t.Fatalf)
+		ctx, stopIntercepting := context.WithCancel(context.Background())
+		defer stopIntercepting()
+		connectedMsg := intercept(ctx, ably.ActionConnected)
+
+		// Expect a new dial. Check that the URL carries the new token.
+		ablytest.Soon.Recv(t, &finishDial, gotDial, t.Fatalf)
+		gotToken = lastDialURL.Query().Get("access_token")
+		finishDial <- nil
+
+		ablytest.Instantly.NoRecv(t, nil, authorizeDone, t.Fatalf)
+
+		// Now let the reauthorization finish.
+		stopIntercepting()
+		ablytest.Soon.Recv(t, nil, connectedMsg, t.Fatalf)
+		ablytest.Instantly.Recv(t, nil, authorizeDone, t.Fatalf)
+
+		assertEquals(t, expectedToken, gotToken)
+	})
+}
+
 func testConcurrentPublisher(t *testing.T, ch *ably.RealtimeChannel, out <-chan *ably.ProtocolMessage) (
 	publish func(),
 	receiveAck func() error,
