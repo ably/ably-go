@@ -587,7 +587,7 @@ type testStateChanges struct {
 	ably.ConnStateChanges
 }
 
-func (c testStateChanges) expect(t *testing.T, expected ably.ConnectionEvent) {
+func (c testStateChanges) expect(t *testing.T, expected ably.ConnectionEvent) ably.ConnectionStateChange {
 	t.Helper()
 
 	var change ably.ConnectionStateChange
@@ -595,6 +595,7 @@ func (c testStateChanges) expect(t *testing.T, expected ably.ConnectionEvent) {
 	if got := change.Event; expected != got {
 		t.Fatalf("expected: %v; got: %v", expected, got)
 	}
+	return change
 }
 
 func newTestAuthCallbackHandler() testAuthCallbackHandler {

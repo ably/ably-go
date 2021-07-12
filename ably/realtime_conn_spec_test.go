@@ -3521,10 +3521,12 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		auth.handleAuth(t, func(ably.TokenParams) ably.Tokener {
 			return ably.TokenString("made:up")
 		}, nil)
-		stateChanges.expect(t, ably.ConnectionEventFailed)
+		change := stateChanges.expect(t, ably.ConnectionEventFailed)
 		assertEquals(t, failed, c.Connection.State())
 
-		rg.Wait()
+		// RTC8a3: Error is propagated to the sAuthorize call.
+		gotErr := rg.Wait()
+		assertEquals(t, change.Reason, gotErr)
 	})
 }
 

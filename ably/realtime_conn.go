@@ -892,7 +892,7 @@ func (c *Connection) reauthorize(arg connArgs) {
 	c.reconnect(arg)
 }
 
-func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetails) {
+func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetails) error {
 	switch state := c.State(); state {
 	case ConnectionStateConnecting:
 		// RTC8b says: "all current connection attempts should be halted, and
@@ -903,7 +903,7 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 		// to a failure state), we attempt to connect again, which will use
 		// the new token.
 		c.log().Info("client-requested authorization while CONNECTING. Will reconnect with new token.")
-		done := make(chan struct{})
+		done := make(chan error)
 
 		c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
 			switch change.Current {
@@ -911,8 +911,7 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 				close(done)
 				return
 			case ConnectionStateConnected:
-				c.onExplicitAuthorize(ctx, token)
-				close(done)
+				done <- c.onExplicitAuthorize(ctx, token)
 				return
 			}
 
@@ -924,14 +923,16 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 					return
 				}
 				off()
-				close(done)
+				done <- c.Reason.unwrapNil()
 			})
 			c.Connect()
 		})
 
 		select {
 		case <-ctx.Done():
-		case <-done:
+			return ctx.Err()
+		case err := <-done:
+			return err
 		}
 
 	case ConnectionStateConnected:
@@ -954,7 +955,9 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 
 		select {
 		case <-ctx.Done():
-		case <-changes:
+			return ctx.Err()
+		case change := <-changes:
+			return change.Reason.unwrapNil()
 		}
 
 	case
@@ -965,23 +968,27 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 		c.log().Infof("client-requested authorization while %s: connecting with new token", state)
 
 		var off func()
-		done := make(chan struct{})
+		done := make(chan error)
 		off = c.internalEmitter.OnAll(func(c ConnectionStateChange) {
 			switch c.Current {
 			case ConnectionStateConnecting:
 				return
 			}
 			off()
-			close(done)
+			done <- c.Reason.unwrapNil()
 		})
 
 		c.Connect()
 
 		select {
 		case <-ctx.Done():
-		case <-done:
+			return ctx.Err()
+		case err := <-done:
+			return err
 		}
 	}
+
+	return nil
 }
 
 func (c *Connection) lockedReauthorizationFailed(err error) {
