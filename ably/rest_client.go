@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"mime"
-	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -509,20 +508,9 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 		c.log.Verbose("RestClient: enabling httptrace")
 	}
 	resp, err := c.opts.httpclient().Do(req)
-	if err != nil {
-		switch err := err.(type) {
-		case *net.DNSError: //RSC15d
-			break
-		case net.Error:
-			if !err.Timeout() { //RSC15d
-				c.log.Error("RestClient: failed sending a request ", err)
-				return nil, newError(ErrInternalError, err)
-			}
-			break
-		default:
-			c.log.Error("RestClient: failed sending a request ", err)
-			return nil, newError(ErrInternalError, err)
-		}
+	if err != nil && !isTimeoutOrDnsErr(err) { //RSC15d, RTN17d
+		c.log.Error("RestClient: failed sending a request ", err)
+		return nil, newError(ErrInternalError, err)
 	}
 	if err == nil {
 		resp, err = handle(resp, r.Out)
