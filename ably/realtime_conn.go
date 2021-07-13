@@ -350,10 +350,6 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 		c.lockSetState(ConnectionStateConnecting, nil, 0)
 	}
 	c.mtx.Unlock()
-	u, err := url.Parse(c.opts.realtimeURL(c.hosts.getPreferredHost()))
-	if err != nil {
-		return nil, err
-	}
 	var res result
 	if arg.result {
 		res = c.internalEmitter.listenResult(
@@ -362,21 +358,35 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 			ConnectionStateDisconnected,
 		)
 	}
-	query, err := c.params(arg.mode)
-	if err != nil {
-		return nil, err
-	}
-	u.RawQuery = query.Encode()
-	proto := c.opts.protocol()
+	var conn conn
+	host := c.opts.realtimeURL(c.hosts.getPreferredHost())
+	for {
+		u, err := url.Parse(host)
+		if err != nil {
+			return nil, err
+		}
+		query, err := c.params(arg.mode)
+		if err != nil {
+			return nil, err
+		}
+		u.RawQuery = query.Encode()
+		proto := c.opts.protocol()
 
-	if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
-		return nopResult, nil
-	}
-
-	// if err is nil, raw connection with server is successful
-	conn, err := c.dial(proto, u)
-	if err != nil {
-		return nil, err
+		if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
+			return nopResult, nil
+		}
+		// if err is nil, raw connection with server is successful
+		conn, err = c.dial(proto, u)
+		if err == nil {
+			c.hosts.resetVisitedFallbackHosts()
+			break
+		}
+		if c.hosts.fallbackHostsRemaining() > 0 &&
+			(isTimeoutOrDnsErr(err) || checkIfDialTimeoutOrDnsErr(err)) && hasActiveInternetConnection() { // RTN17d, RTN17c
+			host = c.opts.realtimeURL(c.hosts.getFallbackHost())
+		} else {
+			return nil, err
+		}
 	}
 
 	c.mtx.Lock()

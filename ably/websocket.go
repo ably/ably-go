@@ -57,6 +57,11 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketC
 	return ws, nil
 }
 
+func checkIfDialTimeoutOrDnsErr(err error) bool {
+	dlErr, ok := err.(*websocket.DialError)
+	return ok && isTimeoutOrDnsErr(dlErr.Err)
+}
+
 // dialWebsocketTimeout dials the websocket with a timeout.
 func dialWebsocketTimeout(uri, protocol, origin string, timeout time.Duration) (*websocket.Conn, error) {
 	config, err := websocket.NewConfig(uri, origin)
