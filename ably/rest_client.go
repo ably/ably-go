@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"mime"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -509,10 +510,23 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 	}
 	resp, err := c.opts.httpclient().Do(req)
 	if err != nil {
-		c.log.Error("RestClient: failed sending a request ", err)
-		return nil, newError(ErrInternalError, err)
+		switch err := err.(type) {
+		case *net.DNSError: //RSC15d
+			break
+		case net.Error:
+			if !err.Timeout() { //RSC15d
+				c.log.Error("RestClient: failed sending a request ", err)
+				return nil, newError(ErrInternalError, err)
+			}
+			break
+		default:
+			c.log.Error("RestClient: failed sending a request ", err)
+			return nil, newError(ErrInternalError, err)
+		}
 	}
-	resp, err = handle(resp, r.Out)
+	if err == nil {
+		resp, err = handle(resp, r.Out)
+	}
 	if err != nil {
 		c.log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
@@ -584,7 +598,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 }
 
 func canFallBack(code int) bool {
-	return http.StatusInternalServerError <= code &&
+	return code >= http.StatusInternalServerError &&
 		code <= http.StatusGatewayTimeout
 }
 

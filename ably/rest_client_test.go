@@ -541,6 +541,69 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 	})
 }
 
+func TestRest_RSC15d_HostFallback(t *testing.T) {
+	t.Parallel()
+
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	runTestServer := func(t *testing.T, options []ably.ClientOption) (int, []string) {
+		var retryCount int
+		var hosts []string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hosts = append(hosts, strings.Split(r.Host, ":")[0]) // RSC15j, returns HOST header, https://stackoverflow.com/questions/53462002/net-http-request-url-host-returns-empty-string
+			retryCount++
+			w.WriteHeader(http.StatusBadRequest)
+		}))
+		defer server.Close()
+		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(newHTTPClientMock(server)))...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+		if err == nil {
+			t.Error("expected an error")
+		}
+		return retryCount, hosts
+	}
+
+	t.Run("RSC15d should not fallback for error code < 500 or errorCode > 504", func(t *testing.T) {
+		t.Parallel()
+
+		options := []ably.ClientOption{
+			ably.WithTLS(false),      // since local proxy server, TLS is disabled
+			ably.WithEnvironment(""), // remove default sandbox env
+			ably.WithHTTPMaxRetryCount(10),
+			ably.WithUseTokenAuth(true),
+		}
+
+		retryCount, hosts := runTestServer(t, options)
+		if retryCount != 1 { // 1 primary and 5 default fallback hosts
+			t.Fatalf("expected 1 http call got %d", retryCount)
+		}
+		// make sure the host header is set. Since we are using defaults from the spec
+		// the hosts should be in [a..e].ably-realtime.com
+		expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
+		for _, host := range hosts[1:] {
+			if !strings.Contains(expect, host) {
+				t.Errorf("expected %s got be in %s", host, expect)
+			}
+		}
+
+		// ensure all picked fallbacks are unique
+		uniq := make(map[string]bool)
+		for _, h := range hosts {
+			if _, ok := uniq[h]; ok {
+				t.Errorf("duplicate fallback %s", h)
+			} else {
+				uniq[h] = true
+			}
+		}
+	})
+}
+
 func TestRest_RSC15f_CacheFallbackHost(t *testing.T) {
 	t.Parallel()
 
