@@ -63,9 +63,10 @@ type Connection struct {
 	reconnecting bool
 	// reauthorizing tracks if the current reconnection attempt is happening
 	// after a reauthorization, to avoid re-reauthorizing.
-	reauthorizing bool
-	arg           connArgs
-	hosts         *realtimeHosts
+	reauthorizing        bool
+	arg                  connArgs
+	hosts                *realtimeHosts
+	setPreferredRestHost func(host string)
 }
 
 type connCallbacks struct {
@@ -80,17 +81,18 @@ type connCallbacks struct {
 	onReconnectionFailed func(*errorInfo)
 }
 
-func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connection {
+func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, setPreferredRestHost func(host string)) *Connection {
 	c := &Connection{
 
 		ConnectionEventEmitter: ConnectionEventEmitter{newEventEmitter(auth.log())},
 		state:                  ConnectionStateInitialized,
 		internalEmitter:        ConnectionEventEmitter{newEventEmitter(auth.log())},
 
-		opts:      opts,
-		pending:   newPendingEmitter(auth.log()),
-		auth:      auth,
-		callbacks: callbacks,
+		opts:                 opts,
+		pending:              newPendingEmitter(auth.log()),
+		auth:                 auth,
+		callbacks:            callbacks,
+		setPreferredRestHost: setPreferredRestHost,
 	}
 	c.queue = newMsgQueue(c)
 	c.hosts = newRealtimeHosts(c.opts)
@@ -359,9 +361,9 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 		)
 	}
 	var conn conn
-	host := c.opts.realtimeURL(c.hosts.getPreferredHost())
+	host := c.hosts.getPreferredHost()
 	for {
-		u, err := url.Parse(host)
+		u, err := url.Parse(c.opts.realtimeURL(host))
 		if err != nil {
 			return nil, err
 		}
@@ -378,12 +380,15 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 		// if err is nil, raw connection with server is successful
 		conn, err = c.dial(proto, u)
 		if err == nil {
+			if host != c.hosts.getPrimaryHost() { // RTN17e
+				c.setPreferredRestHost(host)
+			}
 			c.hosts.resetVisitedFallbackHosts()
 			break
 		}
 		if c.hosts.fallbackHostsRemaining() > 0 &&
 			(isTimeoutOrDnsErr(err) || checkIfDialTimeoutOrDnsErr(err)) && hasActiveInternetConnection() { // RTN17d, RTN17c
-			host = c.opts.realtimeURL(c.hosts.getFallbackHost())
+			host = c.hosts.nextFallbackHost()
 		} else {
 			return nil, err
 		}

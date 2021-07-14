@@ -29,7 +29,7 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 
 		// Get all fallback hosts in random order
 		for true {
-			fallbackHost := restHosts.GetFallbackHost()
+			fallbackHost := restHosts.NextFallbackHost()
 			actualHosts = append(actualHosts, fallbackHost)
 			if ablyutil.Empty(fallbackHost) {
 				break
@@ -61,7 +61,7 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 
 		// Get all fallback hosts in random order
 		for true {
-			fallbackHost := restHosts.GetFallbackHost()
+			fallbackHost := restHosts.NextFallbackHost()
 			actualHosts = append(actualHosts, fallbackHost)
 			if ablyutil.Empty(fallbackHost) {
 				break
@@ -88,15 +88,15 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		restHosts.GetPreferredHost()
 
 		// Get some fallback hosts
-		restHosts.GetFallbackHost()
-		restHosts.GetFallbackHost()
+		restHosts.NextFallbackHost()
+		restHosts.NextFallbackHost()
 
 		// Clear visited hosts, after reconnection
 		restHosts.ResetVisitedFallbackHosts()
 
 		// Get all fallback hosts in random order
 		for true {
-			fallbackHost := restHosts.GetFallbackHost()
+			fallbackHost := restHosts.NextFallbackHost()
 			actualHosts = append(actualHosts, fallbackHost)
 			if ablyutil.Empty(fallbackHost) {
 				break
@@ -122,7 +122,7 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 
 		// Get all fallback hosts in random order
 		for true {
-			fallbackHost := restHosts.GetFallbackHost()
+			fallbackHost := restHosts.NextFallbackHost()
 			actualHosts = append(actualHosts, fallbackHost)
 			if ablyutil.Empty(fallbackHost) {
 				break
@@ -155,15 +155,15 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 
 		assertEquals(t, 5, restHosts.FallbackHostsRemaining())
 		// Get some fallback hosts
-		restHosts.GetFallbackHost()
+		restHosts.NextFallbackHost()
 		assertEquals(t, 4, restHosts.FallbackHostsRemaining())
 
-		restHosts.GetFallbackHost()
+		restHosts.NextFallbackHost()
 		assertEquals(t, 3, restHosts.FallbackHostsRemaining())
 
-		restHosts.GetFallbackHost()
-		restHosts.GetFallbackHost()
-		restHosts.GetFallbackHost()
+		restHosts.NextFallbackHost()
+		restHosts.NextFallbackHost()
+		restHosts.NextFallbackHost()
 
 		assertEquals(t, 0, restHosts.FallbackHostsRemaining())
 	})
@@ -205,7 +205,7 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 
 		// Get all fallback hosts in random order
 		for true {
-			fallbackHost := realtimeHosts.GetFallbackHost()
+			fallbackHost := realtimeHosts.NextFallbackHost()
 			actualHosts = append(actualHosts, fallbackHost)
 			if ablyutil.Empty(fallbackHost) {
 				break
@@ -232,15 +232,15 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		realtimeHosts.GetPreferredHost()
 
 		// Get some fallback hosts
-		realtimeHosts.GetFallbackHost()
-		realtimeHosts.GetFallbackHost()
+		realtimeHosts.NextFallbackHost()
+		realtimeHosts.NextFallbackHost()
 
 		// Clear visited hosts, after reconnection
 		realtimeHosts.ResetVisitedFallbackHosts()
 
 		// Get all fallback hosts in random order
 		for true {
-			fallbackHost := realtimeHosts.GetFallbackHost()
+			fallbackHost := realtimeHosts.NextFallbackHost()
 			actualHosts = append(actualHosts, fallbackHost)
 			if ablyutil.Empty(fallbackHost) {
 				break
@@ -266,7 +266,7 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 
 		// Get all fallback hosts in random order
 		for true {
-			fallbackHost := realtimeHosts.GetFallbackHost()
+			fallbackHost := realtimeHosts.NextFallbackHost()
 			actualHosts = append(actualHosts, fallbackHost)
 			if ablyutil.Empty(fallbackHost) {
 				break
@@ -292,15 +292,15 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 
 		assertEquals(t, 5, realtimeHosts.FallbackHostsRemaining())
 		// Get some fallback hosts
-		realtimeHosts.GetFallbackHost()
+		realtimeHosts.NextFallbackHost()
 		assertEquals(t, 4, realtimeHosts.FallbackHostsRemaining())
 
-		realtimeHosts.GetFallbackHost()
+		realtimeHosts.NextFallbackHost()
 		assertEquals(t, 3, realtimeHosts.FallbackHostsRemaining())
 
-		realtimeHosts.GetFallbackHost()
-		realtimeHosts.GetFallbackHost()
-		realtimeHosts.GetFallbackHost()
+		realtimeHosts.NextFallbackHost()
+		realtimeHosts.NextFallbackHost()
+		realtimeHosts.NextFallbackHost()
 
 		assertEquals(t, 0, realtimeHosts.FallbackHostsRemaining())
 	})

@@ -19,8 +19,8 @@ func (restHosts *restHosts) GetPrimaryHost() string {
 	return restHosts.getPrimaryHost()
 }
 
-func (restHosts *restHosts) GetFallbackHost() string {
-	return restHosts.getFallbackHost()
+func (restHosts *restHosts) NextFallbackHost() string {
+	return restHosts.nextFallbackHost()
 }
 
 func (restHosts *restHosts) ResetVisitedFallbackHosts() {
@@ -51,8 +51,8 @@ func (realtimeHosts *realtimeHosts) GetPrimaryHost() string {
 	return realtimeHosts.getPrimaryHost()
 }
 
-func (realtimeHosts *realtimeHosts) GetFallbackHost() string {
-	return realtimeHosts.getFallbackHost()
+func (realtimeHosts *realtimeHosts) NextFallbackHost() string {
+	return realtimeHosts.nextFallbackHost()
 }
 
 func (realtimeHosts *realtimeHosts) ResetVisitedFallbackHosts() {

@@ -30,7 +30,7 @@ func (restHosts *restHosts) getPrimaryHost() string {
 	return restHosts.opts.getPrimaryRestHost()
 }
 
-func (restHosts *restHosts) getFallbackHost() string {
+func (restHosts *restHosts) nextFallbackHost() string {
 	restHosts.Lock()
 	defer restHosts.Unlock()
 	hosts, _ := restHosts.opts.getFallbackHosts()
@@ -116,7 +116,7 @@ func (realtimeHosts *realtimeHosts) getPrimaryHost() string {
 	return realtimeHosts.opts.getPrimaryRealtimeHost()
 }
 
-func (realtimeHosts *realtimeHosts) getFallbackHost() string {
+func (realtimeHosts *realtimeHosts) nextFallbackHost() string {
 	realtimeHosts.Lock()
 	defer realtimeHosts.Unlock()
 	hosts, _ := realtimeHosts.opts.getFallbackHosts()
