@@ -6,10 +6,12 @@ const (
 	ablyLibHeader          = "X-Ably-Lib"
 	ablyErrorCodeHeader    = "X-Ably-Errorcode"
 	ablyErrorMessageHeader = "X-Ably-Errormessage"
-	libraryVersion         = "1.2.0-apipreview.4"
+	libraryVersion         = "1.2.0"
 	libraryName            = "go"
 	libraryString          = libraryName + "-" + libraryVersion
 	ablyVersion            = "1.2"
 	ablyClientIDHeader     = "X-Ably-ClientId"
 	hostHeader             = "Host"
+	ablyAgentHeader        = "Ably-Agent"
+	ablyAgentIdentifier    = "ably-go/" + libraryVersion
 )
