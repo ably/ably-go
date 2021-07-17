@@ -541,13 +541,15 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 						}
 						c.log.Infof("RestClient:  chose fallback host=%q ", host)
 						req.Host = req.URL.Host // RSC15j set host header, https://github.com/golang/go/issues/7682, since req.Host overrides req.URL.Host, use the same value
-						req.Header.Set(hostHeader, req.URL.Host)
+						req.Header.Set(hostHeader, host)
 						resp, err := c.opts.httpclient().Do(req)
-						if err != nil {
+						if err != nil && !isTimeoutOrDnsErr(err) {
 							c.log.Error("RestClient: failed sending a request to a fallback host", err)
 							return nil, newError(ErrInternalError, err)
 						}
-						resp, err = handle(resp, r.Out)
+						if err == nil {
+							resp, err = handle(resp, r.Out)
+						}
 						if err != nil {
 							c.log.Error("RestClient: error handling response: ", err)
 							if iteration == maxLimit-1 {
