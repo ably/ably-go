@@ -145,17 +145,14 @@ func errFromUnprocessableBody(resp *http.Response) error {
 }
 
 func isTimeoutOrDnsErr(err error) bool {
-	var dnsErr *net.DNSError
-	if errors.As(err, &dnsErr) {
-		return true
-	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {
 		if netErr.Timeout() {
 			return true
 		}
 	}
-	if strings.Contains(err.Error(), "Client.Timeout exceeded while awaiting headers") {
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
 		return true
 	}
 	return false

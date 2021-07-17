@@ -13,6 +13,7 @@ import (
 func NewClientOptions(os ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(os...)
 }
+
 func NewRestHosts(opts *clientOptions) *restHosts {
 	return newRestHosts(opts)
 }
@@ -148,6 +149,10 @@ func UnwrapErrorCode(err error) ErrorCode {
 
 func UnwrapStatusCode(err error) int {
 	return statusCode(err)
+}
+
+func IsTimeoutOrDnsErr(err error) bool {
+	return isTimeoutOrDnsErr(err)
 }
 
 func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
