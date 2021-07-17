@@ -9,6 +9,7 @@ import (
 
 func Test_RSC15_RestHostFallback(t *testing.T) {
 	t.Parallel()
+
 	t.Run("RSC15a: should get fallback hosts in random order", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
 		restHosts := ably.NewRestHosts(clientOptions)
@@ -28,14 +29,10 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		actualHosts = append(actualHosts, prefHost)
 
 		// Get all fallback hosts in random order
-		for true {
-			fallbackHost := restHosts.NextFallbackHost()
-			actualHosts = append(actualHosts, fallbackHost)
-			if ablyutil.Empty(fallbackHost) {
-				break
-			}
-		}
-		assertElementsMatch(t, expectedHosts, actualHosts)
+		actualHosts = append(actualHosts, restHosts.GetAllRemainingFallbackHosts()...)
+
+		assertNotDeepEquals(t, expectedHosts, actualHosts)
+		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
 	t.Run("RSC15a: should get fallback hosts when host is cached", func(t *testing.T) {
@@ -57,17 +54,15 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		// Get first preferred restHost
 		var actualHosts []string
 		prefHost := restHosts.GetPreferredHost()
+		assertEquals(t, "b.ably-realtime.com", prefHost)
+
 		actualHosts = append(actualHosts, prefHost)
 
 		// Get all fallback hosts in random order
-		for true {
-			fallbackHost := restHosts.NextFallbackHost()
-			actualHosts = append(actualHosts, fallbackHost)
-			if ablyutil.Empty(fallbackHost) {
-				break
-			}
-		}
-		assertElementsMatch(t, expectedHosts, actualHosts)
+		actualHosts = append(actualHosts, restHosts.GetAllRemainingFallbackHosts()...)
+
+		assertNotDeepEquals(t, expectedHosts, actualHosts)
+		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
 	t.Run("RSC15a: should get all fallback hosts again, when visited hosts are cleared after reconnection", func(t *testing.T) {
@@ -95,14 +90,10 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		restHosts.ResetVisitedFallbackHosts()
 
 		// Get all fallback hosts in random order
-		for true {
-			fallbackHost := restHosts.NextFallbackHost()
-			actualHosts = append(actualHosts, fallbackHost)
-			if ablyutil.Empty(fallbackHost) {
-				break
-			}
-		}
-		assertElementsMatch(t, expectedHosts, actualHosts)
+		actualHosts = append(actualHosts, restHosts.GetAllRemainingFallbackHosts()...)
+
+		assertNotDeepEquals(t, expectedHosts, actualHosts)
+		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
 	t.Run("RSC15a: should get all fallback hosts, including primary host when preferred host is not requested", func(t *testing.T) {
@@ -121,14 +112,10 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		var actualHosts []string
 
 		// Get all fallback hosts in random order
-		for true {
-			fallbackHost := restHosts.NextFallbackHost()
-			actualHosts = append(actualHosts, fallbackHost)
-			if ablyutil.Empty(fallbackHost) {
-				break
-			}
-		}
-		assertElementsMatch(t, expectedHosts, actualHosts)
+		actualHosts = append(actualHosts, restHosts.GetAllRemainingFallbackHosts()...)
+
+		assertNotDeepEquals(t, expectedHosts, actualHosts)
+		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
 	t.Run("RSC15e: should return primary host if not cached", func(t *testing.T) {
@@ -204,14 +191,10 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		actualHosts = append(actualHosts, prefHost)
 
 		// Get all fallback hosts in random order
-		for true {
-			fallbackHost := realtimeHosts.NextFallbackHost()
-			actualHosts = append(actualHosts, fallbackHost)
-			if ablyutil.Empty(fallbackHost) {
-				break
-			}
-		}
-		assertElementsMatch(t, expectedHosts, actualHosts)
+		actualHosts = append(actualHosts, realtimeHosts.GetAllRemainingFallbackHosts()...)
+
+		assertNotDeepEquals(t, expectedHosts, actualHosts)
+		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
 	t.Run("RTN17c, RSC15g: should get all fallback hosts again, when visited hosts are cleared after reconnection", func(t *testing.T) {
@@ -219,7 +202,7 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		realtimeHosts := ably.NewRealtimeHosts(clientOptions)
 		// All expected hosts supposed to be tried upon
 		expectedHosts := []string{
-			"rest.ably.io",
+			"realtime.ably.io",
 			"a.ably-realtime.com",
 			"b.ably-realtime.com",
 			"c.ably-realtime.com",
@@ -239,14 +222,10 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		realtimeHosts.ResetVisitedFallbackHosts()
 
 		// Get all fallback hosts in random order
-		for true {
-			fallbackHost := realtimeHosts.NextFallbackHost()
-			actualHosts = append(actualHosts, fallbackHost)
-			if ablyutil.Empty(fallbackHost) {
-				break
-			}
-		}
-		assertElementsMatch(t, expectedHosts, actualHosts)
+		actualHosts = append(actualHosts, realtimeHosts.GetAllRemainingFallbackHosts()...)
+
+		assertNotDeepEquals(t, expectedHosts, actualHosts)
+		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
 	t.Run("RTN17c, RSC15g: should get all fallback hosts, including primary host when preferred host is not requested", func(t *testing.T) {
@@ -254,7 +233,7 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		realtimeHosts := ably.NewRealtimeHosts(clientOptions)
 		// All expected hosts supposed to be tried upon
 		expectedHosts := []string{
-			"rest.ably.io",
+			"realtime.ably.io",
 			"a.ably-realtime.com",
 			"b.ably-realtime.com",
 			"c.ably-realtime.com",
@@ -265,14 +244,10 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		var actualHosts []string
 
 		// Get all fallback hosts in random order
-		for true {
-			fallbackHost := realtimeHosts.NextFallbackHost()
-			actualHosts = append(actualHosts, fallbackHost)
-			if ablyutil.Empty(fallbackHost) {
-				break
-			}
-		}
-		assertElementsMatch(t, expectedHosts, actualHosts)
+		actualHosts = append(actualHosts, realtimeHosts.GetAllRemainingFallbackHosts()...)
+
+		assertNotDeepEquals(t, expectedHosts, actualHosts)
+		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
 	t.Run("RTN17e: rest host should use active realtime host as pref. host", func(t *testing.T) {

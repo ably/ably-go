@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -161,5 +162,43 @@ func TestIssue_154(t *testing.T) {
 	et := err.(*ably.ErrorInfo)
 	if et.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("expected %d got %d: %v", http.StatusMethodNotAllowed, et.StatusCode, err)
+	}
+}
+
+func Test_DNSOrTimeoutErr(t *testing.T) {
+	dnsErr := net.DNSError{
+		Err:         "Can't resolve host",
+		Name:        "Host unresolvable",
+		Server:      "rest.ably.com",
+		IsTimeout:   false,
+		IsTemporary: false,
+		IsNotFound:  false,
+	}
+
+	WrappedDNSErr := fmt.Errorf("custom error occured %w", &dnsErr)
+	if !ably.IsTimeoutOrDnsErr(WrappedDNSErr) {
+		t.Fatalf("%v is a DNS error", WrappedDNSErr)
+	}
+
+	urlErr := url.Error{
+		URL: "rest.ably.io",
+		Err: errors.New("URL error occured"),
+		Op:  "IO read OP",
+	}
+
+	if ably.IsTimeoutOrDnsErr(&urlErr) {
+		t.Fatalf("%v is not a DNS or timeout error", urlErr)
+	}
+
+	urlErr.Err = &dnsErr
+
+	if !ably.IsTimeoutOrDnsErr(WrappedDNSErr) {
+		t.Fatalf("%v is a DNS error", urlErr)
+	}
+
+	dnsErr.IsTimeout = true
+
+	if !ably.IsTimeoutOrDnsErr(WrappedDNSErr) {
+		t.Fatalf("%v is a timeout error", urlErr)
 	}
 }

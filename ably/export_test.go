@@ -6,11 +6,14 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"time"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
 
 func NewClientOptions(os ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(os...)
 }
+
 func NewRestHosts(opts *clientOptions) *restHosts {
 	return newRestHosts(opts)
 }
@@ -21,6 +24,18 @@ func (restHosts *restHosts) GetPrimaryHost() string {
 
 func (restHosts *restHosts) NextFallbackHost() string {
 	return restHosts.nextFallbackHost()
+}
+
+func (restHosts *restHosts) GetAllRemainingFallbackHosts() []string {
+	var hosts []string
+	for true {
+		fallbackHost := restHosts.NextFallbackHost()
+		if ablyutil.Empty(fallbackHost) {
+			break
+		}
+		hosts = append(hosts, fallbackHost)
+	}
+	return hosts
 }
 
 func (restHosts *restHosts) ResetVisitedFallbackHosts() {
@@ -53,6 +68,18 @@ func (realtimeHosts *realtimeHosts) GetPrimaryHost() string {
 
 func (realtimeHosts *realtimeHosts) NextFallbackHost() string {
 	return realtimeHosts.nextFallbackHost()
+}
+
+func (realtimeHosts *realtimeHosts) GetAllRemainingFallbackHosts() []string {
+	var hosts []string
+	for true {
+		fallbackHost := realtimeHosts.NextFallbackHost()
+		if ablyutil.Empty(fallbackHost) {
+			break
+		}
+		hosts = append(hosts, fallbackHost)
+	}
+	return hosts
 }
 
 func (realtimeHosts *realtimeHosts) ResetVisitedFallbackHosts() {
@@ -124,6 +151,10 @@ func UnwrapStatusCode(err error) int {
 	return statusCode(err)
 }
 
+func IsTimeoutOrDnsErr(err error) bool {
+	return isTimeoutOrDnsErr(err)
+}
+
 func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
 	return a.timestamp(ctx, query)
 }
@@ -135,10 +166,6 @@ func (c *REST) Timestamp(query bool) (time.Time, error) {
 func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
 }
-
-//func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
-//	c.successFallbackHost = &hostCache{duration: duration}
-//}
 
 func (c *REST) GetCachedFallbackHost() string {
 	return c.hosts.cache.get()

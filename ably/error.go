@@ -7,7 +7,6 @@ import (
 	"mime"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -146,25 +145,14 @@ func errFromUnprocessableBody(resp *http.Response) error {
 }
 
 func isTimeoutOrDnsErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	switch err := err.(type) {
-	case *net.DNSError:
-		return true
-	case net.Error:
-		if err.Timeout() {
-			return true
-		}
-	case *url.Error:
-		if err, ok := err.Err.(net.Error); ok && err.Timeout() {
-			return true
-		}
-		if _, ok := err.Err.(*net.DNSError); ok {
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() {
 			return true
 		}
 	}
-	if strings.Contains(err.Error(), "Client.Timeout exceeded while awaiting headers") {
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
 		return true
 	}
 	return false

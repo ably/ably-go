@@ -13,7 +13,7 @@ type restHosts struct {
 	primaryFallbackHost string
 	opts                *clientOptions
 	cache               *hostCache
-	visitedHosts        []string
+	visitedHosts        ablyutil.HashSet
 	sync.Mutex
 }
 
@@ -23,6 +23,7 @@ func newRestHosts(opts *clientOptions) *restHosts {
 		cache: &hostCache{
 			duration: opts.fallbackRetryTimeout(),
 		},
+		visitedHosts: ablyutil.NewHashSet(),
 	}
 }
 
@@ -33,23 +34,30 @@ func (restHosts *restHosts) getPrimaryHost() string {
 func (restHosts *restHosts) nextFallbackHost() string {
 	restHosts.Lock()
 	defer restHosts.Unlock()
-	hosts, _ := restHosts.opts.getFallbackHosts()
-	shuffledFallbackHosts := ablyutil.Shuffle(hosts)
+
 	getNonVisitedHost := func() string {
 		visitedHosts := restHosts.visitedHosts
-		if !ablyutil.Contains(visitedHosts, restHosts.getPrimaryHost()) {
-			return restHosts.getPrimaryHost()
+		cachedHost := restHosts.cache.get()
+		if !ablyutil.Empty(cachedHost) && !visitedHosts.Has(cachedHost) {
+			return cachedHost
 		}
+		primaryHost := restHosts.getPrimaryHost()
+		if !visitedHosts.Has(primaryHost) {
+			return primaryHost
+		}
+		hosts, _ := restHosts.opts.getFallbackHosts()
+		shuffledFallbackHosts := ablyutil.Shuffle(hosts)
 		for _, host := range shuffledFallbackHosts {
-			if !ablyutil.Contains(visitedHosts, host) {
+			if !visitedHosts.Has(host) {
 				return host
 			}
 		}
 		return ""
 	}
+
 	nonVisitedHost := getNonVisitedHost()
 	if !ablyutil.Empty(nonVisitedHost) {
-		restHosts.visitedHosts = append(restHosts.visitedHosts, nonVisitedHost)
+		restHosts.visitedHosts.Add(nonVisitedHost)
 	}
 	return nonVisitedHost
 }
@@ -57,7 +65,7 @@ func (restHosts *restHosts) nextFallbackHost() string {
 func (restHosts *restHosts) resetVisitedFallbackHosts() {
 	restHosts.Lock()
 	defer restHosts.Unlock()
-	restHosts.visitedHosts = nil
+	restHosts.visitedHosts = ablyutil.NewHashSet()
 }
 
 func (restHosts *restHosts) fallbackHostsRemaining() int {
@@ -84,9 +92,7 @@ func (restHosts *restHosts) getPreferredHost() string {
 			host = restHosts.primaryFallbackHost
 		}
 	}
-	if !ablyutil.Contains(restHosts.visitedHosts, host) {
-		restHosts.visitedHosts = append(restHosts.visitedHosts, host)
-	}
+	restHosts.visitedHosts.Add(host)
 	return host
 }
 
@@ -102,13 +108,14 @@ func (restHosts *restHosts) cacheHost(host string) {
 // RTN17
 type realtimeHosts struct {
 	opts         *clientOptions
-	visitedHosts []string
+	visitedHosts ablyutil.HashSet
 	sync.Mutex
 }
 
 func newRealtimeHosts(opts *clientOptions) *realtimeHosts {
 	return &realtimeHosts{
-		opts: opts,
+		opts:         opts,
+		visitedHosts: ablyutil.NewHashSet(),
 	}
 }
 
@@ -119,23 +126,26 @@ func (realtimeHosts *realtimeHosts) getPrimaryHost() string {
 func (realtimeHosts *realtimeHosts) nextFallbackHost() string {
 	realtimeHosts.Lock()
 	defer realtimeHosts.Unlock()
-	hosts, _ := realtimeHosts.opts.getFallbackHosts()
-	shuffledFallbackHosts := ablyutil.Shuffle(hosts)
+
 	getNonVisitedHost := func() string {
 		visitedHosts := realtimeHosts.visitedHosts
-		if !ablyutil.Contains(visitedHosts, realtimeHosts.getPrimaryHost()) {
-			return realtimeHosts.getPrimaryHost()
+		primaryHost := realtimeHosts.getPrimaryHost()
+		if !visitedHosts.Has(primaryHost) {
+			return primaryHost
 		}
+		hosts, _ := realtimeHosts.opts.getFallbackHosts()
+		shuffledFallbackHosts := ablyutil.Shuffle(hosts)
 		for _, host := range shuffledFallbackHosts {
-			if !ablyutil.Contains(visitedHosts, host) {
+			if !visitedHosts.Has(host) {
 				return host
 			}
 		}
 		return ""
 	}
+
 	nonVisitedHost := getNonVisitedHost()
 	if !ablyutil.Empty(nonVisitedHost) {
-		realtimeHosts.visitedHosts = append(realtimeHosts.visitedHosts, nonVisitedHost)
+		realtimeHosts.visitedHosts.Add(nonVisitedHost)
 	}
 	return nonVisitedHost
 }
@@ -143,7 +153,7 @@ func (realtimeHosts *realtimeHosts) nextFallbackHost() string {
 func (realtimeHosts *realtimeHosts) resetVisitedFallbackHosts() {
 	realtimeHosts.Lock()
 	defer realtimeHosts.Unlock()
-	realtimeHosts.visitedHosts = nil
+	realtimeHosts.visitedHosts = ablyutil.NewHashSet()
 }
 
 func (realtimeHosts *realtimeHosts) fallbackHostsRemaining() int {
@@ -157,9 +167,7 @@ func (realtimeHosts *realtimeHosts) getPreferredHost() string {
 	realtimeHosts.Lock()
 	defer realtimeHosts.Unlock()
 	host := realtimeHosts.getPrimaryHost() // primary host is always preferred host/ fallback host in realtime
-	if !ablyutil.Contains(realtimeHosts.visitedHosts, host) {
-		realtimeHosts.visitedHosts = append(realtimeHosts.visitedHosts, host)
-	}
+	realtimeHosts.visitedHosts.Add(host)
 	return host
 }
 
