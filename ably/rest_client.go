@@ -534,7 +534,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 							c.log.Errorf("RestClient: exhausted fallback hosts", err)
 							return nil, err
 						}
-						host := c.hosts.getFallbackHost()
+						host := c.hosts.nextFallbackHost()
 						req, err := c.newHTTPRequest(ctx, r, host)
 						if err != nil {
 							return nil, err

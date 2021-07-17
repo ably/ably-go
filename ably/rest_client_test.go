@@ -322,9 +322,9 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		}
 		// make sure the host header is set. Since we are using defaults from the spec
 		// the hosts should be in [a..e].ably-realtime.com
-		expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
+		expect := ably.DefaultFallbackHosts()
 		for _, host := range hosts[1:] {
-			if !strings.Contains(expect, host) {
+			if !ablyutil.Contains(expect, host) {
 				t.Errorf("expected %s got be in %s", host, expect)
 			}
 		}
@@ -355,9 +355,9 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		}
 		// make sure the host header is set. Since we are using defaults from the spec
 		// the hosts should be in [a..e].ably-realtime.com
-		expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
+		expect := ably.DefaultFallbackHosts()
 		for _, host := range hosts[1:] {
-			if !strings.Contains(expect, host) {
+			if !ablyutil.Contains(expect, host) {
 				t.Errorf("expected %s got be in %s", host, expect)
 			}
 		}
@@ -390,9 +390,9 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			}
 			// make sure the host header is set. Since we are using defaults from the spec
 			// the hosts should be in [a..e].ably-realtime.com
-			expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
+			expect := ably.DefaultFallbackHosts()
 			for _, host := range hosts[1:] {
-				if !strings.Contains(expect, host) {
+				if !ablyutil.Contains(expect, host) {
 					t.Errorf("expected %s got be in %s", host, expect)
 				}
 			}
@@ -423,9 +423,9 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			}
 			// make sure the host header is set. Since we are using defaults from the spec
 			// the hosts should be in [a..e].ably-realtime.com
-			expect := strings.Join(ably.GetEnvFallbackHosts("sandbox"), ", ")
+			expect := ably.GetEnvFallbackHosts("sandbox")
 			for _, host := range hosts[1:] {
-				if !strings.Contains(expect, host) {
+				if !ablyutil.Contains(expect, host) {
 					t.Errorf("expected %s got be in %s", host, expect)
 				}
 			}
@@ -492,9 +492,9 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			if retryCount != 4 {
 				t.Fatalf("expected 4 http call got %d", retryCount)
 			}
-			expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
+			expect := ably.DefaultFallbackHosts()
 			for _, host := range hosts[1:] {
-				if !strings.Contains(expect, host) {
+				if !ablyutil.Contains(expect, host) {
 					t.Errorf("expected %s got be in %s", host, expect)
 				}
 			}
@@ -585,9 +585,9 @@ func TestRest_RSC15d_HostFallback(t *testing.T) {
 		}
 		// make sure the host header is set. Since we are using defaults from the spec
 		// the hosts should be in [a..e].ably-realtime.com
-		expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
+		expect := ably.DefaultFallbackHosts()
 		for _, host := range hosts[1:] {
-			if !strings.Contains(expect, host) {
+			if !ablyutil.Contains(expect, host) {
 				t.Errorf("expected %s got be in %s", host, expect)
 			}
 		}
