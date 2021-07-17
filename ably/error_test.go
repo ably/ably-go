@@ -187,18 +187,18 @@ func Test_DNSOrTimeoutErr(t *testing.T) {
 	}
 
 	if ably.IsTimeoutOrDnsErr(&urlErr) {
-		t.Fatalf("%v is not a DNS or timeout error", WrappedDNSErr)
+		t.Fatalf("%v is not a DNS or timeout error", urlErr)
 	}
 
 	urlErr.Err = &dnsErr
 
 	if !ably.IsTimeoutOrDnsErr(WrappedDNSErr) {
-		t.Fatalf("%v is a DNS error", WrappedDNSErr)
+		t.Fatalf("%v is a DNS error", urlErr)
 	}
 
 	dnsErr.IsTimeout = true
 
 	if !ably.IsTimeoutOrDnsErr(WrappedDNSErr) {
-		t.Fatalf("%v is a timeout error", WrappedDNSErr)
+		t.Fatalf("%v is a timeout error", urlErr)
 	}
 }
