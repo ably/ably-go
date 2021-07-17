@@ -346,6 +346,8 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 }
 
 func (c *Connection) connectWith(arg connArgs) (result, error) {
+	defer c.hosts.resetVisitedFallbackHosts()
+
 	c.mtx.Lock()
 	// set ably connection state to connecting, connecting state exists regardless of whether raw connection is successful or not
 	if !c.isActive() { // check if already in connecting state
@@ -383,7 +385,6 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 			if host != c.hosts.getPrimaryHost() { // RTN17e
 				c.setPreferredRestHost(host)
 			}
-			c.hosts.resetVisitedFallbackHosts()
 			break
 		}
 		if c.hosts.fallbackHostsRemaining() > 0 &&
