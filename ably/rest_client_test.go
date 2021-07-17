@@ -604,6 +604,70 @@ func TestRest_RSC15d_HostFallback(t *testing.T) {
 	})
 }
 
+func TestRest_RSC15j_Fallback_HostHeader(t *testing.T) {
+	t.Parallel()
+
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+
+	fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
+	var nopts []ably.ClientOption
+
+	t.Run("RSC15j : Should set fallback host header", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		nopts = []ably.ClientOption{
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithFallbackHosts(fallbackHosts),
+			ably.WithUseTokenAuth(true),
+		}
+		// set up the proxy to forward all requests except a specific fallback to the server,
+		// whilst that fallback goes to the regular endpoint
+		serverURL, _ := url.Parse(server.URL)
+
+		var hostHeaders []string
+		proxy := func(r *http.Request) (*url.URL, error) {
+			header := r.Header.Get("Host")
+			if !ablyutil.Empty(header) {
+				hostHeaders = append(hostHeaders, header)
+			}
+			return serverURL, nil
+		}
+
+		nopts = append(nopts, ably.WithHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				Proxy:        proxy,
+				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
+			},
+		}))
+
+		client, err := ably.NewREST(app.Options(nopts...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		channel := client.Channels.Get("remember_fallback_host")
+		channel.Publish(context.Background(), "ping", "pong")
+
+		if len(hostHeaders) != 3 {
+			t.Fatalf("expected 3 hostheaders, received %d", len(hostHeaders))
+		}
+
+		for _, fallbackHost := range fallbackHosts {
+			if !ablyutil.Contains(hostHeaders, fallbackHost) {
+				t.Fatalf("Didn't receive hostheader for %s", fallbackHost)
+			}
+		}
+	})
+}
+
 func TestRest_RSC15f_CacheFallbackHost(t *testing.T) {
 	t.Parallel()
 
