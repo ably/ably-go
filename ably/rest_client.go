@@ -498,79 +498,48 @@ func (c *REST) do(ctx context.Context, r *request) (*http.Response, error) {
 }
 
 func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
-	prefHost := c.hosts.getPreferredHost()
-	req, err := c.newHTTPRequest(ctx, r, prefHost)
-	if err != nil {
-		return nil, err
-	}
-	if c.opts.Trace != nil {
-		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
-		c.log.Verbose("RestClient: enabling httptrace")
-	}
-	resp, err := c.opts.httpclient().Do(req)
-	if err != nil && !isTimeoutOrDnsErr(err) { //RSC15d, RTN17d
-		c.log.Error("RestClient: failed sending a request ", err)
-		return nil, newError(ErrInternalError, err)
-	}
-	if err == nil {
-		resp, err = handle(resp, r.Out)
-	}
-	if err != nil {
-		c.log.Error("RestClient: error handling response: ", err)
-		if e, ok := err.(*ErrorInfo); ok {
-			if canFallBack(e.StatusCode) {
-				fallbacks, _ := c.opts.getFallbackHosts()
-				c.log.Infof("RestClient: trying to fallback with hosts=%v", fallbacks)
-				if len(fallbacks) > 0 {
-					iteration := 0
-					maxLimit := c.opts.HTTPMaxRetryCount
-					if maxLimit == 0 {
-						maxLimit = defaultOptions.HTTPMaxRetryCount
-					}
-					c.log.Infof("RestClient: maximum fallback retry limit=%d", maxLimit)
+	defer c.hosts.resetVisitedFallbackHosts()
 
-					for {
-						if c.hosts.fallbackHostsRemaining() == 0 {
-							c.log.Errorf("RestClient: exhausted fallback hosts", err)
-							return nil, err
-						}
-						host := c.hosts.nextFallbackHost()
-						req, err := c.newHTTPRequest(ctx, r, host)
-						if err != nil {
-							return nil, err
-						}
-						c.log.Infof("RestClient:  chose fallback host=%q ", host)
-						req.Host = req.URL.Host // RSC15j set host header, https://github.com/golang/go/issues/7682, since req.Host overrides req.URL.Host, use the same value
-						req.Header.Set(hostHeader, host)
-						resp, err := c.opts.httpclient().Do(req)
-						if err != nil && !isTimeoutOrDnsErr(err) {
-							c.log.Error("RestClient: failed sending a request to a fallback host", err)
-							return nil, newError(ErrInternalError, err)
-						}
-						if err == nil {
-							resp, err = handle(resp, r.Out)
-						}
-						if err != nil {
-							c.log.Error("RestClient: error handling response: ", err)
-							if iteration == maxLimit-1 {
-								return nil, err
-							}
-							if ev, ok := err.(*ErrorInfo); ok {
-								if canFallBack(ev.StatusCode) {
-									iteration++
-									continue
-								}
-							}
-							return nil, err
-						}
-						c.hosts.cacheHost(host)
-						c.hosts.resetVisitedFallbackHosts() // clear visited fallback hosts after successful response
-						return resp, nil
-					}
-				}
-				return nil, err
-			}
-			if e.Code == ErrTokenErrorUnspecified {
+	maxHTTPRequestLimit := c.opts.HTTPMaxRetryCount
+	if maxHTTPRequestLimit == 0 {
+		maxHTTPRequestLimit = defaultOptions.HTTPMaxRetryCount
+	}
+
+	host := c.hosts.getPreferredHost()
+	iteration := 0
+
+	for {
+		req, err := c.newHTTPRequest(ctx, r, host)
+		if err != nil {
+			return nil, err
+		}
+		if host != c.hosts.getPrimaryHost() { // set hostheader for fallback host
+			req.Host = req.URL.Host // RSC15j set host header, https://github.com/golang/go/issues/7682, since req.Host overrides req.URL.Host, use the same value
+			req.Header.Set(hostHeader, host)
+		}
+		if c.opts.Trace != nil {
+			req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
+			c.log.Verbose("RestClient: enabling httptrace")
+		}
+		resp, err := c.opts.httpclient().Do(req)
+		isTimeoutOrDNSErr := isTimeoutOrDnsErr(err)
+		if err != nil && !isTimeoutOrDNSErr { //RSC15d, RTN17d
+			c.log.Error("RestClient: failed sending a request ", err)
+			return nil, newError(ErrInternalError, err)
+		}
+		if err == nil {
+			resp, err = handle(resp, r.Out)
+		}
+		if err != nil {
+			c.log.Error("RestClient: error handling response: ", err)
+			errorInfo, isErrorInfo := err.(*ErrorInfo)
+			isServerError := isErrorInfo && errorInfo.StatusCode >= http.StatusInternalServerError && errorInfo.StatusCode <= http.StatusGatewayTimeout
+
+			if (isTimeoutOrDNSErr || isServerError) && c.hosts.fallbackHostsRemaining() > 0 && iteration < maxHTTPRequestLimit {
+				host = c.hosts.nextFallbackHost()
+				c.log.Infof("RestClient: trying out fallback with host=%s", host)
+				iteration++
+			} else if isErrorInfo && errorInfo.Code == ErrTokenErrorUnspecified {
 				if r.NoRenew || !c.Auth.isTokenRenewable() {
 					return nil, err
 				}
@@ -579,17 +548,14 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 				}
 				r.NoRenew = true
 				return c.do(ctx, r)
+			} else {
+				return nil, err
 			}
+		} else { //success
+			c.hosts.cacheHost(host)
+			return resp, nil
 		}
-		return nil, err
 	}
-	c.hosts.resetVisitedFallbackHosts() // clear visited fallback hosts after successful response
-	return resp, nil
-}
-
-func canFallBack(code int) bool {
-	return code >= http.StatusInternalServerError &&
-		code <= http.StatusGatewayTimeout
 }
 
 // newHTTPRequest creates a new http.Request that can be sent to ably endpoints.

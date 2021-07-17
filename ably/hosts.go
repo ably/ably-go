@@ -37,8 +37,13 @@ func (restHosts *restHosts) nextFallbackHost() string {
 
 	getNonVisitedHost := func() string {
 		visitedHosts := restHosts.visitedHosts
-		if !visitedHosts.Has(restHosts.getPrimaryHost()) {
-			return restHosts.getPrimaryHost()
+		cachedHost := restHosts.cache.get()
+		if !ablyutil.Empty(cachedHost) && !visitedHosts.Has(cachedHost) {
+			return cachedHost
+		}
+		primaryHost := restHosts.getPrimaryHost()
+		if !visitedHosts.Has(primaryHost) {
+			return primaryHost
 		}
 		hosts, _ := restHosts.opts.getFallbackHosts()
 		shuffledFallbackHosts := ablyutil.Shuffle(hosts)
@@ -124,8 +129,9 @@ func (realtimeHosts *realtimeHosts) nextFallbackHost() string {
 
 	getNonVisitedHost := func() string {
 		visitedHosts := realtimeHosts.visitedHosts
-		if !visitedHosts.Has(realtimeHosts.getPrimaryHost()) {
-			return realtimeHosts.getPrimaryHost()
+		primaryHost := realtimeHosts.getPrimaryHost()
+		if !visitedHosts.Has(primaryHost) {
+			return primaryHost
 		}
 		hosts, _ := realtimeHosts.opts.getFallbackHosts()
 		shuffledFallbackHosts := ablyutil.Shuffle(hosts)
