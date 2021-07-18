@@ -172,6 +172,7 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 	})
 
 	t.Run("RTN17c: Verifies internet connection is active in case of error necessitating use of an alternative host", func(t *testing.T) {
+		t.Parallel()
 		const internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
 		rec, optn := recorder()
 		visitedHosts := setUpWithError(getDNSErr(), optn...)
@@ -199,7 +200,36 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 	})
 
 	t.Run("RTN17e: Same fallback host should be used for REST as Realtime Fallback Host for a given active connection", func(t *testing.T) {
+		t.Parallel()
+		errCh := make(chan error, 1)
+		errCh <- getTimeoutErr()
+		realtimeMsgRecorder := NewMessageRecorder() // websocket recorder
+		restMsgRecorder, optn := recorder()         // http recorder
+		_, client := ablytest.NewRealtime(ably.WithAutoConnect(false),
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+				err, ok := <-errCh
+				if ok {
+					close(errCh)
+					return nil, err // return timeout error for primary host
+				}
+				return realtimeMsgRecorder.Dial(protocol, u, timeout) // return dial for subsequent dials
+			}), optn[0])
 
+		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventDisconnected), nil)
+		err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatalf("Error connecting host with error %v", err)
+		}
+		client.Time(context.Background()) // make a rest request
+		fallbackHosts := ably.GetEnvFallbackHosts("sandbox")
+
+		realtimeSuccessHost := realtimeMsgRecorder.URLs()[0].Hostname()
+
+		if !ablyutil.Contains(fallbackHosts, realtimeSuccessHost) {
+			t.Fatalf("realtime host must be one of fallback hosts, received %v", realtimeSuccessHost)
+		}
+		restSuccessHost := restMsgRecorder.Request(1).URL.Hostname() // second request is to get the time, first for internet connection
+		assertEquals(t, realtimeSuccessHost, restSuccessHost)
 	})
 }
 
