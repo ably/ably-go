@@ -381,7 +381,7 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 		}
 		// if err is nil, raw connection with server is successful
 		conn, err = c.dial(proto, u)
-		if err == nil {
+		if err == nil { // success
 			if host != c.hosts.getPrimaryHost() { // RTN17e
 				c.setPreferredRestHost(host)
 			}
