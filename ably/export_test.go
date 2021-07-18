@@ -122,8 +122,8 @@ func (opts *clientOptions) RealtimeURL(realtimeHost string) string {
 	return opts.realtimeURL(realtimeHost)
 }
 
-func IsActiveInternetConnection() bool {
-	return hasActiveInternetConnection()
+func (opts *clientOptions) HasActiveInternetConnection() bool {
+	return opts.hasActiveInternetConnection()
 }
 
 func (c *REST) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {

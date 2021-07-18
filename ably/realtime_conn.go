@@ -388,7 +388,7 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 			break
 		}
 		if c.hosts.fallbackHostsRemaining() > 0 &&
-			(isTimeoutOrDnsErr(err) || checkIfDialTimeoutOrDnsErr(err)) && hasActiveInternetConnection() { // RTN17d, RTN17c
+			(isTimeoutOrDnsErr(err) || checkIfDialTimeoutOrDnsErr(err)) && c.opts.hasActiveInternetConnection() { // RTN17d, RTN17c
 			host = c.hosts.nextFallbackHost()
 		} else {
 			return nil, err

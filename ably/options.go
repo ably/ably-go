@@ -440,8 +440,8 @@ func (opts *clientOptions) idempotentRESTPublishing() bool {
 	return opts.IdempotentRESTPublishing
 }
 
-func hasActiveInternetConnection() bool {
-	res, err := http.Get(internetCheckUrl)
+func (opts *clientOptions) hasActiveInternetConnection() bool {
+	res, err := opts.httpclient().Get(internetCheckUrl)
 	if err != nil {
 		return false
 	}

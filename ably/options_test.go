@@ -40,7 +40,8 @@ func TestEnvFallbackHosts_RSC15i(t *testing.T) {
 
 func TestInternetConnectionCheck_RTN17c(t *testing.T) {
 	t.Parallel()
-	assertTrue(t, ably.IsActiveInternetConnection())
+	clientOptions := ably.NewClientOptions()
+	assertTrue(t, clientOptions.HasActiveInternetConnection())
 }
 
 func TestFallbackHosts_RSC15(t *testing.T) {

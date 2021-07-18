@@ -2,8 +2,10 @@ package ably_test
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"sync"
 	"testing"
@@ -137,21 +139,76 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			}
 		})
 
-		t.Run("does not apply when environment is overriden and fallback not specified", func(t *testing.T) {
-
+		t.Run("apply when fallbacks are provided", func(t *testing.T) {
+			t.Parallel()
+			fallbacks := []string{"fallback0", "fallback1", "fallback2"}
+			visitedHosts := setUpWithError(getTimeoutErr(), ably.WithFallbackHosts(fallbacks))
+			expectedPrimaryHost := "sandbox-realtime.ably.io"
+			if len(visitedHosts) != 4 {
+				t.Fatalf("visited hosts other than primary hosts %v", visitedHosts)
+			}
+			if visitedHosts[0] != expectedPrimaryHost {
+				t.Fatalf("expected %v; got %v", expectedPrimaryHost, visitedHosts[0])
+			}
+			assertDeepEquals(t, ablyutil.Sort(fallbacks), ablyutil.Sort(visitedHosts[1:]))
 		})
 
-		t.Run("apply when environment is overriden and fallback specified, the fallback is used", func(t *testing.T) {
+		t.Run("apply when fallbackHostUseDefault is true, even if env. or host is set", func(t *testing.T) {
+			t.Parallel()
+			visitedHosts := setUpWithError(
+				getTimeoutErr(),
+				ably.WithFallbackHostsUseDefault(true),
+				ably.WithEnvironment("custom"),
+				ably.WithRealtimeHost("custom-ably.realtime.com"))
 
+			expectedPrimaryHost := "custom-ably.realtime.com"
+			expectedFallbackHosts := ably.DefaultFallbackHosts()
+			if len(visitedHosts) != 6 {
+				t.Fatalf("visited hosts other than primary hosts %v", visitedHosts)
+			}
+			if visitedHosts[0] != expectedPrimaryHost {
+				t.Fatalf("expected %v; got %v", expectedPrimaryHost, visitedHosts[0])
+			}
+			assertDeepEquals(t, ablyutil.Sort(expectedFallbackHosts), ablyutil.Sort(visitedHosts[1:]))
 		})
 	})
 
 	t.Run("RTN17c: Verifies internet connection is active in case of error necessitating use of an alternative host", func(t *testing.T) {
+		const internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
+		var visitedUrl string
+		proxy := func(r *http.Request) (*url.URL, error) {
+			visitedUrl = r.URL.String()
+			return r.URL, nil
+		}
 
+		proxyOption := ably.WithHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				Proxy:        proxy,
+				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
+			},
+		})
+
+		visitedHosts := setUpWithError(getDNSErr(), proxyOption)
+		if len(visitedHosts) != 1 {
+			t.Fatalf("should try fallbacks hosts for dns error, received visited hosts %v", visitedHosts)
+		}
+		assertEquals(t, visitedUrl, internetCheckUrl)
 	})
 
 	t.Run("RTN17d: Check for compatible errors before attempting to reconnect to a fallback host", func(t *testing.T) {
-
+		t.Parallel()
+		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong")) // non-dns or timeout error
+		if len(visitedHosts) != 1 {
+			t.Fatalf("should not try fallback hosts for non-dns or timeout error, received visited hosts %v", visitedHosts)
+		}
+		visitedHosts = setUpWithError(getDNSErr())
+		if len(visitedHosts) != 6 {
+			t.Fatalf("should try fallbacks hosts for dns error, received visited hosts %v", visitedHosts)
+		}
+		visitedHosts = setUpWithError(getTimeoutErr())
+		if len(visitedHosts) != 6 {
+			t.Fatalf("should not try fallbacks hosts for timeout error, received visited hosts %v", visitedHosts)
+		}
 	})
 
 	t.Run("RTN17e: Same fallback host should be used for REST as Realtime Fallback Host for a given active connection", func(t *testing.T) {
