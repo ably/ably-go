@@ -2,10 +2,8 @@ package ably_test
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net"
-	"net/http"
 	"net/url"
 	"sync"
 	"testing"
@@ -175,29 +173,18 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 
 	t.Run("RTN17c: Verifies internet connection is active in case of error necessitating use of an alternative host", func(t *testing.T) {
 		const internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
-		var visitedUrl string
-		proxy := func(r *http.Request) (*url.URL, error) {
-			visitedUrl = r.URL.String()
-			return r.URL, nil
+		rec, optn := recorder()
+		visitedHosts := setUpWithError(getDNSErr(), optn...)
+		assertEquals(t, 6, len(visitedHosts)) // including primary host
+		assertEquals(t, 5, len(rec.Requests()))
+		for _, request := range rec.Requests() {
+			assertEquals(t, request.URL.String(), internetCheckUrl)
 		}
-
-		proxyOption := ably.WithHTTPClient(&http.Client{
-			Transport: &http.Transport{
-				Proxy:        proxy,
-				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
-			},
-		})
-
-		visitedHosts := setUpWithError(getDNSErr(), proxyOption)
-		if len(visitedHosts) != 1 {
-			t.Fatalf("should try fallbacks hosts for dns error, received visited hosts %v", visitedHosts)
-		}
-		assertEquals(t, visitedUrl, internetCheckUrl)
 	})
 
 	t.Run("RTN17d: Check for compatible errors before attempting to reconnect to a fallback host", func(t *testing.T) {
 		t.Parallel()
-		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong")) // non-dns or timeout error
+		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong")) // non-dns or non-timeout error
 		if len(visitedHosts) != 1 {
 			t.Fatalf("should not try fallback hosts for non-dns or timeout error, received visited hosts %v", visitedHosts)
 		}
