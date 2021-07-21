@@ -324,9 +324,12 @@ func empty(s string) bool {
 }
 
 func (opts *clientOptions) restURL() (restUrl string) {
-	restHost := opts.getRestHost()
-	port, _ := opts.activePort()
-	baseUrl := net.JoinHostPort(restHost, strconv.Itoa(port))
+	baseUrl := opts.getRestHost()
+	_, _, err := net.SplitHostPort(baseUrl)
+	if err != nil { // set port if not set in baseUrl
+		port, _ := opts.activePort()
+		baseUrl = net.JoinHostPort(baseUrl, strconv.Itoa(port))
+	}
 	if opts.NoTLS {
 		return "http://" + baseUrl
 	}
@@ -334,9 +337,12 @@ func (opts *clientOptions) restURL() (restUrl string) {
 }
 
 func (opts *clientOptions) realtimeURL() (realtimeUrl string) {
-	realtimeHost := opts.getRealtimeHost()
-	port, _ := opts.activePort()
-	baseUrl := net.JoinHostPort(realtimeHost, strconv.Itoa(port))
+	baseUrl := opts.getRealtimeHost()
+	_, _, err := net.SplitHostPort(baseUrl)
+	if err != nil { // set port if not set in baseUrl
+		port, _ := opts.activePort()
+		baseUrl = net.JoinHostPort(baseUrl, strconv.Itoa(port))
+	}
 	if opts.NoTLS {
 		return "ws://" + baseUrl
 	}

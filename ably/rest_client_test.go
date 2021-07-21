@@ -287,19 +287,16 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 	}
 	defer app.Close()
 
-	fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
-	var nopts []ably.ClientOption
-
 	t.Run("RSC7d2 : Should set fallback host header", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
 
-		nopts = []ably.ClientOption{
+		opts := []ably.ClientOption{
 			ably.WithEnvironment(ablytest.Environment),
 			ably.WithTLS(false),
-			ably.WithFallbackHosts(fallbackHosts),
 			ably.WithUseTokenAuth(true),
 		}
 		// set up the proxy to forward all requests except a specific fallback to the server,
@@ -312,14 +309,14 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 			return serverURL, nil
 		}
 
-		nopts = append(nopts, ably.WithHTTPClient(&http.Client{
+		opts = append(opts, ably.WithHTTPClient(&http.Client{
 			Transport: &http.Transport{
 				Proxy:        proxy,
 				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
 			},
 		}))
 
-		client, err := ably.NewREST(app.Options(nopts...)...)
+		client, err := ably.NewREST(app.Options(opts...)...)
 		if err != nil {
 			t.Fatal(err)
 		}

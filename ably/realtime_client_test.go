@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"sync"
 	"testing"
@@ -45,6 +47,44 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 			t.Errorf(" expected %q got %q", host, h)
 		}
 	}
+}
+
+func TestReatime_RSC7_AblyAgent(t *testing.T) {
+	t.Parallel()
+
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+
+	t.Run("RSC7d3 : Should set fallback host header", func(t *testing.T) {
+		var agentHeaderValue string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+
+		defer server.Close()
+		serverURL, _ := url.Parse(server.URL)
+
+		client, err := ably.NewRealtime(
+			app.Options(ably.WithEnvironment(ablytest.Environment),
+				ably.WithTLS(false),
+				ably.WithUseTokenAuth(true),
+				ably.WithRealtimeHost(serverURL.Host))...)
+
+		defer client.Close()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
+		if agentHeaderValue != ably.AblyAgentIdentifier {
+			t.Fatalf("Agent header value is not equal to %s", ably.AblyAgentIdentifier)
+		}
+	})
 }
 
 func checkUnique(ch chan string, typ string, n int) error {
