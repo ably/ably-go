@@ -1,5 +1,229 @@
 # Change Log
 
+## [v1.2.0](https://github.com/ably/ably-go/tree/v1.2.0) (2021-07-09)
+
+Version 1.2.0 is out of pre-release!
+
+[**Full Changelog since v1.1.5**](https://github.com/ably/ably-go/compare/v1.1.5...v.1.2.0)
+
+[Full Changelog since v1.2.0-apipreview.6](https://github.com/ably/ably-go/compare/v1.2.0-apipreview.6...v.1.2.0)
+
+**Implemented enhancements:**
+
+- Add enough logs to troubleshoot problems [\#160](https://github.com/ably/ably-go/issues/160)
+
+**Closed issues:**
+
+- Create code snippets for homepage \(go\) [\#324](https://github.com/ably/ably-go/issues/324)
+- Unexport package proto, ablycrypto, ablytest [\#291](https://github.com/ably/ably-go/issues/291)
+- API compliance - Go 1.2 [\#271](https://github.com/ably/ably-go/issues/271)
+- RTN7: ACK and NACK [\#215](https://github.com/ably/ably-go/issues/215)
+
+**Merged pull requests:**
+
+- Fix conflicts from integration-1.2 to main [\#353](https://github.com/ably/ably-go/pull/353) ([sacOO7](https://github.com/sacOO7))
+- Don't reuse IV between encryptions [\#331](https://github.com/ably/ably-go/pull/331) ([tcard](https://github.com/tcard))
+- Integration/1.2 [\#322](https://github.com/ably/ably-go/pull/322) ([QuintinWillison](https://github.com/QuintinWillison))
+
+## [v1.2.0-apipreview.6](https://github.com/ably/ably-go/tree/v1.2.0-apipreview.6) (2021-06-17)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.0-apipreview.5...v1.2.0-apipreview.6)
+
+**Fixed bugs:**
+
+- IV shouldn't be reused between messages [\#330](https://github.com/ably/ably-go/issues/330)
+
+**Closed issues:**
+
+- RTN21: Overriding connectionDetails [\#227](https://github.com/ably/ably-go/issues/227)
+
+**Merged pull requests:**
+
+- RTN7b: Handle ACK/NACK [\#335](https://github.com/ably/ably-go/pull/335) ([tcard](https://github.com/tcard))
+
+## [v1.2.0-apipreview.5](https://github.com/ably/ably-go/tree/v1.2.0-apipreview.5) (2021-06-04)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.0-apipreview.4...v1.2.0-apipreview.5)
+
+**Implemented enhancements:**
+
+- Common design for PaginatedResult-related methods [\#278](https://github.com/ably/ably-go/issues/278)
+- Add Connection Error Handling - 0.8 feature [\#51](https://github.com/ably/ably-go/issues/51)
+
+**Fixed bugs:**
+
+- API completeness [\#50](https://github.com/ably/ably-go/issues/50)
+- Passing tests appear to have failed in Travis [\#47](https://github.com/ably/ably-go/issues/47)
+- Go JSON / Binary / String support [\#9](https://github.com/ably/ably-go/issues/9)
+
+**Closed issues:**
+
+- Fix RTN14c test to include full connection establishment [\#315](https://github.com/ably/ably-go/issues/315)
+- Flaky test in 1.2 branch: TestStatsPagination\_RSC6a\_RSCb3 [\#313](https://github.com/ably/ably-go/issues/313)
+- Flaky test in 1.2 branch: TestPresenceHistory\_Direction\_RSP4b2 [\#310](https://github.com/ably/ably-go/issues/310)
+- Flaky test in 1.2 branch: TestRealtimeChannel\_Detach [\#309](https://github.com/ably/ably-go/issues/309)
+- Fix channel iteration methods  [\#307](https://github.com/ably/ably-go/issues/307)
+- RTN12: Connection.close [\#262](https://github.com/ably/ably-go/issues/262)
+- RTL2f: ChannelEvent RESUMED flag [\#243](https://github.com/ably/ably-go/issues/243)
+- RTL17: Only dispatch messages when ATTACHED [\#240](https://github.com/ably/ably-go/issues/240)
+- RTL14: ERROR message for channel [\#238](https://github.com/ably/ably-go/issues/238)
+- RTL12: Random incoming ATTACHED message [\#237](https://github.com/ably/ably-go/issues/237)
+- RTN3: Connection.autoConnect [\#229](https://github.com/ably/ably-go/issues/229)
+- RTN2: WebSocket query params [\#226](https://github.com/ably/ably-go/issues/226)
+- RTN10: Connection.serial [\#224](https://github.com/ably/ably-go/issues/224)
+- RTN24: Handle random CONNECTED message [\#223](https://github.com/ably/ably-go/issues/223)
+- RTL5: Channel.detach [\#212](https://github.com/ably/ably-go/issues/212)
+- RTL4: Channel.attach [\#211](https://github.com/ably/ably-go/issues/211)
+- Bring back reverted README examples [\#207](https://github.com/ably/ably-go/issues/207)
+
+**Merged pull requests:**
+
+- Unexport CipherParams.IV, useful only for tests [\#334](https://github.com/ably/ably-go/pull/334) ([tcard](https://github.com/tcard))
+- Unexport package proto, ablycrypto, ablytest [\#332](https://github.com/ably/ably-go/pull/332) ([tcard](https://github.com/tcard))
+- Fix/conflict integration 1.2 [\#329](https://github.com/ably/ably-go/pull/329) ([sacOO7](https://github.com/sacOO7))
+- \[FIX CONFLICTS\] Merge env. fallbacks to 1.2 [\#328](https://github.com/ably/ably-go/pull/328) ([sacOO7](https://github.com/sacOO7))
+- Replace all `ts \*testing.T` instances with `t` [\#326](https://github.com/ably/ably-go/pull/326) ([tcard](https://github.com/tcard))
+- Simplify and uniformize logging [\#321](https://github.com/ably/ably-go/pull/321) ([tcard](https://github.com/tcard))
+- Websocket query params [\#320](https://github.com/ably/ably-go/pull/320) ([sacOO7](https://github.com/sacOO7))
+- Use persisted namespace for history tests [\#319](https://github.com/ably/ably-go/pull/319) ([tcard](https://github.com/tcard))
+- Avoid current stats period interference with fixtures in tests [\#318](https://github.com/ably/ably-go/pull/318) ([tcard](https://github.com/tcard))
+- Rewrite RTN14c to test full connection establishment [\#317](https://github.com/ably/ably-go/pull/317) ([tcard](https://github.com/tcard))
+- Allow setting connection and request timeouts separately [\#312](https://github.com/ably/ably-go/pull/312) ([Jmgr](https://github.com/Jmgr))
+- Remove flaky TestRealtimeChannel\_Detach [\#311](https://github.com/ably/ably-go/pull/311) ([tcard](https://github.com/tcard))
+- Fix channel iteration [\#308](https://github.com/ably/ably-go/pull/308) ([sacOO7](https://github.com/sacOO7))
+- Connection Autoconnect [\#306](https://github.com/ably/ably-go/pull/306) ([sacOO7](https://github.com/sacOO7))
+- Connection serial [\#305](https://github.com/ably/ably-go/pull/305) ([sacOO7](https://github.com/sacOO7))
+- Override connectionDetails [\#304](https://github.com/ably/ably-go/pull/304) ([sacOO7](https://github.com/sacOO7))
+- Rename PublishBatch -\> PublishMultiple [\#303](https://github.com/ably/ably-go/pull/303) ([tcard](https://github.com/tcard))
+- Migrate Presence.get and REST.request to new paginated results [\#301](https://github.com/ably/ably-go/pull/301) ([tcard](https://github.com/tcard))
+- Remove Ping public Interface [\#300](https://github.com/ably/ably-go/pull/300) ([sacOO7](https://github.com/sacOO7))
+- Channel Attach [\#299](https://github.com/ably/ably-go/pull/299) ([sacOO7](https://github.com/sacOO7))
+- Channel Detach [\#298](https://github.com/ably/ably-go/pull/298) ([sacOO7](https://github.com/sacOO7))
+- Connection Close [\#297](https://github.com/ably/ably-go/pull/297) ([sacOO7](https://github.com/sacOO7))
+- Conform license and copyright [\#296](https://github.com/ably/ably-go/pull/296) ([QuintinWillison](https://github.com/QuintinWillison))
+- RTN24, Handle Random Connected Message [\#295](https://github.com/ably/ably-go/pull/295) ([sacOO7](https://github.com/sacOO7))
+- Channel message dispatch only when it's attached [\#294](https://github.com/ably/ably-go/pull/294) ([sacOO7](https://github.com/sacOO7))
+- Adapt History to follow new paginated result design [\#292](https://github.com/ably/ably-go/pull/292) ([tcard](https://github.com/tcard))
+- FailedChannelState on error message [\#289](https://github.com/ably/ably-go/pull/289) ([sacOO7](https://github.com/sacOO7))
+- Channel resume [\#288](https://github.com/ably/ably-go/pull/288) ([sacOO7](https://github.com/sacOO7))
+- Ensure generated code is up-to-date in CI [\#287](https://github.com/ably/ably-go/pull/287) ([tcard](https://github.com/tcard))
+- Added H2 with Resources [\#285](https://github.com/ably/ably-go/pull/285) ([ramiro-nd](https://github.com/ramiro-nd))
+- Amend workflow branch name [\#284](https://github.com/ably/ably-go/pull/284) ([owenpearson](https://github.com/owenpearson))
+- Ably 1.2 examples  [\#283](https://github.com/ably/ably-go/pull/283) ([sacOO7](https://github.com/sacOO7))
+- Adapt Stats to follow new paginated result design [\#281](https://github.com/ably/ably-go/pull/281) ([tcard](https://github.com/tcard))
+- Add scripts/test.sh for running tests [\#279](https://github.com/ably/ably-go/pull/279) ([lmars](https://github.com/lmars))
+- TestFixConnLeak\_ISSUE89: Change the way it detects closed conns [\#277](https://github.com/ably/ably-go/pull/277) ([tcard](https://github.com/tcard))
+- Generate env fallbacks [\#268](https://github.com/ably/ably-go/pull/268) ([sacOO7](https://github.com/sacOO7))
+
+## [v1.2.0-apipreview.4](https://github.com/ably/ably-go/tree/v1.2.0-apipreview.4) (2021-02-11)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.0-apipreview.3...v1.2.0-apipreview.4)
+
+**Implemented enhancements:**
+
+- Add missing context.Context arguments [\#275](https://github.com/ably/ably-go/issues/275)
+- Defaults: Generate environment fallbacks [\#198](https://github.com/ably/ably-go/issues/198)
+- Implement support for connection recovery and resume [\#52](https://github.com/ably/ably-go/issues/52)
+
+**Closed issues:**
+
+- 'Account disabled' error gets sent as DISCONNECTED [\#269](https://github.com/ably/ably-go/issues/269)
+- ttl seems to be set to null in a created token request? [\#266](https://github.com/ably/ably-go/issues/266)
+- v1.2 API design [\#197](https://github.com/ably/ably-go/issues/197)
+
+**Merged pull requests:**
+
+- Bump the version constants [\#280](https://github.com/ably/ably-go/pull/280) ([lmars](https://github.com/lmars))
+- Propagate contexts everywhere [\#276](https://github.com/ably/ably-go/pull/276) ([tcard](https://github.com/tcard))
+- Merge main into 1.2 [\#274](https://github.com/ably/ably-go/pull/274) ([tcard](https://github.com/tcard))
+- Replace Travis with GitHub workflow [\#273](https://github.com/ably/ably-go/pull/273) ([QuintinWillison](https://github.com/QuintinWillison))
+- Fix regression in TestAuth\_ClientID's flakiness. [\#272](https://github.com/ably/ably-go/pull/272) ([tcard](https://github.com/tcard))
+- Minor changes for 1.2 API compliance [\#270](https://github.com/ably/ably-go/pull/270) ([tcard](https://github.com/tcard))
+- Add maintainers file [\#267](https://github.com/ably/ably-go/pull/267) ([niksilver](https://github.com/niksilver))
+- add RTN19 - Transport state side effect [\#170](https://github.com/ably/ably-go/pull/170) ([gernest](https://github.com/gernest))
+
+## [v1.2.0-apipreview.3](https://github.com/ably/ably-go/tree/v1.2.0-apipreview.3) (2020-11-17)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.0-apipreview.2...v1.2.0-apipreview.3)
+
+**Implemented enhancements:**
+
+- RTL9: Channel presence [\#264](https://github.com/ably/ably-go/issues/264)
+
+**Closed issues:**
+
+- Missing lib=go-\<version\> querystring param in connections [\#209](https://github.com/ably/ably-go/issues/209)
+
+**Merged pull requests:**
+
+- Add examples for handling events and errors [\#265](https://github.com/ably/ably-go/pull/265) ([lmars](https://github.com/lmars))
+- Add RTN2g [\#210](https://github.com/ably/ably-go/pull/210) ([gernest](https://github.com/gernest))
+
+## [v1.2.0-apipreview.2](https://github.com/ably/ably-go/tree/v1.2.0-apipreview.2) (2020-11-09)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.0-apipreview.1...v1.2.0-apipreview.2)
+
+**Merged pull requests:**
+
+- RTL6c: Publish while not connected [\#208](https://github.com/ably/ably-go/pull/208) ([tcard](https://github.com/tcard))
+- Update README for 1.2 preview, with associated fixes [\#206](https://github.com/ably/ably-go/pull/206) ([tcard](https://github.com/tcard))
+- add rtn14 - Connection opening failures: [\#172](https://github.com/ably/ably-go/pull/172) ([gernest](https://github.com/gernest))
+
+## [v1.2.0-apipreview.1](https://github.com/ably/ably-go/tree/v1.2.0-apipreview.1) (2020-10-21)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.0-apipreview.0...v1.2.0-apipreview.1)
+
+**Merged pull requests:**
+
+- Implement options as package-level functions [\#205](https://github.com/ably/ably-go/pull/205) ([tcard](https://github.com/tcard))
+- v1.2-compliant message and presence publish and subscribe [\#202](https://github.com/ably/ably-go/pull/202) ([tcard](https://github.com/tcard))
+
+## [v1.2.0-apipreview.0](https://github.com/ably/ably-go/tree/v1.2.0-apipreview.0) (2020-10-16)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.1.5...v1.2.0-apipreview.0)
+
+**Fixed bugs:**
+
+- Rest.request call timing out doesn't result in the errorMessage being set in the httpPaginatedResponse? [\#192](https://github.com/ably/ably-go/issues/192)
+- Channel attach fails in the DISCONNECTED state [\#189](https://github.com/ably/ably-go/issues/189)
+- TestFixConnLeak\_ISSUE89 is flaky [\#132](https://github.com/ably/ably-go/issues/132)
+
+**Closed issues:**
+
+- Reauthentication with Presence [\#164](https://github.com/ably/ably-go/issues/164)
+
+**Merged pull requests:**
+
+- Remove things from public API that aren't in the spec [\#201](https://github.com/ably/ably-go/pull/201) ([tcard](https://github.com/tcard))
+- Explicitly annotate enum vars so that godoc places them with the type [\#200](https://github.com/ably/ably-go/pull/200) ([tcard](https://github.com/tcard))
+- Introduce ErrorCode type for predefined error codes [\#199](https://github.com/ably/ably-go/pull/199) ([tcard](https://github.com/tcard))
+- Merge main into 1.2 [\#196](https://github.com/ably/ably-go/pull/196) ([tcard](https://github.com/tcard))
+- Always include serial values in encoded protocol messages [\#195](https://github.com/ably/ably-go/pull/195) ([lmars](https://github.com/lmars))
+- Handle non-PaginatedResult but otherwise valid HTTP error responses [\#194](https://github.com/ably/ably-go/pull/194) ([tcard](https://github.com/tcard))
+- Add HTTPRequestTimeout option with 10s default [\#193](https://github.com/ably/ably-go/pull/193) ([tcard](https://github.com/tcard))
+- Ad-hoc fix for enqueuing attach attempt when DISCONNECTED. [\#191](https://github.com/ably/ably-go/pull/191) ([tcard](https://github.com/tcard))
+- RTL2: EventEmitter for channel events; remove old State [\#190](https://github.com/ably/ably-go/pull/190) ([tcard](https://github.com/tcard))
+- RTN15e: Check that Connection.Key changes on reconnections. [\#188](https://github.com/ably/ably-go/pull/188) ([tcard](https://github.com/tcard))
+- RTN15d: Add a test for message delivery on connection recovery. [\#187](https://github.com/ably/ably-go/pull/187) ([tcard](https://github.com/tcard))
+- RTL13: Handle DETACHED while not DETACHING. [\#185](https://github.com/ably/ably-go/pull/185) ([tcard](https://github.com/tcard))
+- Fix test for Heartbeat [\#183](https://github.com/ably/ably-go/pull/183) ([gernest](https://github.com/gernest))
+- Fix race condition in RTN15i test [\#182](https://github.com/ably/ably-go/pull/182) ([tcard](https://github.com/tcard))
+- RTN15g: Don't attempt resume after server has discarded state [\#181](https://github.com/ably/ably-go/pull/181) ([tcard](https://github.com/tcard))
+- RTN15i: Add test for already existing functionality. [\#180](https://github.com/ably/ably-go/pull/180) ([tcard](https://github.com/tcard))
+- RTN15h\*: Handle incoming DISCONNECTED while CONNECTED [\#179](https://github.com/ably/ably-go/pull/179) ([tcard](https://github.com/tcard))
+- Temporarily skip test for RTN23. [\#178](https://github.com/ably/ably-go/pull/178) ([tcard](https://github.com/tcard))
+- Fix data race in RTN23 test. [\#177](https://github.com/ably/ably-go/pull/177) ([tcard](https://github.com/tcard))
+- Have a single Travis build as originally intended. [\#176](https://github.com/ably/ably-go/pull/176) ([tcard](https://github.com/tcard))
+- proto: Decode ms durations as a time.Duration wrapper. [\#174](https://github.com/ably/ably-go/pull/174) ([tcard](https://github.com/tcard))
+- Fix instances of old nil \*ChannelOptions becoming nil option func. [\#173](https://github.com/ably/ably-go/pull/173) ([tcard](https://github.com/tcard))
+- remove unused fields from Connection [\#171](https://github.com/ably/ably-go/pull/171) ([gernest](https://github.com/gernest))
+- Add RTN23- heartbeats [\#169](https://github.com/ably/ably-go/pull/169) ([gernest](https://github.com/gernest))
+- Rename master to main [\#167](https://github.com/ably/ably-go/pull/167) ([QuintinWillison](https://github.com/QuintinWillison))
+-  Add rtn16  [\#165](https://github.com/ably/ably-go/pull/165) ([gernest](https://github.com/gernest))
+- v1.2 ChannelOptions [\#146](https://github.com/ably/ably-go/pull/146) ([tcard](https://github.com/tcard))
+- v1.2 ClientOptions [\#145](https://github.com/ably/ably-go/pull/145) ([tcard](https://github.com/tcard))
+- v1.2 event emitter for connection \(RTN4\) [\#144](https://github.com/ably/ably-go/pull/144) ([tcard](https://github.com/tcard))
+
 ## [v1.1.5](https://github.com/ably/ably-go/tree/v1.1.5) (2020-05-27)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.1.4...v1.1.5)
