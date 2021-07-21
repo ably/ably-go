@@ -197,10 +197,13 @@ const (
 	DefaultCipherAlgorithm = defaultCipherAlgorithm
 	DefaultCipherMode      = defaultCipherMode
 
-	LibraryString     = libraryString
-	AblyVersionHeader = ablyVersionHeader
-	AblyVersion       = ablyVersion
-	AblyLibHeader     = ablyLibHeader
+	LibraryString       = libraryString
+	AblyVersionHeader   = ablyVersionHeader
+	AblyVersion         = ablyVersion
+	AblyLibHeader       = ablyLibHeader
+	LibraryVersion      = libraryVersion
+	AblyAgentHeader     = ablyAgentHeader
+	AblyAgentIdentifier = ablyAgentIdentifier
 
 	EncUTF8   = encUTF8
 	EncJSON   = encJSON

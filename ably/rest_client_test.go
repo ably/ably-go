@@ -278,6 +278,61 @@ func TestRSC7(t *testing.T) {
 	})
 }
 
+func TestRest_RSC7_AblyAgent(t *testing.T) {
+	t.Parallel()
+
+	app, err := ablytest.NewSandbox(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+
+	fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
+	var nopts []ably.ClientOption
+
+	t.Run("RSC7d2 : Should set fallback host header", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		nopts = []ably.ClientOption{
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithFallbackHosts(fallbackHosts),
+			ably.WithUseTokenAuth(true),
+		}
+		// set up the proxy to forward all requests except a specific fallback to the server,
+		// whilst that fallback goes to the regular endpoint
+		serverURL, _ := url.Parse(server.URL)
+
+		var agentHeaderValue string
+		proxy := func(r *http.Request) (*url.URL, error) {
+			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
+			return serverURL, nil
+		}
+
+		nopts = append(nopts, ably.WithHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				Proxy:        proxy,
+				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
+			},
+		}))
+
+		client, err := ably.NewREST(app.Options(nopts...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		channel := client.Channels.Get("remember_fallback_host")
+		channel.Publish(context.Background(), "ping", "pong")
+
+		if agentHeaderValue != ably.AblyAgentIdentifier {
+			t.Fatalf("Agent header value is not equal to %s", ably.AblyAgentIdentifier)
+		}
+	})
+}
+
 func TestRest_hostfallback(t *testing.T) {
 	t.Parallel()
 

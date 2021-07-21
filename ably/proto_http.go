@@ -12,6 +12,6 @@ const (
 	ablyVersion            = "1.2"
 	ablyClientIDHeader     = "X-Ably-ClientId"
 	hostHeader             = "Host"
-	ablyAgentHeader        = "Ably-Agent"
-	ablyAgentIdentifier    = "ably-go/" + libraryVersion
+	ablyAgentHeader        = "Ably-Agent"                // RSC7d
+	ablyAgentIdentifier    = "ably-go/" + libraryVersion // RSC7d1
 )

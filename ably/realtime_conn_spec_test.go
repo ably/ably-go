@@ -100,14 +100,14 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 		t.Parallel()
 		requestParams := setup()
 		libVersion := requestParams["v"]
-		assertDeepEquals(t, []string{"1.2"}, libVersion)
+		assertDeepEquals(t, []string{ably.AblyVersion}, libVersion)
 	})
 
 	t.Run("RTN2g: library and version should be included as the value of lib param", func(t *testing.T) {
 		t.Parallel()
 		requestParams := setup()
 		lib := requestParams["lib"]
-		assertDeepEquals(t, []string{"go-1.2.0"}, lib)
+		assertDeepEquals(t, []string{"go-" + ably.LibraryVersion}, lib)
 	})
 }
 
