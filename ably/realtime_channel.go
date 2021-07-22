@@ -213,14 +213,11 @@ func (c *RealtimeChannel) SetOptions(ctx context.Context, options ...ChannelOpti
 	c.options = opts
 	hasProvidedChannelParamsOrModes := len(opts.Params) > 0 || len(opts.Modes) > 0
 	if (c.State() == ChannelStateAttaching || c.State() == ChannelStateAttached) && hasProvidedChannelParamsOrModes {
-		attachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
-		timeoutCtx, cancel := c.opts().contextWithTimeout(ctx, attachTimeout)
-		defer cancel()
 		res, err := c.mayAttach(false)
 		if err != nil {
 			return err
 		}
-		return res.Wait(timeoutCtx)
+		return res.Wait(ctx)
 	}
 	return nil
 }
