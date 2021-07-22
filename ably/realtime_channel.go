@@ -209,9 +209,20 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 // SetOptions - checks if channel is in attached/attaching state with options changed,
 // if true it sends new attach request
 func (c *RealtimeChannel) SetOptions(ctx context.Context, options ...ChannelOption) error {
-	// todo- check if channel should be re-attached
-	err := c.Attach(ctx)
-	return err
+	opts := applyChannelOptions(options...)
+	c.options = opts
+	hasProvidedChannelParamsOrModes := len(opts.Params) > 0 || len(opts.Modes) > 0
+	if (c.State() == ChannelStateAttaching || c.State() == ChannelStateAttached) && hasProvidedChannelParamsOrModes {
+		attachTimeout := c.client.Connection.opts.realtimeRequestTimeout()
+		timeoutCtx, cancel := c.opts().contextWithTimeout(ctx, attachTimeout)
+		defer cancel()
+		res, err := c.mayAttach(false)
+		if err != nil {
+			return err
+		}
+		return res.Wait(timeoutCtx)
+	}
+	return nil
 }
 
 // Attach attaches the Realtime connection to the channel, after which it starts
