@@ -206,6 +206,14 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	}
 }
 
+// SetOptions - checks if channel is in attached/attaching state with options changed,
+// if true it sends new attach request
+func (c *RealtimeChannel) SetOptions(ctx context.Context, options ...ChannelOption) error {
+	// todo- check if channel should be re-attached
+	err := c.Attach(ctx)
+	return err
+}
+
 // Attach attaches the Realtime connection to the channel, after which it starts
 // receiving messages from it.
 //
