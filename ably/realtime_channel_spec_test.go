@@ -2957,6 +2957,63 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 	})
 }
 
+func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
+
+	setup := func(t *testing.T) (
+		in, out chan *ably.ProtocolMessage,
+		c *ably.Realtime,
+		channel *ably.RealtimeChannel,
+		stateChanges ably.ChannelStateChanges,
+		afterCalls chan ablytest.AfterCall,
+	) {
+		in = make(chan *ably.ProtocolMessage, 1)
+		out = make(chan *ably.ProtocolMessage, 16)
+		afterCalls = make(chan ablytest.AfterCall, 1)
+		now, after := ablytest.TimeFuncs(afterCalls)
+
+		c, _ = ably.NewRealtime(
+			ably.WithToken("fake:token"),
+			ably.WithAutoConnect(false),
+			ably.WithNow(now),
+			ably.WithAfter(after),
+			ably.WithDial(MessagePipe(in, out)),
+		)
+
+		in <- &ably.ProtocolMessage{
+			Action:            ably.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &ably.ConnectionDetails{},
+		}
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		channel = c.Channels.Get("test")
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go channel.Attach(ctx)
+
+		ablytest.Soon.Recv(t, nil, afterCalls, t.Fatalf) // consume TIMER
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)   // Consume ATTACHING
+		stateChanges = make(ably.ChannelStateChanges, 10)
+		channel.OnAll(stateChanges.Receive)
+		return
+	}
+
+	t.Run("RTL16a : Shouldn't send attach message when not attached or channel params & modes not set", func(t *testing.T) {
+		setup(t)
+		// should update the channel in both cases
+	})
+
+	t.Run("RTL16a : Should sent attach message when in attaching/attached and params or modes set", func(t *testing.T) {
+		setup(t)
+		// should update the channel in both cases
+	})
+}
+
 func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 	t.Parallel()
 
