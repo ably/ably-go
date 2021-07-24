@@ -3021,6 +3021,9 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		// should update the channel options locally
 		assertNotEmpty(t, channel.ChannelOpts().Modes)
 		assertNotEmpty(t, channel.ChannelOpts().Params)
+		assertEquals(t, "x", channel.ChannelOpts().Params["delta"])
+		assertEquals(t, ably.ChannelModePublish, channel.ChannelOpts().Modes[0])
+
 		// No state change with no attach message sent
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf) // shouldnt receive any state change
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
@@ -3031,12 +3034,15 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		in, out, _, channel, stateChanges, afterCalls := setup(t)
 
 		// Go into attaching state
-		channel.Attach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go channel.Attach(ctx)
 		var change ably.ChannelStateChange
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
 		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
+
 		ablytest.Soon.Recv(t, nil, afterCalls, t.Fatalf) // consume TIMER
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)   // Consume ATTACHING
 
@@ -3051,6 +3057,7 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 
 		assertEmpty(t, channel.ChannelOpts().Modes)
 		assertEmpty(t, channel.ChannelOpts().Params)
+		assertDeepEquals(t, CipherKey, channel.ChannelOpts().Cipher.Key)
 		// No state change with no attach message sent
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf) // shouldn't receive any state change
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
@@ -3061,11 +3068,11 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 			Action:  ably.ActionAttached,
 			Channel: channel.Name,
 		}
+
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
 		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
-
 		err = channel.SetOptions(context.Background(), ably.ChannelWithCipherKey(CipherKey))
 		if err != nil {
 			t.Fatalf("Error setting channel options %v", err)
