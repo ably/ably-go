@@ -3116,12 +3116,15 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
-		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACHING
+		var msg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf) // Consume ATTACHING
 
 		assertNotEmpty(t, channel.ChannelOpts().Modes)
 		assertNotEmpty(t, channel.ChannelOpts().Params)
 		assertEquals(t, "x", channel.ChannelOpts().Params["delta"])
 		assertEquals(t, ably.ChannelModePresence, channel.ChannelOpts().Modes[0])
+		assertDeepEquals(t, channel.ChannelOpts().Params, msg.Params)
+		assertEquals(t, ably.FlagPresence, msg.Flags)
 
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf) // shouldn't receive any state change
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
@@ -3149,12 +3152,15 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
 		}
-		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACHING
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf) // Consume ATTACHING
 
 		assertNotEmpty(t, channel.ChannelOpts().Modes)
 		assertNotEmpty(t, channel.ChannelOpts().Params)
 		assertEquals(t, "y", channel.ChannelOpts().Params["alpha"])
 		assertEquals(t, ably.ChannelModePresenceSubscribe, channel.ChannelOpts().Modes[0])
+		assertDeepEquals(t, channel.ChannelOpts().Params, msg.Params)
+		// todo - Need to check for upsert operation for param/modes
+		// assertEquals(t, ably.FlagPresenceSubscribe, msg.Flags)
 
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf) // shouldn't receive any state change
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)

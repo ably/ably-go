@@ -206,8 +206,8 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	}
 }
 
-// SetOptions - checks if channel is in attached/attaching state with options changed,
-// if true it sends new attach request
+// SetOptions - sets new options for the channel
+// Checks if channel is in attached/attaching state with options changed, if true sends new attach request with updated options
 func (c *RealtimeChannel) SetOptions(ctx context.Context, options ...ChannelOption) error {
 	opts := applyChannelOptions(options...)
 	c.options = opts
