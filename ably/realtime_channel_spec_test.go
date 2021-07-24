@@ -2,6 +2,7 @@ package ably_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -2990,27 +2991,117 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		channel = c.Channels.Get("test")
-
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		go channel.Attach(ctx)
-
-		ablytest.Soon.Recv(t, nil, afterCalls, t.Fatalf) // consume TIMER
-		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)   // Consume ATTACHING
 		stateChanges = make(ably.ChannelStateChanges, 10)
+
+		channel = c.Channels.Get("test")
 		channel.OnAll(stateChanges.Receive)
+		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
 		return
 	}
 
-	t.Run("RTL16a : Shouldn't send attach message when not attached or channel params & modes not set", func(t *testing.T) {
-		setup(t)
-		// should update the channel in both cases
+	t.Run("RTL16a : Shouldn't send attach message when not attached", func(t *testing.T) {
+		_, out, _, channel, stateChanges, afterCalls := setup(t)
+
+		// channel in initialized state
+		if channel.State() != ably.ChannelStateInitialized {
+			t.Fatalf("Channel not in initialized state")
+		}
+		// check params/modes are empty
+		assertEmpty(t, channel.ChannelOpts().Modes)
+		assertEmpty(t, channel.ChannelOpts().Params)
+
+		err := channel.SetOptions(context.Background(),
+			ably.ChannelWithParams("delta", "x"),
+			ably.ChannelWithModes(ably.ChannelModePublish))
+
+		if err != nil {
+			t.Fatalf("Error setting channel options %v", err)
+		}
+
+		// should update the channel options locally
+		assertNotEmpty(t, channel.ChannelOpts().Modes)
+		assertNotEmpty(t, channel.ChannelOpts().Params)
+		// No state change with no attach message sent
+		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf) // shouldnt receive any state change
+		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+	})
+
+	t.Run("RTL16a : Shouldn't send attach message when attaching/attached and channel params & modes not set", func(t *testing.T) {
+		in, out, _, channel, stateChanges, afterCalls := setup(t)
+
+		// Go into attaching state
+		channel.Attach(canceledCtx)
+		var change ably.ChannelStateChange
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+		ablytest.Soon.Recv(t, nil, afterCalls, t.Fatalf) // consume TIMER
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)   // Consume ATTACHING
+
+		CipherKey, err := base64.StdEncoding.DecodeString("WUP6u0K7MXI5Zeo0VppPwg==")
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = channel.SetOptions(context.Background(), ably.ChannelWithCipherKey(CipherKey))
+		if err != nil {
+			t.Fatalf("Error setting channel options %v", err)
+		}
+
+		assertEmpty(t, channel.ChannelOpts().Modes)
+		assertEmpty(t, channel.ChannelOpts().Params)
+		// No state change with no attach message sent
+		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf) // shouldn't receive any state change
+		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+
+		// Go into attached state
+		in <- &ably.ProtocolMessage{
+			Action:  ably.ActionAttached,
+			Channel: channel.Name,
+		}
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
+
+		err = channel.SetOptions(context.Background(), ably.ChannelWithCipherKey(CipherKey))
+		if err != nil {
+			t.Fatalf("Error setting channel options %v", err)
+		}
+
+		assertEmpty(t, channel.ChannelOpts().Modes)
+		assertEmpty(t, channel.ChannelOpts().Params)
+		// No state change with no attach message sent
+		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf) // shouldn't receive any state change
+		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
+		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 	})
 
 	t.Run("RTL16a : Should sent attach message when in attaching/attached and params or modes set", func(t *testing.T) {
-		setup(t)
+		in, out, _, channel, stateChanges, afterCalls := setup(t)
+
+		channel.Attach(canceledCtx)
+
+		ablytest.Soon.Recv(t, nil, afterCalls, t.Fatalf) // consume TIMER
+		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)   // Consume ATTACHING
+
 		// should update the channel in both cases
+
+		// Get the channel to ATTACHED.
+
+		in <- &ably.ProtocolMessage{
+			Action:  ably.ActionAttached,
+			Channel: channel.Name,
+		}
+
+		var change ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
+			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+		}
 	})
 }
 
