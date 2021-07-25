@@ -1276,7 +1276,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			t.Fatalf("error publishing message : %v", err)
 		}
 		channel1 := client1.Channels.Get("persisted:test",
-			ably.ChannelWithParams("rewind", "1"))
+			ably.ChannelWithParam("rewind", "1"))
 		channel1.SetAttachResume(true)
 
 		var chan1MsgCount uint64
@@ -1291,7 +1291,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		}
 
 		channel2 := client2.Channels.Get("persisted:test",
-			ably.ChannelWithParams("rewind", "1")) // attach resume is false by default
+			ably.ChannelWithParam("rewind", "1")) // attach resume is false by default
 
 		var chan2MsgCount uint64
 		unsubscribe2, err := channel2.SubscribeAll(context.Background(), func(message *ably.Message) {
@@ -1334,9 +1334,9 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 
 		channel := client.Channels.Get("test",
-			ably.ChannelWithParams("test", "blah"),
-			ably.ChannelWithParams("test2", "blahblah"),
-			ably.ChannelWithParams("delta", "vcdiff"))
+			ably.ChannelWithParam("test", "blah"),
+			ably.ChannelWithParam("test2", "blahblah"),
+			ably.ChannelWithParam("delta", "vcdiff"))
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -1378,9 +1378,9 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 
 		channel := client.Channels.Get("test",
-			ably.ChannelWithParams("test", "blah"),
-			ably.ChannelWithParams("test2", "blahblah"),
-			ably.ChannelWithParams("delta", "vcdiff"))
+			ably.ChannelWithParam("test", "blah"),
+			ably.ChannelWithParam("test2", "blahblah"),
+			ably.ChannelWithParam("delta", "vcdiff"))
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -3012,7 +3012,7 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		assertEmpty(t, channel.ChannelOpts().Params)
 
 		err := channel.SetOptions(context.Background(),
-			ably.ChannelWithParams("delta", "x"),
+			ably.ChannelWithParam("delta", "x"),
 			ably.ChannelWithModes(ably.ChannelModePublish))
 
 		if err != nil {
@@ -3022,8 +3022,10 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		// should update the channel options locally
 		assertNotEmpty(t, channel.ChannelOpts().Modes)
 		assertNotEmpty(t, channel.ChannelOpts().Params)
+		assertEquals(t, 1, len(channel.ChannelOpts().Modes))
+		assertEquals(t, 1, len(channel.ChannelOpts().Params))
 		assertEquals(t, "x", channel.ChannelOpts().Params["delta"])
-		assertEquals(t, ably.ChannelModePublish, channel.ChannelOpts().Modes[0])
+		assertTrue(t, channel.ChannelOpts().Modes.Has(ably.ChannelModePublish))
 
 		// No state change with no attach message sent
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf) // shouldnt receive any state change
@@ -3107,7 +3109,7 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		// call setOptions
 		rg.GoAdd(func(ctx context.Context) error {
 			return channel.SetOptions(canceledCtx,
-				ably.ChannelWithParams("delta", "x"),
+				ably.ChannelWithParam("delta", "x"),
 				ably.ChannelWithModes(ably.ChannelModePresence))
 		})
 
@@ -3119,10 +3121,11 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		var msg *ably.ProtocolMessage
 		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf) // Consume ATTACHING
 
-		assertNotEmpty(t, channel.ChannelOpts().Modes)
-		assertNotEmpty(t, channel.ChannelOpts().Params)
+		assertEquals(t, 1, len(channel.ChannelOpts().Modes))
+		assertEquals(t, 1, len(channel.ChannelOpts().Params))
 		assertEquals(t, "x", channel.ChannelOpts().Params["delta"])
-		assertEquals(t, ably.ChannelModePresence, channel.ChannelOpts().Modes[0])
+		assertTrue(t, channel.ChannelOpts().Modes.Has(ably.ChannelModePresence))
+		// check for sent msg params/modes
 		assertDeepEquals(t, channel.ChannelOpts().Params, msg.Params)
 		assertEquals(t, ably.FlagPresence, msg.Flags)
 
@@ -3143,7 +3146,7 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		// call setOptions
 		rg.GoAdd(func(ctx context.Context) error {
 			return channel.SetOptions(canceledCtx,
-				ably.ChannelWithParams("alpha", "y"),
+				ably.ChannelWithParam("alpha", "y"),
 				ably.ChannelWithModes(ably.ChannelModePresenceSubscribe))
 		})
 
@@ -3154,13 +3157,14 @@ func TestRealtimeChannel_RTL16_SetOptions(t *testing.T) {
 		}
 		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf) // Consume ATTACHING
 
-		assertNotEmpty(t, channel.ChannelOpts().Modes)
-		assertNotEmpty(t, channel.ChannelOpts().Params)
+		assertEquals(t, 1, len(channel.ChannelOpts().Modes))
+		assertEquals(t, 1, len(channel.ChannelOpts().Params))
 		assertEquals(t, "y", channel.ChannelOpts().Params["alpha"])
-		assertEquals(t, ably.ChannelModePresenceSubscribe, channel.ChannelOpts().Modes[0])
+		assertTrue(t, channel.ChannelOpts().Modes.Has(ably.ChannelModePresenceSubscribe))
+		// check for sent msg params/modes
 		assertDeepEquals(t, channel.ChannelOpts().Params, msg.Params)
-		// todo - Need to check for upsert operation for param/modes
-		// assertEquals(t, ably.FlagPresenceSubscribe, msg.Flags)
+		assertFalse(t, msg.Flags.Has(ably.FlagPresence))         // shouldn't contain prev. flag
+		assertTrue(t, msg.Flags.Has(ably.FlagPresenceSubscribe)) // should check for updated modes/flag (also contains flagAttachResume- true)
 
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf) // shouldn't receive any state change
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)

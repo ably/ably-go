@@ -105,8 +105,8 @@ type protocolMessage struct {
 	Params            channelParams      `json:"params,omitempty" codec:"params,omitempty"`
 }
 
-func (p *protocolMessage) SetModesAsFlag(modes []ChannelMode) {
-	for _, mode := range modes {
+func (p *protocolMessage) SetModesAsFlag(channelModes channelModeSet) {
+	for mode, _ := range channelModes {
 		flag := mode.toFlag()
 		if flag != 0 {
 			p.Flags.Set(flag)

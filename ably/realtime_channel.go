@@ -66,7 +66,12 @@ func ChannelWithCipher(params CipherParams) ChannelOption {
 	}
 }
 
+// Deprecated: Use ChannelWithParam instead
 func ChannelWithParams(key string, value string) ChannelOption {
+	return ChannelWithParam(key, value)
+}
+
+func ChannelWithParam(key string, value string) ChannelOption {
 	return func(o *channelOptions) {
 		if o.Params == nil {
 			o.Params = map[string]string{}
@@ -77,7 +82,10 @@ func ChannelWithParams(key string, value string) ChannelOption {
 
 func ChannelWithModes(modes ...ChannelMode) ChannelOption {
 	return func(o *channelOptions) {
-		o.Modes = append(o.Modes, modes...)
+		if o.Modes == nil {
+			o.Modes = newChannelModeSet()
+		}
+		o.Modes.add(modes...)
 	}
 }
 

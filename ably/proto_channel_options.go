@@ -3,6 +3,21 @@ package ably
 type channelParams map[string]string
 type ChannelMode int64
 
+type channelModeSet map[ChannelMode]struct{}
+
+func newChannelModeSet() channelModeSet {
+	return make(channelModeSet)
+}
+func (s channelModeSet) add(mode ...ChannelMode) {
+	for _, channelMode := range mode {
+		s[channelMode] = struct{}{}
+	}
+}
+func (s channelModeSet) Has(mode ChannelMode) bool {
+	_, ok := s[mode]
+	return ok
+}
+
 const (
 	// Presence mode. Allows the attached channel to enter Presence.
 	ChannelModePresence ChannelMode = iota + 1
@@ -51,5 +66,5 @@ type protoChannelOptions struct {
 	Cipher CipherParams
 	cipher channelCipher
 	Params channelParams
-	Modes  []ChannelMode
+	Modes  channelModeSet
 }
