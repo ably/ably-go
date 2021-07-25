@@ -26,6 +26,8 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		// Get first preferred restHost
 		var actualHosts []string
 		prefHost := restHosts.GetPreferredHost()
+		assertEquals(t, "rest.ably.io", prefHost)
+
 		actualHosts = append(actualHosts, prefHost)
 
 		// Get all fallback hosts in random order

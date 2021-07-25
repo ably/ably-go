@@ -317,17 +317,11 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		}
 
 		retryCount, hosts := runTestServer(t, options)
-		if retryCount != 6 { // 1 primary and 5 default fallback hosts
-			t.Fatalf("expected 6 http calls got %d", retryCount)
-		}
+		assertEquals(t, 6, retryCount) // 1 primary and 5 default fallback hosts
+
 		// make sure the host header is set. Since we are using defaults from the spec
 		// the hosts should be in [a..e].ably-realtime.com
-		expect := ably.DefaultFallbackHosts()
-		for _, host := range hosts[1:] {
-			if !ablyutil.Contains(expect, host) {
-				t.Errorf("expected %s got be in %s", host, expect)
-			}
-		}
+		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
 
 		// ensure all picked fallbacks are unique
 		uniq := make(map[string]bool)
@@ -355,12 +349,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		}
 		// make sure the host header is set. Since we are using defaults from the spec
 		// the hosts should be in [a..e].ably-realtime.com
-		expect := ably.DefaultFallbackHosts()
-		for _, host := range hosts[1:] {
-			if !ablyutil.Contains(expect, host) {
-				t.Errorf("expected %s got be in %s", host, expect)
-			}
-		}
+		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
 
 		// ensure all picked fallbacks are unique
 		uniq := make(map[string]bool)
@@ -388,14 +377,10 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			if retryCount != 6 { // 1 primary and 5 default fallback hosts
 				t.Fatalf("expected 6 http calls got %d", retryCount)
 			}
+
 			// make sure the host header is set. Since we are using defaults from the spec
 			// the hosts should be in [a..e].ably-realtime.com
-			expect := ably.DefaultFallbackHosts()
-			for _, host := range hosts[1:] {
-				if !ablyutil.Contains(expect, host) {
-					t.Errorf("expected %s got be in %s", host, expect)
-				}
-			}
+			assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
 
 			// ensure all picked fallbacks are unique
 			uniq := make(map[string]bool)
@@ -421,14 +406,10 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			if retryCount != 6 { // 1 primary and 5 default fallback hosts
 				t.Fatalf("expected 6 http calls got %d", retryCount)
 			}
+
 			// make sure the host header is set. Since we are using defaults from the spec
 			// the hosts should be in [a..e].ably-realtime.com
-			expect := ably.GetEnvFallbackHosts("sandbox")
-			for _, host := range hosts[1:] {
-				if !ablyutil.Contains(expect, host) {
-					t.Errorf("expected %s got be in %s", host, expect)
-				}
-			}
+			assertSubset(t, ably.GetEnvFallbackHosts("sandbox"), hosts[1:])
 
 			// ensure all picked fallbacks are unique
 			uniq := make(map[string]bool)
@@ -492,12 +473,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			if retryCount != 4 {
 				t.Fatalf("expected 4 http call got %d", retryCount)
 			}
-			expect := ably.DefaultFallbackHosts()
-			for _, host := range hosts[1:] {
-				if !ablyutil.Contains(expect, host) {
-					t.Errorf("expected %s got be in %s", host, expect)
-				}
-			}
+			assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
 		})
 	})
 
@@ -583,14 +559,10 @@ func TestRest_RSC15d_HostFallback(t *testing.T) {
 		if retryCount != 1 { // 1 primary and 5 default fallback hosts
 			t.Fatalf("expected 1 http call got %d", retryCount)
 		}
+
 		// make sure the host header is set. Since we are using defaults from the spec
 		// the hosts should be in [a..e].ably-realtime.com
-		expect := ably.DefaultFallbackHosts()
-		for _, host := range hosts[1:] {
-			if !ablyutil.Contains(expect, host) {
-				t.Errorf("expected %s got be in %s", host, expect)
-			}
-		}
+		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
 
 		// ensure all picked fallbacks are unique
 		uniq := make(map[string]bool)
@@ -660,11 +632,12 @@ func TestRest_RSC15j_Fallback_HostHeader(t *testing.T) {
 			t.Fatalf("expected 3 hostheaders, received %d", len(hostHeaders))
 		}
 
-		for _, fallbackHost := range fallbackHosts {
-			if !ablyutil.Contains(hostHeaders, fallbackHost) {
-				t.Fatalf("Didn't receive hostheader for %s", fallbackHost)
-			}
-		}
+		//for _, fallbackHost := range fallbackHosts {
+		//	if !ablyutil.Contains(hostHeaders, fallbackHost) {
+		//		t.Fatalf("Didn't receive hostheader for %s", fallbackHost)
+		//	}
+		//}
+		assertSubset(t, hostHeaders, fallbackHosts)
 	})
 }
 

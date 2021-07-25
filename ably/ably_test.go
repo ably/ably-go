@@ -132,6 +132,27 @@ func assertNotDeepEquals(t *testing.T, expected interface{}, actual interface{})
 	}
 }
 
+func assertSubset(t *testing.T, set []string, subset []string) {
+	t.Helper()
+	for _, item := range subset[1:] {
+		if !ablyutil.Contains(set, item) {
+			t.Errorf("expected %s got be in %s", item, set)
+		}
+	}
+}
+
+func assertUnique(t *testing.T, list []string) {
+	t.Helper()
+	hashSet := ablyutil.NewHashSet()
+	for _, item := range list {
+		if hashSet.Has(item) {
+			t.Errorf("duplicate item %s", item)
+		} else {
+			hashSet.Add(item)
+		}
+	}
+}
+
 func init() {
 	ablytest.ClientOptionsInspector.UseBinaryProtocol = func(o []ably.ClientOption) bool {
 		return !ably.ApplyOptionsWithDefaults(o...).NoBinaryProtocol

@@ -136,7 +136,7 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			visitedHosts := setUpWithError(getTimeoutErr(), ably.WithFallbackHosts(fallbacks))
 			expectedPrimaryHost := "sandbox-realtime.ably.io"
 
-			assertEquals(t,4, len(visitedHosts))
+			assertEquals(t, 4, len(visitedHosts))
 			assertEquals(t, expectedPrimaryHost, visitedHosts[0])
 			assertDeepEquals(t, ablyutil.Sort(fallbacks), ablyutil.Sort(visitedHosts[1:]))
 		})
