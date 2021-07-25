@@ -172,7 +172,7 @@ type hostCache struct {
 
 	sync.RWMutex
 	deadline time.Time
-	host string
+	host     string
 }
 
 func (c *hostCache) put(host string) {
