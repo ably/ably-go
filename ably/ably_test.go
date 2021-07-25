@@ -119,12 +119,14 @@ func isEmpty(object interface{}) bool {
 }
 
 func assertEmpty(t *testing.T, value interface{}) {
+	t.Helper()
 	if !isEmpty(value) {
 		t.Errorf("%v is not empty", value)
 	}
 }
 
 func assertNotEmpty(t *testing.T, value interface{}) {
+	t.Helper()
 	if isEmpty(value) {
 		t.Errorf("%v is empty", value)
 	}
