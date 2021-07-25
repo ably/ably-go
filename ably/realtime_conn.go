@@ -63,9 +63,10 @@ type Connection struct {
 	reconnecting bool
 	// reauthorizing tracks if the current reconnection attempt is happening
 	// after a reauthorization, to avoid re-reauthorizing.
-	reauthorizing bool
-	arg           connArgs
-	hosts         *realtimeHosts
+	reauthorizing        bool
+	arg                  connArgs
+	hosts                *realtimeHosts
+	setPreferredRestHost func(host string)
 }
 
 type connCallbacks struct {
@@ -80,17 +81,18 @@ type connCallbacks struct {
 	onReconnectionFailed func(*errorInfo)
 }
 
-func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connection {
+func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, setPreferredRestHost func(host string)) *Connection {
 	c := &Connection{
 
 		ConnectionEventEmitter: ConnectionEventEmitter{newEventEmitter(auth.log())},
 		state:                  ConnectionStateInitialized,
 		internalEmitter:        ConnectionEventEmitter{newEventEmitter(auth.log())},
 
-		opts:      opts,
-		pending:   newPendingEmitter(auth.log()),
-		auth:      auth,
-		callbacks: callbacks,
+		opts:                 opts,
+		pending:              newPendingEmitter(auth.log()),
+		auth:                 auth,
+		callbacks:            callbacks,
+		setPreferredRestHost: setPreferredRestHost,
 	}
 	c.queue = newMsgQueue(c)
 	c.hosts = newRealtimeHosts(c.opts)
@@ -344,16 +346,14 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 }
 
 func (c *Connection) connectWith(arg connArgs) (result, error) {
+	defer c.hosts.resetVisitedFallbackHosts()
+
 	c.mtx.Lock()
 	// set ably connection state to connecting, connecting state exists regardless of whether raw connection is successful or not
 	if !c.isActive() { // check if already in connecting state
 		c.lockSetState(ConnectionStateConnecting, nil, 0)
 	}
 	c.mtx.Unlock()
-	u, err := url.Parse(c.opts.realtimeURL(c.hosts.getPreferredHost()))
-	if err != nil {
-		return nil, err
-	}
 	var res result
 	if arg.result {
 		res = c.internalEmitter.listenResult(
@@ -362,21 +362,37 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 			ConnectionStateDisconnected,
 		)
 	}
-	query, err := c.params(arg.mode)
-	if err != nil {
-		return nil, err
-	}
-	u.RawQuery = query.Encode()
-	proto := c.opts.protocol()
+	var conn conn
+	host := c.hosts.getPreferredHost()
+	for {
+		u, err := url.Parse(c.opts.realtimeURL(host))
+		if err != nil {
+			return nil, err
+		}
+		query, err := c.params(arg.mode)
+		if err != nil {
+			return nil, err
+		}
+		u.RawQuery = query.Encode()
+		proto := c.opts.protocol()
 
-	if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
-		return nopResult, nil
-	}
-
-	// if err is nil, raw connection with server is successful
-	conn, err := c.dial(proto, u)
-	if err != nil {
-		return nil, err
+		if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
+			return nopResult, nil
+		}
+		// if err is nil, raw connection with server is successful
+		conn, err = c.dial(proto, u)
+		if err == nil { // success
+			if host != c.hosts.getPrimaryHost() { // RTN17e
+				c.setPreferredRestHost(host)
+			}
+			break
+		}
+		if c.hosts.fallbackHostsRemaining() > 0 &&
+			(isTimeoutOrDnsErr(err) || checkIfDialTimeoutOrDnsErr(err)) && c.opts.hasActiveInternetConnection() { // RTN17d, RTN17c
+			host = c.hosts.nextFallbackHost()
+		} else {
+			return nil, err
+		}
 	}
 
 	c.mtx.Lock()

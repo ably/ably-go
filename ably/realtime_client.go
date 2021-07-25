@@ -30,7 +30,9 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 		c.onChannelMsg,
 		c.onReconnected,
 		c.onReconnectionFailed,
-	})
+	},
+		rest.hosts.setPrimaryFallbackHost,
+	)
 	conn.internalEmitter.OnAll(func(change ConnectionStateChange) {
 		c.Channels.broadcastConnStateChange(change)
 	})
