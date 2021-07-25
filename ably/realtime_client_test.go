@@ -103,9 +103,8 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 		t.Parallel()
 		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong"))
 		expectedHost := "sandbox-realtime.ably.io"
-		if visitedHosts[0] != expectedHost {
-			t.Fatalf("expected %v; got %v", expectedHost, visitedHosts[0])
-		}
+
+		assertEquals(t, expectedHost, visitedHosts[0])
 	})
 
 	t.Run("RTN17b: Fallback behaviour", func(t *testing.T) {
@@ -116,12 +115,9 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			visitedHosts := setUpWithError(getTimeoutErr())
 			expectedPrimaryHost := "sandbox-realtime.ably.io"
 			expectedFallbackHosts := ably.GetEnvFallbackHosts("sandbox")
-			if len(visitedHosts) != 6 {
-				t.Fatalf("visited hosts other than primary hosts %v", visitedHosts)
-			}
-			if visitedHosts[0] != expectedPrimaryHost {
-				t.Fatalf("expected %v; got %v", expectedPrimaryHost, visitedHosts[0])
-			}
+
+			assertEquals(t, 6, len(visitedHosts))
+			assertEquals(t, expectedPrimaryHost, visitedHosts[0])
 			assertDeepEquals(t, ablyutil.Sort(expectedFallbackHosts), ablyutil.Sort(visitedHosts[1:]))
 		})
 
@@ -129,12 +125,9 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			t.Parallel()
 			visitedHosts := setUpWithError(getTimeoutErr(), ably.WithRealtimeHost("custom-realtime.ably.io"))
 			expectedHost := "custom-realtime.ably.io"
-			if len(visitedHosts) > 1 {
-				t.Fatalf("visited hosts other than primary hosts %v", visitedHosts)
-			}
-			if visitedHosts[0] != expectedHost {
-				t.Fatalf("expected %v; got %v", expectedHost, visitedHosts[0])
-			}
+
+			assertEquals(t, 1, len(visitedHosts))
+			assertEquals(t, expectedHost, visitedHosts[0])
 		})
 
 		t.Run("apply when fallbacks are provided", func(t *testing.T) {
@@ -142,12 +135,9 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			fallbacks := []string{"fallback0", "fallback1", "fallback2"}
 			visitedHosts := setUpWithError(getTimeoutErr(), ably.WithFallbackHosts(fallbacks))
 			expectedPrimaryHost := "sandbox-realtime.ably.io"
-			if len(visitedHosts) != 4 {
-				t.Fatalf("visited hosts other than primary hosts %v", visitedHosts)
-			}
-			if visitedHosts[0] != expectedPrimaryHost {
-				t.Fatalf("expected %v; got %v", expectedPrimaryHost, visitedHosts[0])
-			}
+
+			assertEquals(t,4, len(visitedHosts))
+			assertEquals(t, expectedPrimaryHost, visitedHosts[0])
 			assertDeepEquals(t, ablyutil.Sort(fallbacks), ablyutil.Sort(visitedHosts[1:]))
 		})
 
@@ -161,12 +151,9 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 
 			expectedPrimaryHost := "custom-ably.realtime.com"
 			expectedFallbackHosts := ably.DefaultFallbackHosts()
-			if len(visitedHosts) != 6 {
-				t.Fatalf("visited hosts other than primary hosts %v", visitedHosts)
-			}
-			if visitedHosts[0] != expectedPrimaryHost {
-				t.Fatalf("expected %v; got %v", expectedPrimaryHost, visitedHosts[0])
-			}
+
+			assertEquals(t, 6, len(visitedHosts))
+			assertEquals(t, expectedPrimaryHost, visitedHosts[0])
 			assertDeepEquals(t, ablyutil.Sort(expectedFallbackHosts), ablyutil.Sort(visitedHosts[1:]))
 		})
 	})
@@ -186,17 +173,11 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 	t.Run("RTN17d: Check for compatible errors before attempting to reconnect to a fallback host", func(t *testing.T) {
 		t.Parallel()
 		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong")) // non-dns or non-timeout error
-		if len(visitedHosts) != 1 {
-			t.Fatalf("should not try fallback hosts for non-dns or timeout error, received visited hosts %v", visitedHosts)
-		}
+		assertEquals(t, 1, len(visitedHosts))
 		visitedHosts = setUpWithError(getDNSErr())
-		if len(visitedHosts) != 6 {
-			t.Fatalf("should try fallbacks hosts for dns error, received visited hosts %v", visitedHosts)
-		}
+		assertEquals(t, 6, len(visitedHosts))
 		visitedHosts = setUpWithError(getTimeoutErr())
-		if len(visitedHosts) != 6 {
-			t.Fatalf("should not try fallbacks hosts for timeout error, received visited hosts %v", visitedHosts)
-		}
+		assertEquals(t, 6, len(visitedHosts))
 	})
 
 	t.Run("RTN17e: Same fallback host should be used for REST as Realtime Fallback Host for a given active connection", func(t *testing.T) {
