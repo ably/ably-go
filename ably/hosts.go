@@ -1,7 +1,6 @@
 package ably
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -97,12 +96,7 @@ func (restHosts *restHosts) getPreferredHost() string {
 }
 
 func (restHosts *restHosts) cacheHost(host string) {
-	select {
-	case <-restHosts.cache.put(host):
-		return
-	case <-time.After(time.Second): // timeout of a second to cache the host
-		return
-	}
+	restHosts.cache.put(host)
 }
 
 // RTN17
@@ -174,68 +168,25 @@ func (realtimeHosts *realtimeHosts) getPreferredHost() string {
 // hostCache this caches a successful fallback host for 10 minutes.
 // Only used by REST client while making requests RSC15f
 type hostCache struct {
-	running  bool
-	host     string
 	duration time.Duration
-	cancel   func()
-	mu       sync.RWMutex
+
+	sync.RWMutex
+	deadline time.Time
+	host string
 }
 
-func (f *hostCache) put(host string) (isCached chan struct{}) {
-	isCached = make(chan struct{}, 1)
-	if f.get() != host {
-		if f.isRunning() {
-			f.stop()
-		}
-		go f.run(host, isCached)
-		return
+func (c *hostCache) put(host string) {
+	c.Lock()
+	defer c.Unlock()
+	c.host = host
+	c.deadline = time.Now().Add(c.duration)
+}
+
+func (c *hostCache) get() string {
+	c.RLock()
+	defer c.RUnlock()
+	if ablyutil.Empty(c.host) || time.Until(c.deadline) <= 0 {
+		return ""
 	}
-	isCached <- struct{}{}
-	return
-}
-
-func (f *hostCache) get() string {
-	if f.isRunning() {
-		f.mu.RLock()
-		h := f.host
-		f.mu.RUnlock()
-		return h
-	}
-	return ""
-}
-
-func (f *hostCache) isRunning() bool {
-	f.mu.RLock()
-	v := f.running
-	f.mu.RUnlock()
-	return v
-}
-
-func (f *hostCache) run(host string, isCached chan struct{}) {
-	f.mu.Lock()
-	now := time.Now()
-	duration := defaultOptions.FallbackRetryTimeout // spec RSC15f
-	if f.duration != 0 {
-		duration = f.duration
-	}
-	ctx, cancel := context.WithDeadline(context.Background(), now.Add(duration))
-	f.running = true
-	f.host = host
-	f.cancel = cancel
-	f.mu.Unlock()
-	isCached <- struct{}{}
-	<-ctx.Done()
-	f.mu.Lock()
-	f.running = false
-	f.mu.Unlock()
-}
-
-func (f *hostCache) stop() {
-	f.cancel()
-	// we make sure we have stopped
-	for {
-		if !f.isRunning() {
-			return
-		}
-	}
+	return c.host
 }
