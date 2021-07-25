@@ -290,7 +290,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		var retryCount int
 		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			hosts = append(hosts, strings.Split(r.Host, ":")[0]) // RSC15j, returns HOST header, https://stackoverflow.com/questions/53462002/net-http-request-url-host-returns-empty-string
+			hosts = append(hosts, strings.Split(r.Host, ":")[0])
 			retryCount++
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
@@ -317,21 +317,10 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		}
 
 		retryCount, hosts := runTestServer(t, options)
+
 		assertEquals(t, 6, retryCount) // 1 primary and 5 default fallback hosts
-
-		// make sure the host header is set. Since we are using defaults from the spec
-		// the hosts should be in [a..e].ably-realtime.com
 		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
-
-		// ensure all picked fallbacks are unique
-		uniq := make(map[string]bool)
-		for _, h := range hosts {
-			if _, ok := uniq[h]; ok {
-				t.Errorf("duplicate fallback %s", h)
-			} else {
-				uniq[h] = true
-			}
-		}
+		assertUnique(t, hosts) // ensure all picked fallbacks are unique
 	})
 
 	t.Run("RSC15a: retry count shouldn't reach more than httpMaxRetryCount", func(t *testing.T) {
@@ -344,22 +333,9 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			ably.WithUseTokenAuth(true),
 		}
 		retryCount, hosts := runTestServer(t, options)
-		if retryCount > 3 { // first host is primary host, others are fallback hosts
-			t.Fatalf("Retry count reached %d, shouldn't reach more than 2", retryCount)
-		}
-		// make sure the host header is set. Since we are using defaults from the spec
-		// the hosts should be in [a..e].ably-realtime.com
+		assertEquals(t, 3, retryCount) // first host is primary host, others are fallback hosts
 		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
-
-		// ensure all picked fallbacks are unique
-		uniq := make(map[string]bool)
-		for _, h := range hosts {
-			if _, ok := uniq[h]; ok {
-				t.Errorf("duplicate fallback %s", h)
-			} else {
-				uniq[h] = true
-			}
-		}
+		assertUnique(t, hosts) // ensure all picked fallbacks are unique
 	})
 
 	t.Run("RSC15b, RSC15g", func(t *testing.T) {
@@ -374,23 +350,10 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			}
 
 			retryCount, hosts := runTestServer(t, options)
-			if retryCount != 6 { // 1 primary and 5 default fallback hosts
-				t.Fatalf("expected 6 http calls got %d", retryCount)
-			}
 
-			// make sure the host header is set. Since we are using defaults from the spec
-			// the hosts should be in [a..e].ably-realtime.com
+			assertEquals(t, 6, retryCount) // 1 primary and 5 default fallback hosts
 			assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
-
-			// ensure all picked fallbacks are unique
-			uniq := make(map[string]bool)
-			for _, h := range hosts {
-				if _, ok := uniq[h]; ok {
-					t.Errorf("duplicate fallback %s", h)
-				} else {
-					uniq[h] = true
-				}
-			}
+			assertUnique(t, hosts) // ensure all picked fallbacks are unique
 		})
 
 		t.Run("RSC15b1,RSC15g2: when using sandbox env, should use sandbox env. fallback hosts", func(t *testing.T) {
@@ -403,23 +366,10 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			}
 
 			retryCount, hosts := runTestServer(t, options)
-			if retryCount != 6 { // 1 primary and 5 default fallback hosts
-				t.Fatalf("expected 6 http calls got %d", retryCount)
-			}
 
-			// make sure the host header is set. Since we are using defaults from the spec
-			// the hosts should be in [a..e].ably-realtime.com
+			assertEquals(t, 6, retryCount) // 1 primary and 5 default fallback hosts
 			assertSubset(t, ably.GetEnvFallbackHosts("sandbox"), hosts[1:])
-
-			// ensure all picked fallbacks are unique
-			uniq := make(map[string]bool)
-			for _, h := range hosts {
-				if _, ok := uniq[h]; ok {
-					t.Errorf("duplicate fallback %s", h)
-				} else {
-					uniq[h] = true
-				}
-			}
+			assertUnique(t, hosts) // ensure all picked fallbacks are unique
 		})
 
 		t.Run("RSC15b2, RSC15g1: should occur when custom host is set and fallbacks are provided", func(t *testing.T) {
@@ -434,13 +384,11 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 				ably.WithUseTokenAuth(true),
 			}
 			retryCount, hosts := runTestServer(t, options)
-			if retryCount != 2 {
-				t.Fatalf("expected 2 http call got %d", retryCount)
-			}
-			host := hosts[1]
-			if host != fallback {
-				t.Errorf("expected %s got %s", fallback, host)
-			}
+
+			assertEquals(t, 2, retryCount) // 1 primary and 1 fallback
+			assertEquals(t, 2, len(hosts))
+			assertEquals(t, "example.com", hosts[0])
+			assertEquals(t, "a.example.com", hosts[1])
 		})
 
 		t.Run("RSC15b2: should not occur when provided fallbackHosts is an empty array", func(t *testing.T) {
@@ -453,10 +401,11 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 				ably.WithFallbackHosts([]string{}),
 				ably.WithUseTokenAuth(true),
 			}
-			retryCount, _ := runTestServer(t, options)
-			if retryCount != 1 {
-				t.Fatalf("expected 1 http calls got %d", retryCount)
-			}
+			retryCount, hosts := runTestServer(t, options)
+
+			assertEquals(t, 1, retryCount)
+			assertEquals(t, 1, len(hosts))
+			assertEquals(t, "example.com", hosts[0])
 		})
 
 		t.Run("RSC15b3, RSC15g4: should occur when fallbackHostsUseDefault is true and custom host is provided", func(t *testing.T) {
@@ -470,9 +419,8 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 				ably.WithUseTokenAuth(true),
 			}
 			retryCount, hosts := runTestServer(t, options)
-			if retryCount != 4 {
-				t.Fatalf("expected 4 http call got %d", retryCount)
-			}
+
+			assertEquals(t, 4, retryCount)
 			assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
 		})
 	})
@@ -487,13 +435,10 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			ably.WithUseTokenAuth(true),
 		}
 		retryCount, hosts := runTestServer(t, options)
-		if retryCount != 1 {
-			t.Fatalf("expected 1 http call got %d", retryCount)
-		}
-		host := hosts[0]
-		if !strings.Contains(host, customHost) {
-			t.Errorf("expected %s got %s", customHost, host)
-		}
+
+		assertEquals(t, 1, retryCount)
+		assertEquals(t, 1, len(hosts))
+		assertEquals(t, "example.com", hosts[0])
 	})
 
 	t.Run("RSC15e must start with default host", func(t *testing.T) {
@@ -506,14 +451,9 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			ably.WithUseTokenAuth(true),
 		}
 		retryCount, hosts := runTestServer(t, options)
-		if retryCount != 6 {
-			t.Fatalf("expected 6 http calls got %d", retryCount)
-		}
-		firstHostCalled := hosts[0]
-		opts := ably.ApplyOptionsWithDefaults(options...)
-		if !strings.HasPrefix(firstHostCalled, opts.GetPrimaryRestHost()) {
-			t.Errorf("expected primary host got %s", firstHostCalled)
-		}
+
+		assertEquals(t, 6, retryCount)
+		assertEquals(t, "rest.ably.io", hosts[0])
 	})
 }
 
@@ -529,7 +469,7 @@ func TestRest_RSC15d_HostFallback(t *testing.T) {
 		var retryCount int
 		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			hosts = append(hosts, strings.Split(r.Host, ":")[0]) // RSC15j, returns HOST header, https://stackoverflow.com/questions/53462002/net-http-request-url-host-returns-empty-string
+			hosts = append(hosts, strings.Split(r.Host, ":")[0])
 			retryCount++
 			w.WriteHeader(http.StatusBadRequest)
 		}))
@@ -547,32 +487,17 @@ func TestRest_RSC15d_HostFallback(t *testing.T) {
 
 	t.Run("RSC15d should not fallback for error code < 500 or errorCode > 504", func(t *testing.T) {
 		t.Parallel()
-
 		options := []ably.ClientOption{
 			ably.WithTLS(false),      // since local proxy server, TLS is disabled
 			ably.WithEnvironment(""), // remove default sandbox env
 			ably.WithHTTPMaxRetryCount(10),
 			ably.WithUseTokenAuth(true),
 		}
-
 		retryCount, hosts := runTestServer(t, options)
-		if retryCount != 1 { // 1 primary and 5 default fallback hosts
-			t.Fatalf("expected 1 http call got %d", retryCount)
-		}
 
-		// make sure the host header is set. Since we are using defaults from the spec
-		// the hosts should be in [a..e].ably-realtime.com
-		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])
-
-		// ensure all picked fallbacks are unique
-		uniq := make(map[string]bool)
-		for _, h := range hosts {
-			if _, ok := uniq[h]; ok {
-				t.Errorf("duplicate fallback %s", h)
-			} else {
-				uniq[h] = true
-			}
-		}
+		assertEquals(t, 1, retryCount)
+		assertEquals(t, 1, len(hosts))
+		assertEquals(t, "rest.ably.io", hosts[0])
 	})
 }
 
@@ -628,15 +553,7 @@ func TestRest_RSC15j_Fallback_HostHeader(t *testing.T) {
 		channel := client.Channels.Get("remember_fallback_host")
 		channel.Publish(context.Background(), "ping", "pong")
 
-		if len(hostHeaders) != 3 {
-			t.Fatalf("expected 3 hostheaders, received %d", len(hostHeaders))
-		}
-
-		//for _, fallbackHost := range fallbackHosts {
-		//	if !ablyutil.Contains(hostHeaders, fallbackHost) {
-		//		t.Fatalf("Didn't receive hostheader for %s", fallbackHost)
-		//	}
-		//}
+		assertEquals(t, 3, len(hostHeaders))
 		assertSubset(t, hostHeaders, fallbackHosts)
 	})
 }
@@ -700,23 +617,19 @@ func TestRest_RSC15f_CacheFallbackHost(t *testing.T) {
 			t.Fatal(err)
 		}
 		cachedHost := client.GetCachedFallbackHost()
-		if cachedHost != fallbackHosts[2] {
-			t.Errorf("expected cached host to be %s got %s", fallbackHosts[2], cachedHost)
-		}
-		retryCount = 0
 
+		assertEquals(t, fallbackHosts[2], cachedHost)
+
+		retryCount = 0
 		// the same cached host is used again
 		err = channel.Publish(context.Background(), "pong", "ping")
 		if err != nil {
 			t.Fatal(err)
 		}
 		cachedHost = client.GetCachedFallbackHost()
-		if cachedHost != fallbackHosts[2] {
-			t.Errorf("expected cached host to be %s got %s", fallbackHosts[2], cachedHost)
-		}
-		if retryCount != 0 {
-			t.Errorf("expected 0 retries got %d retries", retryCount)
-		}
+
+		assertEquals(t, fallbackHosts[2], cachedHost)
+		assertEquals(t, 0, retryCount)
 	})
 }
 
