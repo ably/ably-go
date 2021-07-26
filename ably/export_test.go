@@ -197,13 +197,13 @@ const (
 	DefaultCipherAlgorithm = defaultCipherAlgorithm
 	DefaultCipherMode      = defaultCipherMode
 
-	LibraryString       = libraryString
-	AblyVersionHeader   = ablyVersionHeader
-	AblyVersion         = ablyVersion
-	AblyLibHeader       = ablyLibHeader
-	LibraryVersion      = libraryVersion
-	AblyAgentHeader     = ablyAgentHeader
-	AblyAgentIdentifier = ablyAgentIdentifier
+	LibraryString     = libraryString
+	AblyVersionHeader = ablyVersionHeader
+	AblyVersion       = ablyVersion
+	AblyLibHeader     = ablyLibHeader
+	LibraryVersion    = libraryVersion
+	AblyAgentHeader   = ablyAgentHeader
+	AblySDKIdentifier = ablySDKIdentifier
 
 	EncUTF8   = encUTF8
 	EncJSON   = encJSON
@@ -238,6 +238,8 @@ const (
 	FlagSubscribe         = flagSubscribe
 	FlagPresenceSubscribe = flagPresenceSubscribe
 )
+
+var GoRuntimeIdentifier = goRuntimeIdentifier
 
 func MessageWithEncodedData(m Message, cipher channelCipher) (Message, error) {
 	return m.withEncodedData(cipher)

@@ -324,9 +324,8 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		channel := client.Channels.Get("remember_fallback_host")
 		channel.Publish(context.Background(), "ping", "pong")
 
-		if agentHeaderValue != ably.AblyAgentIdentifier {
-			t.Fatalf("Agent header value is not equal to %s", ably.AblyAgentIdentifier)
-		}
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier()
+		assertEquals(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
 }
 

@@ -60,7 +60,7 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketC
 // dialWebsocketTimeout dials the websocket with a timeout.
 func dialWebsocketTimeout(uri, protocol, origin string, timeout time.Duration) (*websocket.Conn, error) {
 	config, err := websocket.NewConfig(uri, origin)
-	config.Header.Set(ablyAgentHeader, ablyAgentIdentifier)
+	config.Header.Set(ablyAgentHeader, ablyAgentIdentifier())
 	if err != nil {
 		return nil, err
 	}

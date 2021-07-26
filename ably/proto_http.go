@@ -1,5 +1,7 @@
 package ably
 
+import "runtime"
+
 // constants for rsc7
 const (
 	ablyVersionHeader      = "X-Ably-Version"
@@ -13,5 +15,12 @@ const (
 	ablyClientIDHeader     = "X-Ably-ClientId"
 	hostHeader             = "Host"
 	ablyAgentHeader        = "Ably-Agent"                // RSC7d
-	ablyAgentIdentifier    = "ably-go/" + libraryVersion // RSC7d1
+	ablySDKIdentifier      = "ably-go/" + libraryVersion // RSC7d1
 )
+
+func goRuntimeIdentifier() string {
+	return libraryName + "/" + runtime.Version()[2:]
+}
+func ablyAgentIdentifier() string {
+	return ablySDKIdentifier + " " + goRuntimeIdentifier()
+}
