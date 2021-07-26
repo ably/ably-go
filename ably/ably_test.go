@@ -134,7 +134,7 @@ func assertNotDeepEquals(t *testing.T, expected interface{}, actual interface{})
 
 func assertSubset(t *testing.T, set []string, subset []string) {
 	t.Helper()
-	for _, item := range subset[1:] {
+	for _, item := range subset {
 		if !ablyutil.Contains(set, item) {
 			t.Errorf("expected %s got be in %s", item, set)
 		}
