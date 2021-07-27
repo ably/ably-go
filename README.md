@@ -8,6 +8,13 @@ A Go client library for [https://ably.com/](https://ably.com/), the realtime mes
 ~ $ go get -u github.com/ably/ably-go/ably
 ```
 
+## Breaking API Changes in Version 1.2.0
+
+Please see our [Upgrade / Migration Guide](UPDATING.md) for notes on changes you need to make to your code to update it to use the new API introduced by version 1.2.0.
+
+Users updating from version 1.1.5 of this library will note that there are significant breaking changes to the API.
+Our [current approach to versioning](https://ably.com/documentation/client-lib-development-guide/versioning) is not compliant with semantic versioning, which is why these changes are breaking despite presenting only a change in the `minor` component of the version number.
+
 ## Using the Realtime API
 
 ### Creating a client
