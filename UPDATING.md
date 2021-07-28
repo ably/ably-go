@@ -76,7 +76,7 @@ Both `Subscribe` and `SubscribeAll` are now blocking methods.
 
 ### The `Publish` Method now Blocks
 
-Previously you _were_ publishing messages to a channel by calling `Publish` and then waiting on the `Result`:
+Before version 1.2.0, you published messages to a channel by calling the `Publish` method and then waiting for the `Result`:
 
 ```go
 result, _ := channel.Publish("EventName1", "EventData1")
