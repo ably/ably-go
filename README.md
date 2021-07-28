@@ -376,6 +376,10 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 
 - Realtime Ping function is not implemented.
 
+- Message Delta Compression is not implemented.
+
+- Push Notification Target functional is not applicable for the SDK and thus not implemented.
+
 ## Release process
 
 Starting with release 1.2, this library uses [semantic versioning](http://semver.org/). For each release, the following needs to be done:
