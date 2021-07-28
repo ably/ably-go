@@ -108,7 +108,7 @@ if err != nil {
 }
 ```
 
-You **now** need to use the blocking [Pages](https://pkg.go.dev/github.com/ably/ably-go/ably#HistoryRequest.Pages) method on the returned `HistoryRequest` instance:
+**Starting with version 1.2.0**, you must use the blocking [Pages](https://pkg.go.dev/github.com/ably/ably-go/ably#HistoryRequest.Pages) method on the returned `HistoryRequest` instance:
 
 ```go
 pages, err := channel.History().Pages(ctx)
