@@ -75,6 +75,9 @@ The signature of the [Subscribe](https://pkg.go.dev/github.com/ably/ably-go/ably
 
 Both `Subscribe` and `SubscribeAll` are now blocking methods.
 
+Detail around the concurrency and routing of calls to message and event handlers is described in the package documentation
+under [Event Emitters](https://pkg.go.dev/github.com/ably/ably-go/ably#hdr-Event_Emitters).
+
 ### The `Publish` Method now Blocks
 
 Before version 1.2.0, you published messages to a channel by calling the `Publish` method and then waiting for the `Result`:
