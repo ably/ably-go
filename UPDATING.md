@@ -29,8 +29,8 @@ context.WithTimeout(context.Background(), 10 * time.Second)
 Adding the necessary code to stay on top of cancellation, you will need something like this:
 
 ```go
-ctx, cancelFunc := context.WithTimeout(context.Background(), 10 * time.Second)
-defer cancelFunc()
+ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+defer cancel()
 ```
 
 This way, the context can be cancelled at the close of the function.
