@@ -94,7 +94,7 @@ channel.Publish(ctx, "EventName1", "EventData1")
 
 ### Querying History
 
-Previously you were _were_ using something like this, receiving a `PaginatedResult` from the `History` function:
+Before version 1.2.0, you queried history as shown below, receiving a `PaginatedResult` from the `History` function:
 
 ```go
 page, err := channel.History(nil)
