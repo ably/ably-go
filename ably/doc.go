@@ -24,9 +24,12 @@
 // The OffAll method is like Off, except it is like calling all the "off"
 // functions.
 //
-// Calls to handlers for a single or for subsequent events may be concurrent,
-// but are always ordered. That is, if an event is fired after another, the same
-// handler will be called in the same order that the events were fired.
+// Each handler is assigned its own sequential queue of events. That is, any
+// given handler function will not receive calls from different goroutines that
+// run concurrently; you can count on the next call to a handler to happen
+// after the previous call has returned, and you can count on events or
+// messages to be delivered to the handler in the same order they were emitted.
+// Different handlers may be called concurrently, though.
 //
 // Calling any of these methods an "off" function inside a handler will only
 // have effect for subsequent events.
