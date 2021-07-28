@@ -90,7 +90,7 @@ result.Wait()
 
 ```go
 // block until the publish operation completes or is cancelled
-channel.Publish(ctx, "EventName1", "EventData1")
+err := channel.Publish(ctx, "EventName1", "EventData1")
 ```
 
 ### Querying History
