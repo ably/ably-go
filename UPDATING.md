@@ -35,6 +35,11 @@ defer cancel()
 
 This way, the context can be cancelled at the close of the function.
 
+**Note**:
+For Realtime operations, cancellation isn't supported by the underlying protocol.
+A context cancellation in this case just means that the call returns immediately, without waiting for the operation to finish, with the error provided by the context; but the operation carries on in the background.
+Timeouts for these operations are handled separately, with [a configurable realtime request timeout duration](https://pkg.go.dev/github.com/ably/ably-go/ably#WithRealtimeRequestTimeout).
+
 ### Client Options now has a Functional Interface
 
 Before version 1.2.0, you instantiated a client using a `ClientOptions` instance created with the `NewClientOptions` function:
