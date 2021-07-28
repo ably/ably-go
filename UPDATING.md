@@ -62,7 +62,7 @@ for msg := range sub.MessageChannel() {
 }
 ```
 
-You **now** need to supply a context and your own message handler function to the new [SubscribeAll](https://pkg.go.dev/github.com/ably/ably-go/ably#RealtimeChannel.SubscribeAll) method:
+**Starting with version 1.2.0**, you must supply a context and your own message handler function to the new [SubscribeAll](https://pkg.go.dev/github.com/ably/ably-go/ably#RealtimeChannel.SubscribeAll) method:
 
 ```go
 unsubscribe, _ := channel.SubscribeAll(ctx, func(msg *ably.Message) {
