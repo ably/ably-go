@@ -49,7 +49,8 @@ client, err := ably.NewRealtime(ably.NewClientOptions("xxx:xxx"))
 client, err := ably.NewRealtime(ably.WithKey("xxx:xxx"))
 ```
 
-Methods on `ClientOptions`
+For a full list of client options, see all functions prefixed by `With` that return a `ClientOption` function
+[in the API reference](https://pkg.go.dev/github.com/ably/ably-go/ably#ClientOption).
 
 ### Subscription now uses Message Handlers
 
