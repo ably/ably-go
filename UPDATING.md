@@ -23,7 +23,7 @@ For robust, production-ready applications you will rarely (actually, probably _n
 For example, a context can be created with a 10-second timeout like this:
 
 ```go
-context.WithTimeout(context.Background, 10 * time.Second)
+context.WithTimeout(context.Background(), 10 * time.Second)
 ```
 
 Adding the necessary code to stay on top of cancellation, you will need something like this:
