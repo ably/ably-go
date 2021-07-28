@@ -85,7 +85,7 @@ result, _ := channel.Publish("EventName1", "EventData1")
 result.Wait()
 ```
 
-You **now** need to supply a context, as this method is now blocking:
+**Starting with version 1.2.0**, you must supply a context, as this method is now blocking:
 
 ```go
 // block until the publish operation completes or is cancelled
