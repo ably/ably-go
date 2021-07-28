@@ -70,7 +70,7 @@ unsubscribe, _ := channel.SubscribeAll(ctx, func(msg *ably.Message) {
 })
 ```
 
-The signature of the [Subscribe](https://pkg.go.dev/github.com/ably/ably-go/ably#RealtimeChannel.Subscribe) method has also changed, now requiring a [Context](https://pkg.go.dev/context#Context) as well as channel name and your message handler.
+The signature of the [Subscribe](https://pkg.go.dev/github.com/ably/ably-go/ably#RealtimeChannel.Subscribe) method has also changed. It now requires a [Context](https://pkg.go.dev/context#Context) as well as the channel name and your message handler.
 
 Both `Subscribe` and `SubscribeAll` are now blocking methods.
 
