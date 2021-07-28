@@ -37,7 +37,7 @@ This way, the context can be cancelled at the close of the function.
 
 ### Client Options now has a Functional Interface
 
-Previously you _were_ instantiating a client using a `ClientOptions` instance created using the `NewClientOptions` function:
+Before version 1.2.0, you instantiated a client using a `ClientOptions` instance created with the `NewClientOptions` function:
 
 ```go
 client, err := ably.NewRealtime(ably.NewClientOptions("xxx:xxx"))
