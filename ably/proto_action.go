@@ -20,6 +20,7 @@ const (
 	actionPresence
 	actionMessage
 	actionSync
+	actionAuth
 )
 
 var actions = map[protoAction]string{
@@ -40,6 +41,7 @@ var actions = map[protoAction]string{
 	actionPresence:     "presence",
 	actionMessage:      "message",
 	actionSync:         "sync",
+	actionAuth:         "auth",
 }
 
 func (a protoAction) String() string {
