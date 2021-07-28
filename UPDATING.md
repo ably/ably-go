@@ -53,7 +53,7 @@ Methods on `ClientOptions`
 
 ### Subscription now uses Message Handlers
 
-Previously you _were_ receiving all messages from a Go Channel using:
+Before version 1.2.0, you subscribed to receive all messages from a Go channel like this:
 
 ```go
 sub, _ := channel.Subscribe()
