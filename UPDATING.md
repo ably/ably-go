@@ -20,7 +20,7 @@ We use `ctx` in examples to refer to a `Context` instance that you create in you
 
 For robust, production-ready applications you will rarely (actually, probably _never_) want to create your `Context` using the basic [Background](https://pkg.go.dev/context#Background) function, because it cannot be cancelled and remains for the lifecycle of the program. Instead, you should use [WithTimeout](https://pkg.go.dev/context#WithTimeout) or [WithDeadline](https://pkg.go.dev/context#WithDeadline).
 
-For example, a context can be created with a 10 second timeout like this:
+For example, a context can be created with a 10-second timeout like this:
 
 ```go
 context.WithTimeout(context.Background, 10 * time.Second)
