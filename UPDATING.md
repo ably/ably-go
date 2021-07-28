@@ -43,7 +43,7 @@ Before version 1.2.0, you instantiated a client using a `ClientOptions` instance
 client, err := ably.NewRealtime(ably.NewClientOptions("xxx:xxx"))
 ```
 
-You **now** need to use the new functional interface:
+**Starting with version 1.2.0**, you must use the new functional interface:
 
 ```go
 client, err := ably.NewRealtime(ably.WithKey("xxx:xxx"))
