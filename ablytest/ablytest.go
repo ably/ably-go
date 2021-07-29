@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
 
 var Timeout = 30 * time.Second
@@ -59,7 +58,7 @@ func encode(typ string, in interface{}) ([]byte, error) {
 	case "application/json":
 		return json.Marshal(in)
 	case "application/x-msgpack":
-		return ablyutil.MarshalMsgpack(in)
+		return marshalMsgpack(in)
 	case "text/plain":
 		return []byte(fmt.Sprintf("%v", in)), nil
 	default:

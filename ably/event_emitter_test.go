@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/internal/ablytest"
+	"github.com/ably/ably-go/ablytest"
 )
 
 func TestEventEmitterConcurrency(t *testing.T) {

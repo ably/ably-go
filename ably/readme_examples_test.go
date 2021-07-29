@@ -3,7 +3,7 @@ package ably_test
 
 import "testing"
 import "github.com/ably/ably-go/ably"
-import "github.com/ably/ably-go/ably/internal/ablytest"
+import "github.com/ably/ably-go/ablytest"
 
 /* README.md:22 */ import "context"
 
