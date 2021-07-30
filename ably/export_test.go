@@ -18,10 +18,6 @@ func NewRestHosts(opts *clientOptions) *restHosts {
 	return newRestHosts(opts)
 }
 
-func (restHosts *restHosts) GetPrimaryHost() string {
-	return restHosts.getPrimaryHost()
-}
-
 func (restHosts *restHosts) NextFallbackHost() string {
 	return restHosts.nextFallbackHost()
 }
@@ -60,10 +56,6 @@ func (restHosts *restHosts) CacheHost(host string) {
 
 func NewRealtimeHosts(opts *clientOptions) *realtimeHosts {
 	return newRealtimeHosts(opts)
-}
-
-func (realtimeHosts *realtimeHosts) GetPrimaryHost() string {
-	return realtimeHosts.getPrimaryHost()
 }
 
 func (realtimeHosts *realtimeHosts) NextFallbackHost() string {

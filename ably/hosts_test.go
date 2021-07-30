@@ -137,7 +137,7 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 
 	t.Run("should get remaining fallback hosts count", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
-		restHosts := ably.NewRealtimeHosts(clientOptions)
+		restHosts := ably.NewRestHosts(clientOptions)
 
 		// Get first preferred restHost
 		restHosts.GetPreferredHost()
