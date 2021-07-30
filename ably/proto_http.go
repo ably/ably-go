@@ -34,8 +34,9 @@ func getAblyAgentIdentifier() string {
 		osIdentifier := goOSIdentifier()
 		if empty(osIdentifier) {
 			ablyAgentIdentifier = ablySDKIdentifier + " " + goRuntimeIdentifier()
+		} else {
+			ablyAgentIdentifier = ablySDKIdentifier + " " + goRuntimeIdentifier() + " " + osIdentifier
 		}
-		ablyAgentIdentifier = ablySDKIdentifier + " " + goRuntimeIdentifier() + " " + osIdentifier
 	}
 	return ablyAgentIdentifier
 }
