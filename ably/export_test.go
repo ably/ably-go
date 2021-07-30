@@ -200,7 +200,6 @@ const (
 	LibraryString     = libraryString
 	AblyVersionHeader = ablyVersionHeader
 	AblyVersion       = ablyVersion
-	AblyLibHeader     = ablyLibHeader
 	LibraryVersion    = libraryVersion
 	AblyAgentHeader   = ablyAgentHeader
 	AblySDKIdentifier = ablySDKIdentifier
@@ -240,6 +239,7 @@ const (
 )
 
 var GoRuntimeIdentifier = goRuntimeIdentifier
+var GoOSIdentifier = goOSIdentifier
 
 func MessageWithEncodedData(m Message, cipher channelCipher) (Message, error) {
 	return m.withEncodedData(cipher)

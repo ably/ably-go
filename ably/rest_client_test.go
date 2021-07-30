@@ -270,12 +270,6 @@ func TestRSC7(t *testing.T) {
 			t.Errorf("expected %s got %s", ably.AblyVersion, h)
 		}
 	})
-	t.Run("must set lib header", func(t *testing.T) {
-		h := req.Header.Get(ably.AblyLibHeader)
-		if h != ably.LibraryString {
-			t.Errorf("expected %s got %s", ably.LibraryString, h)
-		}
-	})
 }
 
 func TestRest_RSC7_AblyAgent(t *testing.T) {
@@ -324,7 +318,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		channel := client.Channels.Get("remember_fallback_host")
 		channel.Publish(context.Background(), "ping", "pong")
 
-		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier()
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier() + " " + ably.GoOSIdentifier()
 		assertEquals(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
 }

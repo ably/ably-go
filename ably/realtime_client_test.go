@@ -79,7 +79,7 @@ func TestReatime_RSC7_AblyAgent(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier()
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier() + " " + ably.GoOSIdentifier()
 		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
 		assertEquals(t, expectedAgentHeaderValue, agentHeaderValue)
 	})

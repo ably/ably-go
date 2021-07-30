@@ -1,11 +1,13 @@
 package ably
 
-import "runtime"
+import (
+	"runtime"
+	"sync"
+)
 
 // constants for rsc7
 const (
 	ablyVersionHeader      = "X-Ably-Version"
-	ablyLibHeader          = "X-Ably-Lib"
 	ablyErrorCodeHeader    = "X-Ably-Errorcode"
 	ablyErrorMessageHeader = "X-Ably-Errormessage"
 	libraryVersion         = "1.2.0"
@@ -18,9 +20,22 @@ const (
 	ablySDKIdentifier      = "ably-go/" + libraryVersion // RSC7d1
 )
 
+var ablyAgentIdentifier = "" // Need to be calculated at runtime
+var agentIdentifierMutext sync.Mutex
+
 func goRuntimeIdentifier() string {
 	return libraryName + "/" + runtime.Version()[2:]
 }
-func ablyAgentIdentifier() string {
-	return ablySDKIdentifier + " " + goRuntimeIdentifier()
+
+func getAblyAgentIdentifier() string {
+	agentIdentifierMutext.Lock()
+	defer agentIdentifierMutext.Unlock()
+	if empty(ablyAgentIdentifier) {
+		osIdentifier := goOSIdentifier()
+		if empty(osIdentifier) {
+			ablyAgentIdentifier = ablySDKIdentifier + " " + goRuntimeIdentifier()
+		}
+		ablyAgentIdentifier = ablySDKIdentifier + " " + goRuntimeIdentifier() + " " + osIdentifier
+	}
+	return ablyAgentIdentifier
 }
