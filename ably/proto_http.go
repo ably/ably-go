@@ -21,15 +21,15 @@ const (
 )
 
 var ablyAgentIdentifier = "" // Need to be calculated at runtime
-var agentIdentifierMutext sync.Mutex
+var agentIdentifierMutex sync.Mutex
 
 func goRuntimeIdentifier() string {
 	return libraryName + "/" + runtime.Version()[2:]
 }
 
 func getAblyAgentIdentifier() string {
-	agentIdentifierMutext.Lock()
-	defer agentIdentifierMutext.Unlock()
+	agentIdentifierMutex.Lock()
+	defer agentIdentifierMutex.Unlock()
 	if empty(ablyAgentIdentifier) {
 		osIdentifier := goOSIdentifier()
 		if empty(osIdentifier) {
