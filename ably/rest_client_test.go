@@ -282,8 +282,8 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
-		serverURL, _ := url.Parse(server.URL)
-
+		serverURL, err := url.Parse(server.URL)
+		assertNil(t, err)
 		opts := []ably.ClientOption{
 			ably.WithEnvironment(ablytest.Environment),
 			ably.WithTLS(false),

@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"fmt"
 	"runtime"
 
 	"golang.org/x/sys/windows"

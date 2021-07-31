@@ -197,7 +197,6 @@ const (
 	DefaultCipherAlgorithm = defaultCipherAlgorithm
 	DefaultCipherMode      = defaultCipherMode
 
-	LibraryString     = libraryString
 	AblyVersionHeader = ablyVersionHeader
 	AblyVersion       = ablyVersion
 	LibraryVersion    = libraryVersion

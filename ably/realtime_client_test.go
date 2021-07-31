@@ -65,7 +65,8 @@ func TestReatime_RSC7_AblyAgent(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
-		serverURL, _ := url.Parse(server.URL)
+		serverURL, err := url.Parse(server.URL)
+		assertNil(t, err)
 
 		client, err := ably.NewRealtime(
 			app.Options(ably.WithEnvironment(ablytest.Environment),
