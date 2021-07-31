@@ -232,7 +232,6 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 		"echo":      []string{"true"},
 		"format":    []string{"msgpack"},
 		"v":         []string{ablyVersion},
-		"lib":       []string{libraryString},
 	}
 	if c.opts.NoEcho {
 		query.Set("echo", "false")
