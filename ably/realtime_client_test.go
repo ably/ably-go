@@ -52,13 +52,7 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 func TestReatime_RSC7_AblyAgent(t *testing.T) {
 	t.Parallel()
 
-	app, err := ablytest.NewSandbox(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer app.Close()
-
-	t.Run("RSC7d3 : Should set ablyAgent header with right identifiers", func(t *testing.T) {
+	t.Run("RSC7d3 : Should set ablyAgent header with correct identifiers", func(t *testing.T) {
 		var agentHeaderValue string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
@@ -69,10 +63,11 @@ func TestReatime_RSC7_AblyAgent(t *testing.T) {
 		assertNil(t, err)
 
 		client, err := ably.NewRealtime(
-			app.Options(ably.WithEnvironment(ablytest.Environment),
-				ably.WithTLS(false),
-				ably.WithUseTokenAuth(true),
-				ably.WithRealtimeHost(serverURL.Host))...)
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithToken("fake:token"),
+			ably.WithUseTokenAuth(true),
+			ably.WithRealtimeHost(serverURL.Host))
 		if err != nil {
 			t.Fatal(err)
 		}

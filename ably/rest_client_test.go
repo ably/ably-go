@@ -274,7 +274,7 @@ func TestRSC7(t *testing.T) {
 
 func TestRest_RSC7_AblyAgent(t *testing.T) {
 	t.Parallel()
-	t.Run("RSC7d2 : Should set ablyAgent header with right identifiers", func(t *testing.T) {
+	t.Run("RSC7d2 : Should set ablyAgent header with correct identifiers", func(t *testing.T) {
 		t.Parallel()
 		var agentHeaderValue string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -284,12 +284,14 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		defer server.Close()
 		serverURL, err := url.Parse(server.URL)
 		assertNil(t, err)
+
 		opts := []ably.ClientOption{
 			ably.WithEnvironment(ablytest.Environment),
 			ably.WithTLS(false),
 			ably.WithUseTokenAuth(true),
 			ably.WithRESTHost(serverURL.Host),
 		}
+
 		client, err := ably.NewREST(opts...)
 		if err != nil {
 			t.Fatal(err)
