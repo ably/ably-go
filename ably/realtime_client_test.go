@@ -58,13 +58,12 @@ func TestReatime_RSC7_AblyAgent(t *testing.T) {
 	}
 	defer app.Close()
 
-	t.Run("RSC7d3 : Should set fallback host header", func(t *testing.T) {
+	t.Run("RSC7d3 : Should set ablyAgent header with right identifiers", func(t *testing.T) {
 		var agentHeaderValue string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
-
 		defer server.Close()
 		serverURL, _ := url.Parse(server.URL)
 
@@ -73,14 +72,14 @@ func TestReatime_RSC7_AblyAgent(t *testing.T) {
 				ably.WithTLS(false),
 				ably.WithUseTokenAuth(true),
 				ably.WithRealtimeHost(serverURL.Host))...)
-
-		defer client.Close()
-
 		if err != nil {
 			t.Fatal(err)
 		}
-		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier() + " " + ably.GoOSIdentifier()
+		defer client.Close()
+
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
 		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
+
 		assertEquals(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
 }

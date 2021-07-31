@@ -281,44 +281,30 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 	}
 	defer app.Close()
 
-	t.Run("RSC7d2 : Should set fallback host header", func(t *testing.T) {
+	t.Run("RSC7d2 : Should set ablyAgent header with right identifiers", func(t *testing.T) {
 		t.Parallel()
+		var agentHeaderValue string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
+		serverURL, _ := url.Parse(server.URL)
 
 		opts := []ably.ClientOption{
 			ably.WithEnvironment(ablytest.Environment),
 			ably.WithTLS(false),
 			ably.WithUseTokenAuth(true),
+			ably.WithRESTHost(serverURL.Host),
 		}
-		// set up the proxy to forward all requests except a specific fallback to the server,
-		// whilst that fallback goes to the regular endpoint
-		serverURL, _ := url.Parse(server.URL)
-
-		var agentHeaderValue string
-		proxy := func(r *http.Request) (*url.URL, error) {
-			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
-			return serverURL, nil
-		}
-
-		opts = append(opts, ably.WithHTTPClient(&http.Client{
-			Transport: &http.Transport{
-				Proxy:        proxy,
-				TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
-			},
-		}))
-
 		client, err := ably.NewREST(app.Options(opts...)...)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		channel := client.Channels.Get("remember_fallback_host")
-		channel.Publish(context.Background(), "ping", "pong")
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
 
-		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier() + " " + ably.GoOSIdentifier()
+		client.Time(context.Background())
 		assertEquals(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
 }

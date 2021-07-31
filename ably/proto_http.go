@@ -1,8 +1,8 @@
 package ably
 
 import (
+	"fmt"
 	"runtime"
-	"sync"
 )
 
 // constants for rsc7
@@ -20,23 +20,15 @@ const (
 	ablySDKIdentifier      = "ably-go/" + libraryVersion // RSC7d1
 )
 
-var ablyAgentIdentifier = "" // Need to be calculated at runtime
-var agentIdentifierMutex sync.Mutex
+var goRuntimeIdentifier = func() string {
+	return fmt.Sprintf("%s/%s", libraryName, runtime.Version()[2:])
+}()
 
-func goRuntimeIdentifier() string {
-	return libraryName + "/" + runtime.Version()[2:]
-}
-
-func getAblyAgentIdentifier() string {
-	agentIdentifierMutex.Lock()
-	defer agentIdentifierMutex.Unlock()
-	if empty(ablyAgentIdentifier) {
-		osIdentifier := goOSIdentifier()
-		if empty(osIdentifier) {
-			ablyAgentIdentifier = ablySDKIdentifier + " " + goRuntimeIdentifier()
-		} else {
-			ablyAgentIdentifier = ablySDKIdentifier + " " + goRuntimeIdentifier() + " " + osIdentifier
-		}
+var ablyAgentIdentifier = func() string {
+	osIdentifier := goOSIdentifier()
+	if empty(osIdentifier) {
+		return fmt.Sprintf("%s %s", ablySDKIdentifier, goRuntimeIdentifier)
+	} else {
+		return fmt.Sprintf("%s %s %s", ablySDKIdentifier, goRuntimeIdentifier, osIdentifier)
 	}
-	return ablyAgentIdentifier
-}
+}()

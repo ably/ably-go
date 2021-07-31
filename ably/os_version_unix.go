@@ -4,6 +4,7 @@ package ably
 
 import (
 	"bytes"
+	"fmt"
 	"runtime"
 
 	"golang.org/x/sys/unix"
@@ -16,5 +17,5 @@ func goOSIdentifier() string {
 		return ""
 	}
 	release := bytes.Trim(utsname.Release[:], "\x00")
-	return runtime.GOOS + "/" + string(release)
+	return fmt.Sprintf("%s/%s", runtime.GOOS, release)
 }
