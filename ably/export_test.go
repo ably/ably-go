@@ -50,8 +50,8 @@ func (restHosts *restHosts) GetPreferredHost() string {
 	return restHosts.getPreferredHost()
 }
 
-func (restHosts *restHosts) CacheHost(host string) {
-	restHosts.cacheHost(host)
+func (restHosts *restHosts) SetPreferredHost(host string) {
+	restHosts.setPreferredHost(host)
 }
 
 func NewRealtimeHosts(opts *clientOptions) *realtimeHosts {

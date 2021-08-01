@@ -450,10 +450,7 @@ func (opts *clientOptions) hasActiveInternetConnection() bool {
 	if err != nil {
 		return false
 	}
-	if string(data) == internetCheckOk {
-		return true
-	}
-	return false
+	return string(data) == internetCheckOk
 }
 
 type ScopeParams struct {

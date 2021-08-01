@@ -611,21 +611,17 @@ func TestRest_RSC15f_CacheFallbackHost(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		channel := client.Channels.Get("remember_fallback_host")
-		err = channel.Publish(context.Background(), "ping", "pong")
-		if err != nil {
-			t.Fatal(err)
-		}
+
+		client.Time(context.Background())
+
 		cachedHost := client.GetCachedFallbackHost()
 
 		assertEquals(t, fallbackHosts[2], cachedHost)
 
 		retryCount = 0
 		// the same cached host is used again
-		err = channel.Publish(context.Background(), "pong", "ping")
-		if err != nil {
-			t.Fatal(err)
-		}
+		client.Time(context.Background())
+
 		cachedHost = client.GetCachedFallbackHost()
 
 		assertEquals(t, fallbackHosts[2], cachedHost)

@@ -51,7 +51,7 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		}
 
 		// cache the restHosts
-		restHosts.CacheHost("b.ably-realtime.com")
+		restHosts.SetPreferredHost("b.ably-realtime.com")
 
 		// Get first preferred restHost
 		var actualHosts []string
@@ -130,7 +130,9 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 	t.Run("RSC15e, RSC15f: should return cached host when set", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
 		restHosts := ably.NewRestHosts(clientOptions)
-		restHosts.CacheHost("custom-ably.rest")
+		// cache the host
+		restHosts.SetPreferredHost("custom-ably.rest")
+		// set active realtime host
 		restHosts.SetActiveRealtimeFallbackHost("b.ably-realtime.com")
 		prefHost := restHosts.GetPreferredHost()
 		assertEquals(t, "custom-ably.rest", prefHost)

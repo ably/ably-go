@@ -7,7 +7,7 @@ import (
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
 
-// RSC15
+// restHosts(RSC15) is used to retrieve rest primaryHost/fallbackHosts and cache successful host
 type restHosts struct {
 	activeRealtimeFallbackHost string // RTN17e
 	opts                       *clientOptions
@@ -74,12 +74,14 @@ func (restHosts *restHosts) fallbackHostsRemaining() int {
 	return len(hosts) + 1 - len(restHosts.visitedHosts)
 }
 
+// setActiveRealtimeFallbackHost (RTN17e) - set current active realtime host to be used as rest host
 func (restHosts *restHosts) setActiveRealtimeFallbackHost(host string) {
 	restHosts.Lock()
 	defer restHosts.Unlock()
 	restHosts.activeRealtimeFallbackHost = host
 }
 
+// getPreferredHost - Used to retrieve host in the order 1. Cached host 2. Active realtime host 3. primary host
 func (restHosts *restHosts) getPreferredHost() string {
 	restHosts.Lock()
 	defer restHosts.Unlock()
@@ -95,11 +97,11 @@ func (restHosts *restHosts) getPreferredHost() string {
 	return host
 }
 
-func (restHosts *restHosts) cacheHost(host string) {
+func (restHosts *restHosts) setPreferredHost(host string) {
 	restHosts.cache.put(host)
 }
 
-// RTN17
+// realtimeHosts(RTN17) is used to retrieve realtime primaryHost/fallbackHosts
 type realtimeHosts struct {
 	opts         *clientOptions
 	visitedHosts ablyutil.HashSet
@@ -153,6 +155,7 @@ func (realtimeHosts *realtimeHosts) fallbackHostsRemaining() int {
 	return len(hosts) + 1 - len(realtimeHosts.visitedHosts)
 }
 
+// getPreferredHost - Used to retrieve primary realtime host
 func (realtimeHosts *realtimeHosts) getPreferredHost() string {
 	realtimeHosts.Lock()
 	defer realtimeHosts.Unlock()
@@ -161,7 +164,7 @@ func (realtimeHosts *realtimeHosts) getPreferredHost() string {
 	return host
 }
 
-// hostCache this caches a successful fallback host for 10 minutes.
+// hostCache caches a successful fallback host for 10 minutes.
 // Only used by REST client while making requests RSC15f
 type hostCache struct {
 	duration time.Duration

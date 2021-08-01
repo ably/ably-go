@@ -513,8 +513,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 		if err != nil {
 			return nil, err
 		}
-		if host != c.hosts.getPrimaryHost() { // set hostheader for fallback host
-			req.Host = req.URL.Host // RSC15j set host header, https://github.com/golang/go/issues/7682, since req.Host overrides req.URL.Host, use the same value
+		if host != c.hosts.getPrimaryHost() { // set hostHeader for fallback host (RSC15j)
 			req.Header.Set(hostHeader, host)
 		}
 		if c.opts.Trace != nil {
@@ -552,7 +551,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 				return nil, err
 			}
 		} else { //success
-			c.hosts.cacheHost(host)
+			c.hosts.setPreferredHost(host)
 			return resp, nil
 		}
 	}
