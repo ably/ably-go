@@ -95,14 +95,14 @@ func assertEquals(t *testing.T, expected interface{}, actual interface{}) {
 func assertTrue(t *testing.T, value bool) {
 	t.Helper()
 	if !value {
-		t.Errorf("expected True; got %v", value)
+		t.Errorf("expected True; got False")
 	}
 }
 
 func assertFalse(t *testing.T, value bool) {
 	t.Helper()
 	if value {
-		t.Errorf("expected False; got %v", value)
+		t.Errorf("expected False; got True")
 	}
 }
 
