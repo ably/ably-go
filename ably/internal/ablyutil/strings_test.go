@@ -25,7 +25,7 @@ func Test_string(t *testing.T) {
 			t.Errorf("%v should be equal to %v", strList, shuffledList)
 		}
 
-		strList = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"}
+		strList = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"}
 		shuffledList = ablyutil.Shuffle(strList)
 		areEqual = reflect.DeepEqual(strList, shuffledList)
 		if areEqual {

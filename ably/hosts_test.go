@@ -63,7 +63,6 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		// Get all fallback hosts in random order
 		actualHosts = append(actualHosts, restHosts.GetAllRemainingFallbackHosts()...)
 
-		assertNotDeepEquals(t, expectedHosts, actualHosts)
 		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
@@ -94,7 +93,6 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		// Get all fallback hosts in random order
 		actualHosts = append(actualHosts, restHosts.GetAllRemainingFallbackHosts()...)
 
-		assertNotDeepEquals(t, expectedHosts, actualHosts)
 		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
@@ -116,7 +114,6 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		// Get all fallback hosts in random order
 		actualHosts = append(actualHosts, restHosts.GetAllRemainingFallbackHosts()...)
 
-		assertNotDeepEquals(t, expectedHosts, actualHosts)
 		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
@@ -200,7 +197,6 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		// Get all fallback hosts in random order
 		actualHosts = append(actualHosts, realtimeHosts.GetAllRemainingFallbackHosts()...)
 
-		assertNotDeepEquals(t, expectedHosts, actualHosts)
 		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
@@ -230,7 +226,6 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		// Get all fallback hosts in random order
 		actualHosts = append(actualHosts, realtimeHosts.GetAllRemainingFallbackHosts()...)
 
-		assertNotDeepEquals(t, expectedHosts, actualHosts)
 		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
@@ -251,7 +246,6 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		// Get all fallback hosts in random order
 		actualHosts = append(actualHosts, realtimeHosts.GetAllRemainingFallbackHosts()...)
 
-		assertNotDeepEquals(t, expectedHosts, actualHosts)
 		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
