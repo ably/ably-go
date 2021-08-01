@@ -42,8 +42,8 @@ func (restHosts *restHosts) FallbackHostsRemaining() int {
 	return restHosts.fallbackHostsRemaining()
 }
 
-func (restHosts *restHosts) SetPrimaryFallbackHost(host string) {
-	restHosts.setPrimaryFallbackHost(host)
+func (restHosts *restHosts) SetActiveRealtimeFallbackHost(host string) {
+	restHosts.setActiveRealtimeFallbackHost(host)
 }
 
 func (restHosts *restHosts) GetPreferredHost() string {

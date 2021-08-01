@@ -131,8 +131,11 @@ func Test_RSC15_RestHostFallback(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
 		restHosts := ably.NewRestHosts(clientOptions)
 		restHosts.CacheHost("custom-ably.rest")
+		restHosts.SetActiveRealtimeFallbackHost("b.ably-realtime.com")
 		prefHost := restHosts.GetPreferredHost()
 		assertEquals(t, "custom-ably.rest", prefHost)
+		assertEquals(t, "b.ably-realtime.com", restHosts.NextFallbackHost())
+		assertEquals(t, "rest.ably.io", restHosts.NextFallbackHost())
 	})
 
 	t.Run("should get remaining fallback hosts count", func(t *testing.T) {
@@ -204,7 +207,6 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		realtimeHosts := ably.NewRealtimeHosts(clientOptions)
 		// All expected hosts supposed to be tried upon
 		expectedHosts := []string{
-			"realtime.ably.io",
 			"a.ably-realtime.com",
 			"b.ably-realtime.com",
 			"c.ably-realtime.com",
@@ -230,12 +232,11 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 		assertDeepEquals(t, ablyutil.Sort(expectedHosts), ablyutil.Sort(actualHosts))
 	})
 
-	t.Run("RTN17c, RSC15g: should get all fallback hosts, including primary host when preferred host is not requested", func(t *testing.T) {
+	t.Run("RTN17c, RSC15g: should get all fallback hosts when preferred host is not requested", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
 		realtimeHosts := ably.NewRealtimeHosts(clientOptions)
 		// All expected hosts supposed to be tried upon
 		expectedHosts := []string{
-			"realtime.ably.io",
 			"a.ably-realtime.com",
 			"b.ably-realtime.com",
 			"c.ably-realtime.com",
@@ -255,7 +256,7 @@ func Test_RTN17_RealtimeHostFallback(t *testing.T) {
 	t.Run("RTN17e: rest host should use active realtime host as pref. host", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
 		restHosts := ably.NewRestHosts(clientOptions)
-		restHosts.SetPrimaryFallbackHost("custom-ably.realtime") // set by realtime in accordance with active connection with given host
+		restHosts.SetActiveRealtimeFallbackHost("custom-ably.realtime") // set by realtime in accordance with active connection with given host
 		prefHost := restHosts.GetPreferredHost()
 		assertEquals(t, "custom-ably.realtime", prefHost)
 	})
