@@ -5,9 +5,9 @@ import "testing"
 import "github.com/ably/ably-go/ably"
 import "github.com/ably/ably-go/ably/internal/ablytest"
 
-/* README.md:15 */ import "context"
+/* README.md:22 */ import "context"
 
-/* README.md:16 */ import "errors"
+/* README.md:23 */ import "errors"
 
 func TestReadmeExamples(t *testing.T) {
 	t.Parallel()
@@ -22,54 +22,46 @@ func TestReadmeExamples(t *testing.T) {
 
 	app := ablytest.MustSandbox(nil)
 	defer safeclose(t, app)
-	/* README.md:19 */ ctx := context.Background()
-	/* README.md:23 */ client, err := ably.NewRealtime(ably.WithKey(app.Key()), ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID"))
-	/* README.md:24 */ if err != nil {
-		/* README.md:25 */ panic(err)
-		/* README.md:26 */
+	/* README.md:26 */ ctx := context.Background()
+	/* README.md:30 */ client, err := ably.NewRealtime(ably.WithKey(app.Key()), ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID"))
+	/* README.md:31 */ if err != nil {
+		/* README.md:32 */ panic(err)
+		/* README.md:33 */
 	}
-	/* README.md:28 */ channel := client.Channels.Get("test")
-	/* README.md:32 */ client.Close()
-	/* README.md:40 */ client, err = ably.NewRealtime(
-		/* README.md:41 */ ably.WithKey(app.Key()), ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID"),
-		/* README.md:42 */ ably.WithAutoConnect(false), // Set this option to avoid missing state changes.
-		/* README.md:43 */)
-	/* README.md:44 */ if err != nil {
-		/* README.md:45 */ panic(err)
-		/* README.md:46 */
+	/* README.md:35 */ channel := client.Channels.Get("test")
+	/* README.md:39 */ client.Close()
+	/* README.md:47 */ client, err = ably.NewRealtime(
+		/* README.md:48 */ ably.WithKey(app.Key()), ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID"),
+		/* README.md:49 */ ably.WithAutoConnect(false), // Set this option to avoid missing state changes.
+		/* README.md:50 */)
+	/* README.md:51 */ if err != nil {
+		/* README.md:52 */ panic(err)
+		/* README.md:53 */
 	}
-	/* README.md:48 */ // Set up connection events handler.
-	/* README.md:49 */
+	/* README.md:55 */ // Set up connection events handler.
+	/* README.md:56 */
 	client.Connection.OnAll(func(change ably.ConnectionStateChange) {
-		/* README.md:50 */ fmt.Printf("Connection event: %s state=%s reason=%s", change.Event, change.Current, change.Reason)
-		/* README.md:51 */
+		/* README.md:57 */ fmt.Printf("Connection event: %s state=%s reason=%s", change.Event, change.Current, change.Reason)
+		/* README.md:58 */
 	})
-	/* README.md:53 */ // Then connect.
-	/* README.md:54 */
+	/* README.md:60 */ // Then connect.
+	/* README.md:61 */
 	client.Connect()
-	/* README.md:56 */ channel = client.Channels.Get("test")
-	/* README.md:58 */ channel.OnAll(func(change ably.ChannelStateChange) {
-		/* README.md:59 */ fmt.Printf("Channel event event: %s channel=%s state=%s reason=%s", channel.Name, change.Event, change.Current, change.Reason)
-		/* README.md:60 */
+	/* README.md:63 */ channel = client.Channels.Get("test")
+	/* README.md:65 */ channel.OnAll(func(change ably.ChannelStateChange) {
+		/* README.md:66 */ fmt.Printf("Channel event event: %s channel=%s state=%s reason=%s", channel.Name, change.Event, change.Current, change.Reason)
+		/* README.md:67 */
 	})
-	/* README.md:66 */ unsubscribe, err := channel.SubscribeAll(ctx, func(msg *ably.Message) {
-		/* README.md:67 */ fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
-		/* README.md:68 */
+	/* README.md:73 */ unsubscribe, err := channel.SubscribeAll(ctx, func(msg *ably.Message) {
+		/* README.md:74 */ fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
+		/* README.md:75 */
 	})
-	/* README.md:69 */ if err != nil {
-		/* README.md:70 */ panic(err)
-		/* README.md:71 */
+	/* README.md:76 */ if err != nil {
+		/* README.md:77 */ panic(err)
+		/* README.md:78 */
 	}
-	/* README.md:75 */ unsubscribe()
-	/* README.md:81 */ unsubscribe1, err := channel.Subscribe(ctx, "EventName1", func(msg *ably.Message) {
-		/* README.md:82 */ fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
-		/* README.md:83 */
-	})
-	/* README.md:84 */ if err != nil {
-		/* README.md:85 */ panic(err)
-		/* README.md:86 */
-	}
-	/* README.md:88 */ unsubscribe2, err := channel.Subscribe(ctx, "EventName2", func(msg *ably.Message) {
+	/* README.md:82 */ unsubscribe()
+	/* README.md:88 */ unsubscribe1, err := channel.Subscribe(ctx, "EventName1", func(msg *ably.Message) {
 		/* README.md:89 */ fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
 		/* README.md:90 */
 	})
@@ -77,175 +69,183 @@ func TestReadmeExamples(t *testing.T) {
 		/* README.md:92 */ panic(err)
 		/* README.md:93 */
 	}
-	/* README.md:97 */ unsubscribe1()
-	/* README.md:98 */ unsubscribe2()
-	/* README.md:104 */ err = channel.Publish(ctx, "EventName1", "EventData1")
-	/* README.md:105 */ if err != nil {
-		/* README.md:106 */ panic(err)
-		/* README.md:107 */
+	/* README.md:95 */ unsubscribe2, err := channel.Subscribe(ctx, "EventName2", func(msg *ably.Message) {
+		/* README.md:96 */ fmt.Printf("Received message: name=%s data=%v\n", msg.Name, msg.Data)
+		/* README.md:97 */
+	})
+	/* README.md:98 */ if err != nil {
+		/* README.md:99 */ panic(err)
+		/* README.md:100 */
 	}
-	/* README.md:117 */ badClient, err := ably.NewRealtime(ably.WithKey("invalid:key"), ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID"))
-	/* README.md:118 */ if err != nil {
-		/* README.md:119 */ panic(err)
-		/* README.md:120 */
+	/* README.md:104 */ unsubscribe1()
+	/* README.md:105 */ unsubscribe2()
+	/* README.md:111 */ err = channel.Publish(ctx, "EventName1", "EventData1")
+	/* README.md:112 */ if err != nil {
+		/* README.md:113 */ panic(err)
+		/* README.md:114 */
 	}
-	/* README.md:122 */ err = badClient.Channels.Get("test").Publish(ctx, "event", "data")
-	/* README.md:123 */ if errInfo := (*ably.ErrorInfo)(nil); errors.As(err, &errInfo) {
-		/* README.md:124 */ fmt.Printf("Error publishing message: code=%v status=%v cause=%v", errInfo.Code, errInfo.StatusCode, errInfo.Cause)
-		/* README.md:125 */
-	} else if err != nil {
+	/* README.md:124 */ badClient, err := ably.NewRealtime(ably.WithKey("invalid:key"), ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID"))
+	/* README.md:125 */ if err != nil {
 		/* README.md:126 */ panic(err)
 		/* README.md:127 */
 	}
-	/* README.md:133 */ err = channel.Presence.Enter(ctx, "presence data")
-	/* README.md:134 */ if err != nil {
-		/* README.md:135 */ panic(err)
-		/* README.md:136 */
+	/* README.md:129 */ err = badClient.Channels.Get("test").Publish(ctx, "event", "data")
+	/* README.md:130 */ if errInfo := (*ably.ErrorInfo)(nil); errors.As(err, &errInfo) {
+		/* README.md:131 */ fmt.Printf("Error publishing message: code=%v status=%v cause=%v", errInfo.Code, errInfo.StatusCode, errInfo.Cause)
+		/* README.md:132 */
+	} else if err != nil {
+		/* README.md:133 */ panic(err)
+		/* README.md:134 */
 	}
-	/* README.md:142 */ err = channel.Presence.EnterClient(ctx, "clientID", "presence data")
-	/* README.md:143 */ if err != nil {
-		/* README.md:144 */ panic(err)
-		/* README.md:145 */
+	/* README.md:140 */ err = channel.Presence.Enter(ctx, "presence data")
+	/* README.md:141 */ if err != nil {
+		/* README.md:142 */ panic(err)
+		/* README.md:143 */
 	}
-	/* README.md:151 */ // Update also has an UpdateClient variant.
-	/* README.md:152 */
+	/* README.md:149 */ err = channel.Presence.EnterClient(ctx, "clientID", "presence data")
+	/* README.md:150 */ if err != nil {
+		/* README.md:151 */ panic(err)
+		/* README.md:152 */
+	}
+	/* README.md:158 */ // Update also has an UpdateClient variant.
+	/* README.md:159 */
 	err = channel.Presence.Update(ctx, "new presence data")
-	/* README.md:153 */ if err != nil {
-		/* README.md:154 */ panic(err)
-		/* README.md:155 */
+	/* README.md:160 */ if err != nil {
+		/* README.md:161 */ panic(err)
+		/* README.md:162 */
 	}
-	/* README.md:157 */ // Leave also has an LeaveClient variant.
-	/* README.md:158 */
+	/* README.md:164 */ // Leave also has an LeaveClient variant.
+	/* README.md:165 */
 	err = channel.Presence.Leave(ctx, "last presence data")
-	/* README.md:159 */ if err != nil {
-		/* README.md:160 */ panic(err)
-		/* README.md:161 */
+	/* README.md:166 */ if err != nil {
+		/* README.md:167 */ panic(err)
+		/* README.md:168 */
 	}
-	/* README.md:167 */ clients, err := channel.Presence.Get(ctx)
-	/* README.md:168 */ if err != nil {
-		/* README.md:169 */ panic(err)
-		/* README.md:170 */
+	/* README.md:174 */ clients, err := channel.Presence.Get(ctx)
+	/* README.md:175 */ if err != nil {
+		/* README.md:176 */ panic(err)
+		/* README.md:177 */
 	}
-	/* README.md:172 */ for _, client := range clients {
-		/* README.md:173 */ fmt.Println("Present client:", client)
-		/* README.md:174 */
+	/* README.md:179 */ for _, client := range clients {
+		/* README.md:180 */ fmt.Println("Present client:", client)
+		/* README.md:181 */
 	}
-	/* README.md:180 */ unsubscribe, err = channel.Presence.SubscribeAll(ctx, func(msg *ably.PresenceMessage) {
-		/* README.md:181 */ fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
-		/* README.md:182 */
+	/* README.md:187 */ unsubscribe, err = channel.Presence.SubscribeAll(ctx, func(msg *ably.PresenceMessage) {
+		/* README.md:188 */ fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
+		/* README.md:189 */
 	})
-	/* README.md:183 */ if err != nil {
-		/* README.md:184 */ panic(err)
-		/* README.md:185 */
+	/* README.md:190 */ if err != nil {
+		/* README.md:191 */ panic(err)
+		/* README.md:192 */
 	}
-	/* README.md:189 */ unsubscribe()
-	/* README.md:195 */ unsubscribe, err = channel.Presence.Subscribe(ctx, ably.PresenceActionEnter, func(msg *ably.PresenceMessage) {
-		/* README.md:196 */ fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
-		/* README.md:197 */
+	/* README.md:196 */ unsubscribe()
+	/* README.md:202 */ unsubscribe, err = channel.Presence.Subscribe(ctx, ably.PresenceActionEnter, func(msg *ably.PresenceMessage) {
+		/* README.md:203 */ fmt.Printf("Presence event: action=%v data=%v", msg.Action, msg.Data)
+		/* README.md:204 */
 	})
-	/* README.md:198 */ if err != nil {
-		/* README.md:199 */ panic(err)
-		/* README.md:200 */
+	/* README.md:205 */ if err != nil {
+		/* README.md:206 */ panic(err)
+		/* README.md:207 */
 	}
-	/* README.md:204 */ unsubscribe()
-	/* README.md:214 */ {
-		/* README.md:218 */ client, err := ably.NewREST(ably.WithKey(app.Key()), ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID"))
-		/* README.md:219 */ if err != nil {
-			/* README.md:220 */ panic(err)
-			/* README.md:221 */
+	/* README.md:211 */ unsubscribe()
+	/* README.md:221 */ {
+		/* README.md:225 */ client, err := ably.NewREST(ably.WithKey(app.Key()), ably.WithEnvironment(app.Environment), ably.WithUseBinaryProtocol(!ablytest.NoBinaryProtocol), ably.WithClientID("clientID"))
+		/* README.md:226 */ if err != nil {
+			/* README.md:227 */ panic(err)
+			/* README.md:228 */
 		}
-		/* README.md:223 */ channel := client.Channels.Get("test")
-		/* README.md:229 */ err = channel.Publish(ctx, "HelloEvent", "Hello!")
-		/* README.md:230 */ if err != nil {
-			/* README.md:231 */ panic(err)
-			/* README.md:232 */
+		/* README.md:230 */ channel := client.Channels.Get("test")
+		/* README.md:236 */ err = channel.Publish(ctx, "HelloEvent", "Hello!")
+		/* README.md:237 */ if err != nil {
+			/* README.md:238 */ panic(err)
+			/* README.md:239 */
 		}
-		/* README.md:234 */ // You can also publish multiple messages in a single request.
-		/* README.md:235 */
+		/* README.md:241 */ // You can also publish multiple messages in a single request.
+		/* README.md:242 */
 		err = channel.PublishMultiple(ctx, []*ably.Message{
-			/* README.md:236 */ {Name: "HelloEvent", Data: "Hello!"},
-			/* README.md:237 */ {Name: "ByeEvent", Data: "Bye!"},
-			/* README.md:238 */})
-		/* README.md:239 */ if err != nil {
-			/* README.md:240 */ panic(err)
-			/* README.md:241 */
+			/* README.md:243 */ {Name: "HelloEvent", Data: "Hello!"},
+			/* README.md:244 */ {Name: "ByeEvent", Data: "Bye!"},
+			/* README.md:245 */})
+		/* README.md:246 */ if err != nil {
+			/* README.md:247 */ panic(err)
+			/* README.md:248 */
 		}
-		/* README.md:247 */ {
-			/* README.md:251 */ pages, err := channel.History().Pages(ctx)
-			/* README.md:252 */ if err != nil {
-				/* README.md:253 */ panic(err)
-				/* README.md:254 */
+		/* README.md:254 */ {
+			/* README.md:258 */ pages, err := channel.History().Pages(ctx)
+			/* README.md:259 */ if err != nil {
+				/* README.md:260 */ panic(err)
+				/* README.md:261 */
 			}
-			/* README.md:255 */ for pages.Next(ctx) {
-				/* README.md:256 */ for _, message := range pages.Items() {
-					/* README.md:257 */ fmt.Println(message)
-					/* README.md:258 */
+			/* README.md:262 */ for pages.Next(ctx) {
+				/* README.md:263 */ for _, message := range pages.Items() {
+					/* README.md:264 */ fmt.Println(message)
+					/* README.md:265 */
 				}
-				/* README.md:259 */
+				/* README.md:266 */
 			}
-			/* README.md:260 */ if err := pages.Err(); err != nil {
-				/* README.md:261 */ panic(err)
-				/* README.md:262 */
+			/* README.md:267 */ if err := pages.Err(); err != nil {
+				/* README.md:268 */ panic(err)
+				/* README.md:269 */
 			}
-			/* README.md:267 */
+			/* README.md:274 */
 		}
-		/* README.md:273 */ {
-			/* README.md:277 */ pages, err := channel.Presence.Get().Pages(ctx)
-			/* README.md:278 */ if err != nil {
-				/* README.md:279 */ panic(err)
-				/* README.md:280 */
+		/* README.md:280 */ {
+			/* README.md:284 */ pages, err := channel.Presence.Get().Pages(ctx)
+			/* README.md:285 */ if err != nil {
+				/* README.md:286 */ panic(err)
+				/* README.md:287 */
 			}
-			/* README.md:281 */ for pages.Next(ctx) {
-				/* README.md:282 */ for _, presence := range pages.Items() {
-					/* README.md:283 */ fmt.Println(presence)
-					/* README.md:284 */
+			/* README.md:288 */ for pages.Next(ctx) {
+				/* README.md:289 */ for _, presence := range pages.Items() {
+					/* README.md:290 */ fmt.Println(presence)
+					/* README.md:291 */
 				}
-				/* README.md:285 */
+				/* README.md:292 */
 			}
-			/* README.md:286 */ if err := pages.Err(); err != nil {
-				/* README.md:287 */ panic(err)
-				/* README.md:288 */
+			/* README.md:293 */ if err := pages.Err(); err != nil {
+				/* README.md:294 */ panic(err)
+				/* README.md:295 */
 			}
-			/* README.md:292 */
+			/* README.md:299 */
 		}
-		/* README.md:298 */ {
-			/* README.md:302 */ pages, err := channel.Presence.History().Pages(ctx)
-			/* README.md:303 */ if err != nil {
-				/* README.md:304 */ panic(err)
-				/* README.md:305 */
+		/* README.md:305 */ {
+			/* README.md:309 */ pages, err := channel.Presence.History().Pages(ctx)
+			/* README.md:310 */ if err != nil {
+				/* README.md:311 */ panic(err)
+				/* README.md:312 */
 			}
-			/* README.md:306 */ for pages.Next(ctx) {
-				/* README.md:307 */ for _, presence := range pages.Items() {
-					/* README.md:308 */ fmt.Println(presence)
-					/* README.md:309 */
+			/* README.md:313 */ for pages.Next(ctx) {
+				/* README.md:314 */ for _, presence := range pages.Items() {
+					/* README.md:315 */ fmt.Println(presence)
+					/* README.md:316 */
 				}
-				/* README.md:310 */
+				/* README.md:317 */
 			}
-			/* README.md:311 */ if err := pages.Err(); err != nil {
-				/* README.md:312 */ panic(err)
-				/* README.md:313 */
+			/* README.md:318 */ if err := pages.Err(); err != nil {
+				/* README.md:319 */ panic(err)
+				/* README.md:320 */
 			}
-			/* README.md:317 */
+			/* README.md:324 */
 		}
-		/* README.md:323 */ {
-			/* README.md:327 */ pages, err := client.Stats().Pages(ctx)
-			/* README.md:328 */ if err != nil {
-				/* README.md:329 */ panic(err)
-				/* README.md:330 */
+		/* README.md:330 */ {
+			/* README.md:334 */ pages, err := client.Stats().Pages(ctx)
+			/* README.md:335 */ if err != nil {
+				/* README.md:336 */ panic(err)
+				/* README.md:337 */
 			}
-			/* README.md:331 */ for pages.Next(ctx) {
-				/* README.md:332 */ for _, stat := range pages.Items() {
-					/* README.md:333 */ fmt.Println(stat)
-					/* README.md:334 */
+			/* README.md:338 */ for pages.Next(ctx) {
+				/* README.md:339 */ for _, stat := range pages.Items() {
+					/* README.md:340 */ fmt.Println(stat)
+					/* README.md:341 */
 				}
-				/* README.md:335 */
+				/* README.md:342 */
 			}
-			/* README.md:336 */ if err := pages.Err(); err != nil {
-				/* README.md:337 */ panic(err)
-				/* README.md:338 */
+			/* README.md:343 */ if err := pages.Err(); err != nil {
+				/* README.md:344 */ panic(err)
+				/* README.md:345 */
 			}
-			/* README.md:342 */
+			/* README.md:349 */
 		}
-		/* README.md:346 */
+		/* README.md:353 */
 	}
 }
