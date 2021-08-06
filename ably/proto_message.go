@@ -44,16 +44,12 @@ func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 		return m, nil
 	}
 
-	switch d := m.Data.(type) {
-	case string:
-		if utf8.ValidString(d) {
-			m.Encoding = mergeEncoding(m.Encoding, encUTF8)
-		} else {
-			// If string isn't UTF-8, convert to []byte to encode it as base64
-			// below.
-			m.Data = []byte(d)
-		}
+	// If string isn't UTF-8, convert to []byte to encode it as base64
+	// below.
+	if d, ok := m.Data.(string); ok && !utf8.ValidString(d) {
+		m.Data = []byte(d)
 	}
+
 	switch d := m.Data.(type) {
 	case string:
 	case []byte:

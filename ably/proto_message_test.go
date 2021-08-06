@@ -42,6 +42,21 @@ func TestMessage(t *testing.T) {
 		decoded     interface{}
 	}{
 		{
+			// utf-8 string data should not have an encoding set, see:
+			// https://github.com/ably/docs/issues/1165
+			desc:        "with valid utf-8 string data",
+			data:        "a string",
+			decoded:     "a string",
+			encodedJSON: `{"data":"a string"}`,
+		},
+		{
+			// invalid utf-8 string data should be base64 encoded
+			desc:        "with invalid utf-8 string data",
+			data:        "\xf0\x80\x80",
+			decoded:     []byte("\xf0\x80\x80"),
+			encodedJSON: `{"data":"8ICA","encoding":"base64"}`,
+		},
+		{
 			desc: "with a json encoding RSL4d3 map data",
 			data: map[string]interface{}{
 				"string": ably.EncUTF8,
