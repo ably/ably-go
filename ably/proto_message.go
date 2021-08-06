@@ -84,9 +84,10 @@ func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 	if err != nil {
 		return Message{}, fmt.Errorf("encrypting message data: %w", err)
 	}
+	// if the plain text is a string, then add utf-8 to the list of encodings
+	// to indicate to the client-side decoder that the plain text should be
+	// further decoded into a utf-8 string after being decrypted.
 	if _, ok := m.Data.(string); ok {
-		// Not sure why this is useful, and can't find the requirement in the
-		// spec, but test fixtures expect this.
 		m.Encoding = mergeEncoding(m.Encoding, encUTF8)
 	}
 	m.Data = base64.StdEncoding.EncodeToString(e)
