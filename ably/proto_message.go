@@ -39,7 +39,6 @@ func unencodableDataErr(data interface{}) error {
 }
 
 func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
-	// TODO: Unexport once proto gets merged into package ably.
 	if m.Data == nil {
 		return m, nil
 	}
