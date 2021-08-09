@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/internal/ablytest"
+	"github.com/ably/ably-go/ablytest"
 )
 
 func expectMsg(ch <-chan *ably.Message, name string, data interface{}, t time.Duration, received bool) error {

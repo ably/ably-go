@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/ably/ably-go/ably/internal/ablytest"
+	"github.com/ably/ably-go/ablytest"
 )
 
 func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
