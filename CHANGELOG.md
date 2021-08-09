@@ -1,12 +1,31 @@
 # Change Log
 
+## [v1.2.1](https://github.com/ably/ably-go/tree/v1.2.1) (2021-08-09)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.0...v1.2.1)
+
+**Implemented enhancements:**
+
+- Need a migration guide for users going from 1.1.5 to 1.2.0 [\#361](https://github.com/ably/ably-go/issues/361)
+- Changelog and release tag [\#48](https://github.com/ably/ably-go/issues/48)
+
+**Merged pull requests:**
+
+- Update generated files [\#371](https://github.com/ably/ably-go/pull/371) ([lmars](https://github.com/lmars))
+- Don't set message encoding for valid utf-8 string data [\#370](https://github.com/ably/ably-go/pull/370) ([lmars](https://github.com/lmars))
+- Export the ablytest package [\#366](https://github.com/ably/ably-go/pull/366) ([tcard](https://github.com/tcard))
+- Migration guide 1.1.5 to 1.2.0 [\#364](https://github.com/ably/ably-go/pull/364) ([QuintinWillison](https://github.com/QuintinWillison))
+- Update README.md [\#362](https://github.com/ably/ably-go/pull/362) ([AndyNicks](https://github.com/AndyNicks))
+- RTC8a: client-requested reauthorization while CONNECTED \(to `main` branch\) [\#357](https://github.com/ably/ably-go/pull/357) ([tcard](https://github.com/tcard))
+- RTC8a: client-requested reauthorization while CONNECTED [\#336](https://github.com/ably/ably-go/pull/336) ([tcard](https://github.com/tcard))
+
 ## [v1.2.0](https://github.com/ably/ably-go/tree/v1.2.0) (2021-07-09)
 
 Version 1.2.0 is out of pre-release!
 
-[**Full Changelog since v1.1.5**](https://github.com/ably/ably-go/compare/v1.1.5...v.1.2.0)
+[**Full Changelog since v1.1.5**](https://github.com/ably/ably-go/compare/v1.1.5...v1.2.0)
 
-[Full Changelog since v1.2.0-apipreview.6](https://github.com/ably/ably-go/compare/v1.2.0-apipreview.6...v.1.2.0)
+[Full Changelog since v1.2.0-apipreview.6](https://github.com/ably/ably-go/compare/v1.2.0-apipreview.6...v1.2.0)
 
 **Implemented enhancements:**
 
