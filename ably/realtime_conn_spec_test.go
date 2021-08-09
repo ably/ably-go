@@ -107,7 +107,7 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 		t.Parallel()
 		requestParams := setup()
 		lib := requestParams["lib"]
-		assertDeepEquals(t, []string{"go-1.2.0"}, lib)
+		assertDeepEquals(t, []string{"go-1.2.1"}, lib)
 	})
 }
 
