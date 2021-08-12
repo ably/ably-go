@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 )
 
@@ -20,13 +19,6 @@ var (
 	}
 	errDetach = errors.New("attempted to detach channel from inactive connection")
 )
-
-type chanSlice []*RealtimeChannel
-
-func (ch chanSlice) Len() int           { return len(ch) }
-func (ch chanSlice) Less(i, j int) bool { return ch[i].Name < ch[j].Name }
-func (ch chanSlice) Swap(i, j int)      { ch[i], ch[j] = ch[j], ch[i] }
-func (ch chanSlice) Sort()              { sort.Sort(ch) }
 
 // RealtimeChannels is a goroutine-safe container for realtime channels that allows
 // for creating, deleting and iterating over existing channels.
@@ -50,7 +42,7 @@ type ChannelOption func(*channelOptions)
 // implement their own ChannelOption.
 type channelOptions protoChannelOptions
 
-// CipherKey is like Cipher with an AES algorithm and CBC mode.
+// ChannelWithCipherKey - Private key used to encrypt/decrypt payload.
 func ChannelWithCipherKey(key []byte) ChannelOption {
 	return func(o *channelOptions) {
 		o.Cipher = Crypto.GetDefaultParams(CipherParams{
@@ -59,7 +51,7 @@ func ChannelWithCipherKey(key []byte) ChannelOption {
 	}
 }
 
-// Cipher sets cipher parameters for encrypting messages on a channel.
+// ChannelWithCipher - sets cipher parameters for encrypting messages on a channel.
 func ChannelWithCipher(params CipherParams) ChannelOption {
 	return func(o *channelOptions) {
 		o.Cipher = params
@@ -71,6 +63,8 @@ func ChannelWithParams(key string, value string) ChannelOption {
 	return ChannelWithParam(key, value)
 }
 
+//ChannelWithParam - Set rewind/delta params as keys with respective values.
+//Check https://ably.com/documentation/realtime/channels/channel-parameters/overview for more info
 func ChannelWithParam(key string, value string) ChannelOption {
 	return func(o *channelOptions) {
 		if o.Params == nil {
@@ -80,6 +74,8 @@ func ChannelWithParam(key string, value string) ChannelOption {
 	}
 }
 
+//ChannelWithModes - Sets channel to operate in following modes.
+// 1. ChannelModePresence 2. ChannelModePublish 3. ChannelModeSubscribe 4. ChannelModePresenceSubscribe
 func ChannelWithModes(modes ...ChannelMode) ChannelOption {
 	return func(o *channelOptions) {
 		if o.Modes == nil {

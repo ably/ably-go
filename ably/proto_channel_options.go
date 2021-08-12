@@ -19,13 +19,13 @@ func (s channelModeSet) Has(mode ChannelMode) bool {
 }
 
 const (
-	// Presence mode. Allows the attached channel to enter Presence.
+	// ChannelModePresence - Allows attached channel to enter Presence.
 	ChannelModePresence ChannelMode = iota + 1
-	// Publish mode. Allows the messages to be published to the attached channel.
+	// ChannelModePublish - Allows messages to be published on the attached channel.
 	ChannelModePublish
-	// Subscribe mode. Allows the attached channel to subscribe to messages.
+	// ChannelModeSubscribe - Allows attached channel to subscribe to messages.
 	ChannelModeSubscribe
-	// PresenceSubscribe. Allows the attached channel to subscribe to Presence updates.
+	// ChannelModePresenceSubscribe - Allows attached channel to subscribe to Presence updates.
 	ChannelModePresenceSubscribe
 )
 
