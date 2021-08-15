@@ -2,7 +2,6 @@ package ably
 
 import (
 	"bytes"
-	"crypto/aes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -38,6 +37,7 @@ func unencodableDataErr(data interface{}) error {
 	return fmt.Errorf("message data type %T must be string, []byte, or a value that can be encoded as a JSON object or array", data)
 }
 
+//withEncodedData - Used to encode string, binary([] byte) or json data (TM3). Updates/Mutates Message.Data and Message.Encoding
 func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 	if m.Data == nil {
 		return m, nil
@@ -95,9 +95,8 @@ func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 	return m, nil
 }
 
+//withDecodedData - Used to decode received encoded data into string, binary([] byte) or json (TM3).
 func (m Message) withDecodedData(cipher channelCipher) (Message, error) {
-	// TODO: Unexport once proto gets merged into package ably.
-
 	// strings.Split on empty string returns []string{""}
 	if m.Data == nil || m.Encoding == "" {
 		return m, nil
@@ -178,64 +177,9 @@ func coerceBytes(i interface{}) ([]byte, error) {
 	}
 }
 
-// memberKey returns string that allows to uniquely identify connected clients.
-func (m *Message) memberKey() string {
-	return m.ConnectionID + ":" + m.ClientID
-}
-
-func addPadding(src []byte) []byte {
-	padlen := byte(aes.BlockSize - (len(src) % aes.BlockSize))
-	data := make([]byte, len(src)+int(padlen))
-	padding := data[len(src)-1:]
-	copy(data, src)
-	for i := range padding {
-		padding[i] = padlen
-	}
-	return data
-}
-
 func mergeEncoding(a string, b string) string {
 	if a == "" {
 		return b
 	}
 	return a + "/" + b
-}
-
-// Appends padding.
-func pkcs7Pad(data []byte, blocklen int) ([]byte, error) {
-	if blocklen <= 0 {
-		return nil, fmt.Errorf("invalid blocklen %d", blocklen)
-	}
-	padlen := 1
-	for ((len(data) + padlen) % blocklen) != 0 {
-		padlen = padlen + 1
-	}
-	p := make([]byte, len(data)+padlen)
-	copy(p, data)
-	for i := len(data); i < len(p); i++ {
-		p[i] = byte(padlen)
-	}
-	return p, nil
-}
-
-// Returns slice of the original data without padding.
-func pkcs7Unpad(data []byte, blocklen int) ([]byte, error) {
-	if blocklen <= 0 {
-		return nil, fmt.Errorf("invalid blocklen %d", blocklen)
-	}
-	if len(data)%blocklen != 0 || len(data) == 0 {
-		return nil, fmt.Errorf("invalid data len %d", len(data))
-	}
-	padlen := int(data[len(data)-1])
-	if padlen > blocklen || padlen == 0 {
-		// no padding found.
-		return data, nil
-	}
-	// check padding
-	for _, p := range data[len(data)-padlen:] {
-		if p != byte(padlen) {
-			return nil, fmt.Errorf("invalid padding character")
-		}
-	}
-	return data[:len(data)-padlen], nil
 }

@@ -3,7 +3,6 @@ package ably_test
 import (
 	"encoding/base64"
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -16,15 +15,13 @@ func (custom) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]string{"custom"})
 }
 
-func TestMessage(t *testing.T) {
+func TestMessage_EncodeDecode_TM3(t *testing.T) {
 	key, err := base64.StdEncoding.DecodeString("WUP6u0K7MXI5Zeo0VppPwg==")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNil(t, err)
+
 	iv, err := base64.StdEncoding.DecodeString("HO4cYSP8LybPYBPZPHQOtg==")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNil(t, err)
+
 	params := ably.CipherParams{
 		Key:       key,
 		KeyLength: 128,
@@ -109,35 +106,24 @@ func TestMessage(t *testing.T) {
 			msg, err := ably.MessageWithEncodedData(ably.Message{
 				Data: v.data,
 			}, cipher)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assertNil(t, err)
+
 			b, err := json.Marshal(msg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got := string(b)
-			if got != v.encodedJSON {
-				t.Errorf("expected %s got %s", v.encodedJSON, got)
-			}
+			assertNil(t, err)
+			assertEquals(t, v.encodedJSON, string(b))
 
 			var encoded ably.Message
 			err = json.Unmarshal(b, &encoded)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assertNil(t, err)
+
 			decoded, err := ably.MessageWithDecodedData(encoded, cipher)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !reflect.DeepEqual(decoded.Data, v.decoded) {
-				t.Errorf("expected %#v got %#v", v.decoded, decoded.Data)
-			}
+			assertNil(t, err)
+			assertDeepEquals(t, v.decoded, decoded.Data)
 		})
 	}
 }
 
-func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
+func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c_TM3(t *testing.T) {
 	fixtures := []struct {
 		desc, file string
 		keylength  int
@@ -151,9 +137,8 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 		fixture := fixture
 		t.Run(fixture.desc, func(t *testing.T) {
 			test, key, iv, err := ablytest.LoadCryptoData(fixture.file)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assertNil(t, err)
+
 			params := ably.CipherParams{
 				Algorithm: ably.CipherAES,
 				Key:       key,
@@ -168,31 +153,19 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 
 					var encoded ably.Message
 					err := json.Unmarshal(item.Encoded, &encoded)
-					if err != nil {
-						t.Fatal(err)
-					}
+					assertNil(t, err)
+
 					encoded, err = ably.MessageWithDecodedData(encoded, cipher)
-					if err != nil {
-						t.Fatal(err)
-					}
+					assertNil(t, err)
 
 					var encrypted ably.Message
 					err = json.Unmarshal(item.Encoded, &encrypted)
-					if err != nil {
-						t.Fatal(err)
-					}
-					encrypted, err = ably.MessageWithDecodedData(encrypted, cipher)
-					if err != nil {
-						t.Fatal(err)
-					}
+					assertNil(t, err)
 
-					if encoded.Name != encrypted.Name {
-						t.Errorf("expected %s got %s", encoded.Name, encrypted.Name)
-					}
-					if !reflect.DeepEqual(encoded.Data, encrypted.Data) {
-						t.Errorf("expected %s got %s :encoding %s",
-							encoded.Data, encrypted.Data, encoded.Encoding)
-					}
+					encrypted, err = ably.MessageWithDecodedData(encrypted, cipher)
+					assertNil(t, err)
+					assertEquals(t, encoded.Name, encrypted.Name)
+					assertDeepEquals(t, encoded.Data, encrypted.Data)
 				}
 			})
 		})
