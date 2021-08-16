@@ -29,24 +29,16 @@ type Message struct {
 	Extras       map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
 }
 
-//updateEmptyId - Set empty msg.ID to protocol message ID (TM2a)
-func (m *Message) updateEmptyId(protoMsgId string, messageIndex int) {
-	if empty(m.ID) {
-		m.ID = fmt.Sprintf("%s:%d", protoMsgId, messageIndex)
+//updateEmptyFields - Set empty msg.ID, msg.ConnectionID and msg.Timestamp to respective protoMessage fields
+func (m *Message) updateEmptyFields(protoMsg protocolMessage, messageIndex int) {
+	if empty(m.ID) { // TM2a
+		m.ID = fmt.Sprintf("%s:%d", protoMsg.ID, messageIndex)
 	}
-}
-
-//updateEmptyConnectionId - Set empty msg.connectionID to protocol message connectionID (TM2c)
-func (m *Message) updateEmptyConnectionId(protoMsgConnectionId string) {
-	if empty(m.ConnectionID) {
-		m.ConnectionID = protoMsgConnectionId
+	if empty(m.ConnectionID) { // TM2c
+		m.ConnectionID = protoMsg.ConnectionID
 	}
-}
-
-//updateEmptyTimestamp - Set empty msg.Timestamp to protocol message Timestamp (TM2f)
-func (m *Message) updateEmptyTimestamp(protoMsgTimestamp int64) {
-	if m.Timestamp == 0 {
-		m.Timestamp = protoMsgTimestamp
+	if m.Timestamp == 0 { // TM2f
+		m.Timestamp = protoMsg.Timestamp
 	}
 }
 
