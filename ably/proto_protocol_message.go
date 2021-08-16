@@ -119,6 +119,22 @@ func (p *protocolMessage) SetModesAsFlag(modes []ChannelMode) {
 	}
 }
 
+//updateInnerMessagesEmptyFields - Update inner Message empty Id, connectionId and Timestamp
+func (p *protocolMessage) updateInnerMessagesEmptyFields() {
+	updateMsgEmptyFields := func(message *Message, msgIndex int) {
+		message.updateEmptyId(p.ID, msgIndex)
+		message.updateEmptyConnectionId(p.ConnectionID)
+		message.updateEmptyTimestamp(p.Timestamp)
+	}
+
+	for msgIndex, message := range p.Messages {
+		updateMsgEmptyFields(message, msgIndex)
+	}
+	for presenceMsgIndex, presenceMsg := range p.Presence {
+		updateMsgEmptyFields(&presenceMsg.Message, presenceMsgIndex)
+	}
+}
+
 func (msg *protocolMessage) String() string {
 	switch msg.Action {
 	case actionHeartbeat:

@@ -688,6 +688,9 @@ func (c *Connection) eventloop() {
 		}
 		c.connMtx.Lock()
 		msg, err := c.conn.Receive(c.opts.Now().Add(receiveTimeout))
+		if msg != nil {
+			msg.updateInnerMessagesEmptyFields() // TM2a, TM2c, TM2f
+		}
 		c.connMtx.Unlock()
 		if err != nil {
 			c.mtx.Lock()
