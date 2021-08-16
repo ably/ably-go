@@ -111,12 +111,12 @@ func TestIfFlagIsSet(t *testing.T) {
 	flags.Set(ably.FlagSubscribe)
 	flags.Set(ably.FlagPresenceSubscribe)
 
+	assertEquals(t, ably.FlagAttachResume, flags&ably.FlagAttachResume)
 	assertEquals(t, ably.FlagPresence, flags&ably.FlagPresence)
 	assertEquals(t, ably.FlagPublish, flags&ably.FlagPublish)
 	assertEquals(t, ably.FlagSubscribe, flags&ably.FlagSubscribe)
 	assertEquals(t, ably.FlagPresenceSubscribe, flags&ably.FlagPresenceSubscribe)
-	assertEquals(t, ably.FlagAttachResume, flags&ably.FlagAttachResume)
-	assertNotEquals(t, ably.FlagHasBacklog, flags&ably.FlagAttachResume)
+	assertNotEquals(t, ably.FlagHasBacklog, flags&ably.FlagHasBacklog)
 }
 
 func TestIfHasFlg(t *testing.T) {

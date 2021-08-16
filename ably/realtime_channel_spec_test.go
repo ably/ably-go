@@ -2972,14 +2972,10 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		in = make(chan *ably.ProtocolMessage, 1)
 		out = make(chan *ably.ProtocolMessage, 16)
 		msg = make(chan *ably.Message, 1)
-		afterCalls := make(chan ablytest.AfterCall, 1)
-		now, after := ablytest.TimeFuncs(afterCalls)
 
 		c, _ = ably.NewRealtime(
 			ably.WithToken("fake:token"),
 			ably.WithAutoConnect(false),
-			ably.WithNow(now),
-			ably.WithAfter(after),
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
@@ -3000,14 +2996,11 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		stateChanges = make(ably.ChannelStateChanges, 10)
 		channel.OnAll(stateChanges.Receive)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		channel.SubscribeAll(ctx, func(message *ably.Message) {
+		channel.SubscribeAll(canceledCtx, func(message *ably.Message) {
 			msg <- message
 		})
 
-		channel.Attach(ctx)
+		channel.Attach(canceledCtx)
 		return
 	}
 
@@ -3033,7 +3026,7 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 				ID:            "uniqueId",
 				MsgSerial:     3,
 				ChannelSerial: "channelSerial",
-				Messages:      append(make([]*ably.Message, 0), message),
+				Messages:      []*ably.Message{message},
 			}
 		}
 
@@ -3067,9 +3060,7 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		receiveMessage()
 		ablytest.Instantly.Recv(t, nil, msg, t.Fatalf)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		channel.Detach(ctx)
+		channel.Detach(canceledCtx)
 		// Get the channel to DETACHED.
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume DETACHING
@@ -3184,4 +3175,80 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
 		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 	})
+}
+
+func Test_UpdateEmptyMessageFields_TM2a_TM2c_TM2f(t *testing.T) {
+	t.Parallel()
+
+	const channelRetryTimeout = 123 * time.Millisecond
+	setup := func(t *testing.T) (
+		in, out chan *ably.ProtocolMessage,
+		msg chan *ably.Message,
+		channel *ably.RealtimeChannel,
+	) {
+		in = make(chan *ably.ProtocolMessage, 1)
+		out = make(chan *ably.ProtocolMessage, 16)
+		msg = make(chan *ably.Message, 1)
+
+		c, _ := ably.NewRealtime(
+			ably.WithToken("fake:token"),
+			ably.WithAutoConnect(false),
+			ably.WithChannelRetryTimeout(channelRetryTimeout),
+			ably.WithDial(MessagePipe(in, out)),
+		)
+
+		in <- &ably.ProtocolMessage{
+			Action:            ably.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &ably.ConnectionDetails{},
+		}
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		channel = c.Channels.Get("test")
+
+		stateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(stateChanges.Receive)
+
+		channel.Attach(canceledCtx)
+		ablytest.Instantly.Recv(t, nil, stateChanges, t.Fatalf) // Consume ATTACHING
+		in <- &ably.ProtocolMessage{
+			Action:  ably.ActionAttached,
+			Channel: channel.Name,
+		}
+		ablytest.Instantly.Recv(t, nil, stateChanges, t.Fatalf) // Consume ATTACHED
+		return
+	}
+
+	in, _, msg, channel := setup(t)
+
+	channel.SubscribeAll(context.Background(), func(message *ably.Message) {
+		msg <- message
+	})
+
+	// receive message when state is ATTACHED
+	protoMsg := &ably.ProtocolMessage{
+		Action:        ably.ActionMessage,
+		Channel:       channel.Name,
+		MsgSerial:     3,
+		ChannelSerial: "channelSerial",
+		ID:            "protoId",
+		ConnectionID:  "protoConnectionId",
+		Timestamp:     23454,
+		Messages: []*ably.Message{{
+			ID:           "",
+			ConnectionID: "",
+			Timestamp:    0,
+		}},
+	}
+	in <- protoMsg
+
+	var message *ably.Message
+	ablytest.Instantly.Recv(t, &message, msg, t.Fatalf)
+	assertEquals(t, protoMsg.ID+":0", message.ID)
+	assertEquals(t, protoMsg.ConnectionID, message.ConnectionID)
+	assertEquals(t, protoMsg.Timestamp, message.Timestamp)
 }
