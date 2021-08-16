@@ -2,6 +2,7 @@ package ably_test
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -27,6 +28,82 @@ func TestProtocolMessageEncodeZeroSerials(t *testing.T) {
 	}
 }
 
+func TestUpdateEmptyMessageFields_TM2a_TM2c_TM2f(t *testing.T) {
+	messages := []*ably.Message{
+		{
+			ID:           "",
+			ConnectionID: "",
+			Timestamp:    0,
+		},
+		{
+			ID:           "",
+			ConnectionID: "",
+			Timestamp:    0,
+		},
+		{
+			ID:           "",
+			ConnectionID: "",
+			Timestamp:    0,
+		},
+	}
+
+	presenceMessages := []*ably.PresenceMessage{
+		{
+			Message: ably.Message{
+				ID:           "",
+				ConnectionID: "",
+				Timestamp:    0,
+			},
+			Action: 0,
+		},
+		{
+			Message: ably.Message{
+				ID:           "",
+				ConnectionID: "",
+				Timestamp:    0,
+			},
+			Action: 0,
+		},
+		{
+			Message: ably.Message{
+				ID:           "",
+				ConnectionID: "",
+				Timestamp:    0,
+			},
+			Action: 0,
+		},
+		{
+			Message: ably.Message{
+				ID:           "",
+				ConnectionID: "",
+				Timestamp:    0,
+			},
+			Action: 0,
+		},
+	}
+	protoMsg := ably.ProtocolMessage{
+		Messages:     messages,
+		Presence:     presenceMessages,
+		ID:           "msg-id",
+		ConnectionID: "conn-id",
+		Timestamp:    3453,
+	}
+
+	protoMsg.UpdateEmptyFields()
+
+	for msgIndex, msg := range protoMsg.Messages {
+		assertEquals(t, protoMsg.ID+":"+strconv.Itoa(msgIndex), msg.ID)
+		assertEquals(t, protoMsg.ConnectionID, msg.ConnectionID)
+		assertEquals(t, protoMsg.Timestamp, msg.Timestamp)
+	}
+
+	for presenceMsgIndex, presenceMessage := range protoMsg.Presence {
+		assertEquals(t, protoMsg.ID+":"+strconv.Itoa(presenceMsgIndex), presenceMessage.ID)
+		assertEquals(t, protoMsg.ConnectionID, presenceMessage.ConnectionID)
+		assertEquals(t, protoMsg.Timestamp, presenceMessage.Timestamp)
+	}
+}
+
 func TestIfFlagIsSet(t *testing.T) {
 	flags := ably.FlagAttachResume
 	flags.Set(ably.FlagPresence)
@@ -34,24 +111,12 @@ func TestIfFlagIsSet(t *testing.T) {
 	flags.Set(ably.FlagSubscribe)
 	flags.Set(ably.FlagPresenceSubscribe)
 
-	if expected, actual := ably.FlagPresence, flags&ably.FlagPresence; expected != actual {
-		t.Fatalf("Expected %v, actual %v", expected, actual)
-	}
-	if expected, actual := ably.FlagPublish, flags&ably.FlagPublish; expected != actual {
-		t.Fatalf("Expected %v, actual %v", expected, actual)
-	}
-	if expected, actual := ably.FlagSubscribe, flags&ably.FlagSubscribe; expected != actual {
-		t.Fatalf("Expected %v, actual %v", expected, actual)
-	}
-	if expected, actual := ably.FlagPresenceSubscribe, flags&ably.FlagPresenceSubscribe; expected != actual {
-		t.Fatalf("Expected %v, actual %v", expected, actual)
-	}
-	if expected, actual := ably.FlagAttachResume, flags&ably.FlagAttachResume; expected != actual {
-		t.Fatalf("Expected %v, actual %v", expected, actual)
-	}
-	if expected, actual := ably.FlagHasBacklog, flags&ably.FlagAttachResume; expected == actual {
-		t.Fatalf("Shouldn't contain flag %v", expected)
-	}
+	assertEquals(t, ably.FlagPresence, flags&ably.FlagPresence)
+	assertEquals(t, ably.FlagPublish, flags&ably.FlagPublish)
+	assertEquals(t, ably.FlagSubscribe, flags&ably.FlagSubscribe)
+	assertEquals(t, ably.FlagPresenceSubscribe, flags&ably.FlagPresenceSubscribe)
+	assertEquals(t, ably.FlagAttachResume, flags&ably.FlagAttachResume)
+	assertNotEquals(t, ably.FlagHasBacklog, flags&ably.FlagAttachResume)
 }
 
 func TestIfHasFlg(t *testing.T) {

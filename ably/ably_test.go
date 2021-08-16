@@ -93,6 +93,13 @@ func assertEquals(t *testing.T, expected interface{}, actual interface{}) {
 	}
 }
 
+func assertNotEquals(t *testing.T, expected interface{}, actual interface{}) {
+	t.Helper()
+	if expected == actual {
+		t.Errorf("expected shouldn't be equal to actual %v;", expected)
+	}
+}
+
 func assertTrue(t *testing.T, value bool) {
 	t.Helper()
 

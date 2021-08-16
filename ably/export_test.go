@@ -244,6 +244,10 @@ func MessageWithDecodedData(m Message, cipher channelCipher) (Message, error) {
 	return m.withDecodedData(cipher)
 }
 
+func (m *ProtocolMessage) UpdateEmptyFields() {
+	m.updateInnerMessagesEmptyFields()
+}
+
 func ChannelModeFromFlag(flags ProtoFlag) []ChannelMode {
 	return channelModeFromFlag(flags)
 }
