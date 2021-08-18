@@ -147,7 +147,7 @@ type authOptions struct {
 }
 
 func (opts *authOptions) externalTokenAuthSupported() bool {
-	return !(opts.Token == "" && opts.TokenDetails == nil && opts.AuthCallback == nil && opts.AuthURL == "")
+	return opts.Token != "" || opts.TokenDetails != nil || opts.AuthCallback != nil || opts.AuthURL != ""
 }
 
 func (opts *authOptions) merge(extra *authOptions, defaults bool) *authOptions {
@@ -155,8 +155,8 @@ func (opts *authOptions) merge(extra *authOptions, defaults bool) *authOptions {
 	return opts
 }
 
-func (opts *authOptions) authMethod() string {
-	if opts.AuthMethod != "" {
+func (opts *authOptions) authHttpMethod() string {
+	if !empty(opts.AuthMethod) {
 		return opts.AuthMethod
 	}
 	return "GET"

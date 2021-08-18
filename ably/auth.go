@@ -385,13 +385,13 @@ func (a *Auth) timestamp(ctx context.Context, query bool) (time.Time, error) {
 }
 
 func (a *Auth) requestAuthURL(ctx context.Context, params *TokenParams, opts *authOptions) (interface{}, error) {
-	req, err := http.NewRequestWithContext(ctx, opts.authMethod(), opts.AuthURL, nil)
+	req, err := http.NewRequestWithContext(ctx, opts.authHttpMethod(), opts.AuthURL, nil)
 	if err != nil {
 		return nil, a.newError(40000, err)
 	}
 	query := addParams(params.Query(), opts.AuthParams).Encode()
 	req.Header = addHeaders(req.Header, opts.AuthHeaders)
-	switch opts.authMethod() {
+	switch opts.authHttpMethod() {
 	case "GET":
 		req.URL.RawQuery = query
 	case "POST":
