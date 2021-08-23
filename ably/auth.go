@@ -183,6 +183,7 @@ func (a *Auth) RequestToken(ctx context.Context, params *TokenParams, opts ...Au
 }
 
 func (a *Auth) requestToken(ctx context.Context, params *TokenParams, opts *authOptions) (tok *TokenDetails, tokReqClientID string, err error) {
+	// RSA10e - Use token/tokenDetails as is, if provided
 	switch {
 	case opts != nil && opts.Token != "":
 		a.log().Verbose("Auth: found token in []AuthOption")
@@ -271,6 +272,7 @@ func (a *Auth) Authorize(ctx context.Context, params *TokenParams, setOpts ...Au
 		opts = applyAuthOptionsWithDefaults(setOpts...)
 	}
 	a.mtx.Lock()
+	// RSA10a - create token immediately using forceCreateNewToken
 	token, err := a.authorize(ctx, params, opts, true)
 	a.mtx.Unlock()
 	if err != nil {
@@ -280,38 +282,50 @@ func (a *Auth) Authorize(ctx context.Context, params *TokenParams, setOpts ...Au
 	return token, nil
 }
 
-func (a *Auth) authorize(ctx context.Context, params *TokenParams, opts *authOptions, force bool) (*TokenDetails, error) {
-	switch tok := a.token(); {
-	case tok != nil && !force && (tok.Expires == 0 || !tok.expired(a.opts().Now())):
-		return tok, nil
-	case params != nil && params.ClientID == "":
-		params.ClientID = a.clientID
-	case params == nil && a.clientID != "":
-		params = &TokenParams{ClientID: a.clientID}
+func (a *Auth) authorize(ctx context.Context, tokenParams *TokenParams, authOpts *authOptions, forceCreateNewToken bool) (*TokenDetails, error) {
+	// use existing tokenDetails, if non-forced and token is non-nil and non-expired
+	tokenDetails := a.token()
+	if !forceCreateNewToken && tokenDetails != nil && (tokenDetails.Expires == 0 || !tokenDetails.expired(a.opts().Now())) {
+		return tokenDetails, nil
+	}
+	// RSA10h - Set auth.ClientID if tokenParams.ClientID is empty
+	if tokenParams == nil {
+		tokenParams = &TokenParams{}
+	}
+	if empty(tokenParams.ClientID) && !empty(a.clientID) {
+		tokenParams.ClientID = a.clientID
 	}
 	a.log().Info("Auth: sending  token request")
-	tok, tokReqClientID, err := a.requestToken(ctx, params, opts)
+	tokenDetails, tokReqClientID, err := a.requestToken(ctx, tokenParams, authOpts)
 	if err != nil {
 		a.log().Error("Auth: failed to get token", err)
 		return nil, err
 	}
 	// Fail if the non-empty ClientID, that was set explicitely via clientOptions, does
 	// not match the non-wildcard ClientID returned with the token.
-	if areClientIDsSet(a.clientID, tok.ClientID) && a.clientID != tok.ClientID {
+	if areClientIDsSet(a.clientID, tokenDetails.ClientID) && a.clientID != tokenDetails.ClientID {
 		a.log().Error("Auth: ", errClientIDMismatch)
 		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
 	}
 	// Fail if non-empty ClientID requested by a TokenRequest
 	// does not match the non-wildcard ClientID that arrived with the token.
-	if areClientIDsSet(tokReqClientID, tok.ClientID) && tokReqClientID != tok.ClientID {
+	if areClientIDsSet(tokReqClientID, tokenDetails.ClientID) && tokReqClientID != tokenDetails.ClientID {
 		a.log().Error("Auth: ", errClientIDMismatch)
 		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
 	}
+	// RSA10a - use token auth for all future requests
 	a.method = authToken
-	a.opts().TokenDetails = tok
-	a.params = params
-	a.clientID = tok.ClientID // Spec RSA7b2
-	return tok, nil
+	// RSA10j, RSA10g - override existing tokenParams and authOptions, ignore timestamp and queryTime
+	tokenParams.Timestamp = a.params.Timestamp
+	a.params = tokenParams
+	if authOpts != nil {
+		authOpts.UseQueryTime = a.opts().UseQueryTime
+		a.opts().authOptions = *authOpts
+	}
+	a.opts().TokenDetails = tokenDetails
+	// RSA7b2
+	a.clientID = tokenDetails.ClientID
+	return tokenDetails, nil
 }
 
 func (a *Auth) reauthorize(ctx context.Context) (*TokenDetails, error) {
