@@ -305,16 +305,12 @@ func (a *Auth) authorize(ctx context.Context, tokenParams *TokenParams, authOpts
 		return nil, err
 	}
 
-	// Fail if the non-empty ClientID, that was set explicitely via clientOptions, does
-	// not match the non-wildcard ClientID returned with the token.
-	if areClientIDsSet(a.clientID, tokenDetails.ClientID) && a.clientID != tokenDetails.ClientID {
-		a.log().Error("Auth: ", errClientIDMismatch)
-		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
+	// Fail if the non-empty ClientID, that was set explicitly via clientOptions, does
+	// not match the non-wildcard ClientID returned with the token/tokenRequest
+	checkIfClientIdsNotEqual := func(clientId1 string, clientId2 string) bool {
+		return areClientIDsSet(clientId1, clientId2) && clientId1 != clientId2
 	}
-
-	// Fail if non-empty ClientID requested by a TokenRequest
-	// does not match the non-wildcard ClientID that arrived with the token.
-	if areClientIDsSet(tokReqClientID, tokenDetails.ClientID) && tokReqClientID != tokenDetails.ClientID {
+	if checkIfClientIdsNotEqual(a.clientID, tokenDetails.ClientID) || checkIfClientIdsNotEqual(tokReqClientID, tokenDetails.ClientID) {
 		a.log().Error("Auth: ", errClientIDMismatch)
 		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
 	}
