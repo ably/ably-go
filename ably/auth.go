@@ -33,32 +33,6 @@ var (
 
 const wildcardClientID = "*"
 
-// addParams copies each params from rhs to lhs and returns lhs.
-//
-// If param from rhs exists in lhs, it's omitted.
-func addParams(lhs, rhs url.Values) url.Values {
-	for key := range rhs {
-		if lhs.Get(key) != "" {
-			continue
-		}
-		lhs.Set(key, rhs.Get(key))
-	}
-	return lhs
-}
-
-// addHeaders copies each header from rhs to lhs and returns lhs.
-//
-// If header from rhs exists in lhs, it's omitted.
-func addHeaders(lhs, rhs http.Header) http.Header {
-	for key := range rhs {
-		if lhs.Get(key) != "" {
-			continue
-		}
-		lhs.Set(key, rhs.Get(key))
-	}
-	return lhs
-}
-
 // Auth
 type Auth struct {
 	mtx      sync.Mutex
@@ -83,7 +57,7 @@ func newAuth(client *REST) (*Auth, error) {
 		client:              client,
 		onExplicitAuthorize: func(context.Context, *TokenDetails) {},
 	}
-	method, err := detectAuthMethod(a.opts())
+	method, err := a.detectAuthMethod()
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +81,22 @@ func newAuth(client *REST) (*Auth, error) {
 		a.clientID = a.opts().ClientID
 	}
 	return a, nil
+}
+
+func (a *Auth) detectAuthMethod() (int, error) {
+	opts := a.opts()
+	// Checks for token auth (also check if external token auth ways provided)
+	if opts.UseTokenAuth || opts.Token != "" || opts.TokenDetails != nil || opts.AuthCallback != nil || opts.AuthURL != "" {
+		return authToken, nil
+	}
+	// checks for basic auth
+	if err := checkIfKeyIsValid(&opts.authOptions); err != nil {
+		return 0, err
+	}
+	if opts.NoTLS {
+		return 0, newError(ErrInvalidUseOfBasicAuthOverNonTLSTransport, errInsecureBasicAuth)
+	}
+	return authBasic, nil
 }
 
 // ClientID
@@ -136,36 +126,53 @@ func (a *Auth) updateClientID(clientID string) {
 }
 
 // CreateTokenRequest
-func (a *Auth) CreateTokenRequest(params *TokenParams, opts ...AuthOption) (*TokenRequest, error) {
+func (a *Auth) CreateTokenRequest(tokenParams *TokenParams, authOpts ...AuthOption) (*TokenRequest, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
+
 	var o *authOptions
-	if opts != nil {
-		o = applyAuthOptionsWithDefaults(opts...)
+	if authOpts != nil {
+		o = applyAuthOptionsWithDefaults(authOpts...)
 	}
-	return a.createTokenRequest(params, o)
+	return a.createTokenRequest(tokenParams, o)
 }
 
-func (a *Auth) createTokenRequest(params *TokenParams, opts *authOptions) (*TokenRequest, error) {
-	if opts == nil {
-		opts = &a.opts().authOptions
+func (a *Auth) createTokenRequest(tokenParams *TokenParams, authOpts *authOptions) (*TokenRequest, error) {
+	if authOpts == nil {
+		authOpts = &a.opts().authOptions
 	}
-	keySecret := opts.KeySecret()
-	req := &TokenRequest{KeyName: opts.KeyName()}
-	if params != nil {
-		req.TokenParams = *params
-	}
-	if err := a.setDefaults(opts, req); err != nil {
+	// Validate keyName/keySecret not empty
+	if err := checkIfKeyIsValid(authOpts); err != nil {
 		return nil, err
 	}
-	// Validate arguments.
-	switch {
-	case opts.Key == "":
-		return nil, newError(ErrInvalidCredentials, errMissingKey)
-	case req.KeyName == "" || keySecret == "":
-		return nil, newError(ErrIncompatibleCredentials, errInvalidKey)
+
+	req := &TokenRequest{KeyName: authOpts.KeyName()}
+	if tokenParams != nil {
+		req.TokenParams = *tokenParams
 	}
-	req.sign([]byte(keySecret))
+	// set defaults for empty fields of token request
+	if req.Nonce == "" {
+		req.Nonce = randomString(32)
+	}
+	if req.Capability == "" {
+		req.Capability = `{"*":["*"]}`
+	}
+	if req.TTL == 0 {
+		req.TTL = 60 * 60 * 1000
+	}
+	if req.ClientID == "" {
+		req.ClientID = a.opts().ClientID
+	}
+	if req.Timestamp == 0 {
+		ts, err := a.timestamp(context.Background(), authOpts.UseQueryTime)
+		if err != nil {
+			return nil, err
+		}
+		req.Timestamp = unixMilli(ts)
+	}
+
+	// sign the tokenRequest locally using keySecret
+	req.sign([]byte(authOpts.KeySecret()))
 	return req, nil
 }
 
@@ -308,7 +315,7 @@ func (a *Auth) authorize(ctx context.Context, tokenParams *TokenParams, authOpts
 	// Fail if the non-empty ClientID, that was set explicitly via clientOptions, does
 	// not match the non-wildcard ClientID returned with the token/tokenRequest
 	areClientIdsNotEqual := func(clientId1 string, clientId2 string) bool {
-		return areClientIDsSet(clientId1, clientId2) && clientId1 != clientId2
+		return areClientIDsNotEmptyOrWildCard(clientId1, clientId2) && clientId1 != clientId2
 	}
 	if areClientIdsNotEqual(a.clientID, tokenDetails.ClientID) || areClientIdsNotEqual(tokReqClientID, tokenDetails.ClientID) {
 		a.log().Error("Auth: ", errClientIDMismatch)
@@ -350,29 +357,6 @@ func (a *Auth) mergeOpts(opts *authOptions) *authOptions {
 	return opts
 }
 
-func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
-	if req.Nonce == "" {
-		req.Nonce = randomString(32)
-	}
-	if req.Capability == "" {
-		req.Capability = `{"*":["*"]}`
-	}
-	if req.TTL == 0 {
-		req.TTL = 60 * 60 * 1000
-	}
-	if req.ClientID == "" {
-		req.ClientID = a.opts().ClientID
-	}
-	if req.Timestamp == 0 {
-		ts, err := a.timestamp(context.Background(), opts.UseQueryTime)
-		if err != nil {
-			return err
-		}
-		req.Timestamp = unixMilli(ts)
-	}
-	return nil
-}
-
 //Timestamp returns the timestamp to be used in authorization request.
 func (a *Auth) timestamp(ctx context.Context, query bool) (time.Time, error) {
 	now := a.client.opts.Now()
@@ -409,8 +393,29 @@ func (a *Auth) requestAuthURL(ctx context.Context, params *TokenParams, opts *au
 	if err != nil {
 		return nil, a.newError(40000, err)
 	}
-	query := addParams(params.Query(), opts.AuthParams).Encode()
-	req.Header = addHeaders(req.Header, opts.AuthHeaders)
+	// override auth params while merging
+	mergeWithAuthParams := func(params, authParams url.Values) url.Values {
+		for key := range authParams {
+			if params.Get(key) != "" {
+				continue
+			}
+			params.Set(key, authParams.Get(key))
+		}
+		return params
+	}
+	query := mergeWithAuthParams(params.Query(), opts.AuthParams).Encode()
+
+	// override auth headers while merging
+	mergeWithAuthHeaders := func(headers, authHeaders http.Header) http.Header {
+		for key := range authHeaders {
+			if headers.Get(key) != "" {
+				continue
+			}
+			headers.Set(key, authHeaders.Get(key))
+		}
+		return headers
+	}
+	req.Header = mergeWithAuthHeaders(req.Header, opts.AuthHeaders)
 	switch opts.authHttpMethod() {
 	case "GET":
 		req.URL.RawQuery = query
@@ -508,22 +513,17 @@ func (a *Auth) log() logger {
 	return a.client.log
 }
 
-func detectAuthMethod(opts *clientOptions) (int, error) {
-	isKeyValid := opts.KeyName() != "" && opts.KeySecret() != ""
-	isAuthExternal := opts.externalTokenAuthSupported()
-	if opts.UseTokenAuth || isAuthExternal {
-		return authToken, nil
+func checkIfKeyIsValid(authOptions *authOptions) error {
+	if empty(authOptions.Key) {
+		return newError(ErrInvalidCredentials, errMissingKey)
 	}
-	if !isKeyValid {
-		return 0, newError(ErrInvalidCredential, errInvalidKey)
+	if empty(authOptions.KeyName()) || empty(authOptions.KeySecret()) {
+		return newError(ErrIncompatibleCredentials, errInvalidKey)
 	}
-	if opts.NoTLS {
-		return 0, newError(ErrInvalidUseOfBasicAuthOverNonTLSTransport, errInsecureBasicAuth)
-	}
-	return authBasic, nil
+	return nil
 }
 
-func areClientIDsSet(clientIDs ...string) bool {
+func areClientIDsNotEmptyOrWildCard(clientIDs ...string) bool {
 	for _, s := range clientIDs {
 		switch s {
 		case "", wildcardClientID:

@@ -221,7 +221,7 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 	})
 }
 
-func TestAuth_TokenAuth_Renew(t *testing.T) {
+func TestAuth_TokenAuth_Renew_When_Expired_RSA4b(t *testing.T) {
 	t.Parallel()
 	rec, extraOpt := recorder()
 	defer rec.Stop()

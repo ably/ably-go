@@ -109,7 +109,7 @@ type authOptions struct {
 	//
 	AuthURL string
 
-	// Key obtained from the dashboard.
+	// Key obtained from the dashboard (format username:password/keyName:keySecret).
 	Key string
 
 	// Token is an authentication token issued for this application against
@@ -144,10 +144,6 @@ type authOptions struct {
 	// UseTokenAuth makes the REST and Realtime clients always use token
 	// authentication method.
 	UseTokenAuth bool
-}
-
-func (opts *authOptions) externalTokenAuthSupported() bool {
-	return opts.Token != "" || opts.TokenDetails != nil || opts.AuthCallback != nil || opts.AuthURL != ""
 }
 
 func (opts *authOptions) merge(extra *authOptions, defaults bool) *authOptions {
