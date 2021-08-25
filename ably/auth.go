@@ -57,7 +57,8 @@ func newAuth(client *REST) (*Auth, error) {
 		client:              client,
 		onExplicitAuthorize: func(context.Context, *TokenDetails) {},
 	}
-	method, err := a.detectAuthMethod()
+	authMethod, err := a.detectAuthMethod()
+	a.method = authMethod
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +69,6 @@ func newAuth(client *REST) (*Auth, error) {
 		}
 		a.host = u.Host
 	}
-	a.method = method
 	if a.opts().Token != "" {
 		a.opts().TokenDetails = newTokenDetails(a.opts().Token)
 	}
@@ -83,6 +83,7 @@ func newAuth(client *REST) (*Auth, error) {
 	return a, nil
 }
 
+//detectAuthMethod - returns authBasic or authToken with valid checks
 func (a *Auth) detectAuthMethod() (int, error) {
 	opts := a.opts()
 	// Checks for token auth (also check if external token auth ways provided)
@@ -109,6 +110,13 @@ func (a *Auth) ClientID() string {
 	return ""
 }
 
+func (a *Auth) updateClientID(clientID string) {
+	a.mtx.Lock()
+	defer a.mtx.Unlock()
+	//Spec RSA7b3, RSA7b4, RSA12a,RSA12b, RSA7b2,
+	a.clientID = clientID
+}
+
 func (a *Auth) clientIDForCheck() string {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -116,13 +124,6 @@ func (a *Auth) clientIDForCheck() string {
 		return wildcardClientID // for Basic Auth no ClientID check is performed
 	}
 	return a.clientID
-}
-
-func (a *Auth) updateClientID(clientID string) {
-	a.mtx.Lock()
-	defer a.mtx.Unlock()
-	//Spec RSA7b3, RSA7b4, RSA12a,RSA12b, RSA7b2,
-	a.clientID = clientID
 }
 
 // CreateTokenRequest
