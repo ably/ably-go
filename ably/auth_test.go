@@ -115,121 +115,108 @@ func TestAuth_TokenAuth(t *testing.T) {
 	//   - third: token request
 	//   - fourth: actual stats request
 	//
-	if n := rec.Len(); n != 4 {
-		t.Fatalf("want rec.Len()=4; got %d", n)
-	}
-	if method := client.Auth.Method(); method != ably.AuthToken {
-		t.Fatalf("want method=2; got %d", method)
-	}
-	url := rec.Request(3).URL
-	if url.Scheme != "http" {
-		t.Fatalf("want url.Scheme=http; got %s", url.Scheme)
-	}
+	assertEquals(t, 4, rec.Len())
+	assertEquals(t, ably.AuthToken, client.Auth.Method())
+	assertEquals(t, "http", rec.Request(3).URL.Scheme)
+
 	rec.Reset()
+
 	tok, err := client.Auth.Authorize(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("Authorize()=%v", err)
-	}
+	assertNil(t, err)
 	// Call to Authorize should always refresh the token.
-	if n := rec.Len(); n != 1 {
-		t.Fatalf("Authorize() did not return new token; want rec.Len()=1; %d", n)
-	}
+	assertEquals(t, 1, rec.Len()) // Authorize should return new token with HTTP call recorded
+	assertEquals(t, ably.AuthToken, client.Auth.Method())
+
 	if defaultCap := `{"*":["*"]}`; tok.Capability != defaultCap {
 		t.Fatalf("want tok.Capability=%v; got %v", defaultCap, tok.Capability)
 	}
 	now := time.Now().Add(time.Second)
-	if err := timeWithin(tok.IssueTime(), beforeAuth, now); err != nil {
-		t.Fatal(err)
-	}
+	err = timeWithin(tok.IssueTime(), beforeAuth, now)
+	assertNil(t, err)
 	// Ensure token expires in 60m (default TTL).
 	beforeAuth = beforeAuth.Add(60 * time.Minute)
 	now = now.Add(60 * time.Minute)
-	if err := timeWithin(tok.ExpireTime(), beforeAuth, now); err != nil {
-		t.Fatal(err)
-	}
+	err = timeWithin(tok.ExpireTime(), beforeAuth, now)
+	assertNil(t, err)
 }
 
 func TestAuth_TimestampRSA10k(t *testing.T) {
 	t.Parallel()
 	now, err := time.Parse(time.RFC822, time.RFC822)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNil(t, err)
 
 	t.Run("must use local time when UseQueryTime is false", func(t *testing.T) {
 		t.Parallel()
-
-		rest, _ := ably.NewREST(
+		rest, err := ably.NewREST(
 			ably.WithKey("fake:key"),
 			ably.WithNow(func() time.Time {
 				return now
 			}))
-		a := rest.Auth
-		a.SetServerTimeFunc(func() (time.Time, error) {
+		assertNil(t, err)
+		rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
-		stamp, err := a.Timestamp(context.Background(), false)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !stamp.Equal(now) {
-			t.Errorf("expected %s got %s", now, stamp)
+
+		timestamp, err := rest.Auth.Timestamp(context.Background(), false)
+		assertNil(t, err)
+		if !timestamp.Equal(now) {
+			t.Errorf("expected %s got %s", now, timestamp)
 		}
 	})
+
 	t.Run("must use server time when UseQueryTime is true", func(t *testing.T) {
 		t.Parallel()
 
-		rest, _ := ably.NewREST(
+		rest, err := ably.NewREST(
 			ably.WithKey("fake:key"),
 			ably.WithNow(func() time.Time {
 				return now
 			}))
-		a := rest.Auth
-		a.SetServerTimeFunc(func() (time.Time, error) {
+		assertNil(t, err)
+
+		rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
-		stamp, err := rest.Timestamp(true)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+		timestamp, err := rest.Timestamp(true)
+		assertNil(t, err)
+
 		serverTime := now.Add(time.Minute)
-		if !stamp.Equal(serverTime) {
-			t.Errorf("expected %s got %s", serverTime, stamp)
+		if !timestamp.Equal(serverTime) {
+			t.Errorf("expected %s got %s", serverTime, timestamp)
 		}
 	})
+
 	t.Run("must use server time offset ", func(t *testing.T) {
 		t.Parallel()
 
 		now := now
-		rest, _ := ably.NewREST(
+		rest, err := ably.NewREST(
 			ably.WithKey("fake:key"),
 			ably.WithNow(func() time.Time {
 				return now
 			}))
-		a := rest.Auth
-		a.SetServerTimeFunc(func() (time.Time, error) {
+		assertNil(t, err)
+		rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
 			return now.Add(time.Minute), nil
 		})
-		stamp, err := rest.Timestamp(true)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+		timestamp, err := rest.Timestamp(true)
+		assertNil(t, err)
 		serverTime := now.Add(time.Minute)
-		if !stamp.Equal(serverTime) {
-			t.Errorf("expected %s got %s", serverTime, stamp)
+		if !timestamp.Equal(serverTime) {
+			t.Errorf("expected %s got %s", serverTime, timestamp)
 		}
 
 		now = now.Add(time.Minute)
-		a.SetServerTimeFunc(func() (time.Time, error) {
+		rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
 			return time.Time{}, errors.New("must not be called")
 		})
-		stamp, err = rest.Timestamp(true)
-		if err != nil {
-			t.Fatal(err)
-		}
+		timestamp, err = rest.Timestamp(true)
+		assertNil(t, err)
 		serverTime = now.Add(time.Minute)
-		if !stamp.Equal(serverTime) {
-			t.Errorf("expected %s got %s", serverTime, stamp)
+		if !timestamp.Equal(serverTime) {
+			t.Errorf("expected %s got %s", serverTime, timestamp)
 		}
 	})
 }
@@ -299,7 +286,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	}
 }
 
-func TestAuth_RequestToken(t *testing.T) {
+func TestAuth_RequestToken_RSA8(t *testing.T) {
 	t.Parallel()
 	rec, extraOpt := recorder()
 	opts := []ably.ClientOption{
@@ -584,7 +571,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 	}
 }
 
-func TestAuth_ClientID(t *testing.T) {
+func TestAuth_ClientID_RSA7(t *testing.T) {
 	t.Parallel()
 	in := make(chan *ably.ProtocolMessage, 16)
 	out := make(chan *ably.ProtocolMessage, 16)

@@ -106,7 +106,6 @@ func newAuth(client *REST) (*Auth, error) {
 		// References RSC17, RSA7b1
 		a.clientID = a.opts().ClientID
 	}
-
 	return a, nil
 }
 
@@ -294,7 +293,8 @@ func (a *Auth) authorize(ctx context.Context, tokenParams *TokenParams, authOpts
 	if tokenParams == nil {
 		tokenParams = &TokenParams{}
 	}
-	if empty(tokenParams.ClientID) && !empty(a.clientID) {
+	// RSA7d - Use auth.ClientID for token auth
+	if empty(tokenParams.ClientID) {
 		tokenParams.ClientID = a.clientID
 	}
 
@@ -307,10 +307,10 @@ func (a *Auth) authorize(ctx context.Context, tokenParams *TokenParams, authOpts
 
 	// Fail if the non-empty ClientID, that was set explicitly via clientOptions, does
 	// not match the non-wildcard ClientID returned with the token/tokenRequest
-	checkIfClientIdsNotEqual := func(clientId1 string, clientId2 string) bool {
+	areClientIdsNotEqual := func(clientId1 string, clientId2 string) bool {
 		return areClientIDsSet(clientId1, clientId2) && clientId1 != clientId2
 	}
-	if checkIfClientIdsNotEqual(a.clientID, tokenDetails.ClientID) || checkIfClientIdsNotEqual(tokReqClientID, tokenDetails.ClientID) {
+	if areClientIdsNotEqual(a.clientID, tokenDetails.ClientID) || areClientIdsNotEqual(tokReqClientID, tokenDetails.ClientID) {
 		a.log().Error("Auth: ", errClientIDMismatch)
 		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
 	}
