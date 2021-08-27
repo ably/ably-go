@@ -58,10 +58,10 @@ func newAuth(client *REST) (*Auth, error) {
 		onExplicitAuthorize: func(context.Context, *TokenDetails) {},
 	}
 	authMethod, err := a.detectAuthMethod()
-	a.method = authMethod
 	if err != nil {
 		return nil, err
 	}
+	a.method = authMethod
 	if a.opts().AuthURL != "" {
 		u, err := url.Parse(a.opts().AuthURL)
 		if err != nil {
@@ -191,11 +191,11 @@ func (a *Auth) RequestToken(ctx context.Context, params *TokenParams, opts ...Au
 
 func (a *Auth) requestToken(ctx context.Context, params *TokenParams, opts *authOptions) (tok *TokenDetails, tokReqClientID string, err error) {
 	// RSA10e - Use token/tokenDetails as is, if provided
-	switch {
-	case opts != nil && opts.Token != "":
+	if opts != nil && opts.Token != "" {
 		a.log().Verbose("Auth: found token in []AuthOption")
 		return newTokenDetails(opts.Token), "", nil
-	case opts != nil && opts.TokenDetails != nil:
+	}
+	if opts != nil && opts.TokenDetails != nil {
 		a.log().Verbose("Auth: found TokenDetails in []AuthOption")
 		return opts.TokenDetails, "", nil
 	}

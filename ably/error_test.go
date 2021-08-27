@@ -11,20 +11,32 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ably/ably-go/ably"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ably/ably-go/ably"
 )
 
 func TestErrorResponseWithInvalidKey(t *testing.T) {
-	opts := []ably.ClientOption{ably.WithKey(":")}
+	opts := []ably.ClientOption{ably.WithKey("")}
 	_, e := ably.NewREST(opts...)
 	if e == nil {
 		t.Fatal("NewREST(): expected err != nil")
 	}
 	err, ok := e.(*ably.ErrorInfo)
 	assert.True(t, ok, fmt.Sprintf("want e be *ably.Error; was %T", e))
-	assert.Equal(t, 400, err.StatusCode, fmt.Sprintf("want StatusCode=400; got %d", err.StatusCode))
-	assert.Equal(t, ably.ErrInvalidCredential, err.Code, fmt.Sprintf("want Code=	; got %d", err.Code))
+	assert.Equal(t, 401, err.StatusCode, fmt.Sprintf("want StatusCode=400; got %d", err.StatusCode))
+	assert.Equal(t, ably.ErrInvalidCredentials, err.Code, fmt.Sprintf("want Code=	; got %d", err.Code))
+	assert.NotNil(t, err.Unwrap())
+
+	opts = []ably.ClientOption{ably.WithKey(":")}
+	_, e = ably.NewREST(opts...)
+	if e == nil {
+		t.Fatal("NewREST(): expected err != nil")
+	}
+	err, ok = e.(*ably.ErrorInfo)
+	assert.True(t, ok, fmt.Sprintf("want e be *ably.Error; was %T", e))
+	assert.Equal(t, 401, err.StatusCode, fmt.Sprintf("want StatusCode=400; got %d", err.StatusCode))
+	assert.Equal(t, ably.ErrIncompatibleCredentials, err.Code, fmt.Sprintf("want Code=	; got %d", err.Code))
 	assert.NotNil(t, err.Unwrap())
 }
 
