@@ -140,84 +140,110 @@ func TestAuth_TokenAuth(t *testing.T) {
 	assertNil(t, err)
 }
 
-func TestAuth_TimestampRSA10k(t *testing.T) {
-	t.Parallel()
-	now, err := time.Parse(time.RFC822, time.RFC822)
-	assertNil(t, err)
+func TestAuth_RSA10(t *testing.T) {
+	t.Run("RSA10a, RSA10f, RSA10h: instructs library to create token immediately and token auth is used for subsequent requests, returns tokenDetails (token + token metadata)", func(t *testing.T) {
 
-	t.Run("must use local time when UseQueryTime is false", func(t *testing.T) {
-		t.Parallel()
-		rest, err := ably.NewREST(
-			ably.WithKey("fake:key"),
-			ably.WithNow(func() time.Time {
-				return now
-			}))
-		assertNil(t, err)
-		rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
-			return now.Add(time.Minute), nil
-		})
-
-		timestamp, err := rest.Auth.Timestamp(context.Background(), false)
-		assertNil(t, err)
-		if !timestamp.Equal(now) {
-			t.Errorf("expected %s got %s", now, timestamp)
-		}
 	})
 
-	t.Run("must use server time when UseQueryTime is true", func(t *testing.T) {
-		t.Parallel()
-
-		rest, err := ably.NewREST(
-			ably.WithKey("fake:key"),
-			ably.WithNow(func() time.Time {
-				return now
-			}))
-		assertNil(t, err)
-
-		rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
-			return now.Add(time.Minute), nil
-		})
-
-		timestamp, err := rest.Timestamp(true)
-		assertNil(t, err)
-
-		serverTime := now.Add(time.Minute)
-		if !timestamp.Equal(serverTime) {
-			t.Errorf("expected %s got %s", serverTime, timestamp)
-		}
+	t.Run("RSA10b : supports all AuthOptions and TokenParams in the function arguments", func(t *testing.T) {
+		t.Skip("No need to write tests for the spec since, Auth.Authorize accepts all arguments")
 	})
 
-	t.Run("must use server time offset ", func(t *testing.T) {
+	t.Run("RSA10j, RSA10g: stores given arguments as defaults for subsequent authorizations with exception of tokenParams timestamp and queryTTL", func(t *testing.T) {
+
+	})
+
+	t.Run("RSA10e: returns token if in authOptions, or should try one of the given authOption", func(t *testing.T) {
+
+	})
+
+	t.Run("RSA10k", func(t *testing.T) {
 		t.Parallel()
-
-		now := now
-		rest, err := ably.NewREST(
-			ably.WithKey("fake:key"),
-			ably.WithNow(func() time.Time {
-				return now
-			}))
+		now, err := time.Parse(time.RFC822, time.RFC822)
 		assertNil(t, err)
-		rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
-			return now.Add(time.Minute), nil
+
+		t.Run("must use local time when UseQueryTime is false", func(t *testing.T) {
+			t.Parallel()
+			rest, err := ably.NewREST(
+				ably.WithKey("fake:key"),
+				ably.WithNow(func() time.Time {
+					return now
+				}))
+			assertNil(t, err)
+			rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
+				return now.Add(time.Minute), nil
+			})
+
+			timestamp, err := rest.Auth.Timestamp(context.Background(), false)
+			assertNil(t, err)
+			if !timestamp.Equal(now) {
+				t.Errorf("expected %s got %s", now, timestamp)
+			}
 		})
 
-		timestamp, err := rest.Timestamp(true)
-		assertNil(t, err)
-		serverTime := now.Add(time.Minute)
-		if !timestamp.Equal(serverTime) {
-			t.Errorf("expected %s got %s", serverTime, timestamp)
-		}
+		t.Run("must use server time when UseQueryTime is true", func(t *testing.T) {
+			t.Parallel()
 
-		now = now.Add(time.Minute)
-		rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
-			return time.Time{}, errors.New("must not be called")
+			rest, err := ably.NewREST(
+				ably.WithKey("fake:key"),
+				ably.WithNow(func() time.Time {
+					return now
+				}))
+			assertNil(t, err)
+
+			rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
+				return now.Add(time.Minute), nil
+			})
+
+			timestamp, err := rest.Timestamp(true)
+			assertNil(t, err)
+
+			serverTime := now.Add(time.Minute)
+			if !timestamp.Equal(serverTime) {
+				t.Errorf("expected %s got %s", serverTime, timestamp)
+			}
 		})
-		timestamp, err = rest.Timestamp(true)
-		assertNil(t, err)
-		serverTime = now.Add(time.Minute)
-		if !timestamp.Equal(serverTime) {
-			t.Errorf("expected %s got %s", serverTime, timestamp)
-		}
+
+		t.Run("must use server time offset ", func(t *testing.T) {
+			t.Parallel()
+
+			now := now
+			rest, err := ably.NewREST(
+				ably.WithKey("fake:key"),
+				ably.WithNow(func() time.Time {
+					return now
+				}))
+			assertNil(t, err)
+			rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
+				return now.Add(time.Minute), nil
+			})
+
+			timestamp, err := rest.Timestamp(true)
+			assertNil(t, err)
+			serverTime := now.Add(time.Minute)
+			if !timestamp.Equal(serverTime) {
+				t.Errorf("expected %s got %s", serverTime, timestamp)
+			}
+
+			now = now.Add(time.Minute)
+			rest.Auth.SetServerTimeFunc(func() (time.Time, error) {
+				return time.Time{}, errors.New("must not be called")
+			})
+			timestamp, err = rest.Timestamp(true)
+			assertNil(t, err)
+			serverTime = now.Add(time.Minute)
+			if !timestamp.Equal(serverTime) {
+				t.Errorf("expected %s got %s", serverTime, timestamp)
+			}
+		})
+	})
+
+	t.Run("RSA10i: Adheres to all requirements in RSA8 relating to TokenParams, authCallback and authUrl", func(t *testing.T) {
+		t.Skip("No need to write tests since covered as a part of RSA8")
+	})
+
+	t.Run("RSA10l: Deprecate RestClient#authorise and RealtimeClient#authorise", func(t *testing.T) {
+		t.Skip("No need to write tests, since we don't have API available in the first place")
 	})
 }
 
