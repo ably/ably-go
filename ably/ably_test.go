@@ -93,6 +93,13 @@ func assertEquals(t *testing.T, expected interface{}, actual interface{}) {
 	}
 }
 
+func assertNotEquals(t *testing.T, expected interface{}, actual interface{}) {
+	t.Helper()
+	if expected == actual {
+		t.Errorf("expected shouldn't be equal to actual %v;", expected)
+	}
+}
+
 func assertTrue(t *testing.T, value bool) {
 	t.Helper()
 
@@ -109,14 +116,61 @@ func assertFalse(t *testing.T, value bool) {
 	}
 }
 
+func isNil(object interface{}) bool {
+	if object == nil {
+		return true
+	}
+	value := reflect.ValueOf(object)
+	return value.IsNil()
+}
+
 func assertNil(t *testing.T, object interface{}) {
 	t.Helper()
+	if !isNil(object) {
+		t.Errorf("expected: nil, actual: %v", object)
+	}
+}
 
-	if object != nil {
-		value := reflect.ValueOf(object)
-		if !value.IsNil() {
-			t.Errorf("%v is not nil", object)
-		}
+func assertNotNil(t *testing.T, object interface{}) {
+	t.Helper()
+	if isNil(object) {
+		t.Errorf("expected: non-nil, actual: nil")
+	}
+}
+
+func isZero(object interface{}) bool {
+	if object == nil {
+		return false
+	}
+	value := reflect.ValueOf(object)
+	return value.IsZero()
+}
+
+func assertZero(t *testing.T, object interface{}) {
+	t.Helper()
+	if !isZero(object) {
+		t.Errorf("expected: zero, actual: %v", object)
+	}
+}
+
+func assertNotZero(t *testing.T, object interface{}) {
+	t.Helper()
+	if isZero(object) {
+		t.Errorf("expected: non-zero, actual: zero/nil")
+	}
+}
+
+func assertEmpty(t *testing.T, value interface{}) {
+	t.Helper()
+	if ablytest.NotEmpty(value) {
+		t.Errorf("expected: empty, actual: %v", value)
+	}
+}
+
+func assertNotEmpty(t *testing.T, value interface{}) {
+	t.Helper()
+	if ablytest.IsEmpty(value) {
+		t.Errorf("expected: non-empty, actual: empty")
 	}
 }
 

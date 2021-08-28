@@ -101,7 +101,6 @@ func TestAuth_TokenAuth(t *testing.T) {
 	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
 	defer safeclose(t, app)
 
-	beforeAuth := time.Now().Add(-time.Second)
 	if _, err := client.Time(context.Background()); err != nil {
 		t.Fatalf("client.Time()=%v", err)
 	}
@@ -130,6 +129,8 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if defaultCap := `{"*":["*"]}`; tok.Capability != defaultCap {
 		t.Fatalf("want tok.Capability=%v; got %v", defaultCap, tok.Capability)
 	}
+
+	beforeAuth := time.Now().Add(-time.Second)
 	now := time.Now().Add(time.Second)
 	err = timeWithin(tok.IssueTime(), beforeAuth, now)
 	assertNil(t, err)
@@ -142,7 +143,70 @@ func TestAuth_TokenAuth(t *testing.T) {
 
 func TestAuth_RSA10(t *testing.T) {
 	t.Run("RSA10a, RSA10f, RSA10h: instructs library to create token immediately and token auth is used for subsequent requests, returns tokenDetails (token + token metadata)", func(t *testing.T) {
+		t.Parallel()
+		rec, extraOpt := recorder()
+		defer rec.Stop()
+		clientId := "authClientId"
+		opts := []ably.ClientOption{
+			ably.WithTLS(true),
+			ably.WithUseTokenAuth(true),
+			ably.WithQueryTime(true),
+			ably.WithClientID(clientId),
+		}
+		app, client := ablytest.NewREST(append(opts, extraOpt...)...)
+		defer safeclose(t, app)
 
+		assertEquals(t, clientId, client.Auth.ClientID()) // make sure auth client ID is set
+
+		if _, err := client.Time(context.Background()); err != nil {
+			t.Fatalf("client.Time()=%v", err)
+		}
+		if _, err := client.Stats().Pages(context.Background()); err != nil {
+			t.Fatalf("client.Stats()=%v", err)
+		}
+		// At this points there should be two requests recorded:
+		//   - first: explicit call to Time()
+		//   - second: implicit call to Time() during token request
+		//   - third: token request
+		//   - fourth: actual stats request
+		//
+		assertEquals(t, 4, rec.Len())
+		assertEquals(t, ably.AuthToken, client.Auth.Method())
+		assertEquals(t, "https", rec.Request(3).URL.Scheme)
+
+		rec.Reset()
+
+		tokenDetails, err := client.Auth.Authorize(context.Background(), nil) // Call to Authorize should always refresh the token.
+		assertNil(t, err)
+		// RSA10a
+		assertEquals(t, 1, rec.Len()) // Authorize should return new token with HTTP call recorded
+		assertEquals(t, ably.AuthToken, client.Auth.Method())
+
+		rec.Reset()
+
+		newTokenDetails, err := client.Auth.Authorize(context.Background(), nil) // Call to Authorize should always refresh the token.
+		assertNil(t, err)
+
+		// RSA10a - new token generated with new tokenDetails/token
+		assertEquals(t, 1, rec.Len())
+		assertEquals(t, ably.AuthToken, client.Auth.Method())
+		assertNotEquals(t, tokenDetails, newTokenDetails) // should generate new tokenDetails for each authorize call
+		assertNotEquals(t, tokenDetails.Token, newTokenDetails.Token)
+
+		// RSA10f - should contain token and token metadata
+		checkTokenDetails := func(tokenDetails *ably.TokenDetails) {
+			assertNotNil(t, tokenDetails)
+			assertNotEmpty(t, tokenDetails.Token)
+			assertNotZero(t, tokenDetails.Expires)
+			assertNotZero(t, tokenDetails.Issued)
+			assertNotEmpty(t, tokenDetails.ClientID)
+		}
+		checkTokenDetails(tokenDetails)
+		checkTokenDetails(newTokenDetails)
+
+		// RSA10h - should set auth.ClientId if present
+		assertEquals(t, client.Auth.ClientID(), tokenDetails.ClientID)
+		assertEquals(t, client.Auth.ClientID(), newTokenDetails.ClientID)
 	})
 
 	t.Run("RSA10b : supports all AuthOptions and TokenParams in the function arguments", func(t *testing.T) {
@@ -243,7 +307,7 @@ func TestAuth_RSA10(t *testing.T) {
 	})
 
 	t.Run("RSA10l: Deprecate RestClient#authorise and RealtimeClient#authorise", func(t *testing.T) {
-		t.Skip("No need to write tests, since we don't have API available in the first place")
+		t.Skip("No need to write tests, since we don't have old 1.0 API available in the first place")
 	})
 }
 
