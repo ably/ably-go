@@ -240,8 +240,35 @@ func TestAuth_RSA10(t *testing.T) {
 		assertNotEquals(t, prevUseQueryTime, updatedAuthOptions.UseQueryTime) // RSA10g
 	})
 
-	t.Run("RSA10e: returns token if in authOptions, or should try one of the given authOption", func(t *testing.T) {
+	t.Run("RSA10e: returns token if present in authOptions, or should try one of the given authOption", func(t *testing.T) {
+		t.Parallel()
 
+		opts := []ably.ClientOption{
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithUseTokenAuth(true),
+		}
+
+		client, err := ably.NewREST(opts...)
+		assertNil(t, err)
+
+		// Should return given token
+		newAuthOptions := []ably.AuthOption{
+			ably.AuthWithToken("fake:token"),
+		}
+		tokenDetails, err := client.Auth.Authorize(context.Background(), nil, newAuthOptions...)
+		assertEquals(t, "fake:token", tokenDetails.Token)
+
+		// should return given tokenDetails
+		tokenDetails = &ably.TokenDetails{
+			Token: "fake:token1",
+		}
+
+		newAuthOptions = []ably.AuthOption{
+			ably.AuthWithTokenDetails(tokenDetails),
+		}
+		newTokenDetails, err := client.Auth.Authorize(context.Background(), nil, newAuthOptions...)
+		assertEquals(t, tokenDetails, newTokenDetails)
 	})
 
 	t.Run("RSA10k", func(t *testing.T) {
