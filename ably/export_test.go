@@ -49,10 +49,6 @@ const (
 	AuthToken = authToken
 )
 
-func (a *Auth) Method() int {
-	return a.method
-}
-
 func DecodeResp(resp *http.Response, out interface{}) error {
 	return decodeResp(resp, out)
 }
@@ -69,12 +65,24 @@ func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
 	return a.timestamp(ctx, query)
 }
 
-func (c *REST) Timestamp(query bool) (time.Time, error) {
-	return c.Auth.timestamp(context.Background(), query)
+func (a *Auth) Method() int {
+	return a.method
+}
+
+func (a *Auth) Params() *TokenParams {
+	return a.params
+}
+
+func (a *Auth) AuthOptions() *authOptions {
+	return &a.opts().authOptions
 }
 
 func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
+}
+
+func (c *REST) Timestamp(query bool) (time.Time, error) {
+	return c.Auth.timestamp(context.Background(), query)
 }
 
 func (c *REST) SetSuccessFallbackHost(duration time.Duration) {

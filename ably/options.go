@@ -525,6 +525,7 @@ func AuthWithURL(url string) AuthOption {
 	}
 }
 
+//AuthWithMethod - GET or POST http method
 func AuthWithMethod(method string) AuthOption {
 	return func(os *authOptions) {
 		os.AuthMethod = method

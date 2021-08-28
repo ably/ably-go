@@ -158,28 +158,11 @@ func TestAuth_RSA10(t *testing.T) {
 
 		assertEquals(t, clientId, client.Auth.ClientID()) // make sure auth client ID is set
 
-		if _, err := client.Time(context.Background()); err != nil {
-			t.Fatalf("client.Time()=%v", err)
-		}
-		if _, err := client.Stats().Pages(context.Background()); err != nil {
-			t.Fatalf("client.Stats()=%v", err)
-		}
-		// At this points there should be two requests recorded:
-		//   - first: explicit call to Time()
-		//   - second: implicit call to Time() during token request
-		//   - third: token request
-		//   - fourth: actual stats request
-		//
-		assertEquals(t, 4, rec.Len())
-		assertEquals(t, ably.AuthToken, client.Auth.Method())
-		assertEquals(t, "https", rec.Request(3).URL.Scheme)
-
-		rec.Reset()
-
 		tokenDetails, err := client.Auth.Authorize(context.Background(), nil) // Call to Authorize should always refresh the token.
 		assertNil(t, err)
 		// RSA10a
-		assertEquals(t, 1, rec.Len()) // Authorize should return new token with HTTP call recorded
+		assertEquals(t, 2, rec.Len()) // Authorize should return new token with HTTP call recorded
+		assertEquals(t, "https", rec.Request(0).URL.Scheme)
 		assertEquals(t, ably.AuthToken, client.Auth.Method())
 
 		rec.Reset()
@@ -213,8 +196,48 @@ func TestAuth_RSA10(t *testing.T) {
 		t.Skip("No need to write tests for the spec since, Auth.Authorize accepts all arguments")
 	})
 
-	t.Run("RSA10j, RSA10g: stores given arguments as defaults for subsequent authorizations with exception of tokenParams timestamp and queryTTL", func(t *testing.T) {
+	t.Run("RSA10j, RSA10g: stores given arguments as defaults for subsequent authorizations with exception of tokenParams timestamp and queryTime", func(t *testing.T) {
+		t.Parallel()
+		rec, extraOpt := recorder()
+		defer rec.Stop()
 
+		opts := []ably.ClientOption{
+			ably.WithTLS(true),
+			ably.WithUseTokenAuth(true),
+			ably.WithQueryTime(false),
+		}
+
+		app, client := ablytest.NewREST(append(opts, extraOpt...)...)
+		defer safeclose(t, app)
+
+		prevTokenParams := client.Auth.Params()
+		prevAuthOptions := client.Auth.AuthOptions()
+		prevUseQueryTime := prevAuthOptions.UseQueryTime
+
+		tokenParams := &ably.TokenParams{
+			TTL:        123890,
+			Capability: `{"foo":["publish"]}`,
+			ClientID:   "abcd1234",
+			Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
+		}
+
+		newAuthOptions := []ably.AuthOption{
+			ably.AuthWithMethod("POST"),
+			ably.AuthWithQueryTime(true),
+			ably.AuthWithKey(app.Key()),
+		}
+
+		_, err := client.Auth.Authorize(context.Background(), tokenParams, newAuthOptions...) // Call to Authorize should always refresh the token.
+		assertNil(t, err)
+		updatedParams := client.Auth.Params()
+		updatedAuthOptions := client.Auth.AuthOptions()
+
+		assertNil(t, prevTokenParams)
+		assertEquals(t, tokenParams, updatedParams) // RSA10J
+		assertZero(t, updatedParams.Timestamp)      // RSA10g
+
+		assertEquals(t, prevAuthOptions, updatedAuthOptions)                  // RSA10J
+		assertNotEquals(t, prevUseQueryTime, updatedAuthOptions.UseQueryTime) // RSA10g
 	})
 
 	t.Run("RSA10e: returns token if in authOptions, or should try one of the given authOption", func(t *testing.T) {
