@@ -264,6 +264,10 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	})
 }
 
+func Test_RTN6_Connected_When_CONNECTED_Msg_Received(t *testing.T) {
+
+}
+
 func connectAndWait(t *testing.T, realtime *ably.Realtime) {
 	t.Helper()
 
