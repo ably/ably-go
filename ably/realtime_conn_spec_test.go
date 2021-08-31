@@ -265,7 +265,42 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 }
 
 func Test_RTN6_Connected_When_CONNECTED_Msg_Received(t *testing.T) {
+	t.Parallel()
 
+	in := make(chan *ably.ProtocolMessage, 1)
+	out := make(chan *ably.ProtocolMessage, 16)
+
+	client, _ := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithToken("fake:token"),
+		ably.WithDial(MessagePipe(in, out)),
+	)
+
+	stateChange := make(ably.ConnStateChanges, 10)
+	off := client.Connection.OnAll(stateChange.Receive)
+	defer off()
+
+	client.Connect()
+
+	var change ably.ConnectionStateChange
+
+	ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+	if expected, got := ably.ConnectionStateConnecting, change.Current; expected != got {
+		t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+	}
+	ablytest.Instantly.NoRecv(t, nil, stateChange, t.Fatalf) // Shouldn't receive connected state change until CONNECTED MSG is received
+
+	// send connected message
+	in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &ably.ConnectionDetails{},
+	}
+
+	ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
+	if expected, got := ably.ConnectionStateConnected, change.Current; expected != got {
+		t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
+	}
 }
 
 func connectAndWait(t *testing.T, realtime *ably.Realtime) {
