@@ -246,7 +246,6 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 }
 
 func Test_RTE6_EventEmitter_EmitPanic(t *testing.T) {
-	t.Parallel()
 
 	logs := make(chan ablytest.LogMessage, 999)
 	em := ably.NewEventEmitter(ably.NewInternalLogger(ablytest.NewLogger(logs)))
@@ -276,7 +275,6 @@ func Test_RTE6_EventEmitter_EmitPanic(t *testing.T) {
 }
 
 func Test_RTE6a_EventEmitter_EmitToFixedListenersCollection(t *testing.T) {
-	t.Parallel()
 
 	// Give it a few tries; the order in which listeners are triggered isn't
 	// deterministic.

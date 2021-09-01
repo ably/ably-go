@@ -14,7 +14,6 @@ import (
 )
 
 func TestRealtime_RealtimeHost(t *testing.T) {
-	t.Parallel()
 	hosts := []string{
 		"127.0.0.1",
 		"localhost",
@@ -63,7 +62,6 @@ func checkUnique(ch chan string, typ string, n int) error {
 }
 
 func TestRealtime_multiple(t *testing.T) {
-	t.Parallel()
 	const N = 3
 	var all ablytest.ResultGroup
 	var wg sync.WaitGroup
@@ -146,7 +144,6 @@ func TestRealtime_multiple(t *testing.T) {
 }
 
 func TestRealtime_DontCrashOnCloseWhenEchoOff(t *testing.T) {
-	t.Parallel()
 	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 }

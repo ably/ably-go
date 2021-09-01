@@ -19,7 +19,6 @@ var connTransitions = []ably.ConnectionState{
 }
 
 func TestRealtimeConn_Connect(t *testing.T) {
-	t.Parallel()
 	var rec ablytest.ConnStatesRecorder
 	app, client := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -43,7 +42,6 @@ func TestRealtimeConn_Connect(t *testing.T) {
 }
 
 func TestRealtimeConn_NoConnect(t *testing.T) {
-	t.Parallel()
 	var rec ablytest.ConnStatesRecorder
 	opts := []ably.ClientOption{
 		ably.WithAutoConnect(false),
@@ -70,7 +68,6 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 }
 
 func TestRealtimeConn_ConnectClose(t *testing.T) {
-	t.Parallel()
 	var rec ablytest.ConnStatesRecorder
 	app, client := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -94,7 +91,6 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 }
 
 func TestRealtimeConn_AlreadyConnected(t *testing.T) {
-	t.Parallel()
 	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
@@ -127,7 +123,6 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 }
 
 func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
-	t.Parallel()
 
 	const maxIdleInterval = 20
 	const realtimeRequestTimeout = 10 * time.Millisecond
@@ -188,7 +183,6 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 }
 
 func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
-	t.Parallel()
 
 	for _, action := range []ably.ProtoAction{
 		ably.ActionDisconnect,

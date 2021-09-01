@@ -9,7 +9,6 @@ import (
 )
 
 func TestDefaultFallbacks_RSC15h(t *testing.T) {
-	t.Parallel()
 	t.Run("with env should return environment fallback hosts", func(t *testing.T) {
 		expectedFallBackHosts := []string{
 			"a.ably-realtime.com",
@@ -24,7 +23,6 @@ func TestDefaultFallbacks_RSC15h(t *testing.T) {
 }
 
 func TestEnvFallbackHosts_RSC15i(t *testing.T) {
-	t.Parallel()
 	t.Run("with env should return environment fallback hosts", func(t *testing.T) {
 		expectedFallBackHosts := []string{
 			"sandbox-a-fallback.ably-realtime.com",
@@ -39,7 +37,6 @@ func TestEnvFallbackHosts_RSC15i(t *testing.T) {
 }
 
 func TestFallbackHosts_RSC15b(t *testing.T) {
-	t.Parallel()
 	t.Run("RSC15e RSC15g3 with default options", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
 		assertEquals(t, "realtime.ably.io", clientOptions.GetRealtimeHost())
@@ -183,7 +180,6 @@ func TestFallbackHosts_RSC15b(t *testing.T) {
 }
 
 func TestClientOptions(t *testing.T) {
-	t.Parallel()
 	t.Run("must return error on invalid key", func(t *testing.T) {
 		_, err := ably.NewREST([]ably.ClientOption{ably.WithKey("invalid")}...)
 		if err == nil {
@@ -193,7 +189,6 @@ func TestClientOptions(t *testing.T) {
 }
 
 func TestScopeParams(t *testing.T) {
-	t.Parallel()
 	t.Run("must error when given invalid range", func(t *testing.T) {
 		t.Parallel()
 
@@ -231,7 +226,6 @@ func TestScopeParams(t *testing.T) {
 }
 
 func TestPaginateParams(t *testing.T) {
-	t.Parallel()
 	t.Run("returns nil with no values", func(t *testing.T) {
 		t.Parallel()
 

@@ -13,7 +13,6 @@ import (
 )
 
 func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
-	t.Parallel()
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
@@ -44,7 +43,6 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 }
 
 func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
-	t.Parallel()
 
 	for _, c := range []struct {
 		direction ably.Direction
@@ -87,7 +85,6 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 }
 
 func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
-	t.Parallel()
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
@@ -117,7 +114,6 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 }
 
 func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
-	t.Parallel()
 
 	for _, clientID := range []string{
 		"client_bool",
@@ -153,7 +149,6 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 }
 
 func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
-	t.Parallel()
 
 	app, rest := ablytest.NewREST()
 	defer app.Close()

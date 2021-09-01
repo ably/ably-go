@@ -34,7 +34,6 @@ func expectMsg(ch <-chan *ably.Message, name string, data interface{}, t time.Du
 }
 
 func TestRealtimeChannel_Publish(t *testing.T) {
-	t.Parallel()
 	app, client := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
@@ -47,7 +46,6 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 }
 
 func TestRealtimeChannel_Subscribe(t *testing.T) {
-	t.Parallel()
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 	client2 := app.NewRealtime(ably.WithEchoMessages(false))
@@ -104,7 +102,6 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 }
 
 func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 	allowDial := make(chan struct{}, 1)

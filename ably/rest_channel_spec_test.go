@@ -11,7 +11,6 @@ import (
 )
 
 func TestRSL1f1(t *testing.T) {
-	t.Parallel()
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -55,7 +54,6 @@ func TestRSL1f1(t *testing.T) {
 }
 
 func TestRSL1g(t *testing.T) {
-	t.Parallel()
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -126,7 +124,6 @@ func TestRSL1g(t *testing.T) {
 }
 
 func TestHistory_RSL2_RSL2b3(t *testing.T) {
-	t.Parallel()
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
@@ -182,7 +179,6 @@ created by testing.(*T).Run
 FAIL	github.com/ably/ably-go/ably	284.413s
 */
 func SKIP_TestHistory_Direction_RSL2b2(t *testing.T) {
-	t.Parallel()
 
 	for _, c := range []struct {
 		direction ably.Direction

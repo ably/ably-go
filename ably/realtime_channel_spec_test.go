@@ -17,7 +17,6 @@ import (
 )
 
 func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
-	t.Parallel()
 
 	t.Run(fmt.Sprintf("on %s", ably.ChannelStateAttaching), func(t *testing.T) {
 		t.Parallel()
@@ -2272,7 +2271,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 }
 
 func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
-	t.Parallel()
 
 	var transition []ably.ChannelState
 	for _, state := range []ably.ChannelState{
@@ -2556,7 +2554,6 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 }
 
 func TestRealtimeChannel_RTL6c5_NoImplicitAttach(t *testing.T) {
-	t.Parallel()
 
 	app, c := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
@@ -2577,7 +2574,6 @@ func TestRealtimeChannel_RTL6c5_NoImplicitAttach(t *testing.T) {
 }
 
 func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
-	t.Parallel()
 	const channelRetryTimeout = 123 * time.Millisecond
 
 	setup := func(t *testing.T) (
@@ -2715,7 +2711,6 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 }
 
 func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
-	t.Parallel()
 
 	const channelRetryTimeout = 123 * time.Millisecond
 
@@ -2958,7 +2953,6 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 }
 
 func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
-	t.Parallel()
 
 	const channelRetryTimeout = 123 * time.Millisecond
 
@@ -3097,7 +3091,6 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 }
 
 func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
-	t.Parallel()
 
 	const channelRetryTimeout = 123 * time.Millisecond
 

@@ -9,7 +9,6 @@ import (
 )
 
 func TestAfterOK(t *testing.T) {
-	t.Parallel()
 
 	const wait = 10 * time.Millisecond
 
@@ -29,7 +28,6 @@ func TestAfterOK(t *testing.T) {
 }
 
 func TestAfterCanceled(t *testing.T) {
-	t.Parallel()
 
 	const wait = 10 * time.Millisecond
 

@@ -14,7 +14,6 @@ import (
 )
 
 func TestHTTPPaginatedResponse(t *testing.T) {
-	t.Parallel()
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)

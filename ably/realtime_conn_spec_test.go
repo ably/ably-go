@@ -18,7 +18,6 @@ import (
 )
 
 func Test_RTN2_WebsocketQueryParams(t *testing.T) {
-	t.Parallel()
 	setup := func(options ...ably.ClientOption) (requestParams url.Values) {
 		in := make(chan *ably.ProtocolMessage, 1)
 		out := make(chan *ably.ProtocolMessage, 16)
@@ -112,7 +111,6 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 }
 
 func Test_RTN3_ConnectionAutoConnect(t *testing.T) {
-	t.Parallel()
 
 	recorder := NewMessageRecorder()
 
@@ -871,7 +869,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 
@@ -1009,7 +1006,6 @@ func (tm *transportMessages) Messages() []*ably.ProtocolMessage {
 }
 
 func TestRealtimeConn_RTN15b(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 
@@ -1133,7 +1129,6 @@ func recent(msgs []*ably.ProtocolMessage, action ably.ProtoAction) *ably.Protoco
 }
 
 func TestRealtimeConn_RTN15c1(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 
@@ -1241,7 +1236,6 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15c2(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 
@@ -1370,7 +1364,6 @@ func TestRealtimeConn_RTN15c2(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 
@@ -1483,7 +1476,6 @@ func TestRealtimeConn_RTN15c3_attached(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 
@@ -1598,7 +1590,6 @@ func TestRealtimeConn_RTN15c3_attaching(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15c4(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 
@@ -1700,7 +1691,6 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 	allowDial := make(chan struct{}, 1)
@@ -1775,7 +1765,6 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15e_ConnKeyUpdatedOnReconnect(t *testing.T) {
-	t.Parallel()
 
 	doEOF := make(chan struct{}, 1)
 
@@ -1817,7 +1806,6 @@ func TestRealtimeConn_RTN15e_ConnKeyUpdatedOnReconnect(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
-	t.Parallel()
 
 	out := make(chan *ably.ProtocolMessage, 16)
 
@@ -1968,7 +1956,6 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {
-	t.Parallel()
 
 	in := make(chan *ably.ProtocolMessage, 1)
 	out := make(chan *ably.ProtocolMessage, 16)
@@ -2014,7 +2001,6 @@ func TestRealtimeConn_RTN15h1_OnDisconnectedCannotRenewToken(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15h2_ReauthFails(t *testing.T) {
-	t.Parallel()
 
 	authErr := fmt.Errorf("reauth error")
 
@@ -2066,7 +2052,6 @@ func TestRealtimeConn_RTN15h2_ReauthFails(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
-	t.Parallel()
 
 	in := make(chan *ably.ProtocolMessage, 1)
 	out := make(chan *ably.ProtocolMessage, 16)
@@ -2153,7 +2138,6 @@ func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
-	t.Parallel()
 
 	in := make(chan *ably.ProtocolMessage, 1)
 	out := make(chan *ably.ProtocolMessage, 16)
@@ -2232,7 +2216,6 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
-	t.Parallel()
 
 	in := make(chan *ably.ProtocolMessage, 1)
 	out := make(chan *ably.ProtocolMessage, 16)
@@ -2311,7 +2294,6 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN16(t *testing.T) {
-	t.Parallel()
 	app, c := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
 
@@ -2432,7 +2414,6 @@ func sameConnection(a, b string) bool {
 }
 
 func TestRealtimeConn_RTN23(t *testing.T) {
-	t.Parallel()
 
 	connDetails := ably.ConnectionDetails{
 		ConnectionKey:      "foo",
@@ -2529,7 +2510,6 @@ func (w *writerLogger) Printf(level ably.LogLevel, format string, v ...interface
 }
 
 func TestRealtimeConn_RTN14c_ConnectedTimeout(t *testing.T) {
-	t.Parallel()
 
 	afterCalls := make(chan ablytest.AfterCall)
 	now, after := ablytest.TimeFuncs(afterCalls)
@@ -2594,7 +2574,6 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN14b(t *testing.T) {
-	t.Parallel()
 	t.Run("renewable token that fails to renew with token error", func(t *testing.T) {
 		t.Parallel()
 		in := make(chan *ably.ProtocolMessage, 1)
@@ -2727,7 +2706,6 @@ func (n *noopConn) Receive(deadline time.Time) (*ably.ProtocolMessage, error) {
 func (noopConn) Close() error { return nil }
 
 func TestRealtimeConn_RTN14g(t *testing.T) {
-	t.Parallel()
 	t.Run("Non RTN14b error", func(t *testing.T) {
 		in := make(chan *ably.ProtocolMessage, 1)
 		out := make(chan *ably.ProtocolMessage, 16)
@@ -2771,7 +2749,6 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN14e(t *testing.T) {
-	t.Parallel()
 	ttl := 10 * time.Millisecond
 	disconnTTL := ttl * 2
 	suspendTTL := ttl / 2
@@ -2813,7 +2790,6 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN2g(t *testing.T) {
-	t.Parallel()
 	uri := make(chan url.URL, 1)
 	_, err := ably.NewRealtime(
 		ably.WithKey("xxx:xxx"),
@@ -2847,7 +2823,6 @@ Go 1.16, 1 Sep 2021: https://github.com/ably/ably-go/pull/383/checks?check_run_i
 --- FAIL: TestRealtimeConn_RTN19b (0.00s)
 */
 func SKIP_TestRealtimeConn_RTN19b(t *testing.T) {
-	t.Parallel()
 	connIDs := make(chan string)
 	var breakConn func()
 	var out, in chan *ably.ProtocolMessage
@@ -2967,7 +2942,6 @@ func SKIP_TestRealtimeConn_RTN19b(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN19a(t *testing.T) {
-	t.Parallel()
 	connIDs := make(chan string)
 	var breakConn func()
 	var out, in chan *ably.ProtocolMessage
@@ -3061,7 +3035,6 @@ func TestRealtimeConn_RTN19a(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Connected(t *testing.T) {
-	t.Parallel()
 
 	in := make(chan *ably.ProtocolMessage, 1)
 	out := make(chan *ably.ProtocolMessage, 16)
@@ -3159,7 +3132,6 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 }
 
 func Test_RTN7b_ACK_NACK(t *testing.T) {
-	t.Parallel()
 
 	// See also https://docs.ably.io/client-lib-development-guide/protocol/#message-acknowledgement
 
@@ -3280,8 +3252,6 @@ func TestImplicitNACK(t *testing.T) {
 	// but a client in this situation should treat this case as
 	// implicitly @NACK@ing the skipped messages.
 
-	t.Parallel()
-
 	in := make(chan *ably.ProtocolMessage, 16)
 	out := make(chan *ably.ProtocolMessage, 16)
 
@@ -3343,8 +3313,6 @@ func TestIdempotentACK(t *testing.T) {
 	// relates to @msgSerial@s that were covered previously (whether the
 	// response is the same now or different).
 
-	t.Parallel()
-
 	in := make(chan *ably.ProtocolMessage, 16)
 	out := make(chan *ably.ProtocolMessage, 16)
 
@@ -3404,7 +3372,6 @@ func TestIdempotentACK(t *testing.T) {
 }
 
 func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
-	t.Parallel()
 
 	// Set up a Realtime with AuthCallback that the test controls. Auth requests
 	// are sent to the authRequested channel.

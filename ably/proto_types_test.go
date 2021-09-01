@@ -10,7 +10,6 @@ import (
 )
 
 func TestDurationFromMsecsMarshal(t *testing.T) {
-	t.Parallel()
 
 	d := 123456 * time.Millisecond
 
