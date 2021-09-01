@@ -17,9 +17,5 @@ func goOSIdentifier() string {
 		return ""
 	}
 	release := bytes.Trim(utsname.Release[:], "\x00")
-	runtimeOS := runtime.GOOS
-	if runtimeOS == "darwin" {
-		runtimeOS = "macOS-iOS"
-	}
-	return fmt.Sprintf("%s/%s", runtimeOS, release)
+	return fmt.Sprintf("%s/%s", runtime.GOOS, release)
 }
