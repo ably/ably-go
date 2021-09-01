@@ -190,7 +190,6 @@ func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 		ably.ActionClosed,
 	} {
 		t.Run(action.String(), func(t *testing.T) {
-			t.Parallel()
 			in := make(chan *ably.ProtocolMessage)
 			out := make(chan *ably.ProtocolMessage, 16)
 

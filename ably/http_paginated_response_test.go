@@ -25,7 +25,6 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Run("request_time", func(t *testing.T) {
-		t.Parallel()
 
 		res, err := client.Request("get", "/time").Pages(context.Background())
 		if err != nil {

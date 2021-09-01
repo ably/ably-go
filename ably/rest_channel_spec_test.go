@@ -127,7 +127,6 @@ func TestHistory_RSL2_RSL2b3(t *testing.T) {
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
-			t.Parallel()
 			app, rest := ablytest.NewREST()
 			defer app.Close()
 			channel := rest.Channels.Get("persisted:test")

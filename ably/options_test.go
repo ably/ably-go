@@ -190,7 +190,6 @@ func TestClientOptions(t *testing.T) {
 
 func TestScopeParams(t *testing.T) {
 	t.Run("must error when given invalid range", func(t *testing.T) {
-		t.Parallel()
 
 		params := ably.ScopeParams{
 			Start: time.Unix(0, 0).Add(123 * time.Millisecond),
@@ -203,7 +202,6 @@ func TestScopeParams(t *testing.T) {
 	})
 
 	t.Run("must set url values", func(t *testing.T) {
-		t.Parallel()
 
 		params := ably.ScopeParams{
 			Start: time.Unix(0, 0).Add(122 * time.Millisecond),
@@ -227,7 +225,6 @@ func TestScopeParams(t *testing.T) {
 
 func TestPaginateParams(t *testing.T) {
 	t.Run("returns nil with no values", func(t *testing.T) {
-		t.Parallel()
 
 		params := ably.PaginateParams{}
 		values := make(url.Values)
@@ -242,7 +239,6 @@ func TestPaginateParams(t *testing.T) {
 	})
 
 	t.Run("returns the full params encoded", func(t *testing.T) {
-		t.Parallel()
 
 		params := ably.PaginateParams{
 			Limit:     1,
@@ -266,7 +262,6 @@ func TestPaginateParams(t *testing.T) {
 	})
 
 	t.Run("with value", func(t *testing.T) {
-		t.Parallel()
 
 		params := ably.PaginateParams{
 			Limit:     10,
@@ -280,7 +275,6 @@ func TestPaginateParams(t *testing.T) {
 	})
 
 	t.Run("with a value for ScopeParams", func(t *testing.T) {
-		t.Parallel()
 
 		values := make(url.Values)
 		params := ably.PaginateParams{}
@@ -295,7 +289,6 @@ func TestPaginateParams(t *testing.T) {
 		}
 	})
 	t.Run("with invalid value for direction", func(t *testing.T) {
-		t.Parallel()
 
 		values := make(url.Values)
 		params := ably.PaginateParams{}
@@ -306,7 +299,6 @@ func TestPaginateParams(t *testing.T) {
 		}
 	})
 	t.Run("with invalid value for limit", func(t *testing.T) {
-		t.Parallel()
 
 		values := make(url.Values)
 		params := ably.PaginateParams{}

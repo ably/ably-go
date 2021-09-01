@@ -16,7 +16,6 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
-			t.Parallel()
 
 			app, rest := ablytest.NewREST()
 			defer app.Close()
@@ -59,7 +58,6 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 	} {
 		c := c
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
-			t.Parallel()
 
 			app, rest := ablytest.NewREST()
 			channel := rest.Channels.Get("persisted:test")
@@ -88,7 +86,6 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
-			t.Parallel()
 
 			app, rest := ablytest.NewREST()
 			defer app.Close()
@@ -121,7 +118,6 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 	} {
 		clientID := clientID
 		t.Run(fmt.Sprintf("clientID=%v", clientID), func(t *testing.T) {
-			t.Parallel()
 
 			app, rest := ablytest.NewREST()
 			defer app.Close()

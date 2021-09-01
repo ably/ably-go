@@ -47,7 +47,6 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 	}
 
 	t.Run("RTN2a: format should be msgPack or json", func(t *testing.T) {
-		t.Parallel()
 		requestParams := setup(ably.WithUseBinaryProtocol(false)) // default protocol is false
 		protocol := requestParams["format"]
 		assertDeepEquals(t, []string{"json"}, protocol)
@@ -58,7 +57,6 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 	})
 
 	t.Run("RTN2b: echo should be true by default", func(t *testing.T) {
-		t.Parallel()
 		requestParams := setup() // default echo value is true
 		echo := requestParams["echo"]
 		assertDeepEquals(t, []string{"true"}, echo)
@@ -69,7 +67,6 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 	})
 
 	t.Run("RTN2d: clientId contains provided clientId", func(t *testing.T) {
-		t.Parallel()
 		requestParams := setup()
 		clientId := requestParams["clientId"]
 		assertNil(t, clientId)
@@ -83,7 +80,6 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 	})
 
 	t.Run("RTN2e: depending on the auth scheme, accessToken contains token string or key contains api key", func(t *testing.T) {
-		t.Parallel()
 		token := "fake:clientToken"
 		requestParams := setup(ably.WithToken(token))
 		actualToken := requestParams["access_token"]
@@ -96,14 +92,12 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 	})
 
 	t.Run("RTN2f: api version v should be the API version", func(t *testing.T) {
-		t.Parallel()
 		requestParams := setup()
 		libVersion := requestParams["v"]
 		assertDeepEquals(t, []string{"1.2"}, libVersion)
 	})
 
 	t.Run("RTN2g: library and version should be included as the value of lib param", func(t *testing.T) {
-		t.Parallel()
 		requestParams := setup()
 		lib := requestParams["lib"]
 		assertDeepEquals(t, []string{"go-1.2.1"}, lib)
@@ -136,7 +130,6 @@ func Test_RTN3_ConnectionAutoConnect(t *testing.T) {
 
 func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnecting), func(t *testing.T) {
-		t.Parallel()
 
 		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
@@ -154,7 +147,6 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnected), func(t *testing.T) {
-		t.Parallel()
 
 		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
@@ -163,7 +155,6 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateDisconnected), func(t *testing.T) {
-		t.Parallel()
 
 		dial, disconnect := DialFakeDisconnect(nil)
 		options := []ably.ClientOption{
@@ -193,13 +184,11 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateSuspended), func(t *testing.T) {
-		t.Parallel()
 
 		t.Skip("SUSPENDED not yet implemented")
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosing), func(t *testing.T) {
-		t.Parallel()
 
 		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
@@ -218,7 +207,6 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosed), func(t *testing.T) {
-		t.Parallel()
 
 		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
@@ -237,7 +225,6 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateFailed), func(t *testing.T) {
-		t.Parallel()
 
 		options := []ably.ClientOption{
 			ably.WithEnvironment("sandbox"),
@@ -481,7 +468,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	}
 
 	t.Run("RTN12a: transition to closed on connection close", func(t *testing.T) {
-		t.Parallel()
 		app, client, _ := setUpWithEOF()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
@@ -506,7 +492,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12b: transition to closed on close request timeout", func(t *testing.T) {
-		t.Parallel()
 		connDetails := ably.ConnectionDetails{
 			ConnectionKey:      "foo",
 			ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 20),
@@ -585,7 +570,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12c: transition to closed on transport error", func(t *testing.T) {
-		t.Parallel()
 		app, client, doEOF := setUpWithEOF()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
@@ -617,7 +601,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12d : should abort reconnection timer while disconnected on closed", func(t *testing.T) {
-		t.Parallel()
 		connDetails := ably.ConnectionDetails{
 			ConnectionKey:      "foo",
 			ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 20),
@@ -717,7 +700,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12d: should abort reconnection timer while suspended on closed", func(t *testing.T) {
-		t.Parallel()
 
 		connDetails := ably.ConnectionDetails{
 			ConnectionKey:      "foo",
@@ -832,7 +814,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12f: transition to closed when close is called intermittently", func(t *testing.T) {
-		t.Parallel()
 		app, client, interrupt, waitTillConnecting := setUpWithConnectingInterrupt()
 		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
@@ -2610,7 +2591,6 @@ func TestRealtimeConn_RTN14a(t *testing.T) {
 
 func TestRealtimeConn_RTN14b(t *testing.T) {
 	t.Run("renewable token that fails to renew with token error", func(t *testing.T) {
-		t.Parallel()
 		in := make(chan *ably.ProtocolMessage, 1)
 		out := make(chan *ably.ProtocolMessage, 16)
 		var reauth atomic.Value
@@ -2654,7 +2634,6 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 		}
 	})
 	t.Run("renewable token, consecutive token errors", func(t *testing.T) {
-		t.Parallel()
 		in := make(chan *ably.ProtocolMessage, 1)
 		out := make(chan *ably.ProtocolMessage, 16)
 		var reauth atomic.Value

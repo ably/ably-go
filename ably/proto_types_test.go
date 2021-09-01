@@ -22,7 +22,6 @@ func TestDurationFromMsecsMarshal(t *testing.T) {
 		{"Msgpack", ablyutil.MarshalMsgpack, ablyutil.UnmarshalMsgpack},
 	} {
 		t.Run(codec.name, func(t *testing.T) {
-			t.Parallel()
 
 			js, err := codec.marshal(ably.DurationFromMsecs(d))
 			if err != nil {

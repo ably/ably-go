@@ -154,7 +154,6 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 	}
 
 	t.Run("must use local time when UseQueryTime is false", func(t *testing.T) {
-		t.Parallel()
 
 		rest, _ := ably.NewREST(
 			ably.WithKey("fake:key"),
@@ -174,7 +173,6 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		}
 	})
 	t.Run("must use server time when UseQueryTime is true", func(t *testing.T) {
-		t.Parallel()
 
 		rest, _ := ably.NewREST(
 			ably.WithKey("fake:key"),
@@ -195,7 +193,6 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		}
 	})
 	t.Run("must use server time offset ", func(t *testing.T) {
-		t.Parallel()
 
 		now := now
 		rest, _ := ably.NewREST(
