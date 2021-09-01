@@ -35,7 +35,7 @@ jobs:
         run: go vet ./ably/... ./scripts/...
 
       - name: Ensure generated code is up-to-date
-        run: go generate ./... && [ -z "$(git status --porcelain)" ]
+        run: scripts/ci-generate.sh
 
       - name: Test with JSON Protocol
         run: scripts/test.sh --protocol application/json
