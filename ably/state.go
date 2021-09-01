@@ -144,9 +144,20 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 	// server skipped some messages, they get implicitly NACKed. If the server
 	// ACKed some messages again, we ignore those. In both cases, we just need
 	// to correct the number of messages that get ACKed by that difference.
-	serialShift := int(msg.MsgSerial - q.queue[0].msg.MsgSerial)
+	queueLength := len(q.queue)
+
+	// We've seen a panic on test runs which is likely from q.queue[0] below:
+	// panic: runtime error: index out of range [0] with length 0
+	// So this check is here to attempt to identify if that is the case so we can work on a fix.
+	// This is also why messageChannel is discretely declared in case we see a failure despite this check.
+	if queueLength < 1 {
+		panic("Ack called but queue is empty.")
+	}
+	messageChannel := q.queue[0]
+
+	serialShift := int(msg.MsgSerial - messageChannel.msg.MsgSerial)
 	count := msg.Count + serialShift
-	if count > len(q.queue) {
+	if count > queueLength {
 		panic(fmt.Sprintf("protocol violation: ACKed %d messages, but only %d pending", count, len(q.queue)))
 	}
 	acked := q.queue[:count]
