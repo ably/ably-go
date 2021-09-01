@@ -7,6 +7,7 @@ set -e
 
 if [[ $(git diff --stat) != '' ]]; then
   echo 'FAILURE: Dirty working tree BEFORE code generation!'
+  git diff
   exit 1
 fi
 
@@ -14,5 +15,6 @@ go generate ./...
 
 if [[ $(git diff --stat) != '' ]]; then
   echo 'FAILURE: Dirty working tree after code generation.'
+  git diff
   exit 1
 fi
