@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"time"
@@ -143,28 +144,45 @@ func NewSandboxWIthEnv(config *Config, env string) (*Sandbox, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", app.URL("apps"), bytes.NewReader(p))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	resp, err := app.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode > 299 {
-		err := errors.New(http.StatusText(resp.StatusCode))
-		if p, e := ioutil.ReadAll(resp.Body); e == nil && len(p) != 0 {
-			err = fmt.Errorf("request error: %s (%q)", err, p)
+
+	const RetryCount = 4
+	retryInterval := time.Second
+	for requestAttempt := 0; requestAttempt < RetryCount; requestAttempt++ {
+		req, err := http.NewRequest("POST", app.URL("apps"), bytes.NewReader(p))
+		if err != nil {
+			return nil, err
 		}
-		return nil, err
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		resp, err := app.client.Do(req)
+		if err != nil {
+			// return from this function now only if the error wasn't due to a timeout
+			if err, ok := err.(*url.Error); ok && !err.Timeout() {
+				return nil, err
+			}
+		}
+
+		if err != nil {
+			// Timeout. Back off before allowing another attempt.
+			time.Sleep(retryInterval)
+			retryInterval *= 2
+		} else {
+			defer resp.Body.Close()
+			if resp.StatusCode > 299 {
+				err := errors.New(http.StatusText(resp.StatusCode))
+				if p, e := ioutil.ReadAll(resp.Body); e == nil && len(p) != 0 {
+					err = fmt.Errorf("request error: %s (%q)", err, p)
+				}
+				return nil, err
+			}
+			if err := json.NewDecoder(resp.Body).Decode(app.Config); err != nil {
+				return nil, err
+			}
+			return app, nil
+		}
 	}
-	if err := json.NewDecoder(resp.Body).Decode(app.Config); err != nil {
-		return nil, err
-	}
-	return app, nil
+
+	return nil, fmt.Errorf("Failed to request sandbox app after %d attempts.", RetryCount)
 }
 
 func (app *Sandbox) Close() error {
