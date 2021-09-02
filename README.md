@@ -21,13 +21,6 @@ Our [current approach to versioning](https://ably.com/documentation/client-lib-d
 
 ### Creating a client
 
-<!-- GO IMPORT "context" -->
-<!-- GO IMPORT "errors" -->
-
-<!-- GO EXAMPLE
-ctx := context.Background()
--->
-
 ```go
 client, err := ably.NewRealtime(ably.WithKey("xxx:xxx"))
 if err != nil {
@@ -36,10 +29,6 @@ if err != nil {
 
 channel := client.Channels.Get("test")
 ```
-
-<!-- GO EXAMPLE
-client.Close()
--->
 
 ### Subscribing to events
 
@@ -80,10 +69,6 @@ if err != nil {
 }
 ```
 
-<!-- GO EXAMPLE
-unsubscribe()
--->
-
 ### Subscribing to a channel for `EventName1` and `EventName2` message names
 
 ```go
@@ -101,11 +86,6 @@ if err != nil {
         panic(err)
 }
 ```
-
-<!-- GO EXAMPLE
-unsubscribe1()
-unsubscribe2()
--->
 
 ### Publishing to a channel
 
@@ -194,10 +174,6 @@ if err != nil {
 }
 ```
 
-<!-- GO EXAMPLE
-unsubscribe()
--->
-
 ### Subscribing to 'Enter' presence messages only
 
 ```go
@@ -209,19 +185,11 @@ if err != nil {
 }
 ```
 
-<!-- GO EXAMPLE
-unsubscribe()
--->
-
 ## Using the REST API
 
 ### Introduction
 
 All examples assume a client and/or channel has been created as follows:
-
-<!-- GO EXAMPLE
-{
--->
 
 ```go
 client, err := ably.NewREST(ably.WithKey("xxx:xxx"))
@@ -252,10 +220,6 @@ if err != nil {
 
 ### Querying the History
 
-<!-- GO EXAMPLE
-{
--->
-
 ```go
 pages, err := channel.History().Pages(ctx)
 if err != nil {
@@ -272,15 +236,7 @@ if err := pages.Err(); err != nil {
 
 ```
 
-<!-- GO EXAMPLE
-}
--->
-
 ### Presence on a channel
-
-<!-- GO EXAMPLE
-{
--->
 
 ```go
 pages, err := channel.Presence.Get().Pages(ctx)
@@ -297,15 +253,7 @@ if err := pages.Err(); err != nil {
 }
 ```
 
-<!-- GO EXAMPLE
-}
--->
-
 ### Querying the Presence History
-
-<!-- GO EXAMPLE
-{
--->
 
 ```go
 pages, err := channel.Presence.History().Pages(ctx)
@@ -322,15 +270,7 @@ if err := pages.Err(); err != nil {
 }
 ```
 
-<!-- GO EXAMPLE
-}
--->
-
 ### Fetching your application's stats
-
-<!-- GO EXAMPLE
-{
--->
 
 ```go
 pages, err := client.Stats().Pages(ctx)
@@ -346,14 +286,6 @@ if err := pages.Err(); err != nil {
         panic(err)
 }
 ```
-
-<!-- GO EXAMPLE
-}
--->
-
-<!-- GO EXAMPLE
-}
--->
 
 ## Feature support
 

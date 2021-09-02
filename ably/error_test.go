@@ -62,7 +62,6 @@ func TestIssue127ErrorResponse(t *testing.T) {
 
 func TestErrorInfo(t *testing.T) {
 	t.Run("without an error code", func(t *testing.T) {
-		t.Parallel()
 
 		e := &ably.ErrorInfo{
 			StatusCode: 401,
@@ -73,7 +72,6 @@ func TestErrorInfo(t *testing.T) {
 		}
 	})
 	t.Run("with an error code", func(t *testing.T) {
-		t.Parallel()
 
 		e := &ably.ErrorInfo{
 			Code: 44444,
@@ -84,7 +82,6 @@ func TestErrorInfo(t *testing.T) {
 		}
 	})
 	t.Run("with an error code and an href attribute", func(t *testing.T) {
-		t.Parallel()
 
 		href := "http://foo.bar.com/"
 		e := &ably.ErrorInfo{
@@ -101,7 +98,6 @@ func TestErrorInfo(t *testing.T) {
 	})
 
 	t.Run("with an error code and a message with the same error URL", func(t *testing.T) {
-		t.Parallel()
 
 		e := ably.NewErrorInfo(44444, errors.New("error https://help.ably.io/error/44444"))
 		h := "https://help.ably.io/error/44444"
@@ -114,7 +110,6 @@ func TestErrorInfo(t *testing.T) {
 		}
 	})
 	t.Run("with an error code and a message with a different error URL", func(t *testing.T) {
-		t.Parallel()
 
 		e := ably.NewErrorInfo(44444, errors.New("error https://help.ably.io/error/123123"))
 		h := "https://help.ably.io/error/44444"

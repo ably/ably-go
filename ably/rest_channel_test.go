@@ -22,7 +22,6 @@ import (
 )
 
 func TestRESTChannel(t *testing.T) {
-	t.Parallel()
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +162,6 @@ func TestRESTChannel(t *testing.T) {
 }
 
 func TestIdempotentPublishing(t *testing.T) {
-	t.Parallel()
 	app, err := ablytest.NewSandboxWIthEnv(nil, ablytest.Environment)
 	if err != nil {
 		t.Fatal(err)
@@ -373,7 +371,6 @@ func TestIdempotentPublishing(t *testing.T) {
 }
 
 func TestIdempotent_retry(t *testing.T) {
-	t.Parallel()
 	app, err := ablytest.NewSandboxWIthEnv(nil, ablytest.Environment)
 	if err != nil {
 		t.Fatal(err)

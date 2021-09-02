@@ -33,7 +33,6 @@ func newHTTPClientMock(srv *httptest.Server) *http.Client {
 }
 
 func TestRestClient(t *testing.T) {
-	t.Parallel()
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -243,7 +242,6 @@ func (f httpRoundTripperFunc) RoundTrip(req *http.Request) (*http.Response, erro
 }
 
 func TestRSC7(t *testing.T) {
-	t.Parallel()
 
 	client := &http.Client{}
 	requests := make(chan *http.Request, 1)
@@ -279,7 +277,6 @@ func TestRSC7(t *testing.T) {
 }
 
 func TestRest_hostfallback(t *testing.T) {
-	t.Parallel()
 
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
@@ -306,7 +303,6 @@ func TestRest_hostfallback(t *testing.T) {
 		return retryCount, hosts
 	}
 	t.Run("RSC15d RSC15a must use alternative host", func(t *testing.T) {
-		t.Parallel()
 
 		options := []ably.ClientOption{
 			ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
@@ -338,7 +334,6 @@ func TestRest_hostfallback(t *testing.T) {
 	})
 	t.Run("rsc15b", func(t *testing.T) {
 		t.Run("must not occur when default  rest.ably.io is overriden", func(t *testing.T) {
-			t.Parallel()
 
 			customHost := "example.com"
 			options := []ably.ClientOption{
@@ -356,7 +351,6 @@ func TestRest_hostfallback(t *testing.T) {
 			}
 		})
 		t.Run("must occur when fallbackHostsUseDefault is true", func(t *testing.T) {
-			t.Parallel()
 
 			customHost := "example.com"
 			options := []ably.ClientOption{
@@ -377,7 +371,6 @@ func TestRest_hostfallback(t *testing.T) {
 			}
 		})
 		t.Run("must occur when fallbackHosts is set", func(t *testing.T) {
-			t.Parallel()
 
 			customHost := "example.com"
 			fallback := "a.example.com"
@@ -398,7 +391,6 @@ func TestRest_hostfallback(t *testing.T) {
 		})
 	})
 	t.Run("RSC15e must start with default host", func(t *testing.T) {
-		t.Parallel()
 
 		options := []ably.ClientOption{
 			ably.WithEnvironment("production"),
@@ -416,7 +408,6 @@ func TestRest_hostfallback(t *testing.T) {
 		}
 	})
 	t.Run("must not occur when FallbackHosts is an empty array", func(t *testing.T) {
-		t.Parallel()
 
 		customHost := "example.com"
 		options := []ably.ClientOption{
@@ -433,7 +424,6 @@ func TestRest_hostfallback(t *testing.T) {
 }
 
 func TestRest_rememberHostFallback(t *testing.T) {
-	t.Parallel()
 
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
@@ -510,7 +500,6 @@ func TestRest_rememberHostFallback(t *testing.T) {
 	})
 }
 func TestRESTChannels_RSN1(t *testing.T) {
-	t.Parallel()
 
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
@@ -554,7 +543,6 @@ func TestRESTChannels_RSN1(t *testing.T) {
 }
 
 func TestFixConnLeak_ISSUE89(t *testing.T) {
-	t.Parallel()
 
 	app, err := ablytest.NewSandbox(nil)
 	if err != nil {
@@ -610,11 +598,9 @@ func (c *connCloseTracker) Close() error {
 }
 
 func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
-	t.Parallel()
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
-			t.Parallel()
 			app, rest := ablytest.NewREST()
 			defer app.Close()
 
@@ -640,7 +626,6 @@ func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
 }
 
 func TestStats_StartEnd_RSC6b1(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 
@@ -673,7 +658,6 @@ func TestStats_StartEnd_RSC6b1(t *testing.T) {
 }
 
 func TestStats_Direction_RSC6b2(t *testing.T) {
-	t.Parallel()
 
 	for _, c := range []struct {
 		direction ably.Direction
@@ -690,7 +674,6 @@ func TestStats_Direction_RSC6b2(t *testing.T) {
 	} {
 		c := c
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
-			t.Parallel()
 			ctx := context.Background()
 
 			app, rest := ablytest.NewREST()
@@ -728,7 +711,6 @@ func TestStats_Direction_RSC6b2(t *testing.T) {
 }
 
 func TestStats_Unit_RSC6b4(t *testing.T) {
-	t.Parallel()
 
 	ctx := context.Background()
 

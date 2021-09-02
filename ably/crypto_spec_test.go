@@ -9,7 +9,6 @@ import (
 )
 
 func TestCrypto_RSE1_GetDefaultParams(t *testing.T) {
-	t.Parallel()
 
 	for _, c := range []struct {
 		name          string
@@ -59,7 +58,6 @@ func TestCrypto_RSE1_GetDefaultParams(t *testing.T) {
 	} {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
 
 			defer func() {
 				r := recover()
@@ -103,7 +101,6 @@ func TestCrypto_RSE2_GenerateRandomKey(t *testing.T) {
 }
 
 func Test_Issue330_IVReuse(t *testing.T) {
-	t.Parallel()
 
 	params, err := ably.DefaultCipherParams()
 	if err != nil {

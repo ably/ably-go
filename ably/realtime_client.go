@@ -95,7 +95,7 @@ func (c *Realtime) onReconnectionFailed(err *errorInfo) {
 }
 
 func isTokenError(err *errorInfo) bool {
-	return err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
+	return err != nil && err.StatusCode == http.StatusUnauthorized && (40140 <= err.Code && err.Code < 40150)
 }
 
 func (c *Realtime) opts() *clientOptions {

@@ -16,7 +16,6 @@ func (d *dummyLogger) Printf(level ably.LogLevel, format string, v ...interface{
 
 func TestFilteredLogger(t *testing.T) {
 	t.Run("must log smaller or same level", func(t *testing.T) {
-		t.Parallel()
 
 		l := &dummyLogger{}
 		lg := &ably.FilteredLogger{
@@ -33,7 +32,6 @@ func TestFilteredLogger(t *testing.T) {
 		}
 	})
 	t.Run("must log nothing  for LogNone", func(t *testing.T) {
-		t.Parallel()
 
 		l := &dummyLogger{}
 		lg := &ably.FilteredLogger{

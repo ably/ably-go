@@ -26,7 +26,6 @@ func Test_RTE3_EventEmitter_On(t *testing.T) {
 		[]ably.EmitterString{"*", "bar", "bar"},
 	}} {
 		t.Run(fmt.Sprintf("event: %s, data: %v", tc.event, tc.data), func(t *testing.T) {
-			t.Parallel()
 
 			em := ably.NewEventEmitter(ably.NewInternalLogger(ablytest.DiscardLogger))
 
@@ -86,7 +85,6 @@ func Test_RTE4_EventEmitter_Once(t *testing.T) {
 		[]ably.EmitterString{"*", "bar", "bar"},
 	}} {
 		t.Run(fmt.Sprintf("event: %s, data: %v", tc.event, tc.data), func(t *testing.T) {
-			t.Parallel()
 
 			em := ably.NewEventEmitter(ably.NewInternalLogger(ablytest.DiscardLogger))
 
@@ -176,7 +174,6 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 	}
 
 	t.Run("specific listener", func(t *testing.T) {
-		t.Parallel()
 
 		received, em, _, fooOff, barOff1, _ := setUp()
 		defer assertNoFurtherReceives(t, received)
@@ -202,7 +199,6 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 	})
 
 	t.Run("specific event", func(t *testing.T) {
-		t.Parallel()
 
 		received, em, _, _, _, _ := setUp()
 		defer assertNoFurtherReceives(t, received)
@@ -230,7 +226,6 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 	})
 
 	t.Run("all", func(t *testing.T) {
-		t.Parallel()
 
 		received, em, _, _, _, _ := setUp()
 
@@ -246,7 +241,6 @@ func Test_RTE5_EventEmitter_Off(t *testing.T) {
 }
 
 func Test_RTE6_EventEmitter_EmitPanic(t *testing.T) {
-	t.Parallel()
 
 	logs := make(chan ablytest.LogMessage, 999)
 	em := ably.NewEventEmitter(ably.NewInternalLogger(ablytest.NewLogger(logs)))
@@ -276,7 +270,6 @@ func Test_RTE6_EventEmitter_EmitPanic(t *testing.T) {
 }
 
 func Test_RTE6a_EventEmitter_EmitToFixedListenersCollection(t *testing.T) {
-	t.Parallel()
 
 	// Give it a few tries; the order in which listeners are triggered isn't
 	// deterministic.

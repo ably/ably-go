@@ -48,13 +48,15 @@ main() {
   fi
 }
 
-# run tests with a specific protocol
+# Run tests with a specific protocol.
+# The -race flag enables Go's Data Race Detector: https://golang.org/doc/articles/race_detector
+# The -p option specifies that we only want a single test binary running at any single time.
 run_tests() {
   local protocol=$1
 
   echo "$(date +%H:%M:%S) - Running ably-go tests with protocol=${protocol}"
 
-  ABLY_PROTOCOL="${protocol}" go test -p 1 -race -v ./...
+  ABLY_PROTOCOL="${protocol}" go test -p 1 -race -v -timeout 120m ./...
 }
 
 main "$@"
