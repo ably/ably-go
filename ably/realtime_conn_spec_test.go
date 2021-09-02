@@ -1713,7 +1713,8 @@ testing.tRunner(0xc000634d80, 0xe0eec0)
 created by testing.(*T).Run
 	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1168 +0x5bc
 */
-func SKIP_TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
+func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
+	t.Skip("FAILING TEST")
 
 	doEOF := make(chan struct{}, 1)
 	allowDial := make(chan struct{}, 1)
@@ -2444,7 +2445,8 @@ https://github.com/ably/ably-go/pull/383/checks?check_run_id=3488426935#step:7:7
     realtime_conn_spec_test.go:2473: expected 6m0s, got 1m0s
 --- FAIL: TestRealtimeConn_RTN23 (0.00s)
 */
-func SKIP_TestRealtimeConn_RTN23(t *testing.T) {
+func TestRealtimeConn_RTN23(t *testing.T) {
+	t.Skip("FAILING TEST")
 
 	connDetails := ably.ConnectionDetails{
 		ConnectionKey:      "foo",
@@ -2851,7 +2853,9 @@ Go 1.16, 1 Sep 2021: https://github.com/ably/ably-go/pull/383/checks?check_run_i
     realtime_conn_spec_test.go:2951: expected detaching got attaching
 --- FAIL: TestRealtimeConn_RTN19b (0.00s)
 */
-func SKIP_TestRealtimeConn_RTN19b(t *testing.T) {
+func TestRealtimeConn_RTN19b(t *testing.T) {
+	t.Skip("FAILING TEST")
+
 	connIDs := make(chan string)
 	var breakConn func()
 	var out, in chan *ably.ProtocolMessage
@@ -3428,7 +3432,8 @@ testing.tRunner(0xc000480600, 0xe05128)
 created by testing.(*T).Run
 	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1168 +0x5bc
 */
-func SKIP_TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
+func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
+	t.Skip("FAILING TEST")
 
 	// Set up a Realtime with AuthCallback that the test controls. Auth requests
 	// are sent to the authRequested channel.

@@ -59,7 +59,9 @@ func TestRealtimePresence_Sync(t *testing.T) {
 FAILING TEST
 Go 1.15, 1 Sep 2021: https://github.com/ably/ably-go/pull/383/checks?check_run_id=3485574655#step:9:763
 */
-func SKIP_TestRealtimePresence_Sync250(t *testing.T) {
+func TestRealtimePresence_Sync250(t *testing.T) {
+	t.Skip("FAILING TEST")
+
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 	client2 := app.NewRealtime(nil...)
@@ -133,7 +135,9 @@ https://github.com/ably/ably-go/pull/383/checks?check_run_id=3489733937#step:7:5
     realtime_presence_test.go:151: expected [INITIALIZED ATTACHING ATTACHED], got [INITIALIZED ATTACHING]
 --- FAIL: TestRealtimePresence_EnsureChannelIsAttached (6.34s)
 */
-func SKIP_TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
+func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
+	t.Skip("FAILING TEST")
+
 	presTransitions := []ably.ChannelState{
 		ably.ChannelStateInitialized,
 		ably.ChannelStateAttaching,

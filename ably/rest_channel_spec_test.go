@@ -177,7 +177,8 @@ created by testing.(*T).Run
 	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1168 +0x5bc
 FAIL	github.com/ably/ably-go/ably	284.413s
 */
-func SKIP_TestHistory_Direction_RSL2b2(t *testing.T) {
+func TestHistory_Direction_RSL2b2(t *testing.T) {
+	t.Skip("FAILING TEST")
 
 	for _, c := range []struct {
 		direction ably.Direction

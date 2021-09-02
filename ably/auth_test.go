@@ -816,7 +816,9 @@ testing.tRunner(0xc00029f080, 0xd7bd80)
 created by testing.(*T).Run
 	/opt/hostedtoolcache/go/1.16.7/x64/src/testing/testing.go:1238 +0x5d8
 */
-func SKIP_TestAuth_RSA7c(t *testing.T) {
+func TestAuth_RSA7c(t *testing.T) {
+	t.Skip("FAILING TEST")
+
 	app := ablytest.MustSandbox(nil)
 	defer safeclose(t, app)
 	opts := app.Options()

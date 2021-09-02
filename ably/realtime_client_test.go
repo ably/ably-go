@@ -169,7 +169,9 @@ testing.tRunner(0xc000468000, 0xdf8340)
 created by testing.(*T).Run
 	/opt/hostedtoolcache/go/1.14.15/x64/src/testing/testing.go:1095 +0x538
 */
-func SKIP_TestRealtime_DontCrashOnCloseWhenEchoOff(t *testing.T) {
+func TestRealtime_DontCrashOnCloseWhenEchoOff(t *testing.T) {
+	t.Skip("FAILING TEST")
+
 	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 }
