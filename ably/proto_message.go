@@ -56,7 +56,7 @@ func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 		m.Encoding = mergeEncoding(m.Encoding, encBase64)
 	default:
 		// RSL4c3, RSL4d3: JSON is only for objects and arrays. So marshal data
-		// into JSON, then check if if's one of those.
+		// into JSON, then check if it's one of those.
 		b, err := json.Marshal(d)
 		if err != nil {
 			return Message{}, fmt.Errorf("%s; encoding as JSON: %w", unencodableDataErr(d), err)

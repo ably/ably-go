@@ -130,7 +130,7 @@ type authOptions struct {
 	// to the AuthURL.
 	AuthHeaders http.Header
 
-	// AuthParams are HTTP query parameters to be included in any requset made
+	// AuthParams are HTTP query parameters to be included in any request made
 	// to the AuthURL.
 	AuthParams url.Values
 

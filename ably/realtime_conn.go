@@ -58,7 +58,7 @@ type Connection struct {
 
 	callbacks connCallbacks
 	// reconnecting tracks if we have issued a reconnection request. If we receive any message
-	// with this set to true then its the first message/response after issuing the
+	// with this set to true then it's the first message/response after issuing the
 	// reconnection request.
 	reconnecting bool
 	// reauthorizing tracks if the current reconnection attempt is happening
@@ -71,7 +71,7 @@ type connCallbacks struct {
 	onChannelMsg func(*protocolMessage)
 	// onReconnected is called when we get a CONNECTED response from reconnect request. We
 	// move this up because some implementation details for (RTN15c) requires
-	// access to Channels and we dont have it here so we let RealtimeClient do the
+	// access to Channels, and we don't have it here, so we let RealtimeClient do the
 	// work.
 	onReconnected func(isNewID bool)
 	// onReconnectionFailed is called when we get a FAILED response from a
@@ -308,7 +308,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 			panic(fmt.Errorf("unexpected state transition: %v -> %v", idleState, state))
 		}
 
-		// Before attempting to connect, move from DISCONNETCED to SUSPENDED if
+		// Before attempting to connect, move from DISCONNECTED to SUSPENDED if
 		// more than connectionStateTTL has passed.
 		if idleState == ConnectionStateDisconnected {
 			select {
@@ -325,7 +325,7 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 			}
 		}
 
-		c.log().Debug("Attemting to open connection")
+		c.log().Debug("Attempting to open connection")
 		res, err := c.connectWith(arg)
 		if err == nil {
 			return res, nil

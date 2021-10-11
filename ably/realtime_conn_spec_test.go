@@ -2718,7 +2718,7 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 			t.Errorf("expected re authorization to happen twice got %d", n)
 		}
 
-		// We should only try try to reconnect once after token error.
+		// We should only try to reconnect once after token error.
 		if expect, got := 2, dials.Load().(int); got != expect {
 			t.Errorf("expected %v got %v", expect, got)
 		}
@@ -3160,7 +3160,7 @@ func TestRealtimeConn_RTN24_RTN21_RTC8a_RTN4h_Override_ConnectionDetails_On_Conn
 	if got := c.Connection.ErrorReason().Message(); !strings.Contains(got, errInfo.Message) {
 		t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, c.Connection.ErrorReason().Message())
 	}
-	// RTN21 - new connection details over write old values
+	// RTN21 - new connection details overwrite old values
 	if c.Connection.Key() != newConnDetails.ConnectionKey {
 		t.Fatalf("expected %v; got %v", newConnDetails.ConnectionKey, c.Connection.Key())
 	}
