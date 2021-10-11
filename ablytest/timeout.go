@@ -73,7 +73,7 @@ func (wt WithTimeout) recv(into, from interface{}) (ok, timeout bool) {
 		Chan: reflect.ValueOf(from),
 	}, {
 		Dir:  reflect.SelectRecv,
-		Chan: reflect.ValueOf(time.After(time.Duration(wt.before))),
+		Chan: reflect.ValueOf(time.After(wt.before)),
 	}})
 	if chosen == 0 && ok && into != nil {
 		reflect.ValueOf(into).Elem().Set(recv)
@@ -88,7 +88,7 @@ func (wt WithTimeout) send(ch, v interface{}) (timeout bool) {
 		Send: reflect.ValueOf(v),
 	}, {
 		Dir:  reflect.SelectRecv,
-		Chan: reflect.ValueOf(time.After(time.Duration(wt.before))),
+		Chan: reflect.ValueOf(time.After(wt.before)),
 	}})
 	return chosen == 1
 }

@@ -114,10 +114,10 @@ func TestRestClient(t *testing.T) {
 			expectName := "ping"
 			expectData := "pong"
 			if name != expectName {
-				t.Errorf("expected %s got %s", expectName, string(name))
+				t.Errorf("expected %s got %s", expectName, name)
 			}
 			if data != expectData {
-				t.Errorf("expected %s got %s", expectData, string(data))
+				t.Errorf("expected %s got %s", expectData, data)
 			}
 		})
 	})
