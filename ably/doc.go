@@ -44,7 +44,7 @@
 // A method that prepares a paginated request returns a Request object with two
 // methods: Pages and Items. Pages returns a PaginatedResult, an iterator that,
 // on each iteration, yields a whole page of results. Items is simply a
-// convenience wrapper that yields single results insteads.
+// convenience wrapper that yields single results instead.
 //
 // In both cases, calling the method validates the request and may return an
 // error.

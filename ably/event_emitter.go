@@ -32,7 +32,7 @@ type eventListener struct {
 
 func (l *eventListener) handle(e emitterData, log logger) {
 	// The goroutine that finds the queue empty launches a goroutine for emptying it,
-	// ie. process its emitterData and afterwards any emitterData that concurrent
+	// i.e. process its emitterData and afterwards any emitterData that concurrent
 	// goroutines may have left in the queue in the meantime.
 	//
 	// Other goroutines just enqueue their emitterData.

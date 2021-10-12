@@ -333,7 +333,7 @@ func TestRest_hostfallback(t *testing.T) {
 		}
 	})
 	t.Run("rsc15b", func(t *testing.T) {
-		t.Run("must not occur when default  rest.ably.io is overriden", func(t *testing.T) {
+		t.Run("must not occur when default rest.ably.io is overridden", func(t *testing.T) {
 
 			customHost := "example.com"
 			options := []ably.ClientOption{
@@ -813,6 +813,6 @@ var (
 	}
 )
 
-func intervalFormatFor(t time.Time, granulatity string) string {
-	return t.Format(intervalFormats[granulatity])
+func intervalFormatFor(t time.Time, granularity string) string {
+	return t.Format(intervalFormats[granularity])
 }

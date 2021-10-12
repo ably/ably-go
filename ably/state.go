@@ -448,7 +448,7 @@ type ChannelStateChange struct {
 	// Reason, if any, is an error that caused the state change.
 	Reason *ErrorInfo
 	// Resumed is set to true for Attached and Update events when channel state
-	// has been maintainted without interruption in the server, so there has
+	// has been maintained without interruption in the server, so there has
 	// been no loss of message continuity.
 	Resumed bool
 }

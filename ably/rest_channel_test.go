@@ -271,7 +271,7 @@ func TestIdempotentPublishing(t *testing.T) {
 			t.Errorf("expected %d got %d", 3, n)
 		}
 
-		// we need to sort so we we can easily test the serial in order.
+		// we need to sort so we can easily test the serial in order.
 		sort.Slice(messages, func(i, j int) bool {
 			p := strings.Split(messages[i].ID, ":")
 			p0 := strings.Split(messages[j].ID, ":")

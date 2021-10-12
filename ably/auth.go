@@ -295,7 +295,7 @@ func (a *Auth) authorize(ctx context.Context, params *TokenParams, opts *authOpt
 		a.log().Error("Auth: failed to get token", err)
 		return nil, err
 	}
-	// Fail if the non-empty ClientID, that was set explicitely via clientOptions, does
+	// Fail if the non-empty ClientID, that was set explicitly via clientOptions, does
 	// not match the non-wildcard ClientID returned with the token.
 	if areClientIDsSet(a.clientID, tok.ClientID) && a.clientID != tok.ClientID {
 		a.log().Error("Auth: ", errClientIDMismatch)

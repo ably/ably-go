@@ -14,7 +14,7 @@ type FmtFunc func(format string, args ...interface{})
 // format string and the args the wrapper is called with.
 //
 // It's useful to have some fixed context on everything that is formatted with
-// a FmtFunc, e. g. test scope context.
+// a FmtFunc, e.g. test scope context.
 func (f FmtFunc) Wrap(t *testing.T, format string, args ...interface{}) FmtFunc {
 	return func(wrappedFormat string, wrappedArgs ...interface{}) {
 		if t != nil {
