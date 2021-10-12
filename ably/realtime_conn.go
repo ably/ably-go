@@ -542,7 +542,7 @@ func (em ConnectionEventEmitter) Off(e ConnectionEvent) {
 	em.emitter.Off(e)
 }
 
-// Off deregisters all event handlers.
+// OffAll deregisters all event handlers.
 //
 // See package-level documentation on Event Emitter for details.
 func (em ConnectionEventEmitter) OffAll() {

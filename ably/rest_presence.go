@@ -69,7 +69,7 @@ func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceRequest {
 	}
 }
 
-// A HistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
+// A PresenceHistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
 type PresenceHistoryOption func(*presenceHistoryOptions)
 
 func PresenceHistoryWithStart(t time.Time) PresenceHistoryOption {

@@ -217,7 +217,7 @@ func (pres *RealtimePresence) Get(ctx context.Context) ([]*PresenceMessage, erro
 // RealtimePresence.GetWithOptions.
 type PresenceGetOption func(*presenceGetOptions)
 
-// PresenceGetWithWaitForSync, if true, makes GetWithOptions wait until the
+// PresenceGetWithWaitForSync if true, makes GetWithOptions wait until the
 // presence information is fully synchronized with the server before returning.
 // It defaults to true.
 func PresenceGetWithWaitForSync(wait bool) PresenceGetOption {
@@ -293,7 +293,7 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 	}), nil
 }
 
-// Subscribe registers a presence message handler to be called with each
+// SubscribeAll registers a presence message handler to be called with each
 // presence message received from the channel.
 //
 // This implicitly attaches the channel if it's not already attached. If the
