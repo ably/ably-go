@@ -79,7 +79,7 @@ func main() {
 			}
 			return dest
 		},
-	}).Parse(string(opts.template))
+	}).Parse(opts.template)
 	if err != nil {
 		log.Fatal(err)
 	}
