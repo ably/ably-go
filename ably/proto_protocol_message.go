@@ -128,7 +128,7 @@ func (msg *protocolMessage) String() string {
 	case actionConnect:
 		return fmt.Sprintf("(action=%q)", msg.Action)
 	case actionConnected:
-		return fmt.Sprintf("(action=%q, id=%q, details=%# v)", msg.Action, msg.ConnectionID, msg.ConnectionDetails)
+		return fmt.Sprintf("(action=%q, id=%q, details=%#v)", msg.Action, msg.ConnectionID, msg.ConnectionDetails)
 	case actionDisconnect:
 		return fmt.Sprintf("(action=%q)", msg.Action)
 	case actionDisconnected:
@@ -138,7 +138,7 @@ func (msg *protocolMessage) String() string {
 	case actionClosed:
 		return fmt.Sprintf("(action=%q)", msg.Action)
 	case actionError:
-		return fmt.Sprintf("(action=%q, error=%# v)", msg.Action, msg.Error)
+		return fmt.Sprintf("(action=%q, error=%#v)", msg.Action, msg.Error)
 	case actionAttach:
 		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
 	case actionAttached:
@@ -155,7 +155,7 @@ func (msg *protocolMessage) String() string {
 		return fmt.Sprintf("(action=%q, id=%q, messages=%v)", msg.Action,
 			msg.ConnectionID, msg.Messages)
 	default:
-		return fmt.Sprintf("%# v", msg)
+		return fmt.Sprintf("%#v", msg)
 	}
 }
 
