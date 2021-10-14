@@ -254,8 +254,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		recorder := NewMessageRecorder()
 
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -281,13 +281,13 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			t.Fatalf("expected error %+v; got %v", expected, got)
 		}
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 			closing,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		// connection is closing
 		err = channel.Attach(ctx)
@@ -303,10 +303,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			t.Fatalf("expected error %+v; got %v", expected, got)
 		}
 
-		close = c.To(
+		closer = c.To(
 			closed,
 		)
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		// connection is closed
 		err = channel.Attach(ctx)
@@ -336,14 +336,14 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		recorder := NewMessageRecorder()
 
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			failed,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -379,16 +379,16 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		recorder := NewMessageRecorder()
 
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			disconnected,
 			suspended,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -492,16 +492,16 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -551,16 +551,16 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -610,16 +610,16 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -752,15 +752,15 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -834,15 +834,15 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -906,15 +906,15 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -1002,14 +1002,14 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -1037,11 +1037,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't receive ATTACH, message queued
 
-		close = c.To(
+		closer = c.To(
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		// Check that the attach message is sent
 		if attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent); !attachSent {
@@ -1065,16 +1065,16 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-		defer safeclose(t, close)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 			disconnected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -1103,7 +1103,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't receive ATTACH, message queued
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
@@ -1113,7 +1113,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			t.Fatalf("Should send attach message, since connected")
 		}
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		if expected, got := ably.ChannelStateAttached, channelStatechange.Current; expected != got {
@@ -1184,15 +1184,15 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, app)
 
-		c, close := TransitionConn(t, nil, app.Options()...)
-		defer safeclose(t, close)
+		c, closer := TransitionConn(t, nil, app.Options()...)
+		defer safeclose(t, closer)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -1529,14 +1529,14 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -1618,14 +1618,14 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -1753,14 +1753,14 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -1879,9 +1879,9 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
@@ -1906,7 +1906,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
 		}
 
-		close = c.To(
+		closer = c.To(
 			closing,
 		)
 
@@ -1925,11 +1925,11 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected error %+v; got %v", expected, got)
 		}
 
-		close = c.To(
+		closer = c.To(
 			failed,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		err = channel.Detach(ctx)
 
@@ -1953,9 +1953,9 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
@@ -1980,7 +1980,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
 		}
 
-		close = c.To(
+		closer = c.To(
 			disconnected,
 			connecting,
 		)
@@ -2003,11 +2003,11 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't receive detach, detaching message queued
 
-		close = c.To(
+		closer = c.To(
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		// Check that the detach message sent
 		if detachSent := ablytest.Instantly.IsTrue(checkIfDetachSent); !detachSent {
@@ -2030,9 +2030,9 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
@@ -2057,7 +2057,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, channelStatechange)
 		}
 
-		close = c.To(
+		closer = c.To(
 			disconnected,
 		)
 
@@ -2079,12 +2079,12 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't receive detach, detaching message queued
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		// Check that the detach message sent
 		if detachSent := ablytest.Instantly.IsTrue(checkIfDetachSent); !detachSent {
@@ -2107,14 +2107,14 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
-		c, close := TransitionConn(t, recorder.Dial, app.Options()...)
+		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 
-		close = c.To(
+		closer = c.To(
 			connecting,
 			connected,
 		)
 
-		defer safeclose(t, close)
+		defer safeclose(t, closer)
 
 		channelTransitioner := c.Channel("test")
 		channel := channelTransitioner.Channel
@@ -2276,18 +2276,18 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 			}
 			defer safeclose(t, app)
 
-			c, close := TransitionConn(t, nil, app.Options()...)
-			defer safeclose(t, close)
+			c, closer := TransitionConn(t, nil, app.Options()...)
+			defer safeclose(t, closer)
 
-			close = c.To(
+			closer = c.To(
 				ably.ConnectionStateConnecting,
 				ably.ConnectionStateConnected,
 			)
-			defer safeclose(t, close)
+			defer safeclose(t, closer)
 
 			chanTransitioner := c.Channel("test")
-			channel, close := chanTransitioner.To(transition...)
-			defer safeclose(t, close)
+			channel, closer := chanTransitioner.To(transition...)
+			defer safeclose(t, closer)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -2402,18 +2402,18 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 
 			recorder := NewMessageRecorder()
 
-			c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-			defer safeclose(t, close)
+			c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
+			defer safeclose(t, closer)
 
-			close = c.To(trans.connBefore...)
-			defer safeclose(t, close)
+			closer = c.To(trans.connBefore...)
+			defer safeclose(t, closer)
 
 			chanTransitioner := c.Channel("test")
-			channel, close := chanTransitioner.To(trans.channel...)
-			defer safeclose(t, close)
+			channel, closer := chanTransitioner.To(trans.channel...)
+			defer safeclose(t, closer)
 
-			close = c.To(trans.connAfter...)
-			defer safeclose(t, close)
+			closer = c.To(trans.connAfter...)
+			defer safeclose(t, closer)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -2433,8 +2433,8 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 
 			// After moving to CONNECTED, check that message is finally published.
 
-			close = c.To(connecting, connected)
-			defer safeclose(t, close)
+			closer = c.To(connecting, connected)
+			defer safeclose(t, closer)
 
 			if published := ablytest.Soon.IsTrue(published); !published {
 				t.Fatalf("message wasn't published once connection is established")
@@ -2506,18 +2506,18 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 
 			recorder := NewMessageRecorder()
 
-			c, close := TransitionConn(t, recorder.Dial, app.Options()...)
-			defer safeclose(t, close)
+			c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
+			defer safeclose(t, closer)
 
-			close = c.To(trans.connBefore...)
-			defer safeclose(t, close)
+			closer = c.To(trans.connBefore...)
+			defer safeclose(t, closer)
 
 			chanTransitioner := c.Channel("test")
-			channel, close := chanTransitioner.To(trans.channel...)
-			defer safeclose(t, close)
+			channel, closer := chanTransitioner.To(trans.channel...)
+			defer safeclose(t, closer)
 
-			close = c.To(trans.connAfter...)
-			defer safeclose(t, close)
+			closer = c.To(trans.connAfter...)
+			defer safeclose(t, closer)
 
 			publishErr := asyncPublish(channel)
 

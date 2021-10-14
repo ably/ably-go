@@ -1971,7 +1971,7 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	if resume := dialed.Query().Get("resume"); resume != "" {
 		t.Fatalf("didn't expect a resume key; got %v", dialed)
 	}
-	if recover := dialed.Query().Get("recover"); recover != "" {
+	if recoverValue := dialed.Query().Get("recover"); recoverValue != "" {
 		t.Fatalf("didn't expect a recover key; got %v", dialed)
 	}
 
@@ -2377,8 +2377,8 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 			t.Errorf("expected key to be empty got %q instead", key)
 		}
 
-		if recover := client.Connection.RecoveryKey(); recover != "" {
-			t.Errorf("expected recovery key to be empty got %q instead", recover)
+		if recoverValue := client.Connection.RecoveryKey(); recoverValue != "" {
+			t.Errorf("expected recovery key to be empty got %q instead", recoverValue)
 		}
 		if id := client.Connection.ID(); id != "" {
 			t.Errorf("expected id to be empty got %q instead", id)
@@ -2401,13 +2401,13 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 			t.Fatal("expected reason to be set")
 		}
 		{ // (RTN16a)
-			recover := query.Get("recover")
-			if recover == "" {
+			recoverValue := query.Get("recover")
+			if recoverValue == "" {
 				t.Fatal("expected resume query param to be set")
 			}
 			parts := strings.Split(fakeRecoveryKey, ":")
-			if recover != parts[0] {
-				t.Errorf("resume: expected %q got %q", parts[0], recover)
+			if recoverValue != parts[0] {
+				t.Errorf("resume: expected %q got %q", parts[0], recoverValue)
 			}
 			serial := query.Get("connectionSerial")
 			if serial == "" {
