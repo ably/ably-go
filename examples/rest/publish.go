@@ -62,7 +62,7 @@ func restPublish(channel *ably.RESTChannel, message string) {
 
 func restPublishBatch(channel *ably.RESTChannel, message1 string, message2 string) {
 
-	err := channel.PublishBatch(context.Background(), []*ably.Message{
+	err := channel.PublishMultiple(context.Background(), []*ably.Message{
 		{Name: EventName, Data: message1},
 		{Name: EventName, Data: message2},
 	})
