@@ -256,7 +256,7 @@ func postPresenceHistoryFixtures(t *testing.T, ctx context.Context, app *ablytes
 			err = p.LeaveClient(ctx, m.ClientID, m.Data)
 		}
 		if err != nil {
-			t.Errorf("at presence fixture #%d (%v): %w", i, m.Action, err)
+			t.Errorf("at presence fixture #%d (%v): %v", i, m.Action, err)
 		}
 	}
 
