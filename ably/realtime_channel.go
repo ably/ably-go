@@ -509,7 +509,7 @@ func (em ChannelEventEmitter) Off(e ChannelEvent) {
 	em.emitter.Off(e)
 }
 
-// Off deregisters all event handlers.
+// OffAll de-registers all event handlers.
 //
 // See package-level documentation on Event Emitter for details.
 func (em ChannelEventEmitter) OffAll() {
