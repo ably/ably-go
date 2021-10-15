@@ -40,14 +40,19 @@ func checkPresence(client *ably.REST) {
 }
 
 func printPresenceMessages(channel *ably.RESTChannel) {
-	page, err := channel.Presence.Get(context.Background(), nil)
-	for ; err == nil && page != nil; page, err = page.Next(context.Background()) {
-		for _, presence := range page.PresenceMessages() {
+
+	pages, err := channel.Presence.Get().Pages(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	for pages.Next(context.Background()) {
+		for _, presence := range pages.Items() {
+			fmt.Println("--- Channel presence ---")
 			fmt.Println(jsonify(presence))
+			fmt.Println("----------")
 		}
 	}
-	if err != nil {
-		err := fmt.Errorf("error getting presence on the channel: %w", err)
+	if err := pages.Err(); err != nil {
 		panic(err)
 	}
 }

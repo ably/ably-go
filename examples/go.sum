@@ -1,5 +1,9 @@
 github.com/ably/ably-go v1.2.0-apipreview.4 h1:e02ojSY5OpEruYgiv9mjpwfM4aLhLSdfDb/FpiHTBV8=
 github.com/ably/ably-go v1.2.0-apipreview.4/go.mod h1:bdOnFcqJrbZE7WSp1jqbdsIMBo5aMGXh98GWiiwmeZ0=
+github.com/ably/ably-go v1.2.0 h1:USvHueS/BvJypCQ2xmGxobmZCxaNuTc1/TsCEZHuipc=
+github.com/ably/ably-go v1.2.0/go.mod h1:bdOnFcqJrbZE7WSp1jqbdsIMBo5aMGXh98GWiiwmeZ0=
+github.com/ably/ably-go v1.2.1 h1:pRP0cvxkkCGASnTLGVWPPONJZLjLdTYhT6i9uqGmxig=
+github.com/ably/ably-go v1.2.1/go.mod h1:bdOnFcqJrbZE7WSp1jqbdsIMBo5aMGXh98GWiiwmeZ0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/joho/godotenv v1.3.0 h1:Zjp+RcGpHhGlrMbJzXTrZZPrWj+1vfm90La1wgB6Bhc=
 github.com/joho/godotenv v1.3.0/go.mod h1:7hK45KPybAkOC6peb+G5yklZfMxEjkZhHbwpqxOKXbg=
