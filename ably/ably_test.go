@@ -54,15 +54,15 @@ func safeclose(t *testing.T, closers ...io.Closer) {
 		c   io.Closer
 		err error
 	}
-	var errors []failed
+	var closeErrors []failed
 	for i, closer := range closers {
 		err := closer.Close()
 		if err != nil {
-			errors = append(errors, failed{i, closer, err})
+			closeErrors = append(closeErrors, failed{i, closer, err})
 		}
 	}
-	if len(errors) != 0 {
-		for _, err := range errors {
+	if len(closeErrors) != 0 {
+		for _, err := range closeErrors {
 			t.Logf("safeclose %d: failed to close %T: %s", err.i, err.c, err.err)
 		}
 	}
@@ -286,9 +286,9 @@ func (rec *MessageRecorder) Dial(proto string, u *url.URL, timeout time.Duration
 func (rec *MessageRecorder) URL() []*url.URL {
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
-	url := make([]*url.URL, len(rec.url))
-	copy(url, rec.url)
-	return url
+	newUrl := make([]*url.URL, len(rec.url))
+	copy(newUrl, rec.url)
+	return newUrl
 }
 
 // Sent

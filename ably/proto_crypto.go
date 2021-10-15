@@ -87,12 +87,12 @@ func (c *protoChannelOptions) GetCipher() (channelCipher, error) {
 	}
 	switch c.Cipher.Algorithm {
 	case CipherAES:
-		cipher, err := newCBCCipher(c.Cipher)
+		encoder, err := newCBCCipher(c.Cipher)
 		if err != nil {
 			return nil, err
 		}
-		c.cipher = cipher
-		return cipher, nil
+		c.cipher = encoder
+		return encoder, nil
 	default:
 		return nil, errors.New("unknown cipher algorithm")
 	}

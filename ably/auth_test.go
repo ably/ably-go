@@ -61,9 +61,9 @@ func TestAuth_BasicAuth(t *testing.T) {
 	if method := client.Auth.Method(); method != ably.AuthBasic {
 		t.Fatalf("want method=1; got %d", method)
 	}
-	url := rec.Request(1).URL
-	if url.Scheme != "https" {
-		t.Fatalf("want url.Scheme=https; got %s", url.Scheme)
+	requestUrl := rec.Request(1).URL
+	if requestUrl.Scheme != "https" {
+		t.Fatalf("want url.Scheme=https; got %s", requestUrl.Scheme)
 	}
 	auth, err := authValue(rec.Request(1))
 	if err != nil {
@@ -119,9 +119,9 @@ func TestAuth_TokenAuth(t *testing.T) {
 	if method := client.Auth.Method(); method != ably.AuthToken {
 		t.Fatalf("want method=2; got %d", method)
 	}
-	url := rec.Request(3).URL
-	if url.Scheme != "http" {
-		t.Fatalf("want url.Scheme=http; got %s", url.Scheme)
+	requestUrl := rec.Request(3).URL
+	if requestUrl.Scheme != "http" {
+		t.Fatalf("want url.Scheme=http; got %s", requestUrl.Scheme)
 	}
 	rec.Reset()
 	tok, err := client.Auth.Authorize(context.Background(), nil)
@@ -773,13 +773,13 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
 		t.Fatalf("Close()=%v", err)
 	}
-	urls := rec.URL()
-	if len(urls) == 0 {
+	recUrls := rec.URL()
+	if len(recUrls) == 0 {
 		t.Fatal("want urls to be non-empty")
 	}
-	for _, url := range urls {
-		if s := url.Query().Get("access_token"); s == "" {
-			t.Errorf("missing access_token param in %q", url)
+	for _, recUrl := range recUrls {
+		if s := recUrl.Query().Get("access_token"); s == "" {
+			t.Errorf("missing access_token param in %q", recUrl)
 		}
 	}
 	for _, msg := range rec.Sent() {

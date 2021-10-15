@@ -121,12 +121,12 @@ func (p *PaginatedResult) goTo(ctx context.Context, link string) error {
 			continue
 		}
 		relPath, rel := m[1], m[2]
-		path := path.Join(p.basePath, relPath)
+		linkPath := path.Join(p.basePath, relPath)
 		switch rel {
 		case "first":
-			p.firstLink = path
+			p.firstLink = linkPath
 		case "next":
-			p.nextLink = path
+			p.nextLink = linkPath
 		}
 	}
 	return nil

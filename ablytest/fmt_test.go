@@ -7,12 +7,12 @@ import (
 )
 
 func ExampleFmtFunc_Wrap() {
-	println := ablytest.FmtFunc(func(format string, args ...interface{}) {
+	myPrintln := ablytest.FmtFunc(func(format string, args ...interface{}) {
 		fmt.Println(fmt.Sprintf(format, args...))
 	})
 
 	id := 42
-	wrapped := println.Wrap(nil, "for ID %d: %s", id)
+	wrapped := myPrintln.Wrap(nil, "for ID %d: %s", id)
 
 	wrapped("everything's OK")
 
