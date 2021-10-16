@@ -26,14 +26,17 @@ func main() {
 }
 
 func printApplicationStats(client *ably.REST) {
-	page, err := client.Stats(context.Background(), &ably.PaginateParams{})
-	for ; err == nil && page != nil; page, err = page.Next(context.Background()) {
-		for _, stat := range page.Stats() {
+	pages, err := client.Stats().Pages(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	for pages.Next(context.Background()) {
+		for _, stat := range pages.Items() {
 			fmt.Println(jsonify(stat))
 		}
 	}
-	if err != nil {
-		err := fmt.Errorf("error getting application stats %w", err)
+	if err := pages.Err(); err != nil {
 		panic(err)
 	}
 }

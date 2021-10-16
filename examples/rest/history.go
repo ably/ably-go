@@ -52,29 +52,35 @@ func checkRestChannelPresenceHistory(client *ably.REST) {
 }
 
 func printChannelMessageHistory(channel *ably.RESTChannel) {
-	page, err := channel.History(context.Background(), nil)
-	for ; err == nil && page != nil; page, err = page.Next(context.Background()) {
-		for _, message := range page.Messages() {
+	pages, err := channel.History().Pages(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	for pages.Next(context.Background()) {
+		for _, message := range pages.Items() {
 			fmt.Println("--- Channel history ---")
 			fmt.Println(jsonify(message))
 			fmt.Println("--------")
 		}
 	}
-	if err != nil {
+	if err := pages.Err(); err != nil {
 		panic(err)
 	}
 }
 
 func printChannelPresenceHistory(channel *ably.RESTChannel) {
-	page, err := channel.Presence.History(context.Background(), nil)
-	for ; err == nil && page != nil; page, err = page.Next(context.Background()) {
-		for _, presence := range page.PresenceMessages() {
+	pages, err := channel.Presence.History().Pages(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	for pages.Next(context.Background()) {
+		for _, presence := range pages.Items() {
 			fmt.Println("--- Channel presence history ---")
 			fmt.Println(jsonify(presence))
 			fmt.Println("----------")
 		}
 	}
-	if err != nil {
+	if err := pages.Err(); err != nil {
 		panic(err)
 	}
 }
