@@ -159,6 +159,16 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 	count := msg.Count + serialShift
 	if count > queueLength {
 		panic(fmt.Sprintf("protocol violation: ACKed %d messages, but only %d pending", count, len(q.queue)))
+	} else if count < 1 {
+		// We have encountered negative counts during load testing, and
+		// don't currently have a good explanation for them.
+		//
+		// Whilst the behaviour needs to be understood, it does not
+		// have any user facing impact since the ACK for earlier
+		// messages can safely be ignored, so we just emit a debug
+		// log to aid in further investigation.
+		q.log.Debugf("protocol violation: received ACK for %d messages from serial %d, but current message serial is %d", msg.Count, msg.MsgSerial, messageChannel.msg.MsgSerial)
+		return
 	}
 	acked := q.queue[:count]
 	q.queue = q.queue[count:]
