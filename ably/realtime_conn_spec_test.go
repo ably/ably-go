@@ -250,6 +250,9 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 }
 
 func Test_RTN6_Connected_When_CONNECTED_Msg_Received(t *testing.T) {
+	// Check that the connection state changes to connected upon receipt
+	// of a connected message.
+
 	in := make(chan *ably.ProtocolMessage, 1)
 	out := make(chan *ably.ProtocolMessage, 16)
 
