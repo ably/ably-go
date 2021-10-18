@@ -94,32 +94,20 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 	}
 	useIdempotent := c.client.opts.idempotentRESTPublishing()
 	if useIdempotent {
-		switch len(messages) {
-		case 1:
-			// spec RSL1k2 we preserve the id if we have one message and it contains the
-			// id.
-			if messages[0].ID == "" {
-				base, err := ablyutil.BaseID()
-				if err != nil {
-					return err
-				}
-				messages[0].ID = fmt.Sprintf("%s:%d", base, 0)
+		hasEmptyMsgId := true
+		for _, v := range messages {
+			if !empty(v.ID) {
+				hasEmptyMsgId = false
+				break
 			}
-		default:
-			empty := true
-			for _, v := range messages {
-				if v.ID != "" {
-					empty = false
-				}
+		}
+		if hasEmptyMsgId { // spec RSL1k3,RSL1k1,RSL1k2
+			base, err := ablyutil.BaseID()
+			if err != nil {
+				return err
 			}
-			if empty { // spec RSL1k3,RSL1k1
-				base, err := ablyutil.BaseID()
-				if err != nil {
-					return err
-				}
-				for k, v := range messages {
-					v.ID = fmt.Sprintf("%s:%d", base, k)
-				}
+			for k, v := range messages {
+				v.ID = fmt.Sprintf("%s:%d", base, k)
 			}
 		}
 	}

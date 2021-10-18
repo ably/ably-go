@@ -163,36 +163,27 @@ func TestRESTChannel(t *testing.T) {
 
 func TestIdempotentPublishing(t *testing.T) {
 	app, err := ablytest.NewSandboxWIthEnv(nil, ablytest.Environment)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNil(t, err)
 	defer app.Close()
+
 	options := app.Options(ably.WithIdempotentRESTPublishing(true))
 	client, err := ably.NewREST(options...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNil(t, err)
+
 	randomStr, err := ablyutil.BaseID()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNil(t, err)
+
 	t.Run("when ID is not included (#RSL1k2)", func(t *testing.T) {
 		channel := client.Channels.Get("idempotent_test_1")
 		for range make([]struct{}, 3) {
 			err := channel.Publish(context.Background(), "", randomStr)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assertNil(t, err)
 		}
+
 		var history []*ably.Message
 		err := ablytest.AllPages(&history, channel.History())
-		if err != nil {
-			t.Fatal(err)
-		}
-		n := len(history)
-		if n != 3 {
-			t.Errorf("expected %d got %d", 3, n)
-		}
+		assertNil(t, err)
+		assertEquals(t, 3, len(history))
 	})
 
 	t.Run("when ID is included (#RSL1k2, #RSL1k5)", func(t *testing.T) {
@@ -204,24 +195,14 @@ func TestIdempotentPublishing(t *testing.T) {
 					Data: randomStr,
 				},
 			})
-			if err != nil {
-				t.Fatal(err)
-			}
+			assertNil(t, err)
 		}
+
 		var history []*ably.Message
 		err := ablytest.AllPages(&history, channel.History())
-		if err != nil {
-			t.Fatal(err)
-		}
-		n := len(history)
-		if n != 1 {
-			// three REST publishes result in only one message being published
-			t.Errorf("expected %d got %d", 1, n)
-		}
-		msg := history[0]
-		if msg.ID != randomStr {
-			t.Errorf("expected id to be %s got %s", randomStr, msg.ID)
-		}
+		assertNil(t, err)
+		assertEquals(t, 1, len(history)) // three REST publishes result in only one message being published
+		assertEquals(t, randomStr, history[0].ID)
 	})
 
 	t.Run("multiple messages in one publish operation (#RSL1k3)", func(t *testing.T) {
@@ -258,60 +239,46 @@ func TestIdempotentPublishing(t *testing.T) {
 			})
 		}
 		err := channel.PublishMultiple(context.Background(), m)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assertNil(t, err)
+
 		var messages []*ably.Message
 		err = ablytest.AllPages(&messages, channel.History())
-		if err != nil {
-			t.Fatal(err)
-		}
-		n := len(messages)
-		if n != 3 {
-			t.Errorf("expected %d got %d", 3, n)
-		}
+		assertNil(t, err)
+		assertEquals(t, 3, len(messages))
 
 		// we need to sort so we can easily test the serial in order.
 		sort.Slice(messages, func(i, j int) bool {
 			p := strings.Split(messages[i].ID, ":")
 			p0 := strings.Split(messages[j].ID, ":")
 			i1, err := strconv.Atoi(p[1])
-			if err != nil {
-				t.Fatal(err)
-			}
+			assertNil(t, err)
+
 			i2, err := strconv.Atoi(p0[1])
-			if err != nil {
-				t.Fatal(err)
-			}
+			assertNil(t, err)
+
 			return i1 < i2
 		})
-		for k, v := range messages {
-			p := strings.Split(v.ID, ":")
-			id, err := strconv.Atoi(p[1])
-			if err != nil {
-				t.Fatal(err)
-			}
-			if id != k {
-				t.Errorf("expected serial to be %d got %d", k, id)
-			}
+
+		for msgIndex, msg := range messages {
+			p := strings.Split(msg.ID, ":")
+			msgSerial, err := strconv.Atoi(p[1])
+			assertNil(t, err)
+			assertEquals(t, msgIndex, msgSerial)
 		}
 	})
 
 	t.Run("the ID is populated with a random ID and serial 0 from this lib (#RSL1k1)", func(t *testing.T) {
 		channel := client.Channels.Get("idempotent_test_5")
 		err := channel.Publish(context.Background(), "event", "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		var m []*ably.Message
-		err = ablytest.AllPages(&m, channel.History())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(m) != 1 {
-			t.Fatalf("expected %d got %d", 1, len(m))
-		}
-		message := m[0]
+		assertNil(t, err)
+
+		var msgHistory []*ably.Message
+		err = ablytest.AllPages(&msgHistory, channel.History())
+		assertNil(t, err)
+
+		assertEquals(t, 1, len(msgHistory))
+
+		message := msgHistory[0]
 		if message.ID == "" {
 			t.Fatal("expected message id not to be empty")
 		}
@@ -321,13 +288,9 @@ func TestIdempotentPublishing(t *testing.T) {
 			t.Fatalf("expected id %s to match pattern %q", message.ID, pattern)
 		}
 		baseID := strings.Split(message.ID, ":")[0]
-		v, err := base64.StdEncoding.DecodeString(baseID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(v) != 9 {
-			t.Errorf("expected %d bytes git %d", 9, len(v))
-		}
+		decodedMsgIdempotentId, err := base64.StdEncoding.DecodeString(baseID)
+		assertNil(t, err)
+		assertEquals(t, 9, len(decodedMsgIdempotentId))
 	})
 
 	t.Run("publishing a batch of messages", func(t *testing.T) {
@@ -338,20 +301,16 @@ func TestIdempotentPublishing(t *testing.T) {
 			{Name: name},
 			{Name: name},
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		var m []*ably.Message
-		err = ablytest.AllPages(&m, channel.History())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(m) != 3 {
-			t.Fatalf("expected %d got %d", 1, len(m))
-		}
+		assertNil(t, err)
+
+		var messages []*ably.Message
+		err = ablytest.AllPages(&messages, channel.History())
+		assertNil(t, err)
+		assertEquals(t, 3, len(messages))
+
 		pattern := `^[A-Za-z0-9\+\/]+:\d$`
 		re := regexp.MustCompile(pattern)
-		for _, message := range m {
+		for _, message := range messages {
 			if message.ID == "" {
 				t.Fatal("expected message id not to be empty")
 			}
@@ -359,28 +318,22 @@ func TestIdempotentPublishing(t *testing.T) {
 				t.Fatalf("expected id %s to match pattern %q", message.ID, pattern)
 			}
 			baseID := strings.Split(message.ID, ":")[0]
-			v, err := base64.StdEncoding.DecodeString(baseID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(v) != 9 {
-				t.Errorf("expected %d bytes git %d", 9, len(v))
-			}
+			decodedMsgIdempotentId, err := base64.StdEncoding.DecodeString(baseID)
+			assertNil(t, err)
+			assertEquals(t, 9, len(decodedMsgIdempotentId))
 		}
 	})
 }
 
-func TestIdempotent_retry(t *testing.T) {
+func TestIdempotent_retry_RSL1k4(t *testing.T) {
 	app, err := ablytest.NewSandboxWIthEnv(nil, ablytest.Environment)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNil(t, err)
+
 	defer app.Close()
 	randomStr, err := ablyutil.BaseID()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Run("when there is a network failure triggering an automatic retry (#RSL1k4)", func(t *testing.T) {
+	assertNil(t, err)
+
+	t.Run("when there is a network failure triggering an automatic retry", func(t *testing.T) {
 		var retryCount int
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			retryCount++
@@ -426,29 +379,22 @@ func TestIdempotent_retry(t *testing.T) {
 		}))
 
 		client, err := ably.NewREST(app.Options(nopts...)...)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assertNil(t, err)
 
-		t.Run("two REST publish retries result in only one message being published'", func(t *testing.T) {
+		t.Run("for multiple retries, channel publish should publish only once", func(t *testing.T) {
 			channel := client.Channels.Get("idempotent_test_fallback")
 			err = channel.Publish(context.Background(), "", randomStr)
-			if err != nil {
-				t.Error(err)
-			}
-			if retryCount != 2 {
-				t.Errorf("expected %d retry attempts got %d", 2, retryCount)
-			}
+			assertNil(t, err)
+			assertEquals(t, 2, retryCount)
+
 			var m []*ably.Message
 			err = ablytest.AllPages(&m, channel.History())
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(m) != 1 {
-				t.Errorf("expected %d messages got %d", 1, len(m))
-			}
+			assertNil(t, err)
+			assertEquals(t, 1, len(m))
+			assertEquals(t, randomStr, m[0].Data)
 		})
-		t.Run("or multiple messages in one publish operation'", func(t *testing.T) {
+
+		t.Run("for multiple retries, channel publishMultiple/publishBatch should publish only once", func(t *testing.T) {
 			retryCount = 0
 			channel := client.Channels.Get("idempotent_test_fallback_1")
 			msgs := []*ably.Message{
@@ -456,16 +402,19 @@ func TestIdempotent_retry(t *testing.T) {
 				{Data: randomStr},
 				{Data: randomStr},
 			}
+
 			for range msgs {
-				channel.PublishMultiple(context.Background(), msgs)
+				err := channel.PublishMultiple(context.Background(), msgs)
+				assertNil(t, err)
+				assertEquals(t, 2, retryCount)
 			}
+
 			var m []*ably.Message
 			err := ablytest.AllPages(&m, channel.History())
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(m) != len(msgs) {
-				t.Errorf("expected %d messages got %d", len(msgs), len(m))
+			assertNil(t, err)
+			assertEquals(t, len(msgs), len(m))
+			for _, message := range m {
+				assertEquals(t, randomStr, message.Data)
 			}
 		})
 	})
