@@ -48,7 +48,7 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 	}
 }
 
-func TestReatime_RSC7_AblyAgent(t *testing.T) {
+func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 	t.Run("RSC7d3 : Should set ablyAgent header with correct identifiers", func(t *testing.T) {
 		var agentHeaderValue string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
