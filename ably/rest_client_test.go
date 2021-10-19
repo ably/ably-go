@@ -271,9 +271,7 @@ func TestRSC7(t *testing.T) {
 }
 
 func TestRest_RSC7_AblyAgent(t *testing.T) {
-	t.Parallel()
 	t.Run("RSC7d2 : Should set ablyAgent header with correct identifiers", func(t *testing.T) {
-		t.Parallel()
 		var agentHeaderValue string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
