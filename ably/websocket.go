@@ -63,6 +63,7 @@ func dialWebsocketTimeout(uri, protocol, origin string, timeout time.Duration) (
 	if err != nil {
 		return nil, err
 	}
+	config.Header.Set(ablyAgentHeader, ablyAgentIdentifier)
 	if protocol != "" {
 		config.Protocol = []string{protocol}
 	}

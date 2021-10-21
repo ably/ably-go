@@ -268,11 +268,34 @@ func TestRSC7(t *testing.T) {
 			t.Errorf("expected %s got %s", ably.AblyVersion, h)
 		}
 	})
-	t.Run("must set lib header", func(t *testing.T) {
-		h := req.Header.Get(ably.AblyLibHeader)
-		if h != ably.LibraryString {
-			t.Errorf("expected %s got %s", ably.LibraryString, h)
+}
+
+func TestRest_RSC7_AblyAgent(t *testing.T) {
+	t.Run("RSC7d2 : Should set ablyAgent header with correct identifiers", func(t *testing.T) {
+		var agentHeaderValue string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+		serverURL, err := url.Parse(server.URL)
+		assertNil(t, err)
+
+		opts := []ably.ClientOption{
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithUseTokenAuth(true),
+			ably.WithRESTHost(serverURL.Host),
 		}
+
+		client, err := ably.NewREST(opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
+
+		client.Time(context.Background())
+		assertEquals(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
 }
 

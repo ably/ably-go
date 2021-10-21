@@ -94,13 +94,7 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 	t.Run("RTN2f: api version v should be the API version", func(t *testing.T) {
 		requestParams := setup()
 		libVersion := requestParams["v"]
-		assertDeepEquals(t, []string{"1.2"}, libVersion)
-	})
-
-	t.Run("RTN2g: library and version should be included as the value of lib param", func(t *testing.T) {
-		requestParams := setup()
-		lib := requestParams["lib"]
-		assertDeepEquals(t, []string{"go-1.2.1"}, lib)
+		assertDeepEquals(t, []string{ably.AblyVersion}, libVersion)
 	})
 }
 
@@ -2871,26 +2865,6 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 	//  SUSPENDED => CONNECTING => SUSPENDED ...
 	if expect, got := ably.ConnectionStateConnecting, state.Previous; got != expect {
 		t.Fatalf("expected transitioning from %v got %v", expect, got)
-	}
-}
-
-func TestRealtimeConn_RTN2g(t *testing.T) {
-	uri := make(chan url.URL, 1)
-	_, err := ably.NewRealtime(
-		ably.WithKey("xxx:xxx"),
-		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			uri <- *u
-			return nil, io.EOF
-		}),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var connURL url.URL
-	ablytest.Soon.Recv(t, &connURL, uri, t.Fatalf)
-	lib := connURL.Query().Get("lib")
-	if lib != ably.LibraryString {
-		t.Errorf("expected %q got %q", ably.LibraryString, lib)
 	}
 }
 

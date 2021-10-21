@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"sync"
 	"testing"
@@ -44,6 +46,35 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 			t.Errorf(" expected %q got %q", host, h)
 		}
 	}
+}
+
+func TestRealtime_RSC7_AblyAgent(t *testing.T) {
+	t.Run("RSC7d3 : Should set ablyAgent header with correct identifiers", func(t *testing.T) {
+		var agentHeaderValue string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+		serverURL, err := url.Parse(server.URL)
+		assertNil(t, err)
+
+		client, err := ably.NewRealtime(
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithToken("fake:token"),
+			ably.WithUseTokenAuth(true),
+			ably.WithRealtimeHost(serverURL.Host))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.Close()
+
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
+		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
+
+		assertEquals(t, expectedAgentHeaderValue, agentHeaderValue)
+	})
 }
 
 func checkUnique(ch chan string, typ string, n int) error {
