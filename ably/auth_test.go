@@ -30,18 +30,6 @@ func recorder() (*ablytest.RoundTripRecorder, []ably.ClientOption) {
 	})}
 }
 
-func authValue(req *http.Request) (value string, err error) {
-	auth := req.Header.Get("Authorization")
-	if i := strings.IndexRune(auth, ' '); i != -1 {
-		p, err := base64.StdEncoding.DecodeString(auth[i+1:])
-		if err != nil {
-			return "", errors.New("failed to base64 decode Authorization header value: " + err.Error())
-		}
-		auth = string(p)
-	}
-	return auth, nil
-}
-
 func TestAuth_BasicAuth(t *testing.T) {
 	rec, extraOpt := recorder()
 	defer rec.Stop()
@@ -50,35 +38,66 @@ func TestAuth_BasicAuth(t *testing.T) {
 	defer safeclose(t, app)
 
 	if _, err := client.Time(context.Background()); err != nil {
-		t.Fatalf("client.Time()=%v", err)
+		t.Fatalf("Expected client.Time to return a nil error, got %v", err)
 	}
+
 	if _, err := client.Stats().Pages(context.Background()); err != nil {
-		t.Fatalf("client.Stats()=%v", err)
+		t.Fatalf("Expected client.Stats().Pages to return a nil error, got %v", err)
 	}
-	if n := rec.Len(); n != 2 {
-		t.Fatalf("want rec.Len()=2; got %d", n)
+
+	if recLen := rec.Len(); recLen != 2 {
+		t.Fatalf("Expected rec.Len to return 2, got %d", recLen)
 	}
-	if method := client.Auth.Method(); method != ably.AuthBasic {
-		t.Fatalf("want method=1; got %d", method)
-	}
-	requestUrl := rec.Request(1).URL
-	if requestUrl.Scheme != "https" {
-		t.Fatalf("want url.Scheme=https; got %s", requestUrl.Scheme)
-	}
-	auth, err := authValue(rec.Request(1))
-	if err != nil {
-		t.Fatalf("authValue=%v", err)
-	}
-	if key := app.Key(); auth != key {
-		t.Fatalf("want auth=%q; got %q", key, auth)
-	}
-	// Can't use basic auth over HTTP.
-	switch _, err := ably.NewREST(app.Options(ably.WithTLS(false))...); {
-	case err == nil:
-		t.Fatal("want err != nil")
-	case ably.UnwrapErrorCode(err) != 40103:
-		t.Fatalf("want code=40103; got %d", ably.UnwrapErrorCode(err))
-	}
+
+	t.Run("RSA2: Should use basic auth as default authentication if an API key exists", func(t *testing.T) {
+		if keyLen := len(app.Key()); keyLen <= 0 {
+			t.Fatalf("Expected key length to be > 0, got %d", keyLen)
+		}
+
+		if clientAuthMethod := client.Auth.Method(); ably.AuthBasic != clientAuthMethod {
+			t.Fatalf("Expected client.Auth.Method to be AuthBasic, got %d", clientAuthMethod)
+		}
+	})
+
+	t.Run("RSA1: Should connect to HTTPS by default, trying to connect with non-TLS should result in error", func(t *testing.T) {
+		if urlScheme := rec.Request(1).URL.Scheme; urlScheme != "https" {
+			t.Fatalf("Expected rec.Request(1).URL.Scheme to be https, got %s", urlScheme)
+		}
+
+		// Can't use basic auth over HTTP.
+		switch _, err := ably.NewREST(app.Options(ably.WithTLS(false))...); {
+		case err == nil:
+			t.Fatal("want err != nil")
+		case ably.UnwrapErrorCode(err) != 40103:
+			t.Fatalf("want code=40103; got %d", ably.UnwrapErrorCode(err))
+		}
+	})
+
+	t.Run("RSA11: API key should follow format KEY_NAME:KEY_SECRET in auth header", func(t *testing.T) {
+		decodeAuthHeader := func(req *http.Request) (value string, err error) {
+			auth := req.Header.Get("Authorization")
+			if i := strings.IndexRune(auth, ' '); i != -1 {
+				p, err := base64.StdEncoding.DecodeString(auth[i+1:])
+				if err != nil {
+					return "", errors.New("failed to base64 decode Authorization header value: " + err.Error())
+				}
+				auth = string(p)
+			}
+			return auth, nil
+		}
+		appDecodedAuthHeaderValue, err := decodeAuthHeader(rec.Request(1))
+		if err != nil {
+			t.Fatalf("Expected decodeAuthHeader to return a nil error, got %v", err)
+		}
+
+		if keyFieldCount := len(strings.Split(app.Key(), ":")); keyFieldCount != 2 {
+			t.Fatalf("Expected app.Key to have 2 fields, got %d", keyFieldCount)
+		}
+
+		if app.Key() != appDecodedAuthHeaderValue {
+			t.Fatalf("Expected app.Key to be the decoded auth header value, got %s", appDecodedAuthHeaderValue)
+		}
+	})
 }
 
 func timeWithin(t, start, end time.Time) error {
