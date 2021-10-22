@@ -1,5 +1,30 @@
 # Change Log
 
+## [v1.2.2](https://github.com/ably/ably-go/tree/v1.2.2) (2021-10-22))
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.1...v1.2.2)
+
+**Implemented enhancements:**
+
+- Implement RSC7d \(Ably-Agent header\) [\#302](https://github.com/ably/ably-go/issues/302)
+
+**Closed issues:**
+
+- Ablytest [\#358](https://github.com/ably/ably-go/issues/358)
+- RTN6: CONNECTED when connection is established [\#232](https://github.com/ably/ably-go/issues/232)
+- RSA1, RSA2, RSA11: Basic auth [\#216](https://github.com/ably/ably-go/issues/216)
+
+**Merged pull requests:**
+
+- Ably Agent Refresh [\#424](https://github.com/ably/ably-go/pull/424) ([tomkirbygreen](https://github.com/tomkirbygreen))
+- Fix/216 basic auth refresh [\#421](https://github.com/ably/ably-go/pull/421) ([tomkirbygreen](https://github.com/tomkirbygreen))
+- Avoid a panic handling incoming ACK messages [\#418](https://github.com/ably/ably-go/pull/418) ([lmars](https://github.com/lmars))
+- Fix incorrect usage of 'fmt.Sprintf' [\#392](https://github.com/ably/ably-go/pull/392) ([tomkirbygreen](https://github.com/tomkirbygreen))
+- Fix various method contracts [\#387](https://github.com/ably/ably-go/pull/387) ([tomkirbygreen](https://github.com/tomkirbygreen))
+- Update examples [\#376](https://github.com/ably/ably-go/pull/376) ([sacOO7](https://github.com/sacOO7))
+- Clarify event emitter concurrency documentation [\#365](https://github.com/ably/ably-go/pull/365) ([tcard](https://github.com/tcard))
+- Ably agent header [\#360](https://github.com/ably/ably-go/pull/360) ([sacOO7](https://github.com/sacOO7))
+
 ## [v1.2.1](https://github.com/ably/ably-go/tree/v1.2.1) (2021-08-09)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.0...v1.2.1)
