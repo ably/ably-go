@@ -37,22 +37,32 @@ func TestAuth_BasicAuth(t *testing.T) {
 	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
 	defer safeclose(t, app)
 
-	_, err := client.Time(context.Background())
-	assertNil(t, err)
-	_, err = client.Stats().Pages(context.Background())
-	assertNil(t, err)
-	assertEquals(t, 2, rec.Len())
+	if _, err := client.Time(context.Background()); err != nil {
+		t.Fatalf("Expected client.Time to return a nil error, got %v", err)
+	}
+
+	if _, err := client.Stats().Pages(context.Background()); err != nil {
+		t.Fatalf("Expected client.Stats().Pages to return a nil error, got %v", err)
+	}
+
+	if recLen := rec.Len(); recLen != 2 {
+		t.Fatalf("Expected rec.Len to return 2, got %d", recLen)
+	}
 
 	t.Run("RSA2: Should use basic auth as default authentication if an API key exists", func(t *testing.T) {
-		t.Parallel()
-		assertTrue(t, len(app.Key()) > 0) // make sure API key exists
-		assertEquals(t, ably.AuthBasic, client.Auth.Method())
+		if keyLen := len(app.Key()); keyLen <= 0 {
+			t.Fatalf("Expected key length to be > 0, got %d", keyLen)
+		}
+
+		if clientAuthMethod := client.Auth.Method(); ably.AuthBasic != clientAuthMethod {
+			t.Fatalf("Expected client.Auth.Method to be AuthBasic, got %d", clientAuthMethod)
+		}
 	})
 
 	t.Run("RSA1: Should connect to HTTPS by default, trying to connect with non-TLS should result in error", func(t *testing.T) {
-		t.Parallel()
-		url := rec.Request(1).URL
-		assertEquals(t, "https", url.Scheme)
+		if urlScheme := rec.Request(1).URL.Scheme; urlScheme != "https" {
+			t.Fatalf("Expected rec.Request(1).URL.Scheme to be https, got %s", urlScheme)
+		}
 
 		// Can't use basic auth over HTTP.
 		switch _, err := ably.NewREST(app.Options(ably.WithTLS(false))...); {
@@ -62,8 +72,8 @@ func TestAuth_BasicAuth(t *testing.T) {
 			t.Fatalf("want code=40103; got %d", ably.UnwrapErrorCode(err))
 		}
 	})
+
 	t.Run("RSA11: API key should follow format KEY_NAME:KEY_SECRET in auth header", func(t *testing.T) {
-		t.Parallel()
 		decodeAuthHeader := func(req *http.Request) (value string, err error) {
 			auth := req.Header.Get("Authorization")
 			if i := strings.IndexRune(auth, ' '); i != -1 {
@@ -76,9 +86,17 @@ func TestAuth_BasicAuth(t *testing.T) {
 			return auth, nil
 		}
 		appDecodedAuthHeaderValue, err := decodeAuthHeader(rec.Request(1))
-		assertNil(t, err)
-		assertEquals(t, 2, len(strings.Split(app.Key(), ":")))
-		assertEquals(t, app.Key(), appDecodedAuthHeaderValue)
+		if err != nil {
+			t.Fatalf("Expected decodeAuthHeader to return a nil error, got %v", err)
+		}
+
+		if keyFieldCount := len(strings.Split(app.Key(), ":")); keyFieldCount != 2 {
+			t.Fatalf("Expected app.Key to have 2 fields, got %d", keyFieldCount)
+		}
+
+		if app.Key() != appDecodedAuthHeaderValue {
+			t.Fatalf("Expected app.Key to be the decoded auth header value, got %s", appDecodedAuthHeaderValue)
+		}
 	})
 }
 
