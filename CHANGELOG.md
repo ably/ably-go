@@ -10,39 +10,20 @@
 
 **Closed issues:**
 
-- Skipped Test: TestRealtimeConn\_RTN12\_Connection\_Close RTN12d [\#402](https://github.com/ably/ably-go/issues/402)
-- How to issue a TokenRequest  [\#380](https://github.com/ably/ably-go/issues/380)
 - Ablytest [\#358](https://github.com/ably/ably-go/issues/358)
-- Indentation is missing in README examples [\#339](https://github.com/ably/ably-go/issues/339)
 - RTN6: CONNECTED when connection is established [\#232](https://github.com/ably/ably-go/issues/232)
 - RSA1, RSA2, RSA11: Basic auth [\#216](https://github.com/ably/ably-go/issues/216)
 
 **Merged pull requests:**
 
 - Ably Agent Refresh [\#424](https://github.com/ably/ably-go/pull/424) ([tomkirbygreen](https://github.com/tomkirbygreen))
-- Fix unused variable warning [\#422](https://github.com/ably/ably-go/pull/422) ([tomkirbygreen](https://github.com/tomkirbygreen))
 - Fix/216 basic auth refresh [\#421](https://github.com/ably/ably-go/pull/421) ([tomkirbygreen](https://github.com/tomkirbygreen))
-- Add test for connected when CONNECTED MSG RECEIVED [\#420](https://github.com/ably/ably-go/pull/420) ([tomkirbygreen](https://github.com/tomkirbygreen))
 - Avoid a panic handling incoming ACK messages [\#418](https://github.com/ably/ably-go/pull/418) ([lmars](https://github.com/lmars))
-- Fix/examples refresh [\#417](https://github.com/ably/ably-go/pull/417) ([tomkirbygreen](https://github.com/tomkirbygreen))
-- Variable hides [\#416](https://github.com/ably/ably-go/pull/416) ([tomkirbygreen](https://github.com/tomkirbygreen))
 - Fix incorrect usage of 'fmt.Sprintf' [\#392](https://github.com/ably/ably-go/pull/392) ([tomkirbygreen](https://github.com/tomkirbygreen))
-- Fix incorrect use of 'testing.T.Errorf' [\#391](https://github.com/ably/ably-go/pull/391) ([tomkirbygreen](https://github.com/tomkirbygreen))
-- Add version 1.17 to our supported Go versions [\#389](https://github.com/ably/ably-go/pull/389) ([tomkirbygreen](https://github.com/tomkirbygreen))
-- Fix calling renamed method [\#388](https://github.com/ably/ably-go/pull/388) ([tomkirbygreen](https://github.com/tomkirbygreen))
 - Fix various method contracts [\#387](https://github.com/ably/ably-go/pull/387) ([tomkirbygreen](https://github.com/tomkirbygreen))
-- Remove redundant type conversions [\#386](https://github.com/ably/ably-go/pull/386) ([tomkirbygreen](https://github.com/tomkirbygreen))
-- Fix up various glaring typos [\#385](https://github.com/ably/ably-go/pull/385) ([tomkirbygreen](https://github.com/tomkirbygreen))
-- Add retry with simplistic backoff strategy to sandbox app requests [\#384](https://github.com/ably/ably-go/pull/384) ([QuintinWillison](https://github.com/QuintinWillison))
-- Fix CI [\#383](https://github.com/ably/ably-go/pull/383) ([QuintinWillison](https://github.com/QuintinWillison))
-- Add test for connected when CONNECTED MSG RECEIVED [\#382](https://github.com/ably/ably-go/pull/382) ([sacOO7](https://github.com/sacOO7))
 - Update examples [\#376](https://github.com/ably/ably-go/pull/376) ([sacOO7](https://github.com/sacOO7))
-- Update README.md [\#375](https://github.com/ably/ably-go/pull/375) ([AndyNicks](https://github.com/AndyNicks))
-- Updated basic auth test [\#369](https://github.com/ably/ably-go/pull/369) ([sacOO7](https://github.com/sacOO7))
-- Add standard "About Ably" info to all public repos [\#367](https://github.com/ably/ably-go/pull/367) ([marklewin](https://github.com/marklewin))
 - Clarify event emitter concurrency documentation [\#365](https://github.com/ably/ably-go/pull/365) ([tcard](https://github.com/tcard))
 - Ably agent header [\#360](https://github.com/ably/ably-go/pull/360) ([sacOO7](https://github.com/sacOO7))
-
 
 ## [v1.2.1](https://github.com/ably/ably-go/tree/v1.2.1) (2021-08-09)
 
