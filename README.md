@@ -12,6 +12,10 @@ This is a Go client library for Ably.
 ~ $ go get -u github.com/ably/ably-go/ably
 ```
 
+## Supported Versions of Go
+
+Whenever a new version of Go is released, Ably adds support for that version. The [Go Release Policy](https://golang.org/doc/devel/release#policy) supports the last two major versions. This SDK follows the same policy of supporting the last two major versions of Go.
+
 ## Breaking API Changes in Version 1.2.x
 
 Please see our [Upgrade / Migration Guide](UPDATING.md) for notes on changes you need to make to your code to update it to use the new API introduced by version 1.2.x.
