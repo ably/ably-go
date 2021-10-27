@@ -9,12 +9,9 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	godotenv.Load()
-
 	// Connect to Ably using the API key and ClientID specified
 	client, err := ably.NewRealtime(
 		ably.WithKey(os.Getenv(AblyKey)),

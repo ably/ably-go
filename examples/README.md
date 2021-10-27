@@ -3,7 +3,7 @@
 1. Realtime
 
 - Go to realtime dir `cd realtime`
-- Rename **.env.example** to **.env**, update `ABLY_KEY` with your own key 
+- Set the `ABLY_KEY` environment variable to your [Ably API key](https://faqs.ably.com/setting-up-and-managing-api-keys)
 - Realtime channel pub-sub
 
     `go run presence.go constants.go`
@@ -16,7 +16,7 @@
 2. REST
 
 - Go to rest dir `cd rest`     
-- Rename **.env.example** to **.env**, update `ABLY_KEY` with your own key 
+- Set the `ABLY_KEY` environment variable to your [Ably API key](https://faqs.ably.com/setting-up-and-managing-api-keys)
 - Rest channel publish
 
     `go run publish.go constants.go utils.go`
