@@ -1,7 +1,5 @@
 package main
 
-// go run presence.go constants.go utils.go
-
 import (
 	"context"
 	"fmt"
@@ -9,16 +7,14 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/joho/godotenv"
+	"github.com/ably/ably-go/examples"
 )
 
 func main() {
-	godotenv.Load()
-
 	// Connect to Ably using the API key and ClientID
 	client, err := ably.NewREST(
-		ably.WithKey(os.Getenv(AblyKey)),
-		ably.WithClientID(UserName))
+		ably.WithKey(os.Getenv(examples.AblyKey)),
+		ably.WithClientID(examples.UserName))
 
 	if err != nil {
 		panic(err)
@@ -28,14 +24,14 @@ func main() {
 }
 
 func checkPresence(client *ably.REST) {
-	channel := client.Channels.Get(ChannelName)
-	realtimeClient := initRealtimeClient()
-	realtimeEnterPresence(realtimeClient)
+	channel := client.Channels.Get(examples.ChannelName)
+	realtimeClient := examples.InitRealtimeClient()
+	examples.RealtimeEnterPresence(realtimeClient)
 
 	printPresenceMessages(channel)
 
 	time.Sleep(time.Second)
-	realtimeLeavePresence(realtimeClient)
+	examples.RealtimeLeavePresence(realtimeClient)
 	realtimeClient.Close()
 }
 
@@ -48,7 +44,7 @@ func printPresenceMessages(channel *ably.RESTChannel) {
 	for pages.Next(context.Background()) {
 		for _, presence := range pages.Items() {
 			fmt.Println("--- Channel presence ---")
-			fmt.Println(jsonify(presence))
+			fmt.Println(examples.Jsonify(presence))
 			fmt.Println("----------")
 		}
 	}

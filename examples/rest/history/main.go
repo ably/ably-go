@@ -1,7 +1,5 @@
 package main
 
-// go run history.go constants.go utils.go
-
 import (
 	"context"
 	"fmt"
@@ -9,16 +7,14 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
-	"github.com/joho/godotenv"
+	"github.com/ably/ably-go/examples"
 )
 
 func main() {
-	godotenv.Load()
-
 	// Connect to Ably using the API key and ClientID
 	client, err := ably.NewREST(
-		ably.WithKey(os.Getenv(AblyKey)),
-		ably.WithClientID(UserName))
+		ably.WithKey(os.Getenv(examples.AblyKey)),
+		ably.WithClientID(examples.UserName))
 
 	if err != nil {
 		panic(err)
@@ -29,10 +25,10 @@ func main() {
 }
 
 func checkRestChannelMessageHistory(client *ably.REST) {
-	channel := client.Channels.Get(ChannelName)
-	realtimeClient := initRealtimeClient()
-	realtimePublish(realtimeClient, "Hey there!")
-	realtimePublish(realtimeClient, "How are you")
+	channel := client.Channels.Get(examples.ChannelName)
+	realtimeClient := examples.InitRealtimeClient()
+	examples.RealtimePublish(realtimeClient, "Hey there!")
+	examples.RealtimePublish(realtimeClient, "How are you")
 
 	time.Sleep(time.Second)
 	printChannelMessageHistory(channel)
@@ -41,9 +37,9 @@ func checkRestChannelMessageHistory(client *ably.REST) {
 }
 
 func checkRestChannelPresenceHistory(client *ably.REST) {
-	channel := client.Channels.Get(ChannelName)
-	realtimeClient := initRealtimeClient()
-	realtimeEnterPresence(realtimeClient)
+	channel := client.Channels.Get(examples.ChannelName)
+	realtimeClient := examples.InitRealtimeClient()
+	examples.RealtimeEnterPresence(realtimeClient)
 
 	time.Sleep(time.Second)
 	printChannelPresenceHistory(channel)
@@ -59,7 +55,7 @@ func printChannelMessageHistory(channel *ably.RESTChannel) {
 	for pages.Next(context.Background()) {
 		for _, message := range pages.Items() {
 			fmt.Println("--- Channel history ---")
-			fmt.Println(jsonify(message))
+			fmt.Println(examples.Jsonify(message))
 			fmt.Println("--------")
 		}
 	}
@@ -76,7 +72,7 @@ func printChannelPresenceHistory(channel *ably.RESTChannel) {
 	for pages.Next(context.Background()) {
 		for _, presence := range pages.Items() {
 			fmt.Println("--- Channel presence history ---")
-			fmt.Println(jsonify(presence))
+			fmt.Println(examples.Jsonify(presence))
 			fmt.Println("----------")
 		}
 	}
