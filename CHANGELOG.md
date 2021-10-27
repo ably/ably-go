@@ -1,5 +1,12 @@
 # Change Log
 
+## [v1.2.3](https://github.com/ably/ably-go/tree/v1.2.3) (2021-10-27))
+
+Sorry for the noise but we made a mistake when we released version 1.2.2 of this library. :facepalm:
+
+The `v1.2.2` tag was pushed against the wrong commit, meaning that the library was announcing itself as at version 1.2.1 to the Ably service.
+This release (assuming we get the tag push right this time :stuck_out_tongue_winking_eye:) will correctly identify itself as version 1.2.3.
+
 ## [v1.2.2](https://github.com/ably/ably-go/tree/v1.2.2) (2021-10-22))
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.1...v1.2.2)
