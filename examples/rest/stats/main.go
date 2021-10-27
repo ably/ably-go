@@ -1,20 +1,19 @@
 package main
 
-//go run stats.go utils.go constants.go
-
 import (
 	"context"
 	"fmt"
 	"os"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/examples"
 )
 
 func main() {
 	// Connect to Ably using the API key and ClientID
 	client, err := ably.NewREST(
-		ably.WithKey(os.Getenv(AblyKey)),
-		ably.WithClientID(UserName))
+		ably.WithKey(os.Getenv(examples.AblyKey)),
+		ably.WithClientID(examples.UserName))
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +29,7 @@ func printApplicationStats(client *ably.REST) {
 
 	for pages.Next(context.Background()) {
 		for _, stat := range pages.Items() {
-			fmt.Println(jsonify(stat))
+			fmt.Println(examples.Jsonify(stat))
 		}
 	}
 	if err := pages.Err(); err != nil {

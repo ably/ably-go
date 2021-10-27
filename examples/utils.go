@@ -1,4 +1,4 @@
-package main
+package examples
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/ably/ably-go/ably"
 )
 
-func initRealtimeClient() *ably.Realtime {
+func InitRealtimeClient() *ably.Realtime {
 	client, err := ably.NewRealtime(
 		ably.WithKey(os.Getenv(AblyKey)),
 		// ably.WithEchoMessages(true), // Uncomment to stop messages you send from being sent back
@@ -20,7 +20,7 @@ func initRealtimeClient() *ably.Realtime {
 	return client
 }
 
-func realtimeSubscribeToEvent(client *ably.Realtime) func() {
+func RealtimeSubscribeToEvent(client *ably.Realtime) func() {
 	channel := client.Channels.Get(ChannelName)
 
 	// Subscribe to messages sent on the channel
@@ -34,7 +34,7 @@ func realtimeSubscribeToEvent(client *ably.Realtime) func() {
 	return unsubscribe
 }
 
-func realtimeEnterPresence(client *ably.Realtime) {
+func RealtimeEnterPresence(client *ably.Realtime) {
 	channel := client.Channels.Get(ChannelName)
 	pErr := channel.Presence.Enter(context.Background(), UserName+" entered the channel")
 	if pErr != nil {
@@ -43,7 +43,7 @@ func realtimeEnterPresence(client *ably.Realtime) {
 	}
 }
 
-func realtimeLeavePresence(client *ably.Realtime) {
+func RealtimeLeavePresence(client *ably.Realtime) {
 	channel := client.Channels.Get(ChannelName)
 	pErr := channel.Presence.Leave(context.Background(), UserName+" entered the channel")
 	if pErr != nil {
@@ -52,7 +52,7 @@ func realtimeLeavePresence(client *ably.Realtime) {
 	}
 }
 
-func realtimePublish(client *ably.Realtime, message string) {
+func RealtimePublish(client *ably.Realtime, message string) {
 	channel := client.Channels.Get(ChannelName)
 	// Publish the message typed in to the Ably Channel
 	err := channel.Publish(context.Background(), EventName, message)
@@ -62,7 +62,7 @@ func realtimePublish(client *ably.Realtime, message string) {
 	}
 }
 
-func jsonify(i interface{}) string {
+func Jsonify(i interface{}) string {
 	s, _ := json.MarshalIndent(i, "", "\t")
 	return string(s)
 }
