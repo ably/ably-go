@@ -88,7 +88,7 @@ func checkError(code ably.ErrorCode, err error) error {
 func assertEquals(t *testing.T, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	t.Helper()
 	if expected != actual {
-		ably.FailWithMessage(t, fmt.Sprintf("Expected %v, Actual %v", expected, actual), msgAndArgs)
+		FailWithMessage(t, fmt.Sprintf("Expected %v, Actual %v", expected, actual), msgAndArgs)
 	}
 }
 
