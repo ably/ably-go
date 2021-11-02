@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/url"
 	"time"
 
@@ -102,25 +101,10 @@ func dialWebsocketTimeout(uri, origin string, timeout time.Duration) (*websocket
 	defer cancel()
 
 	c, _, err := websocket.Dial(ctx, uri, nil)
+
 	if err != nil {
 		return nil, err
 	}
-	config.Header.Set(ablyAgentHeader, ablyAgentIdentifier)
-	if protocol != "" {
-		config.Protocol = []string{protocol}
-	}
-	config.Dialer = &net.Dialer{
-		Timeout: timeout,
-	}
-	return websocket.DialConfig(config)
-}
 
-var msgpackCodec = websocket.Codec{
-	Marshal: func(v interface{}) ([]byte, byte, error) {
-		p, err := ablyutil.MarshalMsgpack(v)
-		return p, websocket.BinaryFrame, err
-	},
-	Unmarshal: func(p []byte, _ byte, v interface{}) error {
-		return ablyutil.UnmarshalMsgpack(p, v)
-	},
+	return c, nil
 }
