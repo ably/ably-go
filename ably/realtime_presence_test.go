@@ -166,3 +166,52 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+//When a client is created with a ClientID, Enter is used to announce the client's presence.
+//This example shows Client A entering their presence.
+func ExampleRealtimePresence_Enter() {
+
+	// A new realtime client is created with a ClientID.
+	client, err := ably.NewRealtime(
+		ably.WithKey("ABLY_PRIVATE_KEY"),
+		ably.WithClientID("Client A"),
+	)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	// A new channel is initialised.
+	channel := client.Channels.Get("chat")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	// The client announces presence with Enter.
+	if err := channel.Presence.Enter(ctx, nil); err != nil {
+		fmt.Println(err)
+	}
+}
+
+//When a client is created without a ClientID, EnterClient is used to announce the presence of a client.
+// This example shows a client without a clientID announcing the presence of "Client A" using EnterClient.
+func ExampleRealtimePresence_EnterClient() {
+
+	// A new realtime client is created without providing a ClientID.
+	client, err := ably.NewRealtime(
+		ably.WithKey("ABLY_PRIVATE_KEY"),
+	)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	// A new channel is initialised.
+	channel := client.Channels.Get("chat")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	// The presence of Client A is announced using EnterClient.
+	if err := channel.Presence.EnterClient(ctx, "Client A", nil); err != nil {
+		fmt.Println(err)
+	}
+}

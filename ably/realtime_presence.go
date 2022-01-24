@@ -204,7 +204,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 }
 
 // Get returns a list of current members on the channel, attaching the channel
-// first is needed.
+// first is optional. If the channel state is initialised, it will be updated to attached.
 //
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
