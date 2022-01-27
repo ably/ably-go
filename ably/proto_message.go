@@ -20,14 +20,15 @@ const (
 
 // Message is what Ably channels send and receive.
 type Message struct {
-	ID           string                 `json:"id,omitempty" codec:"id,omitempty"`
-	ClientID     string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
-	ConnectionID string                 `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
-	Name         string                 `json:"name,omitempty" codec:"name,omitempty"`
-	Data         interface{}            `json:"data,omitempty" codec:"data,omitempty"`
-	Encoding     string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
-	Timestamp    int64                  `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
-	Extras       map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
+	ID            string                 `json:"id,omitempty" codec:"id,omitempty"`
+	ClientID      string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	ConnectionID  string                 `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
+	ConnectionKey string                 `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
+	Name          string                 `json:"name,omitempty" codec:"name,omitempty"`
+	Data          interface{}            `json:"data,omitempty" codec:"data,omitempty"`
+	Encoding      string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
+	Timestamp     int64                  `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
+	Extras        map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
 }
 
 func (m Message) String() string {
