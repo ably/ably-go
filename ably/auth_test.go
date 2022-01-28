@@ -31,6 +31,7 @@ func recorder() (*ablytest.RoundTripRecorder, []ably.ClientOption) {
 }
 
 func TestAuth_BasicAuth(t *testing.T) {
+	// Skipping test, see https://github.com/ably/ably-go/issues/438
 	t.Skip("FLAKY TEST")
 	rec, extraOpt := recorder()
 	defer rec.Stop()
@@ -594,6 +595,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 }
 
 func TestAuth_ClientID(t *testing.T) {
+	// Skipping test, see https://github.com/ably/ably-go/issues/438
 	t.Skip("FLAKY TEST")
 	in := make(chan *ably.ProtocolMessage, 16)
 	out := make(chan *ably.ProtocolMessage, 16)
