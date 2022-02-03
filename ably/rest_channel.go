@@ -53,8 +53,9 @@ func newRESTChannel(name string, client *REST) *RESTChannel {
 
 // Publish publishes a message on the channel.
 func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}) error {
+	msg := data.(Message)
 	return c.PublishMultiple(ctx, []*Message{
-		{Name: name, Data: data},
+		{Name: name, Data: data, ConnectionKey: msg.ConnectionKey},
 	})
 }
 
