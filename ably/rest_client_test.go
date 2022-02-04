@@ -839,3 +839,43 @@ var (
 func intervalFormatFor(t time.Time, granularity string) string {
 	return t.Format(intervalFormats[granularity])
 }
+
+// When publishing a message to a channel, data can be either a single string or
+// a struct of type Message. This example shows both of these ways to publish a message.
+func ExampleRESTChannel_Publish() {
+
+	// Create a new REST client.
+	client, err := ably.NewREST(
+		ably.WithKey("ABLY_PRIVATE_KEY"),
+		ably.WithClientID("Client A"),
+	)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	// Initialise a new channel.
+	channel := client.Channels.Get("chat")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	// Publish a string to the channel
+	if err := channel.Publish(ctx, "chat_message", "Hello, how are you?"); err != nil {
+		fmt.Println(err)
+	}
+
+	// Publish a Message to the channel
+	newChatMessage := ably.Message{
+		ID:            "5be9064a-da8c-4336-b046-91b114bf9163",
+		ClientID:      client.Auth.ClientID(),
+		ConnectionID:  "QQJ2CnCSa6",
+		ConnectionKey: "108yZeOBAB7iva!QQJ2CnCSa6A4ql22-a7443108yZeOBAB7iva",
+		Name:          "chat_message",
+		Data:          "Hello, how are you?",
+		Timestamp:     time.Now().Unix(),
+	}
+
+	if err := channel.Publish(ctx, "chat_message", newChatMessage); err != nil {
+		fmt.Println()
+	}
+}
