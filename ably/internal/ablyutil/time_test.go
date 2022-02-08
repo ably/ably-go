@@ -59,6 +59,6 @@ func TestAfterCanceled(t *testing.T) {
 }
 
 func isCloseTo(d time.Duration, to time.Duration) bool {
-	const leeway = 1 * time.Millisecond
+	const leeway = 2 * time.Millisecond
 	return d > to-leeway && d < to+leeway
 }
