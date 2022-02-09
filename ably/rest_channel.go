@@ -52,23 +52,13 @@ func newRESTChannel(name string, client *REST) *RESTChannel {
 }
 
 // Publish publishes a message on the channel.
-func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}) error {
-	//Check to see if data received is of type message.
-	if msg, ok := data.(Message); ok {
-		// Publish the message with connection key.
-		return c.PublishMultiple(ctx, []*Message{
-			{Name: name, Data: data, ConnectionKey: msg.ConnectionKey},
-		})
-	}
-	// Only the name and data are published.
-	return c.PublishMultiple(ctx, []*Message{
-		{Name: name, Data: data},
-	})
+func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}, options ...PublishMultipleOption) error {
+	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}}, options...)
 }
 
 // PublishMultiple publishes multiple messages in a batch.
-func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message) error {
-	return c.PublishMultipleWithOptions(ctx, messages)
+func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
+	return c.PublishMultipleWithOptions(ctx, messages, options...)
 }
 
 // PublishMultipleOption is an optional parameter for
@@ -76,7 +66,15 @@ func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message) 
 type PublishMultipleOption func(*publishMultipleOptions)
 
 type publishMultipleOptions struct {
-	params map[string]string
+	connectionKey string
+	params        map[string]string
+}
+
+// PublishWithConnectionKey allows a message to be published for a specified connectionKey.
+func PublishWithConnectionKey(connectionKey string) PublishMultipleOption {
+	return func(options *publishMultipleOptions) {
+		options.connectionKey = connectionKey
+	}
 }
 
 // Params adds query parameters to the resulting HTTP request to the REST API.
@@ -139,6 +137,13 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 		}
 		query = "?" + queryParams.Encode()
 	}
+
+	if connectionKey := publishOpts.connectionKey; connectionKey != "" {
+		for _, msg := range messages {
+			msg.ConnectionKey = connectionKey
+		}
+	}
+
 	res, err := c.client.post(ctx, c.baseURL+"/messages"+query, messages, nil)
 	if err != nil {
 		return err
