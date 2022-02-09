@@ -224,6 +224,13 @@ err = channel.PublishMultiple(ctx, []*ably.Message{
 if err != nil {
         panic(err)
 }
+
+// A REST client can publish messages on behalf of a realtime client
+// by providing the connection key of the realtime client.
+err := channel.Publish(ctx, "temperature", "12.7", ably.PublishWithConnectionKey("ConnectionKeyOfPublisherClientHere"))
+if err != nil {
+        panic(err)
+}
 ```
 
 ### Querying the History
