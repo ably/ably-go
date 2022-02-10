@@ -52,34 +52,48 @@ func newRESTChannel(name string, client *REST) *RESTChannel {
 }
 
 // Publish publishes a message on the channel.
-func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}) error {
-	return c.PublishMultiple(ctx, []*Message{
-		{Name: name, Data: data},
-	})
-}
-
-// PublishMultiple publishes multiple messages in a batch.
-func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message) error {
-	return c.PublishMultipleWithOptions(ctx, messages)
+func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}, options ...PublishMultipleOption) error {
+	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}}, options...)
 }
 
 // PublishMultipleOption is an optional parameter for
-// RESTChannel.PublishMultipleWithOptions.
+// RESTChannel.Publish and RESTChannel.PublishMultiple.
+//
+// TODO: This started out as just an option for PublishMultiple, but has since
+//       been added as an option for Publish too, so it should be renamed to
+//       PublishOption when we perform the next major version bump to 2.x.x.
 type PublishMultipleOption func(*publishMultipleOptions)
 
 type publishMultipleOptions struct {
-	params map[string]string
+	connectionKey string
+	params        map[string]string
 }
 
-// Params adds query parameters to the resulting HTTP request to the REST API.
-func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
+// PublishWithConnectionKey allows a message to be published for a specified connectionKey.
+func PublishWithConnectionKey(connectionKey string) PublishMultipleOption {
+	return func(options *publishMultipleOptions) {
+		options.connectionKey = connectionKey
+	}
+}
+
+// PublishWithParams adds query parameters to the resulting HTTP request to the REST API.
+func PublishWithParams(params map[string]string) PublishMultipleOption {
 	return func(options *publishMultipleOptions) {
 		options.params = params
 	}
 }
 
-// PublishMultipleWithOptions is PublishMultiple with optional parameters.
-func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
+// PublishMultipleWithParams is the same as PublishWithParams.
+//
+// Deprecated: Use PublishWithParams instead.
+//
+// TODO: Remove this in the next major version bump to 2.x.x.
+func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
+	return PublishWithParams(params)
+}
+
+// PublishMultiple publishes multiple messages in a batch.
+func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
 	var publishOpts publishMultipleOptions
 	for _, o := range options {
 		o(&publishOpts)
@@ -131,11 +145,27 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 		}
 		query = "?" + queryParams.Encode()
 	}
+
+	if connectionKey := publishOpts.connectionKey; connectionKey != "" {
+		for _, msg := range messages {
+			msg.ConnectionKey = connectionKey
+		}
+	}
+
 	res, err := c.client.post(ctx, c.baseURL+"/messages"+query, messages, nil)
 	if err != nil {
 		return err
 	}
 	return res.Body.Close()
+}
+
+// PublishMultipleWithOptions is the same as PublishMultiple.
+//
+// Deprecated: Use PublishMultiple instead.
+//
+// TODO: Remove this in the next major version bump to 2.x.x.
+func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
+	return c.PublishMultiple(ctx, messages, options...)
 }
 
 // History gives the channel's message history.

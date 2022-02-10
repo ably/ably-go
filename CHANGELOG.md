@@ -1,5 +1,33 @@
 # Change Log
 
+## [1.2.4](https://github.com/ably/ably-go/tree/v1.2.4) (2022-02-10)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.3...v1.2.4)
+
+**Fixed bugs:**
+
+- Subscribe\(\), Attach\(\) are either counterintuitive or broken [\#155](https://github.com/ably/ably-go/issues/155)
+
+**Closed issues:**
+
+- Running tests locally, one test always fails. [\#445](https://github.com/ably/ably-go/issues/445)
+- Add ConnectionKey to message [\#442](https://github.com/ably/ably-go/issues/442)
+- Follow the lead of the Go team and support the last two major versions of Go [\#431](https://github.com/ably/ably-go/issues/431)
+- Remove `go.mod` from `examples` [\#428](https://github.com/ably/ably-go/issues/428)
+- Refine the documented release procedure [\#427](https://github.com/ably/ably-go/issues/427)
+- Assess suitability of go 1.13 in our go.mod [\#344](https://github.com/ably/ably-go/issues/344)
+
+**Merged pull requests:**
+
+- Deprecate RESTChannel.PublishMultipleWithOptions [\#450](https://github.com/ably/ably-go/pull/450) ([lmars](https://github.com/lmars))
+- Fix unit test that always failed when run locally. [\#446](https://github.com/ably/ably-go/pull/446) ([Rosalita](https://github.com/Rosalita))
+- Add connection key to messages. [\#443](https://github.com/ably/ably-go/pull/443) ([Rosalita](https://github.com/Rosalita))
+- Disable flaky tests. [\#439](https://github.com/ably/ably-go/pull/439) ([Rosalita](https://github.com/Rosalita))
+- Add `ConnectionKey` to message [\#437](https://github.com/ably/ably-go/pull/437) ([ken8203](https://github.com/ken8203))
+- Documentation improvements for RealtimePresence. [\#435](https://github.com/ably/ably-go/pull/435) ([Rosalita](https://github.com/Rosalita))
+- examples: Remove go.mod and go.sum [\#430](https://github.com/ably/ably-go/pull/430) ([lmars](https://github.com/lmars))
+- Update Go version to 1.16 in go.mod, drop \< 1.16 from versions tested, update README.md fixes \#431 [\#426](https://github.com/ably/ably-go/pull/426) ([Rosalita](https://github.com/Rosalita))
+
 ## [v1.2.3](https://github.com/ably/ably-go/tree/v1.2.3) (2021-10-27)
 
 Sorry for the noise but we made a mistake when we released version 1.2.2 of this library. :facepalm:
