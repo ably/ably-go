@@ -153,7 +153,7 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 }
 
 // When publishing a message to a channel, data can be either a single string or
-// a struct of type Message. This example shows both of these ways to publish a message.
+// a struct of type Message. This example shows the different ways to publish a message.
 func ExampleRealtimeChannel_Publish() {
 
 	// Create a new realtime client.
@@ -162,7 +162,8 @@ func ExampleRealtimeChannel_Publish() {
 		ably.WithClientID("Client A"),
 	)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println(err)
+		return
 	}
 
 	// Initialise a new channel.
@@ -174,20 +175,17 @@ func ExampleRealtimeChannel_Publish() {
 	// Publish a string to the channel
 	if err := channel.Publish(ctx, "chat_message", "Hello, how are you?"); err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	// Publish a Message to the channel
 	newChatMessage := ably.Message{
-		ID:            "5be9064a-da8c-4336-b046-91b114bf9163",
-		ClientID:      client.Auth.ClientID(),
-		ConnectionID:  client.Connection.ID(),
-		ConnectionKey: client.Connection.Key(),
-		Name:          "chat_message",
-		Data:          "Hello, how are you?",
-		Timestamp:     time.Now().Unix(),
+		Name: "chat_message",
+		Data: "Hello, how are you?",
 	}
 
 	if err := channel.Publish(ctx, "chat_message", newChatMessage); err != nil {
-		fmt.Println()
+		fmt.Println(err)
+		return
 	}
 }

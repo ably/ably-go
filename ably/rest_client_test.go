@@ -841,7 +841,7 @@ func intervalFormatFor(t time.Time, granularity string) string {
 }
 
 // When publishing a message to a channel, data can be either a single string or
-// a struct of type Message. This example shows both of these ways to publish a message.
+// a struct of type Message. This example shows the different ways to publish a message.
 func ExampleRESTChannel_Publish() {
 
 	// Create a new REST client.
@@ -850,7 +850,8 @@ func ExampleRESTChannel_Publish() {
 		ably.WithClientID("Client A"),
 	)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println(err)
+		return
 	}
 
 	// Initialise a new channel.
@@ -859,23 +860,37 @@ func ExampleRESTChannel_Publish() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	// Publish a string to the channel
+	// Publish a string to the channel.
 	if err := channel.Publish(ctx, "chat_message", "Hello, how are you?"); err != nil {
 		fmt.Println(err)
+		return
 	}
 
-	// Publish a Message to the channel
+	// Publish a single message to the channel.
 	newChatMessage := ably.Message{
-		ID:            "5be9064a-da8c-4336-b046-91b114bf9163",
-		ClientID:      client.Auth.ClientID(),
-		ConnectionID:  "QQJ2CnCSa6",
-		ConnectionKey: "108yZeOBAB7iva!QQJ2CnCSa6A4ql22-a7443108yZeOBAB7iva",
-		Name:          "chat_message",
-		Data:          "Hello, how are you?",
-		Timestamp:     time.Now().Unix(),
+		Name: "chat_message",
+		Data: "Hello, how are you?",
 	}
 
 	if err := channel.Publish(ctx, "chat_message", newChatMessage); err != nil {
-		fmt.Println()
+		fmt.Println(err)
+		return
+	}
+
+	// Publish multiple messages in a single request.
+	if err := channel.PublishMultiple(ctx, []*ably.Message{
+		{Name: "HelloEvent", Data: "Hello!"},
+		{Name: "ByeEvent", Data: "Bye!"},
+	}); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	// Publish a message on behalf of a different client.
+	if err := channel.Publish(ctx, "temperature", "12.7",
+		ably.PublishWithConnectionKey("connectionKeyOfAnotherClient"),
+	); err != nil {
+		fmt.Println(err)
+		return
 	}
 }

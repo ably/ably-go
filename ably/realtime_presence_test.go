@@ -177,7 +177,8 @@ func ExampleRealtimePresence_Enter() {
 		ably.WithClientID("Client A"),
 	)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println(err)
+		return
 	}
 
 	// A new channel is initialised.
@@ -189,6 +190,7 @@ func ExampleRealtimePresence_Enter() {
 	// The client announces presence with Enter.
 	if err := channel.Presence.Enter(ctx, nil); err != nil {
 		fmt.Println(err)
+		return
 	}
 }
 
@@ -201,7 +203,8 @@ func ExampleRealtimePresence_EnterClient() {
 		ably.WithKey("ABLY_PRIVATE_KEY"),
 	)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println(err)
+		return
 	}
 
 	// A new channel is initialised.
@@ -213,5 +216,6 @@ func ExampleRealtimePresence_EnterClient() {
 	// The presence of Client A is announced using EnterClient.
 	if err := channel.Presence.EnterClient(ctx, "Client A", nil); err != nil {
 		fmt.Println(err)
+		return
 	}
 }
