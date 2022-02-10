@@ -225,9 +225,9 @@ if err != nil {
         panic(err)
 }
 
-// A REST client can publish messages on behalf of a realtime client
-// by providing the connection key of the realtime client.
-err := channel.Publish(ctx, "temperature", "12.7", ably.PublishWithConnectionKey("ConnectionKeyOfPublisherClientHere"))
+// A REST client can publish messages on behalf of another client
+// by providing the connection key of that client.
+err := channel.Publish(ctx, "temperature", "12.7", ably.PublishWithConnectionKey("connectionKeyOfAnotherClient"))
 if err != nil {
         panic(err)
 }
