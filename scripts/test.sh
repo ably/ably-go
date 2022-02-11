@@ -56,7 +56,7 @@ run_tests() {
 
   echo "$(date +%H:%M:%S) - Running ably-go tests with protocol=${protocol}"
 
-  ABLY_PROTOCOL="${protocol}" go test -p 1 -race -v -timeout 120m ./...
+  ABLY_PROTOCOL="${protocol}" go test -tags=integration -p 1 -race -v -timeout 120m ./...
 }
 
 main "$@"

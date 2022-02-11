@@ -35,7 +35,10 @@ jobs:
       - name: Ensure generated code is up-to-date
         run: scripts/ci-generate.sh
 
-      - name: Test with JSON Protocol
+      - name: Unit Tests
+        run: go test -v -tags=unit ./...
+
+      - name: Integration Tests with JSON Protocol
         run: scripts/test.sh --protocol application/json
 
       # We explicitly do this clean between test runs in preference to specifying the slightly opaque `-count=1`
@@ -43,5 +46,5 @@ jobs:
       - name: Clean Test Cache
         run: go clean -testcache
 
-      - name: Test with MessagePack Protocol
+      - name: Integration Tests with MessagePack Protocol
         run: scripts/test.sh --protocol application/x-msgpack
