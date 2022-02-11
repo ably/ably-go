@@ -186,20 +186,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	msg.Count = len(messages)
 	msg.Presence = messages
 	for _, msg := range msg.Presence {
-		var action PresenceAction
-		switch msg.Action {
-		case PresenceActionAbsent:
-			action = PresenceActionAbsent
-		case PresenceActionPresent:
-			action = PresenceActionPresent
-		case PresenceActionEnter:
-			action = PresenceActionEnter
-		case PresenceActionLeave:
-			action = PresenceActionLeave
-		case PresenceActionUpdate:
-			action = PresenceActionUpdate
-		}
-		pres.messageEmitter.Emit(action, (*subscriptionPresenceMessage)(msg))
+		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg))
 	}
 }
 
