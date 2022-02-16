@@ -336,6 +336,13 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 
 - Push Notification Target functional is not applicable for the SDK and thus not implemented.
 
+### Tests
+
+This project contains two types of test. Unit tests and integration tests. The integration tests depend on a git submodule being present. To clone the repo with submodules `git clone git@github.com:ably/ably-go.git --recurse-submodules` 
+
+- Unit tests can be run with `go test -tags=unit ./...`
+- Integration tests can be run using `scripts/test.sh`.
+
 ## Release process
 
 Starting with release 1.2, this library uses [semantic versioning](http://semver.org/). For each release, the following needs to be done:
