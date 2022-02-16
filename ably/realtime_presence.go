@@ -168,6 +168,8 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 			}
 		}
 		switch member.Action {
+		case PresenceActionEnter:
+			pres.members[memberKey] = member
 		case PresenceActionUpdate:
 			member.Action = PresenceActionPresent
 			fallthrough
