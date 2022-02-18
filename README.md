@@ -341,7 +341,7 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 This project contains two types of test. Test which use the `ablytest` package and tests which dont. 
 
 #### Unit tests
-The tests which don't make use of the `ablytest` package are considered unit tests. These tests exist in files which are suffixed `_test.go`. They run in the CI pipeline at the step `Unit Tests`. They can be run locally with the comman `go test -v -tags=unit ./...` When adding new unit tests, the following build tag must be included at the top of the file to exclude these tests from running in CI as part of the Integration test step. 
+The tests which don't make use of the `ablytest` package are considered unit tests. These tests exist in files which are suffixed `_test.go`. They run in the CI pipeline at the step `Unit Tests`. They can be run locally with the command `go test -v -tags=unit ./...` When adding new unit tests, the following build tag must be included at the top of the file to exclude these tests from running in CI as part of the Integration test step. 
 
 ```
 //go:build !integration
