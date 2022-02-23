@@ -338,10 +338,52 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 
 ### Tests
 
-This project contains two types of test. Unit tests and integration tests. The integration tests depend on a git submodule being present. To clone the repo with submodules `git clone git@github.com:ably/ably-go.git --recurse-submodules` 
+This project contains two types of test. Test which use the `ablytest` package and tests which dont. 
 
-- Unit tests can be run with `go test -tags=unit ./...`
-- Integration tests can be run using `scripts/test.sh`.
+#### Unit tests
+
+The tests which don't make use of the `ablytest` package are considered unit tests. These tests exist in files which are suffixed `_test.go`. They run in the CI pipeline at the step `Unit Tests`. They can be run locally with the command: 
+
+```
+go test -v -tags=unit ./...
+``` 
+
+When adding new unit tests, the following build tag must be included at the top of the file to exclude these tests from running in CI as part of the Integration test step. 
+
+```
+//go:build !integration
+// +build !integration
+```
+
+#### Integration tests
+
+The tests which use the package `ablytest` are considered integration tests. These tests take longer to run than the unit tests and are mostly run in a sandbox environment. They are dependent on the sandbox environment being available and will fail if the environment is experiencing issues. While effort has been made to turn off some of these tests which frequently experience random failures (flaky) some of these tests may still fail unexpectedly from time to time. 
+
+Please note that these tests are not true integration tests as rather than using the public API, they rely on `export_test.go` to expose private functionality so that it can be tested. These tests exist in files which are suffixed `_integration_test.go`. They run twice in the CI pipeline at the steps `Integration Tests with JSON Protocol` and `Integration Tests with MessagePack Protocol`. To run these tests locally, they have a dependency on a git submodule being present, so it is necessary clone the project with:
+
+```
+git clone git@github.com:ably/ably-go.git --recurse-submodules
+```
+ 
+A bash script is used to run these tests with the commands: 
+ 
+```
+scripts/test.sh --protocol application/json
+scripts/test.sh --protocol application/x-msgpack
+``` 
+
+Depending on which protocol they are to be run for. It is also necessary to clean the test cache in between runs of these tests which can be done with the command: 
+
+```
+go clean -testcache
+``` 
+
+When adding new integration tests, the following build tag must be included at the top of the file to exclude these tests for running in CI as part of the Unit test step.
+
+```
+//go:build !unit
+// +build !unit
+```
 
 ## Release process
 
