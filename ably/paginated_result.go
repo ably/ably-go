@@ -17,16 +17,18 @@ const (
 )
 
 type paginatedRequest struct {
-	path   string
-	params url.Values
+	path    string
+	rawPath string
+	params  url.Values
 
 	query queryFunc
 }
 
-func (r *REST) newPaginatedRequest(path string, params url.Values) paginatedRequest {
+func (r *REST) newPaginatedRequest(path, rawPath string, params url.Values) paginatedRequest {
 	return paginatedRequest{
-		path:   path,
-		params: params,
+		path:    path,
+		rawPath: rawPath,
+		params:  params,
 
 		query: query(r.get),
 	}
@@ -53,6 +55,7 @@ func (p *PaginatedResult) load(ctx context.Context, r paginatedRequest) error {
 	p.basePath = path.Dir(r.path)
 	p.firstLink = (&url.URL{
 		Path:     r.path,
+		RawPath:  r.rawPath,
 		RawQuery: r.params.Encode(),
 	}).String()
 	p.query = r.query

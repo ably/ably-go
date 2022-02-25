@@ -6,26 +6,10 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ugorji/go/codec"
-)
-
-// based on HttpUtils::encodeURIComponent from ably-java library
-var encodeURIComponent = strings.NewReplacer(
-	" ", "%20",
-	"!", "%21",
-	"'", "%27",
-	"(", "%28",
-	")", "%29",
-	"+", "%2B",
-	":", "%3A",
-	"~", "%7E",
-	"/", "%2F",
-	"?", "%3F",
-	"#", "%23",
 )
 
 // RESTChannel is the interface for REST API operations on a channel.
@@ -42,13 +26,18 @@ func newRESTChannel(name string, client *REST) *RESTChannel {
 	c := &RESTChannel{
 		Name:    name,
 		client:  client,
-		baseURL: "/channels/" + encodeURIComponent.Replace(name),
+		baseURL: "/channels/" + url.PathEscape(name),
 	}
 	c.Presence = &RESTPresence{
 		client:  client,
 		channel: c,
 	}
 	return c
+}
+
+// The channel's name path escaped
+func (c *RESTChannel) pathName() string {
+	return url.PathEscape(c.Name)
 }
 
 // Publish publishes a message on the channel.
@@ -172,7 +161,7 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 	params := (&historyOptions{}).apply(o...)
 	return HistoryRequest{
-		r:       c.client.newPaginatedRequest("/channels/"+c.Name+"/history", params),
+		r:       c.client.newPaginatedRequest("/channels/"+c.Name+"/history", "/channels/"+c.pathName()+"/history", params),
 		channel: c,
 	}
 }
