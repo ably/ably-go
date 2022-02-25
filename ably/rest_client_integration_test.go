@@ -25,6 +25,8 @@ import (
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ablytest"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func newHTTPClientMock(srv *httptest.Server) *http.Client {
@@ -282,7 +284,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		}))
 		defer server.Close()
 		serverURL, err := url.Parse(server.URL)
-		assertNil(t, err)
+		assert.Nil(t, err)
 
 		opts := []ably.ClientOption{
 			ably.WithEnvironment(ablytest.Environment),
@@ -298,7 +300,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
 
 		client.Time(context.Background())
-		assertEquals(t, expectedAgentHeaderValue, agentHeaderValue)
+		assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
 }
 

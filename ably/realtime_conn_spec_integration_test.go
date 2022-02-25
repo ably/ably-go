@@ -18,6 +18,7 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_RTN2_WebsocketQueryParams(t *testing.T) {
@@ -52,52 +53,52 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 	t.Run("RTN2a: format should be msgPack or json", func(t *testing.T) {
 		requestParams := setup(ably.WithUseBinaryProtocol(false)) // default protocol is false
 		protocol := requestParams["format"]
-		assertDeepEquals(t, []string{"json"}, protocol)
+		assert.Equal(t, []string{"json"}, protocol)
 
 		requestParams = setup(ably.WithUseBinaryProtocol(true))
 		protocol = requestParams["format"]
-		assertDeepEquals(t, []string{"msgpack"}, protocol)
+		assert.Equal(t, []string{"msgpack"}, protocol)
 	})
 
 	t.Run("RTN2b: echo should be true by default", func(t *testing.T) {
 		requestParams := setup() // default echo value is true
 		echo := requestParams["echo"]
-		assertDeepEquals(t, []string{"true"}, echo)
+		assert.Equal(t, []string{"true"}, echo)
 
 		requestParams = setup(ably.WithEchoMessages(false))
 		echo = requestParams["echo"]
-		assertDeepEquals(t, []string{"false"}, echo)
+		assert.Equal(t, []string{"false"}, echo)
 	})
 
 	t.Run("RTN2d: clientId contains provided clientId", func(t *testing.T) {
 		requestParams := setup()
 		clientId := requestParams["clientId"]
-		assertNil(t, clientId)
+		assert.Nil(t, clientId)
 
 		// todo - Need to verify if clientId is only valid for Basic Auth Mode
 		clientIdParam := "123"
 		key := "fake:key"
 		requestParams = setup(ably.WithToken(""), ably.WithKey(key), ably.WithClientID(clientIdParam)) // Client Id is only enabled for basic auth
 		clientId = requestParams["clientId"]
-		assertDeepEquals(t, []string{clientIdParam}, clientId)
+		assert.Equal(t, []string{clientIdParam}, clientId)
 	})
 
 	t.Run("RTN2e: depending on the auth scheme, accessToken contains token string or key contains api key", func(t *testing.T) {
 		token := "fake:clientToken"
 		requestParams := setup(ably.WithToken(token))
 		actualToken := requestParams["access_token"]
-		assertDeepEquals(t, []string{token}, actualToken)
+		assert.Equal(t, []string{token}, actualToken)
 
 		key := "fake:key"
 		requestParams = setup(ably.WithToken(""), ably.WithKey(key)) // disable token, use key instead
 		actualKey := requestParams["key"]
-		assertDeepEquals(t, []string{key}, actualKey)
+		assert.Equal(t, []string{key}, actualKey)
 	})
 
 	t.Run("RTN2f: api version v should be the API version", func(t *testing.T) {
 		requestParams := setup()
 		libVersion := requestParams["v"]
-		assertDeepEquals(t, []string{ably.AblyVersion}, libVersion)
+		assert.Equal(t, []string{ably.AblyVersion}, libVersion)
 	})
 }
 
@@ -3244,8 +3245,8 @@ func Test_RTN7b_ACK_NACK(t *testing.T) {
 	c.Channels.Get("test2").Attach(canceledCtx)
 	var attachMsg *ably.ProtocolMessage
 	ablytest.Instantly.Recv(t, &attachMsg, out, t.Fatalf)
-	assertEquals(t, ably.ActionAttach, attachMsg.Action)
-	assertEquals(t, int64(0), attachMsg.MsgSerial)
+	assert.Equal(t, ably.ActionAttach, attachMsg.Action)
+	assert.Equal(t, int64(0), attachMsg.MsgSerial)
 
 	for i := 0; i < 2; i++ {
 		publish()
@@ -3545,7 +3546,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 
 		handleAuth(getToken, nil)
 		expectConnEvent(ably.ConnectionEventUpdate)
-		assertEquals(t, connected, c.Connection.State())
+		assert.Equal(t, connected, c.Connection.State())
 
 		rg.Wait()
 	})
@@ -3561,7 +3562,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 
 		handleAuth(getToken, nil)
 		expectConnEvent(ably.ConnectionEventUpdate)
-		assertEquals(t, connected, c.Connection.State())
+		assert.Equal(t, connected, c.Connection.State())
 
 		rg.Wait()
 	})
@@ -3587,14 +3588,14 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 
 		handleAuth(getToken, nil)
 		expectConnEvent(ably.ConnectionEventUpdate)
-		assertEquals(t, connected, c.Connection.State())
+		assert.Equal(t, connected, c.Connection.State())
 
 		rg.Wait()
 
 		var change ably.ChannelStateChange
 		ablytest.Soon.Recv(t, &change, channelChanges, t.Fatalf)
-		assertEquals(t, ably.ChannelEventFailed, change.Event)
-		assertEquals(t, chFailed, ch.State())
+		assert.Equal(t, ably.ChannelEventFailed, change.Event)
+		assert.Equal(t, chFailed, ch.State())
 	})
 
 	t.Run("RTC8a3: Authorize waits for connection update", func(t *testing.T) {
@@ -3641,7 +3642,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 			return ably.TokenString("made:up")
 		}, nil)
 		expectConnEvent(ably.ConnectionEventFailed)
-		assertEquals(t, failed, c.Connection.State())
+		assert.Equal(t, failed, c.Connection.State())
 
 		rg.Wait()
 	})
