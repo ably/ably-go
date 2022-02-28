@@ -16,6 +16,7 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRealtime_RealtimeHost(t *testing.T) {
@@ -60,7 +61,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 		}))
 		defer server.Close()
 		serverURL, err := url.Parse(server.URL)
-		assertNil(t, err)
+		assert.NoError(t, err)
 
 		client, err := ably.NewRealtime(
 			ably.WithEnvironment(ablytest.Environment),
@@ -76,7 +77,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
 		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
 
-		assertEquals(t, expectedAgentHeaderValue, agentHeaderValue)
+		assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
 }
 
