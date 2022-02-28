@@ -61,7 +61,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 		}))
 		defer server.Close()
 		serverURL, err := url.Parse(server.URL)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		client, err := ably.NewRealtime(
 			ably.WithEnvironment(ablytest.Environment),

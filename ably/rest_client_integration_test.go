@@ -284,7 +284,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		}))
 		defer server.Close()
 		serverURL, err := url.Parse(server.URL)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		opts := []ably.ClientOption{
 			ably.WithEnvironment(ablytest.Environment),
