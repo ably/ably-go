@@ -5,10 +5,10 @@ package ably_test
 
 import (
 	"crypto/aes"
-	"reflect"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCrypto_RSE1_GetDefaultParams(t *testing.T) {
@@ -72,9 +72,8 @@ func TestCrypto_RSE1_GetDefaultParams(t *testing.T) {
 			}()
 
 			got := ably.Crypto.GetDefaultParams(c.in)
-			if !reflect.DeepEqual(c.expected, got) {
-				t.Fatalf("expected: %#v; got: %#v", c.expected, got)
-			}
+			assert.Equal(t, c.expected, got,
+				"expected: %#v; got: %#v", c.expected, got)
 		})
 	}
 }
@@ -82,48 +81,32 @@ func TestCrypto_RSE1_GetDefaultParams(t *testing.T) {
 func TestCrypto_RSE2_GenerateRandomKey(t *testing.T) {
 	t.Run("must use default key length", func(ts *testing.T) {
 		key, err := ably.Crypto.GenerateRandomKey(0)
-		if err != nil {
-			ts.Fatal(err)
-		}
-		got := len(key) * 8 // count bits
-		if got != ably.DefaultCipherKeyLength {
-			ts.Errorf("expected %d got %d", ably.DefaultCipherKeyLength, got)
-		}
+		assert.NoError(ts, err)
+		bitCount := len(key) * 8
+		assert.Equal(ts, ably.DefaultCipherKeyLength, bitCount,
+			"expected %d got %d", ably.DefaultCipherKeyLength, bitCount)
 	})
 	t.Run("must use optional key length", func(ts *testing.T) {
 		keyLength := 128
 		key, err := ably.Crypto.GenerateRandomKey(keyLength)
-		if err != nil {
-			ts.Fatal(err)
-		}
-		got := len(key) * 8 // count bits
-		if got != keyLength {
-			ts.Errorf("expected %d got %d", keyLength, got)
-		}
+		assert.NoError(ts, err)
+		bitCount := len(key) * 8
+		assert.Equal(ts, 128, bitCount,
+			"expected %d got %d", keyLength, bitCount)
 	})
 }
 
 func Test_Issue330_IVReuse(t *testing.T) {
 
 	params, err := ably.DefaultCipherParams()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	cipher, err := ably.NewCBCCipher(*params)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	cipherText1, err := cipher.Encrypt([]byte("foo"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	cipherText2, err := cipher.Encrypt([]byte("foo"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	iv1 := string(cipherText1[:aes.BlockSize])
 	iv2 := string(cipherText2[:aes.BlockSize])
-	if iv1 == iv2 {
-		t.Fatal("IV shouldn't be reused")
-	}
+	assert.NotEqual(t, iv1, iv2, "IV shouldn't be reused")
 }

@@ -3,6 +3,7 @@ package ably
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -14,8 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"encoding/base64"
 )
 
 var (

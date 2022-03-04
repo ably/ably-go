@@ -8,6 +8,7 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEventEmitterConcurrency(t *testing.T) {
@@ -55,17 +56,16 @@ func TestEventEmitterConcurrency(t *testing.T) {
 	close(ongoingCalls[0].goOn)
 	var call called
 	ablytest.Instantly.Recv(t, &call, calls, t.Fatalf)
-	if expected, got := ongoingCalls[0].i, call.i; expected != got {
-		t.Fatalf("expected to unblock handler %d, got %d", expected, got)
-	}
+	assert.Equal(t, ongoingCalls[0].i, call.i,
+		"expected to unblock handler %d, got %d", ongoingCalls[0].i, call.i)
+
 	close(call.goOn)
 
 	// Unblock the other handler too.
 	close(ongoingCalls[1].goOn)
 	ablytest.Instantly.Recv(t, &call, calls, t.Fatalf)
-	if expected, got := ongoingCalls[1].i, call.i; expected != got {
-		t.Fatalf("expected to unblock handler %d, got %d", expected, got)
-	}
+	assert.Equal(t, ongoingCalls[1].i, call.i,
+		"expected to unblock handler %d, got %d", ongoingCalls[1].i, call.i)
 	close(call.goOn)
 
 	// Make sure things still work after emptying the queues.

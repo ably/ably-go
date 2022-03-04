@@ -6,11 +6,11 @@ package ably_test
 import (
 	"fmt"
 	"math/rand"
-	"reflect"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_RTE3_EventEmitter_On(t *testing.T) {
@@ -61,10 +61,8 @@ func Test_RTE3_EventEmitter_On(t *testing.T) {
 
 				var recv ably.EmitterData
 				ablytest.Instantly.Recv(t, &recv, received[name], fatalf)
-
-				if !reflect.DeepEqual(tc.data, recv) {
-					fatalf("expected %q, got %q")
-				}
+				assert.Equal(t, tc.data, recv,
+					"expected %q, got %q", tc.data, recv)
 			}
 
 			assertNoFurtherReceives(t, received)
@@ -120,10 +118,8 @@ func Test_RTE4_EventEmitter_Once(t *testing.T) {
 
 				var recv ably.EmitterData
 				ablytest.Instantly.Recv(t, &recv, received[name], fatalf)
-
-				if !reflect.DeepEqual(tc.data, recv) {
-					fatalf("expected %q, got %q")
-				}
+				assert.Equal(t, tc.data, recv,
+					"expected %q, got %q", tc.data, recv)
 			}
 
 			assertNoFurtherReceives(t, received)

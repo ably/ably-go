@@ -7,68 +7,49 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"reflect"
 	"sort"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
-
 	"github.com/ably/ably-go/ablytest"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHTTPPaginatedResponse(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	defer app.Close()
 	opts := app.Options(ably.WithUseBinaryProtocol(false))
 	client, err := ably.NewREST(opts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	t.Run("request_time", func(t *testing.T) {
 
 		res, err := client.Request("get", "/time").Pages(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if res.StatusCode() != http.StatusOK {
-			t.Errorf("expected %d got %d", http.StatusOK, res.StatusCode())
-		}
-		if !res.Success() {
-			t.Error("expected success to be true")
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, res.StatusCode(),
+			"expected %d got %d", http.StatusOK, res.StatusCode())
+		assert.True(t, res.Success(), "expected success to be true")
 		res.Next(context.Background())
 		var items []interface{}
 		err = res.Items(&items)
-		if err != nil {
-			t.Error(err)
-		}
-		n := len(items)
-		if n != 1 {
-			t.Errorf("expected 1 item got %d", n)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(items),
+			"expected 1 item got %d", len(items))
 	})
 
 	t.Run("request_404", func(t *testing.T) {
 
 		res, err := client.Request("get", "/keys/ablyjs.test/requestToken").Pages(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if res.StatusCode() != http.StatusNotFound {
-			t.Errorf("expected %d got %d", http.StatusNotFound, res.StatusCode())
-		}
-		if res.ErrorCode() != ably.ErrNotFound {
-			t.Errorf("expected %d got %d", ably.ErrNotFound, res.ErrorCode())
-		}
-		if res.Success() {
-			t.Error("expected success to be false")
-		}
-		if res.ErrorMessage() == "" {
-			t.Error("expected error message")
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusNotFound, res.StatusCode(),
+			"expected %d got %d", http.StatusNotFound, res.StatusCode())
+		assert.Equal(t, ably.ErrNotFound, res.ErrorCode(),
+			"expected %d got %d", ably.ErrNotFound, res.ErrorCode())
+		assert.False(t, res.Success(),
+			"expected success to be false")
+		assert.NotEqual(t, "", res.ErrorMessage(),
+			"expected error message")
 	})
 
 	t.Run("request_post_get_messages", func(t *testing.T) {
@@ -82,25 +63,16 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 		t.Run("post", func(t *testing.T) {
 			for _, message := range msgs {
 				res, err := client.Request("POST", channelPath, ably.RequestWithBody(message)).Pages(context.Background())
-				if err != nil {
-					t.Fatal(err)
-				}
-				if res.StatusCode() != http.StatusCreated {
-					t.Errorf("expected %d got %d", http.StatusCreated, res.StatusCode())
-				}
-				if !res.Success() {
-					t.Error("expected success to be true")
-				}
+				assert.NoError(t, err)
+				assert.Equal(t, http.StatusCreated, res.StatusCode(),
+					"expected %d got %d", http.StatusCreated, res.StatusCode())
+				assert.True(t, res.Success(),
+					"expected success to be true")
 				res.Next(context.Background())
 				var items []interface{}
 				err = res.Items(&items)
-				if err != nil {
-					t.Error(err)
-				}
-				n := len(items)
-				if n != 1 {
-					t.Errorf("expected 1 item got %d", n)
-				}
+				assert.NoError(t, err)
+				assert.Equal(t, 1, len(items), "expected 1 item got %d", len(items))
 			}
 		})
 
@@ -109,72 +81,47 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 				"limit":     {"1"},
 				"direction": {"forwards"},
 			})).Pages(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-			if res.StatusCode() != http.StatusOK {
-				t.Errorf("expected %d got %d", http.StatusOK, res.StatusCode())
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, http.StatusOK, res.StatusCode(),
+				"expected %d got %d", http.StatusOK, res.StatusCode())
 			res.Next(context.Background())
 			var items []interface{}
 			err = res.Items(&items)
-			if err != nil {
-				t.Error(err)
-			}
-			n := len(items)
-			if n != 1 {
-				t.Fatalf("expected 1 item got %d", n)
-			}
-			m := items[0].(map[string]interface{})
-			name := m["name"].(string)
-			data := m["data"].(string)
-			if name != msgs[0].Name {
-				t.Errorf("expected %s got %s", msgs[0].Name, name)
-			}
-			if data != msgs[0].Data.(string) {
-				t.Errorf("expected %v got %s", msgs[0].Data, data)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(items), "expected 1 item got %d", len(items))
+			item := items[0].(map[string]interface{})
+			name := item["name"].(string)
+			data := item["data"].(string)
+			assert.Equal(t, "faye", name, "expected name \"faye\" got %s", name)
+			assert.Equal(t, "whittaker", data, "expected data \"whittaker\" got %s", data)
 
 			if !res.Next(context.Background()) {
 				t.Fatal(res.Err())
 			}
 			err = res.Items(&items)
-			if err != nil {
-				t.Error(err)
-			}
-			n = len(items)
-			if n != 1 {
-				t.Fatalf("expected 1 item got %d", n)
-			}
-			m = items[0].(map[string]interface{})
-			name = m["name"].(string)
-			data = m["data"].(string)
-			if name != msgs[1].Name {
-				t.Errorf("expected %s got %s", msgs[1].Name, name)
-			}
-			if data != msgs[1].Data.(string) {
-				t.Errorf("expected %v got %s", msgs[1].Data, data)
-			}
-
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(items),
+				"expected 1 item got %d", len(items))
+			item = items[0].(map[string]interface{})
+			name = item["name"].(string)
+			data = item["data"].(string)
+			assert.Equal(t, "martin", name,
+				"expected name \"martin\" got %s", name)
+			assert.Equal(t, "reed", data,
+				"expected data \"reed\" got %s", data)
 		})
 
-		var m []*ably.Message
-		err := ablytest.AllPages(&m, client.Channels.Get(channelName).History())
-		if err != nil {
-			t.Fatal(err)
-		}
-		sort.Slice(m, func(i, j int) bool {
-			return m[i].Name < m[j].Name
+		var msg []*ably.Message
+		err := ablytest.AllPages(&msg, client.Channels.Get(channelName).History())
+		assert.NoError(t, err)
+		sort.Slice(msg, func(i, j int) bool {
+			return msg[i].Name < msg[j].Name
 		})
-		n := len(m)
-		if n != 2 {
-			t.Fatalf("expected 2 item got %d", n)
-		}
-		if m[0].Name != msgs[0].Name {
-			t.Errorf("expected %s got %s", msgs[0].Name, m[0].Name)
-		}
-		if !reflect.DeepEqual(m[0].Data, msgs[0].Data) {
-			t.Errorf("expected %v got %s", msgs[0].Data, m[0].Data)
-		}
+		assert.Equal(t, 2, len(msg),
+			"expected 2 items in message got %d", len(msg))
+		assert.Equal(t, "faye", msg[0].Name,
+			"expected name \"faye\" got %s", msg[0].Name)
+		assert.Equal(t, "whittaker", msg[0].Data,
+			"expected data \"whittaker\" got %s", msg[0].Data)
 	})
 }
