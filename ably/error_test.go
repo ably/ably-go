@@ -21,13 +21,15 @@ import (
 func TestErrorResponseWithInvalidKey(t *testing.T) {
 	opts := []ably.ClientOption{ably.WithKey(":")}
 	_, e := ably.NewREST(opts...)
-	if e == nil {
-		t.Fatal("NewREST(): expected err != nil")
-	}
+	assert.Error(t, e,
+		"NewREST(): expected err != nil")
 	err, ok := e.(*ably.ErrorInfo)
-	assert.True(t, ok, fmt.Sprintf("want e be *ably.Error; was %T", e))
-	assert.Equal(t, 400, err.StatusCode, fmt.Sprintf("want StatusCode=400; got %d", err.StatusCode))
-	assert.Equal(t, ably.ErrInvalidCredential, err.Code, fmt.Sprintf("want Code=	; got %d", err.Code))
+	assert.True(t, ok,
+		"want e be *ably.Error; was %T", e)
+	assert.Equal(t, 400, err.StatusCode,
+		"want StatusCode=400; got %d", err.StatusCode)
+	assert.Equal(t, ably.ErrInvalidCredential, err.Code,
+		"want Code=40005; got %d", err.Code)
 	assert.NotNil(t, err.Unwrap())
 }
 
@@ -36,7 +38,7 @@ func TestIssue127ErrorResponse(t *testing.T) {
 	errMsg := "This is an html error body"
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Test request parameters
-		assert.Equal(t, req.URL.String(), "/time")
+		assert.Equal(t, "/time", req.URL.String())
 		// Send response to be tested
 		rw.Header().Set("Content-Type", "text/html")
 		rw.WriteHeader(400)
@@ -55,11 +57,11 @@ func TestIssue127ErrorResponse(t *testing.T) {
 	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
 	opts = append(opts, ably.WithPort(int(port)))
-	client, e := ably.NewREST(opts...)
-	assert.Nil(t, e)
+	client, err := ably.NewREST(opts...)
+	assert.NoError(t, err)
 
 	_, err = client.Time(context.Background())
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Contains(t, err.Error(), errMsg)
 }
 
@@ -69,68 +71,52 @@ func TestErrorInfo(t *testing.T) {
 		e := &ably.ErrorInfo{
 			StatusCode: 401,
 		}
-		h := "help.ably.io"
-		if strings.Contains(e.Error(), h) {
-			t.Errorf("expected error message not to contain %s", h)
-		}
+		assert.NotContains(t, e.Error(), "help.ably.io",
+			"expected error message not to contain \"help.ably.io\"")
 	})
 	t.Run("with an error code", func(t *testing.T) {
 
 		e := &ably.ErrorInfo{
 			Code: 44444,
 		}
-		h := "https://help.ably.io/error/44444"
-		if !strings.Contains(e.Error(), h) {
-			t.Errorf("expected error message %s  to contain %s", e.Error(), h)
-		}
+		assert.Contains(t, e.Error(), "https://help.ably.io/error/44444",
+			"expected error message %s to contain \"https://help.ably.io/error/44444\"", e.Error())
 	})
 	t.Run("with an error code and an href attribute", func(t *testing.T) {
 
-		href := "http://foo.bar.com/"
 		e := &ably.ErrorInfo{
 			Code: 44444,
-			HRef: href,
+			HRef: "http://foo.bar.com/",
 		}
-		h := "https://help.ably.io/error/44444"
-		if strings.Contains(e.Error(), h) {
-			t.Errorf("expected error message %s not to contain %s", e.Error(), h)
-		}
-		if !strings.Contains(e.Error(), href) {
-			t.Errorf("expected error message %s  to contain %s", e.Error(), href)
-		}
+		assert.NotContains(t, e.Error(), "https://help.ably.io/error/44444",
+			"expected error message %s not to contain \"https://help.ably.io/error/44444\"", e.Error())
+		assert.Contains(t, e.Error(), "http://foo.bar.com/",
+			"expected error message %s to contain \"http://foo.bar.com/\"", e.Error())
 	})
 
 	t.Run("with an error code and a message with the same error URL", func(t *testing.T) {
 
 		e := ably.NewErrorInfo(44444, errors.New("error https://help.ably.io/error/44444"))
-		h := "https://help.ably.io/error/44444"
-		if !strings.Contains(e.Error(), h) {
-			t.Errorf("expected error message %s  to contain %s", e.Error(), h)
-		}
-		n := strings.Count(e.Error(), h)
-		if n != 1 {
-			t.Errorf("expected 1 occupance of %s got %d", h, n)
-		}
+		assert.Contains(t, e.Error(), "https://help.ably.io/error/44444",
+			"expected error message %s to contain \"https://help.ably.io/error/44444\"", e.Error())
+
+		count := strings.Count(e.Error(), "https://help.ably.io/error/44444")
+		assert.Equal(t, 1, count, "expected 1 occurrence of \"https://help.ably.io/error/44444\" got %d", count)
+
 	})
 	t.Run("with an error code and a message with a different error URL", func(t *testing.T) {
 
 		e := ably.NewErrorInfo(44444, errors.New("error https://help.ably.io/error/123123"))
-		h := "https://help.ably.io/error/44444"
-		if !strings.Contains(e.Error(), h) {
-			t.Errorf("expected error message %s  to contain %s", e.Error(), h)
-		}
-		n := strings.Count(e.Error(), "help.ably.io")
-		if n != 2 {
-			t.Errorf("expected 2 got %d", n)
-		}
-		n = strings.Count(e.Error(), "/123123")
-		if n != 1 {
-			t.Errorf("expected 1 got %d", n)
-		}
-		n = strings.Count(e.Error(), "/44444")
-		if n != 1 {
-			t.Errorf("expected 1 got %d", n)
-		}
+		assert.Contains(t, e.Error(), "https://help.ably.io/error/44444",
+			"expected error message %s to contain \"https://help.ably.io/error/44444\"", e.Error())
+		count := strings.Count(e.Error(), "help.ably.io")
+		assert.Equal(t, 2, count,
+			"expected 2 occurrences of \"help.ably.io\" got %d", count)
+		count = strings.Count(e.Error(), "/123123")
+		assert.Equal(t, 1, count,
+			"expected 1 occurence of \"/123123\" got %d", count)
+		count = strings.Count(e.Error(), "/44444")
+		assert.Equal(t, 1, count, "expected 1 occurence of \"/44444\" got %d", count)
 	})
 }
 
@@ -142,7 +128,7 @@ func TestIssue_154(t *testing.T) {
 	defer server.Close()
 
 	endpointURL, err := url.Parse(server.URL)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	opts := []ably.ClientOption{
 		ably.WithKey("xxxxxxx.yyyyyyy:zzzzzzz"),
 		ably.WithTLS(false),
@@ -152,12 +138,11 @@ func TestIssue_154(t *testing.T) {
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
 	opts = append(opts, ably.WithPort(int(port)))
 	client, e := ably.NewREST(opts...)
-	assert.Nil(t, e)
+	assert.NoError(t, e)
 
 	_, err = client.Time(context.Background())
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	et := err.(*ably.ErrorInfo)
-	if et.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("expected %d got %d: %v", http.StatusMethodNotAllowed, et.StatusCode, err)
-	}
+	assert.Equal(t, http.StatusMethodNotAllowed, et.StatusCode,
+		"expected %d got %d: %v", http.StatusMethodNotAllowed, et.StatusCode, err)
 }

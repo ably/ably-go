@@ -6,10 +6,11 @@ package ably_test
 import (
 	"encoding/base64"
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type custom struct{}
@@ -20,13 +21,9 @@ func (custom) MarshalJSON() ([]byte, error) {
 
 func TestMessage(t *testing.T) {
 	key, err := base64.StdEncoding.DecodeString("WUP6u0K7MXI5Zeo0VppPwg==")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	iv, err := base64.StdEncoding.DecodeString("HO4cYSP8LybPYBPZPHQOtg==")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	params := ably.CipherParams{
 		Key:       key,
 		KeyLength: 128,
@@ -111,30 +108,19 @@ func TestMessage(t *testing.T) {
 			msg, err := ably.MessageWithEncodedData(ably.Message{
 				Data: v.data,
 			}, cipher)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assert.NoError(t, err)
 			b, err := json.Marshal(msg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got := string(b)
-			if got != v.encodedJSON {
-				t.Errorf("expected %s got %s", v.encodedJSON, got)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, v.encodedJSON, string(b),
+				"expected %s got %s", v.encodedJSON, string(b))
 
 			var encoded ably.Message
 			err = json.Unmarshal(b, &encoded)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assert.NoError(t, err)
 			decoded, err := ably.MessageWithDecodedData(encoded, cipher)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !reflect.DeepEqual(decoded.Data, v.decoded) {
-				t.Errorf("expected %#v got %#v", v.decoded, decoded.Data)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, v.decoded, decoded.Data,
+				"expected %#v got %#v", v.decoded, decoded.Data)
 		})
 	}
 }

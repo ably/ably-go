@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -161,7 +162,8 @@ func TestFallbackHosts_RSC15b(t *testing.T) {
 			ably.WithFallbackHosts([]string{"a.example.com", "b.example.com"}),
 			ably.WithFallbackHostsUseDefault(true))
 		_, err := clientOptions.GetFallbackHosts()
-		assert.Equal(t, err.Error(), "fallbackHosts and fallbackHostsUseDefault cannot both be set")
+		assert.Equal(t, err.Error(),
+			"fallbackHosts and fallbackHostsUseDefault cannot both be set")
 	})
 
 	t.Run("RSC15b with fallbackHostsUseDefault And custom port", func(t *testing.T) {
@@ -169,7 +171,8 @@ func TestFallbackHosts_RSC15b(t *testing.T) {
 		_, isDefaultPort := clientOptions.ActivePort()
 		assert.False(t, isDefaultPort)
 		_, err := clientOptions.GetFallbackHosts()
-		assert.Equal(t, err.Error(), "fallbackHostsUseDefault cannot be set when port or tlsPort are set")
+		assert.Equal(t, err.Error(),
+			"fallbackHostsUseDefault cannot be set when port or tlsPort are set")
 
 		clientOptions = ably.NewClientOptions(
 			ably.WithTLS(false),
@@ -179,16 +182,16 @@ func TestFallbackHosts_RSC15b(t *testing.T) {
 		_, isDefaultPort = clientOptions.ActivePort()
 		assert.False(t, isDefaultPort)
 		_, err = clientOptions.GetFallbackHosts()
-		assert.Equal(t, err.Error(), "fallbackHostsUseDefault cannot be set when port or tlsPort are set")
+		assert.Equal(t, err.Error(),
+			"fallbackHostsUseDefault cannot be set when port or tlsPort are set")
 	})
 }
 
 func TestClientOptions(t *testing.T) {
 	t.Run("must return error on invalid key", func(t *testing.T) {
 		_, err := ably.NewREST([]ably.ClientOption{ably.WithKey("invalid")}...)
-		if err == nil {
-			t.Error("expected an error")
-		}
+		assert.Error(t, err,
+			"expected an error")
 	})
 }
 
@@ -200,9 +203,8 @@ func TestScopeParams(t *testing.T) {
 			End:   time.Unix(0, 0).Add(122 * time.Millisecond),
 		}
 		err := params.EncodeValues(nil)
-		if err == nil {
-			t.Fatal("expected an error")
-		}
+		assert.Error(t, err,
+			"expected an error")
 	})
 
 	t.Run("must set url values", func(t *testing.T) {
@@ -213,17 +215,13 @@ func TestScopeParams(t *testing.T) {
 		}
 		u := make(url.Values)
 		err := params.EncodeValues(&u)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		start := u.Get("start")
 		end := u.Get("end")
-		if start != "122" {
-			t.Errorf("expected 122 got %s", start)
-		}
-		if end != "123" {
-			t.Errorf("expected 123 got %s", end)
-		}
+		assert.Equal(t, "122", start,
+			"expected 122 got %s", start)
+		assert.Equal(t, "123", end,
+			"expected 123 got %s", end)
 	})
 }
 
@@ -233,13 +231,10 @@ func TestPaginateParams(t *testing.T) {
 		params := ably.PaginateParams{}
 		values := make(url.Values)
 		err := params.EncodeValues(&values)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		encode := values.Encode()
-		if encode != "" {
-			t.Errorf("expected empty string got %s", encode)
-		}
+		assert.Equal(t, "", encode,
+			"expected empty string got %s", encode)
 	})
 
 	t.Run("returns the full params encoded", func(t *testing.T) {
@@ -255,14 +250,9 @@ func TestPaginateParams(t *testing.T) {
 		}
 		values := make(url.Values)
 		err := params.EncodeValues(&values)
-		if err != nil {
-			t.Fatal(err)
-		}
-		expect := "direction=backwards&end=124&limit=1&start=123&unit=hello"
-		got := values.Encode()
-		if got != expect {
-			t.Errorf("expected %s got %s", expect, got)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, "direction=backwards&end=124&limit=1&start=123&unit=hello", values.Encode(),
+			"expected \"direction=backwards&end=124&limit=1&start=123&unit=hello\" got %s", values.Encode())
 	})
 
 	t.Run("with value", func(t *testing.T) {
@@ -273,9 +263,7 @@ func TestPaginateParams(t *testing.T) {
 		}
 		values := make(url.Values)
 		err := params.EncodeValues(&values)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 	})
 
 	t.Run("with a value for ScopeParams", func(t *testing.T) {
@@ -284,13 +272,9 @@ func TestPaginateParams(t *testing.T) {
 		params := ably.PaginateParams{}
 		params.Start = time.Unix(0, 0).Add(123 * time.Millisecond)
 		err := params.EncodeValues(&values)
-		if err != nil {
-			t.Fatal(err)
-		}
-		start := values.Get("start")
-		if start != "123" {
-			t.Errorf("expected 123 got %s", start)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, "123", values.Get("start"),
+			"expected 123 got %s", values.Get("start"))
 	})
 	t.Run("with invalid value for direction", func(t *testing.T) {
 
@@ -298,9 +282,7 @@ func TestPaginateParams(t *testing.T) {
 		params := ably.PaginateParams{}
 		params.Direction = "unknown"
 		err := params.EncodeValues(&values)
-		if err == nil {
-			t.Fatal("expected an error")
-		}
+		assert.Error(t, err)
 	})
 	t.Run("with invalid value for limit", func(t *testing.T) {
 
@@ -308,12 +290,8 @@ func TestPaginateParams(t *testing.T) {
 		params := ably.PaginateParams{}
 		params.Limit = -1
 		err := params.EncodeValues(&values)
-		if err != nil {
-			t.Fatal(err)
-		}
-		limit := values.Get("limit")
-		if limit != "100" {
-			t.Errorf("expected 100 got %s", limit)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, "100", values.Get("limit"),
+			"expected 100 got %s", values.Get("limit"))
 	})
 }

@@ -5,19 +5,18 @@ package ably_test
 
 import (
 	"context"
-
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAuth_TimestampRSA10k(t *testing.T) {
 	now, err := time.Parse(time.RFC822, time.RFC822)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	t.Run("must use local time when UseQueryTime is false", func(t *testing.T) {
 
@@ -31,12 +30,9 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 			return now.Add(time.Minute), nil
 		})
 		stamp, err := a.Timestamp(context.Background(), false)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !stamp.Equal(now) {
-			t.Errorf("expected %s got %s", now, stamp)
-		}
+		assert.NoError(t, err)
+		assert.True(t, stamp.Equal(now),
+			"expected %s got %s", now, stamp)
 	})
 	t.Run("must use server time when UseQueryTime is true", func(t *testing.T) {
 
@@ -50,13 +46,10 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 			return now.Add(time.Minute), nil
 		})
 		stamp, err := rest.Timestamp(true)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		serverTime := now.Add(time.Minute)
-		if !stamp.Equal(serverTime) {
-			t.Errorf("expected %s got %s", serverTime, stamp)
-		}
+		assert.True(t, stamp.Equal(serverTime),
+			"expected %s got %s", serverTime, stamp)
 	})
 	t.Run("must use server time offset ", func(t *testing.T) {
 
@@ -71,26 +64,20 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 			return now.Add(time.Minute), nil
 		})
 		stamp, err := rest.Timestamp(true)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		serverTime := now.Add(time.Minute)
-		if !stamp.Equal(serverTime) {
-			t.Errorf("expected %s got %s", serverTime, stamp)
-		}
+		assert.True(t, stamp.Equal(serverTime),
+			"expected %s got %s", serverTime, stamp)
 
 		now = now.Add(time.Minute)
 		a.SetServerTimeFunc(func() (time.Time, error) {
 			return time.Time{}, errors.New("must not be called")
 		})
 		stamp, err = rest.Timestamp(true)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		serverTime = now.Add(time.Minute)
-		if !stamp.Equal(serverTime) {
-			t.Errorf("expected %s got %s", serverTime, stamp)
-		}
+		assert.True(t, stamp.Equal(serverTime),
+			"expected %s got %s", serverTime, stamp)
 	})
 }
 
@@ -101,7 +88,6 @@ func TestAuth_ClientID_Error(t *testing.T) {
 		ably.WithUseTokenAuth(true),
 	}
 	_, err := ably.NewRealtime(opts...)
-	if err := checkError(40102, err); err != nil {
-		t.Fatal(err)
-	}
+	err = checkError(40102, err)
+	assert.NoError(t, err)
 }

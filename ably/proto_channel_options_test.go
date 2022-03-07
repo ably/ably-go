@@ -8,32 +8,27 @@ import (
 	"testing"
 
 	"github.com/ably/ably-go/ably"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRealtimeChannelModes_ToFlag(t *testing.T) {
 	mode := ably.ChannelModePresence
 	flag := ably.ChannelModeToFlag(mode)
-	if flag != ably.FlagPresence {
-		t.Fatalf("Expected %v, received %v", ably.FlagPresence, flag)
-	}
-
+	assert.Equal(t, ably.FlagPresence, flag,
+		"Expected %v, received %v", ably.FlagPresence, flag)
 	mode = ably.ChannelModeSubscribe
 	flag = ably.ChannelModeToFlag(mode)
-	if flag != ably.FlagSubscribe {
-		t.Fatalf("Expected %v, received %v", ably.FlagSubscribe, flag)
-	}
-
+	assert.Equal(t, ably.FlagSubscribe, flag,
+		"Expected %v, received %v", ably.FlagSubscribe, flag)
 	mode = ably.ChannelModePublish
 	flag = ably.ChannelModeToFlag(mode)
-	if flag != ably.FlagPublish {
-		t.Fatalf("Expected %v, received %v", ably.FlagPublish, flag)
-	}
-
+	assert.Equal(t, ably.FlagPublish, flag,
+		"Expected %v, received %v", ably.FlagPublish, flag)
 	mode = ably.ChannelModePresenceSubscribe
 	flag = ably.ChannelModeToFlag(mode)
-	if flag != ably.FlagPresenceSubscribe {
-		t.Fatalf("Expected %v, received %v", ably.FlagPresenceSubscribe, flag)
-	}
+	assert.Equal(t, ably.FlagPresenceSubscribe, flag,
+		"Expected %v, received %v", ably.FlagPresenceSubscribe, flag)
 }
 
 func TestRealtimeChannelModes_FromFlag(t *testing.T) {
@@ -56,19 +51,12 @@ func TestRealtimeChannelModes_FromFlag(t *testing.T) {
 	flags := ably.FlagPresence | ably.FlagPresenceSubscribe | ably.FlagSubscribe
 	modes := ably.ChannelModeFromFlag(flags)
 
-	if !inArray(ably.ChannelModePresence, modes) {
-		t.Fatalf("Expected %v to be present in %v", ably.ChannelModePresence, modes)
-	}
-
-	if !inArray(ably.ChannelModePresenceSubscribe, modes) {
-		t.Fatalf("Expected %v to be present in %v", ably.ChannelModePresenceSubscribe, modes)
-	}
-
-	if !inArray(ably.ChannelModeSubscribe, modes) {
-		t.Fatalf("Expected %v to be present in %v", ably.ChannelModeSubscribe, modes)
-	}
-
-	if inArray(ably.ChannelModePublish, modes) {
-		t.Fatalf("Expected %v not to be present in %v", ably.ChannelModePublish, modes)
-	}
+	assert.True(t, inArray(ably.ChannelModePresence, modes),
+		"Expected %v to be present in %v", ably.ChannelModePresence, modes)
+	assert.True(t, inArray(ably.ChannelModePresenceSubscribe, modes),
+		"Expected %v to be present in %v", ably.ChannelModePresenceSubscribe, modes)
+	assert.True(t, inArray(ably.ChannelModeSubscribe, modes),
+		"Expected %v to be present in %v", ably.ChannelModeSubscribe, modes)
+	assert.False(t, inArray(ably.ChannelModePublish, modes),
+		"Expected %v not to be present in %v", ably.ChannelModePublish, modes)
 }
