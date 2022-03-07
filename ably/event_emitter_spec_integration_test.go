@@ -10,6 +10,7 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
+
 	"github.com/stretchr/testify/assert"
 )
 

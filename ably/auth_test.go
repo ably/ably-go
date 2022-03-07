@@ -5,12 +5,12 @@ package ably_test
 
 import (
 	"context"
-
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
+
 	"github.com/stretchr/testify/assert"
 )
 

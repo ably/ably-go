@@ -10,6 +10,8 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/internal/ablyutil"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPresenceMessage(t *testing.T) {
@@ -33,37 +35,25 @@ func TestPresenceMessage(t *testing.T) {
 
 		t.Run("json", func(ts *testing.T) {
 			b, err := json.Marshal(m)
-			if err != nil {
-				ts.Fatal(err)
-			}
+			assert.NoError(ts, err)
 			msg := ably.PresenceMessage{}
 			err = json.Unmarshal(b, &msg)
-			if err != nil {
-				ts.Fatal(err)
-			}
-			if msg.ID != id {
-				ts.Errorf("expected id to be %s got %s", id, msg.ID)
-			}
-			if msg.Action != a {
-				ts.Errorf("expected action to be %d got %d", a, msg.Action)
-			}
+			assert.NoError(ts, err)
+			assert.Equal(ts, id, msg.ID,
+				"expected id to be %s got %s", id, msg.ID)
+			assert.Equal(ts, a, msg.Action,
+				"expected action to be %d got %d", a, msg.Action)
 		})
 		t.Run("msgpack", func(ts *testing.T) {
 			b, err := ablyutil.MarshalMsgpack(m)
-			if err != nil {
-				ts.Fatal(err)
-			}
+			assert.NoError(ts, err)
 			msg := ably.PresenceMessage{}
 			err = ablyutil.UnmarshalMsgpack(b, &msg)
-			if err != nil {
-				ts.Fatal(err)
-			}
-			if msg.ID != id {
-				ts.Errorf("expected id to be %s got %s", id, msg.ID)
-			}
-			if msg.Action != a {
-				ts.Errorf("expected action to be %d got %d", a, msg.Action)
-			}
+			assert.NoError(ts, err)
+			assert.Equal(ts, id, msg.ID,
+				"expected id to be %s got %s", id, msg.ID)
+			assert.Equal(ts, a, msg.Action,
+				"expected action to be %d got %d", a, msg.Action)
 		})
 	}
 }

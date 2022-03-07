@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ably/ably-go/ably"
+
 	"github.com/stretchr/testify/assert"
 )
 

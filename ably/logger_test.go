@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/ably/ably-go/ably"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type dummyLogger struct {
@@ -30,9 +32,8 @@ func TestFilteredLogger(t *testing.T) {
 		lg.Printf(ably.LogInfo, say)
 		lg.Printf(ably.LogWarning, say)
 		lg.Printf(ably.LogError, say)
-		if l.printf != 4 {
-			t.Errorf("expected 4 log messages got %d", l.printf)
-		}
+		assert.Equal(t, 4, l.printf,
+			"expected 4 log messages got %d", l.printf)
 	})
 	t.Run("must log nothing  for LogNone", func(t *testing.T) {
 
@@ -45,8 +46,7 @@ func TestFilteredLogger(t *testing.T) {
 		lg.Printf(ably.LogInfo, say)
 		lg.Printf(ably.LogWarning, say)
 		lg.Printf(ably.LogError, say)
-		if l.printf > 0 {
-			t.Error("expected nothing to be logged")
-		}
+		assert.Equal(t, 0, l.printf,
+			"expected nothing to be logged")
 	})
 }
