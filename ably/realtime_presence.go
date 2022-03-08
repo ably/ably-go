@@ -96,7 +96,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage) {
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
 	switch {
-	case msg.Flags.Has(flagHasPresence) || serial != "":
+	case msg.Flags.Has(flagHasPresence):
 		pres.syncStart(serial)
 	case pres.syncState == syncInitial:
 		pres.syncState = syncComplete
