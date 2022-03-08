@@ -157,7 +157,7 @@ func (c *REST) Time(ctx context.Context) (time.Time, error) {
 // Stats retrieves statistics about the Ably app's activity.
 func (c *REST) Stats(o ...StatsOption) StatsRequest {
 	params := (&statsOptions{}).apply(o...)
-	return StatsRequest{r: c.newPaginatedRequest("/stats", params)}
+	return StatsRequest{r: c.newPaginatedRequest("/stats", "", params)}
 }
 
 // A StatsOption configures a call to REST.Stats or Realtime.Stats.

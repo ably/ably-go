@@ -18,7 +18,7 @@ type RESTPresence struct {
 func (c *RESTPresence) Get(o ...GetPresenceOption) PresenceRequest {
 	params := (&getPresenceOptions{}).apply(o...)
 	return PresenceRequest{
-		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence", params),
+		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence", "/channels/"+c.channel.pathName()+"/presence", params),
 		channel: c.channel,
 	}
 }
@@ -64,7 +64,7 @@ func (p *RESTPresence) log() logger {
 func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceRequest {
 	params := (&presenceHistoryOptions{}).apply(o...)
 	return PresenceRequest{
-		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence/history", params),
+		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence/history", "/channels/"+c.channel.pathName()+"/presence/history", params),
 		channel: c.channel,
 	}
 }
