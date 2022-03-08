@@ -92,6 +92,12 @@ func applyChannelOptions(os ...ChannelOption) *channelOptions {
 // Get looks up a channel given by the name and creates it if it does not exist
 // already.
 //
+// If the channel does not already exist it is created with the given channel options.
+// Otherwise the existing channel is returned and options ignored.
+//
+// Creating a channel only adds a new channel struct into the channel map. It does not
+// perform any network communication until attached.
+//
 // It is safe to call Get from multiple goroutines - a single channel is
 // guaranteed to be created only once for multiple calls to Get from different
 // goroutines.
@@ -107,7 +113,7 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 	return c
 }
 
-// Iterate returns a list of created channels.
+// Iterate returns a list of existing channels.
 //
 // It is safe to call Iterate from multiple goroutines, however there's no guarantee
 // the returned list would not list a channel that was already released from
@@ -123,6 +129,9 @@ func (ch *RealtimeChannels) Iterate() []*RealtimeChannel { // RSN2, RTS2
 }
 
 // Exists returns true if the channel by the given name exists.
+//
+// This function just checks the local channel map for existence. It can not check
+// for the existence of channels created by other clients,
 func (c *RealtimeChannels) Exists(name string) bool { // RSN2, RTS2
 	c.mtx.Lock()
 	_, ok := c.chans[name]
@@ -536,7 +545,7 @@ func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Messa
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
 		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
-			// Spec RSL1g3,RSL1g4
+			// Spec RTL6g3,RTL6g4
 			return fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
 		}
 	}

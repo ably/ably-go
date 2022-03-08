@@ -309,6 +309,8 @@ func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*Pre
 // Enter announces presence of the current client with an enter message
 // for the associated channel.
 //
+// If this connection has no clientID then this function will fail.
+//
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // presence state may eventually be updated anyway.
@@ -324,6 +326,8 @@ func (pres *RealtimePresence) Enter(ctx context.Context, data interface{}) error
 //
 // If the current client is not present on the channel, Update will
 // behave as Enter method.
+//
+// If this connection has no clientID then this function will fail.
 //
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
