@@ -1,5 +1,36 @@
 # Change Log
 
+## [1.2.5](https://github.com/ably/ably-go/tree/v1.2.5) (2022-03-09)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.4...v1.2.5)
+
+**Fixed bugs:**
+
+- Failure to get channel with slash [\#463](https://github.com/ably/ably-go/issues/463)
+- Hang when joining presence [\#462](https://github.com/ably/ably-go/issues/462)
+- Frequently, a client can not get their own presence from a channel after making one call to `channel.Presence.Enter`. [\#436](https://github.com/ably/ably-go/issues/436)
+
+**Closed issues:**
+
+- Test improvements - Move integration tests to their own package. [\#458](https://github.com/ably/ably-go/issues/458)
+- SPIKE : Find a way to run a single integration test with a CLI command [\#449](https://github.com/ably/ably-go/issues/449)
+- Test improvements - Separate unit tests and integration tests. [\#447](https://github.com/ably/ably-go/issues/447)
+- Release ably-go [\#440](https://github.com/ably/ably-go/issues/440)
+
+**Merged pull requests:**
+
+- Expand docs on some functions [\#468](https://github.com/ably/ably-go/pull/468) ([Morganamilo](https://github.com/Morganamilo))
+- Tests/standardise assertions pt2 [\#467](https://github.com/ably/ably-go/pull/467) ([Rosalita](https://github.com/Rosalita))
+- Fix / not being escaped by rest client [\#466](https://github.com/ably/ably-go/pull/466) ([Morganamilo](https://github.com/Morganamilo))
+- Part 1 of standardising test assertions [\#465](https://github.com/ably/ably-go/pull/465) ([Rosalita](https://github.com/Rosalita))
+- Increased unit test coverage for auth.go [\#461](https://github.com/ably/ably-go/pull/461) ([Rosalita](https://github.com/Rosalita))
+- Add detailed description of project tests to readme.md [\#460](https://github.com/ably/ably-go/pull/460) ([Rosalita](https://github.com/Rosalita))
+- Split existing tests into unit and integration, add tags and add to CI [\#457](https://github.com/ably/ably-go/pull/457) ([Rosalita](https://github.com/Rosalita))
+- Fix hang when joining existing channel with no presence [\#455](https://github.com/ably/ably-go/pull/455) ([Morganamilo](https://github.com/Morganamilo))
+- Add presence message to presence map on enter [\#454](https://github.com/ably/ably-go/pull/454) ([Morganamilo](https://github.com/Morganamilo))
+- Remove useless switch [\#453](https://github.com/ably/ably-go/pull/453) ([Morganamilo](https://github.com/Morganamilo))
+- Add examples of publishing for both REST and realtime client. [\#444](https://github.com/ably/ably-go/pull/444) ([Rosalita](https://github.com/Rosalita))
+
 ## [1.2.4](https://github.com/ably/ably-go/tree/v1.2.4) (2022-02-10)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.3...v1.2.4)
