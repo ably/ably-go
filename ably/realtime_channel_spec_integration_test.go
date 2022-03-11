@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -494,7 +493,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			"expected %v; got %v (event: %+v)", ably.ChannelStateFailed, channelStatechange.Current, channelStatechange)
 
 		attachErr := <-channelTransitioner.err[chAttaching]
-		assert.Error(t, attachErr)
+		assert.Error(t, attachErr,
+			"attach should return channel failed error")
 		assert.Equal(t, ably.ErrorCode(50001), ably.UnwrapErrorCode(attachErr),
 			"want code=50001; got %d", ably.UnwrapErrorCode(err))
 
@@ -544,7 +544,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			"expected %v; got %v (event: %+v)", ably.ChannelStateDetached, channelStatechange.Current, channelStatechange)
 
 		attachErr := <-channelTransitioner.err[chAttaching]
-		assert.Error(t, attachErr, "attach should return channel detached error")
+		assert.Error(t, attachErr,
+			"attach should return channel detached error")
 		assert.Equal(t, ably.ErrorCode(50001), ably.UnwrapErrorCode(attachErr),
 			"want code=50001; got %d", ably.UnwrapErrorCode(err))
 
@@ -579,7 +580,6 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		// Check that the attach message is sent
 		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
-
 		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent)
 		assert.True(t, attachSent,
 			"Should send attach message, since connection state is connected")
@@ -607,7 +607,6 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		app, err := ablytest.NewSandbox(nil)
 		assert.NoError(t, err)
-
 		defer safeclose(t, app)
 
 		rest, _ := ably.NewREST(app.Options()...)
@@ -639,8 +638,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		var afterCall ablytest.AfterCall
 		ablytest.Instantly.Recv(t, &afterCall, afterCalls, t.Fatalf)
 
-		actualTimeout := afterCall.D
-		assert.Equal(t, 10*time.Second, actualTimeout,
+		assert.Equal(t, 10*time.Second, afterCall.D,
 			"attach request timeout is not equal to 10s")
 
 		// cause a timeout
@@ -707,7 +705,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		// Check that the attach message is sent
 		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
 		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent)
-		assert.False(t, attachSent,
+		assert.True(t, attachSent,
 			"Should send attach message, since connection state is connected")
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
@@ -1522,7 +1520,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		assert.NoError(t, err)
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
-
 		assert.Equal(t, ably.ChannelStateAttaching, channelStatechange.Current,
 			"expected %v; got %v (event: %+v)", ably.ChannelStateAttaching, channelStatechange.Current, channelStatechange)
 
@@ -1577,7 +1574,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		// Check that the detach message sent
 		checkIfDetachSent := recorder.CheckIfSent(ably.ActionDetach, 1)
-
 		detachSent := ablytest.Instantly.IsTrue(checkIfDetachSent)
 		assert.True(t, detachSent, "Detach message was not sent")
 
@@ -1702,7 +1698,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		// Check that the detach message isn't sent
 		checkIfDetachSent := recorder.CheckIfSent(ably.ActionDetach, 1)
 		detachSent := ablytest.Instantly.IsTrue(checkIfDetachSent)
-		assert.False(t, detachSent, "Detach message was sent before connection is established")
+		assert.False(t, detachSent,
+			"Detach message was sent before connection is established")
 		assert.Contains(t, err.Error(), "cannot Detach channel because connection is in CLOSING state",
 			"expected error to contain \"cannot Detach channel because connection is in CLOSING state\"; got %v", err.Error())
 
@@ -1767,7 +1764,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		// Check that the detach message isn't sent
 		checkIfDetachSent := recorder.CheckIfSent(ably.ActionDetach, 1)
 		detachSent := ablytest.Instantly.IsTrue(checkIfDetachSent)
-		assert.False(t, detachSent, "Detach message was sent before connection is established")
+		assert.False(t, detachSent,
+			"Detach message was sent before connection is established")
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		assert.Equal(t, ably.ChannelStateDetaching, channelStatechange.Current,
@@ -1783,7 +1781,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		// Check that the detach message sent
 		detachSent = ablytest.Instantly.IsTrue(checkIfDetachSent)
-		assert.True(t, detachSent, "Detach message was not sent")
+		assert.True(t, detachSent,
+			"Detach message was not sent")
 
 		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		assert.Equal(t, ably.ChannelStateDetached, channelStatechange.Current,
@@ -1852,7 +1851,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		// Check that the detach message sent
 		detachSent = ablytest.Instantly.IsTrue(checkIfDetachSent)
-		assert.True(t, detachSent, "Detach message was not sent")
+		assert.True(t, detachSent,
+			"Detach message was not sent")
 
 		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		assert.Equal(t, ably.ChannelStateDetached, channelStatechange.Current,
@@ -1901,7 +1901,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		// Check that the detach message isn't sent
 		checkIfDetachSent := recorder.CheckIfSent(ably.ActionDetach, 1)
 		detachSent := ablytest.Instantly.IsTrue(checkIfDetachSent)
-		assert.False(t, detachSent, "Detach message was sent before connection is established")
+		assert.False(t, detachSent,
+			"Detach message was sent before connection is established")
 
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't send detach waiting to get attached
 
@@ -1913,7 +1914,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		// Check that the detach message sent
 		detachSent = ablytest.Instantly.IsTrue(checkIfDetachSent)
-		assert.True(t, detachSent, "Detach message was not sent")
+		assert.True(t, detachSent,
+			"Detach message was not sent")
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		assert.Equal(t, ably.ChannelStateDetaching, channelStatechange.Current,
@@ -1940,7 +1942,6 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
 		assert.Equal(t, ably.ChannelStateDetached, change.Current,
 			"expected %v; got %v (event: %+v)", ably.ChannelStateDetached, change.Current, change)
-
 		ablytest.Instantly.NoRecv(t, &change, stateChanges, t.Fatalf)
 	})
 
@@ -2048,8 +2049,8 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 			msg := make(messages, 1)
 
 			_, err = subClient.Channels.Get("test").SubscribeAll(context.Background(), msg.Receive)
-			if err != nil {
-				assert.False(t, errors.Is(err, context.Canceled))
+			if err != nil && !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
 			}
 
 			err = channel.Publish(ctx, "test", nil)
@@ -2138,9 +2139,7 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
 
 			app, err := ablytest.NewSandbox(nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assert.NoError(t, err)
 			defer safeclose(t, app)
 
 			recorder := NewMessageRecorder()
@@ -2170,18 +2169,18 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 
 			published := recorder.CheckIfSent(ably.ActionMessage, 1)
 
-			if published := ablytest.Instantly.IsTrue(published); published {
-				t.Fatalf("message was published before connection is established")
-			}
+			isPublished := ablytest.Instantly.IsTrue(published)
+			assert.False(t, isPublished,
+				"message was published before connection is established")
 
 			// After moving to CONNECTED, check that message is finally published.
 
 			closer = c.To(connecting, connected)
 			defer safeclose(t, closer)
 
-			if published := ablytest.Soon.IsTrue(published); !published {
-				t.Fatalf("message wasn't published once connection is established")
-			}
+			isPublished = ablytest.Soon.IsTrue(published)
+			assert.True(t, isPublished,
+				"message wasn't published once connection is established")
 		})
 	}
 }
@@ -2242,9 +2241,7 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
 
 			app, err := ablytest.NewSandbox(nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assert.NoError(t, err)
 			defer safeclose(t, app)
 
 			recorder := NewMessageRecorder()
@@ -2268,13 +2265,13 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 
 			published := recorder.CheckIfSent(ably.ActionMessage, 1)
 
-			if published := ablytest.Instantly.IsTrue(published); published {
-				t.Fatalf("message was published when it shouldn't")
-			}
+			isPublished := ablytest.Instantly.IsTrue(published)
+			assert.False(t, isPublished,
+				"message was published when it shouldn't be")
 
-			if err := <-publishErr; err == nil || errors.Is(err, context.Canceled) {
-				t.Fatalf("expected publish error")
-			}
+			err = <-publishErr
+			assert.Error(t, err,
+				"expected publish error")
 		})
 	}
 }
@@ -2284,19 +2281,15 @@ func TestRealtimeChannel_RTL6c5_NoImplicitAttach(t *testing.T) {
 	app, c := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
 
-	if err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil); err != nil {
-		t.Fatal(err)
-	}
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
 
 	channel := c.Channels.Get("test")
-	err := channel.Publish(context.Background(), "test", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	err = channel.Publish(context.Background(), "test", nil)
+	assert.NoError(t, err)
 
-	if channel.State() == chAttached {
-		t.Fatal("channel implicitly attached")
-	}
+	assert.NotEqual(t, chAttached, channel.State(),
+		"channel implicitly attached")
 }
 
 func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
@@ -2330,9 +2323,7 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 		}
 
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 
 		channel = c.Channels.Get("test")
 
@@ -2368,13 +2359,10 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 			var change ably.ChannelStateChange
 
 			ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-			if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
-				t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-			}
-
-			if change.Resumed != isResume {
-				t.Fatalf("expected resumed to be %v (event: %+v)", isResume, change)
-			}
+			assert.Equal(t, ably.ChannelStateAttached, change.Current,
+				"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current, change)
+			assert.Equal(t, isResume, change.Resumed,
+				"expected resumed to be %v (event: %+v)", isResume, change)
 
 			// Expect the retry loop to be finished.
 			ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
@@ -2394,9 +2382,8 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 		var change ably.ChannelStateChange
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
+		assert.Equal(t, ably.ChannelStateAttached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current, change)
 
 		// Re-attach the channel
 		errInfo := ably.ProtoErrorInfo{
@@ -2413,21 +2400,19 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 		}
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelEventUpdate, change.Event; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-		if expected, got := ably.ChannelStateAttached, change.Previous; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-		if change.Resumed {
-			t.Fatalf("expected resume to be false")
-		}
-		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
-			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
-		}
+		assert.Equal(t, ably.ChannelEventUpdate, change.Event,
+			"expected %v; got %v (event: %+v)", ably.ChannelEventUpdate, change.Event, change)
+		assert.Equal(t, ably.ChannelStateAttached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current, change)
+		assert.Equal(t, ably.ChannelStateAttached, change.Previous,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Previous, change)
+		assert.False(t, change.Resumed,
+			"expected resume to be false")
+
+		got := fmt.Sprint(change.Reason)
+		assert.Contains(t, got, "fake error",
+			"expected error info to contain \"fake error\"; got %v", got)
+
 		// Expect the retry loop to be finished.
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
@@ -2466,9 +2451,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		}
 
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 
 		channel = c.Channels.Get("test")
 
@@ -2497,9 +2480,8 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		var change ably.ChannelStateChange
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
+		assert.Equal(t, ably.ChannelStateAttached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current, change)
 
 		errInfo := ably.ProtoErrorInfo{
 			StatusCode: 500,
@@ -2516,18 +2498,17 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		// Expect a transition to ATTACHING with the error.
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
-			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
-		}
+		assert.Equal(t, ably.ChannelStateAttaching, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttaching, change.Current, change)
+
+		got := fmt.Sprint(change.Reason)
+		assert.Contains(t, got, "fake error",
+			"expected error info to contain \"fake error\"; got %v", got)
 
 		var msg *ably.ProtocolMessage
 		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
-		if expected, got := ably.ActionAttach, msg.Action; expected != got {
-			t.Fatalf("expected %v; got %v (message: %+v)", expected, got, msg)
-		}
+		assert.Equal(t, ably.ActionAttach, msg.Action,
+			"expected %v; got %v (message: %+v)", ably.ActionAttach, msg.Action, msg)
 
 		// TODO: Test attach failure too, which requires RTL4e.
 
@@ -2536,12 +2517,10 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			Channel: channel.Name,
 		}
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-		if change.Reason != nil {
-			t.Fatal(change.Reason)
-		}
+		assert.Equal(t, ably.ChannelStateAttached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current, change)
+		assert.Nil(t, change.Reason,
+			"unexpected change reason %v", change.Reason)
 
 		// Expect the retry loop to be finished.
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
@@ -2568,34 +2547,31 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		var change ably.ChannelStateChange
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateDetached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
-			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
-		}
+		assert.Equal(t, ably.ChannelStateDetached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateDetached, change.Current, change)
+
+		got := fmt.Sprint(change.Reason)
+		assert.Contains(t, got, "fake error",
+			"expected error info to contain \"fake error\"; got %v", got)
 
 		// Expect an attempt to attach after channelRetryTimeout.
 
 		var call ablytest.AfterCall
 		ablytest.Instantly.Recv(t, &call, afterCalls, t.Fatalf)
-		if expected, got := channelRetryTimeout, call.D; expected != got {
-			t.Fatalf("expected %v; got %v", expected, got)
-		}
+		assert.Equal(t, channelRetryTimeout, call.D,
+			"expected %v; got %v", channelRetryTimeout, call.D)
 		call.Fire()
 
 		// Expect a transition to ATTACHING, and an ATTACH message.
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
+		assert.Equal(t, ably.ChannelStateAttaching, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttaching, change.Current, change)
 
 		var msg *ably.ProtocolMessage
 		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
-		if expected, got := ably.ActionAttach, msg.Action; expected != got {
-			t.Fatalf("expected %v; got %v (message: %+v)", expected, got, msg)
-		}
+		assert.Equal(t, ably.ActionAttach, msg.Action,
+			"expected %v; got %v (message: %+v)", ably.ActionAttach, msg.Action, msg)
 
 		// TODO: Test attach failure too, which requires RTL4f.
 
@@ -2604,13 +2580,10 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			Channel: channel.Name,
 		}
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-
-		if change.Reason != nil {
-			t.Fatal(change.Reason)
-		}
+		assert.Equal(t, ably.ChannelStateAttached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current, change)
+		assert.Nil(t, change.Reason,
+			"unexpected change reason %v", change.Reason)
 
 		// Expect the retry loop to be finished.
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
@@ -2637,29 +2610,26 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		var change ably.ChannelStateChange
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateDetached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
-		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
-			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
-		}
+		assert.Equal(t, ably.ChannelStateDetached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateDetached, change.Current, change)
+
+		got := fmt.Sprint(change.Reason)
+		assert.Contains(t, got, "fake error",
+			"expected error info to contain \"fake error\"; got %v", got)
 
 		// Expect an attempt to attach after channelRetryTimeout.
 
 		var call ablytest.AfterCall
 		ablytest.Instantly.Recv(t, &call, afterCalls, t.Fatalf)
-		if expected, got := channelRetryTimeout, call.D; expected != got {
-			t.Fatalf("expected %v; got %v", expected, got)
-		}
+		assert.Equal(t, channelRetryTimeout, call.D,
+			"expected %v; got %v", channelRetryTimeout, call.D)
 
 		// Get the connection to a non-CONNECTED state by closing in.
 
 		err := ablytest.Wait(ablytest.ConnWaiter(c, func() {
 			close(in)
 		}, ably.ConnectionEventDisconnected), nil)
-		if !errors.Is(err, io.EOF) {
-			t.Fatal(err)
-		}
+		assert.True(t, errors.Is(err, io.EOF))
 
 		// Now trigger the channelRetryTimeout.
 
@@ -2706,9 +2676,7 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		}
 
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 
 		channel = c.Channels.Get("test")
 
@@ -2754,9 +2722,8 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		var change ably.ChannelStateChange
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf) // Consume ATTACHING
-		if expected, got := ably.ChannelStateAttaching, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
+		assert.Equal(t, ably.ChannelStateAttaching, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttaching, change.Current, change)
 
 		// Shouldn't receive message when state is ATTACHING
 		receiveMessage()
@@ -2769,9 +2736,8 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		}
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf) // Consume ATTACHED
-		if expected, got := ably.ChannelStateAttached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
+		assert.Equal(t, ably.ChannelStateAttached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current, change)
 
 		channel.SubscribeAll(context.Background(), func(message *ably.Message) {
 			msg <- message
@@ -2789,9 +2755,8 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume DETACHING
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf) // DETACHING channel state
-		if expected, got := ably.ChannelStateDetaching, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
+		assert.Equal(t, ably.ChannelStateDetaching, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateDetaching, change.Current, change)
 
 		in <- &ably.ProtocolMessage{
 			Action:  ably.ActionDetached,
@@ -2799,9 +2764,8 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		}
 
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf) // Consume DETACHED
-		if expected, got := ably.ChannelStateDetached, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
+		assert.Equal(t, ably.ChannelStateDetached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateDetached, change.Current, change)
 
 		// Shouldn't receive message when state is DETACHED
 		receiveMessage()
@@ -2842,9 +2806,7 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 		}
 
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 
 		channel = c.Channels.Get("test")
 
@@ -2880,17 +2842,16 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 
 		var change ably.ChannelStateChange
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		if expected, got := ably.ChannelStateFailed, change.Current; expected != got {
-			t.Fatalf("expected %v; got %v (event: %+v)", expected, got, change)
-		}
+		assert.Equal(t, ably.ChannelStateFailed, change.Current,
+			"expected %v; got %v (event: %+v)", change)
 
-		if got := fmt.Sprint(change.Reason); !strings.Contains(got, errInfo.Message) {
-			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
-		}
+		got := fmt.Sprint(change.Reason)
+		assert.Contains(t, got, "fake error",
+			"expected error info to contain \"fake error\"; got %v", got)
 
-		if got := fmt.Sprint(channel.ErrorReason()); !strings.Contains(got, errInfo.Message) {
-			t.Fatalf("expected %+v; got %v (error: %+v)", errInfo, got, change.Reason)
-		}
+		got = fmt.Sprint(channel.ErrorReason())
+		assert.Contains(t, got, "fake error",
+			"expected error info to contain \"fake error\"; got %v", got)
 
 		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
