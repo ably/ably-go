@@ -12,6 +12,8 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var connTransitions = []ably.ConnectionState{
@@ -28,15 +30,18 @@ func TestRealtimeConn_Connect(t *testing.T) {
 	off := rec.Listen(client)
 	defer off()
 
-	if err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected), nil); err != nil {
-		t.Fatalf("Connect()=%v", err)
-	}
-	if serial := client.Connection.Serial(); *serial != -1 {
-		t.Fatalf("want serial=-1; got %d", serial)
-	}
-	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
-		t.Fatalf("ablytest.FullRealtimeCloser(client).Close()=%v", err)
-	}
+	err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err,
+		"Connect()=%v", err)
+
+	serial := client.Connection.Serial()
+	assert.NotNil(t, serial)
+	assert.Equal(t, int64(-1), *serial,
+		"want serial=-1; got %d", client.Connection.Serial())
+
+	err = ablytest.FullRealtimeCloser(client).Close()
+	assert.NoError(t, err, "ablytest.FullRealtimeCloser(client).Close()=%v", err)
+
 	if !ablytest.Soon.IsTrue(func() bool {
 		return ablytest.Contains(rec.States(), connTransitions)
 	}) {
@@ -54,15 +59,18 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 	off := rec.Listen(client)
 	defer off()
 
-	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
-		t.Fatalf("Connect()=%v", err)
-	}
-	if serial := client.Connection.Serial(); *serial != -1 {
-		t.Fatalf("want serial=-1; got %d", serial)
-	}
-	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
-		t.Fatalf("ablytest.FullRealtimeCloser(client).Close()=%v", err)
-	}
+	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err, "Connect()=%v", err)
+
+	serial := client.Connection.Serial()
+	assert.NotNil(t, serial)
+	assert.Equal(t, int64(-1), *serial,
+		"want serial=-1; got %d", client.Connection.Serial())
+
+	err = ablytest.FullRealtimeCloser(client).Close()
+	assert.NoError(t, err,
+		"ablytest.FullRealtimeCloser(client).Close()=%v", err)
+
 	if !ablytest.Soon.IsTrue(func() bool {
 		return ablytest.Contains(rec.States(), connTransitions)
 	}) {
@@ -77,15 +85,15 @@ func TestRealtimeConn_ConnectClose(t *testing.T) {
 	off := rec.Listen(client)
 	defer off()
 
-	if err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected), nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := ablytest.FullRealtimeCloser(client).Close(); err != nil {
-		t.Fatalf("ablytest.FullRealtimeCloser(client).Close()=%v", err)
-	}
-	if err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventClosed), nil); err != nil {
-		t.Fatal(err)
-	}
+	err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+	err = ablytest.FullRealtimeCloser(client).Close()
+	assert.NoError(t, err,
+		"ablytest.FullRealtimeCloser(client).Close()=%v", err)
+
+	err = ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventClosed), nil)
+	assert.NoError(t, err)
+
 	if !ablytest.Soon.IsTrue(func() bool {
 		return ablytest.Contains(rec.States(), connTransitions)
 	}) {
@@ -97,9 +105,9 @@ func TestRealtimeConn_AlreadyConnected(t *testing.T) {
 	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
-	if err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err != nil {
-		t.Fatalf("Connect=%s", err)
-	}
+	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err,
+		"Connect=%s", err)
 
 	changes := make(chan ably.ConnectionStateChange, 1)
 	off := client.Connection.OnceAll(func(change ably.ConnectionStateChange) {
@@ -117,12 +125,12 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 		ably.WithAutoConnect(false),
 	}
 	client, err := ably.NewRealtime(opts...)
-	if err != nil {
-		t.Fatalf("NewRealtime()=%v", err)
-	}
-	if err = ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil); err == nil {
-		t.Fatal("Connect(): want err != nil")
-	}
+	assert.NoError(t, err,
+		"NewRealtime()=%v", err)
+
+	err = ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+	assert.Error(t, err,
+		"Connect(): want err != nil")
 }
 
 func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
@@ -169,9 +177,8 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 		t.Fatal("didn't receive state change event")
 	}
 
-	if expected, got := ably.ConnectionStateConnected, state.Current; expected != got {
-		t.Fatalf("expected %v, got %v", expected, got)
-	}
+	assert.Equal(t, ably.ConnectionStateConnected, state.Current,
+		"expected %v, got %v", ably.ConnectionStateConnected, state.Current)
 
 	leeway := 10 * time.Millisecond
 	select {
@@ -180,9 +187,8 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 		t.Fatal("didn't receive state change event")
 	}
 
-	if expected, got := ably.ConnectionStateDisconnected, state.Current; expected != got {
-		t.Fatalf("expected %v, got %v", expected, got)
-	}
+	assert.Equal(t, ably.ConnectionStateDisconnected, state.Current,
+		"expected %v, got %v", ably.ConnectionStateDisconnected, state.Current)
 }
 
 /*
@@ -275,9 +281,8 @@ func TestRealtimeConn_SendErrorReconnects(t *testing.T) {
 
 	allowDial <- struct{}{}
 
-	if err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil); err != nil {
-		t.Fatal(err)
-	}
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
 
 	// Cause a send error; expect message to be enqueued and transport to be
 	// closed.
@@ -299,9 +304,6 @@ func TestRealtimeConn_SendErrorReconnects(t *testing.T) {
 	ablytest.Instantly.Send(t, allowDial, struct{}{}, t.Fatalf)
 
 	// After reconnection, message should be published.
-	var err error
 	ablytest.Soon.Recv(t, &err, publishErr, t.Fatalf)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 }
