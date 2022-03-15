@@ -428,17 +428,20 @@ func (*subscriptionMessage) isEmitterData() {}
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
 func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(*Message)) (unsubscribe func(), err error) {
+	unsubscribe = c.messageEmitter.On(subscriptionName(name), func(message emitterData) {
+		handle((*Message)(message.(*subscriptionMessage)))
+	})
 	res, err := c.attach()
 	if err != nil {
+		unsubscribe()
 		return nil, err
 	}
 	err = res.Wait(ctx)
 	if err != nil {
+		unsubscribe()
 		return nil, err
 	}
-	return c.messageEmitter.On(subscriptionName(name), func(message emitterData) {
-		handle((*Message)(message.(*subscriptionMessage)))
-	}), nil
+	return unsubscribe, nil
 }
 
 // SubscribeAll register a message handler to be called with each message
@@ -452,17 +455,20 @@ func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle fun
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
 func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message)) (unsubscribe func(), err error) {
+	unsubscribe = c.messageEmitter.OnAll(func(message emitterData) {
+		handle((*Message)(message.(*subscriptionMessage)))
+	})
 	res, err := c.attach()
 	if err != nil {
+		unsubscribe()
 		return nil, err
 	}
 	err = res.Wait(ctx)
 	if err != nil {
+		unsubscribe()
 		return nil, err
 	}
-	return c.messageEmitter.OnAll(func(message emitterData) {
-		handle((*Message)(message.(*subscriptionMessage)))
-	}), nil
+	return unsubscribe, nil
 }
 
 type channelStateChanges chan ChannelStateChange
