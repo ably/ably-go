@@ -13,6 +13,8 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
+
+	"github.com/stretchr/testify/assert"
 )
 
 /*
@@ -58,7 +60,6 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 }
 
 func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
-
 	for _, c := range []struct {
 		direction ably.Direction
 		expected  []*ably.PresenceMessage
@@ -84,16 +85,20 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 
 			expected := c.expected
 
-			var err error
-			if !ablytest.Soon.IsTrue(func() bool {
-				err = ablytest.TestPagination(expected, channel.Presence.History(
-					ably.PresenceHistoryWithLimit(len(expected)),
-					ably.PresenceHistoryWithDirection(c.direction),
-				), len(expected), ablytest.PaginationWithEqual(presenceEqual))
+			presenceHistory := channel.Presence.History(
+				ably.PresenceHistoryWithLimit(len(expected)),
+				ably.PresenceHistoryWithDirection(c.direction),
+			)
+			testFunc := func() bool {
+				err := ablytest.TestPagination(
+					expected,
+					presenceHistory,
+					len(expected),
+					ablytest.PaginationWithEqual(presenceEqual),
+				)
 				return err == nil
-			}) {
-				t.Fatal(err)
 			}
+			assert.True(t, ablytest.Soon.IsTrue(testFunc))
 		})
 	}
 }
@@ -140,7 +145,6 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 }
 
 func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
-
 	for _, clientID := range []string{
 		"client_bool",
 		"client_string",
@@ -156,25 +160,25 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 				return p.ClientID == clientID
 			})
 
-			var err error
-			if !ablytest.Soon.IsTrue(func() bool {
-				err = ablytest.TestPagination(
+			presence := channel.Presence.Get(
+				ably.GetPresenceWithClientID(clientID),
+			)
+			testFunc := func() bool {
+				err := ablytest.TestPagination(
 					expected,
-					channel.Presence.Get(ably.GetPresenceWithClientID(clientID)),
+					presence,
 					1,
 					ablytest.PaginationWithEqual(presenceEqual),
 					ablytest.PaginationWithSortResult(sortPresenceByClientID),
 				)
 				return err == nil
-			}) {
-				t.Fatal(err)
 			}
+			assert.True(t, ablytest.Soon.IsTrue(testFunc))
 		})
 	}
 }
 
 func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
-
 	app, rest := ablytest.NewREST()
 	defer app.Close()
 
@@ -198,29 +202,29 @@ func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 	for connID, expected := range expectedByConnID {
 		connID, expected := connID, expected
 		rg.GoAdd(func(ctx context.Context) error {
+			presence := channel.Presence.Get(ably.GetPresenceWithConnectionID(connID))
 			var err error
-			if !ablytest.Soon.IsTrue(func() bool {
+			testFunc := func() bool {
 				err = ablytest.TestPagination(
 					[]*ably.PresenceMessage{{
 						Action:  ably.PresenceActionPresent,
 						Message: expected,
 					}},
-					channel.Presence.Get(ably.GetPresenceWithConnectionID(connID)),
+					presence,
 					1,
 					ablytest.PaginationWithEqual(presenceEqual),
 					ablytest.PaginationWithSortResult(sortPresenceByClientID),
 				)
 				return err == nil
-			}) {
-				return fmt.Errorf("connID %s: %w", connID, err)
 			}
+			assert.True(t, ablytest.Soon.IsTrue(testFunc),
+				"connID %s: %w", connID, err)
 			return nil
 		})
 	}
 
-	if err := rg.Wait(); err != nil {
-		t.Fatal(err)
-	}
+	err := rg.Wait()
+	assert.NoError(t, err)
 }
 
 func presenceHistoryFixtures() []*ably.PresenceMessage {
@@ -258,9 +262,8 @@ func postPresenceHistoryFixtures(t *testing.T, ctx context.Context, app *ablytes
 		case ably.PresenceActionLeave:
 			err = p.LeaveClient(ctx, m.ClientID, m.Data)
 		}
-		if err != nil {
-			t.Errorf("at presence fixture #%d (%v): %v", i, m.Action, err)
-		}
+		assert.NoError(t, err,
+			"at presence fixture #%d (%v): %v", i, m.Action, err)
 	}
 
 	return ablytest.FullRealtimeCloser(realtime)
