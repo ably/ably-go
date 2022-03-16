@@ -268,8 +268,8 @@ func (*subscriptionPresenceMessage) isEmitterData() {}
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
-func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceAction, handle func(*PresenceMessage)) (unsubscribe func(), err error) {
-	unsubscribe = pres.messageEmitter.On(action, func(message emitterData) {
+func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceAction, handle func(*PresenceMessage)) (func(), error) {
+	unsubscribe := pres.messageEmitter.On(action, func(message emitterData) {
 		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
 	})
 	res, err := pres.channel.attach()
@@ -295,8 +295,8 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
-func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*PresenceMessage)) (unsubscribe func(), err error) {
-	unsubscribe = pres.messageEmitter.OnAll(func(message emitterData) {
+func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*PresenceMessage)) (func(), error) {
+	unsubscribe := pres.messageEmitter.OnAll(func(message emitterData) {
 		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
 	})
 	res, err := pres.channel.attach()
