@@ -427,8 +427,8 @@ func (*subscriptionMessage) isEmitterData() {}
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
-func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(*Message)) (unsubscribe func(), err error) {
-	unsubscribe = c.messageEmitter.On(subscriptionName(name), func(message emitterData) {
+func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(*Message)) (func(), error) {
+	unsubscribe := c.messageEmitter.On(subscriptionName(name), func(message emitterData) {
 		handle((*Message)(message.(*subscriptionMessage)))
 	})
 	res, err := c.attach()
@@ -454,8 +454,8 @@ func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle fun
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
-func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message)) (unsubscribe func(), err error) {
-	unsubscribe = c.messageEmitter.OnAll(func(message emitterData) {
+func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message)) (func(), error) {
+	unsubscribe := c.messageEmitter.OnAll(func(message emitterData) {
 		handle((*Message)(message.(*subscriptionMessage)))
 	})
 	res, err := c.attach()
