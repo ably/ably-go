@@ -16,6 +16,7 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,19 +37,13 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 				return MessagePipe(nil, nil)(protocol, u, timeout)
 			}),
 		)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		client.Connect()
 		var recordedHost string
 		ablytest.Instantly.Recv(t, &recordedHost, dial, t.Fatalf)
 		h, _, err := net.SplitHostPort(recordedHost)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if h != host {
-			t.Errorf(" expected %q got %q", host, h)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, host, h, "expected %q got %q", host, h)
 	}
 }
 
@@ -69,9 +64,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			ably.WithToken("fake:token"),
 			ably.WithUseTokenAuth(true),
 			ably.WithRealtimeHost(serverURL.Host))
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		defer client.Close()
 
 		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
@@ -101,9 +94,8 @@ func TestRealtime_multiple(t *testing.T) {
 	var all ablytest.ResultGroup
 	var wg sync.WaitGroup
 	app, err := ablytest.NewSandbox(nil)
-	if err != nil {
-		t.Fatalf("NewSandbox()=%v", err)
-	}
+	assert.NoError(t, err,
+		"NewSandbox()=%v", err)
 	defer safeclose(t, app)
 	wg.Add(N)
 	idch := make(chan string, N)
@@ -120,10 +112,8 @@ func TestRealtime_multiple(t *testing.T) {
 				return
 			}
 			defer safeclose(t, ablytest.FullRealtimeCloser(c))
-			if err = ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil); err != nil {
-				t.Error(err)
-				return
-			}
+			err = ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+			assert.NoError(t, err)
 			var rg ablytest.ResultGroup
 			rg.Add(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 			for j := 0; j < 10; j++ {
