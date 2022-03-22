@@ -236,6 +236,15 @@ func (p *MessagesPaginatedResult) Next(ctx context.Context) bool {
 	return p.next(ctx, &p.items)
 }
 
+func (p *MessagesPaginatedResult) IsLast(ctx context.Context) bool {
+	return !p.HasNext(ctx)
+}
+
+func (p *MessagesPaginatedResult) HasNext(ctx context.Context) bool {
+	fmt.Println(&p.query)
+	return p.nextLink != ""
+}
+
 // Items returns the current page of results.
 //
 // See the "Paginated results" section in the package-level documentation.

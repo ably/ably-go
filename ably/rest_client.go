@@ -284,6 +284,14 @@ func (p *StatsPaginatedItems) Next(ctx context.Context) bool {
 	return true
 }
 
+func (p *StatsPaginatedResult) IsLast(ctx context.Context) bool {
+	return !p.HasNext(ctx)
+}
+
+func (p *StatsPaginatedResult) HasNext(ctx context.Context) bool {
+	return p.nextLink != ""
+}
+
 // Item returns the current result.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -427,6 +435,14 @@ func (p *HTTPPaginatedResponse) Next(ctx context.Context) bool {
 	return p.next(ctx, &p.items)
 }
 
+func (p *HTTPPaginatedResponse) IsLast(ctx context.Context) bool {
+	return !p.HasNext(ctx)
+}
+
+func (p *HTTPPaginatedResponse) HasNext(ctx context.Context) bool {
+	return p.nextLink != ""
+}
+
 // Items unmarshals the current page of results as JSON into the provided
 // variable.
 //
@@ -468,6 +484,14 @@ func (p *RESTPaginatedItems) Next(ctx context.Context) bool {
 	}
 	p.item = p.items[i]
 	return true
+}
+
+func (p *RESTPaginatedItems) IsLast(ctx context.Context) bool {
+	return !p.HasNext(ctx)
+}
+
+func (p *RESTPaginatedItems) HasNext(ctx context.Context) bool {
+	return p.nextLink != ""
 }
 
 // Item unmarshal the current result as JSON into the provided variable.
