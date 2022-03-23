@@ -11,66 +11,51 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRSL1f1(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	defer app.Close()
 	opts := app.Options()
 	// RSL1f
 	opts = append(opts, ably.WithUseTokenAuth(false))
 	client, err := ably.NewREST(opts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	channel := client.Channels.Get("RSL1f")
-	id := "any_client_id"
 	var msgs []*ably.Message
 	size := 10
 	for i := 0; i < size; i++ {
 		msgs = append(msgs, &ably.Message{
-			ClientID: id,
+			ClientID: "any_client_id",
 			Data:     fmt.Sprint(i),
 		})
 	}
 	err = channel.PublishMultiple(context.Background(), msgs)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	var m []*ably.Message
 	err = ablytest.AllPages(&m, channel.History())
-	if err != nil {
-		t.Fatal(err)
-	}
-	n := len(m)
-	if n != size {
-		t.Errorf("expected %d messages got %d", size, n)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(m),
+		"expected 10 messages got %d", len(m))
 	for _, v := range m {
-		if v.ClientID != id {
-			t.Errorf("expected clientId %s got %s data:%v", id, v.ClientID, v.Data)
-		}
+		assert.Equal(t, "any_client_id", v.ClientID,
+			"expected clientId \"any_client_id\" got %s data:%v", v.ClientID, v.Data)
 	}
 }
 
 func TestRSL1g(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	defer app.Close()
 	opts := append(app.Options(),
 		ably.WithUseTokenAuth(true),
 	)
-	clientID := "some_client_id"
-	opts = append(opts, ably.WithClientID(clientID))
+	opts = append(opts, ably.WithClientID("some_client_id"))
 	client, err := ably.NewREST(opts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	t.Run("RSL1g1b", func(t *testing.T) {
 		channel := client.Channels.Get("RSL1g1b")
 		err := channel.PublishMultiple(context.Background(), []*ably.Message{
@@ -83,21 +68,18 @@ func TestRSL1g(t *testing.T) {
 		}
 		var history []*ably.Message
 		err = ablytest.AllPages(&history, channel.History())
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		for _, m := range history {
-			if m.ClientID != clientID {
-				t.Errorf("expected %s got %s", clientID, m.ClientID)
-			}
+			assert.Equal(t, "some_client_id", m.ClientID,
+				"expected \"some_client_id\" got %s", m.ClientID)
 		}
 	})
 	t.Run("RSL1g2", func(t *testing.T) {
 		channel := client.Channels.Get("RSL1g2")
 		err := channel.PublishMultiple(context.Background(), []*ably.Message{
-			{Name: "1", ClientID: clientID},
-			{Name: "2", ClientID: clientID},
-			{Name: "3", ClientID: clientID},
+			{Name: "1", ClientID: "some_client_id"},
+			{Name: "2", ClientID: "some_client_id"},
+			{Name: "3", ClientID: "some_client_id"},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -108,21 +90,19 @@ func TestRSL1g(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, m := range history {
-			if m.ClientID != clientID {
-				t.Errorf("expected %s got %s", clientID, m.ClientID)
-			}
+			assert.Equal(t, "some_client_id", m.ClientID,
+				"expected \"some_client_id\" got %s", m.ClientID)
 		}
 	})
 	t.Run("RSL1g3", func(t *testing.T) {
 		channel := client.Channels.Get("RSL1g3")
 		err := channel.PublishMultiple(context.Background(), []*ably.Message{
-			{Name: "1", ClientID: clientID},
+			{Name: "1", ClientID: "some_client_id"},
 			{Name: "2", ClientID: "other client"},
-			{Name: "3", ClientID: clientID},
+			{Name: "3", ClientID: "some_client_id"},
 		})
-		if err == nil {
-			t.Fatal("expected an error")
-		}
+		assert.Error(t, err,
+			"expected an error")
 	})
 }
 
@@ -143,9 +123,7 @@ func TestHistory_RSL2_RSL2b3(t *testing.T) {
 				limit,
 				ablytest.PaginationWithEqual(messagesEqual),
 			)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -211,9 +189,7 @@ func TestHistory_Direction_RSL2b2(t *testing.T) {
 				ably.HistoryWithLimit(len(expected)),
 				ably.HistoryWithDirection(c.direction),
 			), 100, ablytest.PaginationWithEqual(messagesEqual))
-			if err != nil {
-				t.Fatal(err)
-			}
+			assert.NoError(t, err)
 		})
 	}
 }
