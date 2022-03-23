@@ -5,64 +5,10 @@ package ably
 
 import (
 	"errors"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func TestNewRealtimePresence(t *testing.T) {
-
-	// aLockedMutex is used only for test assertion.
-	// Unable to mock sync.Mutex as it is embedded in RealtimePresence.
-	aLockedMutex := sync.Mutex{}
-	aLockedMutex.Lock()
-
-	aMockChannel := &RealtimeChannel{
-		client: &Realtime{
-			rest: &REST{
-				log: logger{l: &stdLogger{mocklogger}},
-			},
-		},
-	}
-
-	tests := map[string]struct {
-		channel        *RealtimeChannel
-		expectedResult *RealtimePresence
-	}{
-		`A new realtime presence should:
-		- Contain no members
-		- Have a state of "PresenceActionAbsent"
-		- Have a syncState of "syncInitial" 
-		- Have syncMtx set to locked`: {
-			channel: aMockChannel,
-			expectedResult: &RealtimePresence{
-				mtx:    sync.Mutex{},
-				data:   interface{}(nil),
-				serial: "",
-				messageEmitter: &eventEmitter{
-					listeners: listenersForEvent{
-						nil: listenerSet{},
-					},
-					log: logger{l: &stdLogger{mocklogger}},
-				},
-				channel:   aMockChannel,
-				members:   map[string]*PresenceMessage{},
-				stale:     map[string]struct{}(nil),
-				state:     PresenceActionAbsent,
-				syncMtx:   aLockedMutex,
-				syncState: syncInitial,
-			},
-		},
-	}
-
-	for testName, test := range tests {
-		t.Run(testName, func(t *testing.T) {
-			result := newRealtimePresence(test.channel)
-			assert.Equal(t, test.expectedResult, result)
-		})
-	}
-}
 
 func TestVerifyChanState(t *testing.T) {
 	tests := map[string]struct {
