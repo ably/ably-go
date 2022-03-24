@@ -4,20 +4,13 @@
 package ably
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-)
-
-var (
-	buffer     bytes.Buffer
-	mocklogger = log.New(&buffer, "logger: ", log.Lshortfile)
 )
 
 func TestAddParams(t *testing.T) {
