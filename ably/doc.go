@@ -58,6 +58,13 @@
 // from the iterator object. Finally, once it returns false, the Err method must
 // be called to check if the iterator stopped due to some error, or else, it
 // just finished going through all pages.
+
+// Calling the First method on the PaginatedResults returns the first page of the
+// results. However, the Next method has to be called before inspecting the items.
+//
+// For every page in the PaginatedResults, the HasNext method can be called to check if there
+// are more page(s) available. IsLast method checks if the page is the
+// last page. Both methods return a true or false value.
 //
 // See the PaginatedResults example.
 package ably
