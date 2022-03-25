@@ -236,12 +236,17 @@ func (p *MessagesPaginatedResult) Next(ctx context.Context) bool {
 	return p.next(ctx, &p.items)
 }
 
+// IsLast returns true if the page is last page.
+//
+// See "Paginated results" section in the package-level documentation.
 func (p *MessagesPaginatedResult) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
+// HasNext returns true is there are more pages available.
+//
+// See "Paginated results" section in the package-level documentation.
 func (p *MessagesPaginatedResult) HasNext(ctx context.Context) bool {
-	fmt.Println(&p.query)
 	return p.nextLink != ""
 }
 

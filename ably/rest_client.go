@@ -244,6 +244,20 @@ func (p *StatsPaginatedResult) Next(ctx context.Context) bool {
 	return p.next(ctx, &p.items)
 }
 
+// IsLast returns true if the page is last page.
+//
+// See "Paginated results" section in the package-level documentation.
+func (p *StatsPaginatedResult) IsLast(ctx context.Context) bool {
+	return !p.HasNext(ctx)
+}
+
+// HasNext returns true is there are more pages available.
+//
+// See "Paginated results" section in the package-level documentation.
+func (p *StatsPaginatedResult) HasNext(ctx context.Context) bool {
+	return p.nextLink != ""
+}
+
 // Items returns the current page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -282,14 +296,6 @@ func (p *StatsPaginatedItems) Next(ctx context.Context) bool {
 	}
 	p.item = p.items[i]
 	return true
-}
-
-func (p *StatsPaginatedResult) IsLast(ctx context.Context) bool {
-	return !p.HasNext(ctx)
-}
-
-func (p *StatsPaginatedResult) HasNext(ctx context.Context) bool {
-	return p.nextLink != ""
 }
 
 // Item returns the current result.
@@ -435,10 +441,16 @@ func (p *HTTPPaginatedResponse) Next(ctx context.Context) bool {
 	return p.next(ctx, &p.items)
 }
 
+// IsLast returns true if the page is last page.
+//
+// See "Paginated results" section in the package-level documentation.
 func (p *HTTPPaginatedResponse) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
+// HasNext returns true is there are more pages available.
+//
+// See "Paginated results" section in the package-level documentation.
 func (p *HTTPPaginatedResponse) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
@@ -486,10 +498,16 @@ func (p *RESTPaginatedItems) Next(ctx context.Context) bool {
 	return true
 }
 
+// IsLast returns true if the page is last page.
+//
+// See "Paginated results" section in the package-level documentation.
 func (p *RESTPaginatedItems) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
+// HasNext returns true is there are more pages available.
+//
+// See "Paginated results" section in the package-level documentation.
 func (p *RESTPaginatedItems) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }

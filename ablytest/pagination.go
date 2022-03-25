@@ -73,7 +73,11 @@ func testPagination(request reflect.Value, expectedItems []interface{}, perPage 
 		var gotItems []interface{}
 		pageNum := 1
 		expectedFullPages := len(expectedItems) / perPage
+		pageMap := make(map[int]map[string]bool)
 		for pages.next() {
+			pageMap[pageNum] = map[string]bool{}
+			pageMap[pageNum]["hasNext"] = pages.hasNext()
+			pageMap[pageNum]["isLast"] = pages.isLast()
 			if (pageNum <= expectedFullPages && len(pages.items()) != perPage) ||
 				(pageNum > expectedFullPages && len(pages.items()) >= perPage) {
 				return fmt.Errorf("page #%d got %d items, expected at most %d", pageNum, len(pages.items()), perPage)
@@ -81,6 +85,20 @@ func testPagination(request reflect.Value, expectedItems []interface{}, perPage 
 			gotItems = append(gotItems, pages.items()...)
 			pageNum++
 		}
+
+		lastPage := pageNum - 1
+		for idx, page := range pageMap {
+			if idx == lastPage {
+				if page["hasNext"] || !page["isLast"] {
+					return fmt.Errorf("page #%d got incorrect HasNext and IsLast boolean values", idx)
+				}
+			} else {
+				if !page["hasNext"] || page["isLast"] {
+					return fmt.Errorf("page #%d got incorrect HasNext and IsLast boolean values", idx)
+				}
+			}
+		}
+
 		if err := pages.err(); err != nil {
 			return fmt.Errorf("iterating pages: %w", err)
 		}
@@ -124,9 +142,11 @@ func testPagination(request reflect.Value, expectedItems []interface{}, perPage 
 }
 
 type paginated struct {
-	next  func() bool
-	first func() error
-	err   func() error
+	next    func() bool
+	first   func() error
+	err     func() error
+	hasNext func() bool
+	isLast  func() bool
 }
 
 type paginatedResult struct {
@@ -160,6 +180,12 @@ func generalizePaginatedRequest(request reflect.Value) (
 			first: func() error {
 				err, _ := r.MethodByName("First").Call([]reflect.Value{ctx})[0].Interface().(error)
 				return err
+			},
+			hasNext: func() bool {
+				return r.MethodByName("HasNext").Call([]reflect.Value{ctx})[0].Bool()
+			},
+			isLast: func() bool {
+				return r.MethodByName("IsLast").Call([]reflect.Value{ctx})[0].Bool()
 			},
 			err: func() error {
 				err, _ := r.MethodByName("Err").Call(nil)[0].Interface().(error)
