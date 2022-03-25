@@ -39,7 +39,9 @@ jobs:
         run: go test -v -tags=unit ./...
 
       - name: Integration Tests with JSON Protocol
-        run: scripts/test.sh --protocol application/json
+        run: go test -tags=integration -p 1 -v -race -timeout 120m ./...
+        env:
+          ABLY_PROTOCOL: "application/json"
 
       # We explicitly do this clean between test runs in preference to specifying the slightly opaque `-count=1`
       # argument to subsequent test run executions.
@@ -47,4 +49,7 @@ jobs:
         run: go clean -testcache
 
       - name: Integration Tests with MessagePack Protocol
-        run: scripts/test.sh --protocol application/x-msgpack
+        run: go test -tags=integration -p 1 -v -race -timeout 120m ./...
+        env:
+          ABLY_PROTOCOL: "application/x-msgpack"
+
