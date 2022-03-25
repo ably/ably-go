@@ -73,7 +73,7 @@ func testPagination(request reflect.Value, expectedItems []interface{}, perPage 
 		var gotItems []interface{}
 		pageNum := 1
 		expectedFullPages := len(expectedItems) / perPage
-		pageMap := make(map[int]map[string]bool)
+		pageMap := make(map[int]map[string]bool, expectedFullPages)
 		for pages.next() {
 			pageMap[pageNum] = map[string]bool{}
 			pageMap[pageNum]["hasNext"] = pages.hasNext()
