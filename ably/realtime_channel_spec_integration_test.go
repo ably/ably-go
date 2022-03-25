@@ -2774,6 +2774,78 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 	})
 }
 
+func Test_UpdateEmptyMessageFields_TM2a_TM2c_TM2f(t *testing.T) {
+	const channelRetryTimeout = 123 * time.Millisecond
+	setup := func(t *testing.T) (
+		in, out chan *ably.ProtocolMessage,
+		msg chan *ably.Message,
+		channel *ably.RealtimeChannel,
+	) {
+		in = make(chan *ably.ProtocolMessage, 1)
+		out = make(chan *ably.ProtocolMessage, 16)
+		msg = make(chan *ably.Message, 1)
+
+		c, _ := ably.NewRealtime(
+			ably.WithToken("fake:token"),
+			ably.WithAutoConnect(false),
+			ably.WithChannelRetryTimeout(channelRetryTimeout),
+			ably.WithDial(MessagePipe(in, out)),
+		)
+
+		in <- &ably.ProtocolMessage{
+			Action:            ably.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &ably.ConnectionDetails{},
+		}
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		assert.NoError(t, err)
+
+		channel = c.Channels.Get("test")
+
+		stateChanges := make(ably.ChannelStateChanges, 10)
+		channel.OnAll(stateChanges.Receive)
+
+		channel.Attach(canceledCtx)
+		ablytest.Instantly.Recv(t, nil, stateChanges, t.Fatalf) // Consume ATTACHING
+		in <- &ably.ProtocolMessage{
+			Action:  ably.ActionAttached,
+			Channel: channel.Name,
+		}
+		ablytest.Instantly.Recv(t, nil, stateChanges, t.Fatalf) // Consume ATTACHED
+		return
+	}
+
+	in, _, msg, channel := setup(t)
+
+	channel.SubscribeAll(context.Background(), func(message *ably.Message) {
+		msg <- message
+	})
+
+	// receive message when state is ATTACHED
+	protoMsg := &ably.ProtocolMessage{
+		Action:        ably.ActionMessage,
+		Channel:       channel.Name,
+		MsgSerial:     3,
+		ChannelSerial: "channelSerial",
+		ID:            "protoId",
+		ConnectionID:  "protoConnectionId",
+		Timestamp:     23454,
+		Messages: []*ably.Message{{
+			ID:           "",
+			ConnectionID: "",
+			Timestamp:    0,
+		}},
+	}
+	in <- protoMsg
+
+	var message *ably.Message
+	ablytest.Instantly.Recv(t, &message, msg, t.Fatalf)
+	assert.Equal(t, protoMsg.ID+":0", message.ID)
+	assert.Equal(t, protoMsg.ConnectionID, message.ConnectionID)
+	assert.Equal(t, protoMsg.Timestamp, message.Timestamp)
+}
+
 func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 
 	const channelRetryTimeout = 123 * time.Millisecond
