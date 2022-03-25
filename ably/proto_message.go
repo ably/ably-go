@@ -31,6 +31,28 @@ type Message struct {
 	Extras        map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
 }
 
+func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
+	if empty(m.ID) {
+		m.ID = fmt.Sprintf("%s:%d", p.ID, index)
+	}
+	if empty(m.ConnectionID) {
+		m.ConnectionID = p.ConnectionID
+	}
+	if m.Timestamp == 0 {
+		m.Timestamp = p.Timestamp
+	}
+}
+
+//updateInnerMessagesEmptyFields - Update inner Message empty Id, connectionId and Timestamp
+func (p *protocolMessage) updateInnerMessagesEmptyFields() {
+	for i, m := range p.Messages {
+		p.updateInnerMessageEmptyFields(m, i)
+	}
+	for i, m := range p.Presence {
+		p.updateInnerMessageEmptyFields(&m.Message, i)
+	}
+}
+
 func (m Message) String() string {
 	return fmt.Sprintf("<Message %q data=%v>", m.Name, m.Data)
 }

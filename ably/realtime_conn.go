@@ -711,6 +711,7 @@ func (c *Connection) eventloop() {
 			return
 		}
 		lastActivityAt = c.opts.Now()
+		msg.updateInnerMessagesEmptyFields() // TM2a, TM2c, TM2f
 		if msg.ConnectionSerial != 0 {
 			c.mtx.Lock()
 			c.setSerial(&msg.ConnectionSerial)
