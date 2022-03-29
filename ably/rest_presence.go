@@ -140,6 +140,17 @@ func (p *PresencePaginatedResult) Next(ctx context.Context) bool {
 	return p.next(ctx, p.decoder(&p.items))
 }
 
+// IsLast returns true if the page is last page.
+//
+// See "Paginated results" section in the package-level documentation.
+func (p *PresencePaginatedResult) IsLast(ctx context.Context) bool {
+	return !p.HasNext(ctx)
+}
+
+func (p *PresencePaginatedResult) HasNext(ctx context.Context) bool {
+	return p.nextLink != ""
+}
+
 // Items returns the current page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
