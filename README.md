@@ -352,6 +352,7 @@ When adding new unit tests, the following build tag must be included at the top 
 
 ```
 //go:build !integration
+// +build !integration
 ```
 
 #### Integration tests
@@ -381,6 +382,7 @@ When adding new integration tests, the following build tag must be included at t
 
 ```
 //go:build !unit
+// +build !unit
 ```
 
 ## Release process

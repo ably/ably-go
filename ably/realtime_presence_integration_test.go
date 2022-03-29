@@ -1,4 +1,5 @@
 //go:build !unit
+// +build !unit
 
 package ably_test
 
