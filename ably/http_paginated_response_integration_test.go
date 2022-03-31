@@ -24,7 +24,6 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 	client, err := ably.NewREST(opts...)
 	assert.NoError(t, err)
 	t.Run("request_time", func(t *testing.T) {
-
 		res, err := client.Request("get", "/time").Pages(context.Background())
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, res.StatusCode(),
@@ -39,7 +38,6 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 	})
 
 	t.Run("request_404", func(t *testing.T) {
-
 		res, err := client.Request("get", "/keys/ablyjs.test/requestToken").Pages(context.Background())
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusNotFound, res.StatusCode(),

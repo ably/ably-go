@@ -335,6 +335,7 @@ func (c *REST) Request(method string, path string, o ...RequestOption) RESTReque
 			default:
 				return nil, fmt.Errorf("invalid HTTP method: %q", method)
 			}
+			var lastResponse *http.Response
 
 			req := &request{
 				Method: method,
@@ -342,9 +343,18 @@ func (c *REST) Request(method string, path string, o ...RequestOption) RESTReque
 				In:     opts.body,
 				header: opts.headers,
 			}
-			return c.doWithHandle(ctx, req, func(resp *http.Response, out interface{}) (*http.Response, error) {
-				return resp, nil
+			resp, err := c.doWithHandle(ctx, req, func(resp *http.Response, out interface{}) (*http.Response, error) {
+				// Save the resp but return an error on bad status to trigger fallback
+				lastResponse = resp
+				return c.handleResponse(resp, nil)
 			})
+
+			// RSC19e
+			// Only return an error if there was an actual network failiure
+			if err != nil && lastResponse != nil {
+				return lastResponse, nil
+			}
+			return resp, err
 		},
 	}}
 }
