@@ -136,6 +136,11 @@ func NewREST(options ...ClientOption) (*REST, error) {
 	return c, nil
 }
 
+// Time asynchronously obtains the time from the Ably service.
+//
+// This may be required on clients that do not have access
+// to a sufficiently well maintained time source, to provide
+// timestamps for use in token requests.
 func (c *REST) Time(ctx context.Context) (time.Time, error) {
 	var times []int64
 	r := &request{
