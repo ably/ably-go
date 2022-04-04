@@ -5,6 +5,7 @@ package ably_test
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -27,6 +28,82 @@ func TestProtocolMessageEncodeZeroSerials(t *testing.T) {
 	expected := []byte("\x83\xB0connectionSerial\x00\xA2id\xA4test\xA9msgSerial\x00")
 	assert.True(t, bytes.Equal(encoded, expected),
 		"unexpected msgpack encoding\nexpected: %x\nactual:   %x", expected, encoded)
+}
+
+func TestUpdateEmptyMessageFields_TM2a_TM2c_TM2f(t *testing.T) {
+	messages := []*ably.Message{
+		{
+			ID:           "",
+			ConnectionID: "",
+			Timestamp:    0,
+		},
+		{
+			ID:           "",
+			ConnectionID: "",
+			Timestamp:    0,
+		},
+		{
+			ID:           "",
+			ConnectionID: "",
+			Timestamp:    0,
+		},
+	}
+
+	presenceMessages := []*ably.PresenceMessage{
+		{
+			Message: ably.Message{
+				ID:           "",
+				ConnectionID: "",
+				Timestamp:    0,
+			},
+			Action: 0,
+		},
+		{
+			Message: ably.Message{
+				ID:           "",
+				ConnectionID: "",
+				Timestamp:    0,
+			},
+			Action: 0,
+		},
+		{
+			Message: ably.Message{
+				ID:           "",
+				ConnectionID: "",
+				Timestamp:    0,
+			},
+			Action: 0,
+		},
+		{
+			Message: ably.Message{
+				ID:           "",
+				ConnectionID: "",
+				Timestamp:    0,
+			},
+			Action: 0,
+		},
+	}
+	protoMsg := ably.ProtocolMessage{
+		Messages:     messages,
+		Presence:     presenceMessages,
+		ID:           "msg-id",
+		ConnectionID: "conn-id",
+		Timestamp:    3453,
+	}
+
+	protoMsg.UpdateEmptyFields()
+
+	for msgIndex, msg := range protoMsg.Messages {
+		assert.Equal(t, protoMsg.ID+":"+strconv.Itoa(msgIndex), msg.ID)
+		assert.Equal(t, protoMsg.ConnectionID, msg.ConnectionID)
+		assert.Equal(t, protoMsg.Timestamp, msg.Timestamp)
+	}
+
+	for presenceMsgIndex, presenceMessage := range protoMsg.Presence {
+		assert.Equal(t, protoMsg.ID+":"+strconv.Itoa(presenceMsgIndex), presenceMessage.ID)
+		assert.Equal(t, protoMsg.ConnectionID, presenceMessage.ConnectionID)
+		assert.Equal(t, protoMsg.Timestamp, presenceMessage.Timestamp)
+	}
 }
 
 func TestIfFlagIsSet(t *testing.T) {
