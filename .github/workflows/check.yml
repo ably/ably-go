@@ -35,11 +35,18 @@ jobs:
       - name: Ensure generated code is up-to-date
         run: scripts/ci-generate.sh
 
+      - name: Install go-junit-report
+        run: go install github.com/jstemmer/go-junit-report@latest
+
       - name: Unit Tests
-        run: go test -v -tags=unit ./...
+        run: |
+          set -o pipefail
+          go test -v -tags=unit ./... |& tee >(~/go/bin/go-junit-report > unit.junit)
 
       - name: Integration Tests with JSON Protocol
-        run: scripts/test.sh --protocol application/json
+        run: |
+          set -o pipefail
+          scripts/test.sh --protocol application/json |& tee >(~/go/bin/go-junit-report > json-integration.junit)
 
       # We explicitly do this clean between test runs in preference to specifying the slightly opaque `-count=1`
       # argument to subsequent test run executions.
@@ -47,4 +54,14 @@ jobs:
         run: go clean -testcache
 
       - name: Integration Tests with MessagePack Protocol
-        run: scripts/test.sh --protocol application/x-msgpack
+        run: |
+          set -o pipefail
+          scripts/test.sh --protocol application/x-msgpack |& tee >(~/go/bin/go-junit-report > msgpack-integration.junit)
+
+      - name: Upload test results
+        if: always()
+        uses: ably-labs/test-observability-action@main
+        with:
+          server-url: 'https://test-observability.herokuapp.com'
+          server-auth: ${{ secrets.TEST_OBSERVABLILITY_SERVER_AUTH }}
+          path: '.'
