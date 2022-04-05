@@ -622,6 +622,49 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	}
 }
 
+func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
+	rec, extraOpt := recorder()
+	defer rec.Stop()
+
+	opts := []ably.ClientOption{
+		ably.WithTLS(true),
+		ably.WithUseTokenAuth(true),
+		ably.WithQueryTime(false),
+	}
+
+	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
+	defer safeclose(t, app)
+
+	prevTokenParams := client.Auth.Params()
+	prevAuthOptions := client.Auth.AuthOptions()
+	prevUseQueryTime := prevAuthOptions.UseQueryTime
+
+	tokenParams := &ably.TokenParams{
+		TTL:        123890,
+		Capability: `{"foo":["publish"]}`,
+		ClientID:   "abcd1234",
+		Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
+	}
+
+	newAuthOptions := []ably.AuthOption{
+		ably.AuthWithMethod("POST"),
+		ably.AuthWithQueryTime(true),
+		ably.AuthWithKey(app.Key()),
+	}
+
+	_, err := client.Auth.Authorize(context.Background(), tokenParams, newAuthOptions...) // Call to Authorize should always refresh the token.
+	assert.NoError(t, err)
+	updatedParams := client.Auth.Params()
+	updatedAuthOptions := client.Auth.AuthOptions()
+
+	assert.Nil(t, prevTokenParams)
+	assert.Equal(t, tokenParams, updatedParams) // RSA10J
+	assert.Zero(t, updatedParams.Timestamp)     // RSA10g
+
+	assert.Equal(t, prevAuthOptions, updatedAuthOptions)                  // RSA10J
+	assert.NotEqual(t, prevUseQueryTime, updatedAuthOptions.UseQueryTime) // RSA10g
+}
+
 /*
 FAILING TEST
 https://github.com/ably/ably-go/pull/383/checks?check_run_id=3488427014#step:7:53
