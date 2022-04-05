@@ -309,10 +309,10 @@ func (a *Auth) authorize(ctx context.Context, params *TokenParams, opts *authOpt
 	a.method = authToken
 
 	// RSA10j, RSA10g - override existing tokenParams and authOptions, ignore timestamp and queryTime
-	params.Timestamp = 0
 	a.opts().TokenDetails = tok
 	a.params = params
 	if opts != nil {
+		params.Timestamp = 0
 		opts.UseQueryTime = a.opts().UseQueryTime
 		a.opts().authOptions = *opts
 	}
