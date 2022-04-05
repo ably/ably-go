@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ablytest"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -34,6 +35,51 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		assert.True(t, stamp.Equal(now),
 			"expected %s got %s", now, stamp)
 	})
+
+	t.Run("RSA10j, RSA10g: stores given arguments as defaults for subsequent authorizations with exception of tokenParams timestamp and queryTime", func(t *testing.T) {
+		t.Parallel()
+		rec, extraOpt := recorder()
+		defer rec.Stop()
+
+		opts := []ably.ClientOption{
+			ably.WithTLS(true),
+			ably.WithUseTokenAuth(true),
+			ably.WithQueryTime(false),
+		}
+
+		app, client := ablytest.NewREST(append(opts, extraOpt...)...)
+		defer safeclose(t, app)
+
+		prevTokenParams := client.Auth.Params()
+		prevAuthOptions := client.Auth.AuthOptions()
+		prevUseQueryTime := prevAuthOptions.UseQueryTime
+
+		tokenParams := &ably.TokenParams{
+			TTL:        123890,
+			Capability: `{"foo":["publish"]}`,
+			ClientID:   "abcd1234",
+			Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
+		}
+
+		newAuthOptions := []ably.AuthOption{
+			ably.AuthWithMethod("POST"),
+			ably.AuthWithQueryTime(true),
+			ably.AuthWithKey(app.Key()),
+		}
+
+		_, err := client.Auth.Authorize(context.Background(), tokenParams, newAuthOptions...) // Call to Authorize should always refresh the token.
+		assert.NoError(t, err)
+		updatedParams := client.Auth.Params()
+		updatedAuthOptions := client.Auth.AuthOptions()
+
+		assert.Nil(t, prevTokenParams)
+		assert.Equal(t, tokenParams, updatedParams) // RSA10J
+		assert.Zero(t, updatedParams.Timestamp)     // RSA10g
+
+		assert.Equal(t, prevAuthOptions, updatedAuthOptions)                  // RSA10J
+		assert.NotEqual(t, prevUseQueryTime, updatedAuthOptions.UseQueryTime) // RSA10g
+	})
+
 	t.Run("must use server time when UseQueryTime is true", func(t *testing.T) {
 
 		rest, _ := ably.NewREST(
