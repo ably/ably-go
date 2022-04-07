@@ -34,7 +34,6 @@ func TestAuth_TimestampRSA10k(t *testing.T) {
 		assert.True(t, stamp.Equal(now),
 			"expected %s got %s", now, stamp)
 	})
-
 	t.Run("must use server time when UseQueryTime is true", func(t *testing.T) {
 
 		rest, _ := ably.NewREST(

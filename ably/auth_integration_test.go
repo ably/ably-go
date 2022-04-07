@@ -626,43 +626,99 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 	rec, extraOpt := recorder()
 	defer rec.Stop()
 
-	opts := []ably.ClientOption{
-		ably.WithTLS(true),
-		ably.WithUseTokenAuth(true),
-		ably.WithQueryTime(false),
+	tests := map[string]struct {
+		opt                 []ably.ClientOption
+		initialUseQueryTime bool
+		newUseQueryTime     bool
+		tokenParams         *ably.TokenParams
+	}{
+		"Should not save query time and timestamp when WithQueryTime is false and token params has no timestamp": {
+			opt: []ably.ClientOption{
+				ably.WithTLS(true),
+				ably.WithUseTokenAuth(true),
+				ably.WithQueryTime(false),
+			},
+			tokenParams: &ably.TokenParams{
+				TTL:        123890,
+				Capability: `{"foo":["publish"]}`,
+				ClientID:   "abcd1234",
+			},
+			initialUseQueryTime: false,
+			newUseQueryTime:     true,
+		},
+		"Should not save query time and timestamp when WithQueryTime is true and token params has no timestamp": {
+			opt: []ably.ClientOption{
+				ably.WithTLS(true),
+				ably.WithUseTokenAuth(true),
+				ably.WithQueryTime(true),
+			},
+			tokenParams: &ably.TokenParams{
+				TTL:        123890,
+				Capability: `{"foo":["publish"]}`,
+				ClientID:   "abcd1234",
+			},
+			initialUseQueryTime: true,
+			newUseQueryTime:     false,
+		},
+		"Should not save query time and timestamp when WithQueryTime is true and token params has a timestamp": {
+			opt: []ably.ClientOption{
+				ably.WithTLS(true),
+				ably.WithUseTokenAuth(true),
+				ably.WithQueryTime(true),
+			},
+			tokenParams: &ably.TokenParams{
+				TTL:        123890,
+				Capability: `{"foo":["publish"]}`,
+				ClientID:   "abcd1234",
+				Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
+			},
+			initialUseQueryTime: true,
+		},
+		"Should not save query time and timestamp when WithQueryTime is false and token params has a timestamp": {
+			opt: []ably.ClientOption{
+				ably.WithTLS(true),
+				ably.WithUseTokenAuth(true),
+				ably.WithQueryTime(false),
+			},
+			tokenParams: &ably.TokenParams{
+				TTL:        123890,
+				Capability: `{"foo":["publish"]}`,
+				ClientID:   "abcd1234",
+				Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
+			},
+			initialUseQueryTime: false,
+			newUseQueryTime:     true,
+		},
 	}
 
-	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
-	defer safeclose(t, app)
+	for _, test := range tests {
+		app, client := ablytest.NewREST(append(test.opt, extraOpt...)...)
+		defer safeclose(t, app)
+		prevTokenParams := client.Auth.Params()
+		prevAuthOptions := client.Auth.AuthOptions()
+		prevUseQueryTime := prevAuthOptions.UseQueryTime
 
-	prevTokenParams := client.Auth.Params()
-	prevAuthOptions := client.Auth.AuthOptions()
-	prevUseQueryTime := prevAuthOptions.UseQueryTime
+		assert.Equal(t, prevUseQueryTime, test.initialUseQueryTime)
 
-	tokenParams := &ably.TokenParams{
-		TTL:        123890,
-		Capability: `{"foo":["publish"]}`,
-		ClientID:   "abcd1234",
-		Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
+		newAuthOptions := []ably.AuthOption{
+			ably.AuthWithMethod("POST"),
+			ably.AuthWithKey(app.Key()),
+			ably.AuthWithQueryTime(test.newUseQueryTime),
+		}
+
+		_, err := client.Auth.Authorize(context.Background(), test.tokenParams, newAuthOptions...) // Call to Authorize should always refresh the token.
+		assert.NoError(t, err)
+		updatedParams := client.Auth.Params()
+		updatedAuthOptions := client.Auth.AuthOptions()
+		updatedUseQueryTime := updatedAuthOptions.UseQueryTime
+
+		assert.Nil(t, prevTokenParams)
+		assert.Equal(t, test.tokenParams, updatedParams) // RSA10J
+		assert.Zero(t, updatedParams.Timestamp)          // RSA10g
+
+		assert.Equal(t, prevAuthOptions, updatedAuthOptions)      // RSA10J
+		assert.NotEqual(t, prevUseQueryTime, updatedUseQueryTime) // RSA10g
 	}
-
-	newAuthOptions := []ably.AuthOption{
-		ably.AuthWithMethod("POST"),
-		ably.AuthWithQueryTime(true),
-		ably.AuthWithKey(app.Key()),
-	}
-
-	_, err := client.Auth.Authorize(context.Background(), tokenParams, newAuthOptions...) // Call to Authorize should always refresh the token.
-	assert.NoError(t, err)
-	updatedParams := client.Auth.Params()
-	updatedAuthOptions := client.Auth.AuthOptions()
-
-	assert.Nil(t, prevTokenParams)
-	assert.Equal(t, tokenParams, updatedParams) // RSA10J
-	assert.Zero(t, updatedParams.Timestamp)     // RSA10g
-
-	assert.Equal(t, prevAuthOptions, updatedAuthOptions)                  // RSA10J
-	assert.NotEqual(t, prevUseQueryTime, updatedAuthOptions.UseQueryTime) // RSA10g
 }
 
 /*
