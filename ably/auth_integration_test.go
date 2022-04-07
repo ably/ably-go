@@ -698,7 +698,7 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 		prevAuthOptions := client.Auth.AuthOptions()
 		prevUseQueryTime := prevAuthOptions.UseQueryTime
 
-		assert.Equal(t, prevUseQueryTime, test.initialUseQueryTime)
+		assert.Equal(t, test.initialUseQueryTime, prevUseQueryTime)
 
 		newAuthOptions := []ably.AuthOption{
 			ably.AuthWithMethod("POST"),
