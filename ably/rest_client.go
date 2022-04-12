@@ -629,11 +629,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 		c.log.Verbose("RestClient: enabling httptrace")
 	}
 	resp, err := c.opts.httpclient().Do(req)
-	if err != nil {
+	if err == nil {
+		resp, err = handle(resp, r.Out)
+	} else {
 		c.log.Error("RestClient: failed sending a request ", err)
-		return nil, newError(ErrInternalError, err)
 	}
-	resp, err = handle(resp, r.Out)
 	if err != nil {
 		c.log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
@@ -676,11 +676,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 						req.Host = ""
 						req.Header.Set(hostHeader, h)
 						resp, err := c.opts.httpclient().Do(req)
-						if err != nil {
+						if err == nil {
+							resp, err = handle(resp, r.Out)
+						} else {
 							c.log.Error("RestClient: failed sending a request to a fallback host", err)
-							return nil, newError(ErrInternalError, err)
 						}
-						resp, err = handle(resp, r.Out)
 						if err != nil {
 							c.log.Error("RestClient: error handling response: ", err)
 							if iteration == maxLimit-1 {
