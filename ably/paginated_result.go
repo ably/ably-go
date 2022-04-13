@@ -95,7 +95,7 @@ func (p *PaginatedResult) loadItems(
 		if nextItem == 0 {
 			var getLen func() int
 			page, getLen = pageDecoder()
-			hasNext := p.next(ctx, &page)
+			hasNext := p.next(ctx, page)
 			if !hasNext {
 				return 0, false
 			}
