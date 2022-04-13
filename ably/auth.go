@@ -307,8 +307,16 @@ func (a *Auth) authorize(ctx context.Context, params *TokenParams, opts *authOpt
 		return nil, newError(ErrInvalidClientID, errClientIDMismatch)
 	}
 	a.method = authToken
+
+	// RSA10j, RSA10g - override existing tokenParams and authOptions, ignore timestamp and queryTime
 	a.opts().TokenDetails = tok
 	a.params = params
+	// Refreshing or renewing a token, opt won't be nil.
+	if opts != nil {
+		// Override any saved timestamp
+		params.Timestamp = 0
+		a.opts().authOptions = *opts
+	}
 	a.clientID = tok.ClientID // Spec RSA7b2
 	return tok, nil
 }

@@ -69,6 +69,14 @@ func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
 	return a.timestamp(ctx, query)
 }
 
+func (a *Auth) Params() *TokenParams {
+	return a.params
+}
+
+func (a *Auth) AuthOptions() *authOptions {
+	return &a.opts().authOptions
+}
+
 func (c *REST) Timestamp(query bool) (time.Time, error) {
 	return c.Auth.timestamp(context.Background(), query)
 }
