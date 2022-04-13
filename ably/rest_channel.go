@@ -16,10 +16,9 @@ import (
 type RESTChannel struct {
 	Name     string
 	Presence *RESTPresence
-
-	client  *REST
-	baseURL string
-	options *protoChannelOptions
+	client   *REST
+	baseURL  string
+	options  *protoChannelOptions
 }
 
 func newRESTChannel(name string, client *REST) *RESTChannel {

@@ -37,11 +37,15 @@ func query(fn func(context.Context, string, interface{}) (*http.Response, error)
 
 // RESTChannels provides an API for managing collection of RESTChannel. This is
 // safe for concurrent use.
+// RESTChannels to be deprecated as part of API redesign
 type RESTChannels struct {
 	chans  map[string]*RESTChannel
 	mu     sync.RWMutex
 	client *REST
 }
+
+// Iterate will be deprecated as part of new API design.
+// As Channels are changing to  map[string]*RESTChannel listing channels can be done directly by ranging over that map.
 
 // Iterate returns a list of created channels.
 //
@@ -58,6 +62,9 @@ func (c *RESTChannels) Iterate() []*RESTChannel { // RSN2, RTS2
 	return chans
 }
 
+// Exists will be deprecated as part of new API design.
+// As Channels are changing to  map[string]*RESTChannel checks for existance can be done directly using that map.
+
 // Exists returns true if the channel by the given name exists.
 func (c *RESTChannels) Exists(name string) bool { // RSN2, RTS2
 	c.mu.RLock()
@@ -65,6 +72,9 @@ func (c *RESTChannels) Exists(name string) bool { // RSN2, RTS2
 	c.mu.RUnlock()
 	return ok
 }
+
+// Get will be deprecated as part of new API design.
+// Channel operations will change to provide the name of the channel so getting a channel is no longer necessary.
 
 // Get returns an existing channel or creates a new one if it doesn't exist.
 //
@@ -106,10 +116,62 @@ func (c *RESTChannels) Release(name string) {
 
 type REST struct {
 	Auth                *Auth
-	Channels            *RESTChannels
+	Channels            *RESTChannels           // ChannelsMap will eventually take the name Channels can change via expand and contract pattern.
+	ChannelsMap         map[string]*RESTChannel // Moved up to top level from Channels.chans
+	channelsMu          sync.RWMutex            // Moved up to top level from Channels.mu
 	opts                *clientOptions
 	successFallbackHost *fallbackCache
 	log                 logger
+}
+
+// GetClientID, CreateTokenRequest, RequestToken, Authorize are wrappers that duplicate functionality from REST.Auth.xxx to REST.xxx
+func (c *REST) GetClientID() string {
+	return c.Auth.ClientID()
+}
+
+func (c *REST) CreateTokenRequest(params *TokenParams, opts ...AuthOption) (*TokenRequest, error) {
+	return c.Auth.CreateTokenRequest(params, opts...)
+}
+
+func (c *REST) RequestToken(ctx context.Context, params *TokenParams, opts ...AuthOption) (*TokenDetails, error) {
+	return c.Auth.RequestToken(ctx, params, opts...)
+}
+
+func (c *REST) Authorize(ctx context.Context, params *TokenParams, setOpts ...AuthOption) (*TokenDetails, error) {
+	return c.Auth.Authorize(ctx, params, setOpts...)
+}
+
+// Release Channel is a wrapper that duplicates functionality from REST.Channels.Release
+func (c *REST) ReleaseChannel(name string) {
+	c.Channels.Release(name)
+}
+
+// Publish, PublishMultiple, History are wrappers that duplicate functionality from REST.Channels.xxx
+
+func (c *REST) Publish(ctx context.Context, channel string, name string, data interface{}, o ...PublishMultipleOption) error {
+	ch := c.ChannelsMap[channel]
+	return ch.PublishMultiple(ctx, []*Message{{Name: name, Data: data}}, o...)
+}
+
+func (c *REST) PublishMultiple(ctx context.Context, channel string, messages []*Message, o ...PublishMultipleOption) error {
+	ch := c.ChannelsMap[channel]
+	return ch.PublishMultiple(ctx, messages, o...)
+}
+
+func (c *REST) History(channel string, o ...HistoryOption) HistoryRequest {
+	ch := c.ChannelsMap[channel]
+	return ch.History()
+}
+
+// GetPresence and GetPresenceHistory are wrappers that duplicate functionality from channel.Presence.xxx
+func (c *REST) GetPresence(channel string, o ...GetPresenceOption) PresenceRequest {
+	ch := c.ChannelsMap[channel]
+	return ch.Presence.Get(o...)
+}
+
+func (c *REST) PresenceHistory(channel string, o ...PresenceHistoryOption) PresenceRequest {
+	ch := c.ChannelsMap[channel]
+	return ch.Presence.History(o...)
 }
 
 // NewREST constructs a new REST.
