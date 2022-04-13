@@ -340,6 +340,7 @@ func (c *REST) Request(method string, path string, o ...RequestOption) RESTReque
 			default:
 				return nil, fmt.Errorf("invalid HTTP method: %q", method)
 			}
+			var lastResponse *http.Response
 
 			req := &request{
 				Method: method,
@@ -347,9 +348,18 @@ func (c *REST) Request(method string, path string, o ...RequestOption) RESTReque
 				In:     opts.body,
 				header: opts.headers,
 			}
-			return c.doWithHandle(ctx, req, func(resp *http.Response, out interface{}) (*http.Response, error) {
-				return resp, nil
+			resp, err := c.doWithHandle(ctx, req, func(resp *http.Response, out interface{}) (*http.Response, error) {
+				// Save the resp but return an error on bad status to trigger fallback
+				lastResponse = resp
+				return c.handleResponse(resp, nil)
 			})
+
+			// RSC19e
+			// Only return an error if there was an actual network failiure
+			if err != nil && lastResponse != nil {
+				return lastResponse, nil
+			}
+			return resp, err
 		},
 	}}
 }
@@ -624,11 +634,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 		c.log.Verbose("RestClient: enabling httptrace")
 	}
 	resp, err := c.opts.httpclient().Do(req)
-	if err != nil {
+	if err == nil {
+		resp, err = handle(resp, r.Out)
+	} else {
 		c.log.Error("RestClient: failed sending a request ", err)
-		return nil, newError(ErrInternalError, err)
 	}
-	resp, err = handle(resp, r.Out)
 	if err != nil {
 		c.log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
@@ -671,11 +681,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 						req.Host = ""
 						req.Header.Set(hostHeader, h)
 						resp, err := c.opts.httpclient().Do(req)
-						if err != nil {
+						if err == nil {
+							resp, err = handle(resp, r.Out)
+						} else {
 							c.log.Error("RestClient: failed sending a request to a fallback host", err)
-							return nil, newError(ErrInternalError, err)
 						}
-						resp, err = handle(resp, r.Out)
 						if err != nil {
 							c.log.Error("RestClient: error handling response: ", err)
 							if iteration == maxLimit-1 {
