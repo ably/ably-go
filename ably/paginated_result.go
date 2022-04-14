@@ -16,21 +16,21 @@ const (
 	Forwards  Direction = "forwards"
 )
 
-type paginatedRequest struct {
-	path    string
-	rawPath string
-	params  url.Values
+type PaginatedRequest struct {
+	Path    string
+	RawPath string
+	Params  url.Values
 
-	query queryFunc
+	Query QueryFunc
 }
 
-func (r *REST) newPaginatedRequest(path, rawPath string, params url.Values) paginatedRequest {
-	return paginatedRequest{
-		path:    path,
-		rawPath: rawPath,
-		params:  params,
+func (r *REST) newPaginatedRequest(path, rawPath string, params url.Values) PaginatedRequest {
+	return PaginatedRequest{
+		Path:    path,
+		RawPath: rawPath,
+		Params:  params,
 
-		query: query(r.get),
+		Query: query(r.get),
 	}
 }
 
@@ -45,20 +45,20 @@ type PaginatedResult struct {
 	res       *http.Response
 	err       error
 
-	query queryFunc
+	query QueryFunc
 	first bool
 }
 
 // load loads the first page of results. Must be called from the type-specific
 // wrapper Pages method that creates the PaginatedResult object.
-func (p *PaginatedResult) load(ctx context.Context, r paginatedRequest) error {
-	p.basePath = path.Dir(r.path)
+func (p *PaginatedResult) load(ctx context.Context, r PaginatedRequest) error {
+	p.basePath = path.Dir(r.Path)
 	p.firstLink = (&url.URL{
-		Path:     r.path,
-		RawPath:  r.rawPath,
-		RawQuery: r.params.Encode(),
+		Path:     r.Path,
+		RawPath:  r.RawPath,
+		RawQuery: r.Params.Encode(),
 	}).String()
-	p.query = r.query
+	p.query = r.Query
 	return p.First(ctx)
 }
 
@@ -76,7 +76,7 @@ func (p *PaginatedResult) load(ctx context.Context, r paginatedRequest) error {
 // decoded, must return the length of the page.
 func (p *PaginatedResult) loadItems(
 	ctx context.Context,
-	r paginatedRequest,
+	r PaginatedRequest,
 	pageDecoder func() (page interface{}, pageLength func() int),
 ) (
 	next func(context.Context) (int, bool),
@@ -181,9 +181,9 @@ func (err errInvalidType) Error() string {
 	return "requested value of incompatible type: " + err.typ.String()
 }
 
-// queryFunc queries the given URL and gives non-nil HTTP response if no error
+// QueryFunc queries the given URL and gives non-nil HTTP response if no error
 // occurred.
-type queryFunc func(ctx context.Context, url string) (*http.Response, error)
+type QueryFunc func(ctx context.Context, url string) (*http.Response, error)
 
 func copyHeader(dest, src http.Header) {
 	for k, v := range src {

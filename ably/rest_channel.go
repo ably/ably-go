@@ -207,7 +207,7 @@ func (o *historyOptions) apply(opts ...HistoryOption) url.Values {
 // HistoryRequest represents a request prepared by the RESTChannel.History or
 // RealtimeChannel.History method, ready to be performed by its Pages or Items methods.
 type HistoryRequest struct {
-	r       paginatedRequest
+	r       PaginatedRequest
 	channel *RESTChannel
 }
 

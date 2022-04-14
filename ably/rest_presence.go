@@ -111,7 +111,7 @@ func (o *presenceHistoryOptions) apply(opts ...PresenceHistoryOption) url.Values
 // PresenceRequest represents a request prepared by the RESTPresence.History or
 // RealtimePresence.History method, ready to be performed by its Pages or Items methods.
 type PresenceRequest struct {
-	r       paginatedRequest
+	r       PaginatedRequest
 	channel *RESTChannel
 }
 

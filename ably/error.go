@@ -48,10 +48,8 @@ type ErrorInfo struct {
 	Code       ErrorCode
 	HRef       string
 	Cause      *ErrorInfo
-
-	// err is the application-level error we're wrapping, or just a message.
+	Err        error // Err is the application-level error we're wrapping, or just a message.
 	// If Cause is non-nil, err == *Cause.
-	err error
 }
 
 // Error implements the builtin error interface.
@@ -71,15 +69,15 @@ func (e ErrorInfo) Error() string {
 
 // Unwrap implements the implicit interface that errors.Unwrap understands.
 func (e ErrorInfo) Unwrap() error {
-	return e.err
+	return e.Err
 }
 
 // Message returns the undecorated error message.
 func (e ErrorInfo) Message() string {
-	if e.err == nil {
+	if e.Err == nil {
 		return ""
 	}
-	return e.err.Error()
+	return e.Err.Error()
 }
 
 func newError(defaultCode ErrorCode, err error) *ErrorInfo {
@@ -88,14 +86,14 @@ func newError(defaultCode ErrorCode, err error) *ErrorInfo {
 		return err
 	case net.Error:
 		if err.Timeout() {
-			return &ErrorInfo{Code: ErrTimeoutError, StatusCode: 500, err: err}
+			return &ErrorInfo{Code: ErrTimeoutError, StatusCode: 500, Err: err}
 		}
 	}
 	return &ErrorInfo{
 		Code:       defaultCode,
 		StatusCode: defaultCode.toStatusCode(),
 
-		err: err,
+		Err: err,
 	}
 }
 
@@ -111,7 +109,7 @@ func newErrorFromProto(err *errorInfo) *ErrorInfo {
 		Code:       ErrorCode(err.Code),
 		StatusCode: err.StatusCode,
 		HRef:       err.HRef,
-		err:        errors.New(err.Message),
+		Err:        errors.New(err.Message),
 	}
 }
 
@@ -141,7 +139,7 @@ func errFromUnprocessableBody(resp *http.Response) error {
 	if err == nil {
 		err = errors.New(string(errMsg))
 	}
-	return &ErrorInfo{Code: ErrBadRequest, StatusCode: resp.StatusCode, err: err}
+	return &ErrorInfo{Code: ErrBadRequest, StatusCode: resp.StatusCode, Err: err}
 }
 
 func checkValidHTTPResponse(resp *http.Response) error {
@@ -157,7 +155,7 @@ func checkValidHTTPResponse(resp *http.Response) error {
 		return &ErrorInfo{
 			Code:       50000,
 			StatusCode: resp.StatusCode,
-			err:        mimeErr,
+			Err:        mimeErr,
 		}
 	}
 	if typ != protocolJSON && typ != protocolMsgPack {
@@ -171,7 +169,7 @@ func checkValidHTTPResponse(resp *http.Response) error {
 
 	err := newErrorFromProto(&body.Error)
 	if body.Error.Message != "" {
-		err.err = errors.New(body.Error.Message)
+		err.Err = errors.New(body.Error.Message)
 	}
 	if err.Code == 0 && err.StatusCode == 0 {
 		err.Code, err.StatusCode = codeFromStatus(resp.StatusCode), resp.StatusCode

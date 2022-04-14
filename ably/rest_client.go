@@ -29,7 +29,7 @@ var (
 	arrayTyp    = reflect.TypeOf((*[]interface{})(nil)).Elem()
 )
 
-func query(fn func(context.Context, string, interface{}) (*http.Response, error)) queryFunc {
+func query(fn func(context.Context, string, interface{}) (*http.Response, error)) QueryFunc {
 	return func(ctx context.Context, path string) (*http.Response, error) {
 		return fn(ctx, path, nil)
 	}
@@ -117,8 +117,8 @@ func (c *RESTChannels) Release(name string) {
 type REST struct {
 	Auth                *Auth
 	Channels            *RESTChannels           // ChannelsMap will eventually take the name Channels can change via expand and contract pattern.
-	ChannelsMap         map[string]*RESTChannel // Moved up to top level from Channels.chans
-	channelsMu          sync.RWMutex            // Moved up to top level from Channels.mu
+	ChannelsMap         map[string]*RESTChannel // Moved up to top level from REST.Channels.chans
+	channelsMu          sync.RWMutex            // Moved up to top level from REST.Channels.mu
 	opts                *clientOptions
 	successFallbackHost *fallbackCache
 	log                 logger
@@ -142,14 +142,15 @@ func (c *REST) Authorize(ctx context.Context, params *TokenParams, setOpts ...Au
 }
 
 // Release Channel is a wrapper that duplicates functionality from REST.Channels.Release
-func (c *REST) ReleaseChannel(name string) {
-	c.Channels.Release(name)
+func (c *REST) Release(channel string) {
+	c.Channels.Release(channel)
 }
 
 // Publish, PublishMultiple, History are wrappers that duplicate functionality from REST.Channels.xxx
 
 func (c *REST) Publish(ctx context.Context, channel string, name string, data interface{}, o ...PublishMultipleOption) error {
-	ch := c.ChannelsMap[channel]
+	ch := c.Channels.Get(channel)
+	c.ChannelsMap[channel] = ch
 	return ch.PublishMultiple(ctx, []*Message{{Name: name, Data: data}}, o...)
 }
 
@@ -192,6 +193,7 @@ func NewREST(options ...ClientOption) (*REST, error) {
 		chans:  make(map[string]*RESTChannel),
 		client: c,
 	}
+	c.ChannelsMap = make(map[string]*RESTChannel)
 	c.successFallbackHost = &fallbackCache{
 		duration: c.opts.fallbackRetryTimeout(),
 	}
@@ -224,7 +226,21 @@ func (c *REST) Time(ctx context.Context) (time.Time, error) {
 // Stats retrieves statistics about the Ably app's activity.
 func (c *REST) Stats(o ...StatsOption) StatsRequest {
 	params := (&statsOptions{}).apply(o...)
-	return StatsRequest{r: c.newPaginatedRequest("/stats", "", params)}
+	return StatsRequest{R: c.newPaginatedRequest("/stats", "", params)}
+}
+
+// Stats retrieves statistics about the Ably app's activity.
+func (c *REST) StatsByItems(ctx context.Context, o ...StatsOption) (*StatsPaginatedItems, error) {
+	params := (&statsOptions{}).apply(o...)
+	req := StatsRequest{R: c.newPaginatedRequest("/stats", "", params)}
+
+	var res StatsPaginatedItems
+	var err error
+	res.HasNext, err = res.loadItems(ctx, req.R, func() (interface{}, func() int) {
+		res.Items = nil // avoid mutating already returned items
+		return &res.Items, func() int { return len(res.Items) }
+	})
+	return &res, err
 }
 
 // A StatsOption configures a call to REST.Stats or Realtime.Stats.
@@ -284,7 +300,7 @@ func (o *statsOptions) apply(opts ...StatsOption) url.Values {
 // StatsRequest represents a request prepared by the REST.Stats or
 // Realtime.Stats method, ready to be performed by its Pages or Items methods.
 type StatsRequest struct {
-	r paginatedRequest
+	R PaginatedRequest
 }
 
 // Pages returns an iterator for whole pages of Stats.
@@ -292,7 +308,7 @@ type StatsRequest struct {
 // See "Paginated results" section in the package-level documentation.
 func (r StatsRequest) Pages(ctx context.Context) (*StatsPaginatedResult, error) {
 	var res StatsPaginatedResult
-	return &res, res.load(ctx, r.r)
+	return &res, res.load(ctx, r.R)
 }
 
 // A StatsPaginatedResult is an iterator for the result of a Stats request.
@@ -339,29 +355,30 @@ func (p *StatsPaginatedResult) Items() []*Stats {
 func (r StatsRequest) Items(ctx context.Context) (*StatsPaginatedItems, error) {
 	var res StatsPaginatedItems
 	var err error
-	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
-		res.items = nil // avoid mutating already returned items
-		return &res.items, func() int { return len(res.items) }
+	res.HasNext, err = res.loadItems(ctx, r.R, func() (interface{}, func() int) {
+		res.Items = nil // avoid mutating already returned items
+		return &res.Items, func() int { return len(res.Items) }
 	})
 	return &res, err
 }
 
+
 type StatsPaginatedItems struct {
 	PaginatedResult
-	items []*Stats
+	Items []*Stats
 	item  *Stats
-	next  func(context.Context) (int, bool)
+	HasNext  func(context.Context) (int, bool)
 }
 
 // Next retrieves the next result.
 //
 // See the "Paginated results" section in the package-level documentation.
 func (p *StatsPaginatedItems) Next(ctx context.Context) bool {
-	i, ok := p.next(ctx)
+	i, ok := p.HasNext(ctx)
 	if !ok {
 		return false
 	}
-	p.item = p.items[i]
+	p.item = p.Items[i]
 	return true
 }
 
@@ -393,10 +410,10 @@ func (c *REST) Request(method string, path string, o ...RequestOption) RESTReque
 	method = strings.ToUpper(method)
 	var opts requestOptions
 	opts.apply(o...)
-	return RESTRequest{r: paginatedRequest{
-		path:   path,
-		params: opts.params,
-		query: func(ctx context.Context, path string) (*http.Response, error) {
+	return RESTRequest{r: PaginatedRequest{
+		Path:   path,
+		Params: opts.params,
+		Query: func(ctx context.Context, path string) (*http.Response, error) {
 			switch method {
 			case "GET", "POST", "PUT", "PATCH", "DELETE": // spec RSC19a
 			default:
@@ -453,7 +470,7 @@ func (o *requestOptions) apply(opts ...RequestOption) {
 // RESTRequest represents a request prepared by the REST.Request method, ready
 // to be performed by its Pages or Items methods.
 type RESTRequest struct {
-	r paginatedRequest
+	r PaginatedRequest
 }
 
 // Pages returns an iterator for whole pages of results.
