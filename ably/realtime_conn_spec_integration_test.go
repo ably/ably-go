@@ -601,21 +601,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12d : should abort reconnection timer while disconnected on closed", func(t *testing.T) {
-		/*
-			FAILING TEST
-			https://github.com/ably/ably-go/pull/383/checks?check_run_id=3489733972#step:7:473
-
-			=== RUN   TestRealtimeConn_RTN12_Connection_Close/RTN12f:_transition_to_closed_when_close_is_called_intermittently
-			--- FAIL: TestRealtimeConn_RTN12_Connection_Close (20.97s)
-				--- PASS: TestRealtimeConn_RTN12_Connection_Close/RTN12a:_transition_to_closed_on_connection_close (6.50s)
-				--- PASS: TestRealtimeConn_RTN12_Connection_Close/RTN12b:_transition_to_closed_on_close_request_timeout (0.01s)
-				--- PASS: TestRealtimeConn_RTN12_Connection_Close/RTN12c:_transition_to_closed_on_transport_error (6.57s)
-				--- FAIL: TestRealtimeConn_RTN12_Connection_Close/RTN12d_:_should_abort_reconnection_timer_while_disconnected_on_closed (0.00s)
-				--- PASS: TestRealtimeConn_RTN12_Connection_Close/RTN12d:_should_abort_reconnection_timer_while_suspended_on_closed (1.40s)
-				--- PASS: TestRealtimeConn_RTN12_Connection_Close/RTN12f:_transition_to_closed_when_close_is_called_intermittently (6.48s)
-		*/
-		t.Skip("FAILING TEST")
-
 		connDetails := ably.ConnectionDetails{
 			ConnectionKey:      "foo",
 			ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 20),
@@ -708,21 +693,6 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12d: should abort reconnection timer while suspended on closed", func(t *testing.T) {
-		/*
-					FAILING TEST
-					https://github.com/ably/ably-go/pull/384/checks?check_run_id=3497981941#step:7:481
-
-					=== RUN   TestRealtimeConn_RTN12_Connection_Close/RTN12f:_transition_to_closed_when_close_is_called_intermittently
-			--- FAIL: TestRealtimeConn_RTN12_Connection_Close (19.15s)
-			    --- PASS: TestRealtimeConn_RTN12_Connection_Close/RTN12a:_transition_to_closed_on_connection_close (6.42s)
-			    --- PASS: TestRealtimeConn_RTN12_Connection_Close/RTN12b:_transition_to_closed_on_close_request_timeout (0.01s)
-			    --- PASS: TestRealtimeConn_RTN12_Connection_Close/RTN12c:_transition_to_closed_on_transport_error (6.35s)
-			    --- SKIP: TestRealtimeConn_RTN12_Connection_Close/RTN12d_:_should_abort_reconnection_timer_while_disconnected_on_closed (0.00s)
-			    --- FAIL: TestRealtimeConn_RTN12_Connection_Close/RTN12d:_should_abort_reconnection_timer_while_suspended_on_closed (0.00s)
-			    --- PASS: TestRealtimeConn_RTN12_Connection_Close/RTN12f:_transition_to_closed_when_close_is_called_intermittently (6.37s)
-		*/
-		t.Skip("FAILING TEST")
-
 		connDetails := ably.ConnectionDetails{
 			ConnectionKey:      "foo",
 			ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 20),
@@ -1583,36 +1553,7 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 		"expected transition to %v, got %v", ably.ConnectionStateFailed, client.Connection.State())
 }
 
-/*
-FAILING TEST
-https://github.com/ably/ably-go/pull/383/checks?check_run_id=3488426975#step:9:729
-
-=== RUN   TestRealtimeConn_RTN15d_MessageRecovery
---- FAIL: TestRealtimeConn_RTN15d_MessageRecovery (60.00s)
-panic: Post "https://sandbox-rest.ably.io/apps": context deadline exceeded (Client.Timeout exceeded while awaiting headers) [recovered]
-	panic: Post "https://sandbox-rest.ably.io/apps": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
-
-goroutine 1015426 [running]:
-testing.tRunner.func1.1(0xd59500, 0xc000941bc0)
-	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1072 +0x46a
-testing.tRunner.func1(0xc000634d80)
-	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1075 +0x636
-panic(0xd59500, 0xc000941bc0)
-	/opt/hostedtoolcache/go/1.15.15/x64/src/runtime/panic.go:975 +0x47a
-github.com/ably/ably-go/ablytest.MustSandbox(0x0, 0xc000357520)
-	/home/runner/work/ably-go/ably-go/ablytest/sandbox.go:124 +0xd1
-github.com/ably/ably-go/ablytest.NewRealtime(0xc00055de70, 0x2, 0x2, 0xc0ffffff01, 0x4886c7)
-	/home/runner/work/ably-go/ably-go/ablytest/sandbox.go:104 +0x52
-github.com/ably/ably-go/ably_test.TestRealtimeConn_RTN15d_MessageRecovery(0xc000634d80)
-	/home/runner/work/ably-go/ably-go/ably/realtime_conn_spec_test.go:1700 +0x1ba
-testing.tRunner(0xc000634d80, 0xe0eec0)
-	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1123 +0x203
-created by testing.(*T).Run
-	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1168 +0x5bc
-*/
 func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
-	t.Skip("FAILING TEST")
-
 	doEOF := make(chan struct{}, 1)
 	allowDial := make(chan struct{}, 1)
 
@@ -2262,17 +2203,7 @@ func sameConnection(a, b string) bool {
 	return strings.Split(a, "-")[0] == strings.Split(b, "-")[0]
 }
 
-/*
-FAILING TEST
-https://github.com/ably/ably-go/pull/383/checks?check_run_id=3488426935#step:7:750
-
-=== RUN   TestRealtimeConn_RTN23
-    realtime_conn_spec_test.go:2473: expected 6m0s, got 1m0s
---- FAIL: TestRealtimeConn_RTN23 (0.00s)
-*/
 func TestRealtimeConn_RTN23(t *testing.T) {
-	t.Skip("FAILING TEST")
-
 	connDetails := ably.ConnectionDetails{
 		ConnectionKey:      "foo",
 		ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 20),
@@ -2614,22 +2545,7 @@ func TestRealtimeConn_RTN14e(t *testing.T) {
 		"expected transitioning from \"CONNECTING\" got %v", state.Previous)
 }
 
-/*
-FAILING TEST
-Go 1.13, 1 Sep 2021: https://github.com/ably/ably-go/pull/383/checks?check_run_id=3485574719#step:7:811
-Go 1.14, 1 Sep 2021: https://github.com/ably/ably-go/pull/383/checks?check_run_id=3485574600#step:9:1063
-Go 1.16, 1 Sep 2021: https://github.com/ably/ably-go/pull/383/checks?check_run_id=3485574719#step:7:811
-
-=== CONT  TestRealtimeConn_RTN19b
-    realtime_conn_spec_test.go:2948: expected attach got detach
-    realtime_conn_spec_test.go:2951: expected attaching got detaching
-    realtime_conn_spec_test.go:2948: expected detach got attach
-    realtime_conn_spec_test.go:2951: expected detaching got attaching
---- FAIL: TestRealtimeConn_RTN19b (0.00s)
-*/
 func TestRealtimeConn_RTN19b(t *testing.T) {
-	t.Skip("FAILING TEST")
-
 	connIDs := make(chan string)
 	var breakConn func()
 	var out, in chan *ably.ProtocolMessage
@@ -3130,40 +3046,9 @@ func TestIdempotentACK(t *testing.T) {
 	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 }
 
-/*
-FAILING TEST
-https://github.com/ably/ably-go/pull/383/checks?check_run_id=3492258928#step:7:544
-
-=== RUN   TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected
-Error: /02 05:40:31 [ERROR] Received recoverable error EOF
---- FAIL: TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected (60.00s)
-panic: Post "https://sandbox-rest.ably.io/apps": context deadline exceeded (Client.Timeout exceeded while awaiting headers) [recovered]
-	panic: Post "https://sandbox-rest.ably.io/apps": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
-
-goroutine 1474251 [running]:
-testing.tRunner.func1.1(0xd4fe20, 0xc0009783f0)
-	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1072 +0x46a
-testing.tRunner.func1(0xc000480600)
-	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1075 +0x636
-panic(0xd4fe20, 0xc0009783f0)
-	/opt/hostedtoolcache/go/1.15.15/x64/src/runtime/panic.go:975 +0x47a
-github.com/ably/ably-go/ablytest.MustSandbox(0x0, 0xc000a30e40)
-	/home/runner/work/ably-go/ably-go/ablytest/sandbox.go:124 +0xd1
-github.com/ably/ably-go/ablytest.NewREST(0x0, 0x0, 0x0, 0x63c, 0xc000b64c88)
-	/home/runner/work/ably-go/ably-go/ablytest/sandbox.go:113 +0x52
-github.com/ably/ably-go/ably_test.TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(0xc000480600)
-	/home/runner/work/ably-go/ably-go/ably/realtime_conn_spec_test.go:3428 +0x125
-testing.tRunner(0xc000480600, 0xe05128)
-	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1123 +0x203
-created by testing.(*T).Run
-	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1168 +0x5bc
-*/
 func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
-	t.Skip("FAILING TEST")
-
 	// Set up a Realtime with AuthCallback that the test controls. Auth requests
 	// are sent to the authRequested channel.
-
 	type authResponse struct {
 		token ably.Tokener
 		err   error
