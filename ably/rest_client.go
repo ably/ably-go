@@ -508,6 +508,8 @@ func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
 			p.items = append(p.items, ']')
 		}
 	} else if typ == "application/x-msgpack" {
+		// 0x9, 0xdc, 0xdd are message pack's array types
+		// append array if the start is not already an array type
 		if (p.items[0]&0xf0 != 0x90) && p.items[0] != 0xdc && p.items[0] != 0xdd {
 			p.items = append(raw{0x91}, p.items...)
 		}
