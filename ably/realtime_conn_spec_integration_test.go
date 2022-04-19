@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -2621,9 +2622,17 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 			Action:  ably.ActionDetach,
 		},
 	}
-	for _, expect := range msgs {
+	var gots []*ably.ProtocolMessage
+	for range msgs {
 		var got *ably.ProtocolMessage
 		ablytest.Instantly.Recv(t, &got, out, t.Fatalf)
+		gots = append(gots, got)
+	}
+
+	sort.Slice(gots, func(i, j int) bool { return gots[i].Action < gots[j].Action})
+
+	for i, expect := range msgs {
+		got := gots[i]
 		assert.Equal(t, expect.Action, got.Action,
 			"expected %v got %v", expect.Action, got.Action)
 		assert.Equal(t, expect.Channel, got.Channel,
@@ -2645,9 +2654,18 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 			Action:  ably.ActionDetach,
 		},
 	}
-	for _, expect := range msgs {
+
+	gots = nil
+	for range msgs {
 		var got *ably.ProtocolMessage
 		ablytest.Instantly.Recv(t, &got, out, t.Fatalf)
+		gots = append(gots, got)
+	}
+
+	sort.Slice(gots, func(i, j int) bool { return gots[i].Action < gots[j].Action})
+
+	for i, expect := range msgs {
+		got := gots[i]
 		assert.Equal(t, expect.Action, got.Action,
 			"expected %v got %v", expect.Action, got.Action)
 		assert.Equal(t, expect.Channel, got.Channel,
