@@ -1122,7 +1122,6 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	})
 
 	t.Run("RTL4j2: Rewind flag should allow to receive historic messages", func(t *testing.T) {
-		t.Skip("Flaky test, needs to be fixed, sometimes works well in debug mode")
 		app, client := ablytest.NewRealtime(
 			ably.WithAutoConnect(false))
 
