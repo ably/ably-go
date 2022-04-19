@@ -36,18 +36,20 @@ func query(fn func(context.Context, string, interface{}) (*http.Response, error)
 	}
 }
 
-type Raw []byte
+// Raw "decodes" both json and message pack keeping the original bytes.
+// This is used to delay the actual decoding until later.
+type raw []byte
 
-func (r *Raw) UnmarshalJSON(data []byte) error {
+func (r *raw) UnmarshalJSON(data []byte) error {
 	*r = data
 	return nil
 }
 
-func (r *Raw) CodecEncodeSelf(*codec.Encoder) {
+func (r *raw) CodecEncodeSelf(*codec.Encoder) {
 	panic("Raw cannot be used as encoder")
 }
 
-func (r *Raw) CodecDecodeSelf(decoder *codec.Decoder) {
+func (r *raw) CodecDecodeSelf(decoder *codec.Decoder) {
 	var raw codec.Raw
 	decoder.MustDecode(&raw)
 	*r = []byte(raw)
@@ -435,7 +437,7 @@ func (r RESTRequest) Pages(ctx context.Context) (*HTTPPaginatedResponse, error) 
 // See "Paginated results" section in the package-level documentation.
 type HTTPPaginatedResponse struct {
 	PaginatedResult
-	items Raw
+	items raw
 }
 
 func (r *HTTPPaginatedResponse) StatusCode() int {
@@ -502,12 +504,12 @@ func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
 	if typ == "application/json" {
 		token, _ := json.NewDecoder(bytes.NewReader(p.items)).Token()
 		if token != json.Delim('[') {
-			p.items = append(Raw{'['}, p.items...)
+			p.items = append(raw{'['}, p.items...)
 			p.items = append(p.items, ']')
 		}
 	} else if typ == "application/x-msgpack" {
 		if (p.items[0]&0xf0 != 0x90) && p.items[0] != 0xdc && p.items[0] != 0xdd {
-			p.items = append(Raw{0x91}, p.items...)
+			p.items = append(raw{0x91}, p.items...)
 		}
 	}
 	return decode(typ, bytes.NewReader(p.items), dst)
@@ -531,8 +533,8 @@ func (r RESTRequest) Items(ctx context.Context) (*RESTPaginatedItems, error) {
 
 type RESTPaginatedItems struct {
 	PaginatedResult
-	items []Raw
-	item  Raw
+	items []raw
+	item  raw
 	next  func(context.Context) (int, bool)
 }
 
