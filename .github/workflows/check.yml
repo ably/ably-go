@@ -63,5 +63,5 @@ jobs:
         uses: ably-labs/test-observability-action@main
         with:
           server-url: 'https://test-observability.herokuapp.com'
-          server-auth: ${{ secrets.TEST_OBSERVABLILITY_SERVER_AUTH }}
+          server-auth: ${{ secrets.TEST_OBSERVABILITY_SERVER_AUTH_KEY }}
           path: '.'
