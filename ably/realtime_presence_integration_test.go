@@ -119,16 +119,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 		"members3: %v", err)
 }
 
-/*
-FAILING TEST
-https://github.com/ably/ably-go/pull/383/checks?check_run_id=3489733937#step:7:592
-
-=== RUN   TestRealtimePresence_EnsureChannelIsAttached
-    realtime_presence_test.go:151: expected [INITIALIZED ATTACHING ATTACHED], got [INITIALIZED ATTACHING]
---- FAIL: TestRealtimePresence_EnsureChannelIsAttached (6.34s)
-*/
 func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
-	t.Skip("FAILING TEST")
 
 	var rec ablytest.ChanStatesRecorder
 	opts := []ably.ClientOption{

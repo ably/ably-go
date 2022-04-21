@@ -5,10 +5,12 @@ package ably_test
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -44,17 +46,17 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 			defer safeclose(t, realtime, app)
 
 			var err error
-			if !ablytest.Soon.IsTrue(func() bool {
+			testFunc := func() bool {
 				err = ablytest.TestPagination(
-					reversePresence(fixtures),
+					fixtures,
 					channel.Presence.History(ably.PresenceHistoryWithLimit(limit)),
 					limit,
 					ablytest.PaginationWithEqual(presenceEqual),
+					ablytest.PaginationWithSortResult(sortPresenceByData),
 				)
 				return err == nil
-			}) {
-				t.Fatal(err)
 			}
+			assert.True(t, ablytest.Soon.IsTrue(testFunc))
 		})
 	}
 }
@@ -128,7 +130,7 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 			expected := persistedPresenceFixtures()
 
 			var err error
-			if !ablytest.Soon.IsTrue(func() bool {
+			testFunc := func() bool {
 				err = ablytest.TestPagination(
 					expected,
 					channel.Presence.Get(ably.GetPresenceWithLimit(limit)),
@@ -137,9 +139,9 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 					ablytest.PaginationWithSortResult(sortPresenceByClientID),
 				)
 				return err == nil
-			}) {
-				t.Fatal(err)
 			}
+			assert.False(t, ablytest.Soon.IsTrue(testFunc))
+
 		})
 	}
 }
@@ -313,5 +315,30 @@ fixtures:
 func sortPresenceByClientID(items []interface{}) {
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].(*ably.PresenceMessage).ClientID < items[j].(*ably.PresenceMessage).ClientID
+	})
+}
+
+func sortData(data string) string {
+	dataLen := len(data) - 1
+	for ; dataLen >= 0; dataLen-- {
+		if '0' > data[dataLen] || data[dataLen] > '9' {
+			break
+		}
+	}
+	dataLen++
+	b64 := make([]byte, 64/8)
+	s64 := data[dataLen:]
+	if len(s64) > 0 {
+		u64, err := strconv.ParseUint(s64, 10, 64)
+		if err == nil {
+			binary.BigEndian.PutUint64(b64, u64+1)
+		}
+	}
+	return data[:dataLen] + string(b64)
+}
+
+func sortPresenceByData(items []interface{}) {
+	sort.Slice(items, func(i, j int) bool {
+		return sortData(fmt.Sprintf("%v", items[i].(*ably.PresenceMessage).Data)) < sortData(fmt.Sprintf("%v", items[j].(*ably.PresenceMessage).Data))
 	})
 }

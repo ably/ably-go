@@ -159,7 +159,6 @@ created by testing.(*T).Run
 FAIL	github.com/ably/ably-go/ably	284.413s
 */
 func TestHistory_Direction_RSL2b2(t *testing.T) {
-	t.Skip("FAILING TEST")
 
 	for _, c := range []struct {
 		direction ably.Direction
