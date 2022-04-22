@@ -5,12 +5,10 @@ package ably_test
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"reflect"
 	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -290,27 +288,8 @@ func sortPresenceByClientID(items []interface{}) {
 	})
 }
 
-func sortData(data string) string {
-	dataLen := len(data) - 1
-	for ; dataLen >= 0; dataLen-- {
-		if '0' > data[dataLen] || data[dataLen] > '9' {
-			break
-		}
-	}
-	dataLen++
-	b64 := make([]byte, 64/8)
-	s64 := data[dataLen:]
-	if len(s64) > 0 {
-		u64, err := strconv.ParseUint(s64, 10, 64)
-		if err == nil {
-			binary.BigEndian.PutUint64(b64, u64+1)
-		}
-	}
-	return data[:dataLen] + string(b64)
-}
-
 func sortPresenceByData(items []interface{}) {
 	sort.Slice(items, func(i, j int) bool {
-		return sortData(fmt.Sprintf("%v", items[i].(*ably.PresenceMessage).Data)) < sortData(fmt.Sprintf("%v", items[j].(*ably.PresenceMessage).Data))
+		return items[i].(*ably.PresenceMessage).Data.(string) < items[j].(*ably.PresenceMessage).Data.(string)
 	})
 }
