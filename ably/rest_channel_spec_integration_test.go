@@ -138,8 +138,8 @@ https://github.com/ably/ably-go/pull/383/checks?check_run_id=3486092179#step:7:7
     --- FAIL: TestHistory_Direction_RSL2b2/direction=backwards (60.00s)
 panic: Post "https://sandbox-rest.ably.io/apps": context deadline exceeded (Client.Timeout exceeded while awaiting headers) [recovered]
 	panic: Post "https://sandbox-rest.ably.io/apps": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
-
 goroutine 2621 [running]:
+
 testing.tRunner.func1.1(0xd5a860, 0xc000e618f0)
 	/opt/hostedtoolcache/go/1.15.15/x64/src/testing/testing.go:1072 +0x46a
 testing.tRunner.func1(0xc000bdc600)
