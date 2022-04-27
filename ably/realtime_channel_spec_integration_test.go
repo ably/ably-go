@@ -22,32 +22,6 @@ import (
 func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
 
 	t.Run(fmt.Sprintf("on %s", ably.ChannelStateAttaching), func(t *testing.T) {
-		/*
-			FAILING TEST
-			https://github.com/ably/ably-go/pull/383/checks?check_run_id=3492258882#step:7:256
-
-			=== RUN   TestRealtimeChannel_RTL2_ChannelEventForStateChange/on_ATTACHING
-			panic: request error: Forbidden ("{\n\t\"error\": {\n\t\t\"message\": \"Unable to modify existing channel namespace id with POST. (See https://help.ably.io/error/40300 for help.)\",\n\t\t\"code\": 40300,\n\t\t\"statusCode\": 403,\n\t\t\"href\": \"https://help.ably.io/error/40300\",\n\t\t\"serverId\": \"frontend.812b.1.us-east-1-A.i-0e345afa688bdcd49.e7dFhLtNAB26MJ\"\n\t}\n}") [recovered]
-				panic: request error: Forbidden ("{\n\t\"error\": {\n\t\t\"message\": \"Unable to modify existing channel namespace id with POST. (See https://help.ably.io/error/40300 for help.)\",\n\t\t\"code\": 40300,\n\t\t\"statusCode\": 403,\n\t\t\"href\": \"https://help.ably.io/error/40300\",\n\t\t\"serverId\": \"frontend.812b.1.us-east-1-A.i-0e345afa688bdcd49.e7dFhLtNAB26MJ\"\n\t}\n}")
-
-			goroutine 611 [running]:
-			testing.tRunner.func1(0xc000618e00)
-				/opt/hostedtoolcache/go/1.13.15/x64/src/testing/testing.go:874 +0x69f
-			panic(0xcef5a0, 0xc00029cc50)
-				/opt/hostedtoolcache/go/1.13.15/x64/src/runtime/panic.go:679 +0x1b2
-			github.com/ably/ably-go/ablytest.MustSandbox(0x0, 0xc00009a998)
-				/home/runner/work/ably-go/ably-go/ablytest/sandbox.go:124 +0xd1
-			github.com/ably/ably-go/ablytest.NewRealtime(0xc00009a998, 0x1, 0x1, 0x1314115, 0x3a)
-				/home/runner/work/ably-go/ably-go/ablytest/sandbox.go:104 +0x4d
-			github.com/ably/ably-go/ably_test.TestRealtimeChannel_RTL2_ChannelEventForStateChange.func1(0xc000618e00)
-				/home/runner/work/ably-go/ably-go/ably/realtime_channel_spec_test.go:23 +0xba
-			testing.tRunner(0xc000618e00, 0xdddc20)
-				/opt/hostedtoolcache/go/1.13.15/x64/src/testing/testing.go:909 +0x19a
-			created by testing.(*T).Run
-				/opt/hostedtoolcache/go/1.13.15/x64/src/testing/testing.go:960 +0x652
-		*/
-		t.Skip("FAILING TEST")
-
 		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
 		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
