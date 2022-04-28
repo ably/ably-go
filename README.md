@@ -31,17 +31,17 @@ See [EXAMPLES.md](EXAMPLES.md) for examples on how to use the ably API.
 
 ## Feature support
 
-This library targets the Ably 1.2 [client library specification](https://www.ably.io/documentation/client-lib-development-guide/features).
+This library targets the Ably 1.2 [client library specification](https://ably.com/docs/client-lib-development-guide/features).
 
 ### Known limitations
 
-As of release 1.2.0, the following are not implemented and will be covered in future 1.2.x releases. If there are features that are currently missing that are a high priority for your use-case then please [contact Ably customer support](https://support.ably.io). Pull Requests are also welcomed.
+As of release 1.2.0, the following are not implemented and will be covered in future 1.2.x releases. If there are features that are currently missing that are a high priority for your use-case then please [contact Ably customer support](https://ably.com/support). Pull Requests are also welcomed.
 
 ### REST API
 
-- [Push notifications admin API](https://www.ably.io/documentation/general/push/admin) is not implemented.
+- [Push notifications admin API](https://ably.com/docs/general/push/admin) is not implemented.
 
-- [JWT authentication](https://www.ably.io/documentation/core-features/authentication#ably-jwt-process) is not implemented.
+- [JWT authentication](https://ably.com/docs/core-features/authentication#ably-jwt-process) is not implemented.
 
 ### Realtime API
 
