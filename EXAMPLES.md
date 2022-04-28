@@ -83,7 +83,7 @@ if err != nil {
 
 Errors returned by this library may have an underlying `*ErrorInfo` type.
 
-[See Ably documentation for ErrorInfo.](https://www.ably.io/documentation/realtime/types#error-info)
+[See Ably documentation for ErrorInfo.](https://ably.com/docs/realtime/types#error-info)
 
 ```go
 badClient, err := ably.NewRealtime(ably.WithKey("invalid:key"))
