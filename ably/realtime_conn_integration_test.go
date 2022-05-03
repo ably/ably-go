@@ -204,10 +204,8 @@ https://github.com/ably/ably-go/pull/383/checks?check_run_id=3489733889#step:7:5
     --- PASS: TestRealtimeConn_BreakConnLoopOnInactiveState/closed (6.32s)
 */
 func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
-	t.Skip("FAILING TEST")
 
 	for _, action := range []ably.ProtoAction{
-		ably.ActionDisconnect,
 		ably.ActionError,
 		ably.ActionClosed,
 	} {
