@@ -128,22 +128,6 @@ func newCBCCipher(opts CipherParams) (*cbcCipher, error) {
 	}, nil
 }
 
-// GenerateRandomKey returns a random key. keyLength is optional if provided it
-// should be  in bits, it defaults to DefaultKeyLength when not provided.
-//
-// Spec RSE2, RSE2a, RSE2b.
-func GenerateRandomKey(keyLength ...int) ([]byte, error) {
-	length := defaultCipherKeyLength
-	if len(keyLength) > 0 {
-		length = keyLength[0]
-	}
-	key := make([]byte, length/8)
-	if _, err := io.ReadFull(rand.Reader, key); err != nil {
-		return nil, err
-	}
-	return key, nil
-}
-
 // DefaultCipherParams returns CipherParams with fields set to default values.
 // This generates random secret key and iv values
 func DefaultCipherParams() (*CipherParams, error) {
@@ -211,4 +195,43 @@ func (c *cbcCipher) Decrypt(cipherText []byte) ([]byte, error) {
 // GetAlgorithm returns the cipher algorithm used by this CBCCipher which is AES.
 func (c *cbcCipher) GetAlgorithm() string {
 	return c.algorithm
+}
+
+// Appends padding.
+func pkcs7Pad(data []byte, blocklen int) ([]byte, error) {
+	if blocklen <= 0 {
+		return nil, fmt.Errorf("invalid blocklen %d", blocklen)
+	}
+	padlen := 1
+	for ((len(data) + padlen) % blocklen) != 0 {
+		padlen = padlen + 1
+	}
+	p := make([]byte, len(data)+padlen)
+	copy(p, data)
+	for i := len(data); i < len(p); i++ {
+		p[i] = byte(padlen)
+	}
+	return p, nil
+}
+
+// Returns slice of the original data without padding.
+func pkcs7Unpad(data []byte, blocklen int) ([]byte, error) {
+	if blocklen <= 0 {
+		return nil, fmt.Errorf("invalid blocklen %d", blocklen)
+	}
+	if len(data)%blocklen != 0 || len(data) == 0 {
+		return nil, fmt.Errorf("invalid data len %d", len(data))
+	}
+	padlen := int(data[len(data)-1])
+	if padlen > blocklen || padlen == 0 {
+		// no padding found.
+		return data, nil
+	}
+	// check padding
+	for _, p := range data[len(data)-padlen:] {
+		if p != byte(padlen) {
+			return nil, fmt.Errorf("invalid padding character")
+		}
+	}
+	return data[:len(data)-padlen], nil
 }
