@@ -67,6 +67,8 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 
 This project contains two types of test. Test which use the `ablytest` package and tests which dont. 
 
+At each stage of the CI pipeline, test results are uploaded to a [test observability server](https://github.com/ably-labs/test-observability-server)
+
 #### Unit tests
 
 The tests which don't make use of the `ablytest` package are considered unit tests. These tests exist in files which are suffixed `_test.go`. They run in the CI pipeline at the step `Unit Tests`. They can be run locally with the command: 
