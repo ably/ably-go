@@ -67,7 +67,7 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 
 This project contains two types of test. Test which use the `ablytest` package and tests which dont. 
 
-At each stage of the CI pipeline, test results are uploaded to a [test observability server](https://github.com/ably-labs/test-observability-server)
+At each stage of the CI pipeline, test results are uploaded to a [test observability server](https://github.com/ably-labs/test-observability-server). The `*.junit` test report names are pre-fixed with a number representing their run order. This is so they can be identified in the test observability dashboard where `iteration` matches this number.
 
 #### Unit tests
 

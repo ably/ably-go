@@ -41,12 +41,12 @@ jobs:
       - name: Unit Tests
         run: |
           set -o pipefail
-          go test -v -tags=unit ./... |& tee >(~/go/bin/go-junit-report > unit.junit)
+          go test -v -tags=unit ./... |& tee >(~/go/bin/go-junit-report > 1-unit.junit)
 
       - name: Integration Tests with JSON Protocol
         run: |
           set -o pipefail
-          scripts/test.sh --protocol application/json |& tee >(~/go/bin/go-junit-report > json-integration.junit)
+          scripts/test.sh --protocol application/json |& tee >(~/go/bin/go-junit-report > 2-json-integration.junit)
 
       # We explicitly do this clean between test runs in preference to specifying the slightly opaque `-count=1`
       # argument to subsequent test run executions.
@@ -56,7 +56,7 @@ jobs:
       - name: Integration Tests with MessagePack Protocol
         run: |
           set -o pipefail
-          scripts/test.sh --protocol application/x-msgpack |& tee >(~/go/bin/go-junit-report > msgpack-integration.junit)
+          scripts/test.sh --protocol application/x-msgpack |& tee >(~/go/bin/go-junit-report > 3-msgpack-integration.junit)
 
       - name: Upload test results
         if: always()
