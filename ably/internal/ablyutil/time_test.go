@@ -10,7 +10,7 @@ import (
 
 func TestAfterOK(t *testing.T) {
 
-	const wait = 15 * time.Millisecond
+	const wait = 10 * time.Millisecond
 
 	ctx, cancel := context.WithTimeout(context.Background(), wait*2)
 	defer cancel()
