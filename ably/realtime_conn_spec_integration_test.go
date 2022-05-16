@@ -2629,7 +2629,7 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 		gots = append(gots, got)
 	}
 
-	sort.Slice(gots, func(i, j int) bool { return gots[i].Action < gots[j].Action})
+	sort.Slice(gots, func(i, j int) bool { return gots[i].Action < gots[j].Action })
 
 	for i, expect := range msgs {
 		got := gots[i]
@@ -2662,7 +2662,7 @@ func TestRealtimeConn_RTN19b(t *testing.T) {
 		gots = append(gots, got)
 	}
 
-	sort.Slice(gots, func(i, j int) bool { return gots[i].Action < gots[j].Action})
+	sort.Slice(gots, func(i, j int) bool { return gots[i].Action < gots[j].Action })
 
 	for i, expect := range msgs {
 		got := gots[i]

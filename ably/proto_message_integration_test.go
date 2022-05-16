@@ -113,4 +113,3 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c_TM3(t *testing.T) {
 		})
 	}
 }
-

@@ -98,7 +98,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	for len(client_ids) < 250 {
 		select {
 		case msg := <-sub2:
-			members2 = append(members2,  msg)
+			members2 = append(members2, msg)
 			client_ids[msg.ClientID] = struct{}{}
 		case <-tout:
 			t.Fatalf("waiting for presence messages timed out after %v", 250*ablytest.Timeout)
