@@ -6,6 +6,6 @@ cd ably
 for ((i=1;i<=100;i++)); 
 do 
    echo $i
-   go test -v -run TestStats_Direction_RSC6b2
+   go test -v -run TestX
    go clean -testcache
 done
