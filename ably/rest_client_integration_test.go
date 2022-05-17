@@ -538,7 +538,7 @@ func (c *connCloseTracker) Close() error {
 	return c.Conn.Close()
 }
 
-func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
+func TestXStatsPagination_RSC6a_RSCb3(t *testing.T) {
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
