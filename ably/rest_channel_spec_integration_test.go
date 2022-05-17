@@ -5,7 +5,6 @@ package ably_test
 
 import (
 	"context"
-	// "encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -174,8 +173,8 @@ func TestGetChannelLifecycleStatus_RSL8(t *testing.T) {
 	channel.Publish(context.Background(), "event", "data")
 	status, err := restchannel.Status(context.Background())
 	assert.NoError(t, err)
-	assert.Contains(t, status, "channelId")
-	assert.Contains(t, status, "status")
+	assert.NotNil(t, status.ChannelId)
+	assert.True(t, status.Status.IsActive)
 
 	assert.NoError(t, err)
 }

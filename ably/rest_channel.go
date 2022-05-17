@@ -157,19 +157,74 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 	return c.PublishMultiple(ctx, messages, options...)
 }
 
+type ChannelDetails struct {
+	ChannelId string
+	Name      string
+	Status    ChannelStatus
+}
+
+type ChannelStatus struct {
+	IsActive  bool
+	Occupancy ChannelOccupancy
+}
+
+type ChannelOccupancy struct {
+	Metrics ChannelMetrics
+}
+
+type ChannelMetrics struct {
+	Connections         int
+	PresenceConnections int
+	PresenceMembers     int
+	PresenceSubscribers int
+	Publishers          int
+	Subscribers         int
+}
+
 // Status - returns ChannelDetails representing information for a channel
-func (c *RESTChannel) Status(ctx context.Context) (interface{}, error) {
-	ares := c.client.Request("get", "/channels/"+c.Name)
-	res, err := ares.Pages(ctx)
+func (c *RESTChannel) Status(ctx context.Context) (ChannelDetails, error) {
+	channelDetails := ChannelDetails{}
+	res, err := c.client.Request("get", "/channels/"+c.Name).Pages(ctx)
 	if err != nil {
-		return nil, err
+		return channelDetails, err
 	}
 	res.Next(ctx)
-	var items []interface{}
+	var items []map[string]interface{}
 	if err := res.Items(&items); err != nil {
-		return nil, err
+		return channelDetails, err
 	}
-	return items[0], nil
+	statusResult := items[0]
+
+	// Format nested interface maps to string maps so it can be unmarshal-ed to struct
+	status := formatToStringMap(statusResult["status"])
+	statusResult["status"] = status
+
+	occupancy := formatToStringMap(status["occupancy"])
+	status["occupancy"] = occupancy
+
+	metrics := formatToStringMap(occupancy["metrics"])
+	occupancy["metrics"] = metrics
+
+	// Convert map to json string
+	jsonStr, err := json.Marshal(statusResult)
+	if err != nil {
+		return channelDetails, err
+	}
+
+	// Convert json string to struct
+	if err := json.Unmarshal(jsonStr, &channelDetails); err != nil {
+		return channelDetails, err
+	}
+	return channelDetails, nil
+}
+
+// formatToStringMap formats interface maps to string maps
+func formatToStringMap(i interface{}) map[string]interface{} {
+	stringMap := map[string]interface{}{}
+	for key, value := range i.(map[interface{}]interface{}) {
+		stringMap[key.(string)] = value
+	}
+	return stringMap
 }
 
 // History gives the channel's message history.
