@@ -277,3 +277,12 @@ if err := pages.Err(); err != nil {
 }
 ```
 
+### Getting the channel details
+```go
+// Get the channel status
+status, err := channel.Status(ctx)
+if err != nil {
+        panic(err)
+}
+fmt.Print(status, status.ChannelId)
+```

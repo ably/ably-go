@@ -220,11 +220,18 @@ func (c *RESTChannel) Status(ctx context.Context) (ChannelDetails, error) {
 
 // formatToStringMap formats interface maps to string maps
 func formatToStringMap(i interface{}) map[string]interface{} {
-	stringMap := map[string]interface{}{}
-	for key, value := range i.(map[interface{}]interface{}) {
-		stringMap[key.(string)] = value
+	val, ok := i.(map[string]interface{})
+	if !ok {
+		val, ok := i.(map[interface{}]interface{})
+		if ok {
+			stringMap := map[string]interface{}{}
+			for key, val := range val {
+				stringMap[key.(string)] = val
+			}
+			return stringMap
+		}
 	}
-	return stringMap
+	return val
 }
 
 // History gives the channel's message history.
