@@ -159,7 +159,6 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 
 type ChannelDetails struct {
 	ChannelId string
-	Name      string
 	Status    ChannelStatus
 }
 

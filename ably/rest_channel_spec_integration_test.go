@@ -175,6 +175,7 @@ func TestGetChannelLifecycleStatus_RSL8(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, status.ChannelId)
 	assert.True(t, status.Status.IsActive)
+	assert.Equal(t, "lifecycle:test", status.ChannelId)
 
 	assert.NoError(t, err)
 }
