@@ -157,6 +157,21 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 	return c.PublishMultiple(ctx, messages, options...)
 }
 
+// Status - returns ChannelDetails representing information for a channel
+func (c *RESTChannel) Status(ctx context.Context) (interface{}, error) {
+	ares := c.client.Request("get", "/channels/"+c.Name)
+	res, err := ares.Pages(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res.Next(ctx)
+	var items []interface{}
+	if err := res.Items(&items); err != nil {
+		return nil, err
+	}
+	return items[0], nil
+}
+
 // History gives the channel's message history.
 func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 	params := (&historyOptions{}).apply(o...)

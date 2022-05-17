@@ -5,6 +5,7 @@ package ably_test
 
 import (
 	"context"
+	// "encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -160,6 +161,23 @@ func TestHistory_Direction_RSL2b2(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	}
+}
+
+func TestGetChannelLifecycleStatus_RSL8(t *testing.T) {
+	app, realtime := ablytest.NewRealtime()
+	app2, rest := ablytest.NewREST()
+	defer app.Close()
+	defer app2.Close()
+	channel := realtime.Channels.Get("lifecycle:test")
+	restchannel := rest.Channels.Get("lifecycle:test")
+
+	channel.Publish(context.Background(), "event", "data")
+	status, err := restchannel.Status(context.Background())
+	assert.NoError(t, err)
+	assert.Contains(t, status, "channelId")
+	assert.Contains(t, status, "status")
+
+	assert.NoError(t, err)
 }
 
 func historyFixtures() []*ably.Message {
