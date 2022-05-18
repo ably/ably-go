@@ -163,21 +163,18 @@ func TestHistory_Direction_RSL2b2(t *testing.T) {
 }
 
 func TestGetChannelLifecycleStatus_RSL8(t *testing.T) {
-	app, realtime := ablytest.NewRealtime()
-	app2, rest := ablytest.NewREST()
+	app, rest := ablytest.NewREST()
 	defer app.Close()
-	defer app2.Close()
-	channel := realtime.Channels.Get("lifecycle:test")
-	restchannel := rest.Channels.Get("lifecycle:test")
+	channel := rest.Channels.Get("lifecycle:test")
 
-	channel.Publish(context.Background(), "event", "data")
-	status, err := restchannel.Status(context.Background())
+	ctx := context.Background()
+	err := channel.Publish(ctx, "event", "data")
+	assert.NoError(t, err)
+	status, err := channel.Status(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, status.ChannelId)
 	assert.True(t, status.Status.IsActive)
 	assert.Equal(t, "lifecycle:test", status.ChannelId)
-
-	assert.NoError(t, err)
 }
 
 func historyFixtures() []*ably.Message {

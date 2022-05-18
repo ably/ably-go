@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	// "io/ioutil"
+
+	// "io/ioutil"
 	"net/url"
 	"strconv"
 	"time"
@@ -158,79 +161,47 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 }
 
 type ChannelDetails struct {
-	ChannelId string
-	Status    ChannelStatus
+	ChannelId string        `json:"channelId"`
+	Status    ChannelStatus `json:"status"`
 }
 
 type ChannelStatus struct {
-	IsActive  bool
-	Occupancy ChannelOccupancy
+	IsActive  bool             `json:"isActive"`
+	Occupancy ChannelOccupancy `json:"occupancy"`
 }
 
 type ChannelOccupancy struct {
-	Metrics ChannelMetrics
+	Metrics ChannelMetrics `json:"metrics"`
 }
 
 type ChannelMetrics struct {
-	Connections         int
-	PresenceConnections int
-	PresenceMembers     int
-	PresenceSubscribers int
-	Publishers          int
-	Subscribers         int
+	Connections         int `json:"connections"`
+	PresenceConnections int `json:"presenceConnections"`
+	PresenceMembers     int `json:"presenceMembers"`
+	PresenceSubscribers int `json:"presenceSubscribers"`
+	Publishers          int `json:"publishers"`
+	Subscribers         int `json:"subscribers"`
 }
 
-// Status - returns ChannelDetails representing information for a channel
-func (c *RESTChannel) Status(ctx context.Context) (ChannelDetails, error) {
-	channelDetails := ChannelDetails{}
-	res, err := c.client.Request("get", "/channels/"+c.Name).Pages(ctx)
+// Status returns ChannelDetails representing information for a channel
+func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
+	req := &request{
+		Method: "GET",
+		Path:   "/channels/" + c.Name,
+	}
+	res, err := c.client.MakeHTTPRequest(ctx, req)
 	if err != nil {
-		return channelDetails, err
+		return nil, err
 	}
-	res.Next(ctx)
-	var items []map[string]interface{}
-	if err := res.Items(&items); err != nil {
-		return channelDetails, err
+	defer res.Body.Close()
+	var channelDetails ChannelDetails
+
+	// Decode response body
+	dec := codec.NewDecoder(res.Body, new(codec.MsgpackHandle))
+	if err := dec.Decode(&channelDetails); err != nil {
+		panic(err)
 	}
-	statusResult := items[0]
-
-	// Format nested interface maps to string maps so it can be unmarshal-ed to struct
-	status := formatToStringMap(statusResult["status"])
-	statusResult["status"] = status
-
-	occupancy := formatToStringMap(status["occupancy"])
-	status["occupancy"] = occupancy
-
-	metrics := formatToStringMap(occupancy["metrics"])
-	occupancy["metrics"] = metrics
-
-	// Convert map to json string
-	jsonStr, err := json.Marshal(statusResult)
-	if err != nil {
-		return channelDetails, err
-	}
-
-	// Convert json string to struct
-	if err := json.Unmarshal(jsonStr, &channelDetails); err != nil {
-		return channelDetails, err
-	}
-	return channelDetails, nil
-}
-
-// formatToStringMap formats interface maps to string maps
-func formatToStringMap(i interface{}) map[string]interface{} {
-	val, ok := i.(map[string]interface{})
-	if !ok {
-		val, ok := i.(map[interface{}]interface{})
-		if ok {
-			stringMap := map[string]interface{}{}
-			for key, val := range val {
-				stringMap[key.(string)] = val
-			}
-			return stringMap
-		}
-	}
-	return val
+	return &channelDetails, nil
 }
 
 // History gives the channel's message history.
