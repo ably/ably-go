@@ -35,8 +35,6 @@ func recorder() (*ablytest.RoundTripRecorder, []ably.ClientOption) {
 }
 
 func TestAuth_BasicAuth(t *testing.T) {
-	// Skipping test, see https://github.com/ably/ably-go/issues/438
-	t.Skip("FLAKY TEST")
 	rec, extraOpt := recorder()
 	defer rec.Stop()
 	opts := []ably.ClientOption{ably.WithQueryTime(true)}
@@ -436,8 +434,6 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 }
 
 func TestAuth_ClientID(t *testing.T) {
-	// Skipping test, see https://github.com/ably/ably-go/issues/438
-	t.Skip("FLAKY TEST")
 	in := make(chan *ably.ProtocolMessage, 16)
 	out := make(chan *ably.ProtocolMessage, 16)
 	app := ablytest.MustSandbox(nil)
@@ -622,34 +618,106 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	}
 }
 
-/*
-FAILING TEST
-https://github.com/ably/ably-go/pull/383/checks?check_run_id=3488427014#step:7:53
+func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
+	rec, extraOpt := recorder()
+	defer rec.Stop()
 
-=== RUN   TestAuth_RSA7c
---- FAIL: TestAuth_RSA7c (60.03s)
-panic: Post "https://sandbox-rest.ably.io/apps": context deadline exceeded (Client.Timeout exceeded while awaiting headers) [recovered]
-	panic: Post "https://sandbox-rest.ably.io/apps": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+	tests := map[string]struct {
+		opt                 []ably.ClientOption
+		initialUseQueryTime bool
+		newUseQueryTime     bool
+		tokenParams         *ably.TokenParams
+	}{
+		"Should not save query time and timestamp when WithQueryTime is false and token params has no timestamp": {
+			opt: []ably.ClientOption{
+				ably.WithTLS(true),
+				ably.WithUseTokenAuth(true),
+				ably.WithQueryTime(false),
+			},
+			tokenParams: &ably.TokenParams{
+				TTL:        123890,
+				Capability: `{"foo":["publish"]}`,
+				ClientID:   "abcd1234",
+			},
+			initialUseQueryTime: false,
+			newUseQueryTime:     true,
+		},
+		"Should not save query time and timestamp when WithQueryTime is true and token params has no timestamp": {
+			opt: []ably.ClientOption{
+				ably.WithTLS(true),
+				ably.WithUseTokenAuth(true),
+				ably.WithQueryTime(true),
+			},
+			tokenParams: &ably.TokenParams{
+				TTL:        123890,
+				Capability: `{"foo":["publish"]}`,
+				ClientID:   "abcd1234",
+			},
+			initialUseQueryTime: true,
+			newUseQueryTime:     false,
+		},
+		"Should not save query time and timestamp when WithQueryTime is true and token params has a timestamp": {
+			opt: []ably.ClientOption{
+				ably.WithTLS(true),
+				ably.WithUseTokenAuth(true),
+				ably.WithQueryTime(true),
+			},
+			tokenParams: &ably.TokenParams{
+				TTL:        123890,
+				Capability: `{"foo":["publish"]}`,
+				ClientID:   "abcd1234",
+				Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
+			},
+			initialUseQueryTime: true,
+		},
+		"Should not save query time and timestamp when WithQueryTime is false and token params has a timestamp": {
+			opt: []ably.ClientOption{
+				ably.WithTLS(true),
+				ably.WithUseTokenAuth(true),
+				ably.WithQueryTime(false),
+			},
+			tokenParams: &ably.TokenParams{
+				TTL:        123890,
+				Capability: `{"foo":["publish"]}`,
+				ClientID:   "abcd1234",
+				Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
+			},
+			initialUseQueryTime: false,
+			newUseQueryTime:     true,
+		},
+	}
 
-goroutine 365 [running]:
-testing.tRunner.func1.2(0xcd0260, 0xc000437ef0)
-	/opt/hostedtoolcache/go/1.16.7/x64/src/testing/testing.go:1143 +0x49f
-testing.tRunner.func1(0xc00029f080)
-	/opt/hostedtoolcache/go/1.16.7/x64/src/testing/testing.go:1146 +0x695
-panic(0xcd0260, 0xc000437ef0)
-	/opt/hostedtoolcache/go/1.16.7/x64/src/runtime/panic.go:971 +0x499
-github.com/ably/ably-go/ablytest.MustSandbox(0x0, 0xf)
-	/home/runner/work/ably-go/ably-go/ablytest/sandbox.go:124 +0xd9
-github.com/ably/ably-go/ably_test.TestAuth_RSA7c(0xc00029f080)
-	/home/runner/work/ably-go/ably-go/ably/auth_test.go:798 +0x52
-testing.tRunner(0xc00029f080, 0xd7bd80)
-	/opt/hostedtoolcache/go/1.16.7/x64/src/testing/testing.go:1193 +0x203
-created by testing.(*T).Run
-	/opt/hostedtoolcache/go/1.16.7/x64/src/testing/testing.go:1238 +0x5d8
-*/
+	for _, test := range tests {
+		app, client := ablytest.NewREST(append(test.opt, extraOpt...)...)
+		defer safeclose(t, app)
+		prevTokenParams := client.Auth.Params()
+		prevAuthOptions := client.Auth.AuthOptions()
+		prevUseQueryTime := prevAuthOptions.UseQueryTime
+
+		assert.Equal(t, test.initialUseQueryTime, prevUseQueryTime)
+
+		newAuthOptions := []ably.AuthOption{
+			ably.AuthWithMethod("POST"),
+			ably.AuthWithKey(app.Key()),
+			ably.AuthWithQueryTime(test.newUseQueryTime),
+		}
+
+		_, err := client.Auth.Authorize(context.Background(), test.tokenParams, newAuthOptions...) // Call to Authorize should always refresh the token.
+		assert.NoError(t, err)
+		updatedParams := client.Auth.Params()
+		updatedAuthOptions := client.Auth.AuthOptions()
+		updatedUseQueryTime := updatedAuthOptions.UseQueryTime
+
+		assert.Nil(t, prevTokenParams)
+		assert.Equal(t, test.tokenParams, updatedParams) // RSA10J
+		assert.Zero(t, updatedParams.Timestamp)          // RSA10g
+
+		assert.Equal(t, prevAuthOptions, updatedAuthOptions)      // RSA10J
+		assert.NotEqual(t, prevUseQueryTime, updatedUseQueryTime) // RSA10g
+	}
+}
+
 func TestAuth_RSA7c(t *testing.T) {
-	t.Skip("FAILING TEST")
-
 	app := ablytest.MustSandbox(nil)
 	defer safeclose(t, app)
 	opts := app.Options()

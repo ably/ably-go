@@ -57,13 +57,7 @@ func TestRealtimePresence_Sync(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-/*
-FAILING TEST
-Go 1.15, 1 Sep 2021: https://github.com/ably/ably-go/pull/383/checks?check_run_id=3485574655#step:9:763
-*/
 func TestRealtimePresence_Sync250(t *testing.T) {
-	t.Skip("FAILING TEST")
-
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 	client2 := app.NewRealtime(nil...)
@@ -97,13 +91,15 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	assert.NoError(t, err,
 		"rg.Wait()=%v", err)
 
-	members2 := make([]*ably.PresenceMessage, 250)
+	members2 := make([]*ably.PresenceMessage, 0)
 	tout := time.After(250 * ablytest.Timeout)
+	client_ids := make(map[string]struct{})
 
-	for i := range members2 {
+	for len(client_ids) < 250 {
 		select {
 		case msg := <-sub2:
-			members2[i] = msg
+			members2 = append(members2, msg)
+			client_ids[msg.ClientID] = struct{}{}
 		case <-tout:
 			t.Fatalf("waiting for presence messages timed out after %v", 250*ablytest.Timeout)
 		}
@@ -119,16 +115,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 		"members3: %v", err)
 }
 
-/*
-FAILING TEST
-https://github.com/ably/ably-go/pull/383/checks?check_run_id=3489733937#step:7:592
-
-=== RUN   TestRealtimePresence_EnsureChannelIsAttached
-    realtime_presence_test.go:151: expected [INITIALIZED ATTACHING ATTACHED], got [INITIALIZED ATTACHING]
---- FAIL: TestRealtimePresence_EnsureChannelIsAttached (6.34s)
-*/
 func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
-	t.Skip("FAILING TEST")
 
 	var rec ablytest.ChanStatesRecorder
 	opts := []ably.ClientOption{

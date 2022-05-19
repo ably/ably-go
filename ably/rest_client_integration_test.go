@@ -592,6 +592,10 @@ func TestStats_StartEnd_RSC6b1(t *testing.T) {
 
 func TestStats_Direction_RSC6b2(t *testing.T) {
 
+	ctx := context.Background()
+	app, rest := ablytest.NewREST()
+	defer app.Close()
+
 	for _, c := range []struct {
 		direction ably.Direction
 		expected  []*ably.Stats
@@ -607,11 +611,6 @@ func TestStats_Direction_RSC6b2(t *testing.T) {
 	} {
 		c := c
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
-			ctx := context.Background()
-
-			app, rest := ablytest.NewREST()
-			defer app.Close()
-
 			fixtures := statsFixtures()
 			postStats(app, fixtures)
 

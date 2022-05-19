@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
+	"github.com/ugorji/go/codec"
 )
 
 var (
@@ -33,6 +34,25 @@ func query(fn func(context.Context, string, interface{}) (*http.Response, error)
 	return func(ctx context.Context, path string) (*http.Response, error) {
 		return fn(ctx, path, nil)
 	}
+}
+
+// Raw "decodes" both json and message pack keeping the original bytes.
+// This is used to delay the actual decoding until later.
+type raw []byte
+
+func (r *raw) UnmarshalJSON(data []byte) error {
+	*r = data
+	return nil
+}
+
+func (r *raw) CodecEncodeSelf(*codec.Encoder) {
+	panic("Raw cannot be used as encoder")
+}
+
+func (r *raw) CodecDecodeSelf(decoder *codec.Decoder) {
+	var raw codec.Raw
+	decoder.MustDecode(&raw)
+	*r = []byte(raw)
 }
 
 // RESTChannels provides an API for managing collection of RESTChannel. This is
@@ -340,6 +360,7 @@ func (c *REST) Request(method string, path string, o ...RequestOption) RESTReque
 			default:
 				return nil, fmt.Errorf("invalid HTTP method: %q", method)
 			}
+			var lastResponse *http.Response
 
 			req := &request{
 				Method: method,
@@ -347,9 +368,18 @@ func (c *REST) Request(method string, path string, o ...RequestOption) RESTReque
 				In:     opts.body,
 				header: opts.headers,
 			}
-			return c.doWithHandle(ctx, req, func(resp *http.Response, out interface{}) (*http.Response, error) {
-				return resp, nil
+			resp, err := c.doWithHandle(ctx, req, func(resp *http.Response, out interface{}) (*http.Response, error) {
+				// Save the resp but return an error on bad status to trigger fallback
+				lastResponse = resp
+				return c.handleResponse(resp, nil)
 			})
+
+			// RSC19e
+			// Only return an error if there was an actual network failiure
+			if err != nil && lastResponse != nil {
+				return lastResponse, nil
+			}
+			return resp, err
 		},
 	}}
 }
@@ -407,7 +437,7 @@ func (r RESTRequest) Pages(ctx context.Context) (*HTTPPaginatedResponse, error) 
 // See "Paginated results" section in the package-level documentation.
 type HTTPPaginatedResponse struct {
 	PaginatedResult
-	items jsonRawArray
+	items raw
 }
 
 func (r *HTTPPaginatedResponse) StatusCode() int {
@@ -460,12 +490,31 @@ func (p *HTTPPaginatedResponse) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
-// Items unmarshals the current page of results as JSON into the provided
+// Items unmarshals the current page of results into the provided
 // variable.
 //
 // See the "Paginated results" section in the package-level documentation.
 func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
-	return json.Unmarshal(p.items, dst)
+	typ, _, err := mime.ParseMediaType(p.PaginatedResult.res.Header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
+
+	/// Turn non arrays into arrays so it fits the output kind
+	if typ == "application/json" {
+		token, _ := json.NewDecoder(bytes.NewReader(p.items)).Token()
+		if token != json.Delim('[') {
+			p.items = append(raw{'['}, p.items...)
+			p.items = append(p.items, ']')
+		}
+	} else if typ == "application/x-msgpack" {
+		// 0x9, 0xdc, 0xdd are message pack's array types
+		// append array if the start is not already an array type
+		if (p.items[0]&0xf0 != 0x90) && p.items[0] != 0xdc && p.items[0] != 0xdd {
+			p.items = append(raw{0x91}, p.items...)
+		}
+	}
+	return decode(typ, bytes.NewReader(p.items), dst)
 }
 
 // Items returns a convenience iterator for single items, over an underlying
@@ -486,8 +535,8 @@ func (r RESTRequest) Items(ctx context.Context) (*RESTPaginatedItems, error) {
 
 type RESTPaginatedItems struct {
 	PaginatedResult
-	items []json.RawMessage
-	item  json.RawMessage
+	items []raw
+	item  raw
 	next  func(context.Context) (int, bool)
 }
 
@@ -517,11 +566,15 @@ func (p *RESTPaginatedItems) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
-// Item unmarshal the current result as JSON into the provided variable.
+// Item unmarshal the current result into the provided variable.
 //
 // See the "Paginated results" section in the package-level documentation.
 func (p *RESTPaginatedItems) Item(dst interface{}) error {
-	return json.Unmarshal(p.item, dst)
+	typ, _, err := mime.ParseMediaType(p.PaginatedResult.res.Header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
+	return decode(typ, bytes.NewReader(p.item), dst)
 }
 
 func (c *REST) get(ctx context.Context, path string, out interface{}) (*http.Response, error) {
@@ -624,11 +677,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 		c.log.Verbose("RestClient: enabling httptrace")
 	}
 	resp, err := c.opts.httpclient().Do(req)
-	if err != nil {
+	if err == nil {
+		resp, err = handle(resp, r.Out)
+	} else {
 		c.log.Error("RestClient: failed sending a request ", err)
-		return nil, newError(ErrInternalError, err)
 	}
-	resp, err = handle(resp, r.Out)
 	if err != nil {
 		c.log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
@@ -671,11 +724,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 						req.Host = ""
 						req.Header.Set(hostHeader, h)
 						resp, err := c.opts.httpclient().Do(req)
-						if err != nil {
+						if err == nil {
+							resp, err = handle(resp, r.Out)
+						} else {
 							c.log.Error("RestClient: failed sending a request to a fallback host", err)
-							return nil, newError(ErrInternalError, err)
 						}
-						resp, err = handle(resp, r.Out)
 						if err != nil {
 							c.log.Error("RestClient: error handling response: ", err)
 							if iteration == maxLimit-1 {
@@ -817,26 +870,4 @@ func decodeResp(resp *http.Response, out interface{}) error {
 	b, _ := ioutil.ReadAll(resp.Body)
 
 	return decode(typ, bytes.NewReader(b), out)
-}
-
-// jsonRawArray is a json.RawMessage that, if it's not an array already, wrap
-// itself in a JSON array when marshaled into.
-type jsonRawArray json.RawMessage
-
-func (m *jsonRawArray) UnmarshalJSON(data []byte) error {
-	err := (*json.RawMessage)(m).UnmarshalJSON(data)
-	if err != nil {
-		return err
-	}
-	token, _ := json.NewDecoder(bytes.NewReader(*m)).Token()
-	if token != json.Delim('[') {
-		*m = append(
-			jsonRawArray("["),
-			append(
-				*m,
-				']',
-			)...,
-		)
-	}
-	return nil
 }

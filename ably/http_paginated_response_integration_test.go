@@ -16,15 +16,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestHTTPPaginatedFallback(t *testing.T) {
+	app, err := ablytest.NewSandbox(nil)
+	assert.NoError(t, err)
+	defer app.Close()
+	opts := app.Options(ably.WithUseBinaryProtocol(false), ably.WithRESTHost("ably.invalid"), ably.WithFallbackHostsUseDefault(true))
+	client, err := ably.NewREST(opts...)
+	assert.NoError(t, err)
+	t.Run("request_time", func(t *testing.T) {
+		_, err := client.Request("get", "/time").Pages(context.Background())
+		assert.Error(t, err)
+	})
+}
+
 func TestHTTPPaginatedResponse(t *testing.T) {
 	app, err := ablytest.NewSandbox(nil)
 	assert.NoError(t, err)
 	defer app.Close()
-	opts := app.Options(ably.WithUseBinaryProtocol(false))
-	client, err := ably.NewREST(opts...)
+	client, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
 	t.Run("request_time", func(t *testing.T) {
-
 		res, err := client.Request("get", "/time").Pages(context.Background())
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, res.StatusCode(),
@@ -39,7 +50,6 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 	})
 
 	t.Run("request_404", func(t *testing.T) {
-
 		res, err := client.Request("get", "/keys/ablyjs.test/requestToken").Pages(context.Background())
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusNotFound, res.StatusCode(),
@@ -85,13 +95,13 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 			assert.Equal(t, http.StatusOK, res.StatusCode(),
 				"expected %d got %d", http.StatusOK, res.StatusCode())
 			res.Next(context.Background())
-			var items []interface{}
+			var items []map[string]interface{}
 			err = res.Items(&items)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, len(items), "expected 1 item got %d", len(items))
-			item := items[0].(map[string]interface{})
-			name := item["name"].(string)
-			data := item["data"].(string)
+			item := items[0]
+			name := item["name"]
+			data := item["data"]
 			assert.Equal(t, "faye", name, "expected name \"faye\" got %s", name)
 			assert.Equal(t, "whittaker", data, "expected data \"whittaker\" got %s", data)
 
@@ -102,9 +112,9 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, 1, len(items),
 				"expected 1 item got %d", len(items))
-			item = items[0].(map[string]interface{})
-			name = item["name"].(string)
-			data = item["data"].(string)
+			item = items[0]
+			name = item["name"]
+			data = item["data"]
 			assert.Equal(t, "martin", name,
 				"expected name \"martin\" got %s", name)
 			assert.Equal(t, "reed", data,

@@ -2,6 +2,8 @@
 #
 # A script to run the tests.
 
+set -eo pipefail
+
 usage() {
   cat <<EOF
 usage: $0 [-h|--help] [-p|--protocol PROTOCOL]
@@ -53,9 +55,6 @@ main() {
 # The -p option specifies that we only want a single test binary running at any single time.
 run_tests() {
   local protocol=$1
-
-  echo "$(date +%H:%M:%S) - Running ably-go tests with protocol=${protocol}"
-
   ABLY_PROTOCOL="${protocol}" go test -tags=integration -p 1 -race -v -timeout 120m ./...
 }
 

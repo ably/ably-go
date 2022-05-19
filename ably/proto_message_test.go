@@ -19,7 +19,7 @@ func (custom) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]string{"custom"})
 }
 
-func TestMessage(t *testing.T) {
+func TestMessage_EncodeDecode_TM3(t *testing.T) {
 	key, err := base64.StdEncoding.DecodeString("WUP6u0K7MXI5Zeo0VppPwg==")
 	assert.NoError(t, err)
 	iv, err := base64.StdEncoding.DecodeString("HO4cYSP8LybPYBPZPHQOtg==")

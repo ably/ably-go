@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+
+	"github.com/ably/ably-go/ably"
 )
 
 // AllPages appends all items from all pages resulting from a paginated
@@ -121,7 +123,17 @@ func testPagination(request reflect.Value, expectedItems []interface{}, perPage 
 		}
 		var gotItems []interface{}
 		for items.next() {
-			gotItems = append(gotItems, items.item())
+			switch items.item().(type) {
+			case *ably.PresenceMessage:
+				item := *items.item().(*ably.PresenceMessage)
+				gotItems = append(gotItems, &item)
+			case *ably.Message:
+				item := *items.item().(*ably.Message)
+				gotItems = append(gotItems, &item)
+			case *ably.Stats:
+				item := *items.item().(*ably.Stats)
+				gotItems = append(gotItems, &item)
+			}
 		}
 		if err := items.err(); err != nil {
 			return fmt.Errorf("iterating items: %w", err)

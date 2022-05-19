@@ -1,5 +1,71 @@
 # Change Log
 
+## [1.2.6](https://github.com/ably/ably-go/tree/v1.2.6) (2022-5-10)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.5...v1.2.6)
+
+**Fixed bugs:**
+
+- AblyREST.Request\(\) does not work [\#486](https://github.com/ably/ably-go/issues/486)
+- Callback not invoked, despite message being received from server [\#434](https://github.com/ably/ably-go/issues/434)
+- Undescriptive errors; possible broken fallback functionality [\#125](https://github.com/ably/ably-go/issues/125)
+- HTTPPaginatedResult and PaginatedResult are missing some methods [\#120](https://github.com/ably/ably-go/issues/120)
+- ID and Client ID is blank on realtime incoming messages. [\#58](https://github.com/ably/ably-go/issues/58)
+- Do not persist authorise attributes force & timestamp [\#54](https://github.com/ably/ably-go/issues/54)
+
+**Closed issues:**
+
+- go Update urls in readme [\#491](https://github.com/ably/ably-go/issues/491)
+- Research a new API Design that allows Ably to be mocked in unit tests. [\#488](https://github.com/ably/ably-go/issues/488)
+- Once test observability is in place try to turn all tests back on. [\#479](https://github.com/ably/ably-go/issues/479)
+- Support Go 1.18 [\#474](https://github.com/ably/ably-go/issues/474)
+- Test improvements - Standardise test assertions [\#456](https://github.com/ably/ably-go/issues/456)
+- Investigate re-enabling flaky tests. [\#438](https://github.com/ably/ably-go/issues/438)
+- Skipped Test: TestPresenceGet\_RSP3\_RSP3a1 [\#415](https://github.com/ably/ably-go/issues/415)
+- Skipped Test: TestPresenceHistory\_RSP4\_RSP4b3 [\#414](https://github.com/ably/ably-go/issues/414)
+- Skipped Test: TestHistory\_Direction\_RSL2b2 [\#413](https://github.com/ably/ably-go/issues/413)
+- Skipped Test: TestRealtimePresence\_EnsureChannelIsAttached [\#412](https://github.com/ably/ably-go/issues/412)
+- Skipped Test: TestRealtimePresence\_Sync250 [\#411](https://github.com/ably/ably-go/issues/411)
+- Skipped Test: TestRealtimeConn\_BreakConnLoopOnInactiveState [\#410](https://github.com/ably/ably-go/issues/410)
+- Skipped Test: TestRealtimeConn\_RTN19b [\#407](https://github.com/ably/ably-go/issues/407)
+- Skipped Test: TestRealtimeConn\_RTN23 [\#405](https://github.com/ably/ably-go/issues/405)
+- Skipped Test: TestRealtimeConn\_RTN15d\_MessageRecovery [\#404](https://github.com/ably/ably-go/issues/404)
+- Skipped Test: TestRealtimeConn\_RTN12\_Connection\_Close RTN12d [\#403](https://github.com/ably/ably-go/issues/403)
+- Skipped Test: TestRealtime\_DontCrashOnCloseWhenEchoOff [\#400](https://github.com/ably/ably-go/issues/400)
+- Skipped Test: TestRealtimeChannel\_RTL4\_Attach RTL4j2 [\#398](https://github.com/ably/ably-go/issues/398)
+- Skipped Test: TestAuth\_RSA7c [\#393](https://github.com/ably/ably-go/issues/393)
+- Document ably/export\_test.go [\#352](https://github.com/ably/ably-go/issues/352)
+- Rename ClientOption type to something better describing its purpose [\#348](https://github.com/ably/ably-go/issues/348)
+- Clean up ably/doc\_test.go Example\_paginatedResults\(\) [\#345](https://github.com/ably/ably-go/issues/345)
+- Update golang.org/x/net dependency \(January 2019 \> June 2021\) [\#341](https://github.com/ably/ably-go/issues/341)
+- Flaky test in 1.2 branch: TestRealtimePresence\_Sync250 [\#338](https://github.com/ably/ably-go/issues/338)
+- Flaky test in 1.2 branch: TestRealtimeConn\_RTN19b [\#333](https://github.com/ably/ably-go/issues/333)
+- ably-go: add logging to rest & realtime clients [\#38](https://github.com/ably/ably-go/issues/38)
+
+**Merged pull requests:**
+
+- Refactored code and tests for TM3 message encoding/decoding [\#501](https://github.com/ably/ably-go/pull/501) ([Morganamilo](https://github.com/Morganamilo))
+- fix failing test [\#500](https://github.com/ably/ably-go/pull/500) ([mohyour](https://github.com/mohyour))
+- Fix sync250 [\#499](https://github.com/ably/ably-go/pull/499) ([Morganamilo](https://github.com/Morganamilo))
+- update documentation links from ably.io to ably.com [\#497](https://github.com/ably/ably-go/pull/497) ([Rosalita](https://github.com/Rosalita))
+- Enable and fix some skipped tests [\#495](https://github.com/ably/ably-go/pull/495) ([Morganamilo](https://github.com/Morganamilo))
+- Change secret name [\#494](https://github.com/ably/ably-go/pull/494) ([Morganamilo](https://github.com/Morganamilo))
+- Turn flaky tests on  and fix failing tests [\#493](https://github.com/ably/ably-go/pull/493) ([mohyour](https://github.com/mohyour))
+- Fix Request\(\) [\#492](https://github.com/ably/ably-go/pull/492) ([Morganamilo](https://github.com/Morganamilo))
+- Test observe action [\#490](https://github.com/ably/ably-go/pull/490) ([Morganamilo](https://github.com/Morganamilo))
+- Do not persist authorise attributes force & timestamp [\#489](https://github.com/ably/ably-go/pull/489) ([mohyour](https://github.com/mohyour))
+- Add missing documentation comment for REST.Time\(\) [\#487](https://github.com/ably/ably-go/pull/487) ([Rosalita](https://github.com/Rosalita))
+- Handle errors in Request\(\) [\#485](https://github.com/ably/ably-go/pull/485) ([Morganamilo](https://github.com/Morganamilo))
+- Move examples to their own file [\#482](https://github.com/ably/ably-go/pull/482) ([Morganamilo](https://github.com/Morganamilo))
+- Update empty message fields on receive  [\#481](https://github.com/ably/ably-go/pull/481) ([Morganamilo](https://github.com/Morganamilo))
+- Update Go version to 1.17 in go.mod, add Go 1.18 to versions tested [\#480](https://github.com/ably/ably-go/pull/480) ([Rosalita](https://github.com/Rosalita))
+- Add missing pagination methods [\#478](https://github.com/ably/ably-go/pull/478) ([mohyour](https://github.com/mohyour))
+- Added some unit tests for realtime presence.  [\#477](https://github.com/ably/ably-go/pull/477) ([Rosalita](https://github.com/Rosalita))
+- Standardise integration test assertions [\#476](https://github.com/ably/ably-go/pull/476) ([Rosalita](https://github.com/Rosalita))
+- Remove named returns to increase code readability. [\#475](https://github.com/ably/ably-go/pull/475) ([Rosalita](https://github.com/Rosalita))
+- Tests/standardise assertions pt4 [\#473](https://github.com/ably/ably-go/pull/473) ([Rosalita](https://github.com/Rosalita))
+- Subscribe before attaching [\#471](https://github.com/ably/ably-go/pull/471) ([Morganamilo](https://github.com/Morganamilo))
+
 ## [1.2.5](https://github.com/ably/ably-go/tree/v1.2.5) (2022-03-09)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.4...v1.2.5)

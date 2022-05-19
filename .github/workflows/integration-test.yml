@@ -1,6 +1,3 @@
-# Based upon:
-#   https://github.com/actions/starter-workflows/blob/main/ci/go.yml
-
 on:
   pull_request:
   push:
@@ -8,13 +5,14 @@ on:
       - main
 
 jobs:
-  check:
+  integration-test:
 
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         go-version: [1.17, 1.18]
+        protocol: ['json', 'msgpack']
 
     steps:
       - uses: actions/checkout@v2
@@ -28,23 +26,14 @@ jobs:
 
       - name: Download Packages
         run: go get -t -v ./ably/...
-      
-      - name: Format
-        run: if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then exit 1; fi
-
-      - name: Vet
-        run: go vet ./ably/... ./scripts/...
-
-      - name: Ensure generated code is up-to-date
-        run: scripts/ci-generate.sh
 
       - name: Install go-junit-report
         run: go install github.com/jstemmer/go-junit-report@latest
 
-      - name: Unit Tests
+      - name: Integration Tests with ${{ matrix.protocol }} Protocol
         run: |
           set -o pipefail
-          go test -v -tags=unit ./... |& tee >(~/go/bin/go-junit-report > unit.junit)
+          scripts/test.sh --protocol application/${{ matrix.protocol == 'json' && 'json' || 'x-msgpack' }} |& tee >(~/go/bin/go-junit-report > ${{ matrix.protocol }}-integration.junit)
 
       - name: Upload test results
         if: always()
