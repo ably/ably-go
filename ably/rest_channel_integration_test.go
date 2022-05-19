@@ -142,7 +142,7 @@ func TestRESTChannel(t *testing.T) {
 }
 
 func TestIdempotentPublishing(t *testing.T) {
-	app, err := ablytest.NewSandboxWIthEnv(nil, ablytest.Environment)
+	app, err := ablytest.NewSandboxWithEnv(nil, ablytest.Environment)
 	assert.NoError(t, err)
 	defer app.Close()
 	options := app.Options(ably.WithIdempotentRESTPublishing(true))
@@ -295,7 +295,7 @@ func TestIdempotentPublishing(t *testing.T) {
 }
 
 func TestIdempotent_retry(t *testing.T) {
-	app, err := ablytest.NewSandboxWIthEnv(nil, ablytest.Environment)
+	app, err := ablytest.NewSandboxWithEnv(nil, ablytest.Environment)
 	assert.NoError(t, err)
 	defer app.Close()
 	randomStr, err := ablyutil.BaseID()

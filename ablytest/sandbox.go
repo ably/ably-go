@@ -129,10 +129,10 @@ func MustSandbox(config *Config) *Sandbox {
 }
 
 func NewSandbox(config *Config) (*Sandbox, error) {
-	return NewSandboxWIthEnv(config, Environment)
+	return NewSandboxWithEnv(config, Environment)
 }
 
-func NewSandboxWIthEnv(config *Config, env string) (*Sandbox, error) {
+func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
 	app := &Sandbox{
 		Config:      config,
 		Environment: env,
