@@ -289,9 +289,8 @@ if err := pages.Err(); err != nil {
 }
 ```
 
-### Getting the channel details
+### Getting the channel status
 ```go
-// Get the channel status
 status, err := channel.Status(ctx)
 if err != nil {
         panic(err)

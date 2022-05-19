@@ -158,44 +158,41 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 }
 
 type ChannelDetails struct {
-	ChannelId string        `json:"channelId"`
-	Status    ChannelStatus `json:"status"`
+	ChannelId string        `json:"channelId" codec:"channelId"`
+	Status    ChannelStatus `json:"status" codec:"status"`
 }
 
 type ChannelStatus struct {
-	IsActive  bool             `json:"isActive"`
-	Occupancy ChannelOccupancy `json:"occupancy"`
+	IsActive  bool             `json:"isActive" codec:"isActive"`
+	Occupancy ChannelOccupancy `json:"occupancy" codec:"occupancy"`
 }
 
 type ChannelOccupancy struct {
-	Metrics ChannelMetrics `json:"metrics"`
+	Metrics ChannelMetrics `json:"metrics" codec:"metrics"`
 }
 
 type ChannelMetrics struct {
-	Connections         int `json:"connections"`
-	PresenceConnections int `json:"presenceConnections"`
-	PresenceMembers     int `json:"presenceMembers"`
-	PresenceSubscribers int `json:"presenceSubscribers"`
-	Publishers          int `json:"publishers"`
-	Subscribers         int `json:"subscribers"`
+	Connections         int `json:"connections" codec:"connections"`
+	PresenceConnections int `json:"presenceConnections" codec:"presenceConnections"`
+	PresenceMembers     int `json:"presenceMembers" codec:"presenceMembers"`
+	PresenceSubscribers int `json:"presenceSubscribers" codec:"presenceSubscribers"`
+	Publishers          int `json:"publishers" codec:"publishers"`
+	Subscribers         int `json:"subscribers" codec:"subscribers"`
 }
 
 // Status returns ChannelDetails representing information for a channel
 func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
+	var channelDetails ChannelDetails
 	req := &request{
 		Method: "GET",
 		Path:   "/channels/" + c.Name,
+		Out:    &channelDetails,
 	}
-	res, err := c.client.MakeHTTPRequest(ctx, req)
+	_, err := c.client.do(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	var channelDetails ChannelDetails
 
-	// Decode response body
-	if err := decodeResp(res, &channelDetails); err != nil {
-		return &channelDetails, nil
-	}
 	return &channelDetails, nil
 }
 
