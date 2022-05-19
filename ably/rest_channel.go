@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	// "io/ioutil"
-
-	// "io/ioutil"
 	"net/url"
 	"strconv"
 	"time"
@@ -193,13 +190,11 @@ func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
 	var channelDetails ChannelDetails
 
 	// Decode response body
-	dec := codec.NewDecoder(res.Body, new(codec.MsgpackHandle))
-	if err := dec.Decode(&channelDetails); err != nil {
-		panic(err)
+	if err := decodeResp(res, &channelDetails); err != nil {
+		return &channelDetails, nil
 	}
 	return &channelDetails, nil
 }
