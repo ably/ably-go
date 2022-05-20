@@ -289,6 +289,15 @@ if err := pages.Err(); err != nil {
 }
 ```
 
+### Getting the channel status
+```go
+status, err := channel.Status(ctx)
+if err != nil {
+        panic(err)
+}
+fmt.Print(status, status.ChannelId)
+```
+
 ## Feature support
 
 This library targets the Ably 1.2 [client library specification](https://ably.com/docs/client-lib-development-guide/features).
