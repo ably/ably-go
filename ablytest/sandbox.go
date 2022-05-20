@@ -163,7 +163,7 @@ func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
 			}
 		}
 
-		if err != nil {
+		if requestAttempt < 2 {
 			// Timeout. Back off before allowing another attempt.
 			log.Println("warn: request timeout, attempting retry")
 			time.Sleep(retryInterval)
