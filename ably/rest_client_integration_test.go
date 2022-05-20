@@ -538,7 +538,7 @@ func (c *connCloseTracker) Close() error {
 	return c.Conn.Close()
 }
 
-func TestXStatsPagination_RSC6a_RSCb3(t *testing.T) {
+func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
@@ -564,7 +564,7 @@ func TestXStatsPagination_RSC6a_RSCb3(t *testing.T) {
 	}
 }
 
-func TestXStats_StartEnd_RSC6b1(t *testing.T) {
+func TestStats_StartEnd_RSC6b1(t *testing.T) {
 
 	ctx := context.Background()
 
@@ -590,7 +590,7 @@ func TestXStats_StartEnd_RSC6b1(t *testing.T) {
 		"expected: %+v; got: %+v", expected, got)
 }
 
-func TestXStats_Direction_RSC6b2(t *testing.T) {
+func TestStats_Direction_RSC6b2(t *testing.T) {
 
 	for _, c := range []struct {
 		direction ably.Direction
