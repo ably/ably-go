@@ -100,7 +100,10 @@ func dialWebsocketTimeout(uri, origin string, timeout time.Duration) (*websocket
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	c, _, err := websocket.Dial(ctx, uri, nil)
+	var ops websocket.DialOptions
+	ops.HTTPHeader.Set(ablyAgentHeader, ablyAgentIdentifier)
+
+	c, _, err := websocket.Dial(ctx, uri, &ops)
 
 	if err != nil {
 		return nil, err
