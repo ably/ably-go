@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -101,7 +102,8 @@ func dialWebsocketTimeout(uri, origin string, timeout time.Duration) (*websocket
 	defer cancel()
 
 	var ops websocket.DialOptions
-	ops.HTTPHeader.Set(ablyAgentHeader, ablyAgentIdentifier)
+	ops.HTTPHeader = make(http.Header)
+	ops.HTTPHeader.Add(ablyAgentHeader, ablyAgentIdentifier)
 
 	c, _, err := websocket.Dial(ctx, uri, &ops)
 
