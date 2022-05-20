@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -128,10 +129,10 @@ func MustSandbox(config *Config) *Sandbox {
 }
 
 func NewSandbox(config *Config) (*Sandbox, error) {
-	return NewSandboxWIthEnv(config, Environment)
+	return NewSandboxWithEnv(config, Environment)
 }
 
-func NewSandboxWIthEnv(config *Config, env string) (*Sandbox, error) {
+func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
 	app := &Sandbox{
 		Config:      config,
 		Environment: env,
@@ -164,6 +165,7 @@ func NewSandboxWIthEnv(config *Config, env string) (*Sandbox, error) {
 
 		if err != nil {
 			// Timeout. Back off before allowing another attempt.
+			log.Println("warn: request timeout, attempting retry")
 			time.Sleep(retryInterval)
 			retryInterval *= 2
 		} else {
