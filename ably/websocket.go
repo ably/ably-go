@@ -2,6 +2,7 @@ package ably
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"time"
@@ -49,6 +50,11 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketC
 		return nil, errors.New(`invalid protocol "` + proto + `"`)
 	}
 	// Starts a raw websocket connection with server
+	fmt.Printf("1st arg u.String is:%s\n", u.String())
+	fmt.Println(`2nd arg is ""`)
+	fmt.Printf("3rd arg is origin: %s\n",  "https://"+u.Host)
+	fmt.Printf("4th arg is timeout: %v\n", timeout)
+
 	conn, err := dialWebsocketTimeout(u.String(), "", "https://"+u.Host, timeout)
 	if err != nil {
 		return nil, err
@@ -59,10 +65,13 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketC
 
 // dialWebsocketTimeout dials the websocket with a timeout.
 func dialWebsocketTimeout(uri, protocol, origin string, timeout time.Duration) (*websocket.Conn, error) {
+	fmt.Println("about to create new websocket config")
 	config, err := websocket.NewConfig(uri, origin)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("config is: %+v\n", config)
+	
 	config.Header.Set(ablyAgentHeader, ablyAgentIdentifier)
 	if protocol != "" {
 		config.Protocol = []string{protocol}
