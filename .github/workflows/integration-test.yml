@@ -30,10 +30,13 @@ jobs:
       - name: Install go-junit-report
         run: go install github.com/jstemmer/go-junit-report@latest
 
+      - name: Set env var for ablytest
+        run: echo "ABLY_PROTOCOL=${{ matrix.protocol == 'json' && 'application/json' || 'application/x-msgpack' }}" >> $GITHUB_ENV
+      
       - name: Integration Tests with ${{ matrix.protocol }} Protocol
         run: |
           set -o pipefail
-          scripts/test.sh --protocol application/${{ matrix.protocol == 'json' && 'json' || 'x-msgpack' }} |& tee >(~/go/bin/go-junit-report > ${{ matrix.protocol }}-integration.junit)
+          go test -tags=integration -p 1 -race -v -timeout 120m ./... |& tee >(~/go/bin/go-junit-report > ${{ matrix.protocol }}-integration.junit)
 
       - name: Upload test results
         if: always()
