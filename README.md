@@ -363,11 +363,11 @@ Please note that these tests are not true integration tests as rather than using
 git clone git@github.com:ably/ably-go.git --recurse-submodules
 ```
  
-A bash script is used to run these tests with the commands: 
+The tests can be run with the commands: 
  
 ```
-scripts/test.sh --protocol application/json
-scripts/test.sh --protocol application/x-msgpack
+export ABLY_PROTOCOL="application/json" && go test -tags=integration -p 1 -race -v -timeout 120m ./...
+export ABLY_PROTOCOL="application/x-msgpack" && go test -tags=integration -p 1 -race -v -timeout 120m ./...
 ``` 
 
 Depending on which protocol they are to be run for. It is also necessary to clean the test cache in between runs of these tests which can be done with the command: 
