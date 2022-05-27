@@ -5,11 +5,6 @@ package ably
 
 import (
 	"errors"
-	// "context"
-	// "errors"
-	// "net/http"
-	// "net/url"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,9 +12,8 @@ import (
 
 func TestNewRealtime(t *testing.T) {
 	tests := map[string]struct {
-		options        []ClientOption
-		expectedErr    error
-		expectedResult *Realtime
+		options     []ClientOption
+		expectedErr error
 	}{
 		"Can handle invalid key error when WithKey option is not provided": {
 			options: []ClientOption{},
@@ -29,24 +23,27 @@ func TestNewRealtime(t *testing.T) {
 				err:        errors.New("invalid key"),
 			},
 		},
-		// "Can create a new realtime client with a valid key": {
-		// 	options: []ClientOption{WithKey("abc:def")},
-
-		// 	expectedResult: &Realtime{},
-		// },
-
+		"Can create a new realtime client with a valid key": {
+			options: []ClientOption{WithKey("abc:def")},
+		},
 	}
 
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
-			fmt.Println(test)
 
-			result, err := NewRealtime(test.options...)
-			fmt.Printf("%+v\n", err)
-			assert.Equal(t, test.expectedResult, result)
+			client, err := NewRealtime(test.options...)
 			assert.Equal(t, test.expectedErr, err)
+
+			if client != nil {
+				assert.Equal(t, "abc:def", client.Auth.opts().Key)
+				// Assert all client fields have been populated
+				assert.NotNil(t, client.rest)
+				assert.NotNil(t, client.Auth)
+				assert.NotNil(t, client.Channels)
+				assert.NotNil(t, client.Channels.client)
+				assert.NotNil(t, client.Channels.chans)
+				assert.NotNil(t, client.Connection)
+			}
 		})
 	}
 }
-
-// bug creating a NewRealtime passing in nil causes a panic. Should handle this gracefully.
