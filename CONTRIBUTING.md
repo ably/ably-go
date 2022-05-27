@@ -13,6 +13,10 @@ Because this package uses `internal` packages, all fork development has to happe
 
 ### Running Tests
 
+This project contains two types of test. Test which use the `ablytest` package and tests which dont. 
+
+At each stage of the CI pipeline, test results are uploaded to a [test observability server](https://github.com/ably-labs/test-observability-server)
+
 The tests which don't make use of the `ablytest` package are considered unit tests. These tests exist in files which are suffixed `_test.go`. They run in the CI pipeline at the step `Unit Tests`. They can be run locally with the command: 
 
 ```
@@ -36,11 +40,11 @@ Please note that these tests are not true integration tests as rather than using
 git clone git@github.com:ably/ably-go.git --recurse-submodules
 ```
  
-A bash script is used to run these tests with the commands: 
+The tests can be run with the commands: 
  
 ```
-scripts/test.sh --protocol application/json
-scripts/test.sh --protocol application/x-msgpack
+export ABLY_PROTOCOL="application/json" && go test -tags=integration -p 1 -race -v -timeout 120m ./...
+export ABLY_PROTOCOL="application/x-msgpack" && go test -tags=integration -p 1 -race -v -timeout 120m ./...
 ``` 
 
 Depending on which protocol they are to be run for. It is also necessary to clean the test cache in between runs of these tests which can be done with the command: 
@@ -73,9 +77,3 @@ Starting with release 1.2, this library uses [semantic versioning](http://semver
 7. Add a tag to the new `main` head commit and push to origin such as `git tag v1.2.3 && git push origin v1.2.3`
 8. Create the release on Github, from the new tag, including populating the release notes
 9. Create the entry on the [Ably Changelog](https://changelog.ably.com/) (via [headwayapp](https://headwayapp.co/))
-
-### Tests
-
-This project contains two types of test. Test which use the `ablytest` package and tests which dont. 
-
-At each stage of the CI pipeline, test results are uploaded to a [test observability server](https://github.com/ably-labs/test-observability-server)
