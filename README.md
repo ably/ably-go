@@ -15,6 +15,8 @@ This is a Go client library for Ably. [Supported features](#feature-support) and
 ~ $ go get -u github.com/ably/ably-go/ably
 ```
 
+See [Requirements](#requirements)
+
 ## Usage
 ### Using the Realtime API
 
@@ -291,6 +293,15 @@ fmt.Print(status, status.ChannelId)
 
 ## Resources
 
+Demo repositories hosted at [ably-labs](https://github.com/ably-labs) which use `ably-go`.  
+
+* [Ableye](https://github.com/ably-labs/Ableye)
+* [AblyD](https://github.com/ably-labs/AblyD)
+* [Ably Go Terminal Chat](https://github.com/ably-labs/go-chat)
+* [Broadcasting messages in Go with Ably and Redis](https://github.com/ably-labs/broadcasting-redis-go)
+* [Sync Edit](https://github.com/ably-labs/sync-edit)
+* [Word Game](https://github.com/ably-labs/word-game)
+
 Broaden your knowledge of realtime in Go with these useful materials:
 
 * [Building realtime apps with Go and WebSockets: client-side considerations](https://ably.com/topic/websockets-golang)
@@ -342,9 +353,9 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 
 - Push Notification Target functional is not applicable for the SDK and thus not implemented.
 
-## Support and feedback
+## Support, feedback and troubleshooting
 
-Please visit https://knowledge.ably.com/ for access to our knowledgebase and to ask for any assistance.
+Please visit https://faqs.ably.com/ for access to our knowledgebase. If you require support, please visit https://ably.com/support to submit a support ticket.
 
 You can also view the [community reported Github issues](https://github.com/ably/ably-go/issues).
 

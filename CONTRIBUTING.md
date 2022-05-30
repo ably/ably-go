@@ -7,7 +7,7 @@ Because this package uses `internal` packages, all fork development has to happe
 3. add your fork as a remote: `git remote add fork git@github.com:your-username/ably-go`
 4. create your feature branch: `git checkout -b my-new-feature`
 5. commit your changes (`git commit -am 'Add some feature'`)
-6. ensure you have added suitable tests and the test suite is passing for both JSON and MessagePack protocols (see [workflow](.github/workflows/check.yml) for the test commands executed in the CI environment).
+6. ensure you have added suitable tests and the test suite is passing for both JSON and MessagePack protocols (see the Running Tests section below for more details about tests including the commands to run them).
 7. push to the branch: `git push fork my-new-feature`
 8. create a new Pull Request.
 
@@ -32,7 +32,7 @@ When adding new unit tests, the following build tag must be included at the top 
 
 #### Integration tests
 
-The tests which use the package `ablytest` are considered integration tests. These tests take longer to run than the unit tests and are mostly run in a sandbox environment. They are dependent on the sandbox environment being available and will fail if the environment is experiencing issues. While effort has been made to turn off some of these tests which frequently experience random failures (flaky) some of these tests may still fail unexpectedly from time to time. 
+The tests which use the package `ablytest` are considered integration tests. These tests take longer to run than the unit tests and are mostly run in a sandbox environment. They are dependent on the sandbox environment being available and will fail if the environment is experiencing issues. There are some known issues for random failures in a few of the tests, so some of these tests may fail unexpectedly from time to time.
 
 Please note that these tests are not true integration tests as rather than using the public API, they rely on `export_test.go` to expose private functionality so that it can be tested. These tests exist in files which are suffixed `_integration_test.go`. They run twice in the CI pipeline at the steps `Integration Tests with JSON Protocol` and `Integration Tests with MessagePack Protocol`. To run these tests locally, they have a dependency on a git submodule being present, so it is necessary clone the project with:
 
