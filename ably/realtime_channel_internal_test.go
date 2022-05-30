@@ -161,6 +161,7 @@ func TestChannelGet(t *testing.T) {
 			//These mocks must be created here because type RealtimeChannel
 			//contains a sync.Mutex which is a value that cannot be copied.
 			//TODO: investigate representing sync.Mutex with sync.Locker interface.
+			//see https://github.com/ably/ably-go/issues/535
 
 			mockedExistingChannel := RealtimeChannels{
 				chans: map[string]*RealtimeChannel{
@@ -186,7 +187,7 @@ func TestChannelGet(t *testing.T) {
 			}
 
 			var result *RealtimeChannel
-			if test.name == "existing"{
+			if test.name == "existing" {
 				result = mockedExistingChannel.Get(test.name)
 			} else {
 				result = mockedNoChannels.Get(test.name)
