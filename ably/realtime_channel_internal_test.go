@@ -125,12 +125,7 @@ func TestChannelOptionChannelWithModes(t *testing.T) {
 
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
-			var opt ChannelOption
-			if len(test.modes) == 1 {
-				opt = ChannelWithModes(test.modes[0])
-			} else {
-				opt = ChannelWithModes(test.modes[0], test.modes[1])
-			}
+			opt := ChannelWithModes(test.modes...)
 			result := applyChannelOptions(opt)
 			assert.Equal(t, test.expectedResult, result)
 		})
