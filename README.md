@@ -426,3 +426,4 @@ Because this package uses `internal` packages, all fork development has to happe
 6. ensure you have added suitable tests and the test suite is passing for both JSON and MessagePack protocols (see [workflow](.github/workflows/check.yml) for the test commands executed in the CI environment).
 7. push to the branch: `git push fork my-new-feature`
 8. create a new Pull Request.
+
