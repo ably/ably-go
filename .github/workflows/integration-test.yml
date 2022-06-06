@@ -34,12 +34,4 @@ jobs:
         run: |
           set -o pipefail
           export ABLY_PROTOCOL=${{ matrix.protocol == 'json' && 'application/json' || 'application/x-msgpack' }}
-          go test -tags=integration -p 1 -race -v -timeout 120m ./... |& tee >(~/go/bin/go-junit-report > ${{ matrix.protocol }}-integration.junit)
-
-      - name: Upload test results
-        if: always()
-        uses: ably-labs/test-observability-action@main
-        with:
-          server-url: 'https://test-observability.herokuapp.com'
-          server-auth: ${{ secrets.TEST_OBSERVABILITY_SERVER_AUTH_KEY }}
-          path: '.'
+          scripts/loop-test.sh
