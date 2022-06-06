@@ -6,6 +6,7 @@ package ably_test
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"testing"
 	"time"
@@ -63,12 +64,23 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	client2 := app.NewRealtime(nil...)
 	client3 := app.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2), ablytest.FullRealtimeCloser(client3))
+
 	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		log.Printf("error waiting for client1 to connect: %+v\n", err)
+	}
 	assert.NoError(t, err)
 	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		log.Printf("error waiting for client2 to connect: %+v\n", err)
+	}
 	assert.NoError(t, err)
 	err = ablytest.Wait(ablytest.ConnWaiter(client3, client3.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		log.Printf("error waiting for client3 to connect: %+v\n", err)
+	}
 	assert.NoError(t, err)
+
 	channel1 := client1.Channels.Get("sync250")
 	err = channel1.Attach(context.Background())
 	assert.NoError(t, err)
@@ -82,7 +94,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	defer unsub2()
 
 	var rg ablytest.ResultGroup
-	var clients = generateClients(50)
+	var clients = generateClients(250)
 	for _, client := range clients {
 		client := client
 		rg.GoAdd(func(ctx context.Context) error { return channel1.Presence.EnterClient(ctx, client, "") })
@@ -95,7 +107,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	tout := time.After(250 * ablytest.Timeout)
 	client_ids := make(map[string]struct{})
 
-	for len(client_ids) < 50 {
+	for len(client_ids) < 250 {
 		select {
 		case msg := <-sub2:
 			members2 = append(members2, msg)
