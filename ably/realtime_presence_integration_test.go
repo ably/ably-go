@@ -82,7 +82,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	defer unsub2()
 
 	var rg ablytest.ResultGroup
-	var clients = generateClients(250)
+	var clients = generateClients(50)
 	for _, client := range clients {
 		client := client
 		rg.GoAdd(func(ctx context.Context) error { return channel1.Presence.EnterClient(ctx, client, "") })
@@ -95,7 +95,7 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	tout := time.After(250 * ablytest.Timeout)
 	client_ids := make(map[string]struct{})
 
-	for len(client_ids) < 250 {
+	for len(client_ids) < 50 {
 		select {
 		case msg := <-sub2:
 			members2 = append(members2, msg)
