@@ -6,6 +6,6 @@ cd ably
 for ((i=1;i<=100;i++)); 
 do 
    echo $i
-   go test -v -run TestRealtimeConn_RTN12_Connection_Close
+   go test -v -run TestRealtimePresence_Sync250
    go clean -testcache
 done
