@@ -819,9 +819,10 @@ func applyOptionsWithDefaults(opts ...ClientOption) *clientOptions {
 	to.FallbackHosts = nil
 
 	for _, set := range opts {
-		set(&to)
+		if set != nil {
+			set(&to)
+		}
 	}
-
 	if to.DefaultTokenParams == nil {
 		to.DefaultTokenParams = &TokenParams{
 			TTL: int64(60 * time.Minute / time.Millisecond),
