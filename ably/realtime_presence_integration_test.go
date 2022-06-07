@@ -83,10 +83,10 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 
 	channel1 := client1.Channels.Get("sync250")
 	err = channel1.Attach(context.Background())
-	assert.NoError(t, err)
+	assert.NoError(t, err, "error attaching channel1")
 	channel2 := client2.Channels.Get("sync250")
 	err = channel2.Attach(context.Background())
-	assert.NoError(t, err)
+	assert.NoError(t, err, "error attaching channel2")
 
 	sub2, unsub2, err := ablytest.ReceivePresenceMessages(channel2, nil)
 	assert.NoError(t, err,

@@ -106,6 +106,8 @@ func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
 	app := MustSandbox(nil)
 	client, err := ably.NewRealtime(app.Options(opts...)...)
 	if err != nil {
+		log.Println("error creating new realtime")
+		log.Printf("options were: %+v\n", app.Options(opts...))
 		panic(nonil(err, app.Close()))
 	}
 	return app, client
@@ -123,6 +125,7 @@ func NewREST(opts ...ably.ClientOption) (*Sandbox, *ably.REST) {
 func MustSandbox(config *Config) *Sandbox {
 	app, err := NewSandbox(nil)
 	if err != nil {
+		log.Println("error creating new sandbox")
 		panic(err)
 	}
 	return app
