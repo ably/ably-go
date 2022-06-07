@@ -193,6 +193,16 @@ func TestClientOptions(t *testing.T) {
 		assert.Error(t, err,
 			"expected an error")
 	})
+	t.Run("must return error on empty options", func(t *testing.T) {
+		_, err := ably.NewREST()
+		assert.Error(t, err,
+			"expected an error")
+	})
+	t.Run("must return error on nil value options", func(t *testing.T) {
+		_, err := ably.NewREST(nil)
+		assert.Error(t, err,
+			"expected an error")
+	})
 }
 
 func TestScopeParams(t *testing.T) {
