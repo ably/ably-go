@@ -6,7 +6,6 @@ package ably_test
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"testing"
 	"time"
@@ -64,29 +63,19 @@ func TestRealtimePresence_Sync250(t *testing.T) {
 	client2 := app.NewRealtime(nil...)
 	client3 := app.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2), ablytest.FullRealtimeCloser(client3))
-
 	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
-	if err != nil {
-		log.Printf("error waiting for client1 to connect: %+v\n", err)
-	}
 	assert.NoError(t, err)
 	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
-	if err != nil {
-		log.Printf("error waiting for client2 to connect: %+v\n", err)
-	}
 	assert.NoError(t, err)
 	err = ablytest.Wait(ablytest.ConnWaiter(client3, client3.Connect, ably.ConnectionEventConnected), nil)
-	if err != nil {
-		log.Printf("error waiting for client3 to connect: %+v\n", err)
-	}
 	assert.NoError(t, err)
 
 	channel1 := client1.Channels.Get("sync250")
 	err = channel1.Attach(context.Background())
-	assert.NoError(t, err, "error attaching channel1")
+	assert.NoError(t, err)
 	channel2 := client2.Channels.Get("sync250")
 	err = channel2.Attach(context.Background())
-	assert.NoError(t, err, "error attaching channel2")
+	assert.NoError(t, err)
 
 	sub2, unsub2, err := ablytest.ReceivePresenceMessages(channel2, nil)
 	assert.NoError(t, err,

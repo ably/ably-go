@@ -16,7 +16,7 @@ import (
 
 var Timeout = 30 * time.Second
 var NoBinaryProtocol bool
-var DefaultLogLevel = ably.LogNone
+var DefaultLogLevel = ably.LogDebug
 var Environment = "sandbox"
 
 func nonil(err ...error) error {

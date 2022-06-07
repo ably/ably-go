@@ -6,6 +6,6 @@ cd ably
 for ((i=1;i<=100;i++)); 
 do 
    echo $i
-   go test -v -run TestRealtimePresence_Sync250
+   go test -v -timeout 120m -run TestRealtimePresence_Sync250
    go clean -testcache
 done
