@@ -134,11 +134,20 @@ func TestChannelOptionChannelWithModes(t *testing.T) {
 
 func TestChannelGet(t *testing.T) {
 	tests := map[string]struct {
+		mock                 *RealtimeChannels
 		name                 string
 		expectedChannelName  string
 		expectedChannelState ChannelState
 	}{
 		"If channel does not exist, it is created and initialised": {
+			mock: &RealtimeChannels{
+				chans: map[string]*RealtimeChannel{},
+				client: &Realtime{
+					rest: &REST{
+						log: logger{l: &stdLogger{mocklogger}},
+					},
+				},
+			},
 			name:                 "new",
 			expectedChannelName:  "new",
 			expectedChannelState: ChannelStateInitialized,
@@ -147,22 +156,7 @@ func TestChannelGet(t *testing.T) {
 
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
-
-			//This mock must be created here because type RealtimeChannel
-			//contains a sync.Mutex which is a value that cannot be copied.
-			//TODO: investigate representing sync.Mutex with sync.Locker interface.
-			//see https://github.com/ably/ably-go/issues/535
-
-			mockedRealtimeChannels := RealtimeChannels{
-				chans: map[string]*RealtimeChannel{},
-				client: &Realtime{
-					rest: &REST{
-						log: logger{l: &stdLogger{mocklogger}},
-					},
-				},
-			}
-
-			result := mockedRealtimeChannels.Get(test.name)
+			result := test.mock.Get(test.name)
 			assert.Equal(t, test.expectedChannelName, result.Name)
 			assert.Equal(t, test.expectedChannelState, result.state)
 		})
