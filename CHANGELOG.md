@@ -1,5 +1,57 @@
 # Change Log
 
+## [1.2.7](https://github.com/ably/ably-go/tree/v1.2.7) (2022-06-09)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.6...v1.2.7)
+
+**Implemented enhancements:**
+
+- Add support to get channel lifecycle status  [\#509](https://github.com/ably/ably-go/issues/509)
+
+**Fixed bugs:**
+
+- Missing pointer safety when creating a new Realtime Client [\#537](https://github.com/ably/ably-go/issues/537)
+- realtime: missing test for sync resume \(disconnection while sync is in progress\) [\#34](https://github.com/ably/ably-go/issues/34)
+
+**Closed issues:**
+
+- Testing challenges around use of embedded sync.Mutex in types [\#535](https://github.com/ably/ably-go/issues/535)
+- Remove dependency on test.sh bash script to run the tests [\#530](https://github.com/ably/ably-go/issues/530)
+- Audit all integration tests and fix known issue which causes test to fail when they are retried [\#526](https://github.com/ably/ably-go/issues/526)
+- Unstable test TestStats\_Direction\_RSC6b2 [\#520](https://github.com/ably/ably-go/issues/520)
+- Remove flaky unit tests TestAfterOK and TestAfterCanceled in package ablyutil [\#514](https://github.com/ably/ably-go/issues/514)
+- Difficult to tell which testsuite of CI tests ran in the test observability report. [\#507](https://github.com/ably/ably-go/issues/507)
+- Tests for packages ablyutil and ablytest are running more than once in the CI pipeline [\#504](https://github.com/ably/ably-go/issues/504)
+- Flaky POST /apps: "Unable to modify existing channel namespace" [\#354](https://github.com/ably/ably-go/issues/354)
+- Document ably/generate.go [\#351](https://github.com/ably/ably-go/issues/351)
+- Document the project structure in our contributing guide [\#350](https://github.com/ably/ably-go/issues/350)
+- Lint code, probably using `gofmt` [\#346](https://github.com/ably/ably-go/issues/346)
+- Update github.com/stretchr/testify dependency \(August 2019 \> January 2021\) [\#343](https://github.com/ably/ably-go/issues/343)
+- Update github.com/ugorji/go/codec dependency \(July 2019 \> May 2021\) [\#342](https://github.com/ably/ably-go/issues/342)
+- Conform ReadMe and create Contributing Document [\#340](https://github.com/ably/ably-go/issues/340)
+- Google App Engine [\#57](https://github.com/ably/ably-go/issues/57)
+
+**Merged pull requests:**
+
+- fix nil pointer issue [\#543](https://github.com/ably/ably-go/pull/543) ([mohyour](https://github.com/mohyour))
+- Use pointers to mock types which contain embedded sync.mutex [\#542](https://github.com/ably/ably-go/pull/542) ([Rosalita](https://github.com/Rosalita))
+- Increased unit test coverage [\#534](https://github.com/ably/ably-go/pull/534) ([Rosalita](https://github.com/Rosalita))
+- Chore/update readme [\#533](https://github.com/ably/ably-go/pull/533) ([mohyour](https://github.com/mohyour))
+- Remove dependency on test.sh bash script to run the tests [\#531](https://github.com/ably/ably-go/pull/531) ([Rosalita](https://github.com/Rosalita))
+- revert git commit 787e6e98e5dfc2bf848e2cfdbe64bcff901ded2a [\#528](https://github.com/ably/ably-go/pull/528) ([Rosalita](https://github.com/Rosalita))
+- Fix small capitalisation error in function name [\#527](https://github.com/ably/ably-go/pull/527) ([Rosalita](https://github.com/Rosalita))
+- Fix flakey test by using a subtest to separate test set-up from test execution [\#525](https://github.com/ably/ably-go/pull/525) ([Rosalita](https://github.com/Rosalita))
+- Fixes test failure in scenario where test is retried as app already exists with namespace. [\#524](https://github.com/ably/ably-go/pull/524) ([Rosalita](https://github.com/Rosalita))
+- log request time outs when attempting retry [\#523](https://github.com/ably/ably-go/pull/523) ([Rosalita](https://github.com/Rosalita))
+- \#509 add support to get lifecycle status [\#521](https://github.com/ably/ably-go/pull/521) ([mohyour](https://github.com/mohyour))
+- Remove unstable time based unit tests from package ablyutil [\#518](https://github.com/ably/ably-go/pull/518) ([Rosalita](https://github.com/Rosalita))
+- Add code formatting check to CI pipeline and format all files [\#517](https://github.com/ably/ably-go/pull/517) ([Rosalita](https://github.com/Rosalita))
+- update dependency stretchr/testify from 1.4.0 to 1.7.1 [\#516](https://github.com/ably/ably-go/pull/516) ([Rosalita](https://github.com/Rosalita))
+- Split integration tests into separate workflow [\#515](https://github.com/ably/ably-go/pull/515) ([owenpearson](https://github.com/owenpearson))
+- Increased internal unit test coverage for error.go [\#510](https://github.com/ably/ably-go/pull/510) ([Rosalita](https://github.com/Rosalita))
+- \#342 - update codec dependency [\#506](https://github.com/ably/ably-go/pull/506) ([mohyour](https://github.com/mohyour))
+- Tests/add tags [\#505](https://github.com/ably/ably-go/pull/505) ([Rosalita](https://github.com/Rosalita))
+
 ## [1.2.6](https://github.com/ably/ably-go/tree/v1.2.6) (2022-5-10)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.5...v1.2.6)
