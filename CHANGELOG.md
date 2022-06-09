@@ -15,21 +15,15 @@
 
 **Closed issues:**
 
-- Testing challenges around use of embedded sync.Mutex in types [\#535](https://github.com/ably/ably-go/issues/535)
 - Remove dependency on test.sh bash script to run the tests [\#530](https://github.com/ably/ably-go/issues/530)
-- Audit all integration tests and fix known issue which causes test to fail when they are retried [\#526](https://github.com/ably/ably-go/issues/526)
 - Unstable test TestStats\_Direction\_RSC6b2 [\#520](https://github.com/ably/ably-go/issues/520)
 - Remove flaky unit tests TestAfterOK and TestAfterCanceled in package ablyutil [\#514](https://github.com/ably/ably-go/issues/514)
-- Difficult to tell which testsuite of CI tests ran in the test observability report. [\#507](https://github.com/ably/ably-go/issues/507)
 - Tests for packages ablyutil and ablytest are running more than once in the CI pipeline [\#504](https://github.com/ably/ably-go/issues/504)
 - Flaky POST /apps: "Unable to modify existing channel namespace" [\#354](https://github.com/ably/ably-go/issues/354)
 - Document ably/generate.go [\#351](https://github.com/ably/ably-go/issues/351)
 - Document the project structure in our contributing guide [\#350](https://github.com/ably/ably-go/issues/350)
 - Lint code, probably using `gofmt` [\#346](https://github.com/ably/ably-go/issues/346)
-- Update github.com/stretchr/testify dependency \(August 2019 \> January 2021\) [\#343](https://github.com/ably/ably-go/issues/343)
-- Update github.com/ugorji/go/codec dependency \(July 2019 \> May 2021\) [\#342](https://github.com/ably/ably-go/issues/342)
 - Conform ReadMe and create Contributing Document [\#340](https://github.com/ably/ably-go/issues/340)
-- Google App Engine [\#57](https://github.com/ably/ably-go/issues/57)
 
 **Merged pull requests:**
 
