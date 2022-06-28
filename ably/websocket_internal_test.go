@@ -103,7 +103,7 @@ func TestWebsocketDial(t *testing.T) {
 		"Can dial for protocol application/json": {
 			dialProtocol:  "application/json",
 			expectedErr:   nil,
-			expectedProto: 0,
+			expectedProto: jsonProto,
 		},
 		"Can dial for protocol application/x-msgpack": {
 			dialProtocol:  "application/x-msgpack",
