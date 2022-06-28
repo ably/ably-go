@@ -123,6 +123,7 @@ func TestWebsocketDial(t *testing.T) {
 			assert.Equal(t, test.expectedErr, err)
 
 			if result != nil {
+				assert.NotNil(t, result.conn)
 				assert.Equal(t, test.expectedProto, result.proto)
 			}
 		})
@@ -141,8 +142,6 @@ func TestWebsocketSendAndReceive(t *testing.T) {
 	tests := map[string]struct {
 		dialProtocol        string
 		expectedMessageType string
-		expectedPayloadType byte
-		expectedResult      *websocketConn
 		expectedErr         error
 	}{
 		"Can send and receive a message using protocol application/json": {
