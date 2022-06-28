@@ -33,7 +33,8 @@ jobs:
       - name: Integration Tests with ${{ matrix.protocol }} Protocol
         run: |
           set -o pipefail
-          scripts/test.sh --protocol application/${{ matrix.protocol == 'json' && 'json' || 'x-msgpack' }} |& tee >(~/go/bin/go-junit-report > ${{ matrix.protocol }}-integration.junit)
+          export ABLY_PROTOCOL=${{ matrix.protocol == 'json' && 'application/json' || 'application/x-msgpack' }}
+          go test -tags=integration -p 1 -race -v -timeout 120m ./... |& tee >(~/go/bin/go-junit-report > ${{ matrix.protocol }}-integration.junit)
 
       - name: Upload test results
         if: always()

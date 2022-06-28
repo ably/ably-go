@@ -157,6 +157,45 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 	return c.PublishMultiple(ctx, messages, options...)
 }
 
+type ChannelDetails struct {
+	ChannelId string        `json:"channelId" codec:"channelId"`
+	Status    ChannelStatus `json:"status" codec:"status"`
+}
+
+type ChannelStatus struct {
+	IsActive  bool             `json:"isActive" codec:"isActive"`
+	Occupancy ChannelOccupancy `json:"occupancy" codec:"occupancy"`
+}
+
+type ChannelOccupancy struct {
+	Metrics ChannelMetrics `json:"metrics" codec:"metrics"`
+}
+
+type ChannelMetrics struct {
+	Connections         int `json:"connections" codec:"connections"`
+	PresenceConnections int `json:"presenceConnections" codec:"presenceConnections"`
+	PresenceMembers     int `json:"presenceMembers" codec:"presenceMembers"`
+	PresenceSubscribers int `json:"presenceSubscribers" codec:"presenceSubscribers"`
+	Publishers          int `json:"publishers" codec:"publishers"`
+	Subscribers         int `json:"subscribers" codec:"subscribers"`
+}
+
+// Status returns ChannelDetails representing information for a channel
+func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
+	var channelDetails ChannelDetails
+	req := &request{
+		Method: "GET",
+		Path:   "/channels/" + c.Name,
+		Out:    &channelDetails,
+	}
+	_, err := c.client.do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &channelDetails, nil
+}
+
 // History gives the channel's message history.
 func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 	params := (&historyOptions{}).apply(o...)
