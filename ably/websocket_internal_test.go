@@ -108,7 +108,7 @@ func TestWebsocketDial(t *testing.T) {
 		"Can dial for protocol application/x-msgpack": {
 			dialProtocol:  "application/x-msgpack",
 			expectedErr:   nil,
-			expectedProto: 1,
+			expectedProto: msgpackProto,
 		},
 		"Can handle an error when dialing for an invalid protocol": {
 			dialProtocol: "aProtocol",
