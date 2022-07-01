@@ -95,32 +95,24 @@ func TestWebsocketDial(t *testing.T) {
 	websocketUrl := fmt.Sprintf("ws%s", strings.TrimPrefix(ts.URL, "http"))
 	testServerURL, _ := url.Parse(websocketUrl)
 
-	// Calculate the expected Ably-Agent header used by tests.
-	expectedAgentHeader := AblySDKIdentifier + " " + GoRuntimeIdentifier + " " + GoOSIdentifier()
-
 	tests := map[string]struct {
-		dialProtocol        string
-		expectedPayloadType byte
-		expectedSubprotocol []string
-		expectedResult      *websocketConn
-		expectedErr         error
+		dialProtocol  string
+		expectedErr   error
+		expectedProto proto
 	}{
 		"Can dial for protocol application/json": {
-			dialProtocol:        "application/json",
-			expectedPayloadType: uint8(1),
-			expectedSubprotocol: []string(nil),
-			expectedErr:         nil,
+			dialProtocol:  "application/json",
+			expectedErr:   nil,
+			expectedProto: jsonProto,
 		},
 		"Can dial for protocol application/x-msgpack": {
-			dialProtocol:        "application/x-msgpack",
-			expectedPayloadType: uint8(1),
-			expectedSubprotocol: []string(nil),
-			expectedErr:         nil,
+			dialProtocol:  "application/x-msgpack",
+			expectedErr:   nil,
+			expectedProto: msgpackProto,
 		},
 		"Can handle an error when dialing for an invalid protocol": {
-			dialProtocol:   "aProtocol",
-			expectedResult: nil,
-			expectedErr:    errors.New(`invalid protocol "aProtocol"`),
+			dialProtocol: "aProtocol",
+			expectedErr:  errors.New(`invalid protocol "aProtocol"`),
 		},
 	}
 
@@ -131,11 +123,8 @@ func TestWebsocketDial(t *testing.T) {
 			assert.Equal(t, test.expectedErr, err)
 
 			if result != nil {
-				assert.NotNil(t, result.codec)
-				assert.Equal(t, expectedAgentHeader, result.conn.Config().Header.Get("Ably-Agent"))
-				assert.Equal(t, test.expectedPayloadType, result.conn.PayloadType)
-				assert.Equal(t, test.expectedSubprotocol, result.conn.Config().Protocol)
-				assert.True(t, result.conn.IsClientConn())
+				assert.NotNil(t, result.conn)
+				assert.Equal(t, test.expectedProto, result.proto)
 			}
 		})
 	}
@@ -153,8 +142,6 @@ func TestWebsocketSendAndReceive(t *testing.T) {
 	tests := map[string]struct {
 		dialProtocol        string
 		expectedMessageType string
-		expectedPayloadType byte
-		expectedResult      *websocketConn
 		expectedErr         error
 	}{
 		"Can send and receive a message using protocol application/json": {
