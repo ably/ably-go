@@ -48,11 +48,11 @@ func (ws *websocketConn) Receive(deadline time.Time) (*protocolMessage, error) {
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	if !deadline.IsZero() {
+	if deadline.IsZero() {
+		ctx = context.Background()
+	} else {
 		ctx, cancel = context.WithDeadline(context.Background(), deadline)
 		defer cancel()
-	} else {
-		ctx = context.Background()
 	}
 	_, data, err := ws.conn.Read(ctx)
 	if err != nil {
