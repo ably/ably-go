@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var Instantly = Before(40 * time.Millisecond)
+var Instantly = Before(10 * time.Millisecond)
 
 var Soon = Before(Timeout)
 
