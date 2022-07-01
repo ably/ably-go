@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.2.8](https://github.com/ably/ably-go/tree/v1.2.8)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.7...v1.2.8) (2022-07-01)
+
+**Closed issues:**
+
+- Use the net/http/httptest package to write unit test\(s\) for websockets [\#541](https://github.com/ably/ably-go/issues/541)
+- Migrate from deprecated websocket package [\#368](https://github.com/ably/ably-go/issues/368)
+
+**Merged pull requests:**
+
+- Add unit tests for websocket.go [\#549](https://github.com/ably/ably-go/pull/549) ([Rosalita](https://github.com/Rosalita))
+- Update action [\#548](https://github.com/ably/ably-go/pull/548) ([Morganamilo](https://github.com/Morganamilo))
+- Replace obsolete websocket library -- allows WebAssembly [\#433](https://github.com/ably/ably-go/pull/433) ([Jmgr](https://github.com/Jmgr))
+
 ## [1.2.7](https://github.com/ably/ably-go/tree/v1.2.7) (2022-06-09)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.6...v1.2.7)
