@@ -287,7 +287,7 @@ func TestRealtimeConn_SendErrorReconnects(t *testing.T) {
 	ablytest.Instantly.NoRecv(t, nil, publishErr, t.Fatalf)
 
 	// Reconnect should happen instantly as a result of transport closure.
-	ablytest.Instantly.Send(t, allowDial, struct{}{}, t.Fatalf)
+	allowDial <- struct{}{}
 
 	// After reconnection, message should be published.
 	ablytest.Soon.Recv(t, &err, publishErr, t.Fatalf)
