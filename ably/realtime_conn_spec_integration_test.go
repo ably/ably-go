@@ -2253,8 +2253,7 @@ func TestRealtimeConn_RTN23(t *testing.T) {
 	// Expect a timer for a message receive.
 	var timer ablytest.AfterCall
 	ablytest.Instantly.Recv(t, &timer, afterCalls, t.Fatalf)
-	assert.Equal(t, receiveTimeout, timer.D,
-		"expected %v, got %v", receiveTimeout, timer.D)
+	assert.LessOrEqual(t, timer.D, receiveTimeout, "timer was not within expected receive timeout")
 
 	in <- &ably.ProtocolMessage{
 		Action: ably.ActionHeartbeat,
