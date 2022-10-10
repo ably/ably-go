@@ -21,6 +21,7 @@ const (
 	protocolJSON    = "application/json"
 	protocolMsgPack = "application/x-msgpack"
 
+	// **LEGACY**
 	// restHost is the primary ably host .
 	restHost     = "rest.ably.io"
 	realtimeHost = "realtime.ably.io"
@@ -76,12 +77,15 @@ const (
 )
 
 type authOptions struct {
+
+	// **LEGACY**
 	// AuthCallback is called in order to obtain a signed token request.
 	//
 	// This enables a client to obtain token requests from another entity,
 	// so tokens can be renewed without the client requiring access to keys.
 	AuthCallback func(context.Context, TokenParams) (Tokener, error)
 
+	// **LEGACY**
 	// URL which is queried to obtain a signed token request.
 	//
 	// This enables a client to obtain token requests from another entity,
@@ -109,38 +113,47 @@ type authOptions struct {
 	//
 	AuthURL string
 
+	// **LEGACY**
 	// Key obtained from the dashboard.
 	Key string
 
+	// **LEGACY**
 	// Token is an authentication token issued for this application against
 	// a specific key and TokenParams.
 	Token string
 
+	// **LEGACY**
 	// TokenDetails is an authentication token issued for this application against
 	// a specific key and TokenParams.
 	TokenDetails *TokenDetails
 
+	// **LEGACY**
 	// AuthMethod specifies which method, GET or POST, is used to query AuthURL
 	// for the token information (*ably.TokenRequest or *ablyTokenDetails).
 	//
 	// If empty, GET is used by default.
 	AuthMethod string
 
+	// **LEGACY**
 	// AuthHeaders are HTTP request headers to be included in any request made
 	// to the AuthURL.
 	AuthHeaders http.Header
 
+	// **LEGACY**
 	// AuthParams are HTTP query parameters to be included in any request made
 	// to the AuthURL.
 	AuthParams url.Values
 
+	// **LEGACY**
 	// UseQueryTime when set to true, the time queried from Ably servers will
 	// be used to sign the TokenRequest instead of using local time.
 	UseQueryTime bool
 
+	// **LEGACY**
 	// Spec: TO3j11
 	DefaultTokenParams *TokenParams
 
+	// **LEGACY**
 	// UseTokenAuth makes the REST and Realtime clients always use token
 	// authentication method.
 	UseTokenAuth bool
@@ -162,6 +175,7 @@ func (opts *authOptions) authMethod() string {
 	return "GET"
 }
 
+// **LEGACY**
 // KeyName gives the key name parsed from the Key field.
 func (opts *authOptions) KeyName() string {
 	if i := strings.IndexRune(opts.Key, ':'); i != -1 {
@@ -170,6 +184,7 @@ func (opts *authOptions) KeyName() string {
 	return ""
 }
 
+// **LEGACY**
 // KeySecret gives the key secret parsed from the Key field.
 func (opts *authOptions) KeySecret() string {
 	if i := strings.IndexRune(opts.Key, ':'); i != -1 {
@@ -194,13 +209,17 @@ type clientOptions struct {
 	Recover         string // optional; used to recover client state
 	TransportParams url.Values
 
+	// **LEGACY**
 	// max number of fallback hosts to use as a fallback.
 	HTTPMaxRetryCount int
+
+	// **LEGACY**
 	// HTTPRequestTimeout is the timeout for getting a response for outgoing HTTP requests.
 	//
 	// Will only be used if no custom HTTPClient is set.
 	HTTPRequestTimeout time.Duration
 
+	// **LEGACY**
 	// The period in milliseconds before HTTP requests are retried against the
 	// default endpoint
 	//
@@ -213,10 +232,12 @@ type clientOptions struct {
 	NoQueueing       bool // when true drops messages published during regaining connection
 	NoBinaryProtocol bool // when true uses JSON for network serialization protocol instead of MsgPack
 
+	// **LEGACY**
 	// When true idempotent rest publishing will be enabled.
 	// Spec TO3n
 	IdempotentRESTPublishing bool
 
+	// **LEGACY**
 	// TimeoutConnect is the time period after which connect request is failed.
 	//
 	// Deprecated: use RealtimeRequestTimeout instead.

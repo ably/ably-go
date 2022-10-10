@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 )
-
+// **LEGACY**
 // The Realtime libraries establish and maintain a persistent connection
 // to Ably enabling extremely low latency broadcasting of messages and presence
 // state.
@@ -16,7 +16,7 @@ type Realtime struct {
 
 	rest *REST
 }
-
+// **LEGACY**
 // NewRealtime constructs a new Realtime.
 func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c := &Realtime{}
@@ -39,6 +39,7 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	return c, nil
 }
 
+// **LEGACY**
 // Connect is the same as Connection.Connect.
 func (c *Realtime) Connect() {
 	c.Connection.Connect()
@@ -49,11 +50,13 @@ func (c *Realtime) Close() {
 	c.Connection.Close()
 }
 
+// **LEGACY**
 // Stats is the same as REST.Stats.
 func (c *Realtime) Stats(o ...StatsOption) StatsRequest {
 	return c.rest.Stats(o...)
 }
 
+// **LEGACY**
 // Time
 func (c *Realtime) Time(ctx context.Context) (time.Time, error) {
 	return c.rest.Time(ctx)
