@@ -45,6 +45,7 @@ func (c *Realtime) Connect() {
 	c.Connection.Connect()
 }
 
+// **LEGACY**
 // Close is the same as Connection.Close.
 func (c *Realtime) Close() {
 	c.Connection.Close()
