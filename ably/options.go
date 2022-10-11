@@ -197,6 +197,8 @@ type clientOptions struct {
 	authOptions
 
 	RESTHost string // optional; overwrite endpoint hostname for REST client
+
+	// **LEGACY**
 	// Deprecated: The library will automatically use default fallback hosts when a custom REST host or custom fallback hosts aren't provided.
 	FallbackHostsUseDefault bool
 
@@ -246,10 +248,12 @@ type clientOptions struct {
 
 	ConnectionStateTTL time.Duration //(DF1a)
 
+	// **LEGACY**
 	// RealtimeRequestTimeout is the timeout for realtime connection establishment
 	// and each subsequent operation.
 	RealtimeRequestTimeout time.Duration
 
+	// **LEGACY**
 	// DisconnectedRetryTimeout is the time to wait after a disconnection before
 	// attempting an automatic reconnection, if still disconnected.
 	DisconnectedRetryTimeout time.Duration
@@ -257,20 +261,24 @@ type clientOptions struct {
 	ChannelRetryTimeout      time.Duration
 	HTTPOpenTimeout          time.Duration
 
+	// **LEGACY**
 	// Dial specifies the dial function for creating message connections used
 	// by Realtime.
 	//
 	// If Dial is nil, the default websocket connection is used.
 	Dial func(protocol string, u *url.URL, timeout time.Duration) (conn, error)
 
+	// **LEGACY**
 	// HTTPClient specifies the client used for HTTP communication by REST.
 	//
 	// If HTTPClient is nil, a client configured with default settings is used.
 	HTTPClient *http.Client
 
+	// **LEGACY**
 	//When provided this will be used on every request.
 	Trace *httptrace.ClientTrace
 
+	// **LEGACY**
 	// Now returns the time the library should take as current.
 	Now   func() time.Time
 	After func(context.Context, time.Duration) <-chan time.Time
@@ -517,21 +525,25 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 	return nil
 }
 
+// **LEGACY**
 // A ClientOption configures a REST or Realtime instance.
 //
 // See: https://www.ably.io/documentation/realtime/usage#client-options
 type ClientOption func(*clientOptions)
 
+// **LEGACY**
 // An AuthOption configures authentication/authorization for a REST or Realtime
 // instance or operation.
 type AuthOption func(*authOptions)
 
+// **LEGACY**
 // A Tokener is or can be used to get a TokenDetails.
 type Tokener interface {
 	IsTokener()
 	isTokener()
 }
 
+// **LEGACY**
 // A TokenString is the string representation of an authentication token.
 type TokenString string
 

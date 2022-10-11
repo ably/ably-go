@@ -34,6 +34,7 @@ func (r *REST) newPaginatedRequest(path, rawPath string, params url.Values) pagi
 	}
 }
 
+// **LEGACY**
 // PaginatedResult is a generic iterator for PaginatedResult pagination.
 // Items decoding is delegated to type-specific wrappers.
 //
@@ -49,6 +50,7 @@ type PaginatedResult struct {
 	first bool
 }
 
+// **LEGACY**
 // load loads the first page of results. Must be called from the type-specific
 // wrapper Pages method that creates the PaginatedResult object.
 func (p *PaginatedResult) load(ctx context.Context, r paginatedRequest) error {
@@ -62,6 +64,7 @@ func (p *PaginatedResult) load(ctx context.Context, r paginatedRequest) error {
 	return p.First(ctx)
 }
 
+// **LEGACY**
 // loadItems loads the first page of results and returns a next function. Must
 // be called from the type-specific wrapper Items method that creates the
 // PaginatedItems object.
@@ -135,6 +138,7 @@ func (p *PaginatedResult) goTo(ctx context.Context, link string) error {
 	return nil
 }
 
+// **LEGACY**
 // next loads the next page of items, if there is one. It returns whether a page
 // was successfully loaded or not; after it returns false, Err should be
 // called to check for any errors.
@@ -158,6 +162,7 @@ func (p *PaginatedResult) next(ctx context.Context, into interface{}) bool {
 	return p.err == nil
 }
 
+// **LEGACY**
 // First loads the first page of items. Next should be called before inspecting
 // the Items.
 func (p *PaginatedResult) First(ctx context.Context) error {
@@ -165,11 +170,13 @@ func (p *PaginatedResult) First(ctx context.Context) error {
 	return p.goTo(ctx, p.firstLink)
 }
 
+// **LEGACY**
 // Err returns the error that caused Next to fail, if there was one.
 func (p *PaginatedResult) Err() error {
 	return p.err
 }
 
+// **LEGACY**
 // relLinkRegexp is the regexp that matches our pagination format
 var relLinkRegexp = regexp.MustCompile(`<(?P<url>[^>]+)>; rel="(?P<rel>[^"]+)"`)
 
@@ -181,6 +188,7 @@ func (err errInvalidType) Error() string {
 	return "requested value of incompatible type: " + err.typ.String()
 }
 
+// **LEGACY**
 // queryFunc queries the given URL and gives non-nil HTTP response if no error
 // occurred.
 type queryFunc func(ctx context.Context, url string) (*http.Response, error)

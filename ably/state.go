@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// **LEGACY**
 // result awaits completion of asynchronous operation.
 type result interface {
 	// Wait blocks until asynchronous operation is completed. Upon its completion,
@@ -15,6 +16,7 @@ type result interface {
 	Wait(context.Context) error
 }
 
+// **LEGACY**
 func wait(ctx context.Context) func(result, error) error {
 	return func(res result, err error) error {
 		if err != nil {
@@ -24,6 +26,7 @@ func wait(ctx context.Context) func(result, error) error {
 	}
 }
 
+// **LEGACY**
 // goWaiter immediately calls the given function in a separate goroutine. The
 // returned Result waits for its completion and returns its error.
 func goWaiter(f func() error) result {
@@ -103,6 +106,7 @@ func channelStateError(state ChannelState, err error) *ErrorInfo {
 	return newError(0, err)
 }
 
+// **LEGACY**
 // queuedEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
 	queue []msgCh
@@ -120,6 +124,7 @@ type msgCh struct {
 	ch  chan<- error
 }
 
+// **LEGACY**
 // Dismiss lets go of the channels that are waiting for an error on this queue.
 // The queue can continue sending messages.
 func (q *pendingEmitter) Dismiss() []msgCh {
@@ -248,6 +253,7 @@ func newErrResult() (result, chan<- error) {
 	return res, listen
 }
 
+// **LEGACY**
 // Wait implements the Result interface.
 func (res *errResult) Wait(ctx context.Context) error {
 	if res == nil {
@@ -344,6 +350,7 @@ func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ..
 	})
 }
 
+// **LEGACY**
 // A ConnectionState identifies the state of an Ably realtime connection.
 type ConnectionState struct {
 	name string
@@ -364,6 +371,7 @@ func (e ConnectionState) String() string {
 	return e.name
 }
 
+// **LEGACY**
 // A ConnectionEvent identifies an event in the lifetime of an Ably realtime
 // connection.
 type ConnectionEvent struct {
@@ -388,6 +396,7 @@ func (e ConnectionEvent) String() string {
 	return e.name
 }
 
+// **LEGACY**
 // A ConnectionStateChange is the data associated with a ConnectionEvent.
 //
 // If the Event is a ConnectionEventUpdated, Current and Previous are the
@@ -404,6 +413,7 @@ type ConnectionStateChange struct {
 
 func (ConnectionStateChange) isEmitterData() {}
 
+// **LEGACY**
 // A ChannelState identifies the state of an Ably realtime channel.
 type ChannelState struct {
 	name string
@@ -423,6 +433,7 @@ func (e ChannelState) String() string {
 	return e.name
 }
 
+// **LEGACY**
 // A ChannelEvent identifies an event in the lifetime of an Ably realtime
 // channel.
 type ChannelEvent struct {
@@ -446,6 +457,7 @@ func (e ChannelEvent) String() string {
 	return e.name
 }
 
+// **LEGACY**
 // A ChannelStateChange is the data associated with a ChannelEvent.
 //
 // If the Event is a ChannelEventUpdated, Current and Previous are the
@@ -455,8 +467,10 @@ type ChannelStateChange struct {
 	Current  ChannelState
 	Event    ChannelEvent
 	Previous ChannelState
+	// **LEGACY**
 	// Reason, if any, is an error that caused the state change.
 	Reason *ErrorInfo
+	// **LEGACY**
 	// Resumed is set to true for Attached and Update events when channel state
 	// has been maintained without interruption in the server, so there has
 	// been no loss of message continuity.

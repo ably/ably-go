@@ -96,6 +96,7 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketC
 	return ws, nil
 }
 
+// **LEGACY**
 // dialWebsocketTimeout dials the websocket with a timeout.
 func dialWebsocketTimeout(uri, origin string, timeout time.Duration) (*websocket.Conn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

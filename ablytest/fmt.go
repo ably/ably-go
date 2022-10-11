@@ -5,9 +5,11 @@ import (
 	"testing"
 )
 
+// **LEGACY**
 // A FmtFunc is a non-failing function analogous to fmt.Printf.
 type FmtFunc func(format string, args ...interface{})
 
+// **LEGACY**
 // Wrap wraps a FmtFunc in another. The wrapper FmtFunc first uses the fixed
 // format and args, plus the format it's called with, to create a new format
 // string by calling fmt.Sprintf. Then, it calls the wrapped FmtFunc with this

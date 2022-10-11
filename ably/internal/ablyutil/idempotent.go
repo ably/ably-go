@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 )
 
+// **LEGACY**
 // BaseID returns a base64 encoded 9 random bytes to be used in idempotent rest
 // publishing as part of message id.
 //

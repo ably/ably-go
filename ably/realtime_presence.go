@@ -15,6 +15,7 @@ const (
 	syncComplete
 )
 
+// **LEGACY**
 // RealtimePresence represents a single presence map of a particular channel.
 // It allows entering, leaving and updating presence state for the current
 // client or on behalf of other client.
@@ -104,6 +105,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage) {
 	}
 }
 
+// **LEGACY**
 // SyncComplete gives true if the initial SYNC operation has completed
 // for the members present on the channel.
 func (pres *RealtimePresence) SyncComplete() bool {
@@ -192,6 +194,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	}
 }
 
+// **LEGACY**
 // Get returns a list of current members on the channel, attaching the channel
 // first is optional. If the channel state is initialised, it will be updated to attached.
 //
@@ -202,10 +205,12 @@ func (pres *RealtimePresence) Get(ctx context.Context) ([]*PresenceMessage, erro
 	return pres.GetWithOptions(ctx)
 }
 
+// **LEGACY**
 // A PresenceGetOption is an optional parameter for
 // RealtimePresence.GetWithOptions.
 type PresenceGetOption func(*presenceGetOptions)
 
+// **LEGACY**
 // PresenceGetWithWaitForSync if true, makes GetWithOptions wait until the
 // presence information is fully synchronized with the server before returning.
 // It defaults to true.
@@ -226,6 +231,7 @@ func (o *presenceGetOptions) applyWithDefaults(options ...PresenceGetOption) {
 	}
 }
 
+// **LEGACY**
 // GetWithOptions is Get with optional parameters.
 func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...PresenceGetOption) ([]*PresenceMessage, error) {
 	var opts presenceGetOptions
@@ -258,6 +264,7 @@ type subscriptionPresenceMessage PresenceMessage
 
 func (*subscriptionPresenceMessage) isEmitterData() {}
 
+// **LEGACY**
 // Subscribe registers a presence message handler to be called with each
 // presence message with the given action received from the channel.
 //
@@ -285,6 +292,7 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 	return unsubscribe, err
 }
 
+// **LEGACY**
 // SubscribeAll registers a presence message handler to be called with each
 // presence message received from the channel.
 //
@@ -312,6 +320,7 @@ func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*Pre
 	return unsubscribe, nil
 }
 
+// **LEGACY**
 // Enter announces presence of the current client with an enter message
 // for the associated channel.
 //
@@ -328,6 +337,7 @@ func (pres *RealtimePresence) Enter(ctx context.Context, data interface{}) error
 	return pres.EnterClient(ctx, clientID, data)
 }
 
+// **LEGACY**
 // Update announces an updated presence message for the current client.
 //
 // If the current client is not present on the channel, Update will
@@ -346,6 +356,7 @@ func (pres *RealtimePresence) Update(ctx context.Context, data interface{}) erro
 	return pres.UpdateClient(ctx, clientID, data)
 }
 
+// **LEGACY**
 // Leave announces current client leave the channel altogether with a leave
 // message if data is non-empty.
 //
@@ -360,6 +371,7 @@ func (pres *RealtimePresence) Leave(ctx context.Context, data interface{}) error
 	return pres.LeaveClient(ctx, clientID, data)
 }
 
+// **LEGACY**
 // EnterClient announces presence of the given clientID altogether with an enter
 // message for the associated channel.
 //
@@ -390,6 +402,7 @@ func nonnil(a, b interface{}) interface{} {
 	return b
 }
 
+// **LEGACY**
 // UpdateClient announces an updated presence message for the given clientID.
 //
 // If the given clientID is not present on the channel, Update will
@@ -419,6 +432,7 @@ func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string,
 	return res.Wait(ctx)
 }
 
+// **LEGACY**
 // LeaveClient announces the given clientID leave the associated channel altogether
 // with a leave message if data is non-empty.
 //

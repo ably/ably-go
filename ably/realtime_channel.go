@@ -28,6 +28,7 @@ func (ch chanSlice) Less(i, j int) bool { return ch[i].Name < ch[j].Name }
 func (ch chanSlice) Swap(i, j int)      { ch[i], ch[j] = ch[j], ch[i] }
 func (ch chanSlice) Sort()              { sort.Sort(ch) }
 
+// **LEGACY**
 // RealtimeChannels is a goroutine-safe container for realtime channels that allows
 // for creating, deleting and iterating over existing channels.
 type RealtimeChannels struct {
@@ -43,13 +44,16 @@ func newChannels(client *Realtime) *RealtimeChannels {
 	}
 }
 
+// **LEGACY**
 // A ChannelOption configures a channel.
 type ChannelOption func(*channelOptions)
 
+// **LEGACY**
 // channelOptions wraps ChannelOptions. It exists so that users can't
 // implement their own ChannelOption.
 type channelOptions protoChannelOptions
 
+// **LEGACY**
 // CipherKey is like Cipher with an AES algorithm and CBC mode.
 func ChannelWithCipherKey(key []byte) ChannelOption {
 	return func(o *channelOptions) {
@@ -59,6 +63,7 @@ func ChannelWithCipherKey(key []byte) ChannelOption {
 	}
 }
 
+// **LEGACY**
 // Cipher sets cipher parameters for encrypting messages on a channel.
 func ChannelWithCipher(params CipherParams) ChannelOption {
 	return func(o *channelOptions) {
@@ -89,6 +94,7 @@ func applyChannelOptions(os ...ChannelOption) *channelOptions {
 	return &to
 }
 
+// **LEGACY**
 // Get looks up a channel given by the name and creates it if it does not exist
 // already.
 //
@@ -113,6 +119,7 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 	return c
 }
 
+// **LEGACY**
 // Iterate returns a list of existing channels.
 //
 // It is safe to call Iterate from multiple goroutines, however there's no guarantee
@@ -128,6 +135,7 @@ func (ch *RealtimeChannels) Iterate() []*RealtimeChannel { // RSN2, RTS2
 	return chans
 }
 
+// **LEGACY**
 // Exists returns true if the channel by the given name exists.
 //
 // This function just checks the local channel map for existence. It can not check
@@ -139,6 +147,7 @@ func (c *RealtimeChannels) Exists(name string) bool { // RSN2, RTS2
 	return ok
 }
 
+// **LEGACY**
 // Release releases all resources associated with a channel, detaching it first
 // if necessary. See RealtimeChannel.Detach for details.
 func (ch *RealtimeChannels) Release(ctx context.Context, name string) error {
@@ -164,6 +173,7 @@ func (ch *RealtimeChannels) broadcastConnStateChange(change ConnectionStateChang
 	}
 }
 
+// **LEGACY**
 // RealtimeChannel represents a single named message channel.
 type RealtimeChannel struct {
 	mtx sync.Mutex
@@ -215,6 +225,7 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	}
 }
 
+// **LEGACY**
 // Attach attaches the Realtime connection to the channel, after which it starts
 // receiving messages from it.
 //
@@ -321,6 +332,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 	return sendAttachMsg()
 }
 
+// **LEGACY**
 // Detach detaches the Realtime connection to the channel, after which it stops
 // receiving messages from it.
 //
@@ -417,6 +429,7 @@ type subscriptionMessage Message
 
 func (*subscriptionMessage) isEmitterData() {}
 
+// **LEGACY**
 // Subscribe registers a message handler to be called with each message with the
 // given name received from the channel.
 //
@@ -444,6 +457,7 @@ func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle fun
 	return unsubscribe, nil
 }
 
+// **LEGACY**
 // SubscribeAll register a message handler to be called with each message
 // received from the channel.
 //
@@ -481,6 +495,7 @@ type ChannelEventEmitter struct {
 	emitter *eventEmitter
 }
 
+// **LEGACY**
 // On registers an event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
@@ -490,6 +505,7 @@ func (em ChannelEventEmitter) On(e ChannelEvent, handle func(ChannelStateChange)
 	})
 }
 
+// **LEGACY**
 // OnAll registers an event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
@@ -499,6 +515,7 @@ func (em ChannelEventEmitter) OnAll(handle func(ChannelStateChange)) (off func()
 	})
 }
 
+// **LEGACY**
 // Once registers an one-off event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
@@ -508,6 +525,7 @@ func (em ChannelEventEmitter) Once(e ChannelEvent, handle func(ChannelStateChang
 	})
 }
 
+// **LEGACY**
 // OnceAll registers an one-off event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
@@ -517,6 +535,7 @@ func (em ChannelEventEmitter) OnceAll(handle func(ChannelStateChange)) (off func
 	})
 }
 
+// **LEGACY**
 // Off deregisters event handlers for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
@@ -524,6 +543,7 @@ func (em ChannelEventEmitter) Off(e ChannelEvent) {
 	em.emitter.Off(e)
 }
 
+// **LEGACY**
 // OffAll de-registers all event handlers.
 //
 // See package-level documentation on Event Emitter for details.
@@ -531,6 +551,7 @@ func (em ChannelEventEmitter) OffAll() {
 	em.emitter.OffAll()
 }
 
+// **LEGACY**
 // Publish publishes a message on the channel.
 //
 // This implicitly attaches the channel if it's not already attached. If the
@@ -541,6 +562,7 @@ func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interfa
 	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}})
 }
 
+// **LEGACY**
 // PublishMultiple publishes all given messages on the channel at once.
 //
 // This implicitly attaches the channel if it's not already attached. If the
@@ -567,6 +589,7 @@ func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Messa
 	return res.Wait(ctx)
 }
 
+// **LEGACY**
 // History is equivalent to RESTChannel.History.
 func (c *RealtimeChannel) History(o ...HistoryOption) HistoryRequest {
 	return c.client.rest.Channels.Get(c.Name).History(o...)
@@ -630,6 +653,7 @@ func (c *RealtimeChannel) canSend() bool {
 	return true
 }
 
+// **LEGACY**
 // State gives the current state of the channel.
 func (c *RealtimeChannel) State() ChannelState {
 	c.mtx.Lock()
@@ -637,6 +661,7 @@ func (c *RealtimeChannel) State() ChannelState {
 	return c.state
 }
 
+// **LEGACY**
 // ErrorReason gives the last error that caused channel transition to failed state.
 func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 	c.mtx.Lock()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// **LEGACY**
 // A PresenceAction is a kind of action involving presence in a channel.
 type PresenceAction int64
 

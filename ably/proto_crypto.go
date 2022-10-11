@@ -9,6 +9,7 @@ import (
 	"io"
 )
 
+// **LEGACY**
 // CipherAlgorithm is a supported algorithm for channel encryption.
 type CipherAlgorithm uint
 
@@ -34,6 +35,7 @@ func (c CipherAlgorithm) isValidKeyLength(l int) bool {
 	}
 }
 
+// **LEGACY**
 // CipherMode is a supported cipher mode for channel encryption.
 type CipherMode uint
 
@@ -56,6 +58,7 @@ const (
 	defaultCipherMode      = CipherCBC
 )
 
+// **LEGACY**
 // CipherParams  provides parameters for configuring encryption  for channels.
 //
 //Spec item (TZ1)
@@ -76,6 +79,7 @@ type CipherParams struct {
 	iv []byte
 }
 
+// **LEGACY**
 // GetCipher returns a ChannelCipher based on the algorithms set in the
 // ChannelOptions.CipherParams.
 func (c *protoChannelOptions) GetCipher() (channelCipher, error) {
@@ -98,6 +102,7 @@ func (c *protoChannelOptions) GetCipher() (channelCipher, error) {
 	}
 }
 
+// **LEGACY**
 // channelCipher is an interface for encrypting and decrypting channel messages.
 type channelCipher interface {
 	Encrypt(plainText []byte) ([]byte, error)
@@ -107,12 +112,14 @@ type channelCipher interface {
 
 var _ channelCipher = (*cbcCipher)(nil)
 
+// **LEGACY**
 // cbcCipher implements ChannelCipher that uses CBC mode.
 type cbcCipher struct {
 	algorithm string
 	params    CipherParams
 }
 
+// **LEGACY**
 // newCBCCipher returns a new CBCCipher that uses opts to initialize.
 func newCBCCipher(opts CipherParams) (*cbcCipher, error) {
 	if opts.Algorithm != CipherAES {
@@ -128,6 +135,7 @@ func newCBCCipher(opts CipherParams) (*cbcCipher, error) {
 	}, nil
 }
 
+// **LEGACY**
 // DefaultCipherParams returns CipherParams with fields set to default values.
 // This generates random secret key and iv values
 func DefaultCipherParams() (*CipherParams, error) {
@@ -142,6 +150,7 @@ func DefaultCipherParams() (*CipherParams, error) {
 	return c, nil
 }
 
+// **LEGACY**
 // Encrypt encrypts plainText using AES algorithm and returns encoded bytes.
 func (c *cbcCipher) Encrypt(plainText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.params.Key)
@@ -171,6 +180,7 @@ func (c *cbcCipher) Encrypt(plainText []byte) ([]byte, error) {
 	return out, nil
 }
 
+// **LEGACY**
 // Decrypt decrypts cipherText using CBC mode and AES algorithm and returns
 // decrypted bytes.
 func (c *cbcCipher) Decrypt(cipherText []byte) ([]byte, error) {
@@ -192,11 +202,13 @@ func (c *cbcCipher) Decrypt(cipherText []byte) ([]byte, error) {
 	return out, nil
 }
 
+// **LEGACY**
 // GetAlgorithm returns the cipher algorithm used by this CBCCipher which is AES.
 func (c *cbcCipher) GetAlgorithm() string {
 	return c.algorithm
 }
 
+// **LEGACY**
 // Appends padding.
 func pkcs7Pad(data []byte, blocklen int) ([]byte, error) {
 	if blocklen <= 0 {
@@ -214,6 +226,7 @@ func pkcs7Pad(data []byte, blocklen int) ([]byte, error) {
 	return p, nil
 }
 
+// **LEGACY**
 // Returns slice of the original data without padding.
 func pkcs7Unpad(data []byte, blocklen int) ([]byte, error) {
 	if blocklen <= 0 {

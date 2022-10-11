@@ -15,18 +15,21 @@ func init() {
 	handle.RawToString = true
 }
 
+// **LEGACY**
 // UnmarshalMsgpack decodes the MessagePack-encoded data and stores the result in the
 // value pointed to by v.
 func UnmarshalMsgpack(data []byte, v interface{}) error {
 	return decodeMsg(bytes.NewReader(data), v)
 }
 
+// **LEGACY**
 // decodeMsg decodes msgpack message read from r into v.
 func decodeMsg(r io.Reader, v interface{}) error {
 	dec := codec.NewDecoder(r, &handle)
 	return dec.Decode(v)
 }
 
+// **LEGACY**
 // MarshalMsgpack returns msgpack encoding of v
 func MarshalMsgpack(v interface{}) ([]byte, error) {
 	var buf bytes.Buffer
@@ -37,6 +40,7 @@ func MarshalMsgpack(v interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// **LEGACY**
 // encodeMsg encodes v into msgpack format and writes the output to w.
 func encodeMsg(w io.Writer, v interface{}) error {
 	enc := codec.NewEncoder(w, &handle)

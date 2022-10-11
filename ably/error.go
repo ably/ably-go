@@ -40,6 +40,7 @@ func codeFromStatus(statusCode int) ErrorCode {
 	}
 }
 
+// **LEGACY**
 // ErrorInfo describes error returned from Ably API. It always has non-zero error
 // code. It may contain underlying error value which caused the failure
 // condition.
@@ -54,6 +55,7 @@ type ErrorInfo struct {
 	err error
 }
 
+// **LEGACY**
 // Error implements the builtin error interface.
 func (e ErrorInfo) Error() string {
 	errorHref := e.HRef
@@ -69,11 +71,13 @@ func (e ErrorInfo) Error() string {
 
 }
 
+// **LEGACY**
 // Unwrap implements the implicit interface that errors.Unwrap understands.
 func (e ErrorInfo) Unwrap() error {
 	return e.err
 }
 
+// **LEGACY**
 // Message returns the undecorated error message.
 func (e ErrorInfo) Message() string {
 	if e.err == nil {

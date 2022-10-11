@@ -90,6 +90,7 @@ func newEventEmitter(log logger) *eventEmitter {
 	}
 }
 
+// **LEGACY**
 // On registers an event listener. The event must be comparable to the
 // eventEmitter's event type, and only events equal to it will trigger the
 // listener.
@@ -99,16 +100,19 @@ func (em *eventEmitter) On(event emitterEvent, handle func(emitterData)) (off fu
 	return em.on(event, handle, false)
 }
 
+// **LEGACY**
 // OnAll is like On, except the listener is triggered by all events.
 func (em *eventEmitter) OnAll(handle func(emitterData)) (off func()) {
 	return em.on(nil, handle, false)
 }
 
+// **LEGACY**
 // Once is like On, except the listener is deregistered once first triggered.
 func (em *eventEmitter) Once(event emitterEvent, handle func(emitterData)) (off func()) {
 	return em.on(event, handle, true)
 }
 
+// **LEGACY**
 // OnceAll is like Once, except the listener is triggered by all events.
 func (em *eventEmitter) OnceAll(handle func(emitterData)) (off func()) {
 	return em.on(nil, handle, true)
@@ -142,6 +146,7 @@ func (em *eventEmitter) on(event emitterEvent, handle func(emitterData), once bo
 	}
 }
 
+// **LEGACY**
 // Off deregisters event listeners. The event must be comparable to the
 // eventEmitter's event type, and only listeners that were associated with that
 // event will be removed.
@@ -149,6 +154,7 @@ func (em *eventEmitter) Off(event emitterEvent) {
 	em.off(event)
 }
 
+// **LEGACY**
 // OffAll is like Off, except is deregisters all event listeners.
 func (em *eventEmitter) OffAll() {
 	em.off(nil)

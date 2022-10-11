@@ -14,7 +14,7 @@ func init() {
 	handle.WriteExt = true
 	handle.RawToString = true
 }
-
+// **LEGACY**
 // marshalMsgpack returns msgpack encoding of v
 func marshalMsgpack(v interface{}) ([]byte, error) {
 	var buf bytes.Buffer
@@ -25,6 +25,7 @@ func marshalMsgpack(v interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// **LEGACY**
 // encodeMsg encodes v into msgpack format and writes the output to w.
 func encodeMsg(w io.Writer, v interface{}) error {
 	enc := codec.NewEncoder(w, &handle)

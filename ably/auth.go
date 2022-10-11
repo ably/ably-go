@@ -32,6 +32,7 @@ var (
 
 const wildcardClientID = "*"
 
+// **LEGACY**
 // addParams copies each params from rhs to lhs and returns lhs.
 //
 // If param from rhs exists in lhs, it's omitted.
@@ -45,6 +46,7 @@ func addParams(lhs, rhs url.Values) url.Values {
 	return lhs
 }
 
+// **LEGACY**
 // addHeaders copies each header from rhs to lhs and returns lhs.
 //
 // If header from rhs exists in lhs, it's omitted.
@@ -58,6 +60,7 @@ func addHeaders(lhs, rhs http.Header) http.Header {
 	return lhs
 }
 
+// **LEGACY**
 // Auth
 type Auth struct {
 	mtx      sync.Mutex
@@ -109,6 +112,7 @@ func newAuth(client *REST) (*Auth, error) {
 	return a, nil
 }
 
+// **LEGACY**
 // ClientID
 func (a *Auth) ClientID() string {
 	a.mtx.Lock()
@@ -135,6 +139,7 @@ func (a *Auth) updateClientID(clientID string) {
 	a.clientID = clientID
 }
 
+// **LEGACY**
 // CreateTokenRequest
 func (a *Auth) CreateTokenRequest(params *TokenParams, opts ...AuthOption) (*TokenRequest, error) {
 	a.mtx.Lock()
@@ -169,6 +174,7 @@ func (a *Auth) createTokenRequest(params *TokenParams, opts *authOptions) (*Toke
 	return req, nil
 }
 
+// **LEGACY**
 // RequestToken
 func (a *Auth) RequestToken(ctx context.Context, params *TokenParams, opts ...AuthOption) (*TokenDetails, error) {
 	a.mtx.Lock()
@@ -260,6 +266,7 @@ func (a *Auth) requestToken(ctx context.Context, params *TokenParams, opts *auth
 	return tok, tokReqClientID, nil
 }
 
+// **LEGACY**
 // Authorize performs authorization with ably service and returns the
 // authorization token details.
 //
@@ -360,6 +367,7 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 	return nil
 }
 
+// **LEGACY**
 //Timestamp returns the timestamp to be used in authorization request.
 func (a *Auth) timestamp(ctx context.Context, query bool) (time.Time, error) {
 	now := a.client.opts.Now()

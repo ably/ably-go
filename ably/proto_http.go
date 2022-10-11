@@ -5,6 +5,7 @@ import (
 	"runtime"
 )
 
+// **LEGACY**
 // constants for rsc7
 const (
 	ablyVersionHeader      = "X-Ably-Version"

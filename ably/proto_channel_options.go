@@ -4,12 +4,16 @@ type channelParams map[string]string
 type ChannelMode int64
 
 const (
+	// **LEGACY**
 	// Presence mode. Allows the attached channel to enter Presence.
 	ChannelModePresence ChannelMode = iota + 1
+	// **LEGACY**
 	// Publish mode. Allows the messages to be published to the attached channel.
 	ChannelModePublish
+	// **LEGACY**
 	// Subscribe mode. Allows the attached channel to subscribe to messages.
 	ChannelModeSubscribe
+	// **LEGACY**
 	// PresenceSubscribe. Allows the attached channel to subscribe to Presence updates.
 	ChannelModePresenceSubscribe
 )
@@ -46,6 +50,7 @@ func channelModeFromFlag(flags protoFlag) []ChannelMode {
 	return modes
 }
 
+// **LEGACY**
 // protoChannelOptions defines options provided for creating a new channel.
 type protoChannelOptions struct {
 	Cipher CipherParams

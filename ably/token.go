@@ -10,25 +10,31 @@ import (
 	"time"
 )
 
+// **LEGACY**
 // TokenParams
 type TokenParams struct {
+	// **LEGACY**
 	// TTL is a requested time to live for the token. If the token request
 	// is successful, the TTL of the returned token will be less than or equal
 	// to this value depending on application settings and the attributes
 	// of the issuing key.
 	TTL int64 `json:"ttl,omitempty" codec:"ttl,omitempty"`
 
+	// **LEGACY**
 	// Capability represents encoded access rights of the token.
 	Capability string `json:"capability,omitempty" codec:"capability,omitempty"`
 
+	// **LEGACY**
 	// ClientID represents a client, whom the token is generated for.
 	ClientID string `json:"clientId,omitempty" codec:"clientId,omitempty"`
 
+	// **LEGACY**
 	// Timestamp of the token request. It's used, in conjunction with the nonce,
 	// are used to prevent token requests from being replayed.
 	Timestamp int64 `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
 }
 
+// **LEGACY**
 // Query encodes the params to query params value. If a field of params is
 // a zero-value, it's omitted. If params is zero-value, nil is returned.
 func (params *TokenParams) Query() url.Values {
@@ -51,6 +57,7 @@ func (params *TokenParams) Query() url.Values {
 	return q
 }
 
+// **LEGACY**
 // TokenRequest
 type TokenRequest struct {
 	TokenParams `codec:",inline"`
@@ -74,23 +81,30 @@ func (req *TokenRequest) sign(secret []byte) {
 	req.MAC = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
+// **LEGACY**
 // TokenDetails
 type TokenDetails struct {
+	// **LEGACY**
 	// Token
 	Token string `json:"token,omitempty" codec:"token,omitempty"`
 
+	// **LEGACY**
 	// KeyName
 	KeyName string `json:"keyName,omitempty" codec:"keyName,omitempty"`
 
+	// **LEGACY**
 	// Expires
 	Expires int64 `json:"expires,omitempty" codec:"expires,omitempty"`
 
+	// **LEGACY**
 	// ClientID
 	ClientID string `json:"clientId,omitempty" codec:"clientId,omitempty"`
 
+	// **LEGACY**
 	// Issued
 	Issued int64 `json:"issued,omitempty" codec:"issued,omitempty"`
 
+	// **LEGACY**
 	// Capability
 	Capability string `json:"capability,omitempty" codec:"capability,omitempty"`
 }

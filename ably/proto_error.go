@@ -1,5 +1,6 @@
 package ably
 
+// **LEGACY**
 // errorInfo describes an error returned via ProtocolMessage.
 type errorInfo struct {
 	StatusCode int    `json:"statusCode,omitempty" codec:"statusCode,omitempty"`
