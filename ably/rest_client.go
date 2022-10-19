@@ -131,8 +131,16 @@ func (c *RESTChannels) Release(name string) {
 }
 
 type REST struct {
+	// **CANONICAL**
+	// An [Auth]{@link Auth} object.
+	// RSC5
 	Auth                *Auth
+	// **CANONICAL**
+	// A [Channels]{@link Channels} object.
+	// RSN1
 	Channels            *RESTChannels
+	// **CANONICAL**
+
 	opts                *clientOptions
 	successFallbackHost *fallbackCache
 	log                 logger
@@ -140,6 +148,10 @@ type REST struct {
 
 // **LEGACY**
 // NewREST constructs a new REST.
+// **CANONICAL**
+// Construct a RestClient object using an Ably [ClientOptions]{@link ClientOptions} object.
+// A [ClientOptions]{@link ClientOptions} object to configure the client connection to Ably.
+// RSC1.
 func NewREST(options ...ClientOption) (*REST, error) {
 	c := &REST{
 		opts: applyOptionsWithDefaults(options...),
@@ -169,6 +181,11 @@ func NewREST(options ...ClientOption) (*REST, error) {
 // This may be required on clients that do not have access
 // to a sufficiently well maintained time source, to provide
 // timestamps for use in token requests.
+// **CANONICAL**
+// Retrieves the time from the Ably service as milliseconds since the Unix epoch.
+// Clients that do not have access to a sufficiently well maintained time source and wish to issue Ably [TokenRequests]{@link TokenRequest} with a more accurate timestamp should use the [queryTime]{@link ClientOptions#queryTime} property instead of this method.
+// The time as milliseconds since the Unix epoch.
+// RSC16
 func (c *REST) Time(ctx context.Context) (time.Time, error) {
 	var times []int64
 	r := &request{

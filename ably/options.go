@@ -640,6 +640,9 @@ func WithAuthHeaders(headers http.Header) ClientOption {
 	}
 }
 
+// **CANONICAL**
+// The Ably API key or token string used to validate the client.
+// RSC1.
 func WithKey(key string) ClientOption {
 	return func(os *clientOptions) {
 		os.Key = key
