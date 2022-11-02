@@ -10,14 +10,26 @@ import (
 // to Ably enabling extremely low latency broadcasting of messages and presence
 // state.
 type Realtime struct {
+	// **CANONICAL**
+	// An [Auth]{@link Auth} object.
+	// RTC4
 	Auth       *Auth
+	// **CANONICAL**
+	// A [Channels]{@link Channels} object.
+	// RTC3, RTS1
 	Channels   *RealtimeChannels
+	// **CANONICAL**
+	// A [Connection]{@link Connection} object.
+	// RTC2
 	Connection *Connection
-
 	rest *REST
 }
 // **LEGACY**
 // NewRealtime constructs a new Realtime.
+// **CANONICAL**
+// Constructs a RealtimeClient object using an Ably [ClientOptions]{@link ClientOptions} object.
+// options - A [ClientOptions]{@link ClientOptions} object.
+// RSC1
 func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c := &Realtime{}
 	rest, err := NewREST(options...) //options validated in NewREST
@@ -47,12 +59,20 @@ func (c *Realtime) Connect() {
 
 // **LEGACY**
 // Close is the same as Connection.Close.
+// **CANONICAL**
+// Calls [connection.close()]{@link Connection#close} and causes the connection to close, entering the closing state.
+// Once closed, the library will not attempt to re-establish the connection without an explicit call to [connect()]{@link Connection#connect}.
+// proxy for RTN12
 func (c *Realtime) Close() {
 	c.Connection.Close()
 }
 
 // **LEGACY**
 // Stats is the same as REST.Stats.
+// **CANONICAL**
+// Queries the REST /stats API and retrieves your application's usage statistics. Returns a [PaginatedResult]{@link PaginatedResult} object, containing an array of [Stats]{@link Stats} objects. See the Stats docs.
+// Returns A [PaginatedResult]{@link PaginatedResult} object containing an array of [Stats]{@link Stats} objects.
+// RTC5
 func (c *Realtime) Stats(o ...StatsOption) StatsRequest {
 	return c.rest.Stats(o...)
 }
