@@ -193,22 +193,41 @@ func (opts *authOptions) KeySecret() string {
 	return ""
 }
 
+// **CANONICAL**
+// Passes additional client-specific properties to the REST [constructor()]{@link RestClient#constructor} or the Realtime [constructor()]{@link RealtimeClient#constructor}.
 type clientOptions struct {
+	// **CANONICAL**
+	// Embeds an [AuthOptions]{@link AuthOptions} object.
+	// TO3j
 	authOptions
 
-	RESTHost string // optional; overwrite endpoint hostname for REST client
+	// **LEGACY**
+	// optional - overwrite endpoint hostname for REST client
+	RESTHost string //
 
 	// **LEGACY**
 	// Deprecated: The library will automatically use default fallback hosts when a custom REST host or custom fallback hosts aren't provided.
 	FallbackHostsUseDefault bool
 
 	FallbackHosts   []string
-	RealtimeHost    string // optional; overwrite endpoint hostname for Realtime client
-	Environment     string // optional; prefixes both hostname with the environment string
-	Port            int    // optional: port to use for non-TLS connections and requests
-	TLSPort         int    // optional: port to use for TLS connections and requests
-	ClientID        string // optional; required for managing realtime presence of the current client
-	Recover         string // optional; used to recover client state
+	// **LEGACY**
+	// optional; overwrite endpoint hostname for Realtime client
+	RealtimeHost    string
+	// **LEGACY**
+	// optional; prefixes both hostname with the environment string
+	Environment     string
+	// **LEGACY**
+	// optional: port to use for non-TLS connections and requests
+	Port            int
+	// **LEGACY**
+	// optional: port to use for TLS connections and requests
+	TLSPort         int
+	// **LEGACY**
+	// optional; required for managing realtime presence of the current client
+	ClientID        string
+	// **LEGACY**
+	// optional; used to recover client state
+	Recover         string
 	TransportParams url.Values
 
 	// **LEGACY**
@@ -217,7 +236,8 @@ type clientOptions struct {
 
 	// **LEGACY**
 	// HTTPRequestTimeout is the timeout for getting a response for outgoing HTTP requests.
-	//
+
+	// **LEGACY**
 	// Will only be used if no custom HTTPClient is set.
 	HTTPRequestTimeout time.Duration
 
@@ -228,11 +248,21 @@ type clientOptions struct {
 	// spec TO3l10
 	FallbackRetryTimeout time.Duration
 
-	NoTLS            bool // when true REST and realtime client won't use TLS
-	NoConnect        bool // when true realtime client will not attempt to connect automatically
-	NoEcho           bool // when true published messages will not be echoed back
-	NoQueueing       bool // when true drops messages published during regaining connection
-	NoBinaryProtocol bool // when true uses JSON for network serialization protocol instead of MsgPack
+	// **LEGACY**
+	// when true REST and realtime client won't use TLS
+	NoTLS            bool
+	// **LEGACY**
+	// when true realtime client will not attempt to connect automatically
+	NoConnect        bool
+	// **LEGACY**
+	// when true published messages will not be echoed back
+	NoEcho           bool
+	// **LEGACY**
+	// when true drops messages published during regaining connection
+	NoQueueing       bool
+	// **LEGACY**
+	// when true uses JSON for network serialization protocol instead of MsgPack
+	NoBinaryProtocol bool
 
 	// **LEGACY**
 	// When true idempotent rest publishing will be enabled.
