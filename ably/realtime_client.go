@@ -53,6 +53,10 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 
 // **LEGACY**
 // Connect is the same as Connection.Connect.
+// **CANONICAL**
+// Calls [connection.connect()]{@link Connection#connect} and causes the connection to open, entering the connecting state.
+// Explicitly calling connect() is unnecessary unless the [autoConnect]{@link ClientOptions#autoConnect} property is disabled.
+// proxy for RTN11
 func (c *Realtime) Connect() {
 	c.Connection.Connect()
 }
@@ -79,6 +83,11 @@ func (c *Realtime) Stats(o ...StatsOption) StatsRequest {
 
 // **LEGACY**
 // Time
+// **CANONICAL**
+// Retrieves the time from the Ably service as milliseconds since the Unix epoch.
+// Clients that do not have access to a sufficiently well maintained time source and wish to issue Ably [TokenRequests]{@link TokenRequest with a more accurate timestamp should use the [queryTime]{@link ClientOptions#queryTime} property instead of this method.
+// returns The time as milliseconds since the Unix epoch.
+//RTC6a
 func (c *Realtime) Time(ctx context.Context) (time.Time, error) {
 	return c.rest.Time(ctx)
 }
