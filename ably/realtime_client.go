@@ -9,6 +9,8 @@ import (
 // The Realtime libraries establish and maintain a persistent connection
 // to Ably enabling extremely low latency broadcasting of messages and presence
 // state.
+// **CANONICAL**
+// A client that extends the functionality of the [RestClient]{@link RestClient} and provides additional realtime-specific features.
 type Realtime struct {
 	// **CANONICAL**
 	// An [Auth]{@link Auth} object.

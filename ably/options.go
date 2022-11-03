@@ -76,6 +76,8 @@ const (
 	authToken
 )
 
+// **CANONICAL**
+// Passes authentication-specific properties in authentication requests to Ably. Properties set using AuthOptions are used instead of the default values set when the client library is instantiated, as opposed to being merged with them.
 type authOptions struct {
 
 	// **LEGACY**
@@ -83,6 +85,9 @@ type authOptions struct {
 	//
 	// This enables a client to obtain token requests from another entity,
 	// so tokens can be renewed without the client requiring access to keys.
+	// **CANONICAL**
+	// Called when a new token is required. The role of the callback is to obtain a fresh token, one of: an Ably Token string (in plain text format); a signed [TokenRequest]{@link TokenRequest}; a [TokenDetails]{@link TokenDetails} (in JSON format); an Ably JWT. See the authentication documentation for details of the Ably [TokenRequest]{@link TokenRequest} format and associated API calls.
+	// RSA4a, RSA4, TO3j5, AO2b
 	AuthCallback func(context.Context, TokenParams) (Tokener, error)
 
 	// **LEGACY**
@@ -111,20 +116,32 @@ type authOptions struct {
 	//   - Content-Type is set to "application/x-www-form-urlencoded" and
 	//     the payload is encoded from *TokenParams and AuthParams
 	//
+	// **CANONICAL**
+	// A URL that the library may use to obtain a token string (in plain text format), or a signed [TokenRequest]{@link TokenRequest} or [TokenDetails]{@link TokenDetails} (in JSON format) from.
+	// RSA4a, RSA4, RSA8c, TO3j6, AO2c
 	AuthURL string
 
 	// **LEGACY**
 	// Key obtained from the dashboard.
+	// **CANONICAL**
+	// The full API key string, as obtained from the Ably dashboard. Use this option if you wish to use Basic authentication, or wish to be able to issue Ably Tokens without needing to defer to a separate entity to sign Ably [TokenRequests]{@link TokenRequest}. Read more about Basic authentication.
+	// RSA11, RSA14, TO3j1, AO2a
 	Key string
 
 	// **LEGACY**
 	// Token is an authentication token issued for this application against
 	// a specific key and TokenParams.
+	// **CANONICAL**
+	// An authenticated token. This can either be a [TokenDetails]{@link TokenDetails} object, a [TokenRequest]{@link TokenRequest} object, or token string (obtained from the token property of a [TokenDetails]{@link TokenDetails} component of an Ably [TokenRequest]{@link TokenRequest} response, or a JSON Web Token satisfying the Ably requirements for JWTs). This option is mostly useful for testing: since tokens are short-lived, in production you almost always want to use an authentication method that enables the client library to renew the token automatically when the previous one expires, such as authUrl or authCallback. Read more about Token authentication.
+	// RSA4a, RSA4, TO3j2
 	Token string
 
 	// **LEGACY**
 	// TokenDetails is an authentication token issued for this application against
 	// a specific key and TokenParams.
+	// **CANONICAL**
+	// An authenticated [TokenDetails]{@link TokenDetails} object (most commonly obtained from an Ably Token Request response). This option is mostly useful for testing: since tokens are short-lived, in production you almost always want to use an authentication method that enables the client library to renew the token automatically when the previous one expires, such as authUrl or authCallback. Use this option if you wish to use Token authentication. Read more about Token authentication.
+	// RSA4a, RSA4, TO3j3
 	TokenDetails *TokenDetails
 
 	// **LEGACY**
@@ -132,30 +149,48 @@ type authOptions struct {
 	// for the token information (*ably.TokenRequest or *ablyTokenDetails).
 	//
 	// If empty, GET is used by default.
+	// **CANONICAL**
+	// The HTTP verb to use for any request made to the authUrl, either GET or POST. The default value is GET.
+	// RSA8c, TO3j7, AO2d
 	AuthMethod string
 
 	// **LEGACY**
 	// AuthHeaders are HTTP request headers to be included in any request made
 	// to the AuthURL.
+	// **CANONICAL**
+	// A set of key-value pair headers to be added to any request made to the authUrl. Useful when an application requires these to be added to validate the request or implement the response. If the authHeaders object contains an authorization key, then withCredentials is set on the XHR request.
+	// RSA8c3, TO3j8, AO2e
 	AuthHeaders http.Header
 
 	// **LEGACY**
 	// AuthParams are HTTP query parameters to be included in any request made
 	// to the AuthURL.
+	// **CANONICAL**
+	// A set of key-value pair params to be added to any request made to the authUrl. When the authMethod is GET, query params are added to the URL, whereas when authMethod is POST, the params are sent as URL encoded form data. Useful when an application requires these to be added to validate the request or implement the response.
+	// RSA8c3, RSA8c1, TO3j9, AO2f
 	AuthParams url.Values
 
 	// **LEGACY**
 	// UseQueryTime when set to true, the time queried from Ably servers will
 	// be used to sign the TokenRequest instead of using local time.
+	// **CANONICAL**
+	// If true, the library queries the Ably servers for the current time when issuing [TokenRequests]{@link TokenRequest} instead of relying on a locally-available time of day. Knowing the time accurately is needed to create valid signed Ably [TokenRequests]{@link TokenRequest}, so this option is useful for library instances on auth servers where for some reason the server clock cannot be kept synchronized through normal means, such as an NTP daemon. The server is queried for the current time once per client library instance (which stores the offset from the local clock), so if using this option you should avoid instancing a new version of the library for each request. The default is false.
+	// RSA9d, TO3j10, AO2a
 	UseQueryTime bool
 
 	// **LEGACY**
 	// Spec: TO3j11
+	// **CANONICAL**
+	// When a [TokenParams]{@link TokenParams} object is provided, it overrides the client library defaults when issuing new Ably Tokens or Ably [TokenRequests]{@link TokenRequest}.
+	// TO3j11
 	DefaultTokenParams *TokenParams
 
 	// **LEGACY**
 	// UseTokenAuth makes the REST and Realtime clients always use token
 	// authentication method.
+	// **CANONICAL**
+	// When true, forces token authentication to be used by the library. If a clientId is not specified in the [ClientOptions]{@link ClientOptions} or [TokenParams]{@link TokenParams}, then the Ably Token issued is anonymous.
+	// RSA4, RSA14, TO3j4
 	UseTokenAuth bool
 }
 
@@ -203,35 +238,66 @@ type clientOptions struct {
 
 	// **LEGACY**
 	// optional - overwrite endpoint hostname for REST client
+	// **CANONICAL**
+	// Enables a non-default Ably host to be specified. For development environments only. The default value is rest.ably.io.
+	// RSC12, TO3k2
 	RESTHost string //
 
 	// **LEGACY**
 	// Deprecated: The library will automatically use default fallback hosts when a custom REST host or custom fallback hosts aren't provided.
+	// **CANONICAL**
+	// DEPRECATED: this property is deprecated and will be removed in a future version. Enables default fallback hosts to be used.
+	// TO3k7 (deprecated)
 	FallbackHostsUseDefault bool
 
+	// **CANONICAL**
+	// An array of fallback hosts to be used in the case of an error necessitating the use of an alternative host. If you have been provided a set of custom fallback hosts by Ably, please specify them here.
+	// RSC15b, RSC15a, TO3k6
 	FallbackHosts   []string
 	// **LEGACY**
 	// optional; overwrite endpoint hostname for Realtime client
+	// **CANONICAL**
+	// Enables a non-default Ably host to be specified for realtime connections. For development environments only. The default value is realtime.ably.io.
+	// RTC1d, TO3k3
 	RealtimeHost    string
 	// **LEGACY**
 	// optional; prefixes both hostname with the environment string
+	// **CANONICAL**
+	// Enables a custom environment to be used with the Ably service.
+	// RSC15b, TO3k1
 	Environment     string
 	// **LEGACY**
 	// optional: port to use for non-TLS connections and requests
 	Port            int
 	// **LEGACY**
 	// optional: port to use for TLS connections and requests
+	// **CANONICAL**
+	// Enables a non-default Ably port to be specified. For development environments only. The default value is 80.
+	// TO3k4
 	TLSPort         int
 	// **LEGACY**
 	// optional; required for managing realtime presence of the current client
+	// **CANONICAL**
+	// A client ID, used for identifying this client when publishing messages or for presence purposes. The clientId can be any non-empty string, except it cannot contain a *. This option is primarily intended to be used in situations where the library is instantiated with a key. Note that a clientId may also be implicit in a token used to instantiate the library. An error will be raised if a clientId specified here conflicts with the clientId implicit in the token.
+	// RSC17, RSA4, RSA15, TO3a
 	ClientID        string
 	// **LEGACY**
 	// optional; used to recover client state
+	// **CANONICAL**
+	// Enables a connection to inherit the state of a previous connection that may have existed under a different instance of the Realtime library. This might typically be used by clients of the browser library to ensure connection state can be preserved when the user refreshes the page. A recovery key string can be explicitly provided, or alternatively if a callback function is provided, the client library will automatically persist the recovery key between page reloads and call the callback when the connection is recoverable. The callback is then responsible for confirming whether the connection should be recovered or not. See connection state recovery for further information.
+	// RTC1c, TO3i
 	Recover         string
+
+	// **CANONICAL**
+	// A set of key-value pairs that can be used to pass in arbitrary connection parameters, such as heartbeatInterval or remainPresentFor.
+	// RTC1f
 	TransportParams url.Values
 
 	// **LEGACY**
 	// max number of fallback hosts to use as a fallback.
+	// **CANONICAL**
+	// The maximum number of fallback hosts to use as a fallback when an HTTP request to the primary host is unreachable or indicates that it is unserviceable. The default value is 3.
+	// TO3l5
 	HTTPMaxRetryCount int
 
 	// **LEGACY**
@@ -239,6 +305,9 @@ type clientOptions struct {
 
 	// **LEGACY**
 	// Will only be used if no custom HTTPClient is set.
+	// **CANONICAL**
+	// Timeout for a client performing a complete HTTP request to Ably, including the connection phase. The default is 10 seconds.
+	// TO3l4
 	HTTPRequestTimeout time.Duration
 
 	// **LEGACY**
@@ -246,33 +315,57 @@ type clientOptions struct {
 	// default endpoint
 	//
 	// spec TO3l10
+	// **CANONICAL**
+	// The maximum time before HTTP requests are retried against the default endpoint. The default is 600 seconds.
+	// TO3l10
 	FallbackRetryTimeout time.Duration
 
 	// **LEGACY**
 	// when true REST and realtime client won't use TLS
+	// **CANONICAL**
+	// When false, the client will use an insecure connection. The default is true, meaning a TLS connection will be used to connect to Ably.
+	// RSC18, TO3d
 	NoTLS            bool
 	// **LEGACY**
 	// when true realtime client will not attempt to connect automatically
+	// **CANONICAL**
+	// When true, the client connects to Ably as soon as it is instantiated. You can set this to false and explicitly connect to Ably using the [connect()]{@link Connection#connect} method. The default is true.
+	// RTC1b, TO3e
 	NoConnect        bool
 	// **LEGACY**
 	// when true published messages will not be echoed back
+	// **CANONICAL**
+	// If false, prevents messages originating from this connection being echoed back on the same connection. The default is true.
+	// RTC1a, TO3h
 	NoEcho           bool
 	// **LEGACY**
 	// when true drops messages published during regaining connection
+	// **CANONICAL**
+	// If false, this disables the default behavior whereby the library queues messages on a connection in the disconnected or connecting states. The default behavior enables applications to submit messages immediately upon instantiating the library without having to wait for the connection to be established. Applications may use this option to disable queueing if they wish to have application-level control over the queueing. The default is true.
+	// RTP16b, TO3g
 	NoQueueing       bool
 	// **LEGACY**
 	// when true uses JSON for network serialization protocol instead of MsgPack
+	// **CANONICAL**
+	// When true, the more efficient MsgPack binary encoding is used. When false, JSON text encoding is used. The default is true.
+	// TO3f
 	NoBinaryProtocol bool
 
 	// **LEGACY**
 	// When true idempotent rest publishing will be enabled.
 	// Spec TO3n
+	// **CANONICAL**
+	// When true, enables idempotent publishing by assigning a unique message ID client-side, allowing the Ably servers to discard automatic publish retries following a failure such as a network fault. The default is true.
+	// RSL1k1, RTL6a1, TO3n
 	IdempotentRESTPublishing bool
 
 	// **LEGACY**
 	// TimeoutConnect is the time period after which connect request is failed.
 	//
 	// Deprecated: use RealtimeRequestTimeout instead.
+	// **CANONICAL**
+	// Timeout for the wait of acknowledgement for operations performed via a realtime connection, before the client library considers a request failed and triggers a failure condition. Operations include establishing a connection with Ably, or sending a HEARTBEAT, CONNECT, ATTACH, DETACH or CLOSE request. It is the equivalent of httpRequestTimeout but for realtime operations, rather than REST. The default is 10 seconds.
+	// TO3l11
 	TimeoutConnect    time.Duration
 	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
 
@@ -281,14 +374,30 @@ type clientOptions struct {
 	// **LEGACY**
 	// RealtimeRequestTimeout is the timeout for realtime connection establishment
 	// and each subsequent operation.
+	// **CANONICAL**
+	// Timeout for the wait of acknowledgement for operations performed via a realtime connection, before the client library considers a request failed and triggers a failure condition. Operations include establishing a connection with Ably, or sending a HEARTBEAT, CONNECT, ATTACH, DETACH or CLOSE request. It is the equivalent of httpRequestTimeout but for realtime operations, rather than REST. The default is 10 seconds.
+	// TO3l11
 	RealtimeRequestTimeout time.Duration
 
 	// **LEGACY**
 	// DisconnectedRetryTimeout is the time to wait after a disconnection before
 	// attempting an automatic reconnection, if still disconnected.
+	// **CANONICAL**
+	// If the connection is still in the [DISCONNECTED]{@link ConnectionState#disconnected} state after this delay, the client library will attempt to reconnect automatically. The default is 15 seconds.
+	// TO3l1
 	DisconnectedRetryTimeout time.Duration
+	// **CANONICAL**
+	// When the connection enters the [SUSPENDED]{@link ConnectionState#suspended} state, after this delay, if the state is still [SUSPENDED]{@link ConnectionState#suspended}, the client library attempts to reconnect automatically. The default is 30 seconds.
+	// RTN14d, TO3l2
 	SuspendedRetryTimeout    time.Duration
+	// **CANONICAL**
+	// When a channel becomes [SUSPENDED]{@link ConnectionState#suspended} following a server initiated [DETACHED]{@link ConnectionState#detached}, after this delay, if the channel is still [SUSPENDED]{@link ConnectionState#suspended} and the connection is [CONNECTED]{@link ConnectionState#connected}, the client library will attempt to re-attach the channel automatically. The default is 15 seconds.
+	// RTL13b, TO3l7
 	ChannelRetryTimeout      time.Duration
+
+	// **CANONICAL**
+	// Timeout for opening a connection to Ably to initiate an HTTP request. The default is 4 seconds.
+	// TO3l3
 	HTTPOpenTimeout          time.Duration
 
 	// **LEGACY**
@@ -313,7 +422,13 @@ type clientOptions struct {
 	Now   func() time.Time
 	After func(context.Context, time.Duration) <-chan time.Time
 
+	// **CANONICAL**
+	// Controls the verbosity of the logs output from the library. Levels include verbose, debug, info, warn and error.
+	// platform specific - TO3b
 	LogLevel   LogLevel
+	// **CANONICAL**
+	// Controls the log output of the library. This is a function to handle each line of log output.
+	// platform specific - TO3c
 	LogHandler Logger
 }
 

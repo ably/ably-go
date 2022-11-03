@@ -130,6 +130,8 @@ func (c *RESTChannels) Release(name string) {
 	c.mu.Unlock()
 }
 
+// **CANONICAL**
+// A client that offers a simple stateless API to interact directly with Ably's REST API.
 type REST struct {
 	// **CANONICAL**
 	// An [Auth]{@link Auth} object.
@@ -139,7 +141,6 @@ type REST struct {
 	// A [Channels]{@link Channels} object.
 	// RSN1
 	Channels            *RESTChannels
-	// **CANONICAL**
 
 	opts                *clientOptions
 	successFallbackHost *fallbackCache
