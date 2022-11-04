@@ -18,19 +18,33 @@ type TokenParams struct {
 	// is successful, the TTL of the returned token will be less than or equal
 	// to this value depending on application settings and the attributes
 	// of the issuing key.
+	// **CANONICAL**
+	// Default 60 min
+	// Requested time to live for the token in milliseconds. The default is 60 minutes.
+	// RSA9e, TK2a
 	TTL int64 `json:"ttl,omitempty" codec:"ttl,omitempty"`
 
 	// **LEGACY**
 	// Capability represents encoded access rights of the token.
+	// **CANONICAL**
+	// default '{"*":["*"]}'
+	// The capabilities associated with this Ably Token. The capabilities value is a JSON-encoded representation of the resource paths and associated operations. Read more about capabilities in the capabilities docs.
+	// RSA9f, TK2b
 	Capability string `json:"capability,omitempty" codec:"capability,omitempty"`
 
 	// **LEGACY**
 	// ClientID represents a client, whom the token is generated for.
+	// **CANONICAL**
+	// A client ID, used for identifying this client when publishing messages or for presence purposes. The clientId can be any non-empty string, except it cannot contain a *. This option is primarily intended to be used in situations where the library is instantiated with a key. Note that a clientId may also be implicit in a token used to instantiate the library. An error is raised if a clientId specified here conflicts with the clientId implicit in the token. Find out more about identified clients.
+	// TK2c
 	ClientID string `json:"clientId,omitempty" codec:"clientId,omitempty"`
 
 	// **LEGACY**
 	// Timestamp of the token request. It's used, in conjunction with the nonce,
 	// are used to prevent token requests from being replayed.
+	// **CANONICAL**
+	// The timestamp of this request as milliseconds since the Unix epoch. Timestamps, in conjunction with the nonce, are used to prevent requests from being replayed. timestamp is a "one-time" value, and is valid in a request, but is not validly a member of any default token params such as ClientOptions.defaultTokenParams.
+	// RSA9d, Tk2d
 	Timestamp int64 `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
 }
 
