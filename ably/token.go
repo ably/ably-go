@@ -97,9 +97,14 @@ func (req *TokenRequest) sign(secret []byte) {
 
 // **LEGACY**
 // TokenDetails
+// **CANONICAL**
+// Contains an Ably Token and its associated metadata.
 type TokenDetails struct {
 	// **LEGACY**
 	// Token
+	// **CANONICAL**
+	// The Ably Token itself. A typical Ably Token string appears with the form xVLyHw.A-pwh7wicf3afTfgiw4k2Ku33kcnSA7z6y8FjuYpe3QaNRTEo4.
+	// TD2
 	Token string `json:"token,omitempty" codec:"token,omitempty"`
 
 	// **LEGACY**
@@ -108,18 +113,29 @@ type TokenDetails struct {
 
 	// **LEGACY**
 	// Expires
+	// **CANONICAL**
+	// The timestamp at which this token expires as milliseconds since the Unix epoch.
+	// TD3
 	Expires int64 `json:"expires,omitempty" codec:"expires,omitempty"`
 
 	// **LEGACY**
 	// ClientID
+	// **CANONICAL**
+	// The client ID, if any, bound to this Ably Token. If a client ID is included, then the Ably Token authenticates its bearer as that client ID, and the Ably Token may only be used to perform operations on behalf of that client ID. The client is then considered to be an identified client.
+	// TD6
 	ClientID string `json:"clientId,omitempty" codec:"clientId,omitempty"`
 
 	// **LEGACY**
 	// Issued
+	// **CANONICAL**
+	// The timestamp at which this token was issued as milliseconds since the Unix epoch.
 	Issued int64 `json:"issued,omitempty" codec:"issued,omitempty"`
 
 	// **LEGACY**
 	// Capability
+	// **CANONICAL**
+	// The capabilities associated with this Ably Token. The capabilities value is a JSON-encoded representation of the resource paths and associated operations. Read more about capabilities in the capabilities docs.
+	// TD5
 	Capability string `json:"capability,omitempty" codec:"capability,omitempty"`
 }
 

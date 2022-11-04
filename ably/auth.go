@@ -64,18 +64,37 @@ func addHeaders(lhs, rhs http.Header) http.Header {
 // Auth
 type Auth struct {
 	mtx      sync.Mutex
+
+	// **CANONICAL**
 	method   int
 	client   *REST
-	params   *TokenParams // save params to use with token renewal
-	host     string       // a host part of AuthURL
-	clientID string       // clientID of the authenticated user or wildcard "*"
 
+	// **LEGACY**
+	// save params to use with token renewal
+	// **CANONICAL**
+	params   *TokenParams
+
+	// **LEGACY**
+	// a host part of AuthURL
+	// **CANONICAL**
+	host     string
+
+	// **LEGACY**
+	// clientID of the authenticated user or wildcard "*"
+	// **CANONICAL**
+	// A client ID, used for identifying this client when publishing messages or for presence purposes. The clientId can be any non-empty string, except it cannot contain a *. This option is primarily intended to be used in situations where the library is instantiated with a key. Note that a clientId may also be implicit in a token used to instantiate the library. An error is raised if a clientId specified here conflicts with the clientId implicit in the token. Find out more about identified clients.
+	// RSA7, RSC17, RSA12
+	clientID string
+
+	// **LEGACY**
 	// onExplicitAuthorize is the callback that Realtime sets to reauthorize with the
 	// server when Authorize is explicitly called.
+	// **CANONICAL**
 	onExplicitAuthorize func(context.Context, *TokenDetails)
 
 	serverTimeOffset time.Duration
 
+	// **LEGACY**
 	// ServerTimeHandler when provided this will be used to query server time.
 	serverTimeHandler func() (time.Time, error)
 }
@@ -141,6 +160,12 @@ func (a *Auth) updateClientID(clientID string) {
 
 // **LEGACY**
 // CreateTokenRequest
+// **CANONICAL**
+// Creates and signs an Ably [TokenRequest]{@link TokenRequest} based on the specified (or if none specified, the client library stored) [TokenParams]{@link TokenParams} and [AuthOptions]{@link AuthOptions}. Note this can only be used when the API key value is available locally. Otherwise, the Ably [TokenRequest]{@link TokenRequest} must be obtained from the key owner. Use this to generate an Ably [TokenRequest]{@link TokenRequest} in order to implement an Ably Token request callback for use by other clients. Both [TokenParams]{@link TokenParams} and [AuthOptions]{@link AuthOptions} are optional. When omitted or null, the default token parameters and authentication options for the client library are used, as specified in the [ClientOptions]{@link ClientOptions} when the client library was instantiated, or later updated with an explicit authorize request. Values passed in are used instead of, rather than being merged with, the default values. To understand why an Ably [TokenRequest]{@link TokenRequest} may be issued to clients in favor of a token, see Token Authentication explained.
+// params - A [TokenParams]{@link TokenParams} object.
+// opts - An [AuthOptions]{@link AuthOptions} object.
+// Returns - A [TokenRequest]{@link TokenRequest} object.
+// RSA9
 func (a *Auth) CreateTokenRequest(params *TokenParams, opts ...AuthOption) (*TokenRequest, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -176,6 +201,12 @@ func (a *Auth) createTokenRequest(params *TokenParams, opts *authOptions) (*Toke
 
 // **LEGACY**
 // RequestToken
+// **CANONICAL**
+// Calls the requestToken REST API endpoint to obtain an Ably Token according to the specified [TokenParams]{@link TokenParams} and [AuthOptions]{@link AuthOptions}. Both [TokenParams]{@link TokenParams} and [AuthOptions]{@link AuthOptions} are optional. When omitted or null, the default token parameters and authentication options for the client library are used, as specified in the [ClientOptions]{@link ClientOptions} when the client library was instantiated, or later updated with an explicit authorize request. Values passed in are used instead of, rather than being merged with, the default values. To understand why an Ably [TokenRequest]{@link TokenRequest} may be issued to clients in favor of a token, see Token Authentication explained.
+// params - A [TokenParams]{@link TokenParams} object.
+// opts - An [AuthOptions]{@link AuthOptions} object.
+// Returns - A [TokenDetails]{@link TokenDetails} object.
+// RSA8e
 func (a *Auth) RequestToken(ctx context.Context, params *TokenParams, opts ...AuthOption) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -271,6 +302,12 @@ func (a *Auth) requestToken(ctx context.Context, params *TokenParams, opts *auth
 // authorization token details.
 //
 // Refers to RSA10
+// **CANONICAL**
+// params - A [TokenParams]{@link TokenParams} object.
+// setOpts - An [AuthOptions]{@link AuthOptions} object.
+// Instructs the library to get a new token immediately. When using the realtime client, it upgrades the current realtime connection to use the new token, or if not connected, initiates a connection to Ably, once the new token has been obtained. Also stores any [TokenParams]{@link TokenParams} and [AuthOptions]{@link AuthOptions} passed in as the new defaults, to be used for all subsequent implicit or explicit token requests. Any [TokenParams]{@link TokenParams} and [AuthOptions]{@link AuthOptions} objects passed in entirely replace, as opposed to being merged with, the current client library saved values.
+// Returns - A [TokenDetails]{@link TokenDetails} object.
+// RSA10
 func (a *Auth) Authorize(ctx context.Context, params *TokenParams, setOpts ...AuthOption) (*TokenDetails, error) {
 	var opts *authOptions
 	if setOpts != nil {
