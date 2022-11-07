@@ -31,6 +31,8 @@ func (ch chanSlice) Sort()              { sort.Sort(ch) }
 // **LEGACY**
 // RealtimeChannels is a goroutine-safe container for realtime channels that allows
 // for creating, deleting and iterating over existing channels.
+// **CANONICAL**
+// Creates and destroys [RestChannel]{@link RestChannel} and [RealtimeChannel]{@link RealtimeChannel} objects.
 type RealtimeChannels struct {
 	mtx    sync.Mutex
 	client *Realtime
@@ -107,6 +109,14 @@ func applyChannelOptions(os ...ChannelOption) *channelOptions {
 // It is safe to call Get from multiple goroutines - a single channel is
 // guaranteed to be created only once for multiple calls to Get from different
 // goroutines.
+
+// **CANONICAL**
+// Creates a new [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object, or returns the existing channel object.
+// name - The channel name.
+// options - A [ChannelOptions]{@link ChannelOptions} object.
+// Returns - A [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object.
+// RSN3a, RTS3a
+// RSN3c, RTS3c
 func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *RealtimeChannel {
 	// TODO: options
 	ch.mtx.Lock()
@@ -125,6 +135,10 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 // It is safe to call Iterate from multiple goroutines, however there's no guarantee
 // the returned list would not list a channel that was already released from
 // different goroutine.
+// **CANONICAL**
+// Iterates through the existing channels.
+// Returns - Each iteration returns a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object.
+// RSN2, RTS2
 func (ch *RealtimeChannels) Iterate() []*RealtimeChannel { // RSN2, RTS2
 	ch.mtx.Lock()
 	chans := make([]*RealtimeChannel, 0, len(ch.chans))
@@ -140,6 +154,9 @@ func (ch *RealtimeChannels) Iterate() []*RealtimeChannel { // RSN2, RTS2
 //
 // This function just checks the local channel map for existence. It can not check
 // for the existence of channels created by other clients,
+// **CANONICAL**
+// Checks if a channel has been previously retrieved using the get() method.
+// RSN2, RTS2
 func (c *RealtimeChannels) Exists(name string) bool { // RSN2, RTS2
 	c.mtx.Lock()
 	_, ok := c.chans[name]
@@ -150,6 +167,10 @@ func (c *RealtimeChannels) Exists(name string) bool { // RSN2, RTS2
 // **LEGACY**
 // Release releases all resources associated with a channel, detaching it first
 // if necessary. See RealtimeChannel.Detach for details.
+// **CANONICAL**
+// Releases a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object, deleting it, and enabling it to be garbage collected. It also removes any listeners associated with the channel. To release a channel, the [ChannelState]{@link ChannelState} must be INITIALIZED, DETACHED, or FAILED.
+// name - The channel name.
+// RSN4, RTS4
 func (ch *RealtimeChannels) Release(ctx context.Context, name string) error {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
