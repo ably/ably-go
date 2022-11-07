@@ -76,9 +76,21 @@ func (params *TokenParams) Query() url.Values {
 type TokenRequest struct {
 	TokenParams `codec:",inline"`
 
+	// **CANONICAL**
+	// The name of the key against which this request is made. The key name is public, whereas the key secret is private.
+	// TE2
 	KeyName string `json:"keyName,omitempty" codec:"keyName,omitempty"`
-	Nonce   string `json:"nonce,omitempty" codec:"nonce,omitempty"` // should be at least 16 characters long
-	MAC     string `json:"mac,omitempty" codec:"mac,omitempty"`     // message authentication code for the request
+	// **LEGACY**
+	// should be at least 16 characters long
+	// **CANONICAL**
+	// A cryptographically secure random string of at least 16 characters, used to ensure the TokenRequest cannot be reused.
+	// TE2
+	Nonce   string `json:"nonce,omitempty" codec:"nonce,omitempty"`
+	// **LEGACY**
+	// message authentication code for the request
+	// **CANONICAL**
+	// The Message Authentication Code for this request.
+	MAC     string `json:"mac,omitempty" codec:"mac,omitempty"`
 }
 
 func (TokenRequest) IsTokener() {}
