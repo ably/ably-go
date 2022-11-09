@@ -14,8 +14,16 @@ import (
 
 // **LEGACY**
 // RESTChannel is the interface for REST API operations on a channel.
+// **CANONICAL**
+// Enables messages to be published and historic messages to be retrieved for a channel.
 type RESTChannel struct {
+	// **CANONICAL**
+	// The channel name.
 	Name     string
+
+	// **CANONICAL**
+	// A [RestPresence]{@link RestPresence} object.
+	// RSL3
 	Presence *RESTPresence
 
 	client  *REST
@@ -44,6 +52,11 @@ func (c *RESTChannel) pathName() string {
 
 // **LEGACY**
 // Publish publishes a message on the channel.
+// **CANONICAL**
+// Publishes a single message to the channel with the given event name and payload. A callback may optionally be passed in to this call to be notified of success or failure of the operation.
+// name - The name of the message.
+// data - The payload of the message.
+// RSL1
 func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}, options ...PublishMultipleOption) error {
 	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}}, options...)
 }
@@ -90,6 +103,11 @@ func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
 
 // **LEGACY**
 // PublishMultiple publishes multiple messages in a batch.
+// **CANONICAL**
+// Publishes an array of messages to the channel. A callback may optionally be passed in to this call to be notified of success or failure of the operation.
+// messages - An array of [Message]{@link Message} objects.
+// options - Optional parameters, such as quickAck sent as part of the query string.
+// RSL1
 func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
 	var publishOpts publishMultipleOptions
 	for _, o := range options {
@@ -191,6 +209,10 @@ type ChannelMetrics struct {
 
 // **LEGACY**
 // Status returns ChannelDetails representing information for a channel
+// **CANONICAL**
+// Retrieves a [ChannelDetails]{@link ChannelDetails} object for the channel, which includes status and occupancy metrics.
+// Returns - A [ChannelDetails]{@link ChannelDetails} object.
+// RSL8
 func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
 	var channelDetails ChannelDetails
 	req := &request{
@@ -208,6 +230,11 @@ func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
 
 // **LEGACY**
 // History gives the channel's message history.
+// **CANONICAL**
+// option - Passing history options
+// Retrieves a [PaginatedResult]{@link PaginatedResult} object, containing an array of historical [Message]{@link Message} objects for the channel. If the channel is configured to persist messages, then messages can be retrieved from history for up to 72 hours in the past. If not, messages can only be retrieved from history for up to two minutes in the past.
+// Returns - A [PaginatedResult]{@link PaginatedResult} object containing an array of [Message]{@link Message} objects.
+// RSL2a
 func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 	params := (&historyOptions{}).apply(o...)
 	return HistoryRequest{
@@ -220,24 +247,36 @@ func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 // A HistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
 type HistoryOption func(*historyOptions)
 
+// **CANONICAL**
+// The time from which messages are retrieved, specified as milliseconds since the Unix epoch.
+// RSL2b1
 func HistoryWithStart(t time.Time) HistoryOption {
 	return func(o *historyOptions) {
 		o.params.Set("start", strconv.FormatInt(unixMilli(t), 10))
 	}
 }
 
+// **CANONICAL**
+// The time until messages are retrieved, specified as milliseconds since the Unix epoch.
+// RSL2b1
 func HistoryWithEnd(t time.Time) HistoryOption {
 	return func(o *historyOptions) {
 		o.params.Set("end", strconv.FormatInt(unixMilli(t), 10))
 	}
 }
 
+// **CANONICAL**
+// An upper limit on the number of messages returned. The default is 100, and the maximum is 1000.
+// RSL2b3
 func HistoryWithLimit(limit int) HistoryOption {
 	return func(o *historyOptions) {
 		o.params.Set("limit", strconv.Itoa(limit))
 	}
 }
 
+// **CANONICAL**
+// The order for which messages are returned in. Valid values are backwards which orders messages from most recent to oldest, or forwards which orders messages from oldest to most recent. The default is backwards.
+// RSL2b2
 func HistoryWithDirection(d Direction) HistoryOption {
 	return func(o *historyOptions) {
 		o.params.Set("direction", string(d))
