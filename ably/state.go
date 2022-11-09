@@ -415,17 +415,39 @@ func (ConnectionStateChange) isEmitterData() {}
 
 // **LEGACY**
 // A ChannelState identifies the state of an Ably realtime channel.
+// **CANONICAL**
+// Describes the possible states of a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object.
 type ChannelState struct {
 	name string
 }
 
 var (
+	// **CANONICAL**
+	// The channel has been initialized but no attach has yet been attempted.
 	ChannelStateInitialized ChannelState = ChannelState{name: "INITIALIZED"}
+
+	// **CANONICAL**
+	// An attach has been initiated by sending a request to Ably. This is a transient state, followed either by a transition to ATTACHED, SUSPENDED, or FAILED.
 	ChannelStateAttaching   ChannelState = ChannelState{name: "ATTACHING"}
+
+	// **CANONICAL**
+	// The attach has succeeded. In the ATTACHED state a client may publish and subscribe to messages, or be present on the channel.
 	ChannelStateAttached    ChannelState = ChannelState{name: "ATTACHED"}
+
+	// **CANONICAL**
+	// A detach has been initiated on an ATTACHED channel by sending a request to Ably. This is a transient state, followed either by a transition to DETACHED or FAILED.
 	ChannelStateDetaching   ChannelState = ChannelState{name: "DETACHING"}
+
+	// **CANONICAL**
+	// The channel, having previously been ATTACHED, has been detached by the user.
 	ChannelStateDetached    ChannelState = ChannelState{name: "DETACHED"}
+
+	// **CANONICAL**
+	// The channel, having previously been ATTACHED, has lost continuity, usually due to the client being disconnected from Ably for longer than two minutes. It will automatically attempt to reattach as soon as connectivity is restored.
 	ChannelStateSuspended   ChannelState = ChannelState{name: "SUSPENDED"}
+
+	// **CANONICAL**
+	// An indefinite failure condition. This state is entered if a channel error has been received from the Ably service, such as an attempt to attach without the necessary access rights.
 	ChannelStateFailed      ChannelState = ChannelState{name: "FAILED"}
 )
 
@@ -436,20 +458,47 @@ func (e ChannelState) String() string {
 // **LEGACY**
 // A ChannelEvent identifies an event in the lifetime of an Ably realtime
 // channel.
+// **CANONICAL**
+// Describes the events emitted by a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object. An event is either an UPDATE or a [ChannelState]{@link ChannelState}.
 type ChannelEvent struct {
 	name string
 }
 
+
 func (ChannelEvent) isEmitterEvent() {}
 
 var (
+	// **CANONICAL**
+	// The channel has been initialized but no attach has yet been attempted.
 	ChannelEventInitialized ChannelEvent = ChannelEvent(ChannelStateInitialized)
+
+	// **CANONICAL**
+	// An attach has been initiated by sending a request to Ably. This is a transient state, followed either by a transition to ATTACHED, SUSPENDED, or FAILED.
 	ChannelEventAttaching   ChannelEvent = ChannelEvent(ChannelStateAttaching)
+
+	// **CANONICAL**
+	// The attach has succeeded. In the ATTACHED state a client may publish and subscribe to messages, or be present on the channel.
 	ChannelEventAttached    ChannelEvent = ChannelEvent(ChannelStateAttached)
+
+	// **CANONICAL**
+	// A detach has been initiated on an ATTACHED channel by sending a request to Ably. This is a transient state, followed either by a transition to DETACHED or FAILED.
 	ChannelEventDetaching   ChannelEvent = ChannelEvent(ChannelStateDetaching)
+
+	// **CANONICAL**
+	// The channel, having previously been ATTACHED, has been detached by the user.
 	ChannelEventDetached    ChannelEvent = ChannelEvent(ChannelStateDetached)
+
+	// **CANONICAL**
+	// The channel, having previously been ATTACHED, has lost continuity, usually due to the client being disconnected from Ably for longer than two minutes. It will automatically attempt to reattach as soon as connectivity is restored.
 	ChannelEventSuspended   ChannelEvent = ChannelEvent(ChannelStateSuspended)
+
+	// **CANONICAL**
+	// An indefinite failure condition. This state is entered if a channel error has been received from the Ably service, such as an attempt to attach without the necessary access rights.
 	ChannelEventFailed      ChannelEvent = ChannelEvent(ChannelStateFailed)
+
+	// **CANONICAL**
+	// An event for changes to channel conditions that do not result in a change in [ChannelState]{@link ChannelState}.
+	// RTL2g
 	ChannelEventUpdate      ChannelEvent = ChannelEvent{name: "UPDATE"}
 )
 
@@ -463,17 +512,39 @@ func (e ChannelEvent) String() string {
 // If the Event is a ChannelEventUpdated, Current and Previous are the
 // the same. Otherwise, the event is a state transition from Previous to
 // Current.
+// **CANONICAL**
+// Contains state change information emitted by [RestChannel]{@link RestChannel} and [RealtimeChannel]{@link RealtimeChannel} objects.
+
 type ChannelStateChange struct {
+	// **CANONICAL**
+	// The new current [ChannelState]{@link ChannelState}.
+	// RTL2a, RTL2b
 	Current  ChannelState
+
+	// **CANONICAL**
+	// The event that triggered this [ChannelState]{@link ChannelState} change.
+	// TH5
 	Event    ChannelEvent
+
+	// **CANONICAL**
+	// The previous state. For the [UPDATE]{@link ChannelEvent#UPDATE} event, this is equal to the current [ChannelState]{@link ChannelState}.
+	// RTL2a, RTL2b
 	Previous ChannelState
+
 	// **LEGACY**
 	// Reason, if any, is an error that caused the state change.
+	// **CANONICAL**
+	// An [ErrorInfo]{@link ErrorInfo} object containing any information relating to the transition.
+	// RTL2e, TH3
 	Reason *ErrorInfo
+
 	// **LEGACY**
 	// Resumed is set to true for Attached and Update events when channel state
 	// has been maintained without interruption in the server, so there has
 	// been no loss of message continuity.
+	// **CANONICAL**
+	// Indicates whether message continuity on this channel is preserved, see Nonfatal channel errors for more info.
+	// RTL2f, TH4
 	Resumed bool
 }
 
