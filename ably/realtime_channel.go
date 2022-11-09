@@ -196,22 +196,49 @@ func (ch *RealtimeChannels) broadcastConnStateChange(change ConnectionStateChang
 
 // **LEGACY**
 // RealtimeChannel represents a single named message channel.
+// **CANONICAL**
+// Enables messages to be published and subscribed to. Also enables historic messages to be retrieved and provides access to the [RealtimePresence]{@link RealtimePresence} object of a channel.
 type RealtimeChannel struct {
 	mtx sync.Mutex
 
+// **CANONICAL**
+// RealtimeChannel implements [EventEmitter]{@link EventEmitter} and emits [ChannelEvent]{@link ChannelEvent} events, where a ChannelEvent is either a [ChannelState]{@link ChannelState} or an [UPDATE]{@link ChannelEvent#UPDATE}.
+// RTL2a, RTL2d, RTL2e
 	ChannelEventEmitter
-	Name     string            // name used to create the channel
+// **LEGACY**
+// name used to create the channel
+// **CANONICAL**
+// The channel name.
+	Name     string
+// **CANONICAL**
+// A [RealtimePresence]{@link RealtimePresence} object.
+// RTL9
 	Presence *RealtimePresence //
-
+// **CANONICAL**
+// The current [ChannelState]{@link ChannelState} of the channel.
+// RTL2b
 	state           ChannelState
+// **CANONICAL**
+// 	An [ErrorInfo]{@link ErrorInfo} object describing the last error which occurred on the channel, if any.
+// RTL4e
 	errorReason     *ErrorInfo
+
+// **CANONICAL**
+
 	internalEmitter ChannelEventEmitter
 
 	client         *Realtime
 	messageEmitter *eventEmitter
 	queue          *msgQueue
 	options        *channelOptions
+
+// **CANONICAL**
+// Optional channel parameters that configure the behavior of the channel.
+// RTL4k1
 	params         channelParams
+// **CANONICAL**
+// An array of [ChannelMode]{@link ChannelMode} objects.
+// RTL4m
 	modes          []ChannelMode
 
 	//attachResume is True when the channel moves to the ChannelStateAttached state, and False
@@ -253,6 +280,9 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 // If the context is canceled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached anyway.
+// **CANONICAL**
+// Attach to this channel ensuring the channel is created in the Ably system and all messages published on the channel are received by any channel listeners registered using [subscribe()]{@link RealtimeChannel#subscribe}. Any resulting channel state change will be emitted to any listeners registered using the [on()]{@link EventEmitter#on} or [once()]{@link EventEmitter#once} methods. A callback may optionally be passed in to this call to be notified of success or failure of the operation. As a convenience, attach() is called implicitly if [subscribe()]{@link RealtimeChannel#subscribe} for the channel is called, or [enter()]{@link RealtimePresence#enter} or [subscribe()]{@link RealtimePresence#subscribe} are called on the [RealtimePresence]{@link RealtimePresence} object for this channel.
+// RTL4d
 func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	res, err := c.attach()
 	if err != nil {
@@ -360,6 +390,10 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 // If the context is canceled before the detach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be detached anyway.
+
+// **CANONICAL**
+// Detach from this channel. Any resulting channel state change is emitted to any listeners registered using the [on()]{@link EventEmitter#on} or [once()]{@link EventEmitter#once} methods. A callback may optionally be passed in to this call to be notified of success or failure of the operation. Once all clients globally have detached from the channel, the channel will be released in the Ably service within two minutes.
+// RTL5e
 func (c *RealtimeChannel) Detach(ctx context.Context) error {
 	prevChannelState := c.State()
 	res, err := c.detach()
@@ -461,7 +495,17 @@ func (*subscriptionMessage) isEmitterData() {}
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
+
+// **CANONICAL**
+// Registers a listener for messages with a given event name on this channel. The caller supplies a listener function, which is called each time one or more matching messages arrives on the channel. A callback may optionally be passed in to this call to be notified of success or failure of the channel [attach()]{@link RealtimeChannel#attach} operation.
+// name - The event name.
+// (message) - An event listener function.
+// RTL7a
 func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(*Message)) (func(), error) {
+
+	// **CANONICAL**
+	// Deregisters the given listener for the specified event name. This removes an earlier event-specific subscription.
+	// RTL8a
 	unsubscribe := c.messageEmitter.On(subscriptionName(name), func(message emitterData) {
 		handle((*Message)(message.(*subscriptionMessage)))
 	})
@@ -489,7 +533,15 @@ func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle fun
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
+
+// **CANONICAL**
+// Registers a listener for messages on this channel. The caller supplies a listener function, which is called each time one or more messages arrives on the channel. A callback may optionally be passed in to this call to be notified of success or failure of the channel [attach()]{@link RealtimeChannel#attach} operation.
+// (message) - An event listener function.
+// RTL7a
 func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message)) (func(), error) {
+	// **CANONICAL**
+	// Deregisters all listeners to messages on this channel. This removes all earlier subscriptions.
+	// RTL8a, RTE5
 	unsubscribe := c.messageEmitter.OnAll(func(message emitterData) {
 		handle((*Message)(message.(*subscriptionMessage)))
 	})
@@ -520,6 +572,7 @@ type ChannelEventEmitter struct {
 // On registers an event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
+
 func (em ChannelEventEmitter) On(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
 	return em.emitter.On(e, func(change emitterData) {
 		handle(change.(ChannelStateChange))
@@ -579,6 +632,11 @@ func (em ChannelEventEmitter) OffAll() {
 // context is canceled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached and the message published anyway.
+// **CANONICAL**
+// Publishes a single message to the channel with the given event name and payload. A callback may optionally be passed in to this call to be notified of success or failure of the operation. When publish is called with this client library, it won't attempt to implicitly attach to the channel, so long as transient publishing is available in the library. Otherwise, the client will implicitly attach.
+// name - The event name.
+// data - The message payload.
+// RTL6i
 func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interface{}) error {
 	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}})
 }
@@ -612,6 +670,8 @@ func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Messa
 
 // **LEGACY**
 // History is equivalent to RESTChannel.History.
+// **CANONICAL**
+// Retrieves a [PaginatedResult]{@link PaginatedResult} object, containing an array of historical [Message]{@link Message} objects for the channel. If the channel is configured to persist messages, then messages can be retrieved from history for up to 72 hours in the past. If not, messages can only be retrieved from history for up to two minutes in the past.
 func (c *RealtimeChannel) History(o ...HistoryOption) HistoryRequest {
 	return c.client.rest.Channels.Get(c.Name).History(o...)
 }
