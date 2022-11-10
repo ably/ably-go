@@ -19,6 +19,8 @@ const (
 // RealtimePresence represents a single presence map of a particular channel.
 // It allows entering, leaving and updating presence state for the current
 // client or on behalf of other client.
+// **CANONICAL**
+// Enables the presence set to be entered and subscribed to, and the historic presence set to be retrieved for a channel.
 type RealtimePresence struct {
 	mtx            sync.Mutex
 	data           interface{}
@@ -33,7 +35,7 @@ type RealtimePresence struct {
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
-	pres := &RealtimePresence{
+	pres := &RealtimePresence {
 		messageEmitter: newEventEmitter(channel.log()),
 		channel:        channel,
 		members:        make(map[string]*PresenceMessage),
@@ -201,6 +203,9 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached anyway.
+// **CANONICAL**
+// Retrieves the current members present on the channel and the metadata for each member, such as their [PresenceAction]{@link PresenceAction} and ID. Returns an array of [PresenceMessage]{@link PresenceMessage} objects.
+// RTP11
 func (pres *RealtimePresence) Get(ctx context.Context) ([]*PresenceMessage, error) {
 	return pres.GetWithOptions(ctx)
 }
@@ -214,6 +219,9 @@ type PresenceGetOption func(*presenceGetOptions)
 // PresenceGetWithWaitForSync if true, makes GetWithOptions wait until the
 // presence information is fully synchronized with the server before returning.
 // It defaults to true.
+// **CANONICAL**
+// Sets whether to wait for a full presence set synchronization between Ably and the clients on the channel to complete before returning the results. Synchronization begins as soon as the channel is [ATTACHED]{@link ChannelState#ATTACHED}. When set to true the results will be returned as soon as the sync is complete. When set to false the current list of members will be returned without the sync completing. The default is true.
+// RTP11c1
 func PresenceGetWithWaitForSync(wait bool) PresenceGetOption {
 	return func(o *presenceGetOptions) {
 		o.waitForSync = true
@@ -233,6 +241,9 @@ func (o *presenceGetOptions) applyWithDefaults(options ...PresenceGetOption) {
 
 // **LEGACY**
 // GetWithOptions is Get with optional parameters.
+// **CANONICAL**
+// Retrieves the current members present on the channel and the metadata for each member, such as their [PresenceAction]{@link PresenceAction} and ID. Returns an array of [PresenceMessage]{@link PresenceMessage} objects.
+// Returns - An array of [PresenceMessage]{@link PresenceMessage} objects.
 func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...PresenceGetOption) ([]*PresenceMessage, error) {
 	var opts presenceGetOptions
 	opts.applyWithDefaults(options...)
@@ -275,6 +286,10 @@ func (*subscriptionPresenceMessage) isEmitterData() {}
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
+// **CANONICAL**
+// Registers a listener that is called each time a [PresenceMessage]{@link PresenceMessage} matching a given [PresenceAction]{@link PresenceAction}, or an action within an array of [PresenceActions]{@link PresenceAction}, is received on the channel, such as a new member entering the presence set. A callback may optionally be passed in to this call to be notified of success or failure of the channel [attach()]{@link RealtimeChannel#attach} operation.
+// action - A [PresenceAction]{@link PresenceAction} or an array of [PresenceActions]{@link PresenceAction} to register the listener for.
+// message - An event listener function.
 func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceAction, handle func(*PresenceMessage)) (func(), error) {
 	unsubscribe := pres.messageEmitter.On(action, func(message emitterData) {
 		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
@@ -303,6 +318,7 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 //
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
+
 func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*PresenceMessage)) (func(), error) {
 	unsubscribe := pres.messageEmitter.OnAll(func(message emitterData) {
 		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
