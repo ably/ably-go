@@ -184,26 +184,73 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 	return c.PublishMultiple(ctx, messages, options...)
 }
 
+// **CANONICAL**
+// Contains the details of a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object such as its ID and [ChannelStatus]{@link ChannelStatus}.
 type ChannelDetails struct {
+	// **CANONICAL**
+	// The identifier of the channel.
+	// CHD2a
 	ChannelId string        `json:"channelId" codec:"channelId"`
+	// **CANONICAL**
+	// A [ChannelStatus]{@link ChannelStatus} object.
+	// CHD2b
 	Status    ChannelStatus `json:"status" codec:"status"`
 }
 
+// **CANONICAL**
+// Contains the status of a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object such as whether it is active and its [ChannelOccupancy]{@link ChannelOccupancy}.
 type ChannelStatus struct {
+	// **CANONICAL**
+	// If true, the channel is active, otherwise false.
+	// CHS2a
 	IsActive  bool             `json:"isActive" codec:"isActive"`
+
+	// **CANONICAL**
+	// A [ChannelOccupancy]{@link ChannelOccupancy} object.
+	// CHS2b
 	Occupancy ChannelOccupancy `json:"occupancy" codec:"occupancy"`
 }
 
+// **CANONICAL**
+// Contains the metrics of a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object.
 type ChannelOccupancy struct {
+	// **CANONICAL**
+	// A [ChannelMetrics]{@link ChannelMetrics} object.
+	// CHO2a
 	Metrics ChannelMetrics `json:"metrics" codec:"metrics"`
 }
 
+// **CANONICAL**
+// Contains the metrics associated with a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel}, such as the number of publishers, subscribers and connections it has.
 type ChannelMetrics struct {
+	// **CANONICAL**
+	// The number of realtime connections attached to the channel.
+	// CHM2a
 	Connections         int `json:"connections" codec:"connections"`
+
+	// **CANONICAL**
+	// The number of realtime connections attached to the channel with permission to enter the presence set, regardless of whether or not they have entered it. This requires the presence capability and for a client to not have specified a [ChannelMode]{@link ChannelMode} flag that excludes [PRESENCE]{@link ChannelMode#PRESENCE}.
+	// CHM2b
 	PresenceConnections int `json:"presenceConnections" codec:"presenceConnections"`
+
+	// **CANONICAL**
+	// The number of members in the presence set of the channel.
+	// CHM2c
 	PresenceMembers     int `json:"presenceMembers" codec:"presenceMembers"`
+
+	// **CANONICAL**
+	// The number of realtime attachments receiving presence messages on the channel. This requires the subscribe capability and for a client to not have specified a [ChannelMode]{@link ChannelMode} flag that excludes [PRESENCE_SUBSCRIBE]{@link ChannelMode#PRESENCE_SUBSCRIBE}.
+	// CHM2d
 	PresenceSubscribers int `json:"presenceSubscribers" codec:"presenceSubscribers"`
+
+	// **CANONICAL**
+	// The number of realtime attachments permitted to publish messages to the channel. This requires the publish capability and for a client to not have specified a [ChannelMode]{@link ChannelMode} flag that excludes [PUBLISH]{@link ChannelMode#PUBLISH}.
+	// CHM2e
 	Publishers          int `json:"publishers" codec:"publishers"`
+
+	// **CANONICAL**
+	// The number of realtime attachments receiving messages on the channel. This requires the subscribe capability and for a client to not have specified a [ChannelMode]{@link ChannelMode} flag that excludes [SUBSCRIBE]{@link ChannelMode#SUBSCRIBE}.
+	// CHM2f
 	Subscribers         int `json:"subscribers" codec:"subscribers"`
 }
 
