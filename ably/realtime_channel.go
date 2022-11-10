@@ -57,6 +57,9 @@ type channelOptions protoChannelOptions
 
 // **LEGACY**
 // CipherKey is like Cipher with an AES algorithm and CBC mode.
+// **CANONICAL**
+// Constructor withCipherKey, that takes a key only.
+// TB3
 func ChannelWithCipherKey(key []byte) ChannelOption {
 	return func(o *channelOptions) {
 		o.Cipher = Crypto.GetDefaultParams(CipherParams{
@@ -67,12 +70,18 @@ func ChannelWithCipherKey(key []byte) ChannelOption {
 
 // **LEGACY**
 // Cipher sets cipher parameters for encrypting messages on a channel.
+// **CANONICAL**
+// Requests encryption for this channel when not null, and specifies encryption-related parameters (such as algorithm, chaining mode, key length and key). See an example.
+// RSL5a, TB2b
 func ChannelWithCipher(params CipherParams) ChannelOption {
 	return func(o *channelOptions) {
 		o.Cipher = params
 	}
 }
 
+// **CANONICAL**
+// Channel Parameters that configure the behavior of the channel.
+// TB2c
 func ChannelWithParams(key string, value string) ChannelOption {
 	return func(o *channelOptions) {
 		if o.Params == nil {
@@ -82,6 +91,9 @@ func ChannelWithParams(key string, value string) ChannelOption {
 	}
 }
 
+// **CANONICAL**
+// An array of [ChannelMode]{@link ChannelMode} objects.
+// TB2d
 func ChannelWithModes(modes ...ChannelMode) ChannelOption {
 	return func(o *channelOptions) {
 		o.Modes = append(o.Modes, modes...)
