@@ -10,11 +10,17 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// **CANONICAL**
+// Enables the retrieval of the current and historic presence set for a channel.
 type RESTPresence struct {
 	client  *REST
 	channel *RESTChannel
 }
 
+// **CANONICAL**
+// Retrieves the current members present on the channel and the metadata for each member, such as their [PresenceAction]{@link PresenceAction} and ID. Returns a [PaginatedResult]{@link PaginatedResult} object, containing an array of [PresenceMessage]{@link PresenceMessage} objects.
+// Returns - A [PaginatedResult]{@link PaginatedResult} object containing an array of [PresenceMessage]{@link PresenceMessage} objects.
+// RSPa
 func (c *RESTPresence) Get(o ...GetPresenceOption) PresenceRequest {
 	params := (&getPresenceOptions{}).apply(o...)
 	return PresenceRequest{
@@ -27,18 +33,27 @@ func (c *RESTPresence) Get(o ...GetPresenceOption) PresenceRequest {
 // A GetPresenceOption configures a call to RESTPresence.Get or RealtimePresence.Get.
 type GetPresenceOption func(*getPresenceOptions)
 
+// **CANONICAL**
+// An upper limit on the number of messages returned. The default is 100, and the maximum is 1000.
+// RSP3a
 func GetPresenceWithLimit(limit int) GetPresenceOption {
 	return func(o *getPresenceOptions) {
 		o.params.Set("limit", strconv.Itoa(limit))
 	}
 }
 
+// **CANONICAL**
+// Filters the list of returned presence members by a specific client using its ID.
+// RSP3a2
 func GetPresenceWithClientID(clientID string) GetPresenceOption {
 	return func(o *getPresenceOptions) {
 		o.params.Set("clientId", clientID)
 	}
 }
 
+// **CANONICAL**
+// Filters the list of returned presence members by a specific connection using its ID.
+// RSP3a3
 func GetPresenceWithConnectionID(connectionID string) GetPresenceOption {
 	return func(o *getPresenceOptions) {
 		o.params.Set("connectionId", connectionID)
@@ -63,9 +78,13 @@ func (p *RESTPresence) log() logger {
 
 // **LEGACY**
 // History gives the channel's presence history.
+// **CANONICAL**
+// Retrieves a [PaginatedResult]{@link PaginatedResult} object, containing an array of historical [PresenceMessage]{@link PresenceMessage} objects for the channel. If the channel is configured to persist messages, then presence messages can be retrieved from history for up to 72 hours in the past. If not, presence messages can only be retrieved from history for up to two minutes in the past.
+// Returns - A [PaginatedResult]{@link PaginatedResult} object containing an array of [PresenceMessage]{@link PresenceMessage} objects.
+// RSP4a
 func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceRequest {
 	params := (&presenceHistoryOptions{}).apply(o...)
-	return PresenceRequest{
+	return PresenceRequest {
 		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence/history", "/channels/"+c.channel.pathName()+"/presence/history", params),
 		channel: c.channel,
 	}
@@ -75,24 +94,35 @@ func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceRequest {
 // A PresenceHistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
 type PresenceHistoryOption func(*presenceHistoryOptions)
 
+// **CANONICAL**
+// The time from which messages are retrieved, specified as milliseconds since the Unix epoch.
+// RSP4b1
 func PresenceHistoryWithStart(t time.Time) PresenceHistoryOption {
 	return func(o *presenceHistoryOptions) {
 		o.params.Set("start", strconv.FormatInt(unixMilli(t), 10))
 	}
 }
-
+// **CANONICAL**
+// The time until messages are retrieved, specified as milliseconds since the Unix epoch.
+// RSP4b1
 func PresenceHistoryWithEnd(t time.Time) PresenceHistoryOption {
 	return func(o *presenceHistoryOptions) {
 		o.params.Set("end", strconv.FormatInt(unixMilli(t), 10))
 	}
 }
 
+// **CANONICAL**
+// An upper limit on the number of messages returned. The default is 100, and the maximum is 1000.
+// RSP4b3
 func PresenceHistoryWithLimit(limit int) PresenceHistoryOption {
 	return func(o *presenceHistoryOptions) {
 		o.params.Set("limit", strconv.Itoa(limit))
 	}
 }
 
+// **CANONICAL**
+// The order for which messages are returned in. Valid values are backwards which orders messages from most recent to oldest, or forwards which orders messages from oldest to most recent. The default is backwards.
+// RSP4b2
 func PresenceHistoryWithDirection(d Direction) PresenceHistoryOption {
 	return func(o *presenceHistoryOptions) {
 		o.params.Set("direction", string(d))
