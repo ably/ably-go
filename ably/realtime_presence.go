@@ -289,8 +289,12 @@ func (*subscriptionPresenceMessage) isEmitterData() {}
 // **CANONICAL**
 // Registers a listener that is called each time a [PresenceMessage]{@link PresenceMessage} matching a given [PresenceAction]{@link PresenceAction}, or an action within an array of [PresenceActions]{@link PresenceAction}, is received on the channel, such as a new member entering the presence set. A callback may optionally be passed in to this call to be notified of success or failure of the channel [attach()]{@link RealtimeChannel#attach} operation.
 // action - A [PresenceAction]{@link PresenceAction} or an array of [PresenceActions]{@link PresenceAction} to register the listener for.
-// message - An event listener function.
+// (message) - An event listener function.
+// RTP6b
 func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceAction, handle func(*PresenceMessage)) (func(), error) {
+	// **CANONICAL**
+	// Deregisters a specific listener that is registered to receive [PresenceMessage]{@link PresenceMessage} on the channel for a given [PresenceAction]{@link PresenceAction}.
+	// RTP7b
 	unsubscribe := pres.messageEmitter.On(action, func(message emitterData) {
 		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
 	})
@@ -319,7 +323,14 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 // See package-level documentation on Event Emitter for details about
 // messages dispatch.
 
+// **CANONICAL**
+// Registers a listener that is called each time a [PresenceMessage]{@link PresenceMessage} is received on the channel, such as a new member entering the presence set. A callback may optionally be passed in to this call to be notified of success or failure of the channel [attach()]{@link RealtimeChannel#attach} operation.
+// (PresenceMessage) - An event listener function.
+// RTP6a
 func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*PresenceMessage)) (func(), error) {
+	// **CANONICAL**
+	// Deregisters a specific listener that is registered to receive [PresenceMessage]{@link PresenceMessage} on the channel.
+	// RTP7a
 	unsubscribe := pres.messageEmitter.OnAll(func(message emitterData) {
 		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
 	})
@@ -345,6 +356,10 @@ func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*Pre
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // presence state may eventually be updated anyway.
+// **CANONICAL**
+// Enters the presence set for the channel, optionally passing a data payload. A clientId is required to be present on a channel. An optional callback may be provided to notify of the success or failure of the operation.
+// data - The payload associated with the presence member.
+// RTP8
 func (pres *RealtimePresence) Enter(ctx context.Context, data interface{}) error {
 	clientID := pres.auth().ClientID()
 	if clientID == "" {
@@ -364,6 +379,10 @@ func (pres *RealtimePresence) Enter(ctx context.Context, data interface{}) error
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // presence state may eventually be updated anyway.
+// **CANONICAL**
+// Updates the data payload for a presence member. If called before entering the presence set, this is treated as an [ENTER]{@link PresenceAction#ENTER} event. An optional callback may be provided to notify of the success or failure of the operation.
+// data - The payload to update for the presence member.
+// RTP9
 func (pres *RealtimePresence) Update(ctx context.Context, data interface{}) error {
 	clientID := pres.auth().ClientID()
 	if clientID == "" {
@@ -379,6 +398,10 @@ func (pres *RealtimePresence) Update(ctx context.Context, data interface{}) erro
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // presence state may eventually be updated anyway.
+// **CANONICAL**
+// Leaves the presence set for the channel. A client must have previously entered the presence set before they can leave it. An optional callback may be provided to notify of the success or failure of the operation.
+// data - The payload associated with the presence member.
+// RTP10
 func (pres *RealtimePresence) Leave(ctx context.Context, data interface{}) error {
 	clientID := pres.auth().ClientID()
 	if clientID == "" {
@@ -394,6 +417,11 @@ func (pres *RealtimePresence) Leave(ctx context.Context, data interface{}) error
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // presence state may eventually be updated anyway.
+// **CANONICAL**
+// Enters the presence set of the channel for a given clientId. Enables a single client to update presence on behalf of any number of clients using a single connection. The library must have been instantiated with an API key or a token bound to a wildcard clientId. An optional callback may be provided to notify of the success or failure of the operation.
+// clientId - The ID of the client to enter into the presence set.
+// data - The payload associated with the presence member.
+// RTP4, RTP14, RTP15
 func (pres *RealtimePresence) EnterClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
 	pres.data = data
@@ -427,6 +455,11 @@ func nonnil(a, b interface{}) interface{} {
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // presence data may eventually be updated anyway.
+// **CANONICAL**
+// Updates the data payload for a presence member using a given clientId. Enables a single client to update presence on behalf of any number of clients using a single connection. The library must have been instantiated with an API key or a token bound to a wildcard clientId. An optional callback may be provided to notify of the success or failure of the operation.
+// clientId - The ID of the client to update in the presence set.
+// Data - The payload to update for the presence member.
+// RTP15
 func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
 	if pres.state != PresenceActionEnter {
@@ -455,6 +488,11 @@ func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string,
 // If the context is canceled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // presence data may eventually be updated anyway.
+// **CANONICAL**
+// Leaves the presence set of the channel for a given clientId. Enables a single client to update presence on behalf of any number of clients using a single connection. The library must have been instantiated with an API key or a token bound to a wildcard clientId. An optional callback may be provided to notify of the success or failure of the operation.
+// clientId - The ID of the client to leave the presence set for.
+// data - The payload associated with the presence member.
+// RTP15
 func (pres *RealtimePresence) LeaveClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
 	if pres.data == nil {
