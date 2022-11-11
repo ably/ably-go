@@ -20,15 +20,43 @@ const (
 
 // **LEGACY**
 // Message is what Ably channels send and receive.
+// **CANONICAL**
+// Contains an individual message that is sent to, or received from, Ably.
 type Message struct {
+	// **CANONICAL**
+	// A Unique ID assigned by Ably to this message.
+	// TM2a
 	ID            string                 `json:"id,omitempty" codec:"id,omitempty"`
+	// **CANONICAL**
+	// The client ID of the publisher of this message.
+	// RSL1g1, TM2b
 	ClientID      string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	// **CANONICAL**
+	// The connection ID of the publisher of this message.
+	// TM2c
 	ConnectionID  string                 `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
+	// **CANONICAL**
+	//
 	ConnectionKey string                 `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
+	// **CANONICAL**
+	// The event name.
+	// TM2g
 	Name          string                 `json:"name,omitempty" codec:"name,omitempty"`
+	// **CANONICAL**
+	// The message payload, if provided.
+	// TM2d
 	Data          interface{}            `json:"data,omitempty" codec:"data,omitempty"`
+	// **CANONICAL**
+	// This is typically empty, as all messages received from Ably are automatically decoded client-side using this value. However, if the message encoding cannot be processed, this attribute contains the remaining transformations not applied to the data payload.
+	// TM2e
 	Encoding      string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
+	// **CANONICAL**
+	// Timestamp of when the message was received by Ably, as milliseconds since the Unix epoch.
+	// TM2f
 	Timestamp     int64                  `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
+	// **CANONICAL**
+	// A JSON object of arbitrary key-value pairs that may contain metadata, and/or ancillary payloads. Valid payloads include [push]{@link Push}, [delta]{@link DeltaExtras}, [ref]{@link ReferenceExtras} and headers.
+	// TM2i
 	Extras        map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
 }
 
