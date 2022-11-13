@@ -2,7 +2,6 @@ package ablyutil
 
 import "reflect"
 
-// **LEGACY**
 // merge iterates over fields of struct pointed by v and when it's non-zero,
 // copies its value to corresponding filed in orig.
 //

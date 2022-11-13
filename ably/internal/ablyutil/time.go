@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// **LEGACY**
 // After returns a channel that is sent the current time once the given
 // duration has passed. If the context is cancelled before that, the channel
 // is immediately closed.
@@ -29,7 +28,6 @@ func After(ctx context.Context, d time.Duration) <-chan time.Time {
 
 type TimerFunc func(context.Context, time.Duration) <-chan time.Time
 
-// **LEGACY**
 // NewTicker repeatedly calls the given TimerFunc, which should behave like
 // After, until the context it cancelled. It returns a channel to which it sends
 // every value produced by the TimerFunc.
@@ -52,7 +50,6 @@ func NewTicker(after TimerFunc) TimerFunc {
 	}
 }
 
-// **LEGACY**
 // ContextWithTimeout is like context.WithTimeout, but using the provided
 // TimerFunc for setting the timer.
 func ContextWithTimeout(ctx context.Context, after TimerFunc, timeout time.Duration) (context.Context, context.CancelFunc) {
