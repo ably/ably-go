@@ -513,19 +513,30 @@ func (r RESTRequest) Pages(ctx context.Context) (*HTTPPaginatedResponse, error) 
 // A HTTPPaginatedResponse is an iterator for the response of a REST request.
 //
 // See "Paginated results" section in the package-level documentation.
+// **CANONICAL**
+// A superset of [PaginatedResult]{@link PaginatedResult} which represents a page of results plus metadata indicating the relative queries available to it. HttpPaginatedResponse additionally carries information about the response to an HTTP request.
 type HTTPPaginatedResponse struct {
 	PaginatedResult
 	items raw
 }
 
+// **CANONICAL**
+// The HTTP status code of the response.
+// HP4
 func (r *HTTPPaginatedResponse) StatusCode() int {
 	return r.res.StatusCode
 }
 
+// **CANONICAL**
+// Whether statusCode indicates success. This is equivalent to 200 <= statusCode < 300.
+// HP5
 func (r *HTTPPaginatedResponse) Success() bool {
 	return 200 <= r.res.StatusCode && r.res.StatusCode < 300
 }
 
+// **CANONICAL**
+// The error code if the X-Ably-Errorcode HTTP header is sent in the response.
+// HP6
 func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
 	codeStr := r.res.Header.Get(ablyErrorCodeHeader)
 	if codeStr == "" {
@@ -538,10 +549,16 @@ func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
 	return ErrorCode(code)
 }
 
+// **CANONICAL**
+// The error message if the X-Ably-Errormessage HTTP header is sent in the response.
+// HP7
 func (r *HTTPPaginatedResponse) ErrorMessage() string {
 	return r.res.Header.Get(ablyErrorMessageHeader)
 }
 
+// **CANONICAL**
+// The headers of the response.
+// HP8
 func (r *HTTPPaginatedResponse) Headers() http.Header {
 	return r.res.Header
 }
@@ -550,6 +567,7 @@ func (r *HTTPPaginatedResponse) Headers() http.Header {
 // Next retrieves the next page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
+// **CANONICAL**
 func (p *HTTPPaginatedResponse) Next(ctx context.Context) bool {
 	p.items = nil
 	return p.next(ctx, &p.items)
@@ -559,6 +577,7 @@ func (p *HTTPPaginatedResponse) Next(ctx context.Context) bool {
 // IsLast returns true if the page is last page.
 //
 // See "Paginated results" section in the package-level documentation.
+// **CANONICAL**
 func (p *HTTPPaginatedResponse) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
@@ -567,6 +586,7 @@ func (p *HTTPPaginatedResponse) IsLast(ctx context.Context) bool {
 // HasNext returns true is there are more pages available.
 //
 // See "Paginated results" section in the package-level documentation.
+// **CANONICAL**
 func (p *HTTPPaginatedResponse) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
@@ -576,6 +596,9 @@ func (p *HTTPPaginatedResponse) HasNext(ctx context.Context) bool {
 // variable.
 //
 // See the "Paginated results" section in the package-level documentation.
+// **CANONICAL**
+// Contains a page of results; for example, an array of [Message]{@link Message} or [PresenceMessage]{@link PresenceMessage} objects for a channel history request.
+// HP3
 func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
 	typ, _, err := mime.ParseMediaType(p.PaginatedResult.res.Header.Get("Content-Type"))
 	if err != nil {
