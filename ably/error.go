@@ -44,12 +44,27 @@ func codeFromStatus(statusCode int) ErrorCode {
 // ErrorInfo describes error returned from Ably API. It always has non-zero error
 // code. It may contain underlying error value which caused the failure
 // condition.
+// **CANONICAL**
+// A generic Ably error object that contains an Ably-specific status code, and a generic status code. Errors returned from the Ably server are compatible with the ErrorInfo structure and should result in errors that inherit from ErrorInfo.
 type ErrorInfo struct {
+	// **CANONICAL**
+	// HTTP Status Code corresponding to this error, where applicable.
+	// TI1
 	StatusCode int
+	// **CANONICAL**
+	// Ably error code (https://github.com/ably/ably-common/blob/main/protocol/errors.json)
+	// TI1
 	Code       ErrorCode
+	// **CANONICAL**
+	// This is included for REST responses to provide a URL for additional help on the error code.
+	// TI4
 	HRef       string
+	// **CANONICAL**
+	// Information pertaining to what caused the error where available.
+	// TI1
 	Cause      *ErrorInfo
 
+	// **LEGACY**
 	// err is the application-level error we're wrapping, or just a message.
 	// If Cause is non-nil, err == *Cause.
 	err error
