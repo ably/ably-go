@@ -131,7 +131,11 @@ type protocolMessage struct {
 	Auth              *authDetails       `json:"auth,omitempty" codec:"auth,omitempty"`
 }
 
+// **CANONICAL**
+// Contains the token string used to authenticate a client with Ably.
 type authDetails struct {
+	// The authentication token string.
+	// AD2
 	AccessToken string `json:"accessToken,omitempty" codec:"accessToken,omitempty"`
 }
 
