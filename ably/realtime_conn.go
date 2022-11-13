@@ -34,6 +34,8 @@ const (
 // **LEGACY**
 // Connection represents a single connection Realtime instantiates for
 // communication with Ably servers.
+// **CANONICAL**
+// Enables the management of a connection to Ably.
 type Connection struct {
 	mtx sync.Mutex
 
@@ -44,14 +46,37 @@ type Connection struct {
 	//
 	// using mtx to protect reads in eventLoop causes a deadlock.
 	connMtx sync.Mutex
+
+	// **CANONICAL**
+	// Embeds an [EventEmitter]{@link EventEmitter} object.
+	// RTN4a, RTN4e, RTN4g
 	ConnectionEventEmitter
 
+	// **CANONICAL**
+	// The current [ConnectionState]{@link ConnectionState} of the connection.
+	// RTN4d
 	state           ConnectionState
+
+	// **CANONICAL**
+	// An [ErrorInfo]{@link ErrorInfo} object describing the last error received if a connection failure occurs.
+	// RTN14a
 	errorReason     *ErrorInfo
+
 	internalEmitter ConnectionEventEmitter
 
+	// **CANONICAL**
+	// A unique public identifier for this connection, used to identify this member.
+	// RTN8
 	id           string
+
+	// **CANONICAL**
+	// A unique private connection key used to recover or resume a connection, assigned by Ably. When recovering a connection explicitly, the recoveryKey is used in the recover client options as it contains both the key and the last message serial. This private connection key can also be used by other REST clients to publish on behalf of this client. See the publishing over REST on behalf of a realtime client docs for more info.
+	// RTN9
 	key          string
+
+	// **CANONICAL**
+	// The serial number of the last message to be received on this connection, used automatically by the library when recovering or resuming a connection. When recovering a connection explicitly, the recoveryKey is used in the recover client options as it contains both the key and the last message serial.
+	// RTN10
 	serial       *int64
 	msgSerial    int64
 	connStateTTL durationFromMsecs
@@ -175,10 +200,16 @@ func (c *Connection) Connect() {
 // **LEGACY**
 // Close attempts to move the connection to the CLOSED state, if it can and if
 // it isn't already.
+// **CANONICAL**
+// Causes the connection to close, entering the [CLOSING]{@link ConnectionState#CLOSING} state. Once closed, the library does not attempt to re-establish the connection without an explicit call to [connect()]{@link Connection#connect}.
+// RTN12
 func (c *Connection) Close() {
 	c.close()
 }
 
+// **CANONICAL**
+// Explicitly calling connect() is unnecessary unless the autoConnect attribute of the [ClientOptions]{@link ClientOptions} object is false. Unless already connected or connecting, this method causes the connection to open, entering the [CONNECTING]{@link ConnectionState#CONNECTING} state.
+// RTC1b, RTN3, RTN11
 func (c *Connection) connect(arg connArgs) (result, error) {
 	c.mtx.Lock()
 	arg.mode = c.getMode()
