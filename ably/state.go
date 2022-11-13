@@ -352,18 +352,36 @@ func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ..
 
 // **LEGACY**
 // A ConnectionState identifies the state of an Ably realtime connection.
+// **CANONICAL**
+// Describes the realtime [Connection]{@link Connection} object states.
 type ConnectionState struct {
 	name string
 }
 
 var (
+	// **CANONICAL**
+	// A connection with this state has been initialized but no connection has yet been attempted.
 	ConnectionStateInitialized  ConnectionState = ConnectionState{name: "INITIALIZED"}
+	// **CANONICAL**
+	// A connection attempt has been initiated. The connecting state is entered as soon as the library has completed initialization, and is reentered each time connection is re-attempted following disconnection.
 	ConnectionStateConnecting   ConnectionState = ConnectionState{name: "CONNECTING"}
+	// **CANONICAL**
+	// A connection exists and is active.
 	ConnectionStateConnected    ConnectionState = ConnectionState{name: "CONNECTED"}
+	// **CANONICAL**
+	// A temporary failure condition. No current connection exists because there is no network connectivity or no host is available. The disconnected state is entered if an established connection is dropped, or if a connection attempt was unsuccessful. In the disconnected state the library will periodically attempt to open a new connection (approximately every 15 seconds), anticipating that the connection will be re-established soon and thus connection and channel continuity will be possible. In this state, developers can continue to publish messages as they are automatically placed in a local queue, to be sent as soon as a connection is reestablished. Messages published by other clients while this client is disconnected will be delivered to it upon reconnection, so long as the connection was resumed within 2 minutes. After 2 minutes have elapsed, recovery is no longer possible and the connection will move to the SUSPENDED state.
 	ConnectionStateDisconnected ConnectionState = ConnectionState{name: "DISCONNECTED"}
+	// **CANONICAL**
+	// A long term failure condition. No current connection exists because there is no network connectivity or no host is available. The suspended state is entered after a failed connection attempt if there has then been no connection for a period of two minutes. In the suspended state, the library will periodically attempt to open a new connection every 30 seconds. Developers are unable to publish messages in this state. A new connection attempt can also be triggered by an explicit call to [connect()]{@link Connection#connect}. Once the connection has been re-established, channels will be automatically re-attached. The client has been disconnected for too long for them to resume from where they left off, so if it wants to catch up on messages published by other clients while it was disconnected, it needs to use the History API.
 	ConnectionStateSuspended    ConnectionState = ConnectionState{name: "SUSPENDED"}
+	// **CANONICAL**
+	// An explicit request by the developer to close the connection has been sent to the Ably service. If a reply is not received from Ably within a short period of time, the connection is forcibly terminated and the connection state becomes CLOSED.
 	ConnectionStateClosing      ConnectionState = ConnectionState{name: "CLOSING"}
+	// **CANONICAL**
+	// The connection has been explicitly closed by the client. In the closed state, no reconnection attempts are made automatically by the library, and clients may not publish messages. No connection state is preserved by the service or by the library. A new connection attempt can be triggered by an explicit call to [connect()]{@link Connection#connect}, which results in a new connection.
 	ConnectionStateClosed       ConnectionState = ConnectionState{name: "CLOSED"}
+	// **CANONICAL**
+	// This state is entered if the client library encounters a failure condition that it cannot recover from. This may be a fatal connection error received from the Ably service, for example an attempt to connect with an incorrect API key, or a local terminal error, for example the token in use has expired and the library does not have any way to renew it. In the failed state, no reconnection attempts are made automatically by the library, and clients may not publish messages. A new connection attempt can be triggered by an explicit call to [connect()]{@link Connection#connect}.
 	ConnectionStateFailed       ConnectionState = ConnectionState{name: "FAILED"}
 )
 
@@ -374,6 +392,8 @@ func (e ConnectionState) String() string {
 // **LEGACY**
 // A ConnectionEvent identifies an event in the lifetime of an Ably realtime
 // connection.
+// **CANONICAL**
+// Describes the events emitted by a [Connection]{@link} object. An event is either an UPDATE or a [ConnectionState]{@link ConnectionState}.
 type ConnectionEvent struct {
 	name string
 }
@@ -381,14 +401,33 @@ type ConnectionEvent struct {
 func (ConnectionEvent) isEmitterEvent() {}
 
 var (
+	// **CANONICAL**
+	// A connection with this state has been initialized but no connection has yet been attempted.
 	ConnectionEventInitialized  ConnectionEvent = ConnectionEvent(ConnectionStateInitialized)
+	// **CANONICAL**
+	// A connection attempt has been initiated. The connecting state is entered as soon as the library has completed initialization, and is reentered each time connection is re-attempted following disconnection.
 	ConnectionEventConnecting   ConnectionEvent = ConnectionEvent(ConnectionStateConnecting)
+	// **CANONICAL**
+	// A connection exists and is active.
 	ConnectionEventConnected    ConnectionEvent = ConnectionEvent(ConnectionStateConnected)
+	// **CANONICAL**
+	// A temporary failure condition. No current connection exists because there is no network connectivity or no host is available. The disconnected state is entered if an established connection is dropped, or if a connection attempt was unsuccessful. In the disconnected state the library will periodically attempt to open a new connection (approximately every 15 seconds), anticipating that the connection will be re-established soon and thus connection and channel continuity will be possible. In this state, developers can continue to publish messages as they are automatically placed in a local queue, to be sent as soon as a connection is reestablished. Messages published by other clients while this client is disconnected will be delivered to it upon reconnection, so long as the connection was resumed within 2 minutes. After 2 minutes have elapsed, recovery is no longer possible and the connection will move to the SUSPENDED state.
 	ConnectionEventDisconnected ConnectionEvent = ConnectionEvent(ConnectionStateDisconnected)
+	// **CANONICAL**
+	// A long term failure condition. No current connection exists because there is no network connectivity or no host is available. The suspended state is entered after a failed connection attempt if there has then been no connection for a period of two minutes. In the suspended state, the library will periodically attempt to open a new connection every 30 seconds. Developers are unable to publish messages in this state. A new connection attempt can also be triggered by an explicit call to [connect()]{@link Connection#connect}. Once the connection has been re-established, channels will be automatically re-attached. The client has been disconnected for too long for them to resume from where they left off, so if it wants to catch up on messages published by other clients while it was disconnected, it needs to use the History API.
 	ConnectionEventSuspended    ConnectionEvent = ConnectionEvent(ConnectionStateSuspended)
+	// **CANONICAL**
+	// An explicit request by the developer to close the connection has been sent to the Ably service. If a reply is not received from Ably within a short period of time, the connection is forcibly terminated and the connection state becomes CLOSED.
 	ConnectionEventClosing      ConnectionEvent = ConnectionEvent(ConnectionStateClosing)
+	// **CANONICAL**
+	// The connection has been explicitly closed by the client. In the closed state, no reconnection attempts are made automatically by the library, and clients may not publish messages. No connection state is preserved by the service or by the library. A new connection attempt can be triggered by an explicit call to [connect()]{@link Connection#connect}, which results in a new connection.
 	ConnectionEventClosed       ConnectionEvent = ConnectionEvent(ConnectionStateClosed)
+	// **CANONICAL**
+	// This state is entered if the client library encounters a failure condition that it cannot recover from. This may be a fatal connection error received from the Ably service, for example an attempt to connect with an incorrect API key, or a local terminal error, for example the token in use has expired and the library does not have any way to renew it. In the failed state, no reconnection attempts are made automatically by the library, and clients may not publish messages. A new connection attempt can be triggered by an explicit call to [connect()]{@link Connection#connect}.
 	ConnectionEventFailed       ConnectionEvent = ConnectionEvent(ConnectionStateFailed)
+	// **CANONICAL**
+	// An event for changes to connection conditions for which the [ConnectionState]{@link ConnectionState} does not change.
+	// RTN4h
 	ConnectionEventUpdate       ConnectionEvent = ConnectionEvent{name: "UPDATE"}
 )
 
@@ -402,12 +441,30 @@ func (e ConnectionEvent) String() string {
 // If the Event is a ConnectionEventUpdated, Current and Previous are the
 // the same. Otherwise, the event is a state transition from Previous to
 // Current.
+// **CANONICAL**
+// Contains [ConnectionState]{@link} change information emitted by the [Connection]{@link} object.
 type ConnectionStateChange struct {
+	// **CANONICAL**
+	// The new [ConnectionState]{@link ConnectionState}.
+	// TA2
 	Current  ConnectionState
+	// **CANONICAL**
+	// The event that triggered this [ConnectionState]{@link ConnectionState} change.
+	// TA5
 	Event    ConnectionEvent
+	// **CANONICAL**
+	// The previous [ConnectionState]{@link ConnectionState}. For the [UPDATE]{@link ConnectionEvent#UPDATE} event, this is equal to the current [ConnectionState]{@link ConnectionState}.
+	// TA2
 	Previous ConnectionState
+	// **CANONICAL**
+	// Duration in milliseconds, after which the client retries a connection where applicable.
+	// RTN14d, TA2
 	RetryIn  time.Duration //RTN14d, TA2
+	// **LEGACY**
 	// Reason, if any, is an error that caused the state change.
+	// **CANONICAL**
+	// An [ErrorInfo]{@link ErrorInfo} object containing any information relating to the transition.
+	// RTN4f, TA3
 	Reason *ErrorInfo
 }
 
