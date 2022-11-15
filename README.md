@@ -291,6 +291,15 @@ if err != nil {
 fmt.Print(status, status.ChannelId)
 ```
 
+## Local web-based godoc
+- Install `godoc` globally via `go get` and run following command
+
+```bash
+  godoc -http=:8090
+```
+
+- Open the link http://localhost:8090/ for viewing the documentation.
+
 ## Resources
 
 Demo repositories hosted at [ably-labs](https://github.com/ably-labs) which use `ably-go`.  
