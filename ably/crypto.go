@@ -7,8 +7,7 @@ import (
 	"io"
 )
 
-// **CANONICAL**
-// Contains the properties required to configure the encryption of [Message]{@link Message} payloads.
+// Crypto Contains the properties required to configure the encryption of [Message]{@link Message} payloads.
 var Crypto struct {
 
 	// **LEGACY**

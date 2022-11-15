@@ -44,7 +44,6 @@ func randomString(n int) string {
 	return hex.EncodeToString(p)[:n]
 }
 
-// **LEGACY**
 // unixMilli returns the given time as a timestamp in milliseconds since epoch.
 func unixMilli(t time.Time) int64 {
 	return t.UnixNano() / int64(time.Millisecond)

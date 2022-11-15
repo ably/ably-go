@@ -8,7 +8,6 @@ import (
 	"github.com/ably/ably-go/ably"
 )
 
-// **LEGACY**
 // AllPages appends all items from all pages resulting from a paginated
 // request into the slice pointed to by dst, which must be a pointer to a slice
 // of the same type as the paginated response's items.

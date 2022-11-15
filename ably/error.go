@@ -47,30 +47,24 @@ func codeFromStatus(statusCode int) ErrorCode {
 // **CANONICAL**
 // A generic Ably error object that contains an Ably-specific status code, and a generic status code. Errors returned from the Ably server are compatible with the ErrorInfo structure and should result in errors that inherit from ErrorInfo.
 type ErrorInfo struct {
-	// **CANONICAL**
-	// HTTP Status Code corresponding to this error, where applicable.
+	// StatusCode is a http Status code corresponding to this error, where applicable.
 	// TI1
 	StatusCode int
-	// **CANONICAL**
-	// Ably error code (https://github.com/ably/ably-common/blob/main/protocol/errors.json)
+	// Code is the standard [ably error code]
+	// [ably error code]: https://github.com/ably/ably-common/blob/main/protocol/errors.json
 	// TI1
 	Code       ErrorCode
-	// **CANONICAL**
-	// This is included for REST responses to provide a URL for additional help on the error code.
+	// HRef is included for REST responses to provide a URL for additional help on the error code.
 	// TI4
 	HRef       string
-	// **CANONICAL**
-	// Information pertaining to what caused the error where available.
+	// Cause provides Information pertaining to what caused the error where available.
 	// TI1
 	Cause      *ErrorInfo
-
-	// **LEGACY**
 	// err is the application-level error we're wrapping, or just a message.
 	// If Cause is non-nil, err == *Cause.
 	err error
 }
 
-// **LEGACY**
 // Error implements the builtin error interface.
 func (e ErrorInfo) Error() string {
 	errorHref := e.HRef
@@ -83,16 +77,13 @@ func (e ErrorInfo) Error() string {
 		see = " See " + errorHref
 	}
 	return fmt.Sprintf("[ErrorInfo :%s code=%d %[2]v statusCode=%d]%s", msg, e.Code, e.StatusCode, see)
-
 }
 
-// **LEGACY**
 // Unwrap implements the implicit interface that errors.Unwrap understands.
 func (e ErrorInfo) Unwrap() error {
 	return e.err
 }
 
-// **LEGACY**
 // Message returns the undecorated error message.
 func (e ErrorInfo) Message() string {
 	if e.err == nil {

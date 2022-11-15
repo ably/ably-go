@@ -32,7 +32,6 @@ var (
 
 const wildcardClientID = "*"
 
-// **LEGACY**
 // addParams copies each params from rhs to lhs and returns lhs.
 //
 // If param from rhs exists in lhs, it's omitted.
@@ -46,7 +45,6 @@ func addParams(lhs, rhs url.Values) url.Values {
 	return lhs
 }
 
-// **LEGACY**
 // addHeaders copies each header from rhs to lhs and returns lhs.
 //
 // If header from rhs exists in lhs, it's omitted.
@@ -60,23 +58,18 @@ func addHeaders(lhs, rhs http.Header) http.Header {
 	return lhs
 }
 
-// **LEGACY**
 // Auth
+// Creates Ably [TokenRequest]{@link TokenRequest} objects and obtains Ably Tokens from Ably to subsequently issue to less trusted clients.
 type Auth struct {
 	mtx      sync.Mutex
 
-	// **CANONICAL**
 	method   int
 	client   *REST
 
-	// **LEGACY**
 	// save params to use with token renewal
-	// **CANONICAL**
 	params   *TokenParams
 
-	// **LEGACY**
 	// a host part of AuthURL
-	// **CANONICAL**
 	host     string
 
 	// **LEGACY**
@@ -86,15 +79,12 @@ type Auth struct {
 	// RSA7, RSC17, RSA12
 	clientID string
 
-	// **LEGACY**
 	// onExplicitAuthorize is the callback that Realtime sets to reauthorize with the
 	// server when Authorize is explicitly called.
-	// **CANONICAL**
 	onExplicitAuthorize func(context.Context, *TokenDetails)
 
 	serverTimeOffset time.Duration
 
-	// **LEGACY**
 	// ServerTimeHandler when provided this will be used to query server time.
 	serverTimeHandler func() (time.Time, error)
 }
@@ -131,8 +121,8 @@ func newAuth(client *REST) (*Auth, error) {
 	return a, nil
 }
 
-// **LEGACY**
-// ClientID
+// ClientID A client ID, used for identifying this client when publishing messages or for presence purposes. The clientId can be any non-empty string, except it cannot contain a *. This option is primarily intended to be used in situations where the library is instantiated with a key. Note that a clientId may also be implicit in a token used to instantiate the library. An error is raised if a clientId specified here conflicts with the clientId implicit in the token. Find out more about identified clients.
+// RSA7, RSC17, RSA12
 func (a *Auth) ClientID() string {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -404,7 +394,6 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 	return nil
 }
 
-// **LEGACY**
 //Timestamp returns the timestamp to be used in authorization request.
 func (a *Auth) timestamp(ctx context.Context, query bool) (time.Time, error) {
 	now := a.client.opts.Now()
