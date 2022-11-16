@@ -43,13 +43,11 @@ func (l filteredLogger) Printf(level LogLevel, format string, v ...interface{}) 
 	}
 }
 
-// **LEGACY**
 // Logger is an interface for ably loggers.
 type Logger interface {
 	Printf(level LogLevel, format string, v ...interface{})
 }
 
-// **LEGACY**
 // stdLogger wraps log.Logger to satisfy the Logger interface.
 type stdLogger struct {
 	*log.Logger
@@ -59,7 +57,6 @@ func (s *stdLogger) Printf(level LogLevel, format string, v ...interface{}) {
 	s.Logger.Printf(fmt.Sprintf("[%s] %s", level, format), v...)
 }
 
-// **LEGACY**
 // logger is the internal logger type, with helper methods that wrap the raw
 // Logger interface.
 type logger struct {
