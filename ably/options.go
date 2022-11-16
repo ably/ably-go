@@ -21,9 +21,9 @@ const (
 	protocolJSON    = "application/json"
 	protocolMsgPack = "application/x-msgpack"
 
-	// **LEGACY**
-	// restHost is the primary ably host .
+	// restHost is the primary ably host.
 	restHost     = "rest.ably.io"
+	// realtimeHost is the primary ably host.
 	realtimeHost = "realtime.ably.io"
 	Port         = 80
 	TLSPort      = 443
@@ -210,7 +210,6 @@ func (opts *authOptions) authMethod() string {
 	return "GET"
 }
 
-// **LEGACY**
 // KeyName gives the key name parsed from the Key field.
 func (opts *authOptions) KeyName() string {
 	if i := strings.IndexRune(opts.Key, ':'); i != -1 {
@@ -219,7 +218,6 @@ func (opts *authOptions) KeyName() string {
 	return ""
 }
 
-// **LEGACY**
 // KeySecret gives the key secret parsed from the Key field.
 func (opts *authOptions) KeySecret() string {
 	if i := strings.IndexRune(opts.Key, ':'); i != -1 {
@@ -266,7 +264,6 @@ type clientOptions struct {
 	// Enables a custom environment to be used with the Ably service.
 	// RSC15b, TO3k1
 	Environment     string
-	// **LEGACY**
 	// optional: port to use for non-TLS connections and requests
 	Port            int
 	// **LEGACY**
@@ -302,8 +299,6 @@ type clientOptions struct {
 
 	// **LEGACY**
 	// HTTPRequestTimeout is the timeout for getting a response for outgoing HTTP requests.
-
-	// **LEGACY**
 	// Will only be used if no custom HTTPClient is set.
 	// **CANONICAL**
 	// Timeout for a client performing a complete HTTP request to Ably, including the connection phase. The default is 10 seconds.
@@ -400,24 +395,20 @@ type clientOptions struct {
 	// TO3l3
 	HTTPOpenTimeout          time.Duration
 
-	// **LEGACY**
 	// Dial specifies the dial function for creating message connections used
 	// by Realtime.
 	//
 	// If Dial is nil, the default websocket connection is used.
 	Dial func(protocol string, u *url.URL, timeout time.Duration) (conn, error)
 
-	// **LEGACY**
 	// HTTPClient specifies the client used for HTTP communication by REST.
 	//
 	// If HTTPClient is nil, a client configured with default settings is used.
 	HTTPClient *http.Client
 
-	// **LEGACY**
 	//When provided this will be used on every request.
 	Trace *httptrace.ClientTrace
 
-	// **LEGACY**
 	// Now returns the time the library should take as current.
 	Now   func() time.Time
 	After func(context.Context, time.Duration) <-chan time.Time
@@ -670,26 +661,23 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 	return nil
 }
 
-// **LEGACY**
-// A ClientOption configures a REST or Realtime instance.
+// ClientOption configures a [ably.REST] or [ably.Realtime] instance.
 //
 // See: https://www.ably.io/documentation/realtime/usage#client-options
 type ClientOption func(*clientOptions)
 
-// **LEGACY**
-// An AuthOption configures authentication/authorization for a REST or Realtime
+// AuthOption configures authentication/authorization for a [ably.REST] or [ably.Realtime]
 // instance or operation.
 type AuthOption func(*authOptions)
 
-// **LEGACY**
-// A Tokener is or can be used to get a TokenDetails.
+
+// Tokener is or can be used to get a [ably.TokenDetails].
 type Tokener interface {
 	IsTokener()
 	isTokener()
 }
 
-// **LEGACY**
-// A TokenString is the string representation of an authentication token.
+// TokenString is the string representation of an authentication token.
 type TokenString string
 
 func (TokenString) IsTokener() {}

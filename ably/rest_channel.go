@@ -44,8 +44,7 @@ func newRESTChannel(name string, client *REST) *RESTChannel {
 	return c
 }
 
-// **LEGACY**
-// The channel's name path escaped
+// pathName is channel's name path escaped
 func (c *RESTChannel) pathName() string {
 	return url.PathEscape(c.Name)
 }
@@ -61,7 +60,6 @@ func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}
 	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}}, options...)
 }
 
-// **LEGACY**
 // PublishMultipleOption is an optional parameter for
 // RESTChannel.Publish and RESTChannel.PublishMultiple.
 //
@@ -75,7 +73,6 @@ type publishMultipleOptions struct {
 	params        map[string]string
 }
 
-// **LEGACY**
 // PublishWithConnectionKey allows a message to be published for a specified connectionKey.
 func PublishWithConnectionKey(connectionKey string) PublishMultipleOption {
 	return func(options *publishMultipleOptions) {
@@ -83,7 +80,6 @@ func PublishWithConnectionKey(connectionKey string) PublishMultipleOption {
 	}
 }
 
-// **LEGACY**
 // PublishWithParams adds query parameters to the resulting HTTP request to the REST API.
 func PublishWithParams(params map[string]string) PublishMultipleOption {
 	return func(options *publishMultipleOptions) {
@@ -91,7 +87,6 @@ func PublishWithParams(params map[string]string) PublishMultipleOption {
 	}
 }
 
-// **LEGACY**
 // PublishMultipleWithParams is the same as PublishWithParams.
 //
 // Deprecated: Use PublishWithParams instead.
@@ -174,7 +169,6 @@ func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, 
 	return res.Body.Close()
 }
 
-// **LEGACY**
 // PublishMultipleWithOptions is the same as PublishMultiple.
 //
 // Deprecated: Use PublishMultiple instead.
@@ -290,7 +284,6 @@ func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 	}
 }
 
-// **LEGACY**
 // A HistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
 type HistoryOption func(*historyOptions)
 
@@ -342,7 +335,6 @@ func (o *historyOptions) apply(opts ...HistoryOption) url.Values {
 	return o.params
 }
 
-// **LEGACY**
 // HistoryRequest represents a request prepared by the RESTChannel.History or
 // RealtimeChannel.History method, ready to be performed by its Pages or Items methods.
 type HistoryRequest struct {
@@ -350,7 +342,6 @@ type HistoryRequest struct {
 	channel *RESTChannel
 }
 
-// **LEGACY**
 // Pages returns an iterator for whole pages of History.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -359,7 +350,6 @@ func (r HistoryRequest) Pages(ctx context.Context) (*MessagesPaginatedResult, er
 	return &res, res.load(ctx, r.r)
 }
 
-// **LEGACY**
 // A MessagesPaginatedResult is an iterator for the result of a History request.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -368,7 +358,6 @@ type MessagesPaginatedResult struct {
 	items []*Message
 }
 
-// **LEGACY**
 // Next retrieves the next page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -377,7 +366,6 @@ func (p *MessagesPaginatedResult) Next(ctx context.Context) bool {
 	return p.next(ctx, &p.items)
 }
 
-// **LEGACY**
 // IsLast returns true if the page is last page.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -385,7 +373,6 @@ func (p *MessagesPaginatedResult) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
-// **LEGACY**
 // HasNext returns true is there are more pages available.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -393,7 +380,6 @@ func (p *MessagesPaginatedResult) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
-// **LEGACY**
 // Items returns the current page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -401,7 +387,6 @@ func (p *MessagesPaginatedResult) Items() []*Message {
 	return p.items
 }
 
-// **LEGACY**
 // Items returns a convenience iterator for single History, over an underlying
 // paginated iterator.
 //
@@ -418,7 +403,6 @@ func (r HistoryRequest) Items(ctx context.Context) (*MessagesPaginatedItems, err
 	return &res, err
 }
 
-// **LEGACY**
 // fullMessagesDecoder wraps a destination slice of messages in a decoder value
 // that decodes both the message itself from the transport-level encoding and
 // the data field within from its message-specific encoding.
@@ -473,7 +457,6 @@ type MessagesPaginatedItems struct {
 	next  func(context.Context) (int, bool)
 }
 
-// **LEGACY**
 // Next retrieves the next result.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -486,7 +469,6 @@ func (p *MessagesPaginatedItems) Next(ctx context.Context) bool {
 	return true
 }
 
-// **LEGACY**
 // Item returns the current result.
 //
 // See the "Paginated results" section in the package-level documentation.

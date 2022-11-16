@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// **LEGACY**
 // TR3
 const (
 	flagHasPresence       protoFlag = 1 << 0
@@ -190,12 +189,10 @@ func (msg *protocolMessage) String() string {
 
 type conn interface {
 
-	// **LEGACY**
 	// Send write the given ProtocolMessage to the connection.
 	// It is expected to block until whole message is written.
 	Send(*protocolMessage) error
 
-	// **LEGACY**
 	// Receive reads ProtocolMessage from the connection.
 	// It is expected to block until whole message is read.
 	//
@@ -203,7 +200,6 @@ type conn interface {
 	// then, a net.Error with Timeout() == true is returned.
 	Receive(deadline time.Time) (*protocolMessage, error)
 
-	// **LEGACY**
 	// Close closes the connection.
 	Close() error
 }

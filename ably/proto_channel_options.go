@@ -2,8 +2,7 @@ package ably
 
 type channelParams map[string]string
 
-// **CANONICAL**
-// Describes the possible flags used to configure client capabilities, using [ChannelOptions]{@link ChannelOptions}.
+// ChannelMode Describes the possible flags used to configure client capabilities, using [ChannelOptions]{@link ChannelOptions}.
 type ChannelMode int64
 
 const (

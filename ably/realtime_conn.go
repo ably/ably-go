@@ -15,18 +15,14 @@ var (
 	errQueueing = errors.New("unable to send messages in current state with disabled queueing")
 )
 
-// **LEGACY**
 // connectionMode is the mode in which the connection is operating
 type connectionMode uint
 
 const (
-	// **LEGACY**
 	// normalMode this is set when the Connection operating normally
 	normalMode connectionMode = iota
-	// **LEGACY**
 	// resumeMode this is set when the Connection is trying to resume
 	resumeMode
-	// **LEGACY**
 	// recoveryMode this is set when the Connection is trying to recover
 	recoveryMode
 )
@@ -39,7 +35,6 @@ const (
 type Connection struct {
 	mtx sync.Mutex
 
-	// **LEGACY**
 	// on setConn we write to conn with mtx protection, however in eventLoop we
 	// read conn unprotected, this is racy because now we establish connection in a
 	// separate goroutine.
@@ -88,12 +83,10 @@ type Connection struct {
 	auth         *Auth
 
 	callbacks connCallbacks
-	// **LEGACY**
 	// reconnecting tracks if we have issued a reconnection request. If we receive any message
 	// with this set to true then it's the first message/response after issuing the
 	// reconnection request.
 	reconnecting bool
-	// **LEGACY**
 	// reauthorizing tracks if the current reconnection attempt is happening
 	// after a reauthorization, to avoid re-reauthorizing.
 	reauthorizing bool
@@ -102,13 +95,11 @@ type Connection struct {
 
 type connCallbacks struct {
 	onChannelMsg func(*protocolMessage)
-	// **LEGACY**
 	// onReconnected is called when we get a CONNECTED response from reconnect request. We
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels, and we don't have it here, so we let RealtimeClient do the
 	// work.
 	onReconnected func(isNewID bool)
-	// **LEGACY**
 	// onReconnectionFailed is called when we get a FAILED response from a
 	// reconnection request.
 	onReconnectionFailed func(*errorInfo)
@@ -160,7 +151,6 @@ func (c *Connection) dial(proto string, u *url.URL) (conn conn, err error) {
 	return conn, err
 }
 
-// **LEGACY**
 // recoverable returns true if err is recoverable, err is from making a
 // connection
 func recoverable(err error) bool {
@@ -171,7 +161,6 @@ func recoverable(err error) bool {
 	return true
 }
 
-// **LEGACY**
 // Connect attempts to move the connection to the CONNECTED state, if it
 // can and if it isn't already.
 func (c *Connection) Connect() {
@@ -472,7 +461,6 @@ func (c *Connection) sendClose() {
 	_ = c.conn.Send(msg)
 }
 
-// **LEGACY**
 // ID gives unique ID string obtained from Ably upon successful connection.
 // The ID may change due to reconnection and recovery; on every received
 // ConnectionStateConnected event previously obtained ID is no longer valid.
@@ -482,7 +470,6 @@ func (c *Connection) ID() string {
 	return c.id
 }
 
-// **LEGACY**
 // Key gives unique key string obtained from Ably upon successful connection.
 // The key may change due to reconnection and recovery; on every received
 // StatConnConnected event previously obtained Key is no longer valid.
@@ -492,7 +479,6 @@ func (c *Connection) Key() string {
 	return c.key
 }
 
-// **LEGACY**
 // Ping issues a ping request against configured endpoint and returns TTR times
 // for ping request and pong response.
 //
@@ -503,7 +489,6 @@ func (c *Connection) Key() string {
 //	return 0, 0, errors.New("TODO")
 //}
 
-// **LEGACY**
 // ErrorReason gives last known error that caused connection transit to
 // ConnectionStateFailed state.
 func (c *Connection) ErrorReason() *ErrorInfo {
@@ -521,7 +506,6 @@ func (c *Connection) RecoveryKey() string {
 	return strings.Join([]string{c.key, fmt.Sprint(*c.serial), fmt.Sprint(c.msgSerial)}, ":")
 }
 
-// **LEGACY**
 // Serial gives serial number of a message received most recently. Last known
 // serial number is used when recovering connection state.
 func (c *Connection) Serial() *int64 {
@@ -530,7 +514,6 @@ func (c *Connection) Serial() *int64 {
 	return c.serial
 }
 
-// **LEGACY**
 // State returns current state of the connection.
 func (c *Connection) State() ConnectionState {
 	c.mtx.Lock()
@@ -548,7 +531,6 @@ type ConnectionEventEmitter struct {
 	emitter *eventEmitter
 }
 
-// **LEGACY**
 // On registers an event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
@@ -558,7 +540,6 @@ func (em ConnectionEventEmitter) On(e ConnectionEvent, handle func(ConnectionSta
 	})
 }
 
-// **LEGACY**
 // OnAll registers an event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
@@ -568,7 +549,6 @@ func (em ConnectionEventEmitter) OnAll(handle func(ConnectionStateChange)) (off 
 	})
 }
 
-// **LEGACY**
 // Once registers an one-off event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
@@ -578,7 +558,6 @@ func (em ConnectionEventEmitter) Once(e ConnectionEvent, handle func(ConnectionS
 	})
 }
 
-// **LEGACY**
 // OnceAll registers an one-off event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
@@ -588,7 +567,6 @@ func (em ConnectionEventEmitter) OnceAll(handle func(ConnectionStateChange)) (of
 	})
 }
 
-// **LEGACY**
 // Off deregisters event handlers for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
@@ -596,7 +574,6 @@ func (em ConnectionEventEmitter) Off(e ConnectionEvent) {
 	em.emitter.Off(e)
 }
 
-// **LEGACY**
 // OffAll deregisters all event handlers.
 //
 // See package-level documentation on Event Emitter for details.
@@ -656,7 +633,6 @@ func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
 	}
 }
 
-// **LEGACY**
 // verifyAndUpdateMessages ensures the ClientID sent with published messages or
 // presence messages matches the authenticated user's ClientID and if it does,
 // ensures it's empty as Able service is responsible for populating it.
@@ -1023,7 +999,6 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 	return c.errorReason.unwrapNil()
 }
 
-// **LEGACY**
 // ctxCancelOnStateTransition returns a context that is canceled when the
 // connection transitions to any state.
 //

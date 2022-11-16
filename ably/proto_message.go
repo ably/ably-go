@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 )
 
-// **LEGACY**
 // encodings
 const (
 	encUTF8   = "utf-8"
@@ -72,8 +71,7 @@ func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
 	}
 }
 
-// **LEGACY**
-//updateInnerMessagesEmptyFields - Update inner Message empty Id, connectionId and Timestamp
+//updateInnerMessagesEmptyFields - Updates [Message.ID], [Message.ConnectionID] and [Message.Timestamp]
 func (p *protocolMessage) updateInnerMessagesEmptyFields() {
 	for i, m := range p.Messages {
 		p.updateInnerMessageEmptyFields(m, i)
@@ -91,8 +89,7 @@ func unencodableDataErr(data interface{}) error {
 	return fmt.Errorf("message data type %T must be string, []byte, or a value that can be encoded as a JSON object or array", data)
 }
 
-// **LEGACY**
-//withEncodedData - Used to encode string, binary([]byte) or json data (TM3).
+// withEncodedData - Used to encode string, binary([]byte) or json data (TM3).
 //Updates/Mutates Message.Data and Message.Encoding
 func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 	if m.Data == nil {
@@ -151,8 +148,7 @@ func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 	return m, nil
 }
 
-// **LEGACY**
-//withDecodedData - Used to decode received encoded data into string, binary([]byte) or json (TM3).
+// withDecodedData - Used to decode received encoded data into string, binary([]byte) or json (TM3).
 func (m Message) withDecodedData(cipher channelCipher) (Message, error) {
 	// strings.Split on empty string returns []string{""}
 	if m.Data == nil || m.Encoding == "" {

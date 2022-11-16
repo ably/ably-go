@@ -46,11 +46,9 @@ func newChannels(client *Realtime) *RealtimeChannels {
 	}
 }
 
-// **LEGACY**
-// A ChannelOption configures a channel.
+// ChannelOption configures a channel.
 type ChannelOption func(*channelOptions)
 
-// **LEGACY**
 // channelOptions wraps ChannelOptions. It exists so that users can't
 // implement their own ChannelOption.
 type channelOptions protoChannelOptions
@@ -580,18 +578,15 @@ type ChannelEventEmitter struct {
 	emitter *eventEmitter
 }
 
-// **LEGACY**
 // On registers an event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
-
 func (em ChannelEventEmitter) On(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
 	return em.emitter.On(e, func(change emitterData) {
 		handle(change.(ChannelStateChange))
 	})
 }
 
-// **LEGACY**
 // OnAll registers an event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
@@ -601,7 +596,6 @@ func (em ChannelEventEmitter) OnAll(handle func(ChannelStateChange)) (off func()
 	})
 }
 
-// **LEGACY**
 // Once registers an one-off event handler for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
@@ -611,7 +605,6 @@ func (em ChannelEventEmitter) Once(e ChannelEvent, handle func(ChannelStateChang
 	})
 }
 
-// **LEGACY**
 // OnceAll registers an one-off event handler for all connection events.
 //
 // See package-level documentation on Event Emitter for details.
@@ -621,7 +614,6 @@ func (em ChannelEventEmitter) OnceAll(handle func(ChannelStateChange)) (off func
 	})
 }
 
-// **LEGACY**
 // Off deregisters event handlers for connection events of a specific kind.
 //
 // See package-level documentation on Event Emitter for details.
@@ -629,7 +621,6 @@ func (em ChannelEventEmitter) Off(e ChannelEvent) {
 	em.emitter.Off(e)
 }
 
-// **LEGACY**
 // OffAll de-registers all event handlers.
 //
 // See package-level documentation on Event Emitter for details.
@@ -653,7 +644,6 @@ func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interfa
 	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}})
 }
 
-// **LEGACY**
 // PublishMultiple publishes all given messages on the channel at once.
 //
 // This implicitly attaches the channel if it's not already attached. If the
@@ -746,7 +736,6 @@ func (c *RealtimeChannel) canSend() bool {
 	return true
 }
 
-// **LEGACY**
 // State gives the current state of the channel.
 func (c *RealtimeChannel) State() ChannelState {
 	c.mtx.Lock()
@@ -754,7 +743,6 @@ func (c *RealtimeChannel) State() ChannelState {
 	return c.state
 }
 
-// **LEGACY**
 // ErrorReason gives the last error that caused channel transition to failed state.
 func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 	c.mtx.Lock()

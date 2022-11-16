@@ -107,7 +107,6 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage) {
 	}
 }
 
-// **LEGACY**
 // SyncComplete gives true if the initial SYNC operation has completed
 // for the members present on the channel.
 func (pres *RealtimePresence) SyncComplete() bool {
@@ -210,7 +209,6 @@ func (pres *RealtimePresence) Get(ctx context.Context) ([]*PresenceMessage, erro
 	return pres.GetWithOptions(ctx)
 }
 
-// **LEGACY**
 // A PresenceGetOption is an optional parameter for
 // RealtimePresence.GetWithOptions.
 type PresenceGetOption func(*presenceGetOptions)
