@@ -1,4 +1,24 @@
-// Package ably is the official Ably client library for Go.
+// Package ably
+//
+//# Ably Go Client Library SDK API Reference
+//
+// The Go Client Library SDK supports a realtime and a REST interface. The Go API references are generated from the [Ably Go Client Library SDK source code] using [godoc] and structured by classes.
+//
+// [Ably Go Client Library SDK source code]: https://github.com/ably/ably-go/
+//
+// [godoc]: https://pkg.go.dev/golang.org/x/tools/cmd/godoc
+//
+// The realtime interface enables a client to maintain a persistent connection to Ably and publish, subscribe and be present on channels. The REST interface is stateless and typically implemented server-side. It is used to make requests such as retrieving statistics, token authentication and publishing to a channel.
+//
+// View the [Ably docs] for conceptual information on using Ably, and for API references featuring all languages. The combined [API references] are organized by features and split between the [realtime] and [REST] interfaces.
+//
+// [Ably docs]: https://ably.com/docs/
+//
+// [API references]: https://ably.com/docs/api/
+//
+// [realtime]: https://ably.com/docs/api/realtime-sdk?lang=go
+//
+// [REST]: https://ably.com/docs/api/rest-sdk?lang=go
 //
 // Get started at https://github.com/ably/ably-go#using-the-realtime-api.
 //
@@ -58,7 +78,7 @@
 // from the iterator object. Finally, once it returns false, the Err method must
 // be called to check if the iterator stopped due to some error, or else, it
 // just finished going through all pages.
-
+//
 // Calling the First method on the PaginatedResults returns the first page of the
 // results. However, the Next method has to be called before inspecting the items.
 //
