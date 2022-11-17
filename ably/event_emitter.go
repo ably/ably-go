@@ -5,8 +5,9 @@ import (
 	"sync"
 )
 
-// **CANONICAL**
-// A generic interface for event registration and delivery used in a number of the types in the Realtime client library. For example, the [Connection]{@link} object emits events for connection state using the EventEmitter pattern.
+// eventEmitter is a generic interface for event registration and delivery used
+// in a number of the types in the Realtime client library. For example, the
+// [ably.Connection] object emits events for connection state using the EventEmitter pattern.
 type eventEmitter struct {
 	sync.Mutex
 	listeners listenersForEvent
@@ -92,42 +93,38 @@ func newEventEmitter(log logger) *eventEmitter {
 	}
 }
 
-// **LEGACY**
-// On registers an event listener. The event must be comparable to the
-// eventEmitter's event type, and only events equal to it will trigger the
-// listener.
-//
-// It returns a function to deregister the listener.
-// **CANONICAL**
-// Registers the provided listener for the specified event. If on() is called more than once with the same listener and event, the listener is added multiple times to its listener registry. Therefore, as an example, assuming the same listener is registered twice using on(), and an event is emitted once, the listener would be invoked twice.
-// RTE4
+// On registers the provided listener for the specified event.
+// If on() is called more than once with the same listener and event, the listener is added multiple times
+// to its listener registry. Therefore, as an example, assuming the same listener is registered twice using on(),
+// and an event is emitted once, the listener would be invoked twice.
+// It returns a function to deregister the listener (RTE4).
 func (em *eventEmitter) On(event emitterEvent, handle func(emitterData)) (off func()) {
 	return em.on(event, handle, false)
 }
 
-// **LEGACY**
-// OnAll is like On, except the listener is triggered by all events.
-// **CANONICAL**
-// Registers the provided listener all events. If on() is called more than once with the same listener and event, the listener is added multiple times to its listener registry. Therefore, as an example, assuming the same listener is registered twice using on(), and an event is emitted once, the listener would be invoked twice.
-// RTE4
+// OnAll registers the provided listener for all events.
+// If on() is called more than once with the same listener and event, the listener is added multiple times to
+// its listener registry. Therefore, as an example, assuming the same listener is registered twice using on(),
+// and an event is emitted once, the listener would be invoked twice (RTE4).
 func (em *eventEmitter) OnAll(handle func(emitterData)) (off func()) {
 	return em.on(nil, handle, false)
 }
 
-// **LEGACY**
-// Once is like On, except the listener is deregistered once first triggered.
-// **CANONICAL**
-// Registers the provided listener for the first occurrence of a single named event specified as the Event argument. If once() is called more than once with the same listener, the listener is added multiple times to its listener registry. Therefore, as an example, assuming the same listener is registered twice using once(), and an event is emitted once, the listener would be invoked twice. However, all subsequent events emitted would not invoke the listener as once() ensures that each registration is only invoked once.
-// RTE4
+// Once is like On, except the listener is de-registered once first triggered.
+// Registers the provided listener for the first occurrence of a single named event specified as the Event argument.
+// If once() is called more than once with the same listener, the listener is added multiple times
+// to its listener registry. Therefore, as an example, assuming the same listener is registered twice using once(),
+// and an event is emitted once, the listener would be invoked twice. However, all subsequent events emitted
+// would not invoke the listener as once() ensures that each registration is only invoked once (RTE4).
 func (em *eventEmitter) Once(event emitterEvent, handle func(emitterData)) (off func()) {
 	return em.on(event, handle, true)
 }
 
-// **LEGACY**
-// OnceAll is like Once, except the listener is triggered by all events.
-// **CANONICAL**
-// Registers the provided listener for the first event that is emitted. If once() is called more than once with the same listener, the listener is added multiple times to its listener registry. Therefore, as an example, assuming the same listener is registered twice using once(), and an event is emitted once, the listener would be invoked twice. However, all subsequent events emitted would not invoke the listener as once() ensures that each registration is only invoked once.
-// RTE4
+// OnceAll registers the provided listener for the first event that is emitted.
+// If once() is called more than once with the same listener, the listener is added multiple times to
+// its listener registry. Therefore, as an example, assuming the same listener is registered twice using once(),
+// and an event is emitted once, the listener would be invoked twice. However, all subsequent events emitted
+// would not invoke the listener as once() ensures that each registration is only invoked once (RTE4).
 func (em *eventEmitter) OnceAll(handle func(emitterData)) (off func()) {
 	return em.on(nil, handle, true)
 }
@@ -160,21 +157,12 @@ func (em *eventEmitter) on(event emitterEvent, handle func(emitterData), once bo
 	}
 }
 
-// **LEGACY**
-// Off deregisters event listeners. The event must be comparable to the
-// eventEmitter's event type, and only listeners that were associated with that
-// event will be removed.
-// **CANONICAL**
-// Removes all listeners matching the given event.
+// Off removes all listeners matching the given event.
 func (em *eventEmitter) Off(event emitterEvent) {
 	em.off(event)
 }
 
-// **LEGACY**
-// OffAll is like Off, except is deregisters all event listeners.
-// **CANONICAL**
-// Deregisters all registrations, for all events and listeners.
-// RTE5
+// OffAll de-registers all registrations, for all events and listeners.
 func (em *eventEmitter) OffAll() {
 	em.off(nil)
 }
@@ -192,11 +180,9 @@ func (em *eventEmitter) off(event emitterEvent) {
 	}
 }
 
-// **CANONICAL**
-// Emits an event, calling registered listeners with the given event name and any other given arguments. If an exception is raised in any of the listeners, the exception is caught by the EventEmitter and the exception is logged to the Ably logger.
-// event - The named event.
-// data - The event listener.
-// internal, RTE6
+// Emit sends an event, calling registered listeners with the given event name and any other given arguments.
+// If an exception is raised in any of the listeners, the exception is caught by the EventEmitter
+// and the exception is logged to the Ably logger (RTE6).
 func (em *eventEmitter) Emit(event emitterEvent, data emitterData) {
 	// Let's first collect the handlers, and then call them outside the lock.
 	// This allows the handler functions to call again into the event emitter,
