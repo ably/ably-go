@@ -29,8 +29,7 @@ func (c *RESTPresence) Get(o ...GetPresenceOption) PresenceRequest {
 	}
 }
 
-// **LEGACY**
-// A GetPresenceOption configures a call to RESTPresence.Get or RealtimePresence.Get.
+// GetPresenceOption configures a call to RESTPresence.Get or RealtimePresence.Get.
 type GetPresenceOption func(*getPresenceOptions)
 
 // **CANONICAL**
@@ -90,8 +89,7 @@ func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceRequest {
 	}
 }
 
-// **LEGACY**
-// A PresenceHistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
+// PresenceHistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
 type PresenceHistoryOption func(*presenceHistoryOptions)
 
 // **CANONICAL**
@@ -141,7 +139,6 @@ func (o *presenceHistoryOptions) apply(opts ...PresenceHistoryOption) url.Values
 	return o.params
 }
 
-// **LEGACY**
 // PresenceRequest represents a request prepared by the RESTPresence.History or
 // RealtimePresence.History method, ready to be performed by its Pages or Items methods.
 type PresenceRequest struct {
@@ -149,7 +146,6 @@ type PresenceRequest struct {
 	channel *RESTChannel
 }
 
-// **LEGACY**
 // Pages returns an iterator for whole pages of presence messages.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -158,7 +154,6 @@ func (r PresenceRequest) Pages(ctx context.Context) (*PresencePaginatedResult, e
 	return &res, res.load(ctx, r.r)
 }
 
-// **LEGACY**
 // A PresencePaginatedResult is an iterator for the result of a PresenceHistory request.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -168,7 +163,6 @@ type PresencePaginatedResult struct {
 	decoder func(*[]*PresenceMessage) interface{}
 }
 
-// **LEGACY**
 // Next retrieves the next page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -177,7 +171,6 @@ func (p *PresencePaginatedResult) Next(ctx context.Context) bool {
 	return p.next(ctx, p.decoder(&p.items))
 }
 
-// **LEGACY**
 // IsLast returns true if the page is last page.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -189,7 +182,6 @@ func (p *PresencePaginatedResult) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
-// **LEGACY**
 // Items returns the current page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -197,7 +189,6 @@ func (p *PresencePaginatedResult) Items() []*PresenceMessage {
 	return p.items
 }
 
-// **LEGACY**
 // Items returns a convenience iterator for single PresenceHistory, over an underlying
 // paginated iterator.
 //
@@ -213,7 +204,6 @@ func (r PresenceRequest) Items(ctx context.Context) (*PresencePaginatedItems, er
 	return &res, err
 }
 
-// **LEGACY**
 // fullPresenceDecoder wraps a destination slice of messages in a decoder value
 // that decodes both the message itself from the transport-level encoding and
 // the data field within from its message-specific encoding.
@@ -268,7 +258,6 @@ type PresencePaginatedItems struct {
 	next  func(context.Context) (int, bool)
 }
 
-// **LEGACY**
 // Next retrieves the next result.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -281,7 +270,6 @@ func (p *PresencePaginatedItems) Next(ctx context.Context) bool {
 	return true
 }
 
-// **LEGACY**
 // Item returns the current result.
 //
 // See the "Paginated results" section in the package-level documentation.

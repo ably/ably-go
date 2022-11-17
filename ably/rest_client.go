@@ -36,8 +36,7 @@ func query(fn func(context.Context, string, interface{}) (*http.Response, error)
 	}
 }
 
-// **LEGACY**
-// Raw "decodes" both json and message pack keeping the original bytes.
+// raw "decodes" both json and message pack keeping the original bytes.
 // This is used to delay the actual decoding until later.
 type raw []byte
 
@@ -56,7 +55,6 @@ func (r *raw) CodecDecodeSelf(decoder *codec.Decoder) {
 	*r = []byte(raw)
 }
 
-// **LEGACY**
 // RESTChannels provides an API for managing collection of RESTChannel. This is
 // safe for concurrent use.
 type RESTChannels struct {
@@ -65,7 +63,6 @@ type RESTChannels struct {
 	client *REST
 }
 
-// **LEGACY**
 // Iterate returns a list of created channels.
 //
 // It is safe to call Iterate from multiple goroutines, however there's no guarantee
@@ -81,7 +78,6 @@ func (c *RESTChannels) Iterate() []*RESTChannel { // RSN2, RTS2
 	return chans
 }
 
-// **LEGACY**
 // Exists returns true if the channel by the given name exists.
 func (c *RESTChannels) Exists(name string) bool { // RSN2, RTS2
 	c.mu.RLock()
@@ -90,7 +86,6 @@ func (c *RESTChannels) Exists(name string) bool { // RSN2, RTS2
 	return ok
 }
 
-// **LEGACY**
 // Get returns an existing channel or creates a new one if it doesn't exist.
 //
 // You can optionally pass ChannelOptions, if the channel exists it will
@@ -122,7 +117,6 @@ func (c *RESTChannels) get(name string, opts *protoChannelOptions) *RESTChannel 
 	return v
 }
 
-// **LEGACY**
 // Release deletes the channel from the chans.
 func (c *RESTChannels) Release(name string) {
 	c.mu.Lock()
@@ -216,7 +210,6 @@ func (c *REST) Stats(o ...StatsOption) StatsRequest {
 	return StatsRequest{r: c.newPaginatedRequest("/stats", "", params)}
 }
 
-// **LEGACY**
 // A StatsOption configures a call to REST.Stats or Realtime.Stats.
 type StatsOption func(*statsOptions)
 
@@ -286,14 +279,12 @@ func (o *statsOptions) apply(opts ...StatsOption) url.Values {
 	return o.params
 }
 
-// **LEGACY**
 // StatsRequest represents a request prepared by the REST.Stats or
 // Realtime.Stats method, ready to be performed by its Pages or Items methods.
 type StatsRequest struct {
 	r paginatedRequest
 }
 
-// **LEGACY**
 // Pages returns an iterator for whole pages of Stats.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -302,7 +293,6 @@ func (r StatsRequest) Pages(ctx context.Context) (*StatsPaginatedResult, error) 
 	return &res, res.load(ctx, r.r)
 }
 
-// **LEGACY**
 // A StatsPaginatedResult is an iterator for the result of a Stats request.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -311,7 +301,6 @@ type StatsPaginatedResult struct {
 	items []*Stats
 }
 
-// **LEGACY**
 // Next retrieves the next page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -320,7 +309,6 @@ func (p *StatsPaginatedResult) Next(ctx context.Context) bool {
 	return p.next(ctx, &p.items)
 }
 
-// **LEGACY**
 // IsLast returns true if the page is last page.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -328,7 +316,6 @@ func (p *StatsPaginatedResult) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
-// **LEGACY**
 // HasNext returns true is there are more pages available.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -336,7 +323,6 @@ func (p *StatsPaginatedResult) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
-// **LEGACY**
 // Items returns the current page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -344,7 +330,6 @@ func (p *StatsPaginatedResult) Items() []*Stats {
 	return p.items
 }
 
-// **LEGACY**
 // Items returns a convenience iterator for single Stats, over an underlying
 // paginated iterator.
 //
@@ -366,7 +351,6 @@ type StatsPaginatedItems struct {
 	next  func(context.Context) (int, bool)
 }
 
-// **LEGACY**
 // Next retrieves the next result.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -379,7 +363,6 @@ func (p *StatsPaginatedItems) Next(ctx context.Context) bool {
 	return true
 }
 
-// **LEGACY**
 // Item returns the current result.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -387,8 +370,7 @@ func (p *StatsPaginatedItems) Item() *Stats {
 	return p.item
 }
 
-// **LEGACY**
-// request this contains fields necessary to compose http request that will be
+// request contains fields necessary to compose http request that will be
 // sent ably endpoints.
 type request struct {
 	Method string
@@ -454,8 +436,7 @@ type requestOptions struct {
 	body    interface{}
 }
 
-// **LEGACY**
-// A RequestOption configures a call to REST.Request.
+// RequestOption configures a call to REST.Request.
 type RequestOption func(*requestOptions)
 
 // **CANONICAL**
@@ -491,7 +472,6 @@ func (o *requestOptions) apply(opts ...RequestOption) {
 	}
 }
 
-// **LEGACY**
 // RESTRequest represents a request prepared by the REST.Request method, ready
 // to be performed by its Pages or Items methods.
 type RESTRequest struct {
@@ -500,7 +480,6 @@ type RESTRequest struct {
 	r paginatedRequest
 }
 
-// **LEGACY**
 // Pages returns an iterator for whole pages of results.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -563,30 +542,24 @@ func (r *HTTPPaginatedResponse) Headers() http.Header {
 	return r.res.Header
 }
 
-// **LEGACY**
 // Next retrieves the next page of results.
 //
 // See the "Paginated results" section in the package-level documentation.
-// **CANONICAL**
 func (p *HTTPPaginatedResponse) Next(ctx context.Context) bool {
 	p.items = nil
 	return p.next(ctx, &p.items)
 }
 
-// **LEGACY**
 // IsLast returns true if the page is last page.
 //
 // See "Paginated results" section in the package-level documentation.
-// **CANONICAL**
 func (p *HTTPPaginatedResponse) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
-// **LEGACY**
 // HasNext returns true is there are more pages available.
 //
 // See "Paginated results" section in the package-level documentation.
-// **CANONICAL**
 func (p *HTTPPaginatedResponse) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
@@ -622,7 +595,6 @@ func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
 	return decode(typ, bytes.NewReader(p.items), dst)
 }
 
-// **LEGACY**
 // Items returns a convenience iterator for single items, over an underlying
 // paginated iterator.
 //
@@ -646,7 +618,6 @@ type RESTPaginatedItems struct {
 	next  func(context.Context) (int, bool)
 }
 
-// **LEGACY**
 // Next retrieves the next result.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -659,7 +630,6 @@ func (p *RESTPaginatedItems) Next(ctx context.Context) bool {
 	return true
 }
 
-// **LEGACY**
 // IsLast returns true if the page is last page.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -667,7 +637,6 @@ func (p *RESTPaginatedItems) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
-// **LEGACY**
 // HasNext returns true is there are more pages available.
 //
 // See "Paginated results" section in the package-level documentation.
@@ -675,7 +644,6 @@ func (p *RESTPaginatedItems) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
-// **LEGACY**
 // Item unmarshal the current result into the provided variable.
 //
 // See the "Paginated results" section in the package-level documentation.
@@ -710,8 +678,7 @@ func (c *REST) do(ctx context.Context, r *request) (*http.Response, error) {
 	return c.doWithHandle(ctx, r, c.handleResponse)
 }
 
-// **LEGACY**
-// fallbackCache this caches a successful fallback host for 10 minutes.
+// fallbackCache caches a successful fallback host for 10 minutes.
 type fallbackCache struct {
 	running  bool
 	host     string
@@ -880,7 +847,6 @@ func canFallBack(code int) bool {
 		code <= http.StatusGatewayTimeout
 }
 
-// **LEGACY**
 // newHTTPRequest creates a new http.Request that can be sent to ably endpoints.
 // This makes sure necessary headers are set.
 func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, error) {

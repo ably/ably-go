@@ -10,8 +10,7 @@ import (
 	"time"
 )
 
-// **LEGACY**
-// TokenParams
+// TokenParams contains token params to be sent to ably to get auth token
 type TokenParams struct {
 	// **LEGACY**
 	// TTL is a requested time to live for the token. If the token request
@@ -48,7 +47,6 @@ type TokenParams struct {
 	Timestamp int64 `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
 }
 
-// **LEGACY**
 // Query encodes the params to query params value. If a field of params is
 // a zero-value, it's omitted. If params is zero-value, nil is returned.
 func (params *TokenParams) Query() url.Values {
@@ -71,8 +69,7 @@ func (params *TokenParams) Query() url.Values {
 	return q
 }
 
-// **LEGACY**
-// TokenRequest
+// TokenRequest contains tokenparams with extra details, sent to ably for getting auth token
 type TokenRequest struct {
 	TokenParams `codec:",inline"`
 
@@ -119,8 +116,7 @@ type TokenDetails struct {
 	// TD2
 	Token string `json:"token,omitempty" codec:"token,omitempty"`
 
-	// **LEGACY**
-	// KeyName
+	// KeyName is a string part of ABLY_KEY before :
 	KeyName string `json:"keyName,omitempty" codec:"keyName,omitempty"`
 
 	// **LEGACY**

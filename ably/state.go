@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// **LEGACY**
 // result awaits completion of asynchronous operation.
 type result interface {
 	// Wait blocks until asynchronous operation is completed. Upon its completion,
@@ -16,7 +15,6 @@ type result interface {
 	Wait(context.Context) error
 }
 
-// **LEGACY**
 func wait(ctx context.Context) func(result, error) error {
 	return func(res result, err error) error {
 		if err != nil {
@@ -26,7 +24,6 @@ func wait(ctx context.Context) func(result, error) error {
 	}
 }
 
-// **LEGACY**
 // goWaiter immediately calls the given function in a separate goroutine. The
 // returned Result waits for its completion and returns its error.
 func goWaiter(f func() error) result {
@@ -106,8 +103,7 @@ func channelStateError(state ChannelState, err error) *ErrorInfo {
 	return newError(0, err)
 }
 
-// **LEGACY**
-// queuedEmitter emits confirmation events triggered by ACK or NACK messages.
+// pendingEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
 	queue []msgCh
 	log   logger
@@ -124,7 +120,6 @@ type msgCh struct {
 	ch  chan<- error
 }
 
-// **LEGACY**
 // Dismiss lets go of the channels that are waiting for an error on this queue.
 // The queue can continue sending messages.
 func (q *pendingEmitter) Dismiss() []msgCh {
@@ -253,7 +248,6 @@ func newErrResult() (result, chan<- error) {
 	return res, listen
 }
 
-// **LEGACY**
 // Wait implements the Result interface.
 func (res *errResult) Wait(ctx context.Context) error {
 	if res == nil {
@@ -350,7 +344,6 @@ func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ..
 	})
 }
 
-// **LEGACY**
 // A ConnectionState identifies the state of an Ably realtime connection.
 // **CANONICAL**
 // Describes the realtime [Connection]{@link Connection} object states.
