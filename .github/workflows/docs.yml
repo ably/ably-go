@@ -1,0 +1,50 @@
+name: API Reference
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+
+      - name: Set up Go 1.19
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+
+      - name: Download Packages
+        run: |
+          go install golang.org/x/tools/cmd/godoc@latest
+          go install github.com/johnstarich/go/gopages
+
+      - name: Build Documentation
+        run: >
+          gopages
+          -source-link "https://github.com/ably/ably-go/blob/${{ env.GITHUB_SHA }}/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
+          -brand-description "Go client library for Ably realtime messaging service."
+          -brand-title "Ably Go SDK"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: eu-west-2
+          role-to-assume: arn:aws:iam::${{ secrets.ABLY_AWS_ACCOUNT_ID_SDK }}:role/ably-sdk-builds-ably-js
+          role-session-name: "${{ github.run_id }}-${{ github.run_number }}"
+
+      - name: Upload Documentation
+        uses: ably/sdk-upload-action@v1
+        with:
+          sourcePath: dist
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          artifactName: godoc
