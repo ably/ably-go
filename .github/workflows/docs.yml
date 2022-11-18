@@ -32,7 +32,7 @@ jobs:
       - name: Build Documentation
         run: >
           gopages
-          -source-link "https://github.com/ably/ably-go/blob/".${{ github.sha }}."/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
+          -source-link "https://github.com/ably/ably-go/blob/${{ github.sha }}/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
           -brand-description "Go client library for Ably realtime messaging service."
           -brand-title "Ably Go SDK"
 
