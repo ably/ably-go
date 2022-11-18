@@ -26,6 +26,7 @@ jobs:
       - name: Download Packages
         run: |
           go install golang.org/x/tools/cmd/godoc@latest
+          go get github.com/johnstarich/go/gopages
           go install github.com/johnstarich/go/gopages
 
       - name: Build Documentation
