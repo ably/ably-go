@@ -138,69 +138,64 @@ type authOptions struct {
 	// [Basic authentication]: https://ably.com/docs/core-features/authentication#basic-authentication
 	Key string
 
-	// **LEGACY**
-	// Token is an authentication token issued for this application against
-	// a specific key and TokenParams.
-	// **CANONICAL**
-	// An authenticated token. This can either be a [TokenDetails]{@link TokenDetails} object, a [TokenRequest]{@link TokenRequest} object, or token string (obtained from the token property of a [TokenDetails]{@link TokenDetails} component of an Ably [TokenRequest]{@link TokenRequest} response, or a JSON Web Token satisfying the Ably requirements for JWTs). This option is mostly useful for testing: since tokens are short-lived, in production you almost always want to use an authentication method that enables the client library to renew the token automatically when the previous one expires, such as authUrl or authCallback. Read more about Token authentication.
-	// RSA4a, RSA4, TO3j2
+	// Token is an authenticated token.
+	// This can either be a token string (obtained from the token property of a [ably.TokenDetails] component of
+	// an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+	//
+	// This option is mostly useful for testing: since tokens are short-lived,
+	// in production you almost always want to use an authentication method that enables the client library
+	// to renew the token automatically when the previous one expires, such as AuthURL or AuthCallback.
+	// Read more about [Token authentication] (RSA4a, RSA4, TO3j2).
+	//
+	// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 	Token string
 
-	// **LEGACY**
-	// TokenDetails is an authentication token issued for this application against
-	// a specific key and TokenParams.
-	// **CANONICAL**
-	// An authenticated [TokenDetails]{@link TokenDetails} object (most commonly obtained from an Ably Token Request response). This option is mostly useful for testing: since tokens are short-lived, in production you almost always want to use an authentication method that enables the client library to renew the token automatically when the previous one expires, such as authUrl or authCallback. Use this option if you wish to use Token authentication. Read more about Token authentication.
-	// RSA4a, RSA4, TO3j3
+	// TokenDetails is an authentication token with type [ably.TokenDetails].
+	// Only TokenDetails.Token can be set via token string (obtained from the token property of a [ably.TokenDetails]
+	// component of an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+	// This option is mostly useful for testing: since tokens are short-lived,
+	// in production you almost always want to use an authentication method that enables the client library
+	// to renew the token automatically when the previous one expires, such as AuthURL or AuthCallback.
+	// Read more about [Token authentication] (RSA4a, RSA4, TO3j3).
+	//
+	// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 	TokenDetails *TokenDetails
 
-	// **LEGACY**
-	// AuthMethod specifies which method, GET or POST, is used to query AuthURL
-	// for the token information (*ably.TokenRequest or *ablyTokenDetails).
-	//
-	// If empty, GET is used by default.
-	// **CANONICAL**
-	// The HTTP verb to use for any request made to the authUrl, either GET or POST. The default value is GET.
-	// RSA8c, TO3j7, AO2d
+	// AuthMethod specifies HTTP verb to use for any request made to the AuthURL, either GET or POST for
+	// getting token information [ably.TokenRequest] or [ably.TokenDetails].
+	// The default value is GET (RSA8c, TO3j7, AO2d)
 	AuthMethod string
 
-	// **LEGACY**
-	// AuthHeaders are HTTP request headers to be included in any request made
-	// to the AuthURL.
-	// **CANONICAL**
-	// A set of key-value pair headers to be added to any request made to the authUrl. Useful when an application requires these to be added to validate the request or implement the response. If the authHeaders object contains an authorization key, then withCredentials is set on the XHR request.
-	// RSA8c3, TO3j8, AO2e
+	// AuthHeaders are key-value pair HTTP request headers to be added to any request made to the AuthURL.
+	// Useful when an application requires these to be added to validate the request or implement the response.
+	// If the authHeaders object contains an authorization key, then withCredentials is set on the XHR request.
+	// (RSA8c3, TO3j8, AO2e).
 	AuthHeaders http.Header
 
-	// **LEGACY**
-	// AuthParams are HTTP query parameters to be included in any request made
-	// to the AuthURL.
-	// **CANONICAL**
-	// A set of key-value pair params to be added to any request made to the authUrl. When the authMethod is GET, query params are added to the URL, whereas when authMethod is POST, the params are sent as URL encoded form data. Useful when an application requires these to be added to validate the request or implement the response.
-	// RSA8c3, RSA8c1, TO3j9, AO2f
+	// AuthParams are key-value pair HTTP query params to be added to any request made to the AuthURL.
+	// When the authMethod is GET, query params are added to the URL, whereas when authMethod is POST,
+	// the params are sent as URL encoded form data. Useful when an application requires these to be added to
+	// validate the request or implement the response (RSA8c3, RSA8c1, TO3j9, AO2f).
 	AuthParams url.Values
 
-	// **LEGACY**
-	// UseQueryTime when set to true, the time queried from Ably servers will
-	// be used to sign the TokenRequest instead of using local time.
-	// **CANONICAL**
-	// If true, the library queries the Ably servers for the current time when issuing [TokenRequests]{@link TokenRequest} instead of relying on a locally-available time of day. Knowing the time accurately is needed to create valid signed Ably [TokenRequests]{@link TokenRequest}, so this option is useful for library instances on auth servers where for some reason the server clock cannot be kept synchronized through normal means, such as an NTP daemon. The server is queried for the current time once per client library instance (which stores the offset from the local clock), so if using this option you should avoid instancing a new version of the library for each request. The default is false.
-	// RSA9d, TO3j10, AO2a
+	// UseQueryTime when set to true, the library queries the Ably servers for the current time when
+	// issuing multiple [ably.TokenRequest] instead of relying on a locally-available time of day.
+	// Knowing the time accurately is needed to create valid signed Ably [ably.TokenRequest],
+	// so this option is useful for library instances on auth servers where for some reason
+	// the server clock cannot be kept synchronized through normal means,
+	// such as an NTP daemon. The server is queried for the current time once per client library instance
+	// (which stores the offset from the local clock), so if using this option you should avoid instancing
+	// a new version of the library for each request.
+	// The default is false (RSA9d, TO3j10, AO2a).
 	UseQueryTime bool
 
-	// **LEGACY**
-	// Spec: TO3j11
-	// **CANONICAL**
-	// When a [TokenParams]{@link TokenParams} object is provided, it overrides the client library defaults when issuing new Ably Tokens or Ably [TokenRequests]{@link TokenRequest}.
-	// TO3j11
+	// DefaultTokenParams when provided, it overrides the client library defaults when issuing new Ably Tokens
+	// for multiple Ably [ably.TokenRequest] (TO3j11).
 	DefaultTokenParams *TokenParams
 
-	// **LEGACY**
-	// UseTokenAuth makes the REST and Realtime clients always use token
-	// authentication method.
-	// **CANONICAL**
-	// When true, forces token authentication to be used by the library. If a clientId is not specified in the [ClientOptions]{@link ClientOptions} or [TokenParams]{@link TokenParams}, then the Ably Token issued is anonymous.
-	// RSA4, RSA14, TO3j4
+	// UseTokenAuth when set to true, forces token authentication to be used by the library.
+	// If a clientId is not specified in the [ably.ClientOption] or [ably.TokenParams],
+	// then the Ably Token issued is anonymous (RSA4, RSA14, TO3j4).
 	UseTokenAuth bool
 }
 
@@ -693,7 +688,7 @@ type TokenString string
 func (TokenString) IsTokener() {}
 func (TokenString) isTokener() {}
 
-// AuthWithCallback is used for setting authCallback function using [ably.AuthOption].
+// AuthWithCallback is used for setting AuthCallback function using [ably.AuthOption].
 //
 // AuthCallback function is called when a new token is required.
 // The role of the callback is to obtain a fresh token, one of
@@ -713,6 +708,11 @@ func AuthWithCallback(authCallback func(context.Context, TokenParams) (Tokener, 
 	}
 }
 
+// AuthWithParams is used for setting AuthParams using [ably.AuthOption].
+// AuthParams are key-value pair HTTP query params to be added to any request made to the AuthURL.
+// When the authMethod is GET, query params are added to the URL, whereas when authMethod is POST,
+// the params are sent as URL encoded form data. Useful when an application requires these to be added to
+// validate the request or implement the response (RSA8c3, RSA8c1, TO3j9, AO2f).
 func AuthWithParams(params url.Values) AuthOption {
 	return func(os *authOptions) {
 		os.AuthParams = params
@@ -759,12 +759,21 @@ func AuthWithURL(url string) AuthOption {
 	}
 }
 
+// AuthWithMethod is used for setting AuthMethod using [ably.AuthOption]
+// AuthMethod specifies HTTP verb to use for any request made to the AuthURL, either GET or POST for
+// getting token information [ably.TokenRequest] or [ably.TokenDetails].
+// The default value is GET (RSA8c, TO3j7, AO2d).
 func AuthWithMethod(method string) AuthOption {
 	return func(os *authOptions) {
 		os.AuthMethod = method
 	}
 }
 
+// AuthWithHeaders is used for setting AuthHeaders using [ably.AuthOption].
+// AuthHeaders are key-value pair HTTP request headers to be added to any request made to the AuthURL.
+// Useful when an application requires these to be added to validate the request or implement the response.
+// If the authHeaders object contains an authorization key, then withCredentials is set on the XHR request.
+// (RSA8c3, TO3j8, AO2e).
 func AuthWithHeaders(headers http.Header) AuthOption {
 	return func(os *authOptions) {
 		os.AuthHeaders = headers
@@ -784,24 +793,57 @@ func AuthWithKey(key string) AuthOption {
 	}
 }
 
+// AuthWithQueryTime is used for setting UseQueryTime token using [ably.AuthOption].
+// UseQueryTime when set to true, the library queries the Ably servers for the current time when
+// issuing multiple [ably.TokenRequest] instead of relying on a locally-available time of day.
+// Knowing the time accurately is needed to create valid signed Ably [ably.TokenRequest],
+// so this option is useful for library instances on auth servers where for some reason
+// the server clock cannot be kept synchronized through normal means,
+// such as an NTP daemon. The server is queried for the current time once per client library instance
+// (which stores the offset from the local clock), so if using this option you should avoid instancing
+// a new version of the library for each request.
+// The default is false (RSA9d, TO3j10, AO2a).
 func AuthWithQueryTime(queryTime bool) AuthOption {
 	return func(os *authOptions) {
 		os.UseQueryTime = queryTime
 	}
 }
 
+// AuthWithToken is used for setting authenticated token using [ably.AuthOption].
+// This can either be a token string (obtained from the token property of a [ably.TokenDetails] component of
+// an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+//
+// This option is mostly useful for testing: since tokens are short-lived,
+// in production you almost always want to use an authentication method that enables the client library
+// to renew the token automatically when the previous one expires, such as AuthURL or authCallback.
+// Read more about [Token authentication] (RSA4a, RSA4, TO3j2).
+//
+// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 func AuthWithToken(token string) AuthOption {
 	return func(os *authOptions) {
 		os.Token = token
 	}
 }
 
+// AuthWithTokenDetails is used for setting authenticated [ably.TokenDetails] object using [ably.AuthOption].
+// Only TokenDetails.Token can be set via token string (obtained from the token property of a [ably.TokenDetails]
+// component of an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+// This option is mostly useful for testing: since tokens are short-lived,
+// in production you almost always want to use an authentication method that enables the client library
+// to renew the token automatically when the previous one expires, such as AuthURL or authCallback.
+// Read more about [Token authentication] (RSA4a, RSA4, TO3j3).
+//
+// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 func AuthWithTokenDetails(details *TokenDetails) AuthOption {
 	return func(os *authOptions) {
 		os.TokenDetails = details
 	}
 }
 
+// AuthWithUseTokenAuth is used for setting UseTokenAuth using [ably.AuthOption].
+// UseTokenAuth when set to true, forces token authentication to be used by the library.
+// If a clientId is not specified in the [ably.ClientOption] or [ably.TokenParams],
+// then the Ably Token issued is anonymous (RSA4, RSA14, TO3j4).
 func AuthWithUseTokenAuth(use bool) AuthOption {
 	return func(os *authOptions) {
 		os.UseTokenAuth = use
@@ -827,6 +869,11 @@ func WithAuthCallback(authCallback func(context.Context, TokenParams) (Tokener, 
 	}
 }
 
+// WithAuthParams is used for setting AuthParams using [ably.ClientOption].
+// AuthParams are key-value pair HTTP query params to be added to any request made to the AuthURL.
+// When the authMethod is GET, query params are added to the URL, whereas when authMethod is POST,
+// the params are sent as URL encoded form data. Useful when an application requires these to be added to
+// validate the request or implement the response (RSA8c3, RSA8c1, TO3j9, AO2f).
 func WithAuthParams(params url.Values) ClientOption {
 	return func(os *clientOptions) {
 		os.AuthParams = params
@@ -873,12 +920,21 @@ func WithAuthURL(url string) ClientOption {
 	}
 }
 
+// WithAuthMethod is used for setting AuthMethod using [ably.ClientOption].
+// AuthMethod specifies HTTP verb to use for any request made to the AuthURL, either GET or POST for
+// getting token information [ably.TokenRequest] or [ably.TokenDetails].
+// The default value is GET (RSA8c, TO3j7, AO2d)
 func WithAuthMethod(method string) ClientOption {
 	return func(os *clientOptions) {
 		os.AuthMethod = method
 	}
 }
 
+// WithAuthHeaders is used for setting AuthHeaders using [ably.ClientOption].
+// AuthHeaders are key-value pair HTTP request headers to be added to any request made to the AuthURL.
+// Useful when an application requires these to be added to validate the request or implement the response.
+// If the authHeaders object contains an authorization key, then withCredentials is set on the XHR request.
+// (RSA8c3, TO3j8, AO2e).
 func WithAuthHeaders(headers http.Header) ClientOption {
 	return func(os *clientOptions) {
 		os.AuthHeaders = headers
@@ -899,30 +955,66 @@ func WithKey(key string) ClientOption {
 	}
 }
 
+// WithDefaultTokenParams is used for setting DefaultTokenParams token using [ably.ClientOption].
+// DefaultTokenParams when provided, it overrides the client library defaults when issuing new Ably Tokens
+// for multiple Ably [ably.TokenRequest] (TO3j11).
 func WithDefaultTokenParams(params TokenParams) ClientOption {
 	return func(os *clientOptions) {
 		os.DefaultTokenParams = &params
 	}
 }
 
+// WithQueryTime is used for setting UseQueryTime token using [ably.ClientOption].
+// UseQueryTime when set to true, the library queries the Ably servers for the current time when
+// issuing multiple [ably.TokenRequest] instead of relying on a locally-available time of day.
+// Knowing the time accurately is needed to create valid signed Ably [ably.TokenRequest],
+// so this option is useful for library instances on auth servers where for some reason
+// the server clock cannot be kept synchronized through normal means,
+// such as an NTP daemon. The server is queried for the current time once per client library instance
+// (which stores the offset from the local clock), so if using this option you should avoid instancing
+// a new version of the library for each request.
+// The default is false (RSA9d, TO3j10, AO2a).
 func WithQueryTime(queryTime bool) ClientOption {
 	return func(os *clientOptions) {
 		os.UseQueryTime = queryTime
 	}
 }
 
+// WithToken is used for setting authenticated token using [ably.ClientOption].
+// This can either be a token string (obtained from the token property of a [ably.TokenDetails] component of
+// an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+//
+// This option is mostly useful for testing: since tokens are short-lived,
+// in production you almost always want to use an authentication method that enables the client library
+// to renew the token automatically when the previous one expires, such as AuthURL or authCallback.
+// Read more about [Token authentication] (RSA4a, RSA4, TO3j2).
+//
+// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 func WithToken(token string) ClientOption {
 	return func(os *clientOptions) {
 		os.Token = token
 	}
 }
 
+// WithTokenDetails is used for setting authenticated [ably.TokenDetails] object using [ably.ClientOption].
+// Only TokenDetails.Token can be set via token string (obtained from the token property of a [ably.TokenDetails]
+// component of an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+// This option is mostly useful for testing: since tokens are short-lived,
+// in production you almost always want to use an authentication method that enables the client library
+// to renew the token automatically when the previous one expires, such as AuthURL or authCallback.
+// Read more about [Token authentication] (RSA4a, RSA4, TO3j3).
+//
+// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 func WithTokenDetails(details *TokenDetails) ClientOption {
 	return func(os *clientOptions) {
 		os.TokenDetails = details
 	}
 }
 
+// WithUseTokenAuth is used for setting UseTokenAuth using [ably.ClientOption].
+// UseTokenAuth when set to true, forces token authentication to be used by the library.
+// If a clientId is not specified in the [ably.ClientOption] or [ably.TokenParams],
+// then the Ably Token issued is anonymous (RSA4, RSA14, TO3j4).
 func WithUseTokenAuth(use bool) ClientOption {
 	return func(os *clientOptions) {
 		os.UseTokenAuth = use
@@ -941,6 +1033,9 @@ func WithClientID(clientID string) ClientOption {
 	}
 }
 
+// AuthWithDefaultTokenParams is used for setting DefaultTokenParams token using [ably.AuthOption].
+// DefaultTokenParams when provided, it overrides the client library defaults when issuing new Ably Tokens
+// for multiple Ably [ably.TokenRequest] (TO3j11).
 func AuthWithDefaultTokenParams(params TokenParams) AuthOption {
 	return func(os *authOptions) {
 		os.DefaultTokenParams = &params
