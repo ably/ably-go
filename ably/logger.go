@@ -57,8 +57,7 @@ func (s *stdLogger) Printf(level LogLevel, format string, v ...interface{}) {
 	s.Logger.Printf(fmt.Sprintf("[%s] %s", level, format), v...)
 }
 
-// logger is the internal logger type, with helper methods that wrap the raw
-// Logger interface.
+// logger is the internal logger type, with helper methods that wrap the raw Logger interface.
 type logger struct {
 	l Logger
 }
