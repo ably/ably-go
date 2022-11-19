@@ -29,7 +29,7 @@ const (
 	TLSPort      = 443
 )
 
-var defaultOptions = clientOptions{
+var defaultOptions = clientOptions {
 	RESTHost:                 restHost,
 	FallbackHosts:            defaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
@@ -76,22 +76,32 @@ const (
 	authToken
 )
 
-// **CANONICAL**
-// Passes authentication-specific properties in authentication requests to Ably. Properties set using AuthOptions are used instead of the default values set when the client library is instantiated, as opposed to being merged with them.
+// authOptions passes authentication-specific properties in authentication requests to Ably.
+// Properties set using [ably.authOptions] are used instead of the default values set when the client
+// library is instantiated, as opposed to being merged with them.
 type authOptions struct {
 
-	// **LEGACY**
-	// AuthCallback is called in order to obtain a signed token request.
+	// AuthCallback function is called when a new token is required.
+	// The role of the callback is to obtain a fresh token, one of
 	//
-	// This enables a client to obtain token requests from another entity,
-	// so tokens can be renewed without the client requiring access to keys.
-	// **CANONICAL**
-	// Called when a new token is required. The role of the callback is to obtain a fresh token, one of: an Ably Token string (in plain text format); a signed [TokenRequest]{@link TokenRequest}; a [TokenDetails]{@link TokenDetails} (in JSON format); an Ably JWT. See the authentication documentation for details of the Ably [TokenRequest]{@link TokenRequest} format and associated API calls.
-	// RSA4a, RSA4, TO3j5, AO2b
+	//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+	//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+	//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+	//	4. [An Ably JWT].
+	//
+	// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, TO3j5, AO2b).
+	//
+	// [authentication doc]: https://ably.com/docs/core-features/authentication
+	// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 	AuthCallback func(context.Context, TokenParams) (Tokener, error)
 
-	// **LEGACY**
-	// URL which is queried to obtain a signed token request.
+	// AuthURL is a url that library will use to obtain
+	//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+	//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+	//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+	//	4. [An Ably JWT].
+	//
+	// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, RSA8c, TO3j6, AO2c).
 	//
 	// This enables a client to obtain token requests from another entity,
 	// so tokens can be renewed without the client requiring access to keys.
@@ -116,9 +126,8 @@ type authOptions struct {
 	//   - Content-Type is set to "application/x-www-form-urlencoded" and
 	//     the payload is encoded from *TokenParams and AuthParams
 	//
-	// **CANONICAL**
-	// A URL that the library may use to obtain a token string (in plain text format), or a signed [TokenRequest]{@link TokenRequest} or [TokenDetails]{@link TokenDetails} (in JSON format) from.
-	// RSA4a, RSA4, RSA8c, TO3j6, AO2c
+	// [authentication doc]: https://ably.com/docs/core-features/authentication
+	// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 	AuthURL string
 
 	// **LEGACY**
@@ -226,8 +235,8 @@ func (opts *authOptions) KeySecret() string {
 	return ""
 }
 
-// **CANONICAL**
-// Passes additional client-specific properties to the REST [constructor()]{@link RestClient#constructor} or the Realtime [constructor()]{@link RealtimeClient#constructor}.
+// clientOptions passes additional client-specific properties to the [ably.NewREST] or to the [ably.NewRealtime].
+// Properties set using [ably.clientOptions] are used instead of the [ably.defaultOptions] values.
 type clientOptions struct {
 	// **CANONICAL**
 	// Embeds an [AuthOptions]{@link AuthOptions} object.
@@ -683,6 +692,20 @@ type TokenString string
 func (TokenString) IsTokener() {}
 func (TokenString) isTokener() {}
 
+// AuthWithCallback is used for setting authCallback function using [ably.AuthOption].
+//
+// AuthCallback function is called when a new token is required.
+// The role of the callback is to obtain a fresh token, one of
+//
+//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//	4. [An Ably JWT].
+//
+// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, TO3j5, AO2b).
+//
+// [authentication doc]: https://ably.com/docs/core-features/authentication
+// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 func AuthWithCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOption {
 	return func(os *authOptions) {
 		os.AuthCallback = authCallback
@@ -695,6 +718,40 @@ func AuthWithParams(params url.Values) AuthOption {
 	}
 }
 
+// AuthWithURL is used for setting AuthURL using [ably.AuthOption].
+// AuthURL is a url that library will use to obtain
+//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//	4. [An Ably JWT].
+//
+// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, RSA8c, TO3j6, AO2c).
+//
+// This enables a client to obtain token requests from another entity,
+// so tokens can be renewed without the client requiring access to keys.
+//
+// If AuthURL is non-empty and AuthCallback is nil, the Ably library
+// builds a req (*http.Request) which then is issued against the given AuthURL
+// in order to obtain authentication token. The response is expected to
+// carry a single token string in the payload when Content-Type header
+// is "text/plain" or JSON-encoded *ably.TokenDetails when the header
+// is "application/json".
+//
+// The req is built with the following values:
+//
+// GET requests:
+//
+//   - req.URL.RawQuery is encoded from *TokenParams and AuthParams
+//   - req.Header is set to AuthHeaders
+//
+// POST requests:
+//
+//   - req.Header is set to AuthHeaders
+//   - Content-Type is set to "application/x-www-form-urlencoded" and
+//     the payload is encoded from *TokenParams and AuthParams
+//
+// [authentication doc]: https://ably.com/docs/core-features/authentication
+// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 func AuthWithURL(url string) AuthOption {
 	return func(os *authOptions) {
 		os.AuthURL = url
@@ -743,6 +800,19 @@ func AuthWithUseTokenAuth(use bool) AuthOption {
 	}
 }
 
+// WithAuthCallback is used for setting authCallback function using [ably.ClientOption].
+// AuthCallback function is called when a new token is required.
+// The role of the callback is to obtain a fresh token, one of
+//
+//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//	4. [An Ably JWT].
+//
+// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, TO3j5, AO2b).
+//
+// [authentication doc]: https://ably.com/docs/core-features/authentication
+// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 func WithAuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOption {
 	return func(os *clientOptions) {
 		os.AuthCallback = authCallback
@@ -755,6 +825,40 @@ func WithAuthParams(params url.Values) ClientOption {
 	}
 }
 
+// WithAuthURL is used for setting AuthURL using [ably.ClientOption].
+// AuthURL is a url that library will use to obtain
+//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//	4. [An Ably JWT].
+//
+// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, RSA8c, TO3j6, AO2c).
+//
+// This enables a client to obtain token requests from another entity,
+// so tokens can be renewed without the client requiring access to keys.
+//
+// If AuthURL is non-empty and AuthCallback is nil, the Ably library
+// builds a req (*http.Request) which then is issued against the given AuthURL
+// in order to obtain authentication token. The response is expected to
+// carry a single token string in the payload when Content-Type header
+// is "text/plain" or JSON-encoded *ably.TokenDetails when the header
+// is "application/json".
+//
+// The req is built with the following values:
+//
+// GET requests:
+//
+//   - req.URL.RawQuery is encoded from *TokenParams and AuthParams
+//   - req.Header is set to AuthHeaders
+//
+// POST requests:
+//
+//   - req.Header is set to AuthHeaders
+//   - Content-Type is set to "application/x-www-form-urlencoded" and
+//     the payload is encoded from *TokenParams and AuthParams
+//
+// [authentication doc]: https://ably.com/docs/core-features/authentication
+// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 func WithAuthURL(url string) ClientOption {
 	return func(os *clientOptions) {
 		os.AuthURL = url
