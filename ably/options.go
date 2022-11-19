@@ -130,11 +130,12 @@ type authOptions struct {
 	// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 	AuthURL string
 
-	// **LEGACY**
-	// Key obtained from the dashboard.
-	// **CANONICAL**
-	// The full API key string, as obtained from the Ably dashboard. Use this option if you wish to use Basic authentication, or wish to be able to issue Ably Tokens without needing to defer to a separate entity to sign Ably [TokenRequests]{@link TokenRequest}. Read more about Basic authentication.
-	// RSA11, RSA14, TO3j1, AO2a
+	// Key is a full API key string, as obtained from the Ably dashboard.
+	// Use this option if you wish to use Basic authentication, or wish to be able to issue Ably Tokens
+	// without needing to defer to a separate entity to sign multiple [ably.TokenRequest].
+	// Read more about [Basic authentication] (RSA11, RSA14, TO3j1, AO2a).
+	//
+	// [Basic authentication]: https://ably.com/docs/core-features/authentication#basic-authentication
 	Key string
 
 	// **LEGACY**
@@ -770,6 +771,13 @@ func AuthWithHeaders(headers http.Header) AuthOption {
 	}
 }
 
+// AuthWithKey is used for setting root/non-root apikey using [ably.AuthOption].
+// Key is a full API key string, as obtained from the Ably dashboard.
+// Use this option if you wish to use Basic authentication, or wish to be able to issue Ably Tokens
+// without needing to defer to a separate entity to sign multiple [ably.TokenRequest].
+// Read more about [Basic authentication] (RSA11, RSA14, TO3j1, AO2a).
+//
+// [Basic authentication]: https://ably.com/docs/core-features/authentication#basic-authentication
 func AuthWithKey(key string) AuthOption {
 	return func(os *authOptions) {
 		os.Key = key
@@ -877,9 +885,14 @@ func WithAuthHeaders(headers http.Header) ClientOption {
 	}
 }
 
-// **CANONICAL**
-// The Ably API key or token string used to validate the client.
-// RSC1.
+
+// WithKey is used for setting root/non-root apikey using [ably.ClientOption].
+// Key is a full API key string, as obtained from the Ably dashboard.
+// Use this option if you wish to use Basic authentication, or wish to be able to issue Ably Tokens
+// without needing to defer to a separate entity to sign multiple [ably.TokenRequest].
+// Read more about [Basic authentication] (RSC1, RSA11, RSA14, TO3j1, AO2a).
+//
+// [Basic authentication]: https://ably.com/docs/core-features/authentication#basic-authentication
 func WithKey(key string) ClientOption {
 	return func(os *clientOptions) {
 		os.Key = key
