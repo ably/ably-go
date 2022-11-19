@@ -259,11 +259,11 @@ type clientOptions struct {
 	// Optional: prefixes both hostname with the environment string (RSC15b, TO3k1).
 	Environment     string
 
-	// Port to use for non-TLS connections and requests
+	// Port is used for non-TLS connections and requests
 	Port            int
 
 	// TLSPort enables a non-default Ably port to be specified.
-	// Port to use for TLS connections and requests. For development environments only.
+	// This is used for TLS connections and requests and restricted to development environments only.
 	// The default value is 80 (TO3k4)>
 	TLSPort         int
 
@@ -307,13 +307,12 @@ type clientOptions struct {
 
 	// NoConnect when set to false, the client connects to Ably as soon as it is instantiated.
 	// You can set this to true and explicitly connect to Ably using the [ably.Connection]#connect()
-	// The default is false.
-	// RTC1b, TO3e
+	// The default is false (RTC1b, TO3e).
 	NoConnect        bool
 
 	// NoEcho if set to true, prevents messages originating from this connection being echoed back
-	// on the same connection. The default is false.
-	// RTC1a, TO3h
+	// on the same connection.
+	// The default is false (RTC1a, TO3h).
 	NoEcho           bool
 
 	// NoQueueing if set to true, this disables the default behavior whereby the library queues messages on a
@@ -823,6 +822,15 @@ func AuthWithUseTokenAuth(use bool) AuthOption {
 	}
 }
 
+// AuthWithDefaultTokenParams is used for setting DefaultTokenParams token using [ably.AuthOption].
+// DefaultTokenParams when provided, it overrides the client library defaults when issuing new Ably Tokens
+// for multiple Ably [ably.TokenRequest] (TO3j11).
+func AuthWithDefaultTokenParams(params TokenParams) AuthOption {
+	return func(os *authOptions) {
+		os.DefaultTokenParams = &params
+	}
+}
+
 // WithAuthCallback is used for setting authCallback function using [ably.ClientOption].
 // AuthCallback function is called when a new token is required.
 // The role of the callback is to obtain a fresh token, one of
@@ -994,171 +1002,281 @@ func WithUseTokenAuth(use bool) ClientOption {
 	}
 }
 
+// WithAutoConnect is used for setting NoConnect using [ably.ClientOption].
+// NoConnect when set to false, the client connects to Ably as soon as it is instantiated.
+// You can set this to true and explicitly connect to Ably using the [ably.Connection]#connect()
+// The default is false (RTC1b, TO3e).
 func WithAutoConnect(autoConnect bool) ClientOption {
 	return func(os *clientOptions) {
 		os.NoConnect = !autoConnect
 	}
 }
 
+// WithClientID is used for setting ClientID using [ably.ClientOption].
+// ClientID is used for identifying this client when publishing messages or for presence purposes.
+// The clientId can be any non-empty string, except it cannot contain a *.
+// This option is primarily intended to be used in situations where the library is instantiated with a key.
+// Note that a clientId may also be implicit in a token used to instantiate the library.
+// An error will be raised if a clientId specified here conflicts with the clientId implicit in the token.
+// (RSC17, RSA4, RSA15, TO3a).
 func WithClientID(clientID string) ClientOption {
 	return func(os *clientOptions) {
 		os.ClientID = clientID
 	}
 }
 
-// AuthWithDefaultTokenParams is used for setting DefaultTokenParams token using [ably.AuthOption].
-// DefaultTokenParams when provided, it overrides the client library defaults when issuing new Ably Tokens
-// for multiple Ably [ably.TokenRequest] (TO3j11).
-func AuthWithDefaultTokenParams(params TokenParams) AuthOption {
-	return func(os *authOptions) {
-		os.DefaultTokenParams = &params
+// WithFallbackRetryTimeout is used for setting FallbackRetryTimeout using [ably.ClientOption].
+// FallbackRetryTimeout is the max time in milliseconds before HTTP requests are retried against the default endpoint.
+// The default is 600 seconds (TO3l10).
+func WithFallbackRetryTimeout(fallbackRetryTimeout time.Duration) ClientOption {
+	return func(os *clientOptions) {
+		os.FallbackRetryTimeout = fallbackRetryTimeout
 	}
 }
 
+// WithEchoMessages is used for setting NoEcho using [ably.ClientOption].
+// NoEcho if set to true, prevents messages originating from this connection being echoed back
+// on the same connection.
+// The default is false (RTC1a, TO3h).
 func WithEchoMessages(echo bool) ClientOption {
 	return func(os *clientOptions) {
 		os.NoEcho = !echo
 	}
 }
 
+// WithEnvironment is used for setting Environment using [ably.ClientOption].
+// Environment enables a custom environment to be used with the Ably service.
+// Optional: prefixes both hostname with the environment string (RSC15b, TO3k1).
 func WithEnvironment(env string) ClientOption {
 	return func(os *clientOptions) {
 		os.Environment = env
 	}
 }
 
+// WithLogHandler is used for setting LogHandler using [ably.ClientOption].
+// LogHandler controls the log output of the library. This is a function to handle each line of log output.
+// platform specific (TO3c)
 func WithLogHandler(handler Logger) ClientOption {
 	return func(os *clientOptions) {
 		os.LogHandler = handler
 	}
 }
 
+// WithLogLevel is used for setting LogLevel using [ably.ClientOption].
+// LogLevel controls the verbosity of the logs output from the library.
+// Levels include verbose, debug, info, warn and error.
+// platform specific (TO3b)
 func WithLogLevel(level LogLevel) ClientOption {
 	return func(os *clientOptions) {
 		os.LogLevel = level
 	}
 }
 
+// WithPort is used for setting custom Port using [ably.ClientOption].
+// Port is used for non-TLS connections and requests
 func WithPort(port int) ClientOption {
 	return func(os *clientOptions) {
 		os.Port = port
 	}
 }
 
+// WithQueueMessages is used for setting NoQueueing using [ably.ClientOption].
+// NoQueueing if set to true, this disables the default behavior whereby the library queues messages on a
+// connection in the disconnected or connecting states. The default behavior enables applications to
+// submit messages immediately upon instantiating the library without having to wait for the connection
+// to be established. Applications may use this option to disable queueing if they wish to have
+// application-level control over the queueing.
+// The default is false (RTP16b, TO3g).
 func WithQueueMessages(queue bool) ClientOption {
 	return func(os *clientOptions) {
 		os.NoQueueing = !queue
 	}
 }
 
+// WithRESTHost is used for setting RESTHost using [ably.ClientOption].
+// RESTHost enables a non-default Ably host to be specified. For development environments only.
+// The default value is rest.ably.io (RSC12, TO3k2).
 func WithRESTHost(host string) ClientOption {
 	return func(os *clientOptions) {
 		os.RESTHost = host
 	}
 }
-
+// WithHTTPRequestTimeout is used for setting HTTPRequestTimeout using [ably.ClientOption].
+// HTTPRequestTimeout is a timeout for a client performing a complete HTTP request to Ably, including the connection phase.
+// Will only be used if no custom HTTPClient is set.
+// The default is 10 seconds (TO3l4).
 func WithHTTPRequestTimeout(timeout time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.HTTPRequestTimeout = timeout
 	}
 }
-
+// WithRealtimeHost is used for setting RealtimeHost using [ably.ClientOption].
+// RealtimeHost enables a non-default Ably host to be specified for realtime connections.
+// For development environments only. The default value is realtime.ably.io (RTC1d, TO3k3).
 func WithRealtimeHost(host string) ClientOption {
 	return func(os *clientOptions) {
 		os.RealtimeHost = host
 	}
 }
 
+// WithFallbackHosts is used for setting FallbackHosts using [ably.ClientOption].
+// FallbackHosts is an array of fallback hosts to be used in the case of an error necessitating
+// the use of an alternative host. If you have been provided a set of custom fallback hosts by Ably,
+// please specify them here (RSC15b, RSC15a, TO3k6).
 func WithFallbackHosts(hosts []string) ClientOption {
 	return func(os *clientOptions) {
 		os.FallbackHosts = hosts
 	}
 }
 
+// WithRecover is used for setting Recover using [ably.ClientOption].
+// Recover enables a connection to inherit the state of a previous connection that may have existed
+// under a different instance of the Realtime library. This might typically be used by clients of the browser
+// library to ensure connection state can be preserved when the user refreshes the page.
+// A recovery key string can be explicitly provided, or alternatively if a callback function is provided,
+// the client library will automatically persist the recovery key between page reloads and call the callback
+// when the connection is recoverable. The callback is then responsible for confirming whether the connection
+// should be recovered or not. See connection state recovery for further information (RTC1c, TO3i).
 func WithRecover(key string) ClientOption {
 	return func(os *clientOptions) {
 		os.Recover = key
 	}
 }
 
+// WithTLS is used for setting NoTLS using [ably.ClientOption].
+// NoTLS when set to true, the client will use an insecure connection.
+// The default is false, meaning a TLS connection will be used to connect to Ably (RSC18, TO3d).
 func WithTLS(tls bool) ClientOption {
 	return func(os *clientOptions) {
 		os.NoTLS = !tls
 	}
 }
 
+// WithTLSPort is used for setting TLSPort using [ably.ClientOption].
+// TLSPort enables a non-default Ably port to be specified.
+// This is used for TLS connections and requests and restricted to development environments only.
+// The default value is 80 (TO3k4)>
 func WithTLSPort(port int) ClientOption {
 	return func(os *clientOptions) {
 		os.TLSPort = port
 	}
 }
 
+// WithUseBinaryProtocol is used for setting NoBinaryProtocol using [ably.ClientOption].
+// NoBinaryProtocol when set to true, JSON text encoding is used.
+// When false, the more efficient MsgPack binary encoding is used.
+// The default is true (TO3f).
 func WithUseBinaryProtocol(use bool) ClientOption {
 	return func(os *clientOptions) {
 		os.NoBinaryProtocol = !use
 	}
 }
 
+// WithTransportParams is used for setting TransportParams using [ably.ClientOption].
+// TransportParams is a set of key-value pairs that can be used to pass in arbitrary connection parameters,
+// such as heartbeatInterval or remainPresentFor (RTC1f).
 func WithTransportParams(params url.Values) ClientOption {
 	return func(os *clientOptions) {
 		os.TransportParams = params
 	}
 }
 
+// WithDisconnectedRetryTimeout is used for setting DisconnectedRetryTimeout using [ably.ClientOption].
+// DisconnectedRetryTimeout when the connection enters the [ably.ConnectionStateDisconnected] state, after this
+// timeout, if the state is still [ably.ConnectionStateDisconnected], the client library will attempt
+// to reconnect automatically.
+// The default is 15 seconds (TO3l1).
 func WithDisconnectedRetryTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.DisconnectedRetryTimeout = d
 	}
 }
 
+// WithHTTPOpenTimeout is used for setting HTTPOpenTimeout using [ably.ClientOption].
+// HTTPOpenTimeout is timeout for opening a connection to Ably to initiate an HTTP request.
+// The default is 4 seconds (TO3l3).
 func WithHTTPOpenTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.HTTPOpenTimeout = d
 	}
 }
 
+// WithRealtimeRequestTimeout is used for setting RealtimeRequestTimeout using [ably.ClientOption].
+// RealtimeRequestTimeout is the timeout for the wait of acknowledgement for operations performed via a
+// realtime connection, before the client library considers a request failed and triggers a failure condition.
+// Operations include establishing a connection with Ably, or sending a HEARTBEAT, CONNECT, ATTACH, DETACH or
+// CLOSE request. It is the equivalent of httpRequestTimeout but for realtime operations, rather than REST.
+// The default is 10 seconds (TO3l11).
 func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.RealtimeRequestTimeout = d
 	}
 }
 
+// WithSuspendedRetryTimeout is used for setting SuspendedRetryTimeout using [ably.ClientOption].
+// SuspendedRetryTimeout is the timeout when the connection enters the [ably.ConnectionStateSuspended] state,
+// after this timeout, if the state is still [ably.ConnectionStateSuspended], the client library attempts
+// to reconnect automatically.
+// The default is 30 seconds (RTN14d, TO3l2).
 func WithSuspendedRetryTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.SuspendedRetryTimeout = d
 	}
 }
 
+// WithChannelRetryTimeout is used for setting ChannelRetryTimeout using [ably.ClientOption].
+// ChannelRetryTimeout when a channel becomes [ably.ChannelStateSuspended} following a server initiated
+// [ably.ChannelStateDetached], after this delay, if the channel is still [ably.ChannelStateSuspended]
+// and the connection is in [ably.ConnectionStateConnected], the client library will attempt to re-attach
+// the channel automatically.
+// The default is 15 seconds (RTL13b, TO3l7).
 func WithChannelRetryTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.ChannelRetryTimeout = d
 	}
 }
 
+// WithHTTPMaxRetryCount is used for setting HTTPMaxRetryCount using [ably.ClientOption].
+// HTTPMaxRetryCount denotes the maximum number of fallback hosts to use as a fallback when an HTTP request
+// to the primary host is unreachable or indicates that it is unserviceable. The default value is 3 (TO3l5).
 func WithHTTPMaxRetryCount(count int) ClientOption {
 	return func(os *clientOptions) {
 		os.HTTPMaxRetryCount = count
 	}
 }
 
+// WithIdempotentRESTPublishing is used for setting IdempotentRESTPublishing using [ably.ClientOption].
+// IdempotentRESTPublishing when set to true, enables idempotent publishing by assigning a
+// unique message ID client-side, allowing the Ably servers to discard automatic publish retries
+// following a failure such as a network fault.
+// The default is true (RSL1k1, RTL6a1, TO3n).
 func WithIdempotentRESTPublishing(idempotent bool) ClientOption {
 	return func(os *clientOptions) {
 		os.IdempotentRESTPublishing = idempotent
 	}
 }
 
+// WithHTTPClient is used for setting HTTPClient using [ably.ClientOption].
+// HTTPClient specifies the client used for HTTP communication by REST.
+// When set to nil, a client configured with default settings is used.
 func WithHTTPClient(client *http.Client) ClientOption {
 	return func(os *clientOptions) {
 		os.HTTPClient = client
 	}
 }
 
+// Deprecated: This function is deprecated and will be removed in a future versions.
+// WithFallbackHostsUseDefault is used for setting FallbackHostsUseDefault using [ably.ClientOption].
+// Deprecated: this property is deprecated and will be removed in a future version.
+// Enables default fallback hosts to be used (TO3k7).
 func WithFallbackHostsUseDefault(fallbackHostsUseDefault bool) ClientOption {
 	return func(os *clientOptions) {
 		os.FallbackHostsUseDefault = fallbackHostsUseDefault
 	}
 }
-
+// WithDial is used for setting Dial using [ably.ClientOption].
+// Dial specifies the dial function for creating message connections used by Realtime.
+// If Dial is nil, the default websocket connection is used.
 func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (conn, error)) ClientOption {
 	return func(os *clientOptions) {
 		os.Dial = dial
