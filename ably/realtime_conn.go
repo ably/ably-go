@@ -15,63 +15,55 @@ var (
 	errQueueing = errors.New("unable to send messages in current state with disabled queueing")
 )
 
-// connectionMode is the mode in which the connection is operating
+// connectionMode is the mode in which the connection is operating.
 type connectionMode uint
 
 const (
-	// normalMode this is set when the Connection operating normally
+	// normalMode is set when the Connection operating normally.
 	normalMode connectionMode = iota
-	// resumeMode this is set when the Connection is trying to resume
+	// resumeMode is set when the Connection is trying to resume.
 	resumeMode
-	// recoveryMode this is set when the Connection is trying to recover
+	// recoveryMode is set when the Connection is trying to recover.
 	recoveryMode
 )
 
-// **LEGACY**
-// Connection represents a single connection Realtime instantiates for
-// communication with Ably servers.
-// **CANONICAL**
-// Enables the management of a connection to Ably.
+// Connection represents a single connection Realtime instantiates for communication with Ably servers.
+// It also enables the management of a connection to Ably.
 type Connection struct {
 	mtx sync.Mutex
 
-	// on setConn we write to conn with mtx protection, however in eventLoop we
+	// connMtx - on setConn we write to conn with mtx protection, however in eventLoop we
 	// read conn unprotected, this is racy because now we establish connection in a
 	// separate goroutine.
 	//
 	// using mtx to protect reads in eventLoop causes a deadlock.
 	connMtx sync.Mutex
 
-	// **CANONICAL**
-	// Embeds an [EventEmitter]{@link EventEmitter} object.
-	// RTN4a, RTN4e, RTN4g
+	// ConnectionEventEmitter embeds an [ably.ConnectionEventEmitter] object (RTN4a, RTN4e, RTN4g).
 	ConnectionEventEmitter
 
-	// **CANONICAL**
-	// The current [ConnectionState]{@link ConnectionState} of the connection.
-	// RTN4d
+	// state is the current [ably.ConnectionState] of the connection (RTN4d).
 	state           ConnectionState
 
-	// **CANONICAL**
-	// An [ErrorInfo]{@link ErrorInfo} object describing the last error received if a connection failure occurs.
-	// RTN14a
+	// errorReason is an [ably.ErrorInfo] object describing the last error received if
+	// a connection failure occurs (RTN14a).
 	errorReason     *ErrorInfo
 
 	internalEmitter ConnectionEventEmitter
 
-	// **CANONICAL**
-	// A unique public identifier for this connection, used to identify this member.
-	// RTN8
+	// id is a unique public identifier for this connection, used to identify this member (RTN8).
 	id           string
 
-	// **CANONICAL**
-	// A unique private connection key used to recover or resume a connection, assigned by Ably. When recovering a connection explicitly, the recoveryKey is used in the recover client options as it contains both the key and the last message serial. This private connection key can also be used by other REST clients to publish on behalf of this client. See the publishing over REST on behalf of a realtime client docs for more info.
-	// RTN9
+	// key is a unique private connection key used to recover or resume a connection, assigned by Ably.
+	// When recovering a connection explicitly, the recoveryKey is used in the recover client options as
+	// it contains both the key and the last message serial. This private connection key can also be used by
+	// other REST clients to publish on behalf of this client. See the publishing over REST on behalf of
+	// a realtime client docs for more info (RTN9).
 	key          string
 
-	// **CANONICAL**
-	// The serial number of the last message to be received on this connection, used automatically by the library when recovering or resuming a connection. When recovering a connection explicitly, the recoveryKey is used in the recover client options as it contains both the key and the last message serial.
-	// RTN10
+	// serial is the serial number of the last message to be received on this connection, used automatically by
+	// the library when recovering or resuming a connection. When recovering a connection explicitly, the recoveryKey
+	// is used in the recover client options as it contains both the key and the last message serial (RTN10).
 	serial       *int64
 	msgSerial    int64
 	connStateTTL durationFromMsecs
@@ -151,8 +143,7 @@ func (c *Connection) dial(proto string, u *url.URL) (conn conn, err error) {
 	return conn, err
 }
 
-// recoverable returns true if err is recoverable, err is from making a
-// connection
+// recoverable returns true if err is recoverable for connection error
 func recoverable(err error) bool {
 	var e *ErrorInfo
 	if errors.As(err, &e) {
@@ -161,8 +152,7 @@ func recoverable(err error) bool {
 	return true
 }
 
-// Connect attempts to move the connection to the CONNECTED state, if it
-// can and if it isn't already.
+// Connect attempts to move the connection to the CONNECTED state, if it can and if it isn't already.
 func (c *Connection) Connect() {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
@@ -186,19 +176,16 @@ func (c *Connection) Connect() {
 	}()
 }
 
-// **LEGACY**
-// Close attempts to move the connection to the CLOSED state, if it can and if
-// it isn't already.
-// **CANONICAL**
-// Causes the connection to close, entering the [CLOSING]{@link ConnectionState#CLOSING} state. Once closed, the library does not attempt to re-establish the connection without an explicit call to [connect()]{@link Connection#connect}.
-// RTN12
+// Close causes the connection to close, entering the [ably.ConnectionStateClosing] state.
+// Once connection state is [ably.ConnectionStateClosed], the library does not attempt to re-establish
+// the connection without an explicit call to Connection.Connect (RTN12).
 func (c *Connection) Close() {
 	c.close()
 }
 
-// **CANONICAL**
-// Explicitly calling connect() is unnecessary unless the autoConnect attribute of the [ClientOptions]{@link ClientOptions} object is false. Unless already connected or connecting, this method causes the connection to open, entering the [CONNECTING]{@link ConnectionState#CONNECTING} state.
-// RTC1b, RTN3, RTN11
+// Connect calling this method is needed only if the NoConnect attribute of the clientOptions object is true.
+// If not in connecting or connected state, this method causes the connection to open, entering the
+// [ably.ConnectionStateConnecting] state (RTC1b, RTN3, RTN11).
 func (c *Connection) connect(arg connArgs) (result, error) {
 	c.mtx.Lock()
 	arg.mode = c.getMode()
@@ -489,8 +476,7 @@ func (c *Connection) Key() string {
 //	return 0, 0, errors.New("TODO")
 //}
 
-// ErrorReason gives last known error that caused connection transit to
-// ConnectionStateFailed state.
+// ErrorReason gives last known error that caused connection transition to [ably.ConnectionStateFailed] state.
 func (c *Connection) ErrorReason() *ErrorInfo {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
@@ -506,8 +492,8 @@ func (c *Connection) RecoveryKey() string {
 	return strings.Join([]string{c.key, fmt.Sprint(*c.serial), fmt.Sprint(c.msgSerial)}, ":")
 }
 
-// Serial gives serial number of a message received most recently. Last known
-// serial number is used when recovering connection state.
+// Serial gives serial number of a message received most recently.
+// Last known serial number is used when recovering connection state.
 func (c *Connection) Serial() *int64 {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
@@ -533,7 +519,7 @@ type ConnectionEventEmitter struct {
 
 // On registers an event handler for connection events of a specific kind.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for more details.
 func (em ConnectionEventEmitter) On(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
 	return em.emitter.On(e, func(change emitterData) {
 		handle(change.(ConnectionStateChange))
@@ -542,7 +528,7 @@ func (em ConnectionEventEmitter) On(e ConnectionEvent, handle func(ConnectionSta
 
 // OnAll registers an event handler for all connection events.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for more details.
 func (em ConnectionEventEmitter) OnAll(handle func(ConnectionStateChange)) (off func()) {
 	return em.emitter.OnAll(func(change emitterData) {
 		handle(change.(ConnectionStateChange))
@@ -551,7 +537,7 @@ func (em ConnectionEventEmitter) OnAll(handle func(ConnectionStateChange)) (off 
 
 // Once registers an one-off event handler for connection events of a specific kind.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for more details.
 func (em ConnectionEventEmitter) Once(e ConnectionEvent, handle func(ConnectionStateChange)) (off func()) {
 	return em.emitter.Once(e, func(change emitterData) {
 		handle(change.(ConnectionStateChange))
@@ -560,7 +546,7 @@ func (em ConnectionEventEmitter) Once(e ConnectionEvent, handle func(ConnectionS
 
 // OnceAll registers an one-off event handler for all connection events.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for more details.
 func (em ConnectionEventEmitter) OnceAll(handle func(ConnectionStateChange)) (off func()) {
 	return em.emitter.OnceAll(func(change emitterData) {
 		handle(change.(ConnectionStateChange))
@@ -569,14 +555,14 @@ func (em ConnectionEventEmitter) OnceAll(handle func(ConnectionStateChange)) (of
 
 // Off deregisters event handlers for connection events of a specific kind.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for more details.
 func (em ConnectionEventEmitter) Off(e ConnectionEvent) {
 	em.emitter.Off(e)
 }
 
 // OffAll deregisters all event handlers.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for more details.
 func (em ConnectionEventEmitter) OffAll() {
 	em.emitter.OffAll()
 }

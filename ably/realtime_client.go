@@ -41,8 +41,7 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 }
 
 // Connect calls Connection.Connect and causes the connection to open, entering the connecting state.
-// Explicitly calling Connect() is unnecessary unless the ClientOptions.NoConnect property is enabled.
-// (proxy for RTN11).
+// Explicitly calling Connect() is needed if the ClientOptions.NoConnect is set true (proxy for RTN11).
 func (c *Realtime) Connect() {
 	c.Connection.Connect()
 }
