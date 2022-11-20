@@ -55,8 +55,8 @@ func (r *raw) CodecDecodeSelf(decoder *codec.Decoder) {
 	*r = []byte(raw)
 }
 
-// RESTChannels provides an API for managing collection of RESTChannel. This is
-// safe for concurrent use.
+// RESTChannels provides an API for managing collection of RESTChannel.
+// This is safe for concurrent use.
 type RESTChannels struct {
 	chans  map[string]*RESTChannel
 	mu     sync.RWMutex
@@ -124,16 +124,12 @@ func (c *RESTChannels) Release(name string) {
 	c.mu.Unlock()
 }
 
-// **CANONICAL**
-// A client that offers a simple stateless API to interact directly with Ably's REST API.
+// REST is rest client that offers a simple stateless API to interact directly with Ably's REST API.
 type REST struct {
-	// **CANONICAL**
-	// An [Auth]{@link Auth} object.
-	// RSC5
+	// Auth is a  [ably.Auth] object (RSC5).
 	Auth                *Auth
-	// **CANONICAL**
-	// A [Channels]{@link Channels} object.
-	// RSN1
+
+	//Channels is a [ably.RESTChannels] object (RSN1).
 	Channels            *RESTChannels
 
 	opts                *clientOptions
@@ -141,12 +137,8 @@ type REST struct {
 	log                 logger
 }
 
-// **LEGACY**
-// NewREST constructs a new REST.
-// **CANONICAL**
-// Construct a RestClient object using an Ably [ClientOptions]{@link ClientOptions} object.
-// A [ClientOptions]{@link ClientOptions} object to configure the client connection to Ably.
-// RSC1.
+// NewREST construct a RestClient object using an [ably.ClientOption] object to configure
+// the client connection to Ably (RSC1).
 func NewREST(options ...ClientOption) (*REST, error) {
 	c := &REST{
 		opts: applyOptionsWithDefaults(options...),
@@ -170,17 +162,10 @@ func NewREST(options ...ClientOption) (*REST, error) {
 	return c, nil
 }
 
-// **LEGACY**
-// Time asynchronously obtains the time from the Ably service.
-//
-// This may be required on clients that do not have access
-// to a sufficiently well maintained time source, to provide
-// timestamps for use in token requests.
-// **CANONICAL**
-// Retrieves the time from the Ably service as milliseconds since the Unix epoch.
-// Clients that do not have access to a sufficiently well maintained time source and wish to issue Ably [TokenRequests]{@link TokenRequest} with a more accurate timestamp should use the [queryTime]{@link ClientOptions#queryTime} property instead of this method.
-// The time as milliseconds since the Unix epoch.
-// RSC16
+// Time retrieves the time from the Ably service as milliseconds since the Unix epoch.
+// Clients that do not have access to a sufficiently well maintained time source and wish to issue Ably
+// multiple [ably.TokenRequest] with a more accurate timestamp should use the ClientOptions.UseQueryTime
+// property instead of this method (RSC16).
 func (c *REST) Time(ctx context.Context) (time.Time, error) {
 	var times []int64
 	r := &request{
@@ -199,12 +184,10 @@ func (c *REST) Time(ctx context.Context) (time.Time, error) {
 	return time.Unix(times[0]/1000, times[0]%1000), nil
 }
 
-// **LEGACY**
-// Stats retrieves statistics about the Ably app's activity.
-// **CANONICAL**
-// Queries the REST /stats API and retrieves your application's usage statistics. Returns a [PaginatedResult]{@link PaginatedResult} object, containing an array of [Stats]{@link Stats} objects. See the Stats docs.
-// Returns A [PaginatedResult]{@link PaginatedResult} object containing an array of [Stats]{@link Stats} objects.
-// RSC6a
+// Stats queries the REST/stats API and retrieves your application's usage statistics. Returns a
+// [ably.PaginatedResult] object, containing an array of [Stats]{@link Stats} objects (RSC6a).
+//
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (c *REST) Stats(o ...StatsOption) StatsRequest {
 	params := (&statsOptions{}).apply(o...)
 	return StatsRequest{r: c.newPaginatedRequest("/stats", "", params)}
@@ -213,36 +196,31 @@ func (c *REST) Stats(o ...StatsOption) StatsRequest {
 // A StatsOption configures a call to REST.Stats or Realtime.Stats.
 type StatsOption func(*statsOptions)
 
-// **CANONICAL**
-// The time from which stats are retrieved, specified as milliseconds since the Unix epoch.
-// RSC6b1
+// StatsWithStart sets the time from which stats are retrieved, specified as milliseconds since the Unix epoch (RSC6b1).
 func StatsWithStart(t time.Time) StatsOption {
 	return func(o *statsOptions) {
 		o.params.Set("start", strconv.FormatInt(unixMilli(t), 10))
 	}
 }
 
-// **CANONICAL**
-// The time until stats are retrieved, specified as milliseconds since the Unix epoch.
-// RSC6b1
+// StatsWithEnd sets the time until stats are retrieved, specified as milliseconds since the Unix epoch (RSC6b1).
 func StatsWithEnd(t time.Time) StatsOption {
 	return func(o *statsOptions) {
 		o.params.Set("end", strconv.FormatInt(unixMilli(t), 10))
 	}
 }
 
-// **CANONICAL**
-// An upper limit on the number of stats returned. The default is 100, and the maximum is 1000.
-// RSC6b3
+// StatsWithLimit sets an upper limit on the number of stats returned.
+// The default is 100, and the maximum is 1000 (RSC6b3).
 func StatsWithLimit(limit int) StatsOption {
 	return func(o *statsOptions) {
 		o.params.Set("limit", strconv.Itoa(limit))
 	}
 }
 
-// **CANONICAL**
-// The order for which stats are returned in. Valid values are backwards which orders stats from most recent to oldest, or forwards which orders stats from oldest to most recent. The default is backwards.
-// RSC6b2
+// StatsWithDirection sets the order for which stats are returned in. Valid values are backwards which
+// orders stats from most recent to oldest, or forwards which orders stats from oldest to most recent.
+// The default is backwards (RSC6b2).
 func StatsWithDirection(d Direction) StatsOption {
 	return func(o *statsOptions) {
 		o.params.Set("direction", string(d))
@@ -258,9 +236,8 @@ const (
 	PeriodMonth  PeriodUnit = "month"
 )
 
-// **CANONICAL**
-// minute, hour, day or month. Based on the unit selected, the given start or end times are rounded down to the start of the relevant interval depending on the unit granularity of the query.
-// RSC6b4
+// StatsWithUnit sets minute, hour, day or month. Based on the unit selected, the given start or end times are
+// rounded down to the start of the relevant interval depending on the unit granularity of the query (RSC6b4).
 func StatsWithUnit(d PeriodUnit) StatsOption {
 	return func(o *statsOptions) {
 		o.params.Set("unit", string(d))
@@ -287,7 +264,7 @@ type StatsRequest struct {
 
 // Pages returns an iterator for whole pages of Stats.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (r StatsRequest) Pages(ctx context.Context) (*StatsPaginatedResult, error) {
 	var res StatsPaginatedResult
 	return &res, res.load(ctx, r.r)
@@ -295,7 +272,7 @@ func (r StatsRequest) Pages(ctx context.Context) (*StatsPaginatedResult, error) 
 
 // A StatsPaginatedResult is an iterator for the result of a Stats request.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 type StatsPaginatedResult struct {
 	PaginatedResult
 	items []*Stats
@@ -303,7 +280,7 @@ type StatsPaginatedResult struct {
 
 // Next retrieves the next page of results.
 //
-// See the "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (p *StatsPaginatedResult) Next(ctx context.Context) bool {
 	p.items = nil // avoid mutating already returned items
 	return p.next(ctx, &p.items)
@@ -311,21 +288,21 @@ func (p *StatsPaginatedResult) Next(ctx context.Context) bool {
 
 // IsLast returns true if the page is last page.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (p *StatsPaginatedResult) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
 // HasNext returns true is there are more pages available.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (p *StatsPaginatedResult) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
 // Items returns the current page of results.
 //
-// See the "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (p *StatsPaginatedResult) Items() []*Stats {
 	return p.items
 }
@@ -333,7 +310,7 @@ func (p *StatsPaginatedResult) Items() []*Stats {
 // Items returns a convenience iterator for single Stats, over an underlying
 // paginated iterator.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (r StatsRequest) Items(ctx context.Context) (*StatsPaginatedItems, error) {
 	var res StatsPaginatedItems
 	var err error
@@ -353,7 +330,7 @@ type StatsPaginatedItems struct {
 
 // Next retrieves the next result.
 //
-// See the "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (p *StatsPaginatedItems) Next(ctx context.Context) bool {
 	i, ok := p.next(ctx)
 	if !ok {
@@ -365,34 +342,30 @@ func (p *StatsPaginatedItems) Next(ctx context.Context) bool {
 
 // Item returns the current result.
 //
-// See the "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (p *StatsPaginatedItems) Item() *Stats {
 	return p.item
 }
 
-// request contains fields necessary to compose http request that will be
-// sent ably endpoints.
+// request contains fields necessary to compose http request that will be sent ably endpoints.
 type request struct {
 	Method string
 	Path   string
 	In     interface{} // value to be encoded and sent with request body
 	Out    interface{} // value to store decoded response body
 
-	// NoAuth when set to true, makes the request not being authenticated.
+	// NoAuth when set true, makes the request not being authenticated.
 	NoAuth bool
 
-	// when true token is not refreshed when request fails with token expired response
+	// NoRenew when set true, token is not refreshed when request fails with token expired response
 	NoRenew bool
 	header  http.Header
 }
 
-// **LEGACY**
-// Request prepares an arbitrary request to the REST API.
-// **CANONICAL**
-// Makes a REST request to a provided path. This is provided as a convenience for developers who wish to use REST API functionality that is either not documented or is not yet included in the public API, without having to directly handle features such as authentication, paging, fallback hosts, MsgPack and JSON support.
-// Method - The request method to use, such as GET, POST.
-// The request path.
-// RSC19
+// Request makes a REST request with given http method (GET, POST) and url path. This is provided as a convenience for
+// developers who wish to use REST API functionality that is either not documented or is not yet included in the
+// public API, without having to directly handle features such as authentication, paging, fallback hosts, MsgPack
+// and JSON support (RSC19).
 func (c *REST) Request(method string, path string, o ...RequestOption) RESTRequest {
 	method = strings.ToUpper(method)
 	var opts requestOptions
@@ -439,26 +412,23 @@ type requestOptions struct {
 // RequestOption configures a call to REST.Request.
 type RequestOption func(*requestOptions)
 
-// **CANONICAL**
-// The parameters to include in the URL query of the request. The parameters depend on the endpoint being queried. See the REST API reference for the available parameters of each endpoint.
+// RequestWithParams sets the parameters to include in the URL query of the request.
+// The parameters depend on the endpoint being queried.
+// See the REST API reference for the available parameters of each endpoint.
 func RequestWithParams(params url.Values) RequestOption {
 	return func(o *requestOptions) {
 		o.params = params
 	}
 }
 
-// **CANONICAL**
-// Additional HTTP headers to include in the request.
-// **CANONICAL**
-// Additional HTTP headers to include in the request.
+// RequestWithHeaders sets additional HTTP headers to include in the request.
 func RequestWithHeaders(headers http.Header) RequestOption {
 	return func(o *requestOptions) {
 		o.headers = headers
 	}
 }
 
-// **CANONICAL**
-// The JSON body of the request.
+// RequestWithBody sets the JSON body of the request.
 func RequestWithBody(body interface{}) RequestOption {
 	return func(o *requestOptions) {
 		o.body = body
@@ -475,47 +445,41 @@ func (o *requestOptions) apply(opts ...RequestOption) {
 // RESTRequest represents a request prepared by the REST.Request method, ready
 // to be performed by its Pages or Items methods.
 type RESTRequest struct {
-	// **CANONICAL**
-	// An [HttpPaginatedResponse]{@link HttpPaginatedResponse} object returned by the HTTP request, containing an empty or JSON-encodable object.
+	// r is an [ably.HTTPPaginatedResponse] object returned by the HTTP request, containing an empty or
+	// JSON-encodable object.
 	r paginatedRequest
 }
 
 // Pages returns an iterator for whole pages of results.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for more details.
 func (r RESTRequest) Pages(ctx context.Context) (*HTTPPaginatedResponse, error) {
 	var res HTTPPaginatedResponse
 	return &res, res.load(ctx, r.r)
 }
 
-// **LEGACY**
+// HTTPPaginatedResponse is a superset of [ably.PaginatedResult] which represents a page of results plus metadata
+// indicating the relative queries available to it. HttpPaginatedResponse additionally carries information
+// about the response to an HTTP request.
 // A HTTPPaginatedResponse is an iterator for the response of a REST request.
 //
-// See "Paginated results" section in the package-level documentation.
-// **CANONICAL**
-// A superset of [PaginatedResult]{@link PaginatedResult} which represents a page of results plus metadata indicating the relative queries available to it. HttpPaginatedResponse additionally carries information about the response to an HTTP request.
+// See package-level documentation => [ably] Pagination for more details.
 type HTTPPaginatedResponse struct {
 	PaginatedResult
 	items raw
 }
 
-// **CANONICAL**
-// The HTTP status code of the response.
-// HP4
+// StatusCode is the HTTP status code of the response (HP4).
 func (r *HTTPPaginatedResponse) StatusCode() int {
 	return r.res.StatusCode
 }
 
-// **CANONICAL**
-// Whether statusCode indicates success. This is equivalent to 200 <= statusCode < 300.
-// HP5
+// Success is whether statusCode indicates success. This is equivalent to 200 <= statusCode < 300 (HP5).
 func (r *HTTPPaginatedResponse) Success() bool {
 	return 200 <= r.res.StatusCode && r.res.StatusCode < 300
 }
 
-// **CANONICAL**
-// The error code if the X-Ably-Errorcode HTTP header is sent in the response.
-// HP6
+// ErrorCode is the error code if the X-Ably-Errorcode HTTP header is sent in the response (HP6).
 func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
 	codeStr := r.res.Header.Get(ablyErrorCodeHeader)
 	if codeStr == "" {
@@ -528,23 +492,19 @@ func (r *HTTPPaginatedResponse) ErrorCode() ErrorCode {
 	return ErrorCode(code)
 }
 
-// **CANONICAL**
-// The error message if the X-Ably-Errormessage HTTP header is sent in the response.
-// HP7
+// ErrorMessage is the error message if the X-Ably-Errormessage HTTP header is sent in the response (HP7).
 func (r *HTTPPaginatedResponse) ErrorMessage() string {
 	return r.res.Header.Get(ablyErrorMessageHeader)
 }
 
-// **CANONICAL**
-// The headers of the response.
-// HP8
+// Headers are the headers of the response (HP8).
 func (r *HTTPPaginatedResponse) Headers() http.Header {
 	return r.res.Header
 }
 
 // Next retrieves the next page of results.
 //
-// See the "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for more details.
 func (p *HTTPPaginatedResponse) Next(ctx context.Context) bool {
 	p.items = nil
 	return p.next(ctx, &p.items)
@@ -552,26 +512,22 @@ func (p *HTTPPaginatedResponse) Next(ctx context.Context) bool {
 
 // IsLast returns true if the page is last page.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for more details.
 func (p *HTTPPaginatedResponse) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
 // HasNext returns true is there are more pages available.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for more details.
 func (p *HTTPPaginatedResponse) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
-// **LEGACY**
-// Items unmarshals the current page of results into the provided
-// variable.
+// Items contains a page of results; for example, an array of [ably.Message] or [ably.PresenceMessage]
+// objects for a channel history request (HP3)
 //
-// See the "Paginated results" section in the package-level documentation.
-// **CANONICAL**
-// Contains a page of results; for example, an array of [Message]{@link Message} or [PresenceMessage]{@link PresenceMessage} objects for a channel history request.
-// HP3
+// See package-level documentation => [ably] Pagination for more details.
 func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
 	typ, _, err := mime.ParseMediaType(p.PaginatedResult.res.Header.Get("Content-Type"))
 	if err != nil {
@@ -598,9 +554,7 @@ func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
 // Items returns a convenience iterator for single items, over an underlying
 // paginated iterator.
 //
-// For each item,
-//
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for more details.
 func (r RESTRequest) Items(ctx context.Context) (*RESTPaginatedItems, error) {
 	var res RESTPaginatedItems
 	var err error
@@ -632,14 +586,14 @@ func (p *RESTPaginatedItems) Next(ctx context.Context) bool {
 
 // IsLast returns true if the page is last page.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for more details.
 func (p *RESTPaginatedItems) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
 // HasNext returns true is there are more pages available.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for more details.
 func (p *RESTPaginatedItems) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
