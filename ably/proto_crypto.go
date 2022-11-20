@@ -56,37 +56,19 @@ const (
 	defaultCipherMode      = CipherCBC
 )
 
-// **LEGACY**
-// CipherParams  provides parameters for configuring encryption  for channels.
-//
-//Spec item (TZ1)
-// **CANONICAL**
-// Sets the properties to configure encryption for a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object.
-type CipherParams struct {
-	// **CANONICAL**
-	// The algorithm to use for encryption. Only AES is supported and is the default value.
-	// TZ2a
-	Algorithm CipherAlgorithm
-	// **LEGACY**
-	// The length of the private key in bits
-	// **CANONICAL**
-	// The length of the key in bits; for example 128 or 256.
-	// TZ2b
-	KeyLength int
-	// **LEGACY**
-	// This is the private key used to  encrypt/decrypt payloads.
-	// **CANONICAL**
-	// The private key used to encrypt and decrypt payloads.
-	// TZ2d
-	Key []byte
-	// **LEGACY**
-	// The cipher mode to be used for encryption default is CBC.
-	//
-	// Spec item (TZ2c)
-	// **CANONICAL**
-	// The cipher mode. Only CBC is supported and is the default value.
-	Mode CipherMode
 
+// CipherParams sets the properties to configure encryption for a [ably.RESTChannel] or
+// [ably.RealtimeChannel] object (TZ1).
+type CipherParams struct {
+	// Algorithm is the algorithm to use for encryption. Only AES is supported and is the default value (TZ2a).
+	Algorithm CipherAlgorithm
+	// KeyLength is the length of the key in bits; for example 128 or 256 (TZ2b).
+	KeyLength int
+	// Key is the private key used to encrypt and decrypt payloads (TZ2d).
+	Key []byte
+	// Mode is the cipher mode.
+	// Only CBC is supported and is the default value ((TZ2c).
+	Mode CipherMode
 	// iv is the initialization vector. Used only for comparing resulting
 	// ciphertext with test fixtures; production code should always use a random
 	// unique IV per encrypted message.CipherParamOptions
