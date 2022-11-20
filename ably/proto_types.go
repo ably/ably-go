@@ -7,8 +7,7 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// durationFromMsecs is a time.Duration that is marshaled as a JSON whole number
-// of milliseconds.
+// durationFromMsecs is a time.Duration that is marshaled as a JSON whole number of milliseconds.
 type durationFromMsecs time.Duration
 
 var _ interface {
