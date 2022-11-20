@@ -12,18 +12,14 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// **LEGACY**
+
 // RESTChannel is the interface for REST API operations on a channel.
-// **CANONICAL**
-// Enables messages to be published and historic messages to be retrieved for a channel.
+// It enables messages to be published and historic messages to be retrieved for a channel.
 type RESTChannel struct {
-	// **CANONICAL**
-	// The channel name.
+	// Name is the channel name.
 	Name     string
 
-	// **CANONICAL**
-	// A [RestPresence]{@link RestPresence} object.
-	// RSL3
+	// Presence is a [ably.RESTPresence] object (RSL3).
 	Presence *RESTPresence
 
 	client  *REST
@@ -49,13 +45,8 @@ func (c *RESTChannel) pathName() string {
 	return url.PathEscape(c.Name)
 }
 
-// **LEGACY**
-// Publish publishes a message on the channel.
-// **CANONICAL**
-// Publishes a single message to the channel with the given event name and payload. A callback may optionally be passed in to this call to be notified of success or failure of the operation.
-// name - The name of the message.
-// data - The payload of the message.
-// RSL1
+// Publish publishes a single message to the channel with the given event name and payload. Returns error
+// if there is a problem performing message publish (RSL1).
 func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}, options ...PublishMultipleOption) error {
 	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}}, options...)
 }
@@ -87,22 +78,15 @@ func PublishWithParams(params map[string]string) PublishMultipleOption {
 	}
 }
 
-// PublishMultipleWithParams is the same as PublishWithParams.
-//
 // Deprecated: Use PublishWithParams instead.
+// PublishMultipleWithParams is the same as PublishWithParams.
 //
 // TODO: Remove this in the next major version bump to 2.x.x.
 func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
 	return PublishWithParams(params)
 }
 
-// **LEGACY**
-// PublishMultiple publishes multiple messages in a batch.
-// **CANONICAL**
-// Publishes an array of messages to the channel. A callback may optionally be passed in to this call to be notified of success or failure of the operation.
-// messages - An array of [Message]{@link Message} objects.
-// options - Optional parameters, such as quickAck sent as part of the query string.
-// RSL1
+// PublishMultiple publishes multiple messages in a batch. Returns error if there is a problem publishing message (RSL1).
 func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
 	var publishOpts publishMultipleOptions
 	for _, o := range options {
@@ -178,82 +162,65 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 	return c.PublishMultiple(ctx, messages, options...)
 }
 
-// **CANONICAL**
-// Contains the details of a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object such as its ID and [ChannelStatus]{@link ChannelStatus}.
+// ChannelDetails contains the details of a [ably.RESTChannel] or [ably.RealtimeChannel] object
+// such as its ID and [ably.ChannelStatus].
 type ChannelDetails struct {
-	// **CANONICAL**
-	// The identifier of the channel.
-	// CHD2a
+	// ChannelId is the identifier of the channel (CHD2a).
 	ChannelId string        `json:"channelId" codec:"channelId"`
-	// **CANONICAL**
-	// A [ChannelStatus]{@link ChannelStatus} object.
-	// CHD2b
+	// Status is a [ably.ChannelStatus] object (CHD2b).
 	Status    ChannelStatus `json:"status" codec:"status"`
 }
 
-// **CANONICAL**
-// Contains the status of a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object such as whether it is active and its [ChannelOccupancy]{@link ChannelOccupancy}.
+// ChannelStatus contains the status of a [ably.RESTChannel] or [ably.RealtimeChannel] object such as whether
+// it is active and its [ably.ChannelOccupancy].
 type ChannelStatus struct {
-	// **CANONICAL**
-	// If true, the channel is active, otherwise false.
-	// CHS2a
+	// IsActive if set to true, the channel is active, otherwise inactive (CHS2a).
 	IsActive  bool             `json:"isActive" codec:"isActive"`
 
-	// **CANONICAL**
-	// A [ChannelOccupancy]{@link ChannelOccupancy} object.
-	// CHS2b
+	// Occupancy is a [ably.ChannelOccupancy] object (CHS2b).
 	Occupancy ChannelOccupancy `json:"occupancy" codec:"occupancy"`
 }
 
-// **CANONICAL**
-// Contains the metrics of a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel} object.
+// ChannelOccupancy contains the metrics of a [ably.RESTChannel] or [ably.RealtimeChannel] object.
 type ChannelOccupancy struct {
-	// **CANONICAL**
-	// A [ChannelMetrics]{@link ChannelMetrics} object.
-	// CHO2a
+	// Metrics is a [ably.ChannelMetrics] object (CHO2a).
 	Metrics ChannelMetrics `json:"metrics" codec:"metrics"`
 }
 
-// **CANONICAL**
-// Contains the metrics associated with a [RestChannel]{@link RestChannel} or [RealtimeChannel]{@link RealtimeChannel}, such as the number of publishers, subscribers and connections it has.
+// ChannelMetrics contains the metrics associated with a [ably.RESTChannel] or [ably.RealtimeChannel],
+// such as the number of publishers, subscribers and connections it has.
 type ChannelMetrics struct {
-	// **CANONICAL**
-	// The number of realtime connections attached to the channel.
-	// CHM2a
+	// Connections is the number of realtime connections attached to the channel (CHM2a).
 	Connections         int `json:"connections" codec:"connections"`
 
-	// **CANONICAL**
-	// The number of realtime connections attached to the channel with permission to enter the presence set, regardless of whether or not they have entered it. This requires the presence capability and for a client to not have specified a [ChannelMode]{@link ChannelMode} flag that excludes [PRESENCE]{@link ChannelMode#PRESENCE}.
-	// CHM2b
+	// PresenceConnections is the number of realtime connections attached to the channel with permission
+	// to enter the presence set, regardless of whether they have entered it. This requires the
+	// presence capability and for a client to not have specified a [ably.ChannelMode] flag that excludes
+	// [ably.ChannelModePresence] (CHM2b).
 	PresenceConnections int `json:"presenceConnections" codec:"presenceConnections"`
 
-	// **CANONICAL**
-	// The number of members in the presence set of the channel.
-	// CHM2c
+	// PresenceMembers are the number of members in the presence set of the channel (CHM2c).
 	PresenceMembers     int `json:"presenceMembers" codec:"presenceMembers"`
 
-	// **CANONICAL**
-	// The number of realtime attachments receiving presence messages on the channel. This requires the subscribe capability and for a client to not have specified a [ChannelMode]{@link ChannelMode} flag that excludes [PRESENCE_SUBSCRIBE]{@link ChannelMode#PRESENCE_SUBSCRIBE}.
-	// CHM2d
+	// PresenceSubscribers is the number of realtime attachments receiving presence messages on the channel.
+	// This requires the subscribe capability and for a client to not have specified a [ably.ChannelMode]
+	// flag that excludes [ably.ChannelModePresenceSubscribe] (CHM2d).
 	PresenceSubscribers int `json:"presenceSubscribers" codec:"presenceSubscribers"`
 
-	// **CANONICAL**
-	// The number of realtime attachments permitted to publish messages to the channel. This requires the publish capability and for a client to not have specified a [ChannelMode]{@link ChannelMode} flag that excludes [PUBLISH]{@link ChannelMode#PUBLISH}.
-	// CHM2e
+	// Publishers is the number of realtime attachments permitted to publish messages on the channel.
+	// This requires the publish capability and for a client to not have specified a [ably.ChannelMode]
+	// flag that excludes [ably.ChannelModePublish] (CHM2e).
 	Publishers          int `json:"publishers" codec:"publishers"`
 
-	// **CANONICAL**
-	// The number of realtime attachments receiving messages on the channel. This requires the subscribe capability and for a client to not have specified a [ChannelMode]{@link ChannelMode} flag that excludes [SUBSCRIBE]{@link ChannelMode#SUBSCRIBE}.
+	// Subscribers is the number of realtime attachments receiving messages on the channel.
+	// This requires the subscribe capability and for a client to not have specified a [ably.ChannelMode]
+	// flag that excludes [ably.ChannelModeSubscribe].
 	// CHM2f
 	Subscribers         int `json:"subscribers" codec:"subscribers"`
 }
 
-// **LEGACY**
-// Status returns ChannelDetails representing information for a channel
-// **CANONICAL**
-// Retrieves a [ChannelDetails]{@link ChannelDetails} object for the channel, which includes status and occupancy metrics.
-// Returns - A [ChannelDetails]{@link ChannelDetails} object.
-// RSL8
+// Status returns ChannelDetails representing information for a channel which includes status and occupancy metrics.
+// (RSL8)
 func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
 	var channelDetails ChannelDetails
 	req := &request{
@@ -269,13 +236,9 @@ func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
 	return &channelDetails, nil
 }
 
-// **LEGACY**
-// History gives the channel's message history.
-// **CANONICAL**
-// option - Passing history options
-// Retrieves a [PaginatedResult]{@link PaginatedResult} object, containing an array of historical [Message]{@link Message} objects for the channel. If the channel is configured to persist messages, then messages can be retrieved from history for up to 72 hours in the past. If not, messages can only be retrieved from history for up to two minutes in the past.
-// Returns - A [PaginatedResult]{@link PaginatedResult} object containing an array of [Message]{@link Message} objects.
-// RSL2a
+// History gives the channel's message history (RSL2a)
+//
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 	params := (&historyOptions{}).apply(o...)
 	return HistoryRequest{
@@ -287,8 +250,7 @@ func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 // A HistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
 type HistoryOption func(*historyOptions)
 
-// **CANONICAL**
-// The time from which messages are retrieved, specified as milliseconds since the Unix epoch.
+// HistoryWithStart sets time from which messages are retrieved, specified as milliseconds since the Unix epoch.
 // RSL2b1
 func HistoryWithStart(t time.Time) HistoryOption {
 	return func(o *historyOptions) {
@@ -296,27 +258,25 @@ func HistoryWithStart(t time.Time) HistoryOption {
 	}
 }
 
-// **CANONICAL**
-// The time until messages are retrieved, specified as milliseconds since the Unix epoch.
-// RSL2b1
+// HistoryWithEnd sets time until messages are retrieved, specified as milliseconds since the Unix epoch (RSL2b1).
 func HistoryWithEnd(t time.Time) HistoryOption {
 	return func(o *historyOptions) {
 		o.params.Set("end", strconv.FormatInt(unixMilli(t), 10))
 	}
 }
 
-// **CANONICAL**
-// An upper limit on the number of messages returned. The default is 100, and the maximum is 1000.
-// RSL2b3
+// HistoryWithLimit sets an upper limit on the number of messages returned.
+// The default is 100, and the maximum is 1000 (RSL2b3).
 func HistoryWithLimit(limit int) HistoryOption {
 	return func(o *historyOptions) {
 		o.params.Set("limit", strconv.Itoa(limit))
 	}
 }
 
-// **CANONICAL**
-// The order for which messages are returned in. Valid values are backwards which orders messages from most recent to oldest, or forwards which orders messages from oldest to most recent. The default is backwards.
-// RSL2b2
+// HistoryWithDirection sets the order for which messages are returned in.
+// Valid values are backwards which orders messages from most recent to oldest,
+// or forwards which orders messages from oldest to most recent.
+// The default is backwards (RSL2b2).
 func HistoryWithDirection(d Direction) HistoryOption {
 	return func(o *historyOptions) {
 		o.params.Set("direction", string(d))
@@ -344,7 +304,7 @@ type HistoryRequest struct {
 
 // Pages returns an iterator for whole pages of History.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (r HistoryRequest) Pages(ctx context.Context) (*MessagesPaginatedResult, error) {
 	var res MessagesPaginatedResult
 	return &res, res.load(ctx, r.r)
@@ -352,7 +312,7 @@ func (r HistoryRequest) Pages(ctx context.Context) (*MessagesPaginatedResult, er
 
 // A MessagesPaginatedResult is an iterator for the result of a History request.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for details about history pagination.
 type MessagesPaginatedResult struct {
 	PaginatedResult
 	items []*Message
@@ -360,7 +320,7 @@ type MessagesPaginatedResult struct {
 
 // Next retrieves the next page of results.
 //
-// See the "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (p *MessagesPaginatedResult) Next(ctx context.Context) bool {
 	p.items = nil // avoid mutating already returned items
 	return p.next(ctx, &p.items)
@@ -368,21 +328,21 @@ func (p *MessagesPaginatedResult) Next(ctx context.Context) bool {
 
 // IsLast returns true if the page is last page.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (p *MessagesPaginatedResult) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
 // HasNext returns true is there are more pages available.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (p *MessagesPaginatedResult) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
 // Items returns the current page of results.
 //
-// See the "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (p *MessagesPaginatedResult) Items() []*Message {
 	return p.items
 }
@@ -390,7 +350,7 @@ func (p *MessagesPaginatedResult) Items() []*Message {
 // Items returns a convenience iterator for single History, over an underlying
 // paginated iterator.
 //
-// See "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (r HistoryRequest) Items(ctx context.Context) (*MessagesPaginatedItems, error) {
 	var res MessagesPaginatedItems
 	var err error
@@ -459,7 +419,7 @@ type MessagesPaginatedItems struct {
 
 // Next retrieves the next result.
 //
-// See the "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (p *MessagesPaginatedItems) Next(ctx context.Context) bool {
 	i, ok := p.next(ctx)
 	if !ok {
@@ -471,7 +431,7 @@ func (p *MessagesPaginatedItems) Next(ctx context.Context) bool {
 
 // Item returns the current result.
 //
-// See the "Paginated results" section in the package-level documentation.
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (p *MessagesPaginatedItems) Item() *Message {
 	return p.item
 }
