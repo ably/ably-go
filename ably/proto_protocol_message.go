@@ -28,36 +28,41 @@ func (flags *protoFlag) Set(flag protoFlag) {
 	*flags |= flag
 }
 
-// **CANONICAL**
-// Contains any constraints a client should adhere to and provides additional metadata about a [Connection]{@link Connection}, such as if a request to [publish()]{@link RealtimeClient#publish} a message that exceeds the maximum message size should be rejected immediately without communicating with Ably.
+// connectionDetails contains any constraints a client should adhere to and provides additional metadata about a
+// [ably.Connection], such as if a request to RealtimeClient#publish a message that exceeds the maximum message size
+// should be rejected immediately without communicating with Ably.
 type connectionDetails struct {
-	// **CANONICAL**
-	// Contains the client ID assigned to the token. If clientId is null or omitted, then the client is prohibited from assuming a clientId in any operations, however if clientId is a wildcard string *, then the client is permitted to assume any clientId. Any other string value for clientId implies that the clientId is both enforced and assumed for all operations from this client.
-	// RSA12a, CD2a
+	// ClientID contains the client ID assigned to the token. If clientId is null or omitted, then the client is
+	// prohibited from assuming a clientId in any operations, however if clientId is a wildcard string *,
+	// then the client is permitted to assume any clientId. Any other string value for clientId implies that the
+	// clientId is both enforced and assumed for all operations from this client (RSA12a, CD2a).
 	ClientID           string            `json:"clientId,omitempty" codec:"clientId,omitempty"`
-	// **CANONICAL**
-	// The connection secret key string that is used to resume a connection and its state.
-	// RTN15e, CD2b
+	// ConnectionKey is the connection secret key string that is used to resume a connection and its state.
+	// (RTN15e, CD2b).
 	ConnectionKey      string            `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
-	// **CANONICAL**
-	// The maximum message size is an attribute of an Ably account which represents the largest permitted payload size of a single message or set of messages published in a single operation. Publish requests whose payload exceeds this limit are rejected by the server. maxMessageSize enables the client to enforce, or further restrict, the maximum size of a single message or set of messages published via REST. The default value is 65536 (64 KiB). In the case of a realtime connection, the server may indicate the associated maximum message size on connection establishment via [ConnectionDetails.maxMessageSize]{@link ConnectionDetails#maxMessageSize}; this value takes precedence over the client's default maxMessageSize.
-	// TO3l8
+	// MaxMessageSize is the maximum message size is an attribute of an Ably account which represents the largest
+	// permitted payload size of a single message or set of messages published in a single operation. Publish requests
+	// whose payload exceeds this limit are rejected by the server. maxMessageSize enables the client to enforce,
+	// or further restrict, the maximum size of a single message or set of messages published via REST.
+	// The default value is 65536 (64 KiB). In the case of a realtime connection, the server may indicate
+	// the associated maximum message size on connection establishment via ConnectionDetails.maxMessageSize].
+	// This value takes precedence over the client's default maxMessageSize (TO3l8).
 	MaxMessageSize     int64             `json:"maxMessageSize,omitempty" codec:"maxMessageSize,omitempty"`
-	// **CANONICAL**
-	// The maximum size of a single POST body or WebSocket frame. This is mostly only relevant for a REST client request (for batch publishes), since publishes will hit the maxMessageSize limit before this. The default value is 524288 (512 KiB).
-	// TO3l8
+	// MaxFrameSize is the maximum size of a single POST body or WebSocket frame. This is mostly only relevant
+	// for a REST client request (for batch publishes), since publishes will hit the maxMessageSize limit before this.
+	// The default value is 524288 (512 KiB) (TO3l8).
 	MaxFrameSize       int64             `json:"maxFrameSize,omitempty" codec:"maxFrameSize,omitempty"`
-	// **CANONICAL**
-	// The maximum allowable number of requests per second from a client or Ably. In the case of a realtime connection, this restriction applies to the number of messages sent, whereas in the case of REST, it is the total number of REST requests per second.
-	// CD2e
+	// MaxInboundRate is the maximum allowable number of requests per second from a client or Ably.
+	// In the case of a realtime connection, this restriction applies to the number of messages sent,
+	// whereas in the case of REST, it is the total number of REST requests per second (CD2e).
 	MaxInboundRate     int64             `json:"maxInboundRate,omitempty" codec:"maxInboundRate,omitempty"`
-	// **CANONICAL**
-	// The duration that Ably will persist the connection state for when a Realtime client is abruptly disconnected.
-	// CD2f, RTN14e, DF1a
+	// ConnectionStateTTL is the duration that Ably will persist the connection state for when a Realtime client is
+	// abruptly disconnected (CD2f, RTN14e, DF1a).
 	ConnectionStateTTL durationFromMsecs `json:"connectionStateTtl,omitempty" codec:"connectionStateTtl,omitempty"`
-	// **CANONICAL**
-	// The maximum length of time in milliseconds that the server will allow no activity to occur in the server to client direction. After such a period of inactivity, the server will send a HEARTBEAT or transport-level ping to the client. If the value is 0, the server will allow arbitrarily-long levels of inactivity.
-	// CD2h
+	// MaxIdleInterval is the maximum length of time in milliseconds that the server will allow no activity
+	// to occur in the server to client direction. After such a period of inactivity, the server will send
+	// a HEARTBEAT or transport-level ping to the client. If the value is 0, the server will allow arbitrarily-long
+	// levels of inactivity (CD2h).
 	MaxIdleInterval    durationFromMsecs `json:"maxIdleInterval,omitempty" codec:"maxIdleInterval,omitempty"`
 }
 
@@ -130,11 +135,9 @@ type protocolMessage struct {
 	Auth              *authDetails       `json:"auth,omitempty" codec:"auth,omitempty"`
 }
 
-// **CANONICAL**
-// Contains the token string used to authenticate a client with Ably.
+// authDetails contains the token string used to authenticate a client with Ably.
 type authDetails struct {
-	// The authentication token string.
-	// AD2
+	// AccessToken is the authentication token string (AD2).
 	AccessToken string `json:"accessToken,omitempty" codec:"accessToken,omitempty"`
 }
 
