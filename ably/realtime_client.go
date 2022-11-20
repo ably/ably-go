@@ -5,33 +5,20 @@ import (
 	"net/http"
 	"time"
 )
-// **LEGACY**
-// The Realtime libraries establish and maintain a persistent connection
-// to Ably enabling extremely low latency broadcasting of messages and presence
-// state.
-// **CANONICAL**
-// A client that extends the functionality of the [RestClient]{@link RestClient} and provides additional realtime-specific features.
+
+// Realtime is an ably realtime client that extends the functionality of the [ably.REST] and provides
+// additional realtime-specific features.
 type Realtime struct {
-	// **CANONICAL**
-	// An [Auth]{@link Auth} object.
-	// RTC4
+	// An [ably.Auth] object (RTC4).
 	Auth       *Auth
-	// **CANONICAL**
-	// A [Channels]{@link Channels} object.
-	// RTC3, RTS1
+	// A [ably.RealtimeChannels] object (RTC3, RTS1).
 	Channels   *RealtimeChannels
-	// **CANONICAL**
-	// A [Connection]{@link Connection} object.
-	// RTC2
+	// A [ably.Connection] object (RTC2).
 	Connection *Connection
 	rest *REST
 }
-// **LEGACY**
-// NewRealtime constructs a new Realtime.
-// **CANONICAL**
-// Constructs a RealtimeClient object using an Ably [ClientOptions]{@link ClientOptions} object.
-// options - A [ClientOptions]{@link ClientOptions} object.
-// RSC1
+
+// NewRealtime constructs a new [ably.Realtime] client object using an Ably [ably.ClientOption] object (RSC1)
 func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c := &Realtime{}
 	rest, err := NewREST(options...) //options validated in NewREST
@@ -53,43 +40,34 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	return c, nil
 }
 
-// **LEGACY**
-// Connect is the same as Connection.Connect.
-// **CANONICAL**
-// Calls [connection.connect()]{@link Connection#connect} and causes the connection to open, entering the connecting state.
-// Explicitly calling connect() is unnecessary unless the [autoConnect]{@link ClientOptions#autoConnect} property is disabled.
-// proxy for RTN11
+// Connect calls Connection.Connect and causes the connection to open, entering the connecting state.
+// Explicitly calling Connect() is unnecessary unless the ClientOptions.NoConnect property is enabled.
+// (proxy for RTN11).
 func (c *Realtime) Connect() {
 	c.Connection.Connect()
 }
 
-// **LEGACY**
-// Close is the same as Connection.Close.
-// **CANONICAL**
-// Calls [connection.close()]{@link Connection#close} and causes the connection to close, entering the closing state.
-// Once closed, the library will not attempt to re-establish the connection without an explicit call to [connect()]{@link Connection#connect}.
+
+// Close calls Connection.Close and causes the connection to close, entering the closing state. Once closed,
+// the library will not attempt to re-establish the connection without an explicit call to Connection.Connect
 // proxy for RTN12
 func (c *Realtime) Close() {
 	c.Connection.Close()
 }
 
-// **LEGACY**
-// Stats is the same as REST.Stats.
-// **CANONICAL**
-// Queries the REST /stats API and retrieves your application's usage statistics. Returns a [PaginatedResult]{@link PaginatedResult} object, containing an array of [Stats]{@link Stats} objects. See the Stats docs.
-// Returns A [PaginatedResult]{@link PaginatedResult} object containing an array of [Stats]{@link Stats} objects.
-// RTC5
+// Stats queries the REST /stats API and retrieves your application's usage statistics.
+// Returns a [ably.PaginatedResult] object, containing an array of [ably.Stats] objects (RTC5).
+//
+// See package-level documentation => [ably] Pagination for handling stats pagination.
 func (c *Realtime) Stats(o ...StatsOption) StatsRequest {
 	return c.rest.Stats(o...)
 }
 
-// **LEGACY**
-// Time
-// **CANONICAL**
-// Retrieves the time from the Ably service as milliseconds since the Unix epoch.
-// Clients that do not have access to a sufficiently well maintained time source and wish to issue Ably [TokenRequests]{@link TokenRequest with a more accurate timestamp should use the [queryTime]{@link ClientOptions#queryTime} property instead of this method.
-// returns The time as milliseconds since the Unix epoch.
-//RTC6a
+
+// Time retrieves the time from the Ably service as milliseconds since the Unix epoch.
+// Clients that do not have access to a sufficiently well maintained time source and wish to issue Ably
+// multiple [ably.TokenRequest] with a more accurate timestamp should use the clientOptions.UseQueryTime property
+// instead of this method (RTC6a).
 func (c *Realtime) Time(ctx context.Context) (time.Time, error) {
 	return c.rest.Time(ctx)
 }
