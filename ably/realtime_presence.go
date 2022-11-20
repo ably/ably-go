@@ -309,9 +309,8 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 //
 // See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*PresenceMessage)) (func(), error) {
-	// **CANONICAL**
-	// Deregisters a specific listener that is registered to receive [PresenceMessage]{@link PresenceMessage} on the channel.
-	// RTP7a
+	// unsubscribe Deregisters a specific listener that is registered
+	// to receive [ably.PresenceMessage] on the channel (RTP7a).
 	unsubscribe := pres.messageEmitter.OnAll(func(message emitterData) {
 		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
 	})
