@@ -3,7 +3,7 @@ module github.com/ably/ably-go
 require (
 	github.com/stretchr/testify v1.7.1
 	github.com/ugorji/go/codec v1.1.9
-	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654
+	golang.org/x/sys v0.2.0
 	nhooyr.io/websocket v1.8.7
 )
 
