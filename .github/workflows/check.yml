@@ -30,7 +30,14 @@ jobs:
         run: go get -t -v ./ably/...
       
       - name: Format
-        run: if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then exit 1; fi
+        run: |
+          if go version | awk '$3 !~ /go1.18/ {exit(1)}'; 
+          then 
+            echo -n Skipping gofmt test for ;
+            go version
+            exit 0
+          fi
+          if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then exit 1; fi
 
       - name: Vet
         run: go vet ./ably/... ./scripts/...
