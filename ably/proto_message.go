@@ -42,7 +42,7 @@ func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
 	}
 }
 
-//updateInnerMessagesEmptyFields - Update inner Message empty Id, connectionId and Timestamp
+// updateInnerMessagesEmptyFields - Update inner Message empty Id, connectionId and Timestamp
 func (p *protocolMessage) updateInnerMessagesEmptyFields() {
 	for i, m := range p.Messages {
 		p.updateInnerMessageEmptyFields(m, i)
@@ -60,8 +60,8 @@ func unencodableDataErr(data interface{}) error {
 	return fmt.Errorf("message data type %T must be string, []byte, or a value that can be encoded as a JSON object or array", data)
 }
 
-//withEncodedData - Used to encode string, binary([]byte) or json data (TM3).
-//Updates/Mutates Message.Data and Message.Encoding
+// withEncodedData - Used to encode string, binary([]byte) or json data (TM3).
+// Updates/Mutates Message.Data and Message.Encoding
 func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 	if m.Data == nil {
 		return m, nil
@@ -119,7 +119,7 @@ func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 	return m, nil
 }
 
-//withDecodedData - Used to decode received encoded data into string, binary([]byte) or json (TM3).
+// withDecodedData - Used to decode received encoded data into string, binary([]byte) or json (TM3).
 func (m Message) withDecodedData(cipher channelCipher) (Message, error) {
 	// strings.Split on empty string returns []string{""}
 	if m.Data == nil || m.Encoding == "" {

@@ -113,7 +113,6 @@ func MustAuthReverseProxy(opts ...ably.ClientOption) *AuthReverseProxy {
 //   - "token", which responds with (ably.TokenDetails).Token as a string
 //   - "details", which responds with ably.TokenDetails
 //   - "request", which responds with ably.TokenRequest
-//
 func (srv *AuthReverseProxy) URL(responseType string) string {
 	return "http://" + srv.Listener.Addr().String() + "/" + responseType
 }

@@ -49,8 +49,9 @@ func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}
 // RESTChannel.Publish and RESTChannel.PublishMultiple.
 //
 // TODO: This started out as just an option for PublishMultiple, but has since
-//       been added as an option for Publish too, so it should be renamed to
-//       PublishOption when we perform the next major version bump to 2.x.x.
+//
+//	been added as an option for Publish too, so it should be renamed to
+//	PublishOption when we perform the next major version bump to 2.x.x.
 type PublishMultipleOption func(*publishMultipleOptions)
 
 type publishMultipleOptions struct {

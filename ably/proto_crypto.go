@@ -58,7 +58,7 @@ const (
 
 // CipherParams  provides parameters for configuring encryption  for channels.
 //
-//Spec item (TZ1)
+// Spec item (TZ1)
 type CipherParams struct {
 	Algorithm CipherAlgorithm // Spec item (TZ2a)
 	// The length of the private key in bits
