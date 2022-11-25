@@ -360,7 +360,7 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 	return nil
 }
 
-//Timestamp returns the timestamp to be used in authorization request.
+// Timestamp returns the timestamp to be used in authorization request.
 func (a *Auth) timestamp(ctx context.Context, query bool) (time.Time, error) {
 	now := a.client.opts.Now()
 	if !query {
