@@ -291,27 +291,6 @@ if err != nil {
 fmt.Print(status, status.ChannelId)
 ```
 
-## Local web-based godoc
-
-1. Install `godoc` globally via `go get` and run at root
-
-```bash
-  godoc -http=:8000
-```
-- Open the link http://localhost:8000/ for viewing the documentation.
-
-2. Export `godoc` using `gopages` (only works on unix based systems)
-```bash
-  gopages -brand-description "Go client library for Ably realtime messaging service." -brand-title "Ably Go SDK"
-```
-- `godoc html` is exported to `dist` and can be served using `python3 http.server`
-
-```bash
-  cd dist
-  py -m http.server 8000
-```
-- Open the link http://localhost:8000/ for viewing the documentation.
-
 ## Resources
 
 Demo repositories hosted at [ably-labs](https://github.com/ably-labs) which use `ably-go`.  

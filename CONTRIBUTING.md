@@ -11,6 +11,27 @@ Because this package uses `internal` packages, all fork development has to happe
 7. push to the branch: `git push fork my-new-feature`
 8. create a new Pull Request.
 
+### Local web-based godoc
+
+1. Install [godoc](https://pkg.go.dev/golang.org/x/tools/cmd/godoc) globally via `go get` and run at root
+
+```bash
+  godoc -http=:8000
+```
+- Open the link http://localhost:8000/ for viewing the documentation.
+
+2. Export `godoc` using [gopages](https://pkg.go.dev/github.com/johnstarich/go/gopages#section-readme) (only works on unix based systems)
+```bash
+  gopages -brand-description "Go client library for Ably realtime messaging service." -brand-title "Ably Go SDK"
+```
+- `godoc html` is exported to `dist` and can be served using `python3 http.server`
+
+```bash
+  cd dist
+  py -m http.server 8000
+```
+- Open the link http://localhost:8000/ for viewing the documentation.
+
 ### Running Tests
 
 This project contains two types of test. Test which use the `ablytest` package and tests which dont. 
