@@ -29,11 +29,11 @@ jobs:
           go get github.com/johnstarich/go/gopages
           go install github.com/johnstarich/go/gopages
 
-      - uses: ably/sdk-upload-action@v1
-        id: sdk-upload-prempt
-        with:
-          mode: preempt
-          artifactName: godoc
+#      - uses: ably/sdk-upload-action@v1
+#        id: sdk-upload-prempt
+#        with:
+#          mode: preempt
+#          artifactName: godoc
 
       - name: Build Documentation
         run: >
@@ -41,7 +41,8 @@ jobs:
           -source-link "https://github.com/ably/ably-go/blob/${{ github.sha }}/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
           -brand-description "Go client library for Ably realtime messaging service."
           -brand-title "Ably Go SDK"
-          -base $BASE_URL
+          -base ./../../../../..
+#          -base $BASE_URL
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
