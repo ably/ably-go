@@ -1,7 +1,6 @@
 package ably
 
 import (
-	"fmt"
 	"runtime"
 	"strings"
 )
@@ -20,9 +19,7 @@ const (
 	ablySDKIdentifier      = "ably-go/" + libraryVersion // RSC7d1
 )
 
-var goRuntimeIdentifier = func() string {
-	return fmt.Sprintf("%s/%s", libraryName, runtime.Version()[2:])
-}()
+var goRuntimeIdentifier = libraryName + "/" + strings.TrimPrefix(runtime.Version(), "go")
 
 func ablyAgentIdentifier(agents map[string]string) string {
 	identifiers := []string{
