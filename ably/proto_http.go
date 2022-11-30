@@ -13,7 +13,7 @@ const (
 	ablyErrorMessageHeader = "X-Ably-Errormessage"
 	libraryVersion         = "1.2.12"
 	libraryName            = "go"
-	ablyVersion            = "1.2"
+	ablyVersion            = "2.0"
 	ablyClientIDHeader     = "X-Ably-ClientId"
 	hostHeader             = "Host"
 	ablyAgentHeader        = "Ably-Agent"                // RSC7d
