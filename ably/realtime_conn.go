@@ -61,10 +61,6 @@ type Connection struct {
 	// a realtime client docs for more info (RTN9).
 	key string
 
-	// serial is the serial number of the last message to be received on this connection, used automatically by
-	// the library when recovering or resuming a connection. When recovering a connection explicitly, the recoveryKey
-	// is used in the recover client options as it contains both the key and the last message serial (RTN10).
-	serial       *int64
 	msgSerial    int64
 	connStateTTL durationFromMsecs
 	err          error
@@ -272,16 +268,12 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	switch mode {
 	case resumeMode:
 		query.Set("resume", c.key)
-		if c.serial != nil {
-			query.Set("connectionSerial", fmt.Sprint(*c.serial))
-		}
 	case recoveryMode:
 		m := strings.Split(c.opts.Recover, ":")
 		if len(m) != 3 {
 			return nil, errors.New("conn: Invalid recovery key")
 		}
 		query.Set("recover", m[0])
-		query.Set("connectionSerial", m[1])
 	}
 	return query, nil
 }
@@ -489,15 +481,7 @@ func (c *Connection) RecoveryKey() string {
 	if c.key == "" {
 		return ""
 	}
-	return strings.Join([]string{c.key, fmt.Sprint(*c.serial), fmt.Sprint(c.msgSerial)}, ":")
-}
-
-// Serial gives serial number of a message received most recently.
-// Last known serial number is used when recovering connection state.
-func (c *Connection) Serial() *int64 {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-	return c.serial
+	return strings.Join([]string{c.key, "0", fmt.Sprint(c.msgSerial)}, ":")
 }
 
 // State returns current state of the connection.
@@ -687,10 +671,6 @@ func (c *Connection) log() logger {
 	return c.auth.log()
 }
 
-func (c *Connection) setSerial(serial *int64) {
-	c.serial = serial
-}
-
 func (c *Connection) resendPending() {
 	c.mtx.Lock()
 	cx := c.pending.Dismiss()
@@ -737,11 +717,6 @@ func (c *Connection) eventloop() {
 		}
 		lastActivityAt = c.opts.Now()
 		msg.updateInnerMessagesEmptyFields() // TM2a, TM2c, TM2f
-		if msg.ConnectionSerial != 0 {
-			c.mtx.Lock()
-			c.setSerial(&msg.ConnectionSerial)
-			c.mtx.Unlock()
-		}
 		switch msg.Action {
 		case actionHeartbeat:
 		case actionAck:
