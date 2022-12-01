@@ -20,7 +20,7 @@ Because this package uses `internal` packages, all fork development has to happe
 ```
 - Open the link http://localhost:8000/ for viewing the documentation.
 
-2. Export `godoc` using [gopages](https://pkg.go.dev/github.com/johnstarich/go/gopages#section-readme) (only works on unix based systems)
+2. Export `godoc` using latest version of [gopages](https://pkg.go.dev/github.com/johnstarich/go/gopages#section-readme)
 ```bash
   gopages -brand-description "Go client library for Ably realtime messaging service." -brand-title "Ably Go SDK"
 ```
