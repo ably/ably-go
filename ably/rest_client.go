@@ -685,7 +685,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 	if err != nil {
 		c.log.Error("RestClient: error handling response: ", err)
 		if e, ok := err.(*ErrorInfo); ok {
-			if canFallBack(e.StatusCode, resp.Header) {
+			if canFallBack(e.StatusCode, resp) {
 				fallbacks, _ := c.opts.getFallbackHosts()
 				c.log.Infof("RestClient: trying to fallback with hosts=%v", fallbacks)
 				if len(fallbacks) > 0 {
@@ -735,7 +735,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 								return nil, err
 							}
 							if ev, ok := err.(*ErrorInfo); ok {
-								if canFallBack(ev.StatusCode, resp.Header) {
+								if canFallBack(ev.StatusCode, resp) {
 									iteration++
 									continue
 								}
@@ -764,10 +764,10 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 	return resp, nil
 }
 
-func canFallBack(code int, header http.Header) bool {
+func canFallBack(code int, res *http.Response) bool {
   return http.StatusInternalServerError <= code &&
   code <= http.StatusGatewayTimeout ||
-  (header.Get("Server") == "Cloudfront" && http.StatusBadRequest <= code) // RSC15l4
+  (res != nil && res.Header.Get("Server") == "Cloudfront" && http.StatusBadRequest <= code) // RSC15l4
 }
 
 // newHTTPRequest creates a new http.Request that can be sent to ably endpoints.
