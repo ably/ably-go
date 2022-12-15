@@ -766,7 +766,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 
 func canFallBack(statusCode int, res *http.Response) bool {
 	return (statusCode >= http.StatusInternalServerError && statusCode <= http.StatusGatewayTimeout) ||
-		(res != nil && res.Header.Get("Server") == "Cloudfront" && statusCode >= http.StatusBadRequest) // RSC15l4
+		(res != nil && strings.EqualFold(res.Header.Get("Server"), "CloudFront") && statusCode >= http.StatusBadRequest) // RSC15l4
 }
 
 // newHTTPRequest creates a new http.Request that can be sent to ably endpoints.
