@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.2.10](https://github.com/ably/ably-go/tree/v1.2.10)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.9...v1.2.10)
+
+**Implemented enhancements:**
+
+- Implement `RSC15l4` \(retry requests on Cloudfront HTTP error\) [\#571](https://github.com/ably/ably-go/issues/571), in [\#572](https://github.com/ably/ably-go/pull/572) ([owenpearson](https://github.com/owenpearson), [sacOO7](https://github.com/sacOO7))
+
 ## [1.2.9](https://github.com/ably/ably-go/tree/v1.2.9)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.8...v1.2.9)
