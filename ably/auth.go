@@ -66,10 +66,10 @@ type Auth struct {
 	method int
 	client *REST
 
-	// save params to use with token renewal
+	// params to use with token renewal
 	params *TokenParams
 
-	// a host part of AuthURL
+	// host part of AuthURL
 	host string
 
 	// clientID is used for identifying this client when publishing messages or for presence purposes.
@@ -86,7 +86,7 @@ type Auth struct {
 
 	serverTimeOffset time.Duration
 
-	// ServerTimeHandler when provided this will be used to query server time.
+	// serverTimeHandler when provided this will be used to query server time.
 	serverTimeHandler func() (time.Time, error)
 }
 
