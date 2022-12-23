@@ -28,12 +28,6 @@ jobs:
           go install golang.org/x/tools/cmd/godoc@v0.3.0
           go install github.com/johnstarich/go/gopages@v0.1.16
 
-#      - uses: ably/sdk-upload-action@v1
-#        id: sdk-upload-prempt
-#        with:
-#          mode: preempt
-#          artifactName: godoc
-
       - name: Build Documentation
         run: >
           gopages
@@ -41,7 +35,6 @@ jobs:
           -brand-description "Go client library for Ably realtime messaging service."
           -brand-title "Ably Go SDK"
           -base ./../../../../..
-#          -base $BASE_URL
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
