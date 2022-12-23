@@ -11,7 +11,7 @@ Because this package uses `internal` packages, all fork development has to happe
 7. push to the branch: `git push fork my-new-feature`
 8. create a new Pull Request.
 
-### Local web-based godoc
+### Previewing Godoc Locally
 
 1. Install [godoc](https://pkg.go.dev/golang.org/x/tools/cmd/godoc) globally via `go get` and run at root
 
