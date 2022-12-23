@@ -50,7 +50,6 @@ type ChannelOption func(*channelOptions)
 // channelOptions wraps ChannelOptions. It exists so that users can't implement their own ChannelOption.
 type channelOptions protoChannelOptions
 
-
 // ChannelWithCipherKey is a constructor that takes private key as a argument.
 // It is used to encrypt and decrypt payloads (TB3)
 func ChannelWithCipherKey(key []byte) ChannelOption {
@@ -177,16 +176,16 @@ type RealtimeChannel struct {
 	ChannelEventEmitter
 
 	// Name is the channel name.
-	Name     string
+	Name string
 
 	// Presence is a [ably.RealtimePresence] object, provides for entering and leaving client presence (RTL9).
 	Presence *RealtimePresence
 
 	// state is the current [ably.ChannelState] of the channel (RTL2b).
-	state           ChannelState
+	state ChannelState
 
 	//errorReason is a [ably.ErrorInfo] object describing the last error which occurred on the channel, if any (RTL4e).
-	errorReason     *ErrorInfo
+	errorReason *ErrorInfo
 
 	internalEmitter ChannelEventEmitter
 
@@ -196,10 +195,10 @@ type RealtimeChannel struct {
 	options        *channelOptions
 
 	// params are optional channel parameters that configure the behavior of the channel (RTL4k1).
-	params         channelParams
+	params channelParams
 
 	// modes is an array of multiple [ably.ChannelMode] objects (RTL4m).
-	modes          []ChannelMode
+	modes []ChannelMode
 
 	//attachResume is True when the channel moves to the ChannelStateAttached state, and False
 	//when the channel moves to the ChannelStateDetaching or ChannelStateFailed states.
@@ -600,7 +599,6 @@ func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Messa
 	}
 	return res.Wait(ctx)
 }
-
 
 // History retrieves a [ably.HistoryRequest] object, containing an array of historical
 // [ably.Message] objects for the channel. If the channel is configured to persist messages,

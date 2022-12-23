@@ -61,16 +61,16 @@ func addHeaders(lhs, rhs http.Header) http.Header {
 // Auth creates Ably [ably.TokenRequest] objects and obtains Ably Tokens from Ably to
 // subsequently issue to less trusted clients.
 type Auth struct {
-	mtx      sync.Mutex
+	mtx sync.Mutex
 
-	method   int
-	client   *REST
+	method int
+	client *REST
 
 	// save params to use with token renewal
-	params   *TokenParams
+	params *TokenParams
 
 	// a host part of AuthURL
-	host     string
+	host string
 
 	// clientID is used for identifying this client when publishing messages or for presence purposes.
 	// The clientId can be any non-empty string, except it cannot contain a *.
@@ -198,7 +198,6 @@ func (a *Auth) createTokenRequest(params *TokenParams, opts *authOptions) (*Toke
 	req.sign([]byte(keySecret))
 	return req, nil
 }
-
 
 // RequestToken Calls the requestToken REST API endpoint to obtain an Ably Token according to the specified
 // [ably.TokenParams] and [ably.AuthOption]. Both [ably.TokenParams] and [ably.AuthOption] are optional.

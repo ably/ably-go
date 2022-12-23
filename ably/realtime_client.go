@@ -10,12 +10,12 @@ import (
 // additional realtime-specific features.
 type Realtime struct {
 	// An [ably.Auth] object (RTC4).
-	Auth       *Auth
+	Auth *Auth
 	// A [ably.RealtimeChannels] object (RTC3, RTS1).
-	Channels   *RealtimeChannels
+	Channels *RealtimeChannels
 	// A [ably.Connection] object (RTC2).
 	Connection *Connection
-	rest *REST
+	rest       *REST
 }
 
 // NewRealtime constructs a new [ably.Realtime] client object using an Ably [ably.ClientOption] object (RSC1)
@@ -46,7 +46,6 @@ func (c *Realtime) Connect() {
 	c.Connection.Connect()
 }
 
-
 // Close calls Connection.Close and causes the connection to close, entering the closing state. Once closed,
 // the library will not attempt to re-establish the connection without an explicit call to Connection.Connect
 // proxy for RTN12
@@ -61,7 +60,6 @@ func (c *Realtime) Close() {
 func (c *Realtime) Stats(o ...StatsOption) StatsRequest {
 	return c.rest.Stats(o...)
 }
-
 
 // Time retrieves the time from the Ably service as milliseconds since the Unix epoch.
 // Clients that do not have access to a sufficiently well maintained time source and wish to issue Ably

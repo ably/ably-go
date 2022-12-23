@@ -43,23 +43,23 @@ type Connection struct {
 	ConnectionEventEmitter
 
 	// state is the current [ably.ConnectionState] of the connection (RTN4d).
-	state           ConnectionState
+	state ConnectionState
 
 	// errorReason is an [ably.ErrorInfo] object describing the last error received if
 	// a connection failure occurs (RTN14a).
-	errorReason     *ErrorInfo
+	errorReason *ErrorInfo
 
 	internalEmitter ConnectionEventEmitter
 
 	// id is a unique public identifier for this connection, used to identify this member (RTN8).
-	id           string
+	id string
 
 	// key is a unique private connection key used to recover or resume a connection, assigned by Ably.
 	// When recovering a connection explicitly, the recoveryKey is used in the recover client options as
 	// it contains both the key and the last message serial. This private connection key can also be used by
 	// other REST clients to publish on behalf of this client. See the publishing over REST on behalf of
 	// a realtime client docs for more info (RTN9).
-	key          string
+	key string
 
 	// serial is the serial number of the last message to be received on this connection, used automatically by
 	// the library when recovering or resuming a connection. When recovering a connection explicitly, the recoveryKey

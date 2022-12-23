@@ -127,10 +127,10 @@ func (c *RESTChannels) Release(name string) {
 // REST is rest client that offers a simple stateless API to interact directly with Ably's REST API.
 type REST struct {
 	// Auth is a  [ably.Auth] object (RSC5).
-	Auth                *Auth
+	Auth *Auth
 
 	//Channels is a [ably.RESTChannels] object (RSN1).
-	Channels            *RESTChannels
+	Channels *RESTChannels
 
 	opts                *clientOptions
 	successFallbackHost *fallbackCache

@@ -12,12 +12,11 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-
 // RESTChannel is the interface for REST API operations on a channel.
 // It enables messages to be published and historic messages to be retrieved for a channel.
 type RESTChannel struct {
 	// Name is the channel name.
-	Name     string
+	Name string
 
 	// Presence is a [ably.RESTPresence] object (RSL3).
 	Presence *RESTPresence
@@ -166,16 +165,16 @@ func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages [
 // such as its ID and [ably.ChannelStatus].
 type ChannelDetails struct {
 	// ChannelId is the identifier of the channel (CHD2a).
-	ChannelId string        `json:"channelId" codec:"channelId"`
+	ChannelId string `json:"channelId" codec:"channelId"`
 	// Status is a [ably.ChannelStatus] object (CHD2b).
-	Status    ChannelStatus `json:"status" codec:"status"`
+	Status ChannelStatus `json:"status" codec:"status"`
 }
 
 // ChannelStatus contains the status of a [ably.RESTChannel] or [ably.RealtimeChannel] object such as whether
 // it is active and its [ably.ChannelOccupancy].
 type ChannelStatus struct {
 	// IsActive if set to true, the channel is active, otherwise inactive (CHS2a).
-	IsActive  bool             `json:"isActive" codec:"isActive"`
+	IsActive bool `json:"isActive" codec:"isActive"`
 
 	// Occupancy is a [ably.ChannelOccupancy] object (CHS2b).
 	Occupancy ChannelOccupancy `json:"occupancy" codec:"occupancy"`
@@ -191,7 +190,7 @@ type ChannelOccupancy struct {
 // such as the number of publishers, subscribers and connections it has.
 type ChannelMetrics struct {
 	// Connections is the number of realtime connections attached to the channel (CHM2a).
-	Connections         int `json:"connections" codec:"connections"`
+	Connections int `json:"connections" codec:"connections"`
 
 	// PresenceConnections is the number of realtime connections attached to the channel with permission
 	// to enter the presence set, regardless of whether they have entered it. This requires the
@@ -200,7 +199,7 @@ type ChannelMetrics struct {
 	PresenceConnections int `json:"presenceConnections" codec:"presenceConnections"`
 
 	// PresenceMembers are the number of members in the presence set of the channel (CHM2c).
-	PresenceMembers     int `json:"presenceMembers" codec:"presenceMembers"`
+	PresenceMembers int `json:"presenceMembers" codec:"presenceMembers"`
 
 	// PresenceSubscribers is the number of realtime attachments receiving presence messages on the channel.
 	// This requires the subscribe capability and for a client to not have specified a [ably.ChannelMode]
@@ -210,13 +209,13 @@ type ChannelMetrics struct {
 	// Publishers is the number of realtime attachments permitted to publish messages on the channel.
 	// This requires the publish capability and for a client to not have specified a [ably.ChannelMode]
 	// flag that excludes [ably.ChannelModePublish] (CHM2e).
-	Publishers          int `json:"publishers" codec:"publishers"`
+	Publishers int `json:"publishers" codec:"publishers"`
 
 	// Subscribers is the number of realtime attachments receiving messages on the channel.
 	// This requires the subscribe capability and for a client to not have specified a [ably.ChannelMode]
 	// flag that excludes [ably.ChannelModeSubscribe].
 	// CHM2f
-	Subscribers         int `json:"subscribers" codec:"subscribers"`
+	Subscribers int `json:"subscribers" codec:"subscribers"`
 }
 
 // Status returns ChannelDetails representing information for a channel which includes status and occupancy metrics.

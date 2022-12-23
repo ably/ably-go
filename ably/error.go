@@ -48,11 +48,11 @@ type ErrorInfo struct {
 	StatusCode int
 	// Code is the standard [ably error code]
 	// [ably error code]: https://github.com/ably/ably-common/blob/main/protocol/errors.json (TI1).
-	Code       ErrorCode
+	Code ErrorCode
 	// HRef is included for REST responses to provide a URL for additional help on the error code (TI4).
-	HRef       string
+	HRef string
 	// Cause provides Information pertaining to what caused the error where available (TI1).
-	Cause      *ErrorInfo
+	Cause *ErrorInfo
 	// err is the application-level error we're wrapping, or just a message.
 	// If Cause is non-nil, err == *Cause.
 	err error

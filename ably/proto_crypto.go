@@ -56,7 +56,6 @@ const (
 	defaultCipherMode      = CipherCBC
 )
 
-
 // CipherParams sets the properties to configure encryption for a [ably.RESTChannel] or
 // [ably.RealtimeChannel] object (TZ1).
 type CipherParams struct {

@@ -32,7 +32,7 @@ type RealtimePresence struct {
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
-	pres := &RealtimePresence {
+	pres := &RealtimePresence{
 		messageEmitter: newEventEmitter(channel.log()),
 		channel:        channel,
 		members:        make(map[string]*PresenceMessage),
@@ -227,7 +227,6 @@ func (o *presenceGetOptions) applyWithDefaults(options ...PresenceGetOption) {
 		opt(o)
 	}
 }
-
 
 // GetWithOptions is Get with optional parameters.
 // Retrieves the current members (array of [ably.PresenceMessage] objects) present on the channel

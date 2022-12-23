@@ -22,14 +22,14 @@ const (
 	protocolMsgPack = "application/x-msgpack"
 
 	// restHost is the primary ably host.
-	restHost     = "rest.ably.io"
+	restHost = "rest.ably.io"
 	// realtimeHost is the primary ably host.
 	realtimeHost = "realtime.ably.io"
 	Port         = 80
 	TLSPort      = 443
 )
 
-var defaultOptions = clientOptions {
+var defaultOptions = clientOptions{
 	RESTHost:                 restHost,
 	FallbackHosts:            defaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
@@ -249,23 +249,23 @@ type clientOptions struct {
 	// FallbackHosts is an array of fallback hosts to be used in the case of an error necessitating
 	// the use of an alternative host. If you have been provided a set of custom fallback hosts by Ably,
 	// please specify them here (RSC15b, RSC15a, TO3k6).
-	FallbackHosts   []string
+	FallbackHosts []string
 
 	// RealtimeHost enables a non-default Ably host to be specified for realtime connections.
 	// For development environments only. The default value is realtime.ably.io (RTC1d, TO3k3).
-	RealtimeHost    string
+	RealtimeHost string
 
 	// Environment enables a custom environment to be used with the Ably service.
 	// Optional: prefixes both hostname with the environment string (RSC15b, TO3k1).
-	Environment     string
+	Environment string
 
 	// Port is used for non-TLS connections and requests
-	Port            int
+	Port int
 
 	// TLSPort enables a non-default Ably port to be specified.
 	// This is used for TLS connections and requests and restricted to development environments only.
 	// The default value is 80 (TO3k4)>
-	TLSPort         int
+	TLSPort int
 
 	// ClientID is used for identifying this client when publishing messages or for presence purposes.
 	// The clientId can be any non-empty string, except it cannot contain a *.
@@ -273,7 +273,7 @@ type clientOptions struct {
 	// Note that a clientId may also be implicit in a token used to instantiate the library.
 	// An error will be raised if a clientId specified here conflicts with the clientId implicit in the token.
 	// (RSC17, RSA4, RSA15, TO3a).
-	ClientID        string
+	ClientID string
 
 	// Recover enables a connection to inherit the state of a previous connection that may have existed
 	// under a different instance of the Realtime library. This might typically be used by clients of the browser
@@ -282,7 +282,7 @@ type clientOptions struct {
 	// the client library will automatically persist the recovery key between page reloads and call the callback
 	// when the connection is recoverable. The callback is then responsible for confirming whether the connection
 	// should be recovered or not. See connection state recovery for further information (RTC1c, TO3i).
-	Recover         string
+	Recover string
 
 	// TransportParams is a set of key-value pairs that can be used to pass in arbitrary connection parameters,
 	// such as heartbeatInterval or remainPresentFor (RTC1f).
@@ -303,17 +303,17 @@ type clientOptions struct {
 
 	// NoTLS when set to true, the client will use an insecure connection.
 	// The default is false, meaning a TLS connection will be used to connect to Ably (RSC18, TO3d).
-	NoTLS            bool
+	NoTLS bool
 
 	// NoConnect when set to false, the client connects to Ably as soon as it is instantiated.
 	// You can set this to true and explicitly connect to Ably using the [ably.Connection]#connect()
 	// The default is false (RTC1b, TO3e).
-	NoConnect        bool
+	NoConnect bool
 
 	// NoEcho if set to true, prevents messages originating from this connection being echoed back
 	// on the same connection.
 	// The default is false (RTC1a, TO3h).
-	NoEcho           bool
+	NoEcho bool
 
 	// NoQueueing if set to true, this disables the default behavior whereby the library queues messages on a
 	// connection in the disconnected or connecting states. The default behavior enables applications to
@@ -321,7 +321,7 @@ type clientOptions struct {
 	// to be established. Applications may use this option to disable queueing if they wish to have
 	// application-level control over the queueing.
 	// The default is false (RTP16b, TO3g).
-	NoQueueing       bool
+	NoQueueing bool
 
 	// NoBinaryProtocol when set to true, JSON text encoding is used.
 	// When false, the more efficient MsgPack binary encoding is used.
@@ -362,18 +362,18 @@ type clientOptions struct {
 	// after this timeout, if the state is still [ably.ConnectionStateSuspended], the client library attempts
 	// to reconnect automatically.
 	// The default is 30 seconds (RTN14d, TO3l2).
-	SuspendedRetryTimeout    time.Duration
+	SuspendedRetryTimeout time.Duration
 
 	// ChannelRetryTimeout when a channel becomes [ably.ChannelStateSuspended} following a server initiated
 	// [ably.ChannelStateDetached], after this delay, if the channel is still [ably.ChannelStateSuspended]
 	// and the connection is in [ably.ConnectionStateConnected], the client library will attempt to re-attach
 	// the channel automatically.
 	// The default is 15 seconds (RTL13b, TO3l7).
-	ChannelRetryTimeout      time.Duration
+	ChannelRetryTimeout time.Duration
 
 	// HTTPOpenTimeout is timeout for opening a connection to Ably to initiate an HTTP request.
 	// The default is 4 seconds (TO3l3).
-	HTTPOpenTimeout          time.Duration
+	HTTPOpenTimeout time.Duration
 
 	// Dial specifies the dial function for creating message connections used by Realtime.
 	// If Dial is nil, the default websocket connection is used.
@@ -393,7 +393,7 @@ type clientOptions struct {
 	// LogLevel controls the verbosity of the logs output from the library.
 	// Levels include verbose, debug, info, warn and error.
 	// platform specific (TO3b)
-	LogLevel   LogLevel
+	LogLevel LogLevel
 
 	// LogHandler controls the log output of the library. This is a function to handle each line of log output.
 	// platform specific (TO3c)
@@ -646,7 +646,6 @@ type ClientOption func(*clientOptions)
 // AuthOption configures authentication/authorization for a [ably.REST] or [ably.Realtime]
 // instance or operation.
 type AuthOption func(*authOptions)
-
 
 // Tokener is or can be used to get a [ably.TokenDetails].
 type Tokener interface {
@@ -922,7 +921,6 @@ func WithAuthHeaders(headers http.Header) ClientOption {
 	}
 }
 
-
 // WithKey is used for setting root/non-root apikey using [ably.ClientOption].
 // Key is a full API key string, as obtained from the Ably dashboard.
 // Use this option if you wish to use Basic authentication, or wish to be able to issue Ably Tokens
@@ -1101,6 +1099,7 @@ func WithRESTHost(host string) ClientOption {
 		os.RESTHost = host
 	}
 }
+
 // WithHTTPRequestTimeout is used for setting HTTPRequestTimeout using [ably.ClientOption].
 // HTTPRequestTimeout is a timeout for a client performing a complete HTTP request to Ably, including the connection phase.
 // Will only be used if no custom HTTPClient is set.
@@ -1110,6 +1109,7 @@ func WithHTTPRequestTimeout(timeout time.Duration) ClientOption {
 		os.HTTPRequestTimeout = timeout
 	}
 }
+
 // WithRealtimeHost is used for setting RealtimeHost using [ably.ClientOption].
 // RealtimeHost enables a non-default Ably host to be specified for realtime connections.
 // For development environments only. The default value is realtime.ably.io (RTC1d, TO3k3).
@@ -1274,6 +1274,7 @@ func WithFallbackHostsUseDefault(fallbackHostsUseDefault bool) ClientOption {
 		os.FallbackHostsUseDefault = fallbackHostsUseDefault
 	}
 }
+
 // WithDial is used for setting Dial using [ably.ClientOption].
 // Dial specifies the dial function for creating message connections used by Realtime.
 // If Dial is nil, the default websocket connection is used.

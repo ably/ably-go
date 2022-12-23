@@ -76,10 +76,10 @@ type TokenRequest struct {
 
 	// Nonce is a cryptographically secure random string of at least 16 characters,
 	// used to ensure the TokenRequest cannot be reused (TE2).
-	Nonce   string `json:"nonce,omitempty" codec:"nonce,omitempty"`
+	Nonce string `json:"nonce,omitempty" codec:"nonce,omitempty"`
 
 	// MAC is the Message Authentication Code for this request.
-	MAC     string `json:"mac,omitempty" codec:"mac,omitempty"`
+	MAC string `json:"mac,omitempty" codec:"mac,omitempty"`
 }
 
 func (TokenRequest) IsTokener() {}

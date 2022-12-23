@@ -71,7 +71,6 @@ func (p *RESTPresence) log() logger {
 	return p.client.log
 }
 
-
 // History retrieves a [ably.PaginatedResult] object, containing an array of historical [ably.PresenceMessage]
 // objects for the channel. If the channel is configured to persist messages, then presence messages can be retrieved
 // from history for up to 72 hours in the past. If not, presence messages can only be retrieved from history for up
@@ -80,7 +79,7 @@ func (p *RESTPresence) log() logger {
 // See package-level documentation => [ably] Pagination for details about history pagination.
 func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceRequest {
 	params := (&presenceHistoryOptions{}).apply(o...)
-	return PresenceRequest {
+	return PresenceRequest{
 		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence/history", "/channels/"+c.channel.pathName()+"/presence/history", params),
 		channel: c.channel,
 	}
