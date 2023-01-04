@@ -21,8 +21,9 @@ const (
 	protocolJSON    = "application/json"
 	protocolMsgPack = "application/x-msgpack"
 
-	// restHost is the primary ably host .
-	restHost     = "rest.ably.io"
+	// restHost is the primary ably host.
+	restHost = "rest.ably.io"
+	// realtimeHost is the primary ably host.
 	realtimeHost = "realtime.ably.io"
 	Port         = 80
 	TLSPort      = 443
@@ -75,14 +76,32 @@ const (
 	authToken
 )
 
+// authOptions passes authentication-specific properties in authentication requests to Ably.
+// Properties set using [ably.authOptions] are used instead of the default values set when the client
+// library is instantiated, as opposed to being merged with them.
 type authOptions struct {
-	// AuthCallback is called in order to obtain a signed token request.
+
+	// AuthCallback function is called when a new token is required.
+	// The role of the callback is to obtain a fresh token, one of
 	//
-	// This enables a client to obtain token requests from another entity,
-	// so tokens can be renewed without the client requiring access to keys.
+	//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+	//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+	//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+	//	4. [An Ably JWT].
+	//
+	// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, TO3j5, AO2b).
+	//
+	// [authentication doc]: https://ably.com/docs/core-features/authentication
+	// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 	AuthCallback func(context.Context, TokenParams) (Tokener, error)
 
-	// URL which is queried to obtain a signed token request.
+	// AuthURL is a url that library will use to obtain
+	//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+	//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+	//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+	//	4. [An Ably JWT].
+	//
+	// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, RSA8c, TO3j6, AO2c).
 	//
 	// This enables a client to obtain token requests from another entity,
 	// so tokens can be renewed without the client requiring access to keys.
@@ -107,42 +126,76 @@ type authOptions struct {
 	//   - Content-Type is set to "application/x-www-form-urlencoded" and
 	//     the payload is encoded from *TokenParams and AuthParams
 	//
+	// [authentication doc]: https://ably.com/docs/core-features/authentication
+	// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 	AuthURL string
 
-	// Key obtained from the dashboard.
+	// Key is a full API key string, as obtained from the Ably dashboard.
+	// Use this option if you wish to use Basic authentication, or wish to be able to issue Ably Tokens
+	// without needing to defer to a separate entity to sign multiple [ably.TokenRequest].
+	// Read more about [Basic authentication] (RSA11, RSA14, TO3j1, AO2a).
+	//
+	// [Basic authentication]: https://ably.com/docs/core-features/authentication#basic-authentication
 	Key string
 
-	// Token is an authentication token issued for this application against
-	// a specific key and TokenParams.
+	// Token is an authenticated token.
+	// This can either be a token string (obtained from the token property of a [ably.TokenDetails] component of
+	// an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+	//
+	// This option is mostly useful for testing: since tokens are short-lived,
+	// in production you almost always want to use an authentication method that enables the client library
+	// to renew the token automatically when the previous one expires, such as AuthURL or AuthCallback.
+	// Read more about [Token authentication] (RSA4a, RSA4, TO3j2).
+	//
+	// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 	Token string
 
-	// TokenDetails is an authentication token issued for this application against
-	// a specific key and TokenParams.
+	// TokenDetails is an authentication token with type [ably.TokenDetails].
+	// Only TokenDetails.Token can be set via token string (obtained from the token property of a [ably.TokenDetails]
+	// component of an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+	// This option is mostly useful for testing: since tokens are short-lived,
+	// in production you almost always want to use an authentication method that enables the client library
+	// to renew the token automatically when the previous one expires, such as AuthURL or AuthCallback.
+	// Read more about [Token authentication] (RSA4a, RSA4, TO3j3).
+	//
+	// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 	TokenDetails *TokenDetails
 
-	// AuthMethod specifies which method, GET or POST, is used to query AuthURL
-	// for the token information (*ably.TokenRequest or *ablyTokenDetails).
-	//
-	// If empty, GET is used by default.
+	// AuthMethod specifies HTTP verb to use for any request made to the AuthURL, either GET or POST for
+	// getting token information [ably.TokenRequest] or [ably.TokenDetails].
+	// The default value is GET (RSA8c, TO3j7, AO2d)
 	AuthMethod string
 
-	// AuthHeaders are HTTP request headers to be included in any request made
-	// to the AuthURL.
+	// AuthHeaders are key-value pair HTTP request headers to be added to any request made to the AuthURL.
+	// Useful when an application requires these to be added to validate the request or implement the response.
+	// If the authHeaders object contains an authorization key, then withCredentials is set on the XHR request.
+	// (RSA8c3, TO3j8, AO2e).
 	AuthHeaders http.Header
 
-	// AuthParams are HTTP query parameters to be included in any request made
-	// to the AuthURL.
+	// AuthParams are key-value pair HTTP query params to be added to any request made to the AuthURL.
+	// When the authMethod is GET, query params are added to the URL, whereas when authMethod is POST,
+	// the params are sent as URL encoded form data. Useful when an application requires these to be added to
+	// validate the request or implement the response (RSA8c3, RSA8c1, TO3j9, AO2f).
 	AuthParams url.Values
 
-	// UseQueryTime when set to true, the time queried from Ably servers will
-	// be used to sign the TokenRequest instead of using local time.
+	// UseQueryTime when set to true, the library queries the Ably servers for the current time when
+	// issuing multiple [ably.TokenRequest] instead of relying on a locally-available time of day.
+	// Knowing the time accurately is needed to create valid signed Ably [ably.TokenRequest],
+	// so this option is useful for library instances on auth servers where for some reason
+	// the server clock cannot be kept synchronized through normal means,
+	// such as an NTP daemon. The server is queried for the current time once per client library instance
+	// (which stores the offset from the local clock), so if using this option you should avoid instancing
+	// a new version of the library for each request.
+	// The default is false (RSA9d, TO3j10, AO2a).
 	UseQueryTime bool
 
-	// Spec: TO3j11
+	// DefaultTokenParams when provided, it overrides the client library defaults when issuing new Ably Tokens
+	// for multiple Ably [ably.TokenRequest] (TO3j11).
 	DefaultTokenParams *TokenParams
 
-	// UseTokenAuth makes the REST and Realtime clients always use token
-	// authentication method.
+	// UseTokenAuth when set to true, forces token authentication to be used by the library.
+	// If a clientId is not specified in the [ably.ClientOption] or [ably.TokenParams],
+	// then the Ably Token issued is anonymous (RSA4, RSA14, TO3j4).
 	UseTokenAuth bool
 }
 
@@ -178,83 +231,172 @@ func (opts *authOptions) KeySecret() string {
 	return ""
 }
 
+// clientOptions passes additional client-specific properties to the [ably.NewREST] or to the [ably.NewRealtime].
+// Properties set using [ably.clientOptions] are used instead of the [ably.defaultOptions] values.
 type clientOptions struct {
+
+	// authOptions Embedded an [ably.authOptions] object (TO3j).
 	authOptions
 
-	RESTHost string // optional; overwrite endpoint hostname for REST client
-	// Deprecated: The library will automatically use default fallback hosts when a custom REST host or custom fallback hosts aren't provided.
+	// RESTHost enables a non-default Ably host to be specified. For development environments only.
+	// The default value is rest.ably.io (RSC12, TO3k2).
+	RESTHost string
+
+	// Deprecated: this property is deprecated and will be removed in a future version.
+	// Enables default fallback hosts to be used (TO3k7).
 	FallbackHostsUseDefault bool
 
-	FallbackHosts   []string
-	RealtimeHost    string // optional; overwrite endpoint hostname for Realtime client
-	Environment     string // optional; prefixes both hostname with the environment string
-	Port            int    // optional: port to use for non-TLS connections and requests
-	TLSPort         int    // optional: port to use for TLS connections and requests
-	ClientID        string // optional; required for managing realtime presence of the current client
-	Recover         string // optional; used to recover client state
+	// FallbackHosts is an array of fallback hosts to be used in the case of an error necessitating
+	// the use of an alternative host. If you have been provided a set of custom fallback hosts by Ably,
+	// please specify them here (RSC15b, RSC15a, TO3k6).
+	FallbackHosts []string
+
+	// RealtimeHost enables a non-default Ably host to be specified for realtime connections.
+	// For development environments only. The default value is realtime.ably.io (RTC1d, TO3k3).
+	RealtimeHost string
+
+	// Environment enables a custom environment to be used with the Ably service.
+	// Optional: prefixes both hostname with the environment string (RSC15b, TO3k1).
+	Environment string
+
+	// Port is used for non-TLS connections and requests
+	Port int
+
+	// TLSPort enables a non-default Ably port to be specified.
+	// This is used for TLS connections and requests and restricted to development environments only.
+	// The default value is 80 (TO3k4)>
+	TLSPort int
+
+	// ClientID is used for identifying this client when publishing messages or for presence purposes.
+	// The clientId can be any non-empty string, except it cannot contain a *.
+	// This option is primarily intended to be used in situations where the library is instantiated with a key.
+	// Note that a clientId may also be implicit in a token used to instantiate the library.
+	// An error will be raised if a clientId specified here conflicts with the clientId implicit in the token.
+	// (RSC17, RSA4, RSA15, TO3a).
+	ClientID string
+
+	// Recover enables a connection to inherit the state of a previous connection that may have existed
+	// under a different instance of the Realtime library. This might typically be used by clients of the browser
+	// library to ensure connection state can be preserved when the user refreshes the page.
+	// A recovery key string can be explicitly provided, or alternatively if a callback function is provided,
+	// the client library will automatically persist the recovery key between page reloads and call the callback
+	// when the connection is recoverable. The callback is then responsible for confirming whether the connection
+	// should be recovered or not. See connection state recovery for further information (RTC1c, TO3i).
+	Recover string
+
+	// TransportParams is a set of key-value pairs that can be used to pass in arbitrary connection parameters,
+	// such as heartbeatInterval or remainPresentFor (RTC1f).
 	TransportParams url.Values
 
-	// max number of fallback hosts to use as a fallback.
+	// HTTPMaxRetryCount denotes the maximum number of fallback hosts to use as a fallback when an HTTP request
+	// to the primary host is unreachable or indicates that it is unserviceable. The default value is 3 (TO3l5).
 	HTTPMaxRetryCount int
-	// HTTPRequestTimeout is the timeout for getting a response for outgoing HTTP requests.
-	//
+
+	// HTTPRequestTimeout is a timeout for a client performing a complete HTTP request to Ably, including the connection phase.
 	// Will only be used if no custom HTTPClient is set.
+	// The default is 10 seconds (TO3l4).
 	HTTPRequestTimeout time.Duration
 
-	// The period in milliseconds before HTTP requests are retried against the
-	// default endpoint
-	//
-	// spec TO3l10
+	// FallbackRetryTimeout is the max time in milliseconds before HTTP requests are retried against the default endpoint.
+	// The default is 600 seconds (TO3l10).
 	FallbackRetryTimeout time.Duration
 
-	NoTLS            bool // when true REST and realtime client won't use TLS
-	NoConnect        bool // when true realtime client will not attempt to connect automatically
-	NoEcho           bool // when true published messages will not be echoed back
-	NoQueueing       bool // when true drops messages published during regaining connection
-	NoBinaryProtocol bool // when true uses JSON for network serialization protocol instead of MsgPack
+	// NoTLS when set to true, the client will use an insecure connection.
+	// The default is false, meaning a TLS connection will be used to connect to Ably (RSC18, TO3d).
+	NoTLS bool
 
-	// When true idempotent rest publishing will be enabled.
-	// Spec TO3n
+	// NoConnect when set to false, the client connects to Ably as soon as it is instantiated.
+	// You can set this to true and explicitly connect to Ably using the [ably.Connection]#connect()
+	// The default is false (RTC1b, TO3e).
+	NoConnect bool
+
+	// NoEcho if set to true, prevents messages originating from this connection being echoed back
+	// on the same connection.
+	// The default is false (RTC1a, TO3h).
+	NoEcho bool
+
+	// NoQueueing if set to true, this disables the default behavior whereby the library queues messages on a
+	// connection in the disconnected or connecting states. The default behavior enables applications to
+	// submit messages immediately upon instantiating the library without having to wait for the connection
+	// to be established. Applications may use this option to disable queueing if they wish to have
+	// application-level control over the queueing.
+	// The default is false (RTP16b, TO3g).
+	NoQueueing bool
+
+	// NoBinaryProtocol when set to true, JSON text encoding is used.
+	// When false, the more efficient MsgPack binary encoding is used.
+	// The default is true (TO3f).
+	NoBinaryProtocol bool
+
+	// IdempotentRESTPublishing when set to true, enables idempotent publishing by assigning a
+	// unique message ID client-side, allowing the Ably servers to discard automatic publish retries
+	// following a failure such as a network fault.
+	// The default is true (RSL1k1, RTL6a1, TO3n).
 	IdempotentRESTPublishing bool
 
-	// TimeoutConnect is the time period after which connect request is failed.
-	//
 	// Deprecated: use RealtimeRequestTimeout instead.
+	// TimeoutConnect is a timeout for the wait of acknowledgement for operations performed via a realtime connection,
+	// before the client library considers a request failed and triggers a failure condition.
+	// Operations include establishing a connection with Ably, or sending a HEARTBEAT, CONNECT, ATTACH, DETACH
+	// or CLOSE request. It is the equivalent of httpRequestTimeout but for realtime operations, rather than REST.
+	// The default is 10 seconds (TO3l11).
 	TimeoutConnect    time.Duration
 	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
 
 	ConnectionStateTTL time.Duration //(DF1a)
 
-	// RealtimeRequestTimeout is the timeout for realtime connection establishment
-	// and each subsequent operation.
+	// RealtimeRequestTimeout is the timeout for the wait of acknowledgement for operations performed via a
+	// realtime connection, before the client library considers a request failed and triggers a failure condition.
+	// Operations include establishing a connection with Ably, or sending a HEARTBEAT, CONNECT, ATTACH, DETACH or
+	// CLOSE request. It is the equivalent of httpRequestTimeout but for realtime operations, rather than REST.
+	// The default is 10 seconds (TO3l11).
 	RealtimeRequestTimeout time.Duration
 
-	// DisconnectedRetryTimeout is the time to wait after a disconnection before
-	// attempting an automatic reconnection, if still disconnected.
+	// DisconnectedRetryTimeout when the connection enters the [ably.ConnectionStateDisconnected] state, after this
+	// timeout, if the state is still [ably.ConnectionStateDisconnected], the client library will attempt
+	// to reconnect automatically.
+	// The default is 15 seconds (TO3l1).
 	DisconnectedRetryTimeout time.Duration
-	SuspendedRetryTimeout    time.Duration
-	ChannelRetryTimeout      time.Duration
-	HTTPOpenTimeout          time.Duration
 
-	// Dial specifies the dial function for creating message connections used
-	// by Realtime.
-	//
+	// SuspendedRetryTimeout is the timeout when the connection enters the [ably.ConnectionStateSuspended] state,
+	// after this timeout, if the state is still [ably.ConnectionStateSuspended], the client library attempts
+	// to reconnect automatically.
+	// The default is 30 seconds (RTN14d, TO3l2).
+	SuspendedRetryTimeout time.Duration
+
+	// ChannelRetryTimeout when a channel becomes [ably.ChannelStateSuspended} following a server initiated
+	// [ably.ChannelStateDetached], after this delay, if the channel is still [ably.ChannelStateSuspended]
+	// and the connection is in [ably.ConnectionStateConnected], the client library will attempt to re-attach
+	// the channel automatically.
+	// The default is 15 seconds (RTL13b, TO3l7).
+	ChannelRetryTimeout time.Duration
+
+	// HTTPOpenTimeout is timeout for opening a connection to Ably to initiate an HTTP request.
+	// The default is 4 seconds (TO3l3).
+	HTTPOpenTimeout time.Duration
+
+	// Dial specifies the dial function for creating message connections used by Realtime.
 	// If Dial is nil, the default websocket connection is used.
 	Dial func(protocol string, u *url.URL, timeout time.Duration) (conn, error)
 
 	// HTTPClient specifies the client used for HTTP communication by REST.
-	//
-	// If HTTPClient is nil, a client configured with default settings is used.
+	// When set to nil, a client configured with default settings is used.
 	HTTPClient *http.Client
 
-	//When provided this will be used on every request.
+	//Trace when provided this will be used on every request.
 	Trace *httptrace.ClientTrace
 
 	// Now returns the time the library should take as current.
 	Now   func() time.Time
 	After func(context.Context, time.Duration) <-chan time.Time
 
-	LogLevel   LogLevel
+	// LogLevel controls the verbosity of the logs output from the library.
+	// Levels include verbose, debug, info, warn and error.
+	// platform specific (TO3b)
+	LogLevel LogLevel
+
+	// LogHandler controls the log output of the library. This is a function to handle each line of log output.
+	// platform specific (TO3c)
 	LogHandler Logger
 }
 
@@ -496,315 +638,646 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 	return nil
 }
 
-// A ClientOption configures a REST or Realtime instance.
+// ClientOption configures a [ably.REST] or [ably.Realtime] instance.
 //
 // See: https://www.ably.io/documentation/realtime/usage#client-options
 type ClientOption func(*clientOptions)
 
-// An AuthOption configures authentication/authorization for a REST or Realtime
+// AuthOption configures authentication/authorization for a [ably.REST] or [ably.Realtime]
 // instance or operation.
 type AuthOption func(*authOptions)
 
-// A Tokener is or can be used to get a TokenDetails.
+// Tokener is or can be used to get a [ably.TokenDetails].
 type Tokener interface {
 	IsTokener()
 	isTokener()
 }
 
-// A TokenString is the string representation of an authentication token.
+// TokenString is the string representation of an authentication token.
 type TokenString string
 
 func (TokenString) IsTokener() {}
 func (TokenString) isTokener() {}
 
+// AuthWithCallback is used for setting AuthCallback function using [ably.AuthOption].
+//
+// AuthCallback function is called when a new token is required.
+// The role of the callback is to obtain a fresh token, one of
+//
+//  1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//  2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//  3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//  4. [An Ably JWT].
+//
+// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, TO3j5, AO2b).
+//
+// [authentication doc]: https://ably.com/docs/core-features/authentication
+// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 func AuthWithCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) AuthOption {
 	return func(os *authOptions) {
 		os.AuthCallback = authCallback
 	}
 }
 
+// AuthWithParams is used for setting AuthParams using [ably.AuthOption].
+// AuthParams are key-value pair HTTP query params to be added to any request made to the AuthURL.
+// When the authMethod is GET, query params are added to the URL, whereas when authMethod is POST,
+// the params are sent as URL encoded form data. Useful when an application requires these to be added to
+// validate the request or implement the response (RSA8c3, RSA8c1, TO3j9, AO2f).
 func AuthWithParams(params url.Values) AuthOption {
 	return func(os *authOptions) {
 		os.AuthParams = params
 	}
 }
 
+// AuthWithURL is used for setting AuthURL using [ably.AuthOption].
+// AuthURL is a url that library will use to obtain
+//  1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//  2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//  3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//  4. [An Ably JWT].
+//
+// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, RSA8c, TO3j6, AO2c).
+//
+// This enables a client to obtain token requests from another entity,
+// so tokens can be renewed without the client requiring access to keys.
+//
+// If AuthURL is non-empty and AuthCallback is nil, the Ably library
+// builds a req (*http.Request) which then is issued against the given AuthURL
+// in order to obtain authentication token. The response is expected to
+// carry a single token string in the payload when Content-Type header
+// is "text/plain" or JSON-encoded *ably.TokenDetails when the header
+// is "application/json".
+//
+// The req is built with the following values:
+//
+// GET requests:
+//
+//   - req.URL.RawQuery is encoded from *TokenParams and AuthParams
+//   - req.Header is set to AuthHeaders
+//
+// POST requests:
+//
+//   - req.Header is set to AuthHeaders
+//   - Content-Type is set to "application/x-www-form-urlencoded" and
+//     the payload is encoded from *TokenParams and AuthParams
+//
+// [authentication doc]: https://ably.com/docs/core-features/authentication
+// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
 func AuthWithURL(url string) AuthOption {
 	return func(os *authOptions) {
 		os.AuthURL = url
 	}
 }
 
+// AuthWithMethod is used for setting AuthMethod using [ably.AuthOption]
+// AuthMethod specifies HTTP verb to use for any request made to the AuthURL, either GET or POST for
+// getting token information [ably.TokenRequest] or [ably.TokenDetails].
+// The default value is GET (RSA8c, TO3j7, AO2d).
 func AuthWithMethod(method string) AuthOption {
 	return func(os *authOptions) {
 		os.AuthMethod = method
 	}
 }
 
+// AuthWithHeaders is used for setting AuthHeaders using [ably.AuthOption].
+// AuthHeaders are key-value pair HTTP request headers to be added to any request made to the AuthURL.
+// Useful when an application requires these to be added to validate the request or implement the response.
+// If the authHeaders object contains an authorization key, then withCredentials is set on the XHR request.
+// (RSA8c3, TO3j8, AO2e).
 func AuthWithHeaders(headers http.Header) AuthOption {
 	return func(os *authOptions) {
 		os.AuthHeaders = headers
 	}
 }
 
+// AuthWithKey is used for setting root/non-root apikey using [ably.AuthOption].
+// Key is a full API key string, as obtained from the Ably dashboard.
+// Use this option if you wish to use Basic authentication, or wish to be able to issue Ably Tokens
+// without needing to defer to a separate entity to sign multiple [ably.TokenRequest].
+// Read more about [Basic authentication] (RSA11, RSA14, TO3j1, AO2a).
+//
+// [Basic authentication]: https://ably.com/docs/core-features/authentication#basic-authentication
 func AuthWithKey(key string) AuthOption {
 	return func(os *authOptions) {
 		os.Key = key
 	}
 }
 
+// AuthWithQueryTime is used for setting UseQueryTime token using [ably.AuthOption].
+// UseQueryTime when set to true, the library queries the Ably servers for the current time when
+// issuing multiple [ably.TokenRequest] instead of relying on a locally-available time of day.
+// Knowing the time accurately is needed to create valid signed Ably [ably.TokenRequest],
+// so this option is useful for library instances on auth servers where for some reason
+// the server clock cannot be kept synchronized through normal means,
+// such as an NTP daemon. The server is queried for the current time once per client library instance
+// (which stores the offset from the local clock), so if using this option you should avoid instancing
+// a new version of the library for each request.
+// The default is false (RSA9d, TO3j10, AO2a).
 func AuthWithQueryTime(queryTime bool) AuthOption {
 	return func(os *authOptions) {
 		os.UseQueryTime = queryTime
 	}
 }
 
+// AuthWithToken is used for setting authenticated token using [ably.AuthOption].
+// This can either be a token string (obtained from the token property of a [ably.TokenDetails] component of
+// an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+//
+// This option is mostly useful for testing: since tokens are short-lived,
+// in production you almost always want to use an authentication method that enables the client library
+// to renew the token automatically when the previous one expires, such as AuthURL or authCallback.
+// Read more about [Token authentication] (RSA4a, RSA4, TO3j2).
+//
+// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 func AuthWithToken(token string) AuthOption {
 	return func(os *authOptions) {
 		os.Token = token
 	}
 }
 
+// AuthWithTokenDetails is used for setting authenticated [ably.TokenDetails] object using [ably.AuthOption].
+// Only TokenDetails.Token can be set via token string (obtained from the token property of a [ably.TokenDetails]
+// component of an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+// This option is mostly useful for testing: since tokens are short-lived,
+// in production you almost always want to use an authentication method that enables the client library
+// to renew the token automatically when the previous one expires, such as AuthURL or authCallback.
+// Read more about [Token authentication] (RSA4a, RSA4, TO3j3).
+//
+// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
 func AuthWithTokenDetails(details *TokenDetails) AuthOption {
 	return func(os *authOptions) {
 		os.TokenDetails = details
 	}
 }
 
+// AuthWithUseTokenAuth is used for setting UseTokenAuth using [ably.AuthOption].
+// UseTokenAuth when set to true, forces token authentication to be used by the library.
+// If a clientId is not specified in the [ably.ClientOption] or [ably.TokenParams],
+// then the Ably Token issued is anonymous (RSA4, RSA14, TO3j4).
 func AuthWithUseTokenAuth(use bool) AuthOption {
 	return func(os *authOptions) {
 		os.UseTokenAuth = use
 	}
 }
 
-func WithAuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOption {
-	return func(os *clientOptions) {
-		os.AuthCallback = authCallback
-	}
-}
-
-func WithAuthParams(params url.Values) ClientOption {
-	return func(os *clientOptions) {
-		os.AuthParams = params
-	}
-}
-
-func WithAuthURL(url string) ClientOption {
-	return func(os *clientOptions) {
-		os.AuthURL = url
-	}
-}
-
-func WithAuthMethod(method string) ClientOption {
-	return func(os *clientOptions) {
-		os.AuthMethod = method
-	}
-}
-
-func WithAuthHeaders(headers http.Header) ClientOption {
-	return func(os *clientOptions) {
-		os.AuthHeaders = headers
-	}
-}
-
-func WithKey(key string) ClientOption {
-	return func(os *clientOptions) {
-		os.Key = key
-	}
-}
-
-func WithDefaultTokenParams(params TokenParams) ClientOption {
-	return func(os *clientOptions) {
-		os.DefaultTokenParams = &params
-	}
-}
-
-func WithQueryTime(queryTime bool) ClientOption {
-	return func(os *clientOptions) {
-		os.UseQueryTime = queryTime
-	}
-}
-
-func WithToken(token string) ClientOption {
-	return func(os *clientOptions) {
-		os.Token = token
-	}
-}
-
-func WithTokenDetails(details *TokenDetails) ClientOption {
-	return func(os *clientOptions) {
-		os.TokenDetails = details
-	}
-}
-
-func WithUseTokenAuth(use bool) ClientOption {
-	return func(os *clientOptions) {
-		os.UseTokenAuth = use
-	}
-}
-
-func WithAutoConnect(autoConnect bool) ClientOption {
-	return func(os *clientOptions) {
-		os.NoConnect = !autoConnect
-	}
-}
-
-func WithClientID(clientID string) ClientOption {
-	return func(os *clientOptions) {
-		os.ClientID = clientID
-	}
-}
-
+// AuthWithDefaultTokenParams is used for setting DefaultTokenParams token using [ably.AuthOption].
+// DefaultTokenParams when provided, it overrides the client library defaults when issuing new Ably Tokens
+// for multiple Ably [ably.TokenRequest] (TO3j11).
 func AuthWithDefaultTokenParams(params TokenParams) AuthOption {
 	return func(os *authOptions) {
 		os.DefaultTokenParams = &params
 	}
 }
 
+// WithAuthCallback is used for setting authCallback function using [ably.ClientOption].
+// AuthCallback function is called when a new token is required.
+// The role of the callback is to obtain a fresh token, one of
+//
+//  1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//  2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//  3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//  4. [An Ably JWT].
+//
+// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, TO3j5, AO2b).
+//
+// [authentication doc]: https://ably.com/docs/core-features/authentication
+// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
+func WithAuthCallback(authCallback func(context.Context, TokenParams) (Tokener, error)) ClientOption {
+	return func(os *clientOptions) {
+		os.AuthCallback = authCallback
+	}
+}
+
+// WithAuthParams is used for setting AuthParams using [ably.ClientOption].
+// AuthParams are key-value pair HTTP query params to be added to any request made to the AuthURL.
+// When the authMethod is GET, query params are added to the URL, whereas when authMethod is POST,
+// the params are sent as URL encoded form data. Useful when an application requires these to be added to
+// validate the request or implement the response (RSA8c3, RSA8c1, TO3j9, AO2f).
+func WithAuthParams(params url.Values) ClientOption {
+	return func(os *clientOptions) {
+		os.AuthParams = params
+	}
+}
+
+// WithAuthURL is used for setting AuthURL using [ably.ClientOption].
+// AuthURL is a url that library will use to obtain
+//  1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//  2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//  3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//  4. [An Ably JWT].
+//
+// See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, RSA8c, TO3j6, AO2c).
+//
+// This enables a client to obtain token requests from another entity,
+// so tokens can be renewed without the client requiring access to keys.
+//
+// If AuthURL is non-empty and AuthCallback is nil, the Ably library
+// builds a req (*http.Request) which then is issued against the given AuthURL
+// in order to obtain authentication token. The response is expected to
+// carry a single token string in the payload when Content-Type header
+// is "text/plain" or JSON-encoded *ably.TokenDetails when the header
+// is "application/json".
+//
+// The req is built with the following values:
+//
+// GET requests:
+//
+//   - req.URL.RawQuery is encoded from *TokenParams and AuthParams
+//   - req.Header is set to AuthHeaders
+//
+// POST requests:
+//
+//   - req.Header is set to AuthHeaders
+//   - Content-Type is set to "application/x-www-form-urlencoded" and
+//     the payload is encoded from *TokenParams and AuthParams
+//
+// [authentication doc]: https://ably.com/docs/core-features/authentication
+// [An Ably JWT]: https://ably.com/docs/core-features/authentication#ably-jwt-process
+func WithAuthURL(url string) ClientOption {
+	return func(os *clientOptions) {
+		os.AuthURL = url
+	}
+}
+
+// WithAuthMethod is used for setting AuthMethod using [ably.ClientOption].
+// AuthMethod specifies HTTP verb to use for any request made to the AuthURL, either GET or POST for
+// getting token information [ably.TokenRequest] or [ably.TokenDetails].
+// The default value is GET (RSA8c, TO3j7, AO2d)
+func WithAuthMethod(method string) ClientOption {
+	return func(os *clientOptions) {
+		os.AuthMethod = method
+	}
+}
+
+// WithAuthHeaders is used for setting AuthHeaders using [ably.ClientOption].
+// AuthHeaders are key-value pair HTTP request headers to be added to any request made to the AuthURL.
+// Useful when an application requires these to be added to validate the request or implement the response.
+// If the authHeaders object contains an authorization key, then withCredentials is set on the XHR request.
+// (RSA8c3, TO3j8, AO2e).
+func WithAuthHeaders(headers http.Header) ClientOption {
+	return func(os *clientOptions) {
+		os.AuthHeaders = headers
+	}
+}
+
+// WithKey is used for setting root/non-root apikey using [ably.ClientOption].
+// Key is a full API key string, as obtained from the Ably dashboard.
+// Use this option if you wish to use Basic authentication, or wish to be able to issue Ably Tokens
+// without needing to defer to a separate entity to sign multiple [ably.TokenRequest].
+// Read more about [Basic authentication] (RSC1, RSA11, RSA14, TO3j1, AO2a).
+//
+// [Basic authentication]: https://ably.com/docs/core-features/authentication#basic-authentication
+func WithKey(key string) ClientOption {
+	return func(os *clientOptions) {
+		os.Key = key
+	}
+}
+
+// WithDefaultTokenParams is used for setting DefaultTokenParams token using [ably.ClientOption].
+// DefaultTokenParams when provided, it overrides the client library defaults when issuing new Ably Tokens
+// for multiple Ably [ably.TokenRequest] (TO3j11).
+func WithDefaultTokenParams(params TokenParams) ClientOption {
+	return func(os *clientOptions) {
+		os.DefaultTokenParams = &params
+	}
+}
+
+// WithQueryTime is used for setting UseQueryTime token using [ably.ClientOption].
+// UseQueryTime when set to true, the library queries the Ably servers for the current time when
+// issuing multiple [ably.TokenRequest] instead of relying on a locally-available time of day.
+// Knowing the time accurately is needed to create valid signed Ably [ably.TokenRequest],
+// so this option is useful for library instances on auth servers where for some reason
+// the server clock cannot be kept synchronized through normal means,
+// such as an NTP daemon. The server is queried for the current time once per client library instance
+// (which stores the offset from the local clock), so if using this option you should avoid instancing
+// a new version of the library for each request.
+// The default is false (RSA9d, TO3j10, AO2a).
+func WithQueryTime(queryTime bool) ClientOption {
+	return func(os *clientOptions) {
+		os.UseQueryTime = queryTime
+	}
+}
+
+// WithToken is used for setting authenticated token using [ably.ClientOption].
+// This can either be a token string (obtained from the token property of a [ably.TokenDetails] component of
+// an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+//
+// This option is mostly useful for testing: since tokens are short-lived,
+// in production you almost always want to use an authentication method that enables the client library
+// to renew the token automatically when the previous one expires, such as AuthURL or authCallback.
+// Read more about [Token authentication] (RSA4a, RSA4, TO3j2).
+//
+// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
+func WithToken(token string) ClientOption {
+	return func(os *clientOptions) {
+		os.Token = token
+	}
+}
+
+// WithTokenDetails is used for setting authenticated [ably.TokenDetails] object using [ably.ClientOption].
+// Only TokenDetails.Token can be set via token string (obtained from the token property of a [ably.TokenDetails]
+// component of an Ably [ably.TokenRequest] response, or a JSON Web Token satisfying the Ably requirements for JWTs).
+// This option is mostly useful for testing: since tokens are short-lived,
+// in production you almost always want to use an authentication method that enables the client library
+// to renew the token automatically when the previous one expires, such as AuthURL or authCallback.
+// Read more about [Token authentication] (RSA4a, RSA4, TO3j3).
+//
+// [Token authentication]: https://ably.com/docs/core-features/authentication#token-authentication
+func WithTokenDetails(details *TokenDetails) ClientOption {
+	return func(os *clientOptions) {
+		os.TokenDetails = details
+	}
+}
+
+// WithUseTokenAuth is used for setting UseTokenAuth using [ably.ClientOption].
+// UseTokenAuth when set to true, forces token authentication to be used by the library.
+// If a clientId is not specified in the [ably.ClientOption] or [ably.TokenParams],
+// then the Ably Token issued is anonymous (RSA4, RSA14, TO3j4).
+func WithUseTokenAuth(use bool) ClientOption {
+	return func(os *clientOptions) {
+		os.UseTokenAuth = use
+	}
+}
+
+// WithAutoConnect is used for setting NoConnect using [ably.ClientOption].
+// NoConnect when set to false, the client connects to Ably as soon as it is instantiated.
+// You can set this to true and explicitly connect to Ably using the [ably.Connection]#connect()
+// The default is false (RTC1b, TO3e).
+func WithAutoConnect(autoConnect bool) ClientOption {
+	return func(os *clientOptions) {
+		os.NoConnect = !autoConnect
+	}
+}
+
+// WithClientID is used for setting ClientID using [ably.ClientOption].
+// ClientID is used for identifying this client when publishing messages or for presence purposes.
+// The clientId can be any non-empty string, except it cannot contain a *.
+// This option is primarily intended to be used in situations where the library is instantiated with a key.
+// Note that a clientId may also be implicit in a token used to instantiate the library.
+// An error will be raised if a clientId specified here conflicts with the clientId implicit in the token.
+// (RSC17, RSA4, RSA15, TO3a).
+func WithClientID(clientID string) ClientOption {
+	return func(os *clientOptions) {
+		os.ClientID = clientID
+	}
+}
+
+// WithFallbackRetryTimeout is used for setting FallbackRetryTimeout using [ably.ClientOption].
+// FallbackRetryTimeout is the max time in milliseconds before HTTP requests are retried against the default endpoint.
+// The default is 600 seconds (TO3l10).
+func WithFallbackRetryTimeout(fallbackRetryTimeout time.Duration) ClientOption {
+	return func(os *clientOptions) {
+		os.FallbackRetryTimeout = fallbackRetryTimeout
+	}
+}
+
+// WithEchoMessages is used for setting NoEcho using [ably.ClientOption].
+// NoEcho if set to true, prevents messages originating from this connection being echoed back
+// on the same connection.
+// The default is false (RTC1a, TO3h).
 func WithEchoMessages(echo bool) ClientOption {
 	return func(os *clientOptions) {
 		os.NoEcho = !echo
 	}
 }
 
+// WithEnvironment is used for setting Environment using [ably.ClientOption].
+// Environment enables a custom environment to be used with the Ably service.
+// Optional: prefixes both hostname with the environment string (RSC15b, TO3k1).
 func WithEnvironment(env string) ClientOption {
 	return func(os *clientOptions) {
 		os.Environment = env
 	}
 }
 
+// WithLogHandler is used for setting LogHandler using [ably.ClientOption].
+// LogHandler controls the log output of the library. This is a function to handle each line of log output.
+// platform specific (TO3c)
 func WithLogHandler(handler Logger) ClientOption {
 	return func(os *clientOptions) {
 		os.LogHandler = handler
 	}
 }
 
+// WithLogLevel is used for setting LogLevel using [ably.ClientOption].
+// LogLevel controls the verbosity of the logs output from the library.
+// Levels include verbose, debug, info, warn and error.
+// platform specific (TO3b)
 func WithLogLevel(level LogLevel) ClientOption {
 	return func(os *clientOptions) {
 		os.LogLevel = level
 	}
 }
 
+// WithPort is used for setting custom Port using [ably.ClientOption].
+// Port is used for non-TLS connections and requests
 func WithPort(port int) ClientOption {
 	return func(os *clientOptions) {
 		os.Port = port
 	}
 }
 
+// WithQueueMessages is used for setting NoQueueing using [ably.ClientOption].
+// NoQueueing if set to true, this disables the default behavior whereby the library queues messages on a
+// connection in the disconnected or connecting states. The default behavior enables applications to
+// submit messages immediately upon instantiating the library without having to wait for the connection
+// to be established. Applications may use this option to disable queueing if they wish to have
+// application-level control over the queueing.
+// The default is false (RTP16b, TO3g).
 func WithQueueMessages(queue bool) ClientOption {
 	return func(os *clientOptions) {
 		os.NoQueueing = !queue
 	}
 }
 
+// WithRESTHost is used for setting RESTHost using [ably.ClientOption].
+// RESTHost enables a non-default Ably host to be specified. For development environments only.
+// The default value is rest.ably.io (RSC12, TO3k2).
 func WithRESTHost(host string) ClientOption {
 	return func(os *clientOptions) {
 		os.RESTHost = host
 	}
 }
 
+// WithHTTPRequestTimeout is used for setting HTTPRequestTimeout using [ably.ClientOption].
+// HTTPRequestTimeout is a timeout for a client performing a complete HTTP request to Ably, including the connection phase.
+// Will only be used if no custom HTTPClient is set.
+// The default is 10 seconds (TO3l4).
 func WithHTTPRequestTimeout(timeout time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.HTTPRequestTimeout = timeout
 	}
 }
 
+// WithRealtimeHost is used for setting RealtimeHost using [ably.ClientOption].
+// RealtimeHost enables a non-default Ably host to be specified for realtime connections.
+// For development environments only. The default value is realtime.ably.io (RTC1d, TO3k3).
 func WithRealtimeHost(host string) ClientOption {
 	return func(os *clientOptions) {
 		os.RealtimeHost = host
 	}
 }
 
+// WithFallbackHosts is used for setting FallbackHosts using [ably.ClientOption].
+// FallbackHosts is an array of fallback hosts to be used in the case of an error necessitating
+// the use of an alternative host. If you have been provided a set of custom fallback hosts by Ably,
+// please specify them here (RSC15b, RSC15a, TO3k6).
 func WithFallbackHosts(hosts []string) ClientOption {
 	return func(os *clientOptions) {
 		os.FallbackHosts = hosts
 	}
 }
 
+// WithRecover is used for setting Recover using [ably.ClientOption].
+// Recover enables a connection to inherit the state of a previous connection that may have existed
+// under a different instance of the Realtime library. This might typically be used by clients of the browser
+// library to ensure connection state can be preserved when the user refreshes the page.
+// A recovery key string can be explicitly provided, or alternatively if a callback function is provided,
+// the client library will automatically persist the recovery key between page reloads and call the callback
+// when the connection is recoverable. The callback is then responsible for confirming whether the connection
+// should be recovered or not. See connection state recovery for further information (RTC1c, TO3i).
 func WithRecover(key string) ClientOption {
 	return func(os *clientOptions) {
 		os.Recover = key
 	}
 }
 
+// WithTLS is used for setting NoTLS using [ably.ClientOption].
+// NoTLS when set to true, the client will use an insecure connection.
+// The default is false, meaning a TLS connection will be used to connect to Ably (RSC18, TO3d).
 func WithTLS(tls bool) ClientOption {
 	return func(os *clientOptions) {
 		os.NoTLS = !tls
 	}
 }
 
+// WithTLSPort is used for setting TLSPort using [ably.ClientOption].
+// TLSPort enables a non-default Ably port to be specified.
+// This is used for TLS connections and requests and restricted to development environments only.
+// The default value is 80 (TO3k4)>
 func WithTLSPort(port int) ClientOption {
 	return func(os *clientOptions) {
 		os.TLSPort = port
 	}
 }
 
+// WithUseBinaryProtocol is used for setting NoBinaryProtocol using [ably.ClientOption].
+// NoBinaryProtocol when set to true, JSON text encoding is used.
+// When false, the more efficient MsgPack binary encoding is used.
+// The default is true (TO3f).
 func WithUseBinaryProtocol(use bool) ClientOption {
 	return func(os *clientOptions) {
 		os.NoBinaryProtocol = !use
 	}
 }
 
+// WithTransportParams is used for setting TransportParams using [ably.ClientOption].
+// TransportParams is a set of key-value pairs that can be used to pass in arbitrary connection parameters,
+// such as heartbeatInterval or remainPresentFor (RTC1f).
 func WithTransportParams(params url.Values) ClientOption {
 	return func(os *clientOptions) {
 		os.TransportParams = params
 	}
 }
 
+// WithDisconnectedRetryTimeout is used for setting DisconnectedRetryTimeout using [ably.ClientOption].
+// DisconnectedRetryTimeout when the connection enters the [ably.ConnectionStateDisconnected] state, after this
+// timeout, if the state is still [ably.ConnectionStateDisconnected], the client library will attempt
+// to reconnect automatically.
+// The default is 15 seconds (TO3l1).
 func WithDisconnectedRetryTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.DisconnectedRetryTimeout = d
 	}
 }
 
+// WithHTTPOpenTimeout is used for setting HTTPOpenTimeout using [ably.ClientOption].
+// HTTPOpenTimeout is timeout for opening a connection to Ably to initiate an HTTP request.
+// The default is 4 seconds (TO3l3).
 func WithHTTPOpenTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.HTTPOpenTimeout = d
 	}
 }
 
+// WithRealtimeRequestTimeout is used for setting RealtimeRequestTimeout using [ably.ClientOption].
+// RealtimeRequestTimeout is the timeout for the wait of acknowledgement for operations performed via a
+// realtime connection, before the client library considers a request failed and triggers a failure condition.
+// Operations include establishing a connection with Ably, or sending a HEARTBEAT, CONNECT, ATTACH, DETACH or
+// CLOSE request. It is the equivalent of httpRequestTimeout but for realtime operations, rather than REST.
+// The default is 10 seconds (TO3l11).
 func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.RealtimeRequestTimeout = d
 	}
 }
 
+// WithSuspendedRetryTimeout is used for setting SuspendedRetryTimeout using [ably.ClientOption].
+// SuspendedRetryTimeout is the timeout when the connection enters the [ably.ConnectionStateSuspended] state,
+// after this timeout, if the state is still [ably.ConnectionStateSuspended], the client library attempts
+// to reconnect automatically.
+// The default is 30 seconds (RTN14d, TO3l2).
 func WithSuspendedRetryTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.SuspendedRetryTimeout = d
 	}
 }
 
+// WithChannelRetryTimeout is used for setting ChannelRetryTimeout using [ably.ClientOption].
+// ChannelRetryTimeout when a channel becomes [ably.ChannelStateSuspended} following a server initiated
+// [ably.ChannelStateDetached], after this delay, if the channel is still [ably.ChannelStateSuspended]
+// and the connection is in [ably.ConnectionStateConnected], the client library will attempt to re-attach
+// the channel automatically.
+// The default is 15 seconds (RTL13b, TO3l7).
 func WithChannelRetryTimeout(d time.Duration) ClientOption {
 	return func(os *clientOptions) {
 		os.ChannelRetryTimeout = d
 	}
 }
 
+// WithHTTPMaxRetryCount is used for setting HTTPMaxRetryCount using [ably.ClientOption].
+// HTTPMaxRetryCount denotes the maximum number of fallback hosts to use as a fallback when an HTTP request
+// to the primary host is unreachable or indicates that it is unserviceable. The default value is 3 (TO3l5).
 func WithHTTPMaxRetryCount(count int) ClientOption {
 	return func(os *clientOptions) {
 		os.HTTPMaxRetryCount = count
 	}
 }
 
+// WithIdempotentRESTPublishing is used for setting IdempotentRESTPublishing using [ably.ClientOption].
+// IdempotentRESTPublishing when set to true, enables idempotent publishing by assigning a
+// unique message ID client-side, allowing the Ably servers to discard automatic publish retries
+// following a failure such as a network fault.
+// The default is true (RSL1k1, RTL6a1, TO3n).
 func WithIdempotentRESTPublishing(idempotent bool) ClientOption {
 	return func(os *clientOptions) {
 		os.IdempotentRESTPublishing = idempotent
 	}
 }
 
+// WithHTTPClient is used for setting HTTPClient using [ably.ClientOption].
+// HTTPClient specifies the client used for HTTP communication by REST.
+// When set to nil, a client configured with default settings is used.
 func WithHTTPClient(client *http.Client) ClientOption {
 	return func(os *clientOptions) {
 		os.HTTPClient = client
 	}
 }
 
+// Deprecated: This function is deprecated and will be removed in a future versions.
+// WithFallbackHostsUseDefault is used for setting FallbackHostsUseDefault using [ably.ClientOption].
+// Deprecated: this property is deprecated and will be removed in a future version.
+// Enables default fallback hosts to be used (TO3k7).
 func WithFallbackHostsUseDefault(fallbackHostsUseDefault bool) ClientOption {
 	return func(os *clientOptions) {
 		os.FallbackHostsUseDefault = fallbackHostsUseDefault
 	}
 }
 
+// WithDial is used for setting Dial using [ably.ClientOption].
+// Dial specifies the dial function for creating message connections used by Realtime.
+// If Dial is nil, the default websocket connection is used.
 func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (conn, error)) ClientOption {
 	return func(os *clientOptions) {
 		os.Dial = dial

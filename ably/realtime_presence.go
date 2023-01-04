@@ -16,8 +16,8 @@ const (
 )
 
 // RealtimePresence represents a single presence map of a particular channel.
-// It allows entering, leaving and updating presence state for the current
-// client or on behalf of other client.
+// It allows entering, leaving and updating presence state for the current client or on behalf of other client.
+// It enables the presence set to be entered and subscribed to, and the historic presence set to be retrieved for a channel.
 type RealtimePresence struct {
 	mtx            sync.Mutex
 	data           interface{}
@@ -104,8 +104,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage) {
 	}
 }
 
-// SyncComplete gives true if the initial SYNC operation has completed
-// for the members present on the channel.
+// SyncComplete gives true if the initial SYNC operation has completed for the members present on the channel.
 func (pres *RealtimePresence) SyncComplete() bool {
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
@@ -192,23 +191,26 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	}
 }
 
-// Get returns a list of current members on the channel, attaching the channel
-// first is optional. If the channel state is initialised, it will be updated to attached.
+// Get retrieves the current members (array of [ably.PresenceMessage] objects) present on the channel
+// and the metadata for each member, such as their [ably.PresenceAction] and ID (RTP11).
+// If the channel state is initialised or non-attached, it will be updated to [ably.ChannelStateAttached].
 //
-// If the context is canceled before the operation finishes, the call
+// If the context is cancelled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
-// the channel may eventually be attached anyway.
+// the channel may eventually be attached anyway (RTP11).
 func (pres *RealtimePresence) Get(ctx context.Context) ([]*PresenceMessage, error) {
 	return pres.GetWithOptions(ctx)
 }
 
-// A PresenceGetOption is an optional parameter for
-// RealtimePresence.GetWithOptions.
+// A PresenceGetOption is an optional parameter for RealtimePresence.GetWithOptions.
 type PresenceGetOption func(*presenceGetOptions)
 
-// PresenceGetWithWaitForSync if true, makes GetWithOptions wait until the
-// presence information is fully synchronized with the server before returning.
-// It defaults to true.
+// PresenceGetWithWaitForSync sets whether to wait for a full presence set synchronization between Ably
+// and the clients on the channel to complete before returning the results.
+// Synchronization begins as soon as the channel is [ably.ChannelStateAttached].
+// When set to true the results will be returned as soon as the sync is complete.
+// When set to false the current list of members will be returned without the sync completing.
+// The default is true (RTP11c1).
 func PresenceGetWithWaitForSync(wait bool) PresenceGetOption {
 	return func(o *presenceGetOptions) {
 		o.waitForSync = true
@@ -227,6 +229,13 @@ func (o *presenceGetOptions) applyWithDefaults(options ...PresenceGetOption) {
 }
 
 // GetWithOptions is Get with optional parameters.
+// Retrieves the current members (array of [ably.PresenceMessage] objects) present on the channel
+// and the metadata for each member, such as their [ably.PresenceAction] and ID (RTP11).
+// If the channel state is initialised or non-attached, it will be updated to [ably.ChannelStateAttached].
+//
+// If the context is cancelled before the operation finishes, the call
+// returns with an error, but the operation carries on in the background and
+// the channel may eventually be attached anyway (RTP11).
 func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...PresenceGetOption) ([]*PresenceMessage, error) {
 	var opts presenceGetOptions
 	opts.applyWithDefaults(options...)
@@ -258,17 +267,20 @@ type subscriptionPresenceMessage PresenceMessage
 
 func (*subscriptionPresenceMessage) isEmitterData() {}
 
-// Subscribe registers a presence message handler to be called with each
-// presence message with the given action received from the channel.
+// Subscribe registers a event listener that is called each time a received [ably.PresenceMessage] matches given
+// [ably.PresenceAction] or an action within an array of [ably.PresenceAction], such as a new member entering
+// the presence set. A callback may optionally be passed in to this call to be notified of success or failure of
+// the channel RealtimeChannel.Attach operation (RTP6b).
 //
 // This implicitly attaches the channel if it's not already attached. If the
-// context is canceled before the attach operation finishes, the call
+// context is cancelled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached anyway.
 //
-// See package-level documentation on Event Emitter for details about
-// messages dispatch.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceAction, handle func(*PresenceMessage)) (func(), error) {
+	// unsubscribe deregisters a specific listener that is registered to receive [ably.PresenceMessage]
+	// on the channel for a given [ably.PresenceAction] (RTP7b).
 	unsubscribe := pres.messageEmitter.On(action, func(message emitterData) {
 		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
 	})
@@ -285,17 +297,19 @@ func (pres *RealtimePresence) Subscribe(ctx context.Context, action PresenceActi
 	return unsubscribe, err
 }
 
-// SubscribeAll registers a presence message handler to be called with each
-// presence message received from the channel.
+// SubscribeAll registers a event listener that is called each time a received [ably.PresenceMessage] such as a
+// new member entering the presence set. A callback may optionally be passed in to this call to be notified of
+// success or failure of the channel RealtimeChannel.Attach operation (RTP6a).
 //
 // This implicitly attaches the channel if it's not already attached. If the
-// context is canceled before the attach operation finishes, the call
+// context is cancelled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached anyway.
 //
-// See package-level documentation on Event Emitter for details about
-// messages dispatch.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*PresenceMessage)) (func(), error) {
+	// unsubscribe Deregisters a specific listener that is registered
+	// to receive [ably.PresenceMessage] on the channel (RTP7a).
 	unsubscribe := pres.messageEmitter.OnAll(func(message emitterData) {
 		handle((*PresenceMessage)(message.(*subscriptionPresenceMessage)))
 	})
@@ -312,12 +326,12 @@ func (pres *RealtimePresence) SubscribeAll(ctx context.Context, handle func(*Pre
 	return unsubscribe, nil
 }
 
-// Enter announces presence of the current client with an enter message
-// for the associated channel.
-//
+// Enter announces the presence of the current client with optional data payload (enter message) on the channel.
+// It enters client presence into the channel presence set.
+// A clientId is required to be present on a channel (RTP8).
 // If this connection has no clientID then this function will fail.
 //
-// If the context is canceled before the operation finishes, the call
+// If the context is cancelled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // presence state may eventually be updated anyway.
 func (pres *RealtimePresence) Enter(ctx context.Context, data interface{}) error {
@@ -328,14 +342,12 @@ func (pres *RealtimePresence) Enter(ctx context.Context, data interface{}) error
 	return pres.EnterClient(ctx, clientID, data)
 }
 
-// Update announces an updated presence message for the current client.
-//
-// If the current client is not present on the channel, Update will
-// behave as Enter method.
-//
+// Update announces an updated presence message for the current client. Updates the data payload for a presence member.
+// If the current client is not present on the channel, Update will behave as Enter method,
+// i.e. if called before entering the presence set, this is treated as an [ably.PresenceActionEnter] event (RTP9).
 // If this connection has no clientID then this function will fail.
 //
-// If the context is canceled before the operation finishes, the call
+// If the context is cancelled before the operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // presence state may eventually be updated anyway.
 func (pres *RealtimePresence) Update(ctx context.Context, data interface{}) error {
@@ -346,12 +358,12 @@ func (pres *RealtimePresence) Update(ctx context.Context, data interface{}) erro
 	return pres.UpdateClient(ctx, clientID, data)
 }
 
-// Leave announces current client leave the channel altogether with a leave
-// message if data is non-empty.
+// Leave announces current client leave on the channel altogether with an optional data payload (leave message).
+// It is removed from the channel presence members set. A client must have previously entered the presence set
+// before they can leave it (RTP10).
 //
-// If the context is canceled before the operation finishes, the call
-// returns with an error, but the operation carries on in the background and
-// presence state may eventually be updated anyway.
+// If the context is cancelled before the operation finishes, the call returns with an error,
+// but the operation carries on in the background and presence state may eventually be updated anyway.
 func (pres *RealtimePresence) Leave(ctx context.Context, data interface{}) error {
 	clientID := pres.auth().ClientID()
 	if clientID == "" {
@@ -360,12 +372,13 @@ func (pres *RealtimePresence) Leave(ctx context.Context, data interface{}) error
 	return pres.LeaveClient(ctx, clientID, data)
 }
 
-// EnterClient announces presence of the given clientID altogether with an enter
-// message for the associated channel.
+// EnterClient announces presence of the given clientID altogether with a enter message for the associated channel.
+// It enters given clientId in the channel presence set. It enables a single client to update presence on
+// behalf of any number of clients using a single connection. The library must have been instantiated with an API key
+// or a token bound to a wildcard (*) clientId (RTP4, RTP14, RTP15).
 //
-// If the context is canceled before the operation finishes, the call
-// returns with an error, but the operation carries on in the background and
-// presence state may eventually be updated anyway.
+// If the context is cancelled before the operation finishes, the call returns with an error,
+// but the operation carries on in the background and presence state may eventually be updated anyway.
 func (pres *RealtimePresence) EnterClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
 	pres.data = data
@@ -391,13 +404,13 @@ func nonnil(a, b interface{}) interface{} {
 }
 
 // UpdateClient announces an updated presence message for the given clientID.
+// If the given clientID is not present on the channel, Update will behave as Enter method.
+// Updates the data payload for a presence member using a given clientId.
+// Enables a single client to update presence on behalf of any number of clients using a single connection.
+// The library must have been instantiated with an API key or a token bound to a wildcard (*) clientId (RTP15).
 //
-// If the given clientID is not present on the channel, Update will
-// behave as Enter method.
-//
-// If the context is canceled before the operation finishes, the call
-// returns with an error, but the operation carries on in the background and
-// presence data may eventually be updated anyway.
+// If the context is cancelled before the operation finishes, the call returns with an error,
+// but the operation carries on in the background and presence data may eventually be updated anyway.
 func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
 	if pres.state != PresenceActionEnter {
@@ -419,12 +432,13 @@ func (pres *RealtimePresence) UpdateClient(ctx context.Context, clientID string,
 	return res.Wait(ctx)
 }
 
-// LeaveClient announces the given clientID leave the associated channel altogether
-// with a leave message if data is non-empty.
+// LeaveClient announces the given clientID leave from the associated channel altogether with a optional leave message.
+// Leaves the given clientId from channel presence set. Enables a single client to update presence
+// on behalf of any number of clients using a single connection. The library must have been instantiated with
+// an API key or a token bound to a wildcard (*) clientId (RTP15).
 //
-// If the context is canceled before the operation finishes, the call
-// returns with an error, but the operation carries on in the background and
-// presence data may eventually be updated anyway.
+// If the context is cancelled before the operation finishes, the call returns with an error,
+// but the operation carries on in the background and presence data may eventually be updated anyway.
 func (pres *RealtimePresence) LeaveClient(ctx context.Context, clientID string, data interface{}) error {
 	pres.mtx.Lock()
 	if pres.data == nil {

@@ -7,13 +7,19 @@ import (
 	"io"
 )
 
+// Crypto contains the properties required to configure the encryption of [ably.Message] payloads.
 var Crypto struct {
-	// GenerateRandomKey returns a random key. keyLength is optional; if
-	// non-zero, it should be in bits.
+
+	// GenerateRandomKey returns a random key (as a binary/a byte array) to be used in the encryption of the channel.
+	// If the language cryptographic randomness primitives are blocking or async, a callback is used.
+	// The callback returns a generated binary key.
+	// keyLength is passed as a param. It is a length of the key, in bits, to be generated.
+	// If not specified, this is equal to the default keyLength of the default algorithm:
+	// for AES this is 256 bits (RSE2).
 	GenerateRandomKey func(keyLength int) ([]byte, error)
 
-	// GetDefaultParams returns the provided CipherParams with missing fields
-	// set to default values. The Key field must be provided.
+	// GetDefaultParams returns a [ably.CipherParams] object, using the default values for any fields
+	// not supplied by the [ably.CipherParamOptions] object. The Key field must be provided (RSE1).
 	GetDefaultParams func(CipherParams) CipherParams
 }
 

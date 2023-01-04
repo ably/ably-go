@@ -103,7 +103,7 @@ func channelStateError(state ChannelState, err error) *ErrorInfo {
 	return newError(0, err)
 }
 
-// queuedEmitter emits confirmation events triggered by ACK or NACK messages.
+// pendingEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
 	queue []msgCh
 	log   logger
@@ -344,28 +344,76 @@ func (e ConnectionEventEmitter) listenResult(expected ConnectionState, failed ..
 	})
 }
 
-// A ConnectionState identifies the state of an Ably realtime connection.
+// ConnectionState describes the realtime [ably.Connection] object states.
 type ConnectionState struct {
 	name string
 }
 
 var (
-	ConnectionStateInitialized  ConnectionState = ConnectionState{name: "INITIALIZED"}
-	ConnectionStateConnecting   ConnectionState = ConnectionState{name: "CONNECTING"}
-	ConnectionStateConnected    ConnectionState = ConnectionState{name: "CONNECTED"}
+	// ConnectionStateInitialized - A connection with this state has been initialized
+	// but no connection has yet been attempted.
+	ConnectionStateInitialized ConnectionState = ConnectionState{name: "INITIALIZED"}
+
+	// ConnectionStateConnecting - A connection attempt has been initiated.
+	// The connecting state is entered as soon as the library has completed initialization,
+	// and is reentered each time connection is re-attempted following disconnection.
+	ConnectionStateConnecting ConnectionState = ConnectionState{name: "CONNECTING"}
+
+	// ConnectionStateConnected - A connection exists and is active.
+	ConnectionStateConnected ConnectionState = ConnectionState{name: "CONNECTED"}
+
+	// ConnectionStateDisconnected - A temporary failure condition. No current connection exists
+	// because there is no network connectivity or no host is available.
+	// The disconnected state is entered if an established connection is dropped,
+	// or if a connection attempt was unsuccessful. In the disconnected state the library will periodically attempt
+	// to open a new connection (approximately every 15 seconds), anticipating that the connection will
+	// be re-established soon and thus connection and channel continuity will be possible.
+	// In this state, developers can continue to publish messages as they are automatically placed in a local queue,
+	// to be sent as soon as a connection is reestablished. Messages published by other clients
+	// while this client is disconnected will be delivered to it upon reconnection, so long as
+	// the connection was resumed within 2 minutes. After 2 minutes have elapsed, recovery is no longer possible
+	// and the connection will move to the SUSPENDED state.
 	ConnectionStateDisconnected ConnectionState = ConnectionState{name: "DISCONNECTED"}
-	ConnectionStateSuspended    ConnectionState = ConnectionState{name: "SUSPENDED"}
-	ConnectionStateClosing      ConnectionState = ConnectionState{name: "CLOSING"}
-	ConnectionStateClosed       ConnectionState = ConnectionState{name: "CLOSED"}
-	ConnectionStateFailed       ConnectionState = ConnectionState{name: "FAILED"}
+
+	// ConnectionStateSuspended - A long term failure condition. No current connection exists
+	// because there is no network connectivity or no host is available. The suspended state is entered
+	// after a failed connection attempt if there has then been no connection for a period of two minutes.
+	// In the suspended state, the library will periodically attempt to open a new connection every 30 seconds.
+	// Developers are unable to publish messages in this state. A new connection attempt can also be triggered
+	// by an explicit call to Connection.Connect. Once the connection has been re-established,
+	// channels will be automatically re-attached. The client has been disconnected for too long for them
+	// to resume from where they left off, so if it wants to catch up on messages published by other clients
+	// while it was disconnected, it needs to use the History API.
+	ConnectionStateSuspended ConnectionState = ConnectionState{name: "SUSPENDED"}
+
+	// ConnectionStateClosing is when an explicit request by the developer to close the connection has been sent to
+	// the Ably service. If a reply is not received from Ably within a short period of time,
+	// the connection is forcibly terminated and the connection state becomes CLOSED.
+	ConnectionStateClosing ConnectionState = ConnectionState{name: "CLOSING"}
+
+	// ConnectionStateClosed - The connection has been explicitly closed by the client.
+	// In the closed state, no reconnection attempts are made automatically by the library,
+	// and clients may not publish messages. No connection state is preserved by the service or by the library.
+	// A new connection attempt can be triggered by an explicit call to Connection.Connect,
+	// which results in a new connection.
+	ConnectionStateClosed ConnectionState = ConnectionState{name: "CLOSED"}
+
+	// ConnectionStateFailed - This state is entered if the client library encounters a failure condition
+	// that it cannot recover from. This may be a fatal connection error received from the Ably service,
+	// for example an attempt to connect with an incorrect API key, or a local terminal error,
+	// for example the token in use has expired and the library does not have any way to renew it.
+	// In the failed state, no reconnection attempts are made automatically by the library, and
+	// clients may not publish messages. A new connection attempt can be triggered by an explicit call
+	// to Connection.Connect.
+	ConnectionStateFailed ConnectionState = ConnectionState{name: "FAILED"}
 )
 
 func (e ConnectionState) String() string {
 	return e.name
 }
 
-// A ConnectionEvent identifies an event in the lifetime of an Ably realtime
-// connection.
+// ConnectionEvent describes the events emitted by a [ably.Connection] object.
+// An event is either an [ably.ConnectionEventUpdate] or [ably.ConnectionState} change event.
 type ConnectionEvent struct {
 	name string
 }
@@ -373,58 +421,136 @@ type ConnectionEvent struct {
 func (ConnectionEvent) isEmitterEvent() {}
 
 var (
-	ConnectionEventInitialized  ConnectionEvent = ConnectionEvent(ConnectionStateInitialized)
-	ConnectionEventConnecting   ConnectionEvent = ConnectionEvent(ConnectionStateConnecting)
-	ConnectionEventConnected    ConnectionEvent = ConnectionEvent(ConnectionStateConnected)
+	// ConnectionEventInitialized - A connection with this state has been initialized
+	// but no connection has yet been attempted.
+	ConnectionEventInitialized ConnectionEvent = ConnectionEvent(ConnectionStateInitialized)
+
+	// ConnectionEventConnecting - A connection attempt has been initiated.
+	// The connecting state is entered as soon as the library has completed initialization,
+	// and is reentered each time connection is re-attempted following disconnection.
+	ConnectionEventConnecting ConnectionEvent = ConnectionEvent(ConnectionStateConnecting)
+
+	// ConnectionEventConnected - A connection exists and is active.
+	ConnectionEventConnected ConnectionEvent = ConnectionEvent(ConnectionStateConnected)
+
+	// ConnectionEventDisconnected - A temporary failure condition. No current connection exists
+	// because there is no network connectivity or no host is available.
+	// The disconnected state is entered if an established connection is dropped,
+	// or if a connection attempt was unsuccessful. In the disconnected state the library will periodically attempt
+	// to open a new connection (approximately every 15 seconds), anticipating that the connection will
+	// be re-established soon and thus connection and channel continuity will be possible.
+	// In this state, developers can continue to publish messages as they are automatically placed in a local queue,
+	// to be sent as soon as a connection is reestablished. Messages published by other clients
+	// while this client is disconnected will be delivered to it upon reconnection, so long as
+	// the connection was resumed within 2 minutes. After 2 minutes have elapsed, recovery is no longer possible
+	// and the connection will move to the SUSPENDED state.
 	ConnectionEventDisconnected ConnectionEvent = ConnectionEvent(ConnectionStateDisconnected)
-	ConnectionEventSuspended    ConnectionEvent = ConnectionEvent(ConnectionStateSuspended)
-	ConnectionEventClosing      ConnectionEvent = ConnectionEvent(ConnectionStateClosing)
-	ConnectionEventClosed       ConnectionEvent = ConnectionEvent(ConnectionStateClosed)
-	ConnectionEventFailed       ConnectionEvent = ConnectionEvent(ConnectionStateFailed)
-	ConnectionEventUpdate       ConnectionEvent = ConnectionEvent{name: "UPDATE"}
+
+	// ConnectionEventSuspended - A long term failure condition. No current connection exists
+	// because there is no network connectivity or no host is available. The suspended state is entered
+	// after a failed connection attempt if there has then been no connection for a period of two minutes.
+	// In the suspended state, the library will periodically attempt to open a new connection every 30 seconds.
+	// Developers are unable to publish messages in this state. A new connection attempt can also be triggered
+	// by an explicit call to Connection.Connect. Once the connection has been re-established,
+	// channels will be automatically re-attached. The client has been disconnected for too long for them
+	// to resume from where they left off, so if it wants to catch up on messages published by other clients
+	// while it was disconnected, it needs to use the History API.
+	ConnectionEventSuspended ConnectionEvent = ConnectionEvent(ConnectionStateSuspended)
+
+	// ConnectionEventClosing is when an explicit request by the developer to close the connection has been sent to
+	// the Ably service. If a reply is not received from Ably within a short period of time,
+	// the connection is forcibly terminated and the connection state becomes CLOSED.
+	ConnectionEventClosing ConnectionEvent = ConnectionEvent(ConnectionStateClosing)
+
+	// ConnectionEventClosed - The connection has been explicitly closed by the client.
+	// In the closed state, no reconnection attempts are made automatically by the library,
+	// and clients may not publish messages. No connection state is preserved by the service or by the library.
+	// A new connection attempt can be triggered by an explicit call to Connection.Connect,
+	// which results in a new connection.
+	ConnectionEventClosed ConnectionEvent = ConnectionEvent(ConnectionStateClosed)
+
+	// ConnectionEventFailed - This state is entered if the client library encounters a failure condition
+	// that it cannot recover from. This may be a fatal connection error received from the Ably service,
+	// for example an attempt to connect with an incorrect API key, or a local terminal error,
+	// for example the token in use has expired and the library does not have any way to renew it.
+	// In the failed state, no reconnection attempts are made automatically by the library, and
+	// clients may not publish messages. A new connection attempt can be triggered by an explicit call
+	// to Connection.Connect.
+	ConnectionEventFailed ConnectionEvent = ConnectionEvent(ConnectionStateFailed)
+
+	// ConnectionEventUpdate is an event for changes to connection conditions for which the
+	// [ably.ConnectionState] does not change (RTN4h).
+	ConnectionEventUpdate ConnectionEvent = ConnectionEvent{name: "UPDATE"}
 )
 
 func (e ConnectionEvent) String() string {
 	return e.name
 }
 
+// ConnectionStateChange Contains [ably.ConnectionState]change information emitted by the [ably.Connection] object.
 // A ConnectionStateChange is the data associated with a ConnectionEvent.
-//
-// If the Event is a ConnectionEventUpdated, Current and Previous are the
-// the same. Otherwise, the event is a state transition from Previous to
-// Current.
 type ConnectionStateChange struct {
-	Current  ConnectionState
-	Event    ConnectionEvent
+	// Current is the new [ably.ConnectionState] (TA2).
+	Current ConnectionState
+
+	// Event is the event that triggered this [ably.ConnectionState] change (TA5).
+	Event ConnectionEvent
+
+	// Previous is the previous [ably.ConnectionState]. For the [ConnectionEventUpdate] event,
+	// this is equal to the current [ably.ConnectionState] (TA2).
 	Previous ConnectionState
-	RetryIn  time.Duration //RTN14d, TA2
-	// Reason, if any, is an error that caused the state change.
+
+	// RetryIn is duration in milliseconds,
+	// after which the client retries a connection where applicable (RTN14d, TA2).
+	RetryIn time.Duration
+
+	// Reason is an [ably.ErrorInfo] object that caused the state change (RTN4f, TA3).
 	Reason *ErrorInfo
 }
 
 func (ConnectionStateChange) isEmitterData() {}
 
-// A ChannelState identifies the state of an Ably realtime channel.
+// ChannelState describes the possible states of a [ably.RESTChannel] or [ably.RealtimeChannel] object.
 type ChannelState struct {
 	name string
 }
 
 var (
+	// ChannelStateInitialized is when the channel has been initialized but no attach has yet been attempted.
 	ChannelStateInitialized ChannelState = ChannelState{name: "INITIALIZED"}
-	ChannelStateAttaching   ChannelState = ChannelState{name: "ATTACHING"}
-	ChannelStateAttached    ChannelState = ChannelState{name: "ATTACHED"}
-	ChannelStateDetaching   ChannelState = ChannelState{name: "DETACHING"}
-	ChannelStateDetached    ChannelState = ChannelState{name: "DETACHED"}
-	ChannelStateSuspended   ChannelState = ChannelState{name: "SUSPENDED"}
-	ChannelStateFailed      ChannelState = ChannelState{name: "FAILED"}
+
+	// ChannelStateAttaching is when the attach has been initiated by sending a request to Ably.
+	// This is a transient state, followed either by a transition to ATTACHED, SUSPENDED, or FAILED.
+	ChannelStateAttaching ChannelState = ChannelState{name: "ATTACHING"}
+
+	// ChannelStateAttached is when the attach has succeeded.
+	// In the ATTACHED state a client may publish and subscribe to messages, or be present on the channel.
+	ChannelStateAttached ChannelState = ChannelState{name: "ATTACHED"}
+
+	// ChannelStateDetaching is when a detach has been initiated on an ATTACHED channel by sending a request to Ably.
+	// This is a transient state, followed either by a transition to DETACHED or FAILED.
+	ChannelStateDetaching ChannelState = ChannelState{name: "DETACHING"}
+
+	// ChannelStateDetached os when the channel, having previously been ATTACHED, has been detached by the user.
+	ChannelStateDetached ChannelState = ChannelState{name: "DETACHED"}
+
+	// ChannelStateSuspended is when the channel, having previously been ATTACHED, has lost continuity,
+	// usually due to the client being disconnected from Ably for longer than two minutes.
+	// It will automatically attempt to reattach as soon as connectivity is restored.
+	ChannelStateSuspended ChannelState = ChannelState{name: "SUSPENDED"}
+
+	// ChannelStateFailed is an indefinite failure condition.
+	// This state is entered if a channel error has been received from the Ably service,
+	// such as an attempt to attach without the necessary access rights.
+	ChannelStateFailed ChannelState = ChannelState{name: "FAILED"}
 )
 
 func (e ChannelState) String() string {
 	return e.name
 }
 
-// A ChannelEvent identifies an event in the lifetime of an Ably realtime
-// channel.
+// ChannelEvent describes the events emitted by a [ably.RESTChannel] or [ably.RealtimeChannel] object.
+// An event is either an UPDATE or a [ably.ChannelState].
 type ChannelEvent struct {
 	name string
 }
@@ -432,34 +558,65 @@ type ChannelEvent struct {
 func (ChannelEvent) isEmitterEvent() {}
 
 var (
+
+	// ChannelEventInitialized is when the channel has been initialized but no attach has yet been attempted.
 	ChannelEventInitialized ChannelEvent = ChannelEvent(ChannelStateInitialized)
-	ChannelEventAttaching   ChannelEvent = ChannelEvent(ChannelStateAttaching)
-	ChannelEventAttached    ChannelEvent = ChannelEvent(ChannelStateAttached)
-	ChannelEventDetaching   ChannelEvent = ChannelEvent(ChannelStateDetaching)
-	ChannelEventDetached    ChannelEvent = ChannelEvent(ChannelStateDetached)
-	ChannelEventSuspended   ChannelEvent = ChannelEvent(ChannelStateSuspended)
-	ChannelEventFailed      ChannelEvent = ChannelEvent(ChannelStateFailed)
-	ChannelEventUpdate      ChannelEvent = ChannelEvent{name: "UPDATE"}
+
+	// ChannelEventAttaching is when the attach has been initiated by sending a request to Ably.
+	// This is a transient state, followed either by a transition to ATTACHED, SUSPENDED, or FAILED.
+	ChannelEventAttaching ChannelEvent = ChannelEvent(ChannelStateAttaching)
+
+	// ChannelEventAttached is when the attach has succeeded.
+	// In the ATTACHED state a client may publish and subscribe to messages, or be present on the channel.
+	ChannelEventAttached ChannelEvent = ChannelEvent(ChannelStateAttached)
+
+	// ChannelEventDetaching is when a detach has been initiated on an ATTACHED channel by sending a request to Ably.
+	// This is a transient state, followed either by a transition to DETACHED or FAILED.
+	ChannelEventDetaching ChannelEvent = ChannelEvent(ChannelStateDetaching)
+
+	// ChannelEventDetached os when the channel, having previously been ATTACHED, has been detached by the user.
+	ChannelEventDetached ChannelEvent = ChannelEvent(ChannelStateDetached)
+
+	// ChannelEventSuspended is when the channel, having previously been ATTACHED, has lost continuity,
+	// usually due to the client being disconnected from Ably for longer than two minutes.
+	// It will automatically attempt to reattach as soon as connectivity is restored.
+	ChannelEventSuspended ChannelEvent = ChannelEvent(ChannelStateSuspended)
+
+	// ChannelEventFailed is an indefinite failure condition.
+	// This state is entered if a channel error has been received from the Ably service,
+	// such as an attempt to attach without the necessary access rights.
+	ChannelEventFailed ChannelEvent = ChannelEvent(ChannelStateFailed)
+
+	// ChannelEventUpdate is an event for changes to channel conditions that do not result
+	// in a change in [ably.ChannelState] (RTL2g).
+	ChannelEventUpdate ChannelEvent = ChannelEvent{name: "UPDATE"}
 )
 
 func (e ChannelEvent) String() string {
 	return e.name
 }
 
+// ChannelStateChange contains state change information emitted by [ably.RESTChannel] and [ably.RealtimeChannel] objects.
 // A ChannelStateChange is the data associated with a ChannelEvent.
-//
-// If the Event is a ChannelEventUpdated, Current and Previous are the
-// the same. Otherwise, the event is a state transition from Previous to
-// Current.
 type ChannelStateChange struct {
-	Current  ChannelState
-	Event    ChannelEvent
+
+	// Current is the new current [ably.ChannelState] (RTL2a, RTL2b).
+	Current ChannelState
+
+	// Event is the event that triggered this [ably.ChannelState] change (TH5).
+	Event ChannelEvent
+
+	// Previous is the previous state.
+	// For the [ably.ChannelEventUpdate] event, this is equal to the current [ably.ChannelState] (RTL2a, RTL2b).
 	Previous ChannelState
-	// Reason, if any, is an error that caused the state change.
+
+	// Reason is an [ErrorInfo] object that caused the state change (RTL2e, TH3).
 	Reason *ErrorInfo
-	// Resumed is set to true for Attached and Update events when channel state
-	// has been maintained without interruption in the server, so there has
-	// been no loss of message continuity.
+
+	// Resumed is set to true for Attached and Update events when channel state has been maintained
+	// without interruption in the server, so there has been no loss of message continuity.
+	// Indicates whether message continuity on this channel is preserved, see Nonfatal channel errors for more info.
+	// (RTL2f, TH4)
 	Resumed bool
 }
 

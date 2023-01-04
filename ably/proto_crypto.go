@@ -56,23 +56,21 @@ const (
 	defaultCipherMode      = CipherCBC
 )
 
-// CipherParams  provides parameters for configuring encryption  for channels.
-//
-// Spec item (TZ1)
+// CipherParams sets the properties to configure encryption for a [ably.RESTChannel] or
+// [ably.RealtimeChannel] object (TZ1).
 type CipherParams struct {
-	Algorithm CipherAlgorithm // Spec item (TZ2a)
-	// The length of the private key in bits
-	KeyLength int // Spec item (TZ2b)
-	// This is the private key used to  encrypt/decrypt payloads.
-	Key []byte // Spec item (TZ2d)
-	// The cipher mode to be used for encryption default is CBC.
-	//
-	// Spec item (TZ2c)
+	// Algorithm is the algorithm to use for encryption. Only AES is supported and is the default value (TZ2a).
+	Algorithm CipherAlgorithm
+	// KeyLength is the length of the key in bits; for example 128 or 256 (TZ2b).
+	KeyLength int
+	// Key is the private key used to encrypt and decrypt payloads (TZ2d).
+	Key []byte
+	// Mode is the cipher mode.
+	// Only CBC is supported and is the default value ((TZ2c).
 	Mode CipherMode
-
 	// iv is the initialization vector. Used only for comparing resulting
 	// ciphertext with test fixtures; production code should always use a random
-	// unique IV per encrypted message.
+	// unique IV per encrypted message.CipherParamOptions
 	iv []byte
 }
 
@@ -197,7 +195,7 @@ func (c *cbcCipher) GetAlgorithm() string {
 	return c.algorithm
 }
 
-// Appends padding.
+// pkcs7Pad appends padding.
 func pkcs7Pad(data []byte, blocklen int) ([]byte, error) {
 	if blocklen <= 0 {
 		return nil, fmt.Errorf("invalid blocklen %d", blocklen)
@@ -214,7 +212,7 @@ func pkcs7Pad(data []byte, blocklen int) ([]byte, error) {
 	return p, nil
 }
 
-// Returns slice of the original data without padding.
+// pkcs7Unpad returns slice of the original data without padding.
 func pkcs7Unpad(data []byte, blocklen int) ([]byte, error) {
 	if blocklen <= 0 {
 		return nil, fmt.Errorf("invalid blocklen %d", blocklen)

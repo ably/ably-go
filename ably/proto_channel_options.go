@@ -1,16 +1,18 @@
 package ably
 
 type channelParams map[string]string
+
+// ChannelMode Describes the possible flags used to configure client capabilities, using [ably.ChannelOption].
 type ChannelMode int64
 
 const (
-	// Presence mode. Allows the attached channel to enter Presence.
+	// ChannelModePresence allows the attached channel to enter Presence.
 	ChannelModePresence ChannelMode = iota + 1
-	// Publish mode. Allows the messages to be published to the attached channel.
+	// ChannelModePublish allows for messages to be published on the attached channel.
 	ChannelModePublish
-	// Subscribe mode. Allows the attached channel to subscribe to messages.
+	// ChannelModeSubscribe allows the attached channel to subscribe to messages.
 	ChannelModeSubscribe
-	// PresenceSubscribe. Allows the attached channel to subscribe to Presence updates.
+	// ChannelModePresenceSubscribe allows the attached channel to subscribe to Presence updates.
 	ChannelModePresenceSubscribe
 )
 
@@ -46,7 +48,9 @@ func channelModeFromFlag(flags protoFlag) []ChannelMode {
 	return modes
 }
 
-// protoChannelOptions defines options provided for creating a new channel.
+// protoChannelOptions defines additional properties to a [ably.RESTChannel] or [ably.RealtimeChannel] object,
+// such as encryption, [ably.ChannelMode] and channel parameters.
+// It defines options provided for creating a new channel.
 type protoChannelOptions struct {
 	Cipher CipherParams
 	cipher channelCipher

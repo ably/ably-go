@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// A FmtFunc is a non-failing function analogous to fmt.Printf.
+// FmtFunc is a non-failing function analogous to fmt.Printf.
 type FmtFunc func(format string, args ...interface{})
 
 // Wrap wraps a FmtFunc in another. The wrapper FmtFunc first uses the fixed

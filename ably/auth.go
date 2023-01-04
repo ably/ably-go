@@ -58,14 +58,27 @@ func addHeaders(lhs, rhs http.Header) http.Header {
 	return lhs
 }
 
-// Auth
+// Auth creates Ably [ably.TokenRequest] objects and obtains Ably Tokens from Ably to
+// subsequently issue to less trusted clients.
 type Auth struct {
-	mtx      sync.Mutex
-	method   int
-	client   *REST
-	params   *TokenParams // save params to use with token renewal
-	host     string       // a host part of AuthURL
-	clientID string       // clientID of the authenticated user or wildcard "*"
+	mtx sync.Mutex
+
+	method int
+	client *REST
+
+	// params to use with token renewal
+	params *TokenParams
+
+	// host part of AuthURL
+	host string
+
+	// clientID is used for identifying this client when publishing messages or for presence purposes.
+	// The clientId can be any non-empty string, except it cannot contain a *.
+	// This option is primarily intended to be used in situations where the library is instantiated with a key.
+	// Note that a clientId may also be implicit in a token used to instantiate the library.
+	// An error is raised if a clientId specified here conflicts with the clientId implicit in the token.
+	// Find out more about identified clients (RSA7, RSC17, RSA12).
+	clientID string
 
 	// onExplicitAuthorize is the callback that Realtime sets to reauthorize with the
 	// server when Authorize is explicitly called.
@@ -73,7 +86,7 @@ type Auth struct {
 
 	serverTimeOffset time.Duration
 
-	// ServerTimeHandler when provided this will be used to query server time.
+	// serverTimeHandler when provided this will be used to query server time.
 	serverTimeHandler func() (time.Time, error)
 }
 
@@ -109,7 +122,13 @@ func newAuth(client *REST) (*Auth, error) {
 	return a, nil
 }
 
-// ClientID
+// ClientID method returns clientId if not a wildcard string (*), otherwise returns an empty string.
+// It is used for identifying this client when publishing messages or for presence purposes.
+// The clientId can be any non-empty string, except it cannot contain a *.
+// This option is primarily intended to be used in situations where the library is instantiated with a key.
+// Note that a clientId may also be implicit in a token used to instantiate the library.
+// An error is raised if a clientId specified here conflicts with the clientId implicit in the token.
+// Find out more about identified clients (RSA7, RSC17, RSA12).
 func (a *Auth) ClientID() string {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -135,7 +154,18 @@ func (a *Auth) updateClientID(clientID string) {
 	a.clientID = clientID
 }
 
-// CreateTokenRequest
+// CreateTokenRequest creates and signs an Ably [ably.TokenRequest] based on the specified
+// (or if none specified, the client library stored) [ably.TokenParams] and [ably.AuthOption].
+// Note this can only be used when the API key value is available locally.
+// Otherwise, the Ably [ably.TokenRequest] must be obtained from the key owner.
+// Use this to generate an Ably [ably.TokenRequest] in order to implement an Ably Token request callback for use by other clients.
+// Both [ably.TokenParams] and [ably.AuthOption] are optional.
+// When omitted or null, the default token parameters and authentication options for the client library are used,
+// as specified in the [ably.ClientOption] when the client library was instantiated,
+// or later updated with an explicit authorize request.
+// Values passed in are used instead of, rather than being merged with, the default values.
+// To understand why an Ably [ably.TokenRequest] may be issued to clients in favor of a token,
+// see Token Authentication explained (RSA9).
 func (a *Auth) CreateTokenRequest(params *TokenParams, opts ...AuthOption) (*TokenRequest, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -169,7 +199,13 @@ func (a *Auth) createTokenRequest(params *TokenParams, opts *authOptions) (*Toke
 	return req, nil
 }
 
-// RequestToken
+// RequestToken Calls the requestToken REST API endpoint to obtain an Ably Token according to the specified
+// [ably.TokenParams] and [ably.AuthOption]. Both [ably.TokenParams] and [ably.AuthOption] are optional.
+// When omitted or null, the default token parameters and authentication options for the client library are used,
+// as specified in the [ably.ClientOption] when the client library was instantiated, or later updated with
+// an explicit authorize request. Values passed in are used instead of, rather than being merged with,
+// the default values. To understand why an Ably [ably.TokenRequest] may be issued to clients in
+// favor of a token, see Token Authentication explained (RSA8e).
 func (a *Auth) RequestToken(ctx context.Context, params *TokenParams, opts ...AuthOption) (*TokenDetails, error) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -260,10 +296,13 @@ func (a *Auth) requestToken(ctx context.Context, params *TokenParams, opts *auth
 	return tok, tokReqClientID, nil
 }
 
-// Authorize performs authorization with ably service and returns the
-// authorization token details.
-//
-// Refers to RSA10
+// Authorize instructs the library to get a new authorized token immediately from ably server.
+// When using the realtime client, it upgrades the current realtime connection to use the new token,
+// or if not connected, initiates a connection to Ably, once the new token has been obtained.
+// Also stores any [ably.TokenParams] and [ably.AuthOption] passed in as the new defaults,
+// to be used for all subsequent implicit or explicit token requests. Any [ably.TokenParams] and
+// [ably.AuthOption] objects passed in entirely replace, as opposed to being merged with,
+// the current client library saved values (RSA10).
 func (a *Auth) Authorize(ctx context.Context, params *TokenParams, setOpts ...AuthOption) (*TokenDetails, error) {
 	var opts *authOptions
 	if setOpts != nil {
@@ -360,7 +399,7 @@ func (a *Auth) setDefaults(opts *authOptions, req *TokenRequest) error {
 	return nil
 }
 
-// Timestamp returns the timestamp to be used in authorization request.
+// timestamp returns the timestamp to be used in authorization request.
 func (a *Auth) timestamp(ctx context.Context, query bool) (time.Time, error) {
 	now := a.client.opts.Now()
 	if !query {

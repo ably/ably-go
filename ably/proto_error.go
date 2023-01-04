@@ -1,6 +1,6 @@
 package ably
 
-// errorInfo describes an error returned via ProtocolMessage.
+// errorInfo describes an error object returned via ProtocolMessage.
 type errorInfo struct {
 	StatusCode int    `json:"statusCode,omitempty" codec:"statusCode,omitempty"`
 	Code       int    `json:"code,omitempty" codec:"code,omitempty"`

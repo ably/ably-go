@@ -17,17 +17,30 @@ const (
 	encCipher = "cipher"
 )
 
-// Message is what Ably channels send and receive.
+// Message contains an individual message that is sent to, or received from, Ably.
 type Message struct {
-	ID            string                 `json:"id,omitempty" codec:"id,omitempty"`
-	ClientID      string                 `json:"clientId,omitempty" codec:"clientId,omitempty"`
-	ConnectionID  string                 `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
-	ConnectionKey string                 `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
-	Name          string                 `json:"name,omitempty" codec:"name,omitempty"`
-	Data          interface{}            `json:"data,omitempty" codec:"data,omitempty"`
-	Encoding      string                 `json:"encoding,omitempty" codec:"encoding,omitempty"`
-	Timestamp     int64                  `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
-	Extras        map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
+	// ID is a unique identifier assigned by Ably to this message (TM2a).
+	ID string `json:"id,omitempty" codec:"id,omitempty"`
+	// ClientID is of the publisher of this message (RSL1g1, TM2b).
+	ClientID string `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	// ConnectionID of the publisher of this message (TM2c).
+	ConnectionID string `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
+	// Deprecated: This attribute is deprecated and will be removed in future versions
+	// ConnectionKey is a connectionKey of the active connection.
+	ConnectionKey string `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
+	// Name is the event name (TM2g).
+	Name string `json:"name,omitempty" codec:"name,omitempty"`
+	// Data is the message payload, if provided (TM2d).
+	Data interface{} `json:"data,omitempty" codec:"data,omitempty"`
+	// Encoding is typically empty, as all messages received from Ably are automatically decoded client-side
+	// using this value. However, if the message encoding cannot be processed, this attribute contains the remaining
+	// transformations not applied to the data payload (TM2e).
+	Encoding string `json:"encoding,omitempty" codec:"encoding,omitempty"`
+	// Timestamp of when the message was received by Ably, as milliseconds since the Unix epoch (TM2f).
+	Timestamp int64 `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
+	// Extras is a JSON object of arbitrary key-value pairs that may contain metadata, and/or ancillary payloads.
+	// Valid payloads include push, deltaExtras, ReferenceExtras and headers (TM2i).
+	Extras map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
 }
 
 func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
@@ -42,7 +55,8 @@ func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
 	}
 }
 
-// updateInnerMessagesEmptyFields - Update inner Message empty Id, connectionId and Timestamp
+// updateInnerMessagesEmptyFields updates [Message.ID], [Message.ConnectionID] and [Message.Timestamp] with
+// outer/parent message fields.
 func (p *protocolMessage) updateInnerMessagesEmptyFields() {
 	for i, m := range p.Messages {
 		p.updateInnerMessageEmptyFields(m, i)
@@ -61,7 +75,7 @@ func unencodableDataErr(data interface{}) error {
 }
 
 // withEncodedData - Used to encode string, binary([]byte) or json data (TM3).
-// Updates/Mutates Message.Data and Message.Encoding
+// Updates/Mutates Message.Data and Message.Encoding.
 func (m Message) withEncodedData(cipher channelCipher) (Message, error) {
 	if m.Data == nil {
 		return m, nil

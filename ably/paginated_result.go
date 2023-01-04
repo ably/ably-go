@@ -49,7 +49,7 @@ type PaginatedResult struct {
 	first bool
 }
 
-// load loads the first page of results. Must be called from the type-specific
+// load - It loads first page of results. Must be called from the type-specific
 // wrapper Pages method that creates the PaginatedResult object.
 func (p *PaginatedResult) load(ctx context.Context, r paginatedRequest) error {
 	p.basePath = path.Dir(r.path)

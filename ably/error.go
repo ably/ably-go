@@ -40,15 +40,19 @@ func codeFromStatus(statusCode int) ErrorCode {
 	}
 }
 
-// ErrorInfo describes error returned from Ably API. It always has non-zero error
-// code. It may contain underlying error value which caused the failure
-// condition.
+// ErrorInfo is a generic Ably error object that contains an Ably-specific status code, and a generic status code.
+// Errors returned from the Ably server are compatible with the ErrorInfo structure and should result in errors
+// that inherit from ErrorInfo. It may contain underlying error value which caused the failure.
 type ErrorInfo struct {
+	// StatusCode is a http Status code corresponding to this error, where applicable (TI1).
 	StatusCode int
-	Code       ErrorCode
-	HRef       string
-	Cause      *ErrorInfo
-
+	// Code is the standard [ably error code]
+	// [ably error code]: https://github.com/ably/ably-common/blob/main/protocol/errors.json (TI1).
+	Code ErrorCode
+	// HRef is included for REST responses to provide a URL for additional help on the error code (TI4).
+	HRef string
+	// Cause provides Information pertaining to what caused the error where available (TI1).
+	Cause *ErrorInfo
 	// err is the application-level error we're wrapping, or just a message.
 	// If Cause is non-nil, err == *Cause.
 	err error
@@ -66,7 +70,6 @@ func (e ErrorInfo) Error() string {
 		see = " See " + errorHref
 	}
 	return fmt.Sprintf("[ErrorInfo :%s code=%d %[2]v statusCode=%d]%s", msg, e.Code, e.StatusCode, see)
-
 }
 
 // Unwrap implements the implicit interface that errors.Unwrap understands.

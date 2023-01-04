@@ -28,8 +28,9 @@ func (ch chanSlice) Less(i, j int) bool { return ch[i].Name < ch[j].Name }
 func (ch chanSlice) Swap(i, j int)      { ch[i], ch[j] = ch[j], ch[i] }
 func (ch chanSlice) Sort()              { sort.Sort(ch) }
 
-// RealtimeChannels is a goroutine-safe container for realtime channels that allows
-// for creating, deleting and iterating over existing channels.
+// RealtimeChannels is a goroutine-safe container for realtime channels that allows for creating,
+// deleting and iterating over existing channels.
+// Creates and destroys [ably.RESTChannel] and [ably.RealtimeChannel] objects.
 type RealtimeChannels struct {
 	mtx    sync.Mutex
 	client *Realtime
@@ -43,14 +44,14 @@ func newChannels(client *Realtime) *RealtimeChannels {
 	}
 }
 
-// A ChannelOption configures a channel.
+// ChannelOption configures a channel.
 type ChannelOption func(*channelOptions)
 
-// channelOptions wraps ChannelOptions. It exists so that users can't
-// implement their own ChannelOption.
+// channelOptions wraps ChannelOptions. It exists so that users can't implement their own ChannelOption.
 type channelOptions protoChannelOptions
 
-// CipherKey is like Cipher with an AES algorithm and CBC mode.
+// ChannelWithCipherKey is a constructor that takes private key as a argument.
+// It is used to encrypt and decrypt payloads (TB3)
 func ChannelWithCipherKey(key []byte) ChannelOption {
 	return func(o *channelOptions) {
 		o.Cipher = Crypto.GetDefaultParams(CipherParams{
@@ -59,13 +60,17 @@ func ChannelWithCipherKey(key []byte) ChannelOption {
 	}
 }
 
-// Cipher sets cipher parameters for encrypting messages on a channel.
+// ChannelWithCipher requests encryption for this channel when not null, and specifies encryption-related parameters
+// (such as algorithm, chaining mode, key length and key). See [an example] (RSL5a, TB2b).
+//
+// [an example]: https://ably.com/docs/realtime/encryption#getting-started
 func ChannelWithCipher(params CipherParams) ChannelOption {
 	return func(o *channelOptions) {
 		o.Cipher = params
 	}
 }
 
+// ChannelWithParams sets channel parameters that configure the behavior of the channel (TB2c).
 func ChannelWithParams(key string, value string) ChannelOption {
 	return func(o *channelOptions) {
 		if o.Params == nil {
@@ -75,6 +80,7 @@ func ChannelWithParams(key string, value string) ChannelOption {
 	}
 }
 
+// ChannelWithModes set an array of [ably.ChannelMode] to a channel (TB2d).
 func ChannelWithModes(modes ...ChannelMode) ChannelOption {
 	return func(o *channelOptions) {
 		o.Modes = append(o.Modes, modes...)
@@ -89,18 +95,13 @@ func applyChannelOptions(os ...ChannelOption) *channelOptions {
 	return &to
 }
 
-// Get looks up a channel given by the name and creates it if it does not exist
-// already.
-//
-// If the channel does not already exist it is created with the given channel options.
-// Otherwise the existing channel is returned and options ignored.
-//
+// Get creates a new [ably.RealtimeChannel] object for given channel name and provided [ably.ChannelOption] or
+// returns the existing channel if already created with given channel name.
 // Creating a channel only adds a new channel struct into the channel map. It does not
 // perform any network communication until attached.
-//
 // It is safe to call Get from multiple goroutines - a single channel is
 // guaranteed to be created only once for multiple calls to Get from different
-// goroutines.
+// goroutines (RSN3a, RTS3a, RSN3c, RTS3c).
 func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *RealtimeChannel {
 	// TODO: options
 	ch.mtx.Lock()
@@ -113,11 +114,10 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 	return c
 }
 
-// Iterate returns a list of existing channels.
-//
+// Iterate returns a [ably.RealtimeChannel] for each iteration on existing channels.
 // It is safe to call Iterate from multiple goroutines, however there's no guarantee
 // the returned list would not list a channel that was already released from
-// different goroutine.
+// different goroutine (RSN2, RTS2).
 func (ch *RealtimeChannels) Iterate() []*RealtimeChannel { // RSN2, RTS2
 	ch.mtx.Lock()
 	chans := make([]*RealtimeChannel, 0, len(ch.chans))
@@ -131,16 +131,17 @@ func (ch *RealtimeChannels) Iterate() []*RealtimeChannel { // RSN2, RTS2
 // Exists returns true if the channel by the given name exists.
 //
 // This function just checks the local channel map for existence. It can not check
-// for the existence of channels created by other clients,
-func (c *RealtimeChannels) Exists(name string) bool { // RSN2, RTS2
+// for the existence of channels created by other clients (RSN2, RTS2).
+func (c *RealtimeChannels) Exists(name string) bool {
 	c.mtx.Lock()
 	_, ok := c.chans[name]
 	c.mtx.Unlock()
 	return ok
 }
 
-// Release releases all resources associated with a channel, detaching it first
-// if necessary. See RealtimeChannel.Detach for details.
+// Release releases a [ably.RealtimeChannel] object with given channel name (detaching it first), frees all
+// resources associated, e.g. Removes any listeners associated with the channel.
+// To release a channel, the [ably.ChannelState] must be INITIALIZED, DETACHED, or FAILED (RSN4, RTS4).
 func (ch *RealtimeChannels) Release(ctx context.Context, name string) error {
 	ch.mtx.Lock()
 	defer ch.mtx.Unlock()
@@ -164,24 +165,40 @@ func (ch *RealtimeChannels) broadcastConnStateChange(change ConnectionStateChang
 	}
 }
 
-// RealtimeChannel represents a single named message channel.
+// RealtimeChannel represents a single named message/presence channel.
+// It enables messages to be published and subscribed to. Also enables historic messages to be retrieved and
+// provides access to the [ably.RealtimePresence] object of a channel.
 type RealtimeChannel struct {
 	mtx sync.Mutex
 
+	// RealtimeChannel implements [ably.EventEmitter] and emits [ably.ChannelEvent] events, where a ChannelEvent is either
+	// a [ably.ChannelState] or [ably.ChannelEventUpdate] (RTL2a, RTL2d, RTL2e).
 	ChannelEventEmitter
-	Name     string            // name used to create the channel
-	Presence *RealtimePresence //
 
-	state           ChannelState
-	errorReason     *ErrorInfo
+	// Name is the channel name.
+	Name string
+
+	// Presence is a [ably.RealtimePresence] object, provides for entering and leaving client presence (RTL9).
+	Presence *RealtimePresence
+
+	// state is the current [ably.ChannelState] of the channel (RTL2b).
+	state ChannelState
+
+	//errorReason is a [ably.ErrorInfo] object describing the last error which occurred on the channel, if any (RTL4e).
+	errorReason *ErrorInfo
+
 	internalEmitter ChannelEventEmitter
 
 	client         *Realtime
 	messageEmitter *eventEmitter
 	queue          *msgQueue
 	options        *channelOptions
-	params         channelParams
-	modes          []ChannelMode
+
+	// params are optional channel parameters that configure the behavior of the channel (RTL4k1).
+	params channelParams
+
+	// modes is an array of multiple [ably.ChannelMode] objects (RTL4m).
+	modes []ChannelMode
 
 	//attachResume is True when the channel moves to the ChannelStateAttached state, and False
 	//when the channel moves to the ChannelStateDetaching or ChannelStateFailed states.
@@ -215,12 +232,16 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	}
 }
 
-// Attach attaches the Realtime connection to the channel, after which it starts
-// receiving messages from it.
+// Attach attaches the Realtime connection to the channel (ensuring the channel is created in the Ably system and all
+// messages published on the channel are received by any channel listeners registered using RealtimeChannel#subscribe.)
+// Any resulting channel state change will be emitted to any listeners registered using the EventEmitter#on or
+// EventEmitter#once methods. A callback may optionally be passed in to this call to be notified of success or
+// failure of the operation. As a convenience, attach() is called implicitly if RealtimeChannel#subscribe
+// for the channel is called, or RealtimePresence#enter or RealtimePresence#subscribe are called on the
+// [ably.RealtimePresence] object for this channel (RTL4d).
 //
-// If the context is canceled before the attach operation finishes, the call
-// returns with an error, but the operation carries on in the background and
-// the channel may eventually be attached anyway.
+// If the passed context is cancelled before the attach operation finishes, the call returns with an error,
+// but the operation carries on in the background and the channel may eventually be attached anyway.
 func (c *RealtimeChannel) Attach(ctx context.Context) error {
 	res, err := c.attach()
 	if err != nil {
@@ -321,8 +342,11 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 	return sendAttachMsg()
 }
 
-// Detach detaches the Realtime connection to the channel, after which it stops
-// receiving messages from it.
+// Detach detaches realtime connection to the channel, after which it stops receiving messages from it.
+// Any resulting channel state change is emitted to any listeners registered using
+// the EventEmitter#on or EventEmitter#once methods. A callback may optionally be passed in to this call to be
+// notified of success or failure of the operation. Once all clients globally have
+// detached from the channel, the channel will be released in the Ably service within two minutes (RTL5e).
 //
 // If the context is canceled before the detach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
@@ -417,17 +441,21 @@ type subscriptionMessage Message
 
 func (*subscriptionMessage) isEmitterData() {}
 
-// Subscribe registers a message handler to be called with each message with the
-// given name received from the channel.
+// Subscribe registers an event listener for messages with a given event name on this channel.
+// The caller supplies a listener function, which is called each time one or more matching messages
+// arrives on the channel. A callback may optionally be passed in to this call to be notified of success
+// or failure of the channel realtimeChannel#attach operation (RTL7a).
 //
 // This implicitly attaches the channel if it's not already attached. If the
 // context is canceled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached anyway.
 //
-// See package-level documentation on Event Emitter for details about
-// messages dispatch.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle func(*Message)) (func(), error) {
+
+	// unsubscribe deregisters the given listener for the specified event name.
+	// This removes an earlier event-specific subscription (RTL8a)
 	unsubscribe := c.messageEmitter.On(subscriptionName(name), func(message emitterData) {
 		handle((*Message)(message.(*subscriptionMessage)))
 	})
@@ -444,17 +472,19 @@ func (c *RealtimeChannel) Subscribe(ctx context.Context, name string, handle fun
 	return unsubscribe, nil
 }
 
-// SubscribeAll register a message handler to be called with each message
-// received from the channel.
+// SubscribeAll registers an event listener for messages on this channel. The caller supplies a listener function,
+// which is called each time one or more messages arrives on the channel. A callback may optionally be passed
+// in to this call to be notified of success or failure of the channel RealtimeChannel#attach operation (RTL7a).
 //
 // This implicitly attaches the channel if it's not already attached. If the
 // context is canceled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
 // the channel may eventually be attached anyway.
 //
-// See package-level documentation on Event Emitter for details about
-// messages dispatch.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message)) (func(), error) {
+	// unsubscribe deregisters all listeners to messages on this channel.
+	// This removes all earlier subscriptions (RTL8a, RTE5).
 	unsubscribe := c.messageEmitter.OnAll(func(message emitterData) {
 		handle((*Message)(message.(*subscriptionMessage)))
 	})
@@ -483,7 +513,7 @@ type ChannelEventEmitter struct {
 
 // On registers an event handler for connection events of a specific kind.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (em ChannelEventEmitter) On(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
 	return em.emitter.On(e, func(change emitterData) {
 		handle(change.(ChannelStateChange))
@@ -492,7 +522,7 @@ func (em ChannelEventEmitter) On(e ChannelEvent, handle func(ChannelStateChange)
 
 // OnAll registers an event handler for all connection events.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (em ChannelEventEmitter) OnAll(handle func(ChannelStateChange)) (off func()) {
 	return em.emitter.OnAll(func(change emitterData) {
 		handle(change.(ChannelStateChange))
@@ -501,7 +531,7 @@ func (em ChannelEventEmitter) OnAll(handle func(ChannelStateChange)) (off func()
 
 // Once registers an one-off event handler for connection events of a specific kind.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (em ChannelEventEmitter) Once(e ChannelEvent, handle func(ChannelStateChange)) (off func()) {
 	return em.emitter.Once(e, func(change emitterData) {
 		handle(change.(ChannelStateChange))
@@ -510,7 +540,7 @@ func (em ChannelEventEmitter) Once(e ChannelEvent, handle func(ChannelStateChang
 
 // OnceAll registers an one-off event handler for all connection events.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (em ChannelEventEmitter) OnceAll(handle func(ChannelStateChange)) (off func()) {
 	return em.emitter.OnceAll(func(change emitterData) {
 		handle(change.(ChannelStateChange))
@@ -519,19 +549,22 @@ func (em ChannelEventEmitter) OnceAll(handle func(ChannelStateChange)) (off func
 
 // Off deregisters event handlers for connection events of a specific kind.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (em ChannelEventEmitter) Off(e ChannelEvent) {
 	em.emitter.Off(e)
 }
 
 // OffAll de-registers all event handlers.
 //
-// See package-level documentation on Event Emitter for details.
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
 func (em ChannelEventEmitter) OffAll() {
 	em.emitter.OffAll()
 }
 
-// Publish publishes a message on the channel.
+// Publish publishes a single message to the channel with the given event name and message payload.
+// A callback may optionally be passed in to this call to be notified of success or failure of the operation.
+// When publish is called with this client library, it won't attempt to implicitly attach to the channel,
+// so long as transient publishing is available in the library. Otherwise, the client will implicitly attach (RTL6i).
 //
 // This implicitly attaches the channel if it's not already attached. If the
 // context is canceled before the attach operation finishes, the call
@@ -546,7 +579,7 @@ func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interfa
 // This implicitly attaches the channel if it's not already attached. If the
 // context is canceled before the attach operation finishes, the call
 // returns with an error, but the operation carries on in the background and
-// the channel may eventually be attached and the message published anyway.
+// the channel may eventually be attached and the message published anyway (RTL6i).
 func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Message) error {
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
@@ -567,7 +600,12 @@ func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Messa
 	return res.Wait(ctx)
 }
 
-// History is equivalent to RESTChannel.History.
+// History retrieves a [ably.HistoryRequest] object, containing an array of historical
+// [ably.Message] objects for the channel. If the channel is configured to persist messages,
+// then messages can be retrieved from history for up to 72 hours in the past. If not, messages can only be
+// retrieved from history for up to two minutes in the past.
+//
+// See package-level documentation => [ably] Pagination for details about history pagination.
 func (c *RealtimeChannel) History(o ...HistoryOption) HistoryRequest {
 	return c.client.rest.Channels.Get(c.Name).History(o...)
 }

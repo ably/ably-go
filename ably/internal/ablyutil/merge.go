@@ -2,7 +2,7 @@ package ablyutil
 
 import "reflect"
 
-// merge iterates over fields of struct pointed by v and when it's non-zero,
+// Merge iterates over fields of struct pointed by v and when it's non-zero,
 // copies its value to corresponding filed in orig.
 //
 // merge assumes both orig and v are pointers to a struct value of the
