@@ -664,10 +664,10 @@ func (TokenString) isTokener() {}
 // AuthCallback function is called when a new token is required.
 // The role of the callback is to obtain a fresh token, one of
 //
-//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
-//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
-//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
-//	4. [An Ably JWT].
+//  1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//  2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//  3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//  4. [An Ably JWT].
 //
 // See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, TO3j5, AO2b).
 //
@@ -692,10 +692,10 @@ func AuthWithParams(params url.Values) AuthOption {
 
 // AuthWithURL is used for setting AuthURL using [ably.AuthOption].
 // AuthURL is a url that library will use to obtain
-//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
-//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
-//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
-//	4. [An Ably JWT].
+//  1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//  2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//  3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//  4. [An Ably JWT].
 //
 // See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, RSA8c, TO3j6, AO2c).
 //
@@ -834,10 +834,10 @@ func AuthWithDefaultTokenParams(params TokenParams) AuthOption {
 // AuthCallback function is called when a new token is required.
 // The role of the callback is to obtain a fresh token, one of
 //
-//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
-//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
-//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
-//	4. [An Ably JWT].
+//  1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//  2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//  3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//  4. [An Ably JWT].
 //
 // See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, TO3j5, AO2b).
 //
@@ -862,10 +862,10 @@ func WithAuthParams(params url.Values) ClientOption {
 
 // WithAuthURL is used for setting AuthURL using [ably.ClientOption].
 // AuthURL is a url that library will use to obtain
-//	1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
-//	2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
-//	3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
-//	4. [An Ably JWT].
+//  1. An Ably Token string (https://ably.com/docs/core-features/authentication#token-process)
+//  2. A signed [ably.TokenRequest] (https://ably.com/docs/core-features/authentication#token-request-process)
+//  3. An [ably.TokenDetails] (https://ably.com/docs/core-features/authentication#token-process)
+//  4. [An Ably JWT].
 //
 // See the [authentication doc] for more details and associated API calls (RSA4a, RSA4, RSA8c, TO3j6, AO2c).
 //
