@@ -11,7 +11,7 @@ import (
 	"github.com/ably/ably-go/ably"
 )
 
-//When a client is created without a ClientID, EnterClient is used to announce the presence of a client.
+// When a client is created without a ClientID, EnterClient is used to announce the presence of a client.
 // This example shows a client without a clientID announcing the presence of "Client A" using EnterClient.
 func ExampleRealtimePresence_EnterClient() {
 

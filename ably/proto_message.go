@@ -55,7 +55,7 @@ func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
 	}
 }
 
-//updateInnerMessagesEmptyFields updates [Message.ID], [Message.ConnectionID] and [Message.Timestamp] with
+// updateInnerMessagesEmptyFields updates [Message.ID], [Message.ConnectionID] and [Message.Timestamp] with
 // outer/parent message fields.
 func (p *protocolMessage) updateInnerMessagesEmptyFields() {
 	for i, m := range p.Messages {

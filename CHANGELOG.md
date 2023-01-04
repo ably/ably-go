@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.2.9](https://github.com/ably/ably-go/tree/v1.2.9)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.8...v1.2.9)
+
+**Merged pull requests:**
+
+- Test against go 1.19, and drop support for 1.17 [\#563](https://github.com/ably/ably-go/pull/563) ([amnonbc](https://github.com/amnonbc))
+- fix GO-2022-0493 [\#562](https://github.com/ably/ably-go/pull/562) ([amnonbc](https://github.com/amnonbc))
+
 ## [1.2.8](https://github.com/ably/ably-go/tree/v1.2.8)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.7...v1.2.8) (2022-07-01)
