@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.2.11](https://github.com/ably/ably-go/tree/v1.2.11)
+
+This release updates docstring API commentaries for public interfaces.
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.10...v1.2.11)
+
+**Merged pull requests:**
+
+- Publish godoc for every commit [\#561](https://github.com/ably/ably-go/pull/561) ([sacOO7](https://github.com/sacOO7))
+- Update to canonical doc [\#556](https://github.com/ably/ably-go/pull/556) ([sacOO7](https://github.com/sacOO7))
+
 ## [1.2.10](https://github.com/ably/ably-go/tree/v1.2.10)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.9...v1.2.10)
