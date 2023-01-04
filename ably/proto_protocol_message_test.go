@@ -12,7 +12,32 @@ import (
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestMsgpackEncodesBytesAsBytes(t *testing.T) {
+	msg := ably.Message{Data: []byte("abc")}
+
+	encoded, err := ablyutil.MarshalMsgpack(msg)
+	assert.NoError(t, err)
+
+	var decodedMsg ably.Message
+	err = ablyutil.UnmarshalMsgpack(encoded, &decodedMsg)
+	require.NoError(t, err)
+	assert.IsType(t, []byte{}, decodedMsg.Data)
+}
+
+func TestMsgpackEncodesStringAsString(t *testing.T) {
+	msg := ably.Message{Data: "abc"}
+
+	encoded, err := ablyutil.MarshalMsgpack(msg)
+	assert.NoError(t, err)
+
+	var decodedMsg ably.Message
+	err = ablyutil.UnmarshalMsgpack(encoded, &decodedMsg)
+	require.NoError(t, err)
+	assert.IsType(t, "", decodedMsg.Data)
+}
 
 // TestProtocolMessageEncodeZeroSerials tests that zero-valued serials are
 // explicitly encoded into msgpack (as required by the realtime API)
