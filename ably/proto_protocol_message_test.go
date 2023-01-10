@@ -5,6 +5,8 @@ package ably_test
 
 import (
 	"bytes"
+	"encoding/json"
+	"github.com/davecgh/go-spew/spew"
 	"strconv"
 	"testing"
 
@@ -15,11 +17,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func FuzzUnmarshalMsgpack(f *testing.F) {
+	f.Add([]byte{1, 2, 3})
+	f.Fuzz(func(t *testing.T, buf []byte) {
+		var msg ably.ProtocolMessage
+		err := ablyutil.UnmarshalMsgpack(buf, &msg)
+		if err != nil {
+			return
+		}
+		_, err = ablyutil.MarshalMsgpack(msg)
+		require.NoError(t, err)
+		if len(buf) < 10 {
+			return
+		}
+	})
+}
+
 func TestMsgpackEncodesBytesAsBytes(t *testing.T) {
 	msg := ably.Message{Data: []byte("abc")}
 
 	encoded, err := ablyutil.MarshalMsgpack(msg)
 	assert.NoError(t, err)
+	spew.Dump(encoded)
 
 	var decodedMsg ably.Message
 	err = ablyutil.UnmarshalMsgpack(encoded, &decodedMsg)
@@ -32,9 +51,34 @@ func TestMsgpackEncodesStringAsString(t *testing.T) {
 
 	encoded, err := ablyutil.MarshalMsgpack(msg)
 	assert.NoError(t, err)
+	spew.Dump(encoded)
 
 	var decodedMsg ably.Message
 	err = ablyutil.UnmarshalMsgpack(encoded, &decodedMsg)
+	require.NoError(t, err)
+	assert.IsType(t, "", decodedMsg.Data)
+}
+
+func TestJsonEncodesBytesAsBytes(t *testing.T) {
+	msg := ably.Message{Data: []byte("abc")}
+
+	encoded, err := json.Marshal(msg)
+	assert.NoError(t, err)
+
+	var decodedMsg ably.Message
+	err = json.Unmarshal(encoded, &decodedMsg)
+	require.NoError(t, err)
+	assert.IsType(t, []byte{}, decodedMsg.Data)
+}
+
+func TestJsonEncodesStringAsString(t *testing.T) {
+	msg := ably.Message{Data: "abc"}
+
+	encoded, err := json.Marshal(msg)
+	assert.NoError(t, err)
+
+	var decodedMsg ably.Message
+	err = json.Unmarshal(encoded, &decodedMsg)
 	require.NoError(t, err)
 	assert.IsType(t, "", decodedMsg.Data)
 }
