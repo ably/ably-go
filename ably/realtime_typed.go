@@ -32,6 +32,8 @@ func (r *RealtimeChannelOf[T]) SubscribeOf(ctx context.Context, name string, han
 		mo.Name = msg.Name
 		mo.ID = msg.ID
 		mo.Timestamp = msg.Timestamp
+		mo.ClientID = msg.ClientID
+		mo.Extras = msg.Extras
 		mo.Data = val
 
 		handle(&mo)
