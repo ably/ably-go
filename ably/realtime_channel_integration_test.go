@@ -6,6 +6,7 @@ package ably_test
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"net/url"
 	"reflect"
 	"testing"
@@ -140,4 +141,36 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	err = ablytest.Wait(<-res, nil)
 	assert.NoError(t, err)
+}
+
+func TestTypeSafePubSub(t *testing.T) {
+	type obj struct {
+		Name string
+		Num  int
+	}
+	app, client1 := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+
+	client2 := app.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+
+	// create two typed channels which carry messages of type obj.
+	channel1 := ably.GetChannelOf[obj](client1, "test")
+	channel2 := ably.GetChannelOf[obj](client2, "test")
+
+	ctx := context.Background()
+
+	done := make(chan struct{})
+	cancel, err := channel2.SubscribeOf(ctx, "eg", func(m *ably.MessageOf[obj]) {
+		assert.Equal(t, "eg", m.Name)
+		assert.Equal(t, obj{"a", 1}, m.Data)
+		close(done)
+	})
+
+	assert.NoError(t, err)
+
+	err = channel1.PublishOf(ctx, "eg", obj{"a", 1})
+	require.NoError(t, err)
+	<-done
+	cancel()
 }
