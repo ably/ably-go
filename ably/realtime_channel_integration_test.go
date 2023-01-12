@@ -161,7 +161,8 @@ func TestTypeSafePubSub(t *testing.T) {
 	ctx := context.Background()
 
 	done := make(chan struct{})
-	cancel, err := channel2.SubscribeOf(ctx, "eg", func(m *ably.MessageOf[obj]) {
+	cancel, err := channel2.Subscribe(ctx, "eg", func(m *ably.MessageOf[obj], err error) {
+		assert.NoError(t, err)
 		assert.Equal(t, "eg", m.Name)
 		assert.Equal(t, obj{"a", 1}, m.Data)
 		close(done)
@@ -169,7 +170,36 @@ func TestTypeSafePubSub(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	err = channel1.PublishOf(ctx, "eg", obj{"a", 1})
+	err = channel1.Publish(ctx, "eg", obj{"a", 1})
+	require.NoError(t, err)
+	<-done
+	cancel()
+}
+
+func TestTypeSafePubSubString(t *testing.T) {
+	app, client1 := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+
+	client2 := app.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+
+	// create two typed channels which carry messages of type string.
+	channel1 := ably.GetChannelOf[string](client1, "test")
+	channel2 := ably.GetChannelOf[string](client2, "test")
+
+	ctx := context.Background()
+
+	done := make(chan struct{})
+	cancel, err := channel2.Subscribe(ctx, "eg", func(m *ably.MessageOf[string], err error) {
+		assert.NoError(t, err)
+		assert.Equal(t, "eg", m.Name)
+		assert.Equal(t, "hiya", m.Data)
+		close(done)
+	})
+
+	assert.NoError(t, err)
+
+	err = channel1.Publish(ctx, "eg", "hiya")
 	require.NoError(t, err)
 	<-done
 	cancel()
