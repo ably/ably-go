@@ -53,14 +53,24 @@ func Test_decodeMessage(t *testing.T) {
 			case "jsonArray":
 				assert.IsType(t, []any{}, decodedMsg.Data)
 				assert.Equal(t, f.ExpectedValue, decodedMsg.Data)
-
-				t.Log(decodedMsg)
 			case "binary":
 				assert.IsType(t, []byte{}, decodedMsg.Data)
 				if f.ExpectedValue == nil {
 					break
 				}
 				assert.Equal(t, []byte(f.ExpectedValue.(string)), decodedMsg.Data)
+			}
+
+			// Test that the re-encoding of the decoded message gives us back the original fixture.
+			reEncoded, err := decodedMsg.withEncodedData(nil)
+			require.NoError(t, err)
+			assert.Equal(t, f.Encoding, reEncoded.Encoding)
+			if f.Encoding == "json" {
+				require.IsType(t, "", reEncoded.Data)
+				// json fields could be re-ordered so assert.Equal could fail.
+				assert.JSONEq(t, f.Data, reEncoded.Data.(string))
+			} else {
+				assert.Equal(t, f.Data, reEncoded.Data)
 			}
 		})
 	}
