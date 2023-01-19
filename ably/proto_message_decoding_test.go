@@ -1,10 +1,13 @@
 package ably
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"os"
 	"testing"
 
+	_ "embed"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,6 +74,53 @@ func Test_decodeMessage(t *testing.T) {
 				assert.JSONEq(t, f.Data, reEncoded.Data.(string))
 			} else {
 				assert.Equal(t, f.Data, reEncoded.Data)
+			}
+		})
+	}
+}
+
+//go:embed testdata/msgpack_test_fixtures.json
+var MsgpackFixtures []byte
+
+type MsgpackTestFixture struct {
+	Name      string
+	Data      string
+	Encoding  string
+	NumRepeat int
+	Type      string
+	MsgPack   string
+}
+
+var fixtures []MsgpackTestFixture
+
+func init() {
+	err := json.Unmarshal(MsgpackFixtures, &fixtures)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestMsgpackDecoding(t *testing.T) {
+	for _, f := range fixtures {
+		t.Run(f.Name, func(t *testing.T) {
+
+			msgpackData := make([]byte, len(f.MsgPack))
+			n, err := base64.StdEncoding.Decode(msgpackData, []byte(f.MsgPack))
+			require.NoError(t, err)
+			msgpackData = msgpackData[:n]
+			var protoMsg ProtocolMessage
+			err = ablyutil.UnmarshalMsgpack(msgpackData, &protoMsg)
+			require.NoError(t, err)
+			msg := protoMsg.Messages[0]
+			decodedMsg, err := msg.withDecodedData(nil)
+			switch f.Type {
+			case "string":
+				require.IsType(t, "string", decodedMsg.Data)
+				assert.Equal(t, f.NumRepeat, len(decodedMsg.Data.(string)))
+			case "binary":
+				require.IsType(t, []byte{}, decodedMsg.Data)
+				assert.Equal(t, f.NumRepeat, len(decodedMsg.Data.([]byte)))
+
 			}
 		})
 	}
