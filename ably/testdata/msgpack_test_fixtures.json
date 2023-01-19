@@ -24,21 +24,21 @@
     "Name": "short binary",
     "Data": "a",
     "NumRepeat": 1,
-    "Type": "string",
+    "Type": "binary",
     "MsgPack": "g7Bjb25uZWN0aW9uU2VyaWFsAKhtZXNzYWdlc5GBpGRhdGGhYaltc2dTZXJpYWwA"
   },
   {
     "Name": "200 byte binary",
     "Data": "a",
     "NumRepeat": 200,
-    "Type": "string",
+    "Type": "binary",
     "MsgPack": "g7Bjb25uZWN0aW9uU2VyaWFsAKhtZXNzYWdlc5GBpGRhdGHZyGFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhqW1zZ1NlcmlhbAA="
   },
   {
     "Name": "2000 byte binary",
     "Data": "a",
     "NumRepeat": 200,
-    "Type": "string",
+    "Type": "binary",
     "MsgPack": "g7Bjb25uZWN0aW9uU2VyaWFsAKhtZXNzYWdlc5GBpGRhdGHZyGFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhqW1zZ1NlcmlhbAA="
   }
 ]
