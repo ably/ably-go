@@ -2,6 +2,7 @@ package ably
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"os"
@@ -9,9 +10,6 @@ import (
 	"testing"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
-
-	_ "embed"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
