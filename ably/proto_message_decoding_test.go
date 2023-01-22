@@ -1,13 +1,17 @@
 package ably
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/ably/ably-go/ably/internal/ablyutil"
+
 	_ "embed"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -84,7 +88,7 @@ var MsgpackFixtures []byte
 
 type MsgpackTestFixture struct {
 	Name      string
-	Data      string
+	Data      any
 	Encoding  string
 	NumRepeat int
 	Type      string
@@ -100,28 +104,50 @@ func init() {
 	}
 }
 
+func init() {
+	err := json.Unmarshal(MsgpackFixtures, &fixtures)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestMsgpackDecoding(t *testing.T) {
 	for _, f := range fixtures {
 		t.Run(f.Name, func(t *testing.T) {
-
 			msgpackData := make([]byte, len(f.MsgPack))
 			n, err := base64.StdEncoding.Decode(msgpackData, []byte(f.MsgPack))
 			require.NoError(t, err)
 			msgpackData = msgpackData[:n]
+
 			var protoMsg ProtocolMessage
 			err = ablyutil.UnmarshalMsgpack(msgpackData, &protoMsg)
 			require.NoError(t, err)
+
 			msg := protoMsg.Messages[0]
 			decodedMsg, err := msg.withDecodedData(nil)
 			switch f.Type {
 			case "string":
 				require.IsType(t, "string", decodedMsg.Data)
 				assert.Equal(t, f.NumRepeat, len(decodedMsg.Data.(string)))
+				assert.Equal(t, strings.Repeat(f.Data.(string), f.NumRepeat), decodedMsg.Data.(string))
 			case "binary":
 				require.IsType(t, []byte{}, decodedMsg.Data)
 				assert.Equal(t, f.NumRepeat, len(decodedMsg.Data.([]byte)))
-
+				assert.Equal(t, bytes.Repeat([]byte(f.Data.(string)), f.NumRepeat), decodedMsg.Data.([]byte))
+			case "jsonObject", "jsonArray":
+				assert.Equal(t, f.Data, decodedMsg.Data)
 			}
+
+			// Now re-encode and check that we get back the original message.
+			reencodedMsg, err := msg.withEncodedData(nil)
+			require.NoError(t, err)
+			newMsg := ProtocolMessage{
+				Messages: []*Message{&reencodedMsg},
+			}
+			newBytes, err := ablyutil.MarshalMsgpack(newMsg)
+			require.NoError(t, err)
+			assert.Equal(t, msgpackData, newBytes)
+
 		})
 	}
 }
