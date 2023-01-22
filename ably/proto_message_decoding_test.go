@@ -102,13 +102,6 @@ func init() {
 	}
 }
 
-func init() {
-	err := json.Unmarshal(MsgpackFixtures, &fixtures)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func TestMsgpackDecoding(t *testing.T) {
 	for _, f := range fixtures {
 		t.Run(f.Name, func(t *testing.T) {
