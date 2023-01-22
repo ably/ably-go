@@ -5,17 +5,18 @@ package ably_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"net/url"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func expectMsg(ch <-chan *ably.Message, name string, data interface{}, t time.Duration, received bool) error {
@@ -143,6 +144,10 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func isBinaryProtocol() bool {
+	return os.Getenv("ABLY_PROTOCOL") != "application/json"
+}
+
 // (RSL6a) All messages received will be decoded automatically based on the encoding field
 // and the payloads will be converted into the format they were originally sent using i.e. binary, string, or JSON.
 func TestRealtimeChannel_ByteSliceDataShouldBeDeliveredAsByteSlice(t *testing.T) {
@@ -178,8 +183,15 @@ func TestRealtimeChannel_ByteSliceDataShouldBeDeliveredAsByteSlice(t *testing.T)
 	err = channel2.Publish(context.Background(), "hello", byteMsg)
 	require.NoError(t, err)
 
-	err = expectMsg(sub1, "hello", byteMsg, timeout, true)
-	assert.NoError(t, err)
+	if isBinaryProtocol() {
+		err = expectMsg(sub1, "hello", byteMsg, timeout, true)
+		assert.NoError(t, err)
+	} else {
+		// (RSL4d1) a binary Message payload is encoded as Base64 and
+		// represented as a JSON string the encoding attribute is set to “base64”.
+		err = expectMsg(sub1, "hello", base64.StdEncoding.EncodeToString(byteMsg), timeout, true)
+		assert.NoError(t, err)
+	}
 
 	err = channel2.Publish(context.Background(), "hello", map[string]int{"key": 123})
 	require.NoError(t, err)
