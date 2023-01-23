@@ -93,17 +93,17 @@ type MsgpackTestFixture struct {
 	MsgPack   string
 }
 
-var fixtures []MsgpackTestFixture
+var msgpackTestFixtures []MsgpackTestFixture
 
 func init() {
-	err := json.Unmarshal(MsgpackFixtures, &fixtures)
+	err := json.Unmarshal(MsgpackFixtures, &msgpackTestFixtures)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func TestMsgpackDecoding(t *testing.T) {
-	for _, f := range fixtures {
+	for _, f := range msgpackTestFixtures {
 		t.Run(f.Name, func(t *testing.T) {
 			msgpackData := make([]byte, len(f.MsgPack))
 			n, err := base64.StdEncoding.Decode(msgpackData, []byte(f.MsgPack))

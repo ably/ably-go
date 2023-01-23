@@ -17,8 +17,8 @@ import (
 )
 
 func TestGenMsgpackFixture(t *testing.T) {
-	out := make([]MsgpackTestFixture, 0, len(fixtures))
-	for i, f := range fixtures {
+	out := make([]MsgpackTestFixture, 0, len(msgpackTestFixtures))
+	for i, f := range msgpackTestFixtures {
 		msg := new(Message)
 		switch f.Type {
 		case "string":
@@ -38,9 +38,9 @@ func TestGenMsgpackFixture(t *testing.T) {
 		}
 		buf, err := ablyutil.MarshalMsgpack(pm)
 		require.NoError(t, err)
-		fixtures[i].MsgPack = base64.StdEncoding.EncodeToString(buf)
-		fixtures[i].Encoding = msg.Encoding
-		out = append(out, fixtures[i])
+		msgpackTestFixtures[i].MsgPack = base64.StdEncoding.EncodeToString(buf)
+		msgpackTestFixtures[i].Encoding = msg.Encoding
+		out = append(out, msgpackTestFixtures[i])
 	}
 
 	w, err := os.Create("testdata/msgpack_test_fixtures.json.new")
