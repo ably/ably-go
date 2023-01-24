@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// MessageOf is a strongly typed varient of Message, where the Data value is constrained to be a of type T.
 type MessageOf[T any] struct {
 	// Data is the message payload, if provided (TM2d).
 	Data T `json:"data,omitempty" codec:"data,omitempty"`
@@ -19,10 +20,22 @@ type RealtimeChannelOf[T any] struct {
 	RealtimeChannel
 }
 
+// Publish publishes a message of type T.
 func (r *RealtimeChannelOf[T]) Publish(ctx context.Context, name string, o T) error {
 	return r.RealtimeChannel.Publish(ctx, name, &o)
 }
 
+type DecodeError struct {
+	Want any
+	Got  any
+}
+
+func (e DecodeError) Error() string {
+	return fmt.Sprintf("can not decode message of type %T into %T", e.Got, e.Want)
+}
+
+// Subscribe subscribes to messages. When a message arrives, it decoded as a MessageOf[T] and handle is called.
+// If the message can not be decoded, then handle is called with a DecodeError.
 func (r *RealtimeChannelOf[T]) Subscribe(ctx context.Context, name string, handle func(*MessageOf[T], error)) (func(), error) {
 	return r.RealtimeChannel.Subscribe(ctx, name, func(msg *Message) {
 		var mo MessageOf[T]
@@ -33,28 +46,30 @@ func (r *RealtimeChannelOf[T]) Subscribe(ctx context.Context, name string, handl
 		mo.Extras = msg.Extras
 
 		// this switch statement does not work
-		switch any(mo.Data).(type) {
+		switch msg.Data.(type) {
 		case string:
 		case []byte:
 			var ok bool
 			mo.Data, ok = msg.Data.(T)
 			if !ok {
-				handle(nil, fmt.Errorf("can not decode message of type %T into %T", msg.Data, mo.Data))
+				handle(nil, DecodeError{msg.Data, mo.Data})
 				return
 			}
 			handle(&mo, nil)
 			return
+		default:
+			fmt.Printf("got %v of type %T", msg.Data, msg.Data)
 		}
 
 		var r io.Reader
+		fmt.Printf("%T", msg.Data)
 		switch d := msg.Data.(type) {
 		case string:
 			r = strings.NewReader(d)
 		case []byte:
 			r = bytes.NewReader(d)
 		default:
-			err := fmt.Errorf("Could not decode message data of type %T into %T", mo.Data, msg.Data)
-			handle(nil, err)
+			handle(nil, DecodeError{msg.Data, mo.Data})
 		}
 		err := json.NewDecoder(r).Decode(&mo.Data)
 		if err != nil {
@@ -66,6 +81,7 @@ func (r *RealtimeChannelOf[T]) Subscribe(ctx context.Context, name string, handl
 	})
 }
 
+// GetChannelOf[T] returns a channel of messages of type MessageOf[T].
 func GetChannelOf[T any](client *Realtime, name string) *RealtimeChannelOf[T] {
 	ch := client.Channels.Get(name)
 	return &RealtimeChannelOf[T]{*ch}
