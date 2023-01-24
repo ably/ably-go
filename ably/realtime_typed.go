@@ -45,7 +45,7 @@ func (r *RealtimeChannelOf[T]) Subscribe(ctx context.Context, name string, handl
 		mo.ClientID = msg.ClientID
 		mo.Extras = msg.Extras
 
-		// this switch statement does not work
+		// TODO: this switch statement does not work.
 		switch msg.Data.(type) {
 		case string:
 		case []byte:
@@ -57,8 +57,6 @@ func (r *RealtimeChannelOf[T]) Subscribe(ctx context.Context, name string, handl
 			}
 			handle(&mo, nil)
 			return
-		default:
-			fmt.Printf("got %v of type %T", msg.Data, msg.Data)
 		}
 
 		var r io.Reader
