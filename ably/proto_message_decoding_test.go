@@ -81,9 +81,6 @@ func Test_decodeMessage(t *testing.T) {
 	}
 }
 
-//go:embed testdata/msgpack_test_fixtures.json
-var MsgpackFixtures []byte
-
 type MsgpackTestFixture struct {
 	Name      string
 	Data      any
@@ -93,16 +90,23 @@ type MsgpackTestFixture struct {
 	MsgPack   string
 }
 
-var msgpackTestFixtures []MsgpackTestFixture
+func loadMsgpackFixtures() ([]MsgpackTestFixture, error) {
+	var o []MsgpackTestFixture
 
-func init() {
-	err := json.Unmarshal(MsgpackFixtures, &msgpackTestFixtures)
+	// We can't embed the fixtures as go:embed forbids embedding of resources above the current directory.
+	text, err := os.ReadFile("../common/test-resources/msgpack_test_fixtures.json")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+
+	err = json.Unmarshal(text, &o)
+	return o, err
 }
 
 func TestMsgpackDecoding(t *testing.T) {
+	msgpackTestFixtures, err := loadMsgpackFixtures()
+	require.NoError(t, err)
+
 	for _, f := range msgpackTestFixtures {
 		t.Run(f.Name, func(t *testing.T) {
 			msgpackData := make([]byte, len(f.MsgPack))

@@ -17,6 +17,8 @@ import (
 )
 
 func TestGenMsgpackFixture(t *testing.T) {
+	msgpackTestFixtures, err := loadMsgpackFixtures()
+	require.NoError(t, err)
 	out := make([]MsgpackTestFixture, 0, len(msgpackTestFixtures))
 	for i, f := range msgpackTestFixtures {
 		msg := new(Message)
