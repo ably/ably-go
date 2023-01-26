@@ -2,7 +2,6 @@ package ably
 
 import (
 	"bytes"
-	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"os"
