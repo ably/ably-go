@@ -32,7 +32,6 @@ func TestGenMsgpackFixture(t *testing.T) {
 		default:
 			panic("unkown message type: " + f.Type)
 		}
-		msg.Encoding = f.Encoding
 		encodedMsg, err := msg.withEncodedData(nil)
 		require.NoError(t, err)
 		pm := ProtocolMessage{

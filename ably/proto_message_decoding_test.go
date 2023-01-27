@@ -81,12 +81,12 @@ func Test_decodeMessage(t *testing.T) {
 }
 
 type MsgpackTestFixture struct {
-	Name      string
-	Data      any
-	Encoding  string
-	NumRepeat int
-	Type      string
-	MsgPack   string
+	Name      string `json:"name"`
+	Data      any    `json:"data"`
+	Encoding  string `json:"encoding"`
+	NumRepeat int    `json:"numRepeat"`
+	Type      string `json:"type"`
+	MsgPack   string `json:"msgpack"`
 }
 
 func loadMsgpackFixtures() ([]MsgpackTestFixture, error) {
