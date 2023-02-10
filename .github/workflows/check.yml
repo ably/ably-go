@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: [1.18, 1.19]
+        go-version: [1.19, 1.20]
 
     steps:
       - uses: actions/checkout@v2
@@ -30,7 +30,6 @@ jobs:
         run: go get -t -v ./ably/...
       
       - name: Format
-        if: matrix.go-version != '1.18'
         run: if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then exit 1; fi
 
       - name: Vet
