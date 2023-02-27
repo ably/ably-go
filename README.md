@@ -2,6 +2,7 @@
 
 [![.github/workflows/check.yml](https://github.com/ably/ably-go/actions/workflows/check.yml/badge.svg)](https://github.com/ably/ably-go/actions/workflows/check.yml)
 [![.github/workflows/integration-test.yml](https://github.com/ably/ably-go/actions/workflows/integration-test.yml/badge.svg)](https://github.com/ably/ably-go/actions/workflows/integration-test.yml)
+[![Features](https://github.com/ably/ably-go/actions/workflows/features.yml/badge.svg)](https://github.com/ably/ably-go/actions/workflows/features.yml)
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ably/ably-go/ably.svg)](https://pkg.go.dev/github.com/ably/ably-go/ably)
 
