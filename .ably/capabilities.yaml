@@ -1,0 +1,99 @@
+%YAML 1.2
+---
+common-version: 1.2.0
+compliance:
+  Agent Identifier:
+    Agents:
+    Operating System:
+  Authentication:
+    API Key:
+    Token:
+      Callback:
+      Literal:
+      URL:
+        Query Time:
+  Debugging:
+    Error Information:
+    Logs:
+  Protocol:
+    JSON:
+    MessagePack:
+  Realtime:
+    Authentication:
+      Get Confirmed Client Identifier:
+    Channel:
+      Attach:
+      Encryption:
+      History:
+      Mode:
+      Presence:
+        Enter:
+          Client:
+        Get:
+        History:
+        Subscribe:
+        Update:
+          Client:
+      Publish:
+        .caveats: Publishing also causes the client to attach to the channel.
+      Retry Timeout:
+      State Events:
+      Subscribe:
+        Deltas:
+        Rewind:
+    Connection:
+      Disconnected Retry Timeout:
+      Get Identifier:
+      Incremental Backoff:
+      Lifecycle Control:
+      Recovery:
+      State Events:
+      Suspended Retry Timeout:
+    Message Echoes:
+    Message Queuing:
+    Transport Parameters:
+  REST:
+    Authentication:
+      Authorize:
+      Create Token Request:
+      Get Client Identifier:
+      Request Token:
+    Channel:
+      Encryption:
+      Existence Check:
+      Get:
+      History:
+      Iterate:
+      Name:
+      Presence:
+        History:
+        Member List:
+      Publish:
+        Idempotence:
+        Parameters for Query String:
+      Release:
+      Status:
+        Channel Details:
+    Opaque Request:
+    Request Timeout:
+    Service:
+      Get Time:
+    Statistics:
+      Query:
+    Support Hyperlink on Request Failure:
+  Service:
+    Environment:
+    Fallbacks:
+      Hosts:
+      Retry Count:
+      Retry Timeout:
+    Host:
+  Testing:
+    Disable TLS:
+    TCP Insecure Port:
+    TCP Secure Port:
+  Transport:
+    Connection Open Timeout:
+    HTTP/2:
+    Proxy:
+      .caveats: Can be achieved through specifying a custom HTTP client.
