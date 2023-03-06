@@ -5,16 +5,18 @@ package ably_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/url"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func expectMsg(ch <-chan *ably.Message, name string, data interface{}, t time.Duration, received bool) error {
@@ -140,4 +142,60 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	err = ablytest.Wait(<-res, nil)
 	assert.NoError(t, err)
+}
+
+func isBinaryProtocol() bool {
+	return os.Getenv("ABLY_PROTOCOL") != "application/json"
+}
+
+// (RSL6a) All messages received will be decoded automatically based on the encoding field
+// and the payloads will be converted into the format they were originally sent using i.e. binary, string, or JSON.
+func TestRealtimeChannel_ByteSliceDataShouldBeDeliveredAsByteSlice(t *testing.T) {
+	app, client1 := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+
+	client2 := app.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+
+	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	channel1 := client1.Channels.Get("test")
+	channel2 := client2.Channels.Get("test")
+
+	sub1, unsub1, err := ablytest.ReceiveMessages(channel1, "")
+	assert.NoError(t, err, "client1:.Subscribe(context.Background())=%v", err)
+	defer unsub1()
+
+	stringMsg := "(RSL6a) When the publisher sends a string, the subscriber should get a string"
+	byteMsg := []byte("(RSL6a) In this case the message was sent as []byte so should have been received as as []byte")
+
+	err = channel2.Publish(context.Background(), "hello", stringMsg)
+	require.NoError(t, err)
+
+	timeout := 15 * time.Second
+
+	err = expectMsg(sub1, "hello", stringMsg, timeout, true)
+	assert.NoError(t, err)
+
+	err = channel2.Publish(context.Background(), "hello", byteMsg)
+	require.NoError(t, err)
+
+	if isBinaryProtocol() {
+		err = expectMsg(sub1, "hello", byteMsg, timeout, true)
+		assert.NoError(t, err)
+	} else {
+		// (RSL4d1) a binary Message payload is encoded as Base64 and
+		// represented as a JSON string the encoding attribute is set to “base64”.
+		err = expectMsg(sub1, "hello", base64.StdEncoding.EncodeToString(byteMsg), timeout, true)
+		assert.NoError(t, err)
+	}
+
+	err = channel2.Publish(context.Background(), "hello", map[string]int{"key": 123})
+	require.NoError(t, err)
+
+	err = expectMsg(sub1, "hello", `{"key":123}`, timeout, true)
+	assert.NoError(t, err, "When a struct is published, we deliver a JSON representation of the struct encoded as a string.")
 }

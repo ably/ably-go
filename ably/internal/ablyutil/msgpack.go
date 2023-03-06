@@ -12,7 +12,6 @@ var handle codec.MsgpackHandle
 func init() {
 	handle.Raw = true
 	handle.WriteExt = true
-	handle.RawToString = true
 }
 
 // UnmarshalMsgpack decodes the MessagePack-encoded data and stores the result in the

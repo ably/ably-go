@@ -6,7 +6,24 @@ package ablyutil
 import (
 	"bytes"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestUnmarshallByte(t *testing.T) {
+	buf := []byte{
+		0xc4,     // bin8
+		2,        // len
+		'a', 'a', // bytes
+	}
+	var target interface{}
+
+	err := UnmarshalMsgpack(buf, &target)
+	require.NoError(t, err)
+	assert.IsType(t, []byte{}, target,
+		"bin8 should be decoded as []byte, but instead we got %T", target)
+}
 
 func TestMsgpack(t *testing.T) {
 	type Object1 struct {
