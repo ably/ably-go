@@ -1,5 +1,7 @@
 module github.com/ably/ably-go
 
+go 1.18
+
 require (
 	github.com/stretchr/testify v1.7.1
 	github.com/ugorji/go/codec v1.1.9
@@ -13,5 +15,3 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
-
-go 1.17
