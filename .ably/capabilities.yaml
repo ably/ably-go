@@ -35,7 +35,9 @@ compliance:
         Update:
           Client:
       Publish:
-        .caveats: Publishing also causes the client to attach to the channel.
+        .caveats:
+          - Publishing also causes the client to attach to the channel.
+          - Publishing a single `Message` is not yet implemented
       Retry Timeout:
       State Events:
       Subscribe:
