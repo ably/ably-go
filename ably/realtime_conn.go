@@ -133,7 +133,7 @@ func (c *Connection) dial(proto string, u *url.URL) (conn conn, err error) {
 	if c.opts.Dial != nil {
 		conn, err = c.opts.Dial(proto, u, timeout)
 	} else {
-		conn, err = dialWebsocket(proto, u, timeout)
+		conn, err = dialWebsocket(proto, u, timeout, c.opts.Agents)
 	}
 	if err != nil {
 		c.log().Debugf("Dial Failed in %v with %v", time.Since(start), err)

@@ -262,6 +262,62 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		client.Time(context.Background())
 		assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
+
+	t.Run("RSC7d6 : Should set ablyAgent header with custom agents", func(t *testing.T) {
+		var agentHeaderValue string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+		serverURL, err := url.Parse(server.URL)
+		assert.NoError(t, err)
+
+		opts := []ably.ClientOption{
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithUseTokenAuth(true),
+			ably.WithRESTHost(serverURL.Host),
+			ably.WithAgents(map[string]string{
+				"foo": "1.2.3",
+			}),
+		}
+
+		client, err := ably.NewREST(opts...)
+		assert.NoError(t, err)
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier() + " foo/1.2.3"
+
+		client.Time(context.Background())
+		assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
+	})
+
+	t.Run("RSC7d6 : Should set ablyAgent header with custom agents missing version", func(t *testing.T) {
+		var agentHeaderValue string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+		serverURL, err := url.Parse(server.URL)
+		assert.NoError(t, err)
+
+		opts := []ably.ClientOption{
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithUseTokenAuth(true),
+			ably.WithRESTHost(serverURL.Host),
+			ably.WithAgents(map[string]string{
+				"bar": "",
+			}),
+		}
+
+		client, err := ably.NewREST(opts...)
+		assert.NoError(t, err)
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier() + " bar"
+
+		client.Time(context.Background())
+		assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
+	})
 }
 
 func TestRest_hostfallback(t *testing.T) {

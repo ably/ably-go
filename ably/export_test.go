@@ -269,7 +269,7 @@ func ChannelModeToFlag(mode ChannelMode) ProtoFlag {
 }
 
 func DialWebsocket(proto string, u *url.URL, timeout time.Duration) (Conn, error) {
-	return dialWebsocket(proto, u, timeout)
+	return dialWebsocket(proto, u, timeout, nil)
 }
 
 func NewCBCCipher(opts CipherParams) (*cbcCipher, error) {

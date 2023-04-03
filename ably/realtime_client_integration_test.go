@@ -72,6 +72,64 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 
 		assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
+
+	t.Run("RSC7d6 : Should set ablyAgent header with custom agents", func(t *testing.T) {
+		var agentHeaderValue string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+		serverURL, err := url.Parse(server.URL)
+		assert.NoError(t, err)
+
+		client, err := ably.NewRealtime(
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithToken("fake:token"),
+			ably.WithUseTokenAuth(true),
+			ably.WithRealtimeHost(serverURL.Host),
+			ably.WithAgents(map[string]string{
+				"foo": "1.2.3",
+			}),
+		)
+		assert.NoError(t, err)
+		defer client.Close()
+
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier() + " foo/1.2.3"
+		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
+
+		assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
+	})
+
+	t.Run("RSC7d6 : Should set ablyAgent header with custom agents missing version", func(t *testing.T) {
+		var agentHeaderValue string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+		serverURL, err := url.Parse(server.URL)
+		assert.NoError(t, err)
+
+		client, err := ably.NewRealtime(
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithTLS(false),
+			ably.WithToken("fake:token"),
+			ably.WithUseTokenAuth(true),
+			ably.WithRealtimeHost(serverURL.Host),
+			ably.WithAgents(map[string]string{
+				"bar": "",
+			}),
+		)
+		assert.NoError(t, err)
+		defer client.Close()
+
+		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier() + " bar"
+		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
+
+		assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
+	})
 }
 
 func checkUnique(ch chan string, typ string, n int) error {

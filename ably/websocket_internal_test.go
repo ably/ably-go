@@ -119,7 +119,7 @@ func TestWebsocketDial(t *testing.T) {
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
 
-			result, err := dialWebsocket(test.dialProtocol, testServerURL, timeout)
+			result, err := dialWebsocket(test.dialProtocol, testServerURL, timeout, nil)
 			assert.Equal(t, test.expectedErr, err)
 
 			if result != nil {
@@ -159,7 +159,7 @@ func TestWebsocketSendAndReceive(t *testing.T) {
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
 
-			ws, err := dialWebsocket(test.dialProtocol, testServerURL, timeout)
+			ws, err := dialWebsocket(test.dialProtocol, testServerURL, timeout, nil)
 			assert.NoError(t, err)
 			msg := protocolMessage{
 				Messages: []*Message{{Name: "temperature", Data: "22.7"}},
