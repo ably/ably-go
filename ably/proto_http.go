@@ -3,6 +3,7 @@ package ably
 import (
 	"fmt"
 	"runtime"
+	"strings"
 )
 
 // constants for rsc7
@@ -23,11 +24,24 @@ var goRuntimeIdentifier = func() string {
 	return fmt.Sprintf("%s/%s", libraryName, runtime.Version()[2:])
 }()
 
-var ablyAgentIdentifier = func() string {
-	osIdentifier := goOSIdentifier()
-	if empty(osIdentifier) {
-		return fmt.Sprintf("%s %s", ablySDKIdentifier, goRuntimeIdentifier)
-	} else {
-		return fmt.Sprintf("%s %s %s", ablySDKIdentifier, goRuntimeIdentifier, osIdentifier)
+func ablyAgentIdentifier(agents map[string]string) string {
+	identifiers := []string{
+		ablySDKIdentifier,
+		goRuntimeIdentifier,
 	}
-}()
+
+	osIdentifier := goOSIdentifier()
+	if !empty(osIdentifier) {
+		identifiers = append(identifiers, osIdentifier)
+	}
+
+	for product, version := range agents {
+		if empty(version) {
+			identifiers = append(identifiers, product)
+		} else {
+			identifiers = append(identifiers, product+"/"+version)
+		}
+	}
+
+	return strings.Join(identifiers, " ")
+}

@@ -390,6 +390,10 @@ type clientOptions struct {
 	Now   func() time.Time
 	After func(context.Context, time.Duration) <-chan time.Time
 
+	// Product/version key-value pairs to include in the agent library
+	// identifiers. This must only be used by Ably-authored SDKs (RSC7d6).
+	Agents map[string]string
+
 	// LogLevel controls the verbosity of the logs output from the library.
 	// Levels include verbose, debug, info, warn and error.
 	// platform specific (TO3b)
@@ -1067,6 +1071,14 @@ func WithLogHandler(handler Logger) ClientOption {
 func WithLogLevel(level LogLevel) ClientOption {
 	return func(os *clientOptions) {
 		os.LogLevel = level
+	}
+}
+
+// WithAgents is used to add product/version key-value pairs to include in the
+// agent library identifiers. This must only be used by Ably-authored SDKs.
+func WithAgents(agents map[string]string) ClientOption {
+	return func(os *clientOptions) {
+		os.Agents = agents
 	}
 }
 

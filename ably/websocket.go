@@ -77,7 +77,7 @@ func (ws *websocketConn) Close() error {
 	return ws.conn.Close(websocket.StatusNormalClosure, "")
 }
 
-func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketConn, error) {
+func dialWebsocket(proto string, u *url.URL, timeout time.Duration, agents map[string]string) (*websocketConn, error) {
 	ws := &websocketConn{}
 	switch proto {
 	case "application/json":
@@ -88,7 +88,7 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketC
 		return nil, errors.New(`invalid protocol "` + proto + `"`)
 	}
 	// Starts a raw websocket connection with server
-	conn, err := dialWebsocketTimeout(u.String(), "https://"+u.Host, timeout)
+	conn, err := dialWebsocketTimeout(u.String(), "https://"+u.Host, timeout, agents)
 	if err != nil {
 		return nil, err
 	}
@@ -97,13 +97,13 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration) (*websocketC
 }
 
 // dialWebsocketTimeout dials the websocket with a timeout.
-func dialWebsocketTimeout(uri, origin string, timeout time.Duration) (*websocket.Conn, error) {
+func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[string]string) (*websocket.Conn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	var ops websocket.DialOptions
 	ops.HTTPHeader = make(http.Header)
-	ops.HTTPHeader.Add(ablyAgentHeader, ablyAgentIdentifier)
+	ops.HTTPHeader.Add(ablyAgentHeader, ablyAgentIdentifier(agents))
 
 	c, _, err := websocket.Dial(ctx, uri, &ops)
 
