@@ -32,6 +32,9 @@ jobs:
         id: sdk-upload-prempt
         with:
           mode: preempt
+          sourcePath: dist
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          artifactName: godoc
 
       - name: Build Documentation
         run: >
