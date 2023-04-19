@@ -28,10 +28,10 @@ jobs:
           go install golang.org/x/tools/cmd/godoc@v0.3.0
           go install github.com/johnstarich/go/gopages@v0.1.16
 
-     - uses: ably/sdk-upload-action@v2
-       id: sdk-upload-prempt
-       with:
-         mode: preempt
+      - uses: ably/sdk-upload-action@v2
+        id: sdk-upload-prempt
+        with:
+          mode: preempt
 
       - name: Build Documentation
         run: >
