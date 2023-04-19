@@ -42,7 +42,7 @@ jobs:
           -source-link "https://github.com/ably/ably-go/blob/${{ github.sha }}/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
           -brand-description "Go client library for Ably realtime messaging service."
           -brand-title "Ably Go SDK"
-          -base "${{steps.sdk-upload-prempt.outputs.result}}"
+          -base "${{steps.sdk-upload-prempt.outputs.url-base}}"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
