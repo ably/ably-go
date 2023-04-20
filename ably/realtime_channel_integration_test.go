@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -93,6 +94,118 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
+	app, err := ablytest.NewSandbox(nil)
+	assert.NoError(t, err)
+	defer app.Close()
+	options := app.Options()
+	restClient, err := ably.NewREST(options...)
+	assert.NoError(t, err)
+
+	realtimeClient := app.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtimeClient))
+
+	testMessages := []*ably.Message{
+		{
+			Name: "filtered",
+			Data: "This message will pass the filter",
+			Extras: map[string]interface{}{
+				"headers": map[string]interface{}{
+					"name":   "value one",
+					"number": 1234,
+					"bool":   true,
+				},
+			},
+		},
+		{
+			Name: "filtered",
+			Data: "filtered messages",
+		},
+		{
+			Name: "filtered",
+			Data: "This message will be filtered because it does not meet condition on headers.number",
+			Extras: map[string]interface{}{
+				"headers": map[string]interface{}{
+					"name":   "value one",
+					"number": 5678,
+					"bool":   true,
+				},
+			},
+		},
+		{
+			Name: "filtered",
+			Data: "This is filtered",
+		},
+		{
+			Name: "end",
+			Data: "Last message check",
+		},
+	}
+	filter := ably.DeriveOptions{
+		Filter: "name == `\"filtered\"` && headers.number == `1234`",
+	}
+
+	err = ablytest.Wait(ablytest.ConnWaiter(realtimeClient, realtimeClient.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	restChannel := restClient.Channels.Get("test")
+	rtDerivedChannel, err := realtimeClient.Channels.GetDerived("[?param=1]test", filter)
+	realtimeChannel := realtimeClient.Channels.Get("test")
+	assert.NoError(t, err, "realtimeChannel: GetDerived()=%v", err)
+
+	filteredMessages := make(chan *ably.Message, 10)
+	unsub, err := rtDerivedChannel.SubscribeAll(ctx, func(msg *ably.Message) {
+		filteredMessages <- msg
+	})
+	assert.NoError(t, err)
+	defer unsub()
+
+	unfilteredMessages := make(chan *ably.Message, 10)
+	unsub, err = realtimeChannel.SubscribeAll(ctx, func(msg *ably.Message) {
+		unfilteredMessages <- msg
+	})
+	assert.NoError(t, err)
+	defer unsub()
+
+	err = restChannel.PublishMultiple(context.Background(), testMessages)
+	assert.NoError(t, err, "restClient: PublishMultiple()=%v", err)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer wg.Done()
+		for {
+			select {
+			case m := <-filteredMessages:
+				assert.Equal(t, "filtered", m.Name)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}(ctx)
+
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer cancel()
+		defer wg.Done()
+		for {
+			select {
+			case m := <-unfilteredMessages:
+				if m.Name == "end" {
+					return
+				}
+				assert.Equal(t, "filtered", m.Name)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}(ctx)
+
+	wg.Wait()
+}
 func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
