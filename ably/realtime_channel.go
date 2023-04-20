@@ -58,7 +58,7 @@ type DeriveOptions struct {
 
 type derivedChannelMatch struct {
 	qualifierParam string
-	chanelName     string
+	channelName    string
 }
 
 // ChannelWithCipherKey is a constructor that takes private key as a argument.
@@ -132,7 +132,7 @@ func (ch *RealtimeChannels) GetDerived(name string, deriveOptions DeriveOptions,
 			return nil, err
 		}
 		filter := url.PathEscape(deriveOptions.Filter)
-		name = fmt.Sprintf("[filter=%s%s]%s", filter, match.qualifierParam, match.chanelName)
+		name = fmt.Sprintf("[filter=%s%s]%s", filter, match.qualifierParam, match.channelName)
 	}
 	return ch.Get(name, options...), nil
 }
@@ -152,7 +152,7 @@ func matchDerivedChannel(name string) (*derivedChannelMatch, error) {
 	}
 	return &derivedChannelMatch{
 		qualifierParam: match[3],
-		chanelName:     match[4],
+		channelName:    match[4],
 	}, nil
 }
 

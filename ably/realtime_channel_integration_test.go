@@ -93,6 +93,71 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
+	app, err := ablytest.NewSandbox(nil)
+	assert.NoError(t, err)
+	defer app.Close()
+	options := app.Options()
+	restClient, err := ably.NewREST(options...)
+	assert.NoError(t, err)
+	msg := []*ably.Message{
+		{
+			Name: "filtered",
+			Data: "This should be filtered",
+			Extras: map[string]interface{}{
+				"headers": map[string]interface{}{
+					"name":   "value one",
+					"number": 1234,
+					"bool":   true,
+				},
+			},
+		},
+		{
+			Name: "filtered",
+			Data: "A different data",
+			Extras: map[string]interface{}{
+				"headers": map[string]interface{}{
+					"name":   "random value",
+					"number": 6789,
+					"bool":   true,
+				},
+			},
+		},
+		{
+			Name: "filtered",
+			Data: "No extra data",
+		},
+	}
+	filter := ably.DeriveOptions{
+		Filter: "name == `'filtered'` && headers.number == `1234`",
+	}
+
+	realtimeClient := app.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtimeClient))
+
+	err = ablytest.Wait(ablytest.ConnWaiter(realtimeClient, realtimeClient.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	restChannel := restClient.Channels.Get("test")
+	realtimeChannel, _ := realtimeClient.Channels.GetDerived("test", filter)
+
+	err = realtimeChannel.Attach(context.Background())
+	assert.NoError(t, err,
+		"realtimeClient: Attach()=%v", err)
+
+	sub, unsub, err := ablytest.ReceiveMessages(realtimeChannel, "filtered")
+	assert.NoError(t, err, "realtimeClient:.Subscribe(context.Background())=%v", err)
+	defer unsub()
+
+	err = restChannel.PublishMultiple(context.Background(), msg)
+	assert.NoError(t, err, "restClient: Publish()=%v", err)
+
+	timeout := 15 * time.Second
+
+	err = expectMsg(sub, "filtered", msg[0].Data, timeout, true)
+	assert.NoError(t, err)
+}
+
 func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
