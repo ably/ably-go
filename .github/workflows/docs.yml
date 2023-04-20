@@ -28,13 +28,21 @@ jobs:
           go install golang.org/x/tools/cmd/godoc@v0.3.0
           go install github.com/johnstarich/go/gopages@v0.1.16
 
+      - uses: ably/sdk-upload-action@v2
+        id: sdk-upload-prempt
+        with:
+          mode: preempt
+          sourcePath: dist
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          artifactName: godoc
+
       - name: Build Documentation
         run: >
           gopages
           -source-link "https://github.com/ably/ably-go/blob/${{ github.sha }}/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
           -brand-description "Go client library for Ably realtime messaging service."
           -brand-title "Ably Go SDK"
-          -base ./../../../../..
+          -base "${{steps.sdk-upload-prempt.outputs.url-base}}../godoc"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -44,7 +52,7 @@ jobs:
           role-session-name: "${{ github.run_id }}-${{ github.run_number }}"
 
       - name: Upload Documentation
-        uses: ably/sdk-upload-action@v1
+        uses: ably/sdk-upload-action@v2
         with:
           sourcePath: dist
           githubToken: ${{ secrets.GITHUB_TOKEN }}
