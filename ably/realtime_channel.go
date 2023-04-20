@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"regexp"
 	"sort"
 	"sync"
 )
@@ -49,6 +51,15 @@ type ChannelOption func(*channelOptions)
 
 // channelOptions wraps ChannelOptions. It exists so that users can't implement their own ChannelOption.
 type channelOptions protoChannelOptions
+
+type DeriveOptions struct {
+	Filter string
+}
+
+type derivedChannelMatch struct {
+	qualifierParam string
+	chanelName     string
+}
 
 // ChannelWithCipherKey is a constructor that takes private key as a argument.
 // It is used to encrypt and decrypt payloads (TB3)
@@ -112,6 +123,37 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 	}
 	ch.mtx.Unlock()
 	return c
+}
+
+func (ch *RealtimeChannels) GetDerived(name string, deriveOptions DeriveOptions, options ...ChannelOption) (*RealtimeChannel, error) {
+	if deriveOptions.Filter != "" {
+		match, err := matchDerivedChannel(name)
+		if err != nil {
+			return nil, err
+		}
+		filter := url.PathEscape(deriveOptions.Filter)
+		name = fmt.Sprintf("[filter=%s%s]%s", filter, match.qualifierParam, match.chanelName)
+	}
+	return ch.Get(name, options...), nil
+}
+
+func matchDerivedChannel(name string) (*derivedChannelMatch, error) {
+	regex := `^(\[([^?]*)(?:(.*))\])?(.+)$`
+	r, _ := regexp.Compile(regex)
+	match := r.FindStringSubmatch(name)
+
+	if len(match) == 0 || len(match) < 5 {
+		err := newError(40010, errors.New("regex match failed"))
+		return &derivedChannelMatch{}, err
+	}
+	if len(match[2]) > 0 {
+		err := newError(40010, fmt.Errorf("cannot use a derived option with a %s channel", match[2]))
+		return &derivedChannelMatch{}, err
+	}
+	return &derivedChannelMatch{
+		qualifierParam: match[3],
+		chanelName:     match[4],
+	}, nil
 }
 
 // Iterate returns a [ably.RealtimeChannel] for each iteration on existing channels.
