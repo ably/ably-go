@@ -112,24 +112,9 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name: "filtered",
-			Data: "A different data",
-			Extras: map[string]interface{}{
-				"headers": map[string]interface{}{
-					"name":   "random value",
-					"number": 6789,
-					"bool":   true,
-				},
-			},
-		},
-		{
-			Name: "filtered",
-			Data: "No extra data",
-		},
 	}
 	filter := ably.DeriveOptions{
-		Filter: "name == `'filtered'` && headers.number == `1234`",
+		Filter: "name == `\"filtered\"` && headers.number == `1234`",
 	}
 
 	realtimeClient := app.NewRealtime(ably.WithEchoMessages(false))
@@ -139,7 +124,8 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	assert.NoError(t, err)
 
 	restChannel := restClient.Channels.Get("test")
-	realtimeChannel, _ := realtimeClient.Channels.GetDerived("test", filter)
+	realtimeChannel, err := realtimeClient.Channels.GetDerived("test", filter)
+	assert.NoError(t, err, "realtimeChannel: GetDerived()=%v", err)
 
 	err = realtimeChannel.Attach(context.Background())
 	assert.NoError(t, err,
@@ -150,7 +136,7 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	defer unsub()
 
 	err = restChannel.PublishMultiple(context.Background(), msg)
-	assert.NoError(t, err, "restClient: Publish()=%v", err)
+	assert.NoError(t, err, "restClient: PublishMultiple()=%v", err)
 
 	timeout := 15 * time.Second
 

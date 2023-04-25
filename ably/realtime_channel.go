@@ -125,6 +125,8 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 	return c
 }
 
+// GetDerived creates a new derived [ably.RealtimeChannel] object for given channel name, using the provided derive options and
+// channel options if any. Returns error if any occurs
 func (ch *RealtimeChannels) GetDerived(name string, deriveOptions DeriveOptions, options ...ChannelOption) (*RealtimeChannel, error) {
 	if deriveOptions.Filter != "" {
 		match, err := matchDerivedChannel(name)
@@ -137,6 +139,9 @@ func (ch *RealtimeChannels) GetDerived(name string, deriveOptions DeriveOptions,
 	return ch.Get(name, options...), nil
 }
 
+// This regex check is to retain existing channel params if any e.g [?rewind=1]foo to
+// [filter=xyz?rewind=1]foo. This is to keep channel compatibility around use of
+// channel params that work with derived channels.
 func matchDerivedChannel(name string) (*derivedChannelMatch, error) {
 	regex := `^(\[([^?]*)(?:(.*))\])?(.+)$`
 	r, _ := regexp.Compile(regex)
@@ -146,10 +151,14 @@ func matchDerivedChannel(name string) (*derivedChannelMatch, error) {
 		err := newError(40010, errors.New("regex match failed"))
 		return &derivedChannelMatch{}, err
 	}
+	// Fail if there is already a channel qualifier,
+	// eg [meta]foo should fail instead of just overriding with [filter=xyz]foo
 	if len(match[2]) > 0 {
 		err := newError(40010, fmt.Errorf("cannot use a derived option with a %s channel", match[2]))
 		return &derivedChannelMatch{}, err
 	}
+
+	// Return match values to be added to derive channel quantifier.
 	return &derivedChannelMatch{
 		qualifierParam: match[3],
 		channelName:    match[4],
