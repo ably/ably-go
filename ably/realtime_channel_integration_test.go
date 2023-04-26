@@ -103,7 +103,7 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	msg := []*ably.Message{
 		{
 			Name: "filtered",
-			Data: "This should be filtered",
+			Data: "This should not be filtered",
 			Extras: map[string]interface{}{
 				"headers": map[string]interface{}{
 					"name":   "value one",
@@ -114,11 +114,11 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 		},
 		{
 			Name: "filtered",
-			Data: "No filtering here",
+			Data: "filtered messages",
 		},
 		{
 			Name: "filtered",
-			Data: "Another filtered message",
+			Data: "Another unfiltered message",
 			Extras: map[string]interface{}{
 				"headers": map[string]interface{}{
 					"name":   "value one",

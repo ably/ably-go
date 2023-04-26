@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"regexp"
 	"sort"
+	"strings"
 	"sync"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
 
 var (
@@ -52,13 +54,9 @@ type ChannelOption func(*channelOptions)
 // channelOptions wraps ChannelOptions. It exists so that users can't implement their own ChannelOption.
 type channelOptions protoChannelOptions
 
+// DeriveOptions allows options to be used in creating a derived channel
 type DeriveOptions struct {
 	Filter string
-}
-
-type derivedChannelMatch struct {
-	qualifierParam string
-	channelName    string
 }
 
 // ChannelWithCipherKey is a constructor that takes private key as a argument.
@@ -129,40 +127,16 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 // channel options if any. Returns error if any occurs
 func (ch *RealtimeChannels) GetDerived(name string, deriveOptions DeriveOptions, options ...ChannelOption) (*RealtimeChannel, error) {
 	if deriveOptions.Filter != "" {
-		match, err := matchDerivedChannel(name)
+		match, err := ablyutil.MatchDerivedChannel(name)
 		if err != nil {
-			return nil, err
+			return nil, newError(40010, err)
 		}
 		filter := url.PathEscape(deriveOptions.Filter)
-		name = fmt.Sprintf("[filter=%s%s]%s", filter, match.qualifierParam, match.channelName)
+		// Replacing ":" with "%3A" because url.PathEscape doesn't decode ":" characters
+		filter = strings.Replace(filter, ":", "%3A", -1)
+		name = fmt.Sprintf("[filter=%s%s]%s", filter, match.QualifierParam, match.ChannelName)
 	}
 	return ch.Get(name, options...), nil
-}
-
-// This regex check is to retain existing channel params if any e.g [?rewind=1]foo to
-// [filter=xyz?rewind=1]foo. This is to keep channel compatibility around use of
-// channel params that work with derived channels.
-func matchDerivedChannel(name string) (*derivedChannelMatch, error) {
-	regex := `^(\[([^?]*)(?:(.*))\])?(.+)$`
-	r, _ := regexp.Compile(regex)
-	match := r.FindStringSubmatch(name)
-
-	if len(match) == 0 || len(match) < 5 {
-		err := newError(40010, errors.New("regex match failed"))
-		return &derivedChannelMatch{}, err
-	}
-	// Fail if there is already a channel qualifier,
-	// eg [meta]foo should fail instead of just overriding with [filter=xyz]foo
-	if len(match[2]) > 0 {
-		err := newError(40010, fmt.Errorf("cannot use a derived option with a %s channel", match[2]))
-		return &derivedChannelMatch{}, err
-	}
-
-	// Return match values to be added to derive channel quantifier.
-	return &derivedChannelMatch{
-		qualifierParam: match[3],
-		channelName:    match[4],
-	}, nil
 }
 
 // Iterate returns a [ably.RealtimeChannel] for each iteration on existing channels.
