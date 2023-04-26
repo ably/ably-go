@@ -112,6 +112,21 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "filtered",
+			Data: "No filtering here",
+		},
+		{
+			Name: "filtered",
+			Data: "Another filtered message",
+			Extras: map[string]interface{}{
+				"headers": map[string]interface{}{
+					"name":   "value one",
+					"number": 5678,
+					"bool":   true,
+				},
+			},
+		},
 	}
 	filter := ably.DeriveOptions{
 		Filter: "name == `\"filtered\"` && headers.number == `1234`",
@@ -124,23 +139,33 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	assert.NoError(t, err)
 
 	restChannel := restClient.Channels.Get("test")
-	realtimeChannel, err := realtimeClient.Channels.GetDerived("test", filter)
+	rtDerivedChannel, err := realtimeClient.Channels.GetDerived("[?param=1]test", filter)
+	realtimeChannel := realtimeClient.Channels.Get("test")
 	assert.NoError(t, err, "realtimeChannel: GetDerived()=%v", err)
 
 	err = realtimeChannel.Attach(context.Background())
 	assert.NoError(t, err,
 		"realtimeClient: Attach()=%v", err)
 
-	sub, unsub, err := ablytest.ReceiveMessages(realtimeChannel, "filtered")
+	rtDerivedSub, unsub, err := ablytest.ReceiveMessages(rtDerivedChannel, "filtered")
 	assert.NoError(t, err, "realtimeClient:.Subscribe(context.Background())=%v", err)
 	defer unsub()
+	rtSub, unsub2, err := ablytest.ReceiveMessages(realtimeChannel, "filtered")
+	assert.NoError(t, err, "realtimeClient:.Subscribe(context.Background())=%v", err)
+	defer unsub2()
 
 	err = restChannel.PublishMultiple(context.Background(), msg)
 	assert.NoError(t, err, "restClient: PublishMultiple()=%v", err)
 
 	timeout := 15 * time.Second
 
-	err = expectMsg(sub, "filtered", msg[0].Data, timeout, true)
+	err = expectMsg(rtDerivedSub, "filtered", msg[0].Data, timeout, true)
+	assert.NoError(t, err)
+	err = expectMsg(rtSub, "filtered", msg[0].Data, timeout, true)
+	assert.NoError(t, err)
+	err = expectMsg(rtSub, "filtered", msg[1].Data, timeout, true)
+	assert.NoError(t, err)
+	err = expectMsg(rtSub, "filtered", msg[2].Data, timeout, true)
 	assert.NoError(t, err)
 }
 
