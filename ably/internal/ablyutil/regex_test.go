@@ -18,6 +18,8 @@ func TestMatchDerivedChannel(t *testing.T) {
 		{"valid with base channel name", "foo", &derivedChannelMatch{QualifierParam: "", ChannelName: "foo"}},
 		{"valid with base channel namespace", "foo:bar", &derivedChannelMatch{QualifierParam: "", ChannelName: "foo:bar"}},
 		{"valid with existing qualifying option", "[?rewind=1]foo", &derivedChannelMatch{QualifierParam: "?rewind=1", ChannelName: "foo"}},
+		{"valid with existing qualifying option with channel namespace", "[?rewind=1]foo:bar", &derivedChannelMatch{QualifierParam: "?rewind=1", ChannelName: "foo:bar"}},
+		{"fail with invalid param with channel namespace", "[param:invalid]foo:bar", nil},
 		{"fail with wrong channel option param", "[param=1]foo", nil},
 		{"fail with invalid qualifying option", "[meta]foo", nil},
 		{"fail with invalid regex match", "[failed-match]foo", nil},

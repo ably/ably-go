@@ -17,7 +17,10 @@ type derivedChannelMatch struct {
 // channel params that work with derived channels.
 func MatchDerivedChannel(name string) (*derivedChannelMatch, error) {
 	regex := `^(\[([^?]*)(?:(.*))\])?(.+)$`
-	r, _ := regexp.Compile(regex)
+	r, err := regexp.Compile(regex)
+	if err != nil {
+		return nil, err
+	}
 	match := r.FindStringSubmatch(name)
 
 	if len(match) == 0 || len(match) < 5 {

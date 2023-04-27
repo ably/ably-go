@@ -103,7 +103,7 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	msg := []*ably.Message{
 		{
 			Name: "filtered",
-			Data: "This should not be filtered",
+			Data: "This message will be filtered",
 			Extras: map[string]interface{}{
 				"headers": map[string]interface{}{
 					"name":   "value one",
@@ -118,7 +118,7 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 		},
 		{
 			Name: "filtered",
-			Data: "Another unfiltered message",
+			Data: "This message will be filtered because it does not meet condition on headers.number",
 			Extras: map[string]interface{}{
 				"headers": map[string]interface{}{
 					"name":   "value one",
@@ -147,7 +147,7 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	assert.NoError(t, err,
 		"realtimeClient: Attach()=%v", err)
 
-	rtDerivedSub, unsub, err := ablytest.ReceiveMessages(rtDerivedChannel, "filtered")
+	rtDerivedSub, unsub, err := ablytest.ReceiveMessages(rtDerivedChannel, "")
 	assert.NoError(t, err, "realtimeClient:.Subscribe(context.Background())=%v", err)
 	defer unsub()
 	rtSub, unsub2, err := ablytest.ReceiveMessages(realtimeChannel, "filtered")
@@ -159,8 +159,14 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 
 	timeout := 15 * time.Second
 
+	// Check message received on rtDerivedChannel
 	err = expectMsg(rtDerivedSub, "filtered", msg[0].Data, timeout, true)
 	assert.NoError(t, err)
+	// Ensure that no additional message is received on rtDerivedChannel
+	err = expectMsg(rtDerivedSub, "filtered", "incorrect data", timeout, true)
+	assert.Error(t, err)
+	assert.Equal(t, err, fmt.Errorf("waiting for message name=%q data=%q timed out after %v", "filtered", "incorrect data", timeout))
+	// Check messages received on realtimeChannel
 	err = expectMsg(rtSub, "filtered", msg[0].Data, timeout, true)
 	assert.NoError(t, err)
 	err = expectMsg(rtSub, "filtered", msg[1].Data, timeout, true)
