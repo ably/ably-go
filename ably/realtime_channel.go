@@ -2,11 +2,10 @@ package ably
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/url"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -131,9 +130,7 @@ func (ch *RealtimeChannels) GetDerived(name string, deriveOptions DeriveOptions,
 		if err != nil {
 			return nil, newError(40010, err)
 		}
-		filter := url.PathEscape(deriveOptions.Filter)
-		// Replacing ":" with "%3A" because url.PathEscape doesn't decode ":" characters
-		filter = strings.Replace(filter, ":", "%3A", -1)
+		filter := base64.StdEncoding.EncodeToString([]byte(deriveOptions.Filter))
 		name = fmt.Sprintf("[filter=%s%s]%s", filter, match.QualifierParam, match.ChannelName)
 	}
 	return ch.Get(name, options...), nil

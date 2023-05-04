@@ -19,6 +19,7 @@ func MatchDerivedChannel(name string) (*derivedChannelMatch, error) {
 	regex := `^(\[([^?]*)(?:(.*))\])?(.+)$`
 	r, err := regexp.Compile(regex)
 	if err != nil {
+		err := errors.New("regex compilation failed")
 		return nil, err
 	}
 	match := r.FindStringSubmatch(name)
