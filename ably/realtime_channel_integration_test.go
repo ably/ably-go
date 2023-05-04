@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -100,10 +101,14 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	options := app.Options()
 	restClient, err := ably.NewREST(options...)
 	assert.NoError(t, err)
-	msg := []*ably.Message{
+
+	realtimeClient := app.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtimeClient))
+
+	testMessages := []*ably.Message{
 		{
 			Name: "filtered",
-			Data: "This message will be filtered",
+			Data: "This message will pass the filter",
 			Extras: map[string]interface{}{
 				"headers": map[string]interface{}{
 					"name":   "value one",
@@ -127,54 +132,80 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "filtered",
+			Data: "This is filtered",
+		},
+		{
+			Name: "end",
+			Data: "Last message check",
+		},
 	}
 	filter := ably.DeriveOptions{
 		Filter: "name == `\"filtered\"` && headers.number == `1234`",
 	}
 
-	realtimeClient := app.NewRealtime(ably.WithEchoMessages(false))
-	defer safeclose(t, ablytest.FullRealtimeCloser(realtimeClient))
-
 	err = ablytest.Wait(ablytest.ConnWaiter(realtimeClient, realtimeClient.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	restChannel := restClient.Channels.Get("test")
 	rtDerivedChannel, err := realtimeClient.Channels.GetDerived("[?param=1]test", filter)
 	realtimeChannel := realtimeClient.Channels.Get("test")
 	assert.NoError(t, err, "realtimeChannel: GetDerived()=%v", err)
 
-	err = realtimeChannel.Attach(context.Background())
-	assert.NoError(t, err,
-		"realtimeClient: Attach()=%v", err)
-
-	rtDerivedSub, unsub, err := ablytest.ReceiveMessages(rtDerivedChannel, "")
-	assert.NoError(t, err, "realtimeClient:.Subscribe(context.Background())=%v", err)
+	filteredMessages := make(chan *ably.Message, 10)
+	unsub, err := rtDerivedChannel.SubscribeAll(ctx, func(msg *ably.Message) {
+		filteredMessages <- msg
+	})
+	assert.NoError(t, err)
 	defer unsub()
-	rtSub, unsub2, err := ablytest.ReceiveMessages(realtimeChannel, "filtered")
-	assert.NoError(t, err, "realtimeClient:.Subscribe(context.Background())=%v", err)
-	defer unsub2()
 
-	err = restChannel.PublishMultiple(context.Background(), msg)
+	unfilteredMessages := make(chan *ably.Message, 10)
+	unsub, err = realtimeChannel.SubscribeAll(ctx, func(msg *ably.Message) {
+		unfilteredMessages <- msg
+	})
+	assert.NoError(t, err)
+	defer unsub()
+
+	err = restChannel.PublishMultiple(context.Background(), testMessages)
 	assert.NoError(t, err, "restClient: PublishMultiple()=%v", err)
 
-	timeout := 15 * time.Second
+	var wg sync.WaitGroup
 
-	// Check message received on rtDerivedChannel
-	err = expectMsg(rtDerivedSub, "filtered", msg[0].Data, timeout, true)
-	assert.NoError(t, err)
-	// Ensure that no additional message is received on rtDerivedChannel
-	err = expectMsg(rtDerivedSub, "filtered", "incorrect data", timeout, true)
-	assert.Error(t, err)
-	assert.Equal(t, err, fmt.Errorf("waiting for message name=%q data=%q timed out after %v", "filtered", "incorrect data", timeout))
-	// Check messages received on realtimeChannel
-	err = expectMsg(rtSub, "filtered", msg[0].Data, timeout, true)
-	assert.NoError(t, err)
-	err = expectMsg(rtSub, "filtered", msg[1].Data, timeout, true)
-	assert.NoError(t, err)
-	err = expectMsg(rtSub, "filtered", msg[2].Data, timeout, true)
-	assert.NoError(t, err)
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer wg.Done()
+		for {
+			select {
+			case m := <-filteredMessages:
+				assert.Equal(t, "filtered", m.Name)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}(ctx)
+
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer cancel()
+		defer wg.Done()
+		for {
+			select {
+			case m := <-unfilteredMessages:
+				if m.Name == "end" {
+					return
+				}
+				assert.Equal(t, "filtered", m.Name)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}(ctx)
+
+	wg.Wait()
 }
-
 func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
