@@ -331,7 +331,9 @@ func TestRest_hostfallback(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hosts = append(hosts, r.Host)
 			retryCount++
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadGateway)
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte("<p>error from cloudfront</p>"))
 		}))
 		defer server.Close()
 		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(newHTTPClientMock(server)))...)...)
