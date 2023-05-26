@@ -72,7 +72,9 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Keys: []Key{
-			{},
+			{
+				Capability: `{"[*]*":["*"]}`,
+			},
 		},
 		Namespaces: []Namespace{
 			{ID: "persisted", Persisted: true},

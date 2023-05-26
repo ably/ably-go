@@ -2,10 +2,13 @@ package ably
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"sort"
 	"sync"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
 
 var (
@@ -49,6 +52,11 @@ type ChannelOption func(*channelOptions)
 
 // channelOptions wraps ChannelOptions. It exists so that users can't implement their own ChannelOption.
 type channelOptions protoChannelOptions
+
+// DeriveOptions allows options to be used in creating a derived channel
+type DeriveOptions struct {
+	Filter string
+}
 
 // ChannelWithCipherKey is a constructor that takes private key as a argument.
 // It is used to encrypt and decrypt payloads (TB3)
@@ -112,6 +120,21 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 	}
 	ch.mtx.Unlock()
 	return c
+}
+
+// GetDerived is a preview feature and may change in a future non-major release.
+// It creates a new derived [ably.RealtimeChannel] object for given channel name, using the provided derive options and
+// channel options if any. Returns error if any occurs.
+func (ch *RealtimeChannels) GetDerived(name string, deriveOptions DeriveOptions, options ...ChannelOption) (*RealtimeChannel, error) {
+	if deriveOptions.Filter != "" {
+		match, err := ablyutil.MatchDerivedChannel(name)
+		if err != nil {
+			return nil, newError(40010, err)
+		}
+		filter := base64.StdEncoding.EncodeToString([]byte(deriveOptions.Filter))
+		name = fmt.Sprintf("[filter=%s%s]%s", filter, match.QualifierParam, match.ChannelName)
+	}
+	return ch.Get(name, options...), nil
 }
 
 // Iterate returns a [ably.RealtimeChannel] for each iteration on existing channels.
