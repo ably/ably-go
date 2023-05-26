@@ -122,8 +122,9 @@ func (ch *RealtimeChannels) Get(name string, options ...ChannelOption) *Realtime
 	return c
 }
 
-// GetDerived creates a new derived [ably.RealtimeChannel] object for given channel name, using the provided derive options and
-// channel options if any. Returns error if any occurs
+// GetDerived is a preview feature and may change in a future non-major release.
+// It creates a new derived [ably.RealtimeChannel] object for given channel name, using the provided derive options and
+// channel options if any. Returns error if any occurs.
 func (ch *RealtimeChannels) GetDerived(name string, deriveOptions DeriveOptions, options ...ChannelOption) (*RealtimeChannel, error) {
 	if deriveOptions.Filter != "" {
 		match, err := ablyutil.MatchDerivedChannel(name)
