@@ -93,6 +93,23 @@ if err != nil {
 }
 ```
 
+`Publish` will block until either the publish is acknowledged or failed to
+deliver.
+
+Alternatively you can use `PublishAsync` which does not block:
+
+```go
+channel.PublishAsync("EventName1", "EventData11", func(err error) {
+	if err != nil {
+		fmt.Println("failed to publish", err)
+	} else {
+		fmt.Println("publish ok")
+	}
+})
+```
+
+Note the `onAck` callback must not block as it would block the internal client.
+
 #### Handling errors
 
 Errors returned by this library may have an underlying `*ErrorInfo` type.

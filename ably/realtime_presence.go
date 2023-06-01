@@ -72,7 +72,21 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 		if err != nil {
 			return err
 		}
-		return wait(ctx)(pres.channel.send(protomsg))
+
+		listen := make(chan error, 1)
+		onAck := func(err error) {
+			listen <- err
+		}
+		if err := pres.channel.send(protomsg, onAck); err != nil {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-listen:
+			return err
+		}
 	}), nil
 }
 

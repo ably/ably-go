@@ -585,8 +585,22 @@ func (em ChannelEventEmitter) OffAll() {
 }
 
 // Publish publishes a single message to the channel with the given event name and message payload.
+//
+// This will block until either the publish is acknowledged or fails to deliver.
+//
+// If the context is cancelled before the attach operation finishes, the call
+// returns an error but the publish will carry on in the background and may
+// eventually be published anyway.
 func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interface{}) error {
 	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}})
+}
+
+// PublishAsync is the same as Publish except instead of blocking it calls onAck
+// with nil if the publish was successful or the appropriate error.
+//
+// Note onAck must not block as it would block the internal client.
+func (c *RealtimeChannel) PublishAsync(name string, data interface{}, onAck func(err error)) error {
+	return c.PublishMultipleAsync([]*Message{{Name: name, Data: data}}, onAck)
 }
 
 // PublishMultiple publishes all given messages on the channel at once.
@@ -595,6 +609,25 @@ func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interfa
 // returns an error but the publish will carry on in the background and may
 // eventually be published anyway.
 func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Message) error {
+	listen := make(chan error, 1)
+	onAck := func(err error) {
+		listen <- err
+	}
+	if err := c.PublishMultipleAsync(messages, onAck); err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-listen:
+		return err
+	}
+}
+
+// PublishMultipleAsync is the same as PublishMultiple except it calls onAck instead of blocking
+// (see PublishAsync).
+func (c *RealtimeChannel) PublishMultipleAsync(messages []*Message, onAck func(err error)) error {
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
 		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
@@ -607,11 +640,7 @@ func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Messa
 		Channel:  c.Name,
 		Messages: messages,
 	}
-	res, err := c.send(msg)
-	if err != nil {
-		return err
-	}
-	return res.Wait(ctx)
+	return c.send(msg, onAck)
 }
 
 // History retrieves a [ably.HistoryRequest] object, containing an array of historical
@@ -624,35 +653,34 @@ func (c *RealtimeChannel) History(o ...HistoryOption) HistoryRequest {
 	return c.client.rest.Channels.Get(c.Name).History(o...)
 }
 
-func (c *RealtimeChannel) send(msg *protocolMessage) (result, error) {
-	if res, enqueued := c.maybeEnqueue(msg); enqueued {
-		return res, nil
+func (c *RealtimeChannel) send(msg *protocolMessage, onAck func(err error)) error {
+	if enqueued := c.maybeEnqueue(msg, onAck); enqueued {
+		return nil
 	}
 
 	if !c.canSend() {
-		return nil, newError(ErrChannelOperationFailedInvalidChannelState, nil)
+		return newError(ErrChannelOperationFailedInvalidChannelState, nil)
 	}
 
-	res, listen := newErrResult()
-	c.client.Connection.send(msg, listen)
-	return res, nil
+	c.client.Connection.send(msg, onAck)
+	return nil
 }
 
-func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage) (_ result, enqueued bool) {
+func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage, onAck func(err error)) bool {
 	// RTL6c2
 	if c.opts().NoQueueing {
-		return nil, false
+		return false
 	}
 	switch c.client.Connection.State() {
 	default:
-		return nil, false
+		return false
 	case ConnectionStateInitialized,
 		ConnectionStateConnecting,
 		ConnectionStateDisconnected:
 	}
 	switch c.State() {
 	default:
-		return nil, false
+		return false
 	case ChannelStateInitialized,
 		ChannelStateAttached,
 		ChannelStateDetached,
@@ -660,9 +688,8 @@ func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage) (_ result, enqueued
 		ChannelStateDetaching:
 	}
 
-	res, listen := newErrResult()
-	c.queue.Enqueue(msg, listen)
-	return res, true
+	c.queue.Enqueue(msg, onAck)
+	return true
 }
 
 func (c *RealtimeChannel) canSend() bool {
