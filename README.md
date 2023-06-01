@@ -341,9 +341,6 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
   connection becomes `suspended` and then resumes, and presence members associated with the client will not be
   automatically re-entered.
 
-- Transient realtime publishing is not supported, so a call to `publish()` on a realtime channel will trigger attachment
-  of the channel.
-
 - Inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
   connection.
 

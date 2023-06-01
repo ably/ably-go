@@ -585,24 +585,15 @@ func (em ChannelEventEmitter) OffAll() {
 }
 
 // Publish publishes a single message to the channel with the given event name and message payload.
-// A callback may optionally be passed in to this call to be notified of success or failure of the operation.
-// When publish is called with this client library, it won't attempt to implicitly attach to the channel,
-// so long as transient publishing is available in the library. Otherwise, the client will implicitly attach (RTL6i).
-//
-// This implicitly attaches the channel if it's not already attached. If the
-// context is canceled before the attach operation finishes, the call
-// returns with an error, but the operation carries on in the background and
-// the channel may eventually be attached and the message published anyway.
 func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interface{}) error {
 	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}})
 }
 
 // PublishMultiple publishes all given messages on the channel at once.
 //
-// This implicitly attaches the channel if it's not already attached. If the
-// context is canceled before the attach operation finishes, the call
-// returns with an error, but the operation carries on in the background and
-// the channel may eventually be attached and the message published anyway (RTL6i).
+// If the context is cancelled before the attach operation finishes, the call
+// returns an error but the publish will carry on in the background and may
+// eventually be published anyway.
 func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Message) error {
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
