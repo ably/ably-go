@@ -44,7 +44,7 @@ jobs:
       - name: Unit Tests
         uses: nick-fields/retry@v2
         with:
-          max_attempts: 5
+          max_attempts: 3
           retry_on: error
           timeout_minutes: 20
           command: |
