@@ -116,8 +116,8 @@ func newPendingEmitter(log logger) pendingEmitter {
 }
 
 type msgCh struct {
-	msg *protocolMessage
-	ch  chan<- error
+	msg   *protocolMessage
+	onAck func(err error)
 }
 
 // Dismiss lets go of the channels that are waiting for an error on this queue.
@@ -129,14 +129,14 @@ func (q *pendingEmitter) Dismiss() []msgCh {
 	return cx
 }
 
-func (q *pendingEmitter) Enqueue(msg *protocolMessage, ch chan<- error) {
+func (q *pendingEmitter) Enqueue(msg *protocolMessage, onAck func(err error)) {
 	if len(q.queue) > 0 {
 		expected := q.queue[len(q.queue)-1].msg.MsgSerial + 1
 		if got := msg.MsgSerial; expected != got {
 			panic(fmt.Sprintf("protocol violation: expected next enqueued message to have msgSerial %d; got %d", expected, got))
 		}
 	}
-	q.queue = append(q.queue, msgCh{msg, ch})
+	q.queue = append(q.queue, msgCh{msg, onAck})
 }
 
 func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
@@ -184,13 +184,15 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 			err = errImplictNACK
 		}
 		q.log.Verbosef("received %v for message serial %d", msg.Action, sch.msg.MsgSerial)
-		sch.ch <- err
+		if sch.onAck != nil {
+			sch.onAck(err)
+		}
 	}
 }
 
 type msgch struct {
-	msg *protocolMessage
-	ch  chan<- error
+	msg   *protocolMessage
+	onAck func(err error)
 }
 
 type msgQueue struct {
@@ -205,17 +207,17 @@ func newMsgQueue(conn *Connection) *msgQueue {
 	}
 }
 
-func (q *msgQueue) Enqueue(msg *protocolMessage, listen chan<- error) {
+func (q *msgQueue) Enqueue(msg *protocolMessage, onAck func(err error)) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
-	q.queue = append(q.queue, msgch{msg, listen})
+	q.queue = append(q.queue, msgch{msg, onAck})
 	q.mtx.Unlock()
 }
 
 func (q *msgQueue) Flush() {
 	q.mtx.Lock()
 	for _, msgch := range q.queue {
-		q.conn.send(msgch.msg, msgch.ch)
+		q.conn.send(msgch.msg, msgch.onAck)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
@@ -225,7 +227,9 @@ func (q *msgQueue) Fail(err error) {
 	q.mtx.Lock()
 	for _, msgch := range q.queue {
 		q.log().Errorf("failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
-		msgch.ch <- newError(90000, err)
+		if msgch.onAck != nil {
+			msgch.onAck(newError(90000, err))
+		}
 	}
 	q.queue = nil
 	q.mtx.Unlock()

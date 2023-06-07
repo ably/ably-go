@@ -572,25 +572,31 @@ func (c *Connection) advanceSerial() {
 	c.msgSerial = (c.msgSerial + 1) % maxint64
 }
 
-func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
+func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 	hasMsgSerial := msg.Action == actionMessage || msg.Action == actionPresence
 	c.mtx.Lock()
 	switch state := c.state; state {
 	default:
 		c.mtx.Unlock()
-		listen <- connStateError(state, nil)
+		if onAck != nil {
+			onAck(connStateError(state, nil))
+		}
 
 	case ConnectionStateInitialized, ConnectionStateConnecting, ConnectionStateDisconnected:
 		c.mtx.Unlock()
 		if c.opts.NoQueueing {
-			listen <- connStateError(state, errQueueing)
+			if onAck != nil {
+				onAck(connStateError(state, errQueueing))
+			}
 		}
-		c.queue.Enqueue(msg, listen) // RTL4i
+		c.queue.Enqueue(msg, onAck) // RTL4i
 
 	case ConnectionStateConnected:
 		if err := c.verifyAndUpdateMessages(msg); err != nil {
 			c.mtx.Unlock()
-			listen <- err
+			if onAck != nil {
+				onAck(err)
+			}
 			return
 		}
 		if hasMsgSerial {
@@ -606,13 +612,13 @@ func (c *Connection) send(msg *protocolMessage, listen chan<- error) {
 			// indefinitely.
 			c.conn.Close()
 			c.mtx.Unlock()
-			c.queue.Enqueue(msg, listen)
+			c.queue.Enqueue(msg, onAck)
 		} else {
 			if hasMsgSerial {
 				c.advanceSerial()
 			}
-			if listen != nil {
-				c.pending.Enqueue(msg, listen)
+			if onAck != nil {
+				c.pending.Enqueue(msg, onAck)
 			}
 			c.mtx.Unlock()
 		}
@@ -691,7 +697,7 @@ func (c *Connection) resendPending() {
 	c.mtx.Unlock()
 	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
-		c.send(v.msg, v.ch)
+		c.send(v.msg, v.onAck)
 	}
 }
 

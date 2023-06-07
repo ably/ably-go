@@ -93,6 +93,23 @@ if err != nil {
 }
 ```
 
+`Publish` will block until either the publish is acknowledged or failed to
+deliver.
+
+Alternatively you can use `PublishAsync` which does not block:
+
+```go
+channel.PublishAsync("EventName1", "EventData11", func(err error) {
+	if err != nil {
+		fmt.Println("failed to publish", err)
+	} else {
+		fmt.Println("publish ok")
+	}
+})
+```
+
+Note the `onAck` callback must not block as it would block the internal client.
+
 #### Handling errors
 
 Errors returned by this library may have an underlying `*ErrorInfo` type.
@@ -340,9 +357,6 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 - There is no channel `suspended` state; this means that the client will not automatically reattach to channels if a
   connection becomes `suspended` and then resumes, and presence members associated with the client will not be
   automatically re-entered.
-
-- Transient realtime publishing is not supported, so a call to `publish()` on a realtime channel will trigger attachment
-  of the channel.
 
 - Inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
   connection.

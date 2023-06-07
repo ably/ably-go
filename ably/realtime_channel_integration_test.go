@@ -49,6 +49,20 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 	assert.NoError(t, err, "Publish()=%v", err)
 }
 
+func TestRealtimeChannel_PublishAsync(t *testing.T) {
+	app, client := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+	channel := client.Channels.Get("test")
+	listen := make(chan error, 1)
+	err = channel.PublishAsync("hello", "world", func(err error) {
+		listen <- err
+	})
+	assert.NoError(t, err, "PublishAsync()=%v", err)
+	assert.NoError(t, <-listen, "onAck=%v", err)
+}
+
 func TestRealtimeChannel_Subscribe(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
