@@ -31,10 +31,15 @@ jobs:
         run: go install github.com/jstemmer/go-junit-report@latest
 
       - name: Integration Tests with ${{ matrix.protocol }} Protocol
-        run: |
-          set -o pipefail
-          export ABLY_PROTOCOL=${{ matrix.protocol == 'json' && 'application/json' || 'application/x-msgpack' }}
-          go test -tags=integration -p 1 -race -v -timeout 120m ./... |& tee >(~/go/bin/go-junit-report > ${{ matrix.protocol }}-integration.junit)
+        uses: nick-fields/retry@v2
+        with:
+          max_attempts: 5
+          retry_on: error
+          timeout_minutes: 20
+          command: |
+            set -o pipefail
+            export ABLY_PROTOCOL=${{ matrix.protocol == 'json' && 'application/json' || 'application/x-msgpack' }}
+            go test -tags=integration -p 1 -race -v -timeout 120m ./... |& tee >(~/go/bin/go-junit-report > ${{ matrix.protocol }}-integration.junit)
 
       - name: Upload test results
         if: always()

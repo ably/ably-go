@@ -42,14 +42,12 @@ jobs:
         run: go install github.com/jstemmer/go-junit-report@latest
 
       - name: Unit Tests
-        # Use the retry action
-			  uses: nick-fields/retry@v2
+        uses: nick-fields/retry@v2
         with:
-        	max_attempts: 5
-				  retry_on: error
-				  timeout_minutes: 20
-				  # You can specify the shell commands you want to retry here
-				  command: |
+          max_attempts: 5
+          retry_on: error
+          timeout_minutes: 20
+          command: |
             set -o pipefail
             go test -v -tags=unit ./... |& tee >(~/go/bin/go-junit-report > unit.junit)
 
