@@ -1,5 +1,21 @@
 # Change Log
 
+# Changelog
+
+## [1.2.12](https://github.com/ably/ably-go/tree/v1.2.12)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.11...v1.2.12)
+
+This release adds a new experimental `RealtimeChannels.GetDerived` method which allows you to create custom realtime data feeds by selectively subscribing to receive only part of the data from the channel. See the [announcement post](https://pages.ably.com/subscription-filters-preview) for more information.
+
+**Merged pull requests:**
+
+- Support Go 1.20, drop support for Go 1.18 [\#586](https://github.com/ably/ably-go/pull/586) ([amnonbc](https://github.com/amnonbc))
+- Add new GetDerived method to support subscription filters [\#594](https://github.com/ably/ably-go/pull/594) ([mschristensen](https://github.com/mschristensen))
+- Add new async publishing methods PublishAsync and PublishMultipleAsync [\#596](https://github.com/ably/ably-go/pull/596) ([andydunstall](https://github.com/andydunstall))
+- Fix docs for transient publishing [\#595](https://github.com/ably/ably-go/pull/595) ([andydunstall](https://github.com/andydunstall))
+- Add support for setting agents option [\#590](https://github.com/ably/ably-go/pull/590) ([andydunstall](https://github.com/andydunstall))
+
 ## [1.2.11](https://github.com/ably/ably-go/tree/v1.2.11)
 
 This release updates docstring API commentaries for public interfaces.
