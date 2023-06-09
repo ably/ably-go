@@ -1,5 +1,27 @@
 # Change Log
 
+# Changelog
+
+## [1.2.12](https://github.com/ably/ably-go/tree/v1.2.12)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.11...v1.2.12)
+
+**Closed issues:**
+
+- Fix base url for go-pages [\#587](https://github.com/ably/ably-go/issues/587)
+- Clarification on client fallbacks/failures? [\#90](https://github.com/ably/ably-go/issues/90)
+
+**Merged pull requests:**
+
+- \[DSC-94\] add publish async method [\#596](https://github.com/ably/ably-go/pull/596) ([andydunstall](https://github.com/andydunstall))
+- channel: remove transient attach notice [\#595](https://github.com/ably/ably-go/pull/595) ([andydunstall](https://github.com/andydunstall))
+- Integration/subscription filters [\#594](https://github.com/ably/ably-go/pull/594) ([mschristensen](https://github.com/mschristensen))
+- Fix godocs base-url [\#591](https://github.com/ably/ably-go/pull/591) ([sacOO7](https://github.com/sacOO7))
+- add agents option [\#590](https://github.com/ably/ably-go/pull/590) ([andydunstall](https://github.com/andydunstall))
+- Run unit tests based on msgpack\_test\_fixtures [\#588](https://github.com/ably/ably-go/pull/588) ([amnonbc](https://github.com/amnonbc))
+- Go 1.20 is out, so we should test against it, and remove 1.18 [\#586](https://github.com/ably/ably-go/pull/586) ([amnonbc](https://github.com/amnonbc))
+- update the errors script so that it no longer generates constants from errors by mangling their descriptions. [\#585](https://github.com/ably/ably-go/pull/585) ([amnonbc](https://github.com/amnonbc))
+
 ## [1.2.11](https://github.com/ably/ably-go/tree/v1.2.11)
 
 This release updates docstring API commentaries for public interfaces.
