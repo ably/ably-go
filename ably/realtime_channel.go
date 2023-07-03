@@ -629,10 +629,18 @@ func (c *RealtimeChannel) PublishMultiple(ctx context.Context, messages []*Messa
 // (see PublishAsync).
 func (c *RealtimeChannel) PublishMultipleAsync(messages []*Message, onAck func(err error)) error {
 	id := c.client.Auth.clientIDForCheck()
-	for _, v := range messages {
-		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
+	for i, m := range messages {
+		if m.ClientID != "" && id != wildcardClientID && m.ClientID != id {
 			// Spec RTL6g3,RTL6g4
-			return fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
+			return fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", m.ClientID, id)
+		}
+
+		options := (*protoChannelOptions)(c.options)
+		cipher, _ := options.GetCipher()
+		var err error
+		*m, err = (*m).withEncodedData(cipher)
+		if err != nil {
+			return fmt.Errorf("encoding data for message #%d: %w", i, err)
 		}
 	}
 	msg := &protocolMessage{
@@ -787,8 +795,16 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		c.queue.Fail(newErrorFromProto(msg.Error))
 	case actionMessage:
 		if c.State() == ChannelStateAttached {
-			for _, msg := range msg.Messages {
-				c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
+			for _, m := range msg.Messages {
+				options := (*protoChannelOptions)(c.options)
+				cipher, _ := options.GetCipher()
+				var err error
+				*m, err = m.withDecodedData(cipher)
+				if err != nil {
+					c.log().Errorf("Couldn't fully decode message data from channel %q: %w", c.Name, err)
+				}
+
+				c.messageEmitter.Emit(subscriptionName(m.Name), (*subscriptionMessage)(m))
 			}
 		}
 	default:

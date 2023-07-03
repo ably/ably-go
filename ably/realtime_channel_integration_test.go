@@ -5,6 +5,7 @@ package ably_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -17,6 +18,21 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
+
+func waitForMsg(ch <-chan *ably.Message, t time.Duration, received bool) (*ably.Message, error) {
+	select {
+	case msg := <-ch:
+		if !received {
+			return nil, fmt.Errorf("received unexpected message name=%q data=%q", msg.Name, msg.Data)
+		}
+		return msg, nil
+	case <-time.After(t):
+		if received {
+			return nil, fmt.Errorf("timeout waiting for message")
+		}
+		return nil, nil
+	}
+}
 
 func expectMsg(ch <-chan *ably.Message, name string, data interface{}, t time.Duration, received bool) error {
 	select {
@@ -267,4 +283,45 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 
 	err = ablytest.Wait(<-res, nil)
 	assert.NoError(t, err)
+}
+
+func TestRealtimeChannel_Encryption(t *testing.T) {
+	app, client1 := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+	client2 := app.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+
+	key, _ := base64.StdEncoding.DecodeString("NTBmMmJkMDQtZGU4Ni00ZjQxLWFjNDctMGZlNzczZmI=")
+	channelWithCipher := client1.Channels.Get("test", ably.ChannelWithCipherKey(key))
+	channelWithoutCipher := client2.Channels.Get("test")
+
+	err := channelWithCipher.Publish(context.Background(), "hello", "world")
+	assert.NoError(t, err, "Publish()=%v", err)
+
+	err = channelWithCipher.Attach(context.Background())
+	assert.NoError(t, err, "client: Attach()=%v", err)
+	err = channelWithoutCipher.Attach(context.Background())
+	assert.NoError(t, err, "client: Attach()=%v", err)
+
+	sub1, unsub1, err := ablytest.ReceiveMessages(channelWithCipher, "")
+	assert.NoError(t, err, "client:.Subscribe(context.Background())=%v", err)
+	defer unsub1()
+
+	sub2, unsub2, err := ablytest.ReceiveMessages(channelWithoutCipher, "")
+	assert.NoError(t, err, "client:.Subscribe(context.Background())=%v", err)
+	defer unsub2()
+
+	err = channelWithCipher.Publish(context.Background(), "hello", "world")
+	assert.NoError(t, err, "client: Publish()=%v", err)
+
+	timeout := 15 * time.Second
+
+	err = expectMsg(sub1, "hello", "world", timeout, true)
+	assert.NoError(t, err)
+
+	m, err := waitForMsg(sub2, timeout, true)
+	assert.NoError(t, err)
+	assert.Equal(t, "hello", m.Name)
+	// The data should be encrypted so must not match the original message.
+	assert.NotEqual(t, "world", m.Data)
 }
