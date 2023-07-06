@@ -309,8 +309,8 @@ if err != nil {
 }
 fmt.Print(status, status.ChannelId)
 ```
-## Note on ablytest package
-Although `ablytest` package ia available as a part of `ably`, we do not recommend using it as a sandbox for your own testing, since it's specifically intended for client library SDKs.
+## Note on usage of ablytest package
+Although `ablytest` package is available as a part of `ably`, we do not recommend using it as a sandbox for your own testing, since it's specifically intended for client library SDKs and we don’t provide any guarantees for support or that it will remain publicly accessible.
 It can lead to flaky nature of tests, considering some beta features can be deployed on the `sandbox` environment so that they can be tested before going into production.
 
 You should rather use, `ablyRealtimeClient` by passing the `ABLY_KEY`, which would be using a more stable ably prod environment.
@@ -318,6 +318,8 @@ You should rather use, `ablyRealtimeClient` by passing the `ABLY_KEY`, which wou
 ```
 client, err := ably.NewRealtime(ably.WithKey("xxx:xxx"))
 ```
+
+You can also use a [control api](https://ably.com/docs/control-api) to setup test environment using https://github.com/ably/ably-control-go/.
 
 ## Resources
 
