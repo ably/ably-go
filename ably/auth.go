@@ -24,7 +24,6 @@ var (
 	errUnsupportedType     = errors.New("unsupported Content-Type header in response from AuthURL")
 	errMissingType         = errors.New("missing Content-Type header in response from AuthURL")
 	errInvalidCallbackType = errors.New("invalid value type returned from AuthCallback")
-	errInsecureBasicAuth   = errors.New("basic auth is not supported on insecure non-TLS connections")
 	errWildcardClientID    = errors.New("provided ClientID must not be a wildcard")
 	errClientIDMismatch    = errors.New("the received ClientID does not match the requested one")
 )
@@ -544,9 +543,6 @@ func detectAuthMethod(opts *clientOptions) (int, error) {
 	}
 	if !isKeyValid {
 		return 0, newError(ErrInvalidCredential, errInvalidKey)
-	}
-	if opts.NoTLS {
-		return 0, newError(ErrInvalidUseOfBasicAuthOverNonTLSTransport, errInsecureBasicAuth)
 	}
 	return authBasic, nil
 }
