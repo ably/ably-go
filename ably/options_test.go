@@ -236,6 +236,28 @@ func TestScopeParams(t *testing.T) {
 	})
 }
 
+func TestOption_NoTLS(t *testing.T) {
+	t.Run("does not allow basic auth with no TLS", func(t *testing.T) {
+		_, err := ably.NewREST(
+			ably.WithKey("xxxxxx.yyyyyy:zzzzzz"),
+			ably.WithTLS(false),
+		)
+		assert.Error(t, err)
+		errInfo, ok := err.(*ably.ErrorInfo)
+		assert.True(t, ok)
+		assert.Equal(t, errInfo.Code, ably.ErrInvalidUseOfBasicAuthOverNonTLSTransport)
+	})
+
+	t.Run("allows basic auth with no TLS when InsecureAllowBasicAuthWithoutTLS is set", func(t *testing.T) {
+		_, err := ably.NewREST(
+			ably.WithKey("xxxxxx.yyyyyy:zzzzzz"),
+			ably.WithTLS(false),
+			ably.WithInsecureAllowBasicAuthWithoutTLS(),
+		)
+		assert.NoError(t, err)
+	})
+}
+
 func TestPaginateParams(t *testing.T) {
 	t.Run("returns nil with no values", func(t *testing.T) {
 
