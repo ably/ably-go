@@ -94,6 +94,13 @@ func TestMessage_EncodeDecode_TM3(t *testing.T) {
 			encodedJSON: `{"data":"YmFzZTY0","encoding":"base64"}`,
 		},
 		{
+			desc:        "with valid utf-8 json data in string format and cipher enabled",
+			data:        "{\"key\":\"value\"}",
+			decoded:     "{\"key\":\"value\"}",
+			opts:        opts,
+			encodedJSON: `"{"data":"HO4cYSP8LybPYBPZPHQOtlLxASbzZOh5h8lGaP3dX+M=","encoding":"utf-8/cipher+aes-128-cbc/base64"}`,
+		},
+		{
 			desc: "with json/utf-8/cipher+aes-128-cbc/base64",
 			data: map[string]interface{}{
 				"string": `The quick brown fox jumped over the lazy dog`,
