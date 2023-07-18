@@ -50,8 +50,8 @@ func TestMessage_EncodeDecode_TM3(t *testing.T) {
 		},
 		{
 			desc:        "with valid utf-8 json data in string format",
-			data:        "{\"key\":\"value\"}",
-			decoded:     "{\"key\":\"value\"}",
+			data:        `{"key":"value"}`,
+			decoded:     `{"key":"value"}`,
 			encodedJSON: `{"data":"{\"key\":\"value\"}"}`,
 		},
 		{
@@ -95,10 +95,10 @@ func TestMessage_EncodeDecode_TM3(t *testing.T) {
 		},
 		{
 			desc:        "with valid utf-8 json data in string format and cipher enabled",
-			data:        "{\"key\":\"value\"}",
-			decoded:     "{\"key\":\"value\"}",
+			data:        `{"key":"value"}`,
+			decoded:     `{"key":"value"}`,
 			opts:        opts,
-			encodedJSON: `"{"data":"HO4cYSP8LybPYBPZPHQOtlLxASbzZOh5h8lGaP3dX+M=","encoding":"utf-8/cipher+aes-128-cbc/base64"}`,
+			encodedJSON: `{"data":"HO4cYSP8LybPYBPZPHQOtlLxASbzZOh5h8lGaP3dX+M=","encoding":"utf-8/cipher+aes-128-cbc/base64"}`,
 		},
 		{
 			desc: "with json/utf-8/cipher+aes-128-cbc/base64",
