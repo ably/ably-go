@@ -49,6 +49,12 @@ func TestMessage_EncodeDecode_TM3(t *testing.T) {
 			encodedJSON: `{"data":"a string"}`,
 		},
 		{
+			desc:        "with valid utf-8 json data in string format",
+			data:        "{\"key\":\"value\"}",
+			decoded:     "{\"key\":\"value\"}",
+			encodedJSON: `{"data":"{\"key\":\"value\"}"}`,
+		},
+		{
 			// invalid utf-8 string data should be base64 encoded
 			desc:        "with invalid utf-8 string data",
 			data:        "\xf0\x80\x80",
