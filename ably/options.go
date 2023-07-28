@@ -43,7 +43,7 @@ var defaultOptions = clientOptions{
 	HTTPOpenTimeout:          4 * time.Second,  //TO3l3
 	ChannelRetryTimeout:      15 * time.Second, // TO3l7
 	FallbackRetryTimeout:     10 * time.Minute,
-	IdempotentRESTPublishing: false,
+	IdempotentRESTPublishing: true, // TO3n
 	Port:                     Port,
 	TLSPort:                  TLSPort,
 	Now:                      time.Now,
