@@ -97,7 +97,7 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 	t.Run("RTN2f: api version v should be the API version", func(t *testing.T) {
 		requestParams := setup()
 		libVersion := requestParams["v"]
-		assert.Equal(t, []string{ably.AblyVersion}, libVersion)
+		assert.Equal(t, []string{ably.AblyProtocolVersion}, libVersion)
 	})
 }
 
