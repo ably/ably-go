@@ -656,6 +656,31 @@ func (c *RealtimeChannel) History(o ...HistoryOption) HistoryRequest {
 	return c.client.rest.Channels.Get(c.Name).History(o...)
 }
 
+// HistoryUntilAttach retrieves a [ably.HistoryRequest] object, containing an array of historical
+// [ably.Message] objects for the channel. If the channel is configured to persist messages,
+// then messages can be retrieved from history for up to 72 hours in the past. If not, messages can only be
+// retrieved from history for up to two minutes in the past.
+//
+// This function will only retrieve messages prior to the moment that the channel was attached or emitted an UPDATE
+// indicating loss of continuity. This bound is specified by passing the querystring param fromSerial with the RealtimeChannel#properties.attachSerial
+// assigned to the channel in the ATTACHED ProtocolMessage (see RTL15a).
+// If the untilAttach param is specified when the channel is not attached, it results in an error.
+//
+// See package-level documentation => [ably] Pagination for details about history pagination.
+func (c *RealtimeChannel) HistoryUntilAttach(o ...HistoryOption) (*HistoryRequest, error) {
+	if c.state != ChannelStateAttached {
+		return nil, errors.New("channel is not attached, cannot use attachSerial value in fromSerial param")
+	}
+
+	untilAttachParam := func(o *historyOptions) {
+		o.params.Set("fromSerial", c.properties.AttachSerial)
+	}
+	o = append(o, untilAttachParam)
+
+	historyRequest := c.client.rest.Channels.Get(c.Name).History(o...)
+	return &historyRequest, nil
+}
+
 func (c *RealtimeChannel) send(msg *protocolMessage, onAck func(err error)) error {
 	if enqueued := c.maybeEnqueue(msg, onAck); enqueued {
 		return nil
