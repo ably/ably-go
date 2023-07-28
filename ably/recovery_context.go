@@ -15,7 +15,7 @@ func (r *RecoveryKeyContext) Encode() (serializedRecoveryKey string, err error) 
 	return
 }
 
-func Decode(recoveryKey string) (rCtx *RecoveryKeyContext, err error) {
+func DecodeRecoveryKey(recoveryKey string) (rCtx *RecoveryKeyContext, err error) {
 	err = json.Unmarshal([]byte(recoveryKey), &rCtx)
 	if err != nil {
 		rCtx = nil
