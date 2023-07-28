@@ -205,9 +205,9 @@ const (
 	DefaultCipherAlgorithm = defaultCipherAlgorithm
 	DefaultCipherMode      = defaultCipherMode
 
-	AblyVersionHeader = ablyVersionHeader
-	AblyVersion       = ablyVersion
-	LibraryVersion    = libraryVersion
+	AblyVersionHeader = ablyProtocolVersionHeader
+	AblyVersion       = ablyProtocolVersion
+	LibraryVersion    = clientLibraryVersion
 	AblyAgentHeader   = ablyAgentHeader
 	AblySDKIdentifier = ablySDKIdentifier
 
