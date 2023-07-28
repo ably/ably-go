@@ -226,6 +226,8 @@ type RealtimeChannel struct {
 	//attachResume is True when the channel moves to the ChannelStateAttached state, and False
 	//when the channel moves to the ChannelStateDetaching or ChannelStateFailed states.
 	attachResume bool
+
+	properties ChannelProperties
 }
 
 func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions) *RealtimeChannel {
@@ -239,6 +241,7 @@ func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions
 		client:         client,
 		messageEmitter: newEventEmitter(client.log()),
 		options:        chOptions,
+		properties:     ChannelProperties{},
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
@@ -726,6 +729,7 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 func (c *RealtimeChannel) notify(msg *protocolMessage) {
 	switch msg.Action {
 	case actionAttached:
+		c.properties.AttachSerial = msg.ChannelSerial
 		if c.State() == ChannelStateDetaching { // RTL5K
 			c.sendDetachMsg()
 			return
