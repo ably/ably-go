@@ -483,7 +483,13 @@ func (c *Connection) ErrorReason() *ErrorInfo {
 	return c.errorReason
 }
 
+// Deprecated: this property is deprecated, use CreateRecoveryKey method instead.
 func (c *Connection) RecoveryKey() string {
+	return c.CreateRecoveryKey()
+}
+
+// CreateRecoveryKey is an attribute composed of the connectionKey, messageSerial and channelSerials (RTN16g, RTN16g1, RTN16h).
+func (c *Connection) CreateRecoveryKey() string {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	if c.key == "" {
