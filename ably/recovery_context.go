@@ -17,5 +17,8 @@ func (r *RecoveryKeyContext) Encode() (serializedRecoveryKey string, err error) 
 
 func Decode(recoveryKey string) (rCtx *RecoveryKeyContext, err error) {
 	err = json.Unmarshal([]byte(recoveryKey), &rCtx)
+	if err != nil {
+		rCtx = nil
+	}
 	return
 }
