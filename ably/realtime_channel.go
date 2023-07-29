@@ -771,10 +771,18 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 }
 
 func (c *RealtimeChannel) notify(msg *protocolMessage) {
+	// RTL15b
+	if !empty(msg.ChannelSerial) && msg.Action == actionMessage ||
+		msg.Action == actionPresence || msg.Action == actionAttached {
+		c.log().Debugf("Setting channel serial for channelName - %v, previous - %v, current - %v",
+			c.Name, c.properties.ChannelSerial, msg.ChannelSerial)
+		c.properties.ChannelSerial = msg.ChannelSerial
+	}
+
 	switch msg.Action {
 	case actionAttached:
-		c.properties.AttachSerial = msg.ChannelSerial
-		if c.State() == ChannelStateDetaching { // RTL5K
+		c.properties.AttachSerial = msg.ChannelSerial // RTL15a
+		if c.State() == ChannelStateDetaching {       // RTL5K
 			c.sendDetachMsg()
 			return
 		}
@@ -785,8 +793,11 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 			c.setModes(channelModeFromFlag(msg.Flags))
 		}
 		c.Presence.onAttach(msg)
-		// RTL12
-		c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(flagResumed))
+
+		isAttachResumed := msg.Flags.Has(flagResumed)
+		if c.state != ChannelStateAttached || !isAttachResumed { //RTL12
+			c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), isAttachResumed)
+		}
 		c.queue.Flush()
 	case actionDetached:
 		c.mtx.Lock()
@@ -960,7 +971,7 @@ func (c *RealtimeChannel) lockSetState(state ChannelState, err error, resumed bo
 		Reason:   c.errorReason,
 		Resumed:  resumed,
 	}
-	// RTL2g
+	// RTL2g, RTL12
 	if !changed {
 		change.Event = ChannelEventUpdate
 	} else {

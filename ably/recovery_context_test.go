@@ -27,8 +27,8 @@ func Test_ShouldEncodeRecoveryKeyContextObject(t *testing.T) {
 }
 
 func Test_ShouldDecodeRecoveryKeyToRecoveryKeyContextObject(t *testing.T) {
-	var expectedRecoveryKey = "{\"connectionKey\":\"uniqueKey\",\"msgSerial\":1,\"channelSerials\":{\"channel1\":\"1\",\"channel2\":\"2\",\"channel3\":\"3\"}}"
-	keyContext, err := ably.DecodeRecoveryKey(expectedRecoveryKey)
+	var recoveryKey = "{\"connectionKey\":\"uniqueKey\",\"msgSerial\":1,\"channelSerials\":{\"channel1\":\"1\",\"channel2\":\"2\",\"channel3\":\"3\"}}"
+	keyContext, err := ably.DecodeRecoveryKey(recoveryKey)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), keyContext.MsgSerial)
 	assert.Equal(t, "uniqueKey", keyContext.ConnectionKey)
@@ -38,8 +38,8 @@ func Test_ShouldDecodeRecoveryKeyToRecoveryKeyContextObject(t *testing.T) {
 }
 
 func Test_ShouldReturnNullRecoveryContextWhileDecodingFaultyRecoveryKey(t *testing.T) {
-	var expectedRecoveryKey = "{\"connectionKey\":\"uniqueKey\",\"msgSerial\":\"incorrectStringSerial\",\"channelSerials\":{\"channel1\":\"1\",\"channel2\":\"2\",\"channel3\":\"3\"}}"
-	keyContext, err := ably.DecodeRecoveryKey(expectedRecoveryKey)
+	var recoveryKey = "{\"connectionKey\":\"uniqueKey\",\"msgSerial\":\"incorrectStringSerial\",\"channelSerials\":{\"channel1\":\"1\",\"channel2\":\"2\",\"channel3\":\"3\"}}"
+	keyContext, err := ably.DecodeRecoveryKey(recoveryKey)
 	assert.NotNil(t, err)
 	assert.Nil(t, keyContext)
 }
