@@ -47,6 +47,15 @@ func newChannels(client *Realtime) *RealtimeChannels {
 	}
 }
 
+func (channels *RealtimeChannels) SetChannelSerialsFromRecoverOption(serials map[string]string) {
+	channels.mtx.Lock()
+	defer channels.mtx.Unlock()
+	for channelName, channelSerial := range serials {
+		channel := channels.chans[channelName]
+		channel.properties.ChannelSerial = channelSerial
+	}
+}
+
 // ChannelOption configures a channel.
 type ChannelOption func(*channelOptions)
 
