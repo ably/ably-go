@@ -11,7 +11,11 @@ type RecoveryKeyContext struct {
 
 func (r *RecoveryKeyContext) Encode() (serializedRecoveryKey string, err error) {
 	result, err := json.Marshal(r)
-	serializedRecoveryKey = string(result)
+	if err != nil {
+		serializedRecoveryKey = ""
+	} else {
+		serializedRecoveryKey = string(result)
+	}
 	return
 }
 

@@ -32,7 +32,7 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 		c.onChannelMsg,
 		c.onReconnected,
 		c.onReconnectionFailed,
-	})
+	}, c)
 	conn.internalEmitter.OnAll(func(change ConnectionStateChange) {
 		c.Channels.broadcastConnStateChange(change)
 	})

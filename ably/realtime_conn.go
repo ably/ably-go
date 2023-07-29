@@ -83,6 +83,7 @@ type Connection struct {
 	// after a reauthorization, to avoid re-reauthorizing.
 	reauthorizing bool
 	arg           connArgs
+	client        *Realtime
 }
 
 type connCallbacks struct {
@@ -97,7 +98,7 @@ type connCallbacks struct {
 	onReconnectionFailed func(*errorInfo)
 }
 
-func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connection {
+func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *Realtime) *Connection {
 	c := &Connection{
 		ConnectionEventEmitter: ConnectionEventEmitter{newEventEmitter(auth.log())},
 		state:                  ConnectionStateInitialized,
@@ -107,6 +108,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 		pending:   newPendingEmitter(auth.log()),
 		auth:      auth,
 		callbacks: callbacks,
+		client:    client,
 	}
 	auth.onExplicitAuthorize = c.onClientAuthorize
 	c.queue = newMsgQueue(c)
@@ -492,10 +494,22 @@ func (c *Connection) RecoveryKey() string {
 func (c *Connection) CreateRecoveryKey() string {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.key == "" {
+	if empty(c.key) || c.state == ConnectionStateClosing ||
+		c.state == ConnectionStateClosed ||
+		c.state == ConnectionStateFailed ||
+		c.state == ConnectionStateSuspended {
 		return ""
 	}
-	return strings.Join([]string{c.key, fmt.Sprint(*c.serial), fmt.Sprint(c.msgSerial)}, ":")
+	recoveryContext := RecoveryKeyContext{
+		ConnectionKey:  c.key,
+		MsgSerial:      c.msgSerial,
+		ChannelSerials: c.client.Channels.GetChannelSerials(),
+	}
+	recoveryKey, err := recoveryContext.Encode()
+	if err != nil {
+		c.log().Errorf("Error while encoding recoveryKey %v", err)
+	}
+	return recoveryKey
 }
 
 // Serial gives serial number of a message received most recently.
