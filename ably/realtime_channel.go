@@ -352,6 +352,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 			Action:  actionAttach,
 			Channel: c.Name,
 		}
+		msg.ChannelSerial = c.properties.ChannelSerial // RTL4c1
 		if len(c.channelOpts().Params) > 0 {
 			msg.Params = c.channelOpts().Params
 		}
