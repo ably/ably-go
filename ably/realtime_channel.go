@@ -945,6 +945,12 @@ func (c *RealtimeChannel) log() logger {
 func (c *RealtimeChannel) setState(state ChannelState, err error, resumed bool) error {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+
+	// RTP5a1
+	if state == ChannelStateDetached || state == ChannelStateSuspended || state == ChannelStateFailed {
+		c.properties.ChannelSerial = ""
+	}
+
 	return c.lockSetState(state, err, resumed)
 }
 
