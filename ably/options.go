@@ -24,9 +24,10 @@ const (
 	// restHost is the primary ably host.
 	restHost = "rest.ably.io"
 	// realtimeHost is the primary ably host.
-	realtimeHost = "realtime.ably.io"
-	Port         = 80
-	TLSPort      = 443
+	realtimeHost   = "realtime.ably.io"
+	Port           = 80
+	TLSPort        = 443
+	maxMessageSize = 65536
 )
 
 var defaultOptions = clientOptions{
