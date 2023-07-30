@@ -792,6 +792,12 @@ func (c *Connection) eventloop() {
 				c.connStateTTL = connDetails.ConnectionStateTTL
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(connDetails.ClientID)
+				err := setReadLimit(c.conn, connDetails.MaxMessageSize)
+				if err != nil {
+					c.log().Error(err)
+				} else {
+					c.log().Verbosef("connection readlimit set to %v", connDetails.MaxMessageSize)
+				}
 			}
 			reconnecting := c.reconnecting
 			if reconnecting {
