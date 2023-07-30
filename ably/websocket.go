@@ -115,7 +115,7 @@ func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[
 	return c, nil
 }
 
-func setReadLimit(c conn, readLimit int64) error {
+func setConnectionReadLimit(c conn, readLimit int64) error {
 	websocketConn, ok := c.(*websocketConn)
 	if ok {
 		websocketConn.conn.SetReadLimit(readLimit)

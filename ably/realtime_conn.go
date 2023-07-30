@@ -84,7 +84,7 @@ type Connection struct {
 	reauthorizing bool
 	arg           connArgs
 
-	isWebsocketReadLimitSet bool
+	isReadLimitSetExternally bool
 }
 
 type connCallbacks struct {
@@ -178,16 +178,16 @@ func (c *Connection) Connect() {
 	}()
 }
 
-// SetConnectionReadLimit is used to override internal websocket connection read limit.
+// SetReadLimit is used to override internal websocket connection read limit.
 // It sets the max number of bytes to read for a single message.
 // By default, the connection has a message read limit of [ably.maxMessageSize] or 65536 bytes.
 // When the limit is hit, the connection will be closed with StatusMessageTooBig.
-func (c *Connection) SetConnectionReadLimit(readLimit int64) {
-	err := setReadLimit(c.conn, readLimit)
+func (c *Connection) SetReadLimit(readLimit int64) {
+	err := setConnectionReadLimit(c.conn, readLimit)
 	if err != nil {
 		c.log().Error(err)
 	} else {
-		c.isWebsocketReadLimitSet = true
+		c.isReadLimitSetExternally = true
 		c.log().Verbosef("Externally set connection readlimit set to %v", readLimit)
 	}
 }
@@ -809,8 +809,8 @@ func (c *Connection) eventloop() {
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(connDetails.ClientID)
 
-				if !c.isWebsocketReadLimitSet {
-					err := setReadLimit(c.conn, connDetails.MaxMessageSize)
+				if !c.isReadLimitSetExternally {
+					err := setConnectionReadLimit(c.conn, connDetails.MaxMessageSize)
 					if err != nil {
 						c.log().Error(err)
 					} else {
