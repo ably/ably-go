@@ -200,7 +200,7 @@ if err != nil {
 - Connection MaxMessageSize limit is automatically configured based on `ConnectionDetails.MaxMessageSize` property received when connection is successfully made with ably.
 - This value defaults to 65536(64kb) for normal account, you can increase the limit by raising a ticket at [ably support](https://ably.com/support).
 - Upgrading account to higher limit should automatically update `ConnectionDetails.MaxMessageSize` property and should accordingly set the client side connection readlimit.
-- If you are still facing client side issues while reading bigger size messages, you can explicitly set the connection read limit.
+- If you are still facing issues while reading bigger size messages or intentionally want to reduce the limit, you can explicitly update the connection read limit
 
 ```go
 client, err = ably.NewRealtime(ably.WithKey("xxx:xxx"))
