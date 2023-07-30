@@ -106,7 +106,6 @@ func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[
 	ops.HTTPHeader.Add(ablyAgentHeader, ablyAgentIdentifier(agents))
 
 	c, _, err := websocket.Dial(ctx, uri, &ops)
-	c.SetReadLimit(maxMessageSize) // set default to 64kb explicitly as per TO3l8
 
 	if err != nil {
 		return nil, err

@@ -810,7 +810,7 @@ func (c *Connection) eventloop() {
 				c.auth.updateClientID(connDetails.ClientID)
 
 				if !c.isReadLimitSetExternally {
-					err := setConnectionReadLimit(c.conn, connDetails.MaxMessageSize)
+					err := setConnectionReadLimit(c.conn, connDetails.MaxMessageSize) // set MaxMessageSize limit as per TO3l8
 					if err != nil {
 						c.log().Error(err)
 					} else {
