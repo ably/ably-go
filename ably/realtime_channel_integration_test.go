@@ -281,6 +281,8 @@ func TestRealtimeChannel_CheckReadLimit(t *testing.T) {
 	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
+	assert.Equal(t, int64(1024), client2.Connection.ReadLimit())
+
 	channel1 := client1.Channels.Get("test")
 	channel2 := client2.Channels.Get("test")
 
@@ -301,4 +303,6 @@ func TestRealtimeChannel_CheckReadLimit(t *testing.T) {
 
 	err = ablytest.Wait(ablytest.ConnWaiter(client2, nil, ably.ConnectionEventClosed), nil)
 	assert.NotNil(t, err)
+	errorInfo := err.(*ably.ErrorInfo)
+	assert.Equal(t, "failed to read: read limited at 1025 bytes", errorInfo.Unwrap().Error())
 }
