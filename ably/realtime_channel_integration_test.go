@@ -269,14 +269,12 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TODO - Shorten the read limit, check if connection fails and then increase it, check if message can be sent
 func TestRealtimeChannel_CheckReadLimit(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 
 	client2 := app.NewRealtime(ably.WithEchoMessages(false))
 	client2.Connection.SetReadLimit(1024) // set read limit explicitly to 1 mb.
-	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
@@ -293,7 +291,7 @@ func TestRealtimeChannel_CheckReadLimit(t *testing.T) {
 	assert.NoError(t, err,
 		"client2: Attach()=%v", err)
 
-	msgCh2, unsub2, err := ablytest.ReceiveMessages(channel2, "")
+	_, unsub2, err := ablytest.ReceiveMessages(channel2, "")
 	assert.NoError(t, err, "client2:.Subscribe(context.Background())=%v", err)
 	defer unsub2()
 
@@ -301,6 +299,6 @@ func TestRealtimeChannel_CheckReadLimit(t *testing.T) {
 	err = channel1.Publish(context.Background(), "hello", messageWith2MbSize)
 	assert.NoError(t, err, "client1: Publish()=%v", err)
 
-	err = expectMsg(msgCh2, "hello", messageWith2MbSize, 15*time.Second, true)
-	assert.NoError(t, err)
+	err = ablytest.Wait(ablytest.ConnWaiter(client2, nil, ably.ConnectionEventClosed), nil)
+	assert.NotNil(t, err)
 }
