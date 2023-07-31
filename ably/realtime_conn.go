@@ -811,7 +811,8 @@ func (c *Connection) eventloop() {
 			}
 			err := setConnectionReadLimit(c.conn, c.readLimit)
 			if err != nil {
-				c.log().Error(err)
+				c.readLimit = -1
+				c.log().Errorf("%v, using default readlimit instead", err)
 			} else {
 				c.log().Verbosef("connection readlimit set to %v", c.readLimit)
 			}

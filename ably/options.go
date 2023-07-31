@@ -27,7 +27,7 @@ const (
 	realtimeHost   = "realtime.ably.io"
 	Port           = 80
 	TLSPort        = 443
-	maxMessageSize = 65536 // default value TO3l8
+	maxMessageSize = 65536 // 64kb, default value TO3l8
 )
 
 var defaultOptions = clientOptions{
