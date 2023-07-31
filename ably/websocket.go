@@ -115,10 +115,14 @@ func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[
 }
 
 func setConnectionReadLimit(c conn, readLimit int64) error {
-	websocketConn, ok := c.(*websocketConn)
-	if ok {
-		websocketConn.conn.SetReadLimit(readLimit)
-		return nil
+	verboseConn, ok := c.(verboseConn)
+	if !ok {
+		return errors.New("cannot set readlimit for connection, connection does not use verboseConn")
 	}
-	return errors.New("cannot set readlimit for connection, connection does not use nhooyr.io/websocket")
+	websocketConn, ok := verboseConn.conn.(*websocketConn)
+	if !ok {
+		return errors.New("cannot set readlimit for connection, connection does not use nhooyr.io/websocket")
+	}
+	websocketConn.conn.SetReadLimit(readLimit)
+	return nil
 }
