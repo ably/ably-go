@@ -269,7 +269,17 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRealtimeChannel_CheckReadLimit(t *testing.T) {
+func TestRealtimeChannel_ShouldSetDefaultSandboxReadLimit(t *testing.T) {
+	app, client := ablytest.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+
+	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	assert.Equal(t, int64(16384), client.Connection.ReadLimit())
+}
+
+func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 
@@ -287,11 +297,9 @@ func TestRealtimeChannel_CheckReadLimit(t *testing.T) {
 	channel2 := client2.Channels.Get("test")
 
 	err = channel1.Attach(context.Background())
-	assert.NoError(t, err,
-		"client1: Attach()=%v", err)
+	assert.NoError(t, err, "client1: Attach()=%v", err)
 	err = channel2.Attach(context.Background())
-	assert.NoError(t, err,
-		"client2: Attach()=%v", err)
+	assert.NoError(t, err, "client2: Attach()=%v", err)
 
 	_, unsub2, err := ablytest.ReceiveMessages(channel2, "")
 	assert.NoError(t, err, "client2:.Subscribe(context.Background())=%v", err)
