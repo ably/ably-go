@@ -84,6 +84,7 @@ type Connection struct {
 	reauthorizing bool
 	arg           connArgs
 
+	readLimit                int64
 	isReadLimitSetExternally bool
 }
 
@@ -109,6 +110,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 		pending:   newPendingEmitter(auth.log()),
 		auth:      auth,
 		callbacks: callbacks,
+		readLimit: maxMessageSize,
 	}
 	auth.onExplicitAuthorize = c.onClientAuthorize
 	c.queue = newMsgQueue(c)
@@ -183,13 +185,8 @@ func (c *Connection) Connect() {
 // By default, the connection has a message read limit of [ably.maxMessageSize] or 65536 bytes.
 // When the limit is hit, the connection will be closed with StatusMessageTooBig.
 func (c *Connection) SetReadLimit(readLimit int64) {
-	err := setConnectionReadLimit(c.conn, readLimit)
-	if err != nil {
-		c.log().Error(err)
-	} else {
-		c.isReadLimitSetExternally = true
-		c.log().Verbosef("Externally set connection readlimit set to %v", readLimit)
-	}
+	c.readLimit = readLimit
+	c.isReadLimitSetExternally = true
 }
 
 // Close causes the connection to close, entering the [ably.ConnectionStateClosing] state.
@@ -808,15 +805,15 @@ func (c *Connection) eventloop() {
 				c.connStateTTL = connDetails.ConnectionStateTTL
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(connDetails.ClientID)
-
 				if !c.isReadLimitSetExternally {
-					err := setConnectionReadLimit(c.conn, connDetails.MaxMessageSize) // set MaxMessageSize limit as per TO3l8
-					if err != nil {
-						c.log().Error(err)
-					} else {
-						c.log().Verbosef("connection readlimit set to %v from connDetails.MaxMessageSize", connDetails.MaxMessageSize)
-					}
+					c.readLimit = connDetails.MaxMessageSize // set MaxMessageSize limit as per TO3l8
 				}
+			}
+			err := setConnectionReadLimit(c.conn, c.readLimit)
+			if err != nil {
+				c.log().Error(err)
+			} else {
+				c.log().Verbosef("connection readlimit set to %v", c.readLimit)
 			}
 			reconnecting := c.reconnecting
 			if reconnecting {
