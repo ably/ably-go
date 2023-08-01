@@ -268,3 +268,64 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	err = ablytest.Wait(<-res, nil)
 	assert.NoError(t, err)
 }
+
+func TestRealtimeChannel_ShouldSetAblySandboxDefaultReadLimit(t *testing.T) {
+	app, client := ablytest.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	assert.Equal(t, int64(65536), client.Connection.ReadLimit()) // Default read limit when not connected
+
+	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	assert.Equal(t, int64(16384), client.Connection.ReadLimit()) // sandbox read limit
+	assert.False(t, client.Connection.IsReadLimitSetExternally())
+}
+
+func TestRealtimeChannel_ShouldSetProvidedReadLimit(t *testing.T) {
+	app, client := ablytest.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	client.Connection.SetReadLimit(2048)
+
+	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	assert.True(t, client.Connection.IsReadLimitSetExternally())
+	assert.Equal(t, int64(2048), client.Connection.ReadLimit())
+}
+
+func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
+	app, client1 := ablytest.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+
+	client2 := app.NewRealtime(ably.WithEchoMessages(false))
+	client2.Connection.SetReadLimit(1024) // set read limit explicitly to 1 mb.
+
+	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	assert.True(t, client2.Connection.IsReadLimitSetExternally())
+	assert.Equal(t, int64(1024), client2.Connection.ReadLimit())
+
+	channel1 := client1.Channels.Get("test")
+	channel2 := client2.Channels.Get("test")
+
+	err = channel1.Attach(context.Background())
+	assert.NoError(t, err, "client1: Attach()=%v", err)
+	err = channel2.Attach(context.Background())
+	assert.NoError(t, err, "client2: Attach()=%v", err)
+
+	_, unsub2, err := ablytest.ReceiveMessages(channel2, "")
+	assert.NoError(t, err, "client2:.Subscribe(context.Background())=%v", err)
+	defer unsub2()
+
+	messageWith2MbSize := ablytest.GenerateRandomString(2048)
+	err = channel1.Publish(context.Background(), "hello", messageWith2MbSize)
+	assert.NoError(t, err, "client1: Publish()=%v", err)
+
+	err = ablytest.Wait(ablytest.ConnWaiter(client2, nil, ably.ConnectionEventClosed), nil)
+	assert.NotNil(t, err)
+	errorInfo := err.(*ably.ErrorInfo)
+	assert.Equal(t, "failed to read: read limited at 1025 bytes", errorInfo.Unwrap().Error())
+}

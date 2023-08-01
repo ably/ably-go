@@ -196,6 +196,22 @@ if err != nil {
 }
 ```
 
+#### Update MaxMessageSize/read limit for realtime message subscription
+- The default `MaxMessageSize` is automatically configured by Ably when connection is established with Ably.
+- This value defaults to 64kb, please [get in touch](https://ably.com/support) if you would like to request a higher limit for your account.
+- Upgrading your account to higher limit will automatically update `MaxMessageSize` property and should accordingly set the client side connection read limit.
+- If you are still facing issues when receiving large messages or intentionally want to reduce the limit, you can explicitly update the connection read limit:
+
+```go
+client, err = ably.NewRealtime(ably.WithKey("xxx:xxx"))
+if err != nil {
+        panic(err)
+}
+client.Connection.SetReadLimit(131072) // Set read limit to 128kb, overriding default ConnectionDetails.MaxMessageSize
+```
+
+Note - If connection read limit is less than size of received message, the client will throw an error "failed to read: read limited at {READ_LIMIT + 1} bytes" and will close the connection.
+
 ### Using the REST API
 
 #### Introduction

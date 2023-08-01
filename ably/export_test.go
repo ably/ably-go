@@ -136,6 +136,18 @@ func (c *Connection) MsgSerial() int64 {
 	return c.msgSerial
 }
 
+func (c *Connection) IsReadLimitSetExternally() bool {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.isReadLimitSetExternally
+}
+
+func (c *Connection) ReadLimit() int64 {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.readLimit
+}
+
 func WithTrace(trace *httptrace.ClientTrace) ClientOption {
 	return func(os *clientOptions) {
 		os.Trace = trace
