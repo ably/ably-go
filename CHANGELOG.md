@@ -2,6 +2,21 @@
 
 # Changelog
 
+## [1.2.13](https://github.com/ably/ably-go/tree/1.2.13)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.12...v1.2.13)
+
+**Closed issues:**
+
+- Allow configuring ably/websocket read limits [\#610](https://github.com/ably/ably-go/issues/610)
+- `ablyMessage.Data` type changed after encryption was added [\#608](https://github.com/ably/ably-go/issues/608)
+- Update README for usage of ablytest package [\#602](https://github.com/ably/ably-go/issues/602)
+
+**Merged pull requests:**
+
+- \[SDK-3731\] Fix websocket read limits [\#614](https://github.com/ably/ably-go/pull/614) ([sacOO7](https://github.com/sacOO7))
+- Fix README for ablytest package usage [\#604](https://github.com/ably/ably-go/pull/604) ([sacOO7](https://github.com/sacOO7))
+
 ## [1.2.12](https://github.com/ably/ably-go/tree/v1.2.12)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.11...v1.2.12)
