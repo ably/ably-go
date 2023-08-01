@@ -210,7 +210,7 @@ if err != nil {
 client.Connection.SetReadLimit(131072) // Set read limit to 128kb, overriding default ConnectionDetails.MaxMessageSize
 ```
 
-Note - If connection read limit is less than size of received message, client will throw error "failed to read: read limited at {READ_LIMIT} bytes" and will close the connection.
+Note - If connection read limit is less than size of received message, client will throw error "failed to read: read limited at {READ_LIMIT + 1} bytes" and will close the connection.
 
 ### Using the REST API
 

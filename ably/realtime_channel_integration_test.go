@@ -269,7 +269,7 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRealtimeChannel_ShouldSetDefaultSandboxReadLimit(t *testing.T) {
+func TestRealtimeChannel_ShouldSetAblySandboxDefaultReadLimit(t *testing.T) {
 	app, client := ablytest.NewRealtime(ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 	assert.Equal(t, int64(65536), client.Connection.ReadLimit()) // Default read limit when not connected
@@ -278,6 +278,7 @@ func TestRealtimeChannel_ShouldSetDefaultSandboxReadLimit(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, int64(16384), client.Connection.ReadLimit()) // sandbox read limit
+	assert.False(t, client.Connection.IsReadLimitSetExternally())
 }
 
 func TestRealtimeChannel_ShouldSetProvidedReadLimit(t *testing.T) {
@@ -288,6 +289,7 @@ func TestRealtimeChannel_ShouldSetProvidedReadLimit(t *testing.T) {
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
+	assert.True(t, client.Connection.IsReadLimitSetExternally())
 	assert.Equal(t, int64(2048), client.Connection.ReadLimit())
 }
 
@@ -303,6 +305,7 @@ func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
+	assert.True(t, client2.Connection.IsReadLimitSetExternally())
 	assert.Equal(t, int64(1024), client2.Connection.ReadLimit())
 
 	channel1 := client1.Channels.Get("test")
