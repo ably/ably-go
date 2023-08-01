@@ -9,7 +9,6 @@
 **Closed issues:**
 
 - Allow configuring ably/websocket read limits [\#610](https://github.com/ably/ably-go/issues/610)
-- `ablyMessage.Data` type changed after encryption was added [\#608](https://github.com/ably/ably-go/issues/608)
 - Update README for usage of ablytest package [\#602](https://github.com/ably/ably-go/issues/602)
 
 **Merged pull requests:**
