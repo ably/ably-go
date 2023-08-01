@@ -196,11 +196,11 @@ if err != nil {
 }
 ```
 
-#### Update MaxMessageSize/read limit for realtime connection
-- Connection MaxMessageSize limit is automatically configured based on `ConnectionDetails.MaxMessageSize` property received when connection is successfully made with ably.
-- This value defaults to 65536(64kb) for normal account, you can increase the limit by raising a ticket at [ably support](https://ably.com/support).
-- Upgrading account to higher limit should automatically update `ConnectionDetails.MaxMessageSize` property and should accordingly set the client side connection readlimit.
-- If you are still facing issues while reading bigger size messages or intentionally want to reduce the limit, you can explicitly update the connection read limit.
+#### Update MaxMessageSize/read limit for realtime message subscription
+- The default `MaxMessageSize` is automatically configured by Ably when connection is established with Ably.
+- This value defaults to 64kb, please [get in touch](https://ably.com/support) if you would like to request a higher limit for your account.
+- Upgrading your account to higher limit will automatically update `MaxMessageSize` property and should accordingly set the client side connection read limit.
+- If you are still facing issues when receiving large messages or intentionally want to reduce the limit, you can explicitly update the connection read limit:
 
 ```go
 client, err = ably.NewRealtime(ably.WithKey("xxx:xxx"))
@@ -210,7 +210,7 @@ if err != nil {
 client.Connection.SetReadLimit(131072) // Set read limit to 128kb, overriding default ConnectionDetails.MaxMessageSize
 ```
 
-Note - If connection read limit is less than size of received message, client will throw error "failed to read: read limited at {READ_LIMIT + 1} bytes" and will close the connection.
+Note - If connection read limit is less than size of received message, the client will throw an error "failed to read: read limited at {READ_LIMIT + 1} bytes" and will close the connection.
 
 ### Using the REST API
 
