@@ -325,6 +325,11 @@ if err != nil {
 }
 fmt.Print(status, status.ChannelId)
 ```
+
+## Configure logging
+- You can log messages by passing logger inside clientOptions.
+- There is also an option provided to configure loglevel.
+
 ## Note on usage of ablytest package
 Although the `ablytest` package is available as a part of ably-go, we do not recommend using it as a sandbox for your own testing, since it's specifically intended for client library SDKs and we don’t provide any guarantees for support or that it will remain publicly accessible.
 It can lead to unexpected behaviour, since some beta features may be deployed on the `sandbox` environment so that they can be tested before going into production.
