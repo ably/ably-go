@@ -282,7 +282,7 @@ type clientOptions struct {
 	// A recovery key string can be explicitly provided, or alternatively if a callback function is provided,
 	// the client library will automatically persist the recovery key between page reloads and call the callback
 	// when the connection is recoverable. The callback is then responsible for confirming whether the connection
-	// should be recovered or not. See connection state recovery for further information (RTC1c, TO3i).
+	// should be recovered or not. See connection state recovery for further information (RTC1c, TO3i, RTN16i).
 	Recover string
 
 	// TransportParams is a set of key-value pairs that can be used to pass in arbitrary connection parameters,
