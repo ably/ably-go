@@ -997,8 +997,9 @@ func (c *Connection) setState(state ConnectionState, err error, retryIn time.Dur
 }
 
 func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time.Duration) error {
-	if state == ConnectionStateClosed {
-		c.key, c.id = "", "" //(RTN16c)
+	if state == ConnectionStateClosing || state == ConnectionStateClosed ||
+		state == ConnectionStateSuspended || state == ConnectionStateFailed {
+		c.key, c.id = "", "" //(RTN8c, RTN9c)
 	}
 
 	previous := c.state
