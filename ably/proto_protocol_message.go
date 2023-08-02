@@ -125,7 +125,6 @@ type protocolMessage struct {
 	ConnectionDetails *connectionDetails `json:"connectionDetails,omitempty" codec:"connectionDetails,omitempty"`
 	Error             *errorInfo         `json:"error,omitempty" codec:"error,omitempty"`
 	MsgSerial         int64              `json:"msgSerial" codec:"msgSerial"`
-	ConnectionSerial  int64              `json:"connectionSerial" codec:"connectionSerial"`
 	Timestamp         int64              `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
 	Count             int                `json:"count,omitempty" codec:"count,omitempty"`
 	Action            protoAction        `json:"action,omitempty" codec:"action,omitempty"`

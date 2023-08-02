@@ -287,16 +287,12 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	switch mode {
 	case resumeMode:
 		query.Set("resume", c.key)
-		if c.serial != nil {
-			query.Set("connectionSerial", fmt.Sprint(*c.serial))
-		}
 	case recoveryMode:
 		m := strings.Split(c.opts.Recover, ":")
 		if len(m) != 3 {
 			return nil, errors.New("conn: Invalid recovery key")
 		}
 		query.Set("recover", m[0])
-		query.Set("connectionSerial", m[1])
 	}
 	return query, nil
 }
@@ -720,10 +716,6 @@ func (c *Connection) log() logger {
 	return c.auth.log()
 }
 
-func (c *Connection) setSerial(serial *int64) {
-	c.serial = serial
-}
-
 func (c *Connection) resendPending() {
 	c.mtx.Lock()
 	cx := c.pending.Dismiss()
@@ -770,11 +762,6 @@ func (c *Connection) eventloop() {
 		}
 		lastActivityAt = c.opts.Now()
 		msg.updateInnerMessagesEmptyFields() // TM2a, TM2c, TM2f
-		if msg.ConnectionSerial != 0 {
-			c.mtx.Lock()
-			c.setSerial(&msg.ConnectionSerial)
-			c.mtx.Unlock()
-		}
 		switch msg.Action {
 		case actionHeartbeat:
 		case actionAck:
