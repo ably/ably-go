@@ -187,6 +187,8 @@ func (c *Connection) Connect() {
 // By default, the connection has a message read limit of [ably.maxMessageSize] or 65536 bytes.
 // When the limit is hit, the connection will be closed with StatusMessageTooBig.
 func (c *Connection) SetReadLimit(readLimit int64) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	c.readLimit = readLimit
 	c.isReadLimitSetExternally = true
 }
