@@ -330,6 +330,23 @@ fmt.Print(status, status.ChannelId)
 - You can log messages by passing logger inside clientOptions.
 - There is also an option provided to configure loglevel.
 
+```go
+// stdLogger wraps log.Logger to satisfy the Logger interface.
+type stdLogger struct {
+	*log.Logger
+}
+
+func (s *stdLogger) Printf(level LogLevel, format string, v ...interface{}) {
+	s.Logger.Printf(fmt.Sprintf("[%s] %s", level, format), v...)
+}
+
+client, err = ably.NewRealtime(
+ably.WithKey("xxx:xxx"),
+ably.WithLogHandler(&stdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)}),
+ably.WithLogLevel(ably.LogWarning)
+)
+```
+
 ## Note on usage of ablytest package
 Although the `ablytest` package is available as a part of ably-go, we do not recommend using it as a sandbox for your own testing, since it's specifically intended for client library SDKs and we don’t provide any guarantees for support or that it will remain publicly accessible.
 It can lead to unexpected behaviour, since some beta features may be deployed on the `sandbox` environment so that they can be tested before going into production.
