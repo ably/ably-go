@@ -327,23 +327,28 @@ fmt.Print(status, status.ChannelId)
 ```
 
 ## Configure logging
-- You can log messages by passing logger inside clientOptions.
+- You need to create a custom Logger that implements `ably.Logger` interface.
 - There is also an option provided to configure loglevel.
 
 ```go
-// stdLogger wraps log.Logger to satisfy the Logger interface.
-type stdLogger struct {
+type customLogger struct {
 	*log.Logger
 }
 
-func (s *stdLogger) Printf(level LogLevel, format string, v ...interface{}) {
+func (s *customLogger) Printf(level ably.LogLevel, format string, v ...interface{}) {
 	s.Logger.Printf(fmt.Sprintf("[%s] %s", level, format), v...)
 }
 
+func NewCustomLogger() *customLogger {
+	logger := &customLogger{}
+	logger.Logger = log.New(os.Stdout, "", log.LstdFlags)
+	return logger
+}
+
 client, err = ably.NewRealtime(
-ably.WithKey("xxx:xxx"),
-ably.WithLogHandler(&stdLogger{Logger: log.New(os.Stderr, "", log.LstdFlags)}),
-ably.WithLogLevel(ably.LogWarning)
+        ably.WithKey("xxx:xxx"),
+        ably.WithLogHandler(NewCustomLogger()),
+        ably.WithLogLevel(ably.LogWarning),
 )
 ```
 
