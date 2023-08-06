@@ -19,24 +19,26 @@ const (
 // It allows entering, leaving and updating presence state for the current client or on behalf of other client.
 // It enables the presence set to be entered and subscribed to, and the historic presence set to be retrieved for a channel.
 type RealtimePresence struct {
-	mtx            sync.Mutex
-	data           interface{}
-	serial         string
-	messageEmitter *eventEmitter
-	channel        *RealtimeChannel
-	members        map[string]*PresenceMessage
-	stale          map[string]struct{}
-	state          PresenceAction
-	syncMtx        sync.Mutex
-	syncState      syncState
+	mtx             sync.Mutex
+	data            interface{}
+	serial          string
+	messageEmitter  *eventEmitter
+	channel         *RealtimeChannel
+	members         map[string]*PresenceMessage
+	internalMembers map[string]*PresenceMessage // RTP17
+	stale           map[string]struct{}
+	state           PresenceAction
+	syncMtx         sync.Mutex
+	syncState       syncState
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	pres := &RealtimePresence{
-		messageEmitter: newEventEmitter(channel.log()),
-		channel:        channel,
-		members:        make(map[string]*PresenceMessage),
-		syncState:      syncInitial,
+		messageEmitter:  newEventEmitter(channel.log()),
+		channel:         channel,
+		members:         make(map[string]*PresenceMessage),
+		internalMembers: make(map[string]*PresenceMessage),
+		syncState:       syncInitial,
 	}
 	// Lock syncMtx to make all callers to Get(true) wait until the presence
 	// is in initial sync state. This is to not make them early return
