@@ -326,8 +326,8 @@ if err != nil {
 fmt.Print(status, status.ChannelId)
 ```
 
-## Configure logging
-- By default, internal logger prints output to stdout with default logging level of `warning`.
+### Configure logging
+- By default, internal logger prints output to `stdout` with default logging level of `warning`.
 - You need to create a custom Logger that implements `ably.Logger` interface.
 - There is also an option provided to configure loglevel.
 
