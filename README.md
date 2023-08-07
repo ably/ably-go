@@ -198,7 +198,7 @@ if err != nil {
 
 #### Update MaxMessageSize/read limit for realtime message subscription
 - The default `MaxMessageSize` is automatically configured by Ably when connection is established with Ably.
-- This value defaults to 64kb, please [get in touch](https://ably.com/support) if you would like to request a higher limit for your account.
+- This value defaults to [16kb for free and 64kb for PAYG account](https://faqs.ably.com/what-is-the-maximum-message-size), please [get in touch](https://ably.com/support) if you would like to request a higher limit for your account.
 - Upgrading your account to higher limit will automatically update `MaxMessageSize` property and should accordingly set the client side connection read limit.
 - If you are still facing issues when receiving large messages or intentionally want to reduce the limit, you can explicitly update the connection read limit:
 
@@ -327,6 +327,7 @@ fmt.Print(status, status.ChannelId)
 ```
 
 ## Configure logging
+- By default, internal logger prints output to stdout with default logging level of `warning`.
 - You need to create a custom Logger that implements `ably.Logger` interface.
 - There is also an option provided to configure loglevel.
 
