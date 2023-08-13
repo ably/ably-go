@@ -175,26 +175,28 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	// Filter out old messages by their timestamp.
 	messages := make([]*PresenceMessage, 0, len(msg.Presence))
 	// Update presence map / channel's member state.
-	for _, member := range msg.Presence {
-		memberKey := member.ConnectionID + member.ClientID
+	for _, presenceMsg := range msg.Presence {
+		// RTP2
+		memberKey := presenceMsg.ConnectionID + presenceMsg.ClientID
+		// RTP2b1
 		if oldMember, ok := pres.members[memberKey]; ok {
-			if member.Timestamp <= oldMember.Timestamp {
+			if presenceMsg.Timestamp <= oldMember.Timestamp {
 				continue // do not process old message
 			}
 		}
-		switch member.Action {
+		switch presenceMsg.Action {
 		case PresenceActionEnter:
-			pres.members[memberKey] = member
+			pres.members[memberKey] = presenceMsg
 		case PresenceActionUpdate:
-			member.Action = PresenceActionPresent
+			presenceMsg.Action = PresenceActionPresent
 			fallthrough
 		case PresenceActionPresent:
 			delete(pres.stale, memberKey)
-			pres.members[memberKey] = member
+			pres.members[memberKey] = presenceMsg
 		case PresenceActionLeave:
 			delete(pres.members, memberKey)
 		}
-		messages = append(messages, member)
+		messages = append(messages, presenceMsg)
 	}
 	if syncSerial == "" {
 		pres.syncEnd()
