@@ -19,24 +19,26 @@ const (
 // It allows entering, leaving and updating presence state for the current client or on behalf of other client.
 // It enables the presence set to be entered and subscribed to, and the historic presence set to be retrieved for a channel.
 type RealtimePresence struct {
-	mtx            sync.Mutex
-	data           interface{}
-	serial         string
-	messageEmitter *eventEmitter
-	channel        *RealtimeChannel
-	members        map[string]*PresenceMessage
-	stale          map[string]struct{}
-	state          PresenceAction
-	syncMtx        sync.Mutex
-	syncState      syncState
+	mtx             sync.Mutex
+	data            interface{}
+	serial          string
+	messageEmitter  *eventEmitter
+	channel         *RealtimeChannel
+	members         map[string]*PresenceMessage
+	internalMembers map[string]*PresenceMessage // RTP17
+	stale           map[string]struct{}
+	state           PresenceAction
+	syncMtx         sync.Mutex
+	syncState       syncState
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	pres := &RealtimePresence{
-		messageEmitter: newEventEmitter(channel.log()),
-		channel:        channel,
-		members:        make(map[string]*PresenceMessage),
-		syncState:      syncInitial,
+		messageEmitter:  newEventEmitter(channel.log()),
+		channel:         channel,
+		members:         make(map[string]*PresenceMessage),
+		internalMembers: make(map[string]*PresenceMessage),
+		syncState:       syncInitial,
 	}
 	// Lock syncMtx to make all callers to Get(true) wait until the presence
 	// is in initial sync state. This is to not make them early return
@@ -170,8 +172,30 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	if syncSerial != "" {
 		pres.syncStart(syncSerial)
 	}
-	// Filter out old messages by their timestamp.
-	messages := make([]*PresenceMessage, 0, len(msg.Presence))
+
+	// RTP17
+	for _, presenceMember := range msg.Presence {
+		memberKey := presenceMember.ClientID
+		if pres.channel.client.Connection.id != presenceMember.ConnectionID {
+			continue
+		}
+		switch presenceMember.Action {
+		case PresenceActionEnter:
+			pres.members[memberKey] = presenceMember
+		case PresenceActionUpdate:
+			presenceMember.Action = PresenceActionPresent
+			fallthrough
+		case PresenceActionPresent:
+			delete(pres.stale, memberKey)
+			pres.members[memberKey] = presenceMember
+		case PresenceActionLeave:
+			// todo : check for synthesized leave
+			delete(pres.members, memberKey)
+		}
+	}
+
+	// Filter out old presenceMessages by their timestamp.
+	newPresenceMessages := make([]*PresenceMessage, 0, len(msg.Presence))
 	// Update presence map / channel's member state.
 	for _, presenceMember := range msg.Presence {
 		// RTP2
@@ -194,14 +218,15 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		case PresenceActionLeave:
 			delete(pres.members, memberKey)
 		}
-		messages = append(messages, presenceMember)
+		newPresenceMessages = append(newPresenceMessages, presenceMember)
 	}
+
 	if syncSerial == "" {
 		pres.syncEnd()
 	}
 	pres.mtx.Unlock()
-	msg.Count = len(messages)
-	msg.Presence = messages
+	msg.Count = len(newPresenceMessages)
+	msg.Presence = newPresenceMessages
 	for _, msg := range msg.Presence {
 		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg))
 	}
