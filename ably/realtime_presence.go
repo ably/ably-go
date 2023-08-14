@@ -173,6 +173,10 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		pres.syncStart(syncSerial)
 	}
 
+	isSynthesizedLeave := func(oldMsg *PresenceMessage, newMsg *PresenceMessage) bool {
+		return false
+	}
+
 	// RTP17
 	for _, presenceMember := range msg.Presence {
 		memberKey := presenceMember.ClientID
@@ -200,10 +204,11 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	for _, presenceMember := range msg.Presence {
 		// RTP2
 		memberKey := presenceMember.ConnectionID + presenceMember.ClientID
-		// RTP2b1
-		if oldPresenceMember, ok := pres.members[memberKey]; ok {
-			if oldPresenceMember.Timestamp >= presenceMember.Timestamp {
-				continue // do not process message with older timestamp
+
+		if oldPresenceMember, ok := pres.members[memberKey]; ok { // RTP2a
+			if isSynthesizedLeave(oldPresenceMember, presenceMember) && // // RTP2b1
+				oldPresenceMember.Timestamp >= presenceMember.Timestamp {
+				continue // do not process message with older timestamp // RTP2b1a
 			}
 		}
 		switch presenceMember.Action {
