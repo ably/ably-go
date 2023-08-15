@@ -2,6 +2,7 @@ package ably
 
 import (
 	"fmt"
+	"strings"
 )
 
 // PresenceAction describes the possible actions members in the presence set can emit (TP2).
@@ -57,4 +58,17 @@ func (m PresenceMessage) String() string {
 		"leave",
 		"update",
 	}[m.Action], m.ClientID, m.Data)
+}
+
+// RTP2b1
+func (msg *PresenceMessage) isServerSynthesizedPresenceMessage() bool {
+	return strings.HasPrefix(msg.ID, msg.ConnectionID)
+}
+
+func (oldMessage *PresenceMessage) IsNewerThan(incomingMessage *PresenceMessage) bool {
+	if oldMessage.isServerSynthesizedPresenceMessage() ||
+		incomingMessage.isServerSynthesizedPresenceMessage() {
+		return oldMessage.Timestamp > incomingMessage.Timestamp
+	}
+	return false
 }
