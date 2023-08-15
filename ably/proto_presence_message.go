@@ -2,6 +2,7 @@ package ably
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -65,10 +66,34 @@ func (msg *PresenceMessage) isServerSynthesizedPresenceMessage() bool {
 	return strings.HasPrefix(msg.ID, msg.ConnectionID)
 }
 
-func (oldMessage *PresenceMessage) IsNewerThan(incomingMessage *PresenceMessage) bool {
+func (incomingMessage *PresenceMessage) IsOlderThan(oldMessage *PresenceMessage) (bool, error) {
 	if oldMessage.isServerSynthesizedPresenceMessage() ||
 		incomingMessage.isServerSynthesizedPresenceMessage() {
-		return oldMessage.Timestamp > incomingMessage.Timestamp
+		return oldMessage.Timestamp > incomingMessage.Timestamp, nil
 	}
-	return false
+
+	presenceIdErr := func(presenceMsgId string) error {
+		return fmt.Errorf("parsing error, the presence message has invalid id %v", presenceMsgId)
+	}
+
+	oldMessageIds := strings.Split(oldMessage.ID, ":")
+	incomingMessageIds := strings.Split(incomingMessage.ID, ":")
+
+	oldMessageSerial, err := strconv.ParseInt(oldMessageIds[1], 10, 64)
+	oldMessageIndex, err := strconv.ParseInt(oldMessageIds[2], 10, 64)
+	if len(oldMessageIds) != 3 || err != nil {
+		return false, presenceIdErr(oldMessage.ID)
+	}
+
+	incomingMessageSerial, err := strconv.ParseInt(incomingMessageIds[1], 10, 64)
+	incomingMessageIndex, err := strconv.ParseInt(incomingMessageIds[2], 10, 64)
+	if len(incomingMessageIds) != 3 || err != nil {
+		return true, presenceIdErr(incomingMessage.ID)
+	}
+
+	if oldMessageSerial == incomingMessageSerial {
+		return oldMessageIndex > incomingMessageIndex, nil
+	}
+
+	return oldMessageSerial > incomingMessageSerial, nil
 }

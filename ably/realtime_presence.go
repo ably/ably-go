@@ -202,7 +202,10 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		memberKey := presenceMember.ConnectionID + presenceMember.ClientID
 
 		if oldPresenceMember, ok := pres.members[memberKey]; ok { // RTP2a
-			if oldPresenceMember.IsNewerThan(presenceMember) { // RTP2b1
+			isIncomingMessageOld, err := presenceMember.IsOlderThan(oldPresenceMember)
+			pres.log().Error(err)
+			// TODO - publish channel error event here without state change
+			if isIncomingMessageOld { // RTP2b1
 				continue // do not process message with older timestamp // RTP2b1a
 			}
 		}
