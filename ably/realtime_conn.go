@@ -83,6 +83,7 @@ type Connection struct {
 	// after a reauthorization, to avoid re-reauthorizing.
 	reauthorizing bool
 	arg           connArgs
+	client        *Realtime
 
 	readLimit                int64
 	isReadLimitSetExternally bool
@@ -100,7 +101,7 @@ type connCallbacks struct {
 	onReconnectionFailed func(*errorInfo)
 }
 
-func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connection {
+func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *Realtime) *Connection {
 	c := &Connection{
 		ConnectionEventEmitter: ConnectionEventEmitter{newEventEmitter(auth.log())},
 		state:                  ConnectionStateInitialized,
@@ -110,6 +111,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 		pending:   newPendingEmitter(auth.log()),
 		auth:      auth,
 		callbacks: callbacks,
+		client:    client,
 		readLimit: maxMessageSize,
 	}
 	auth.onExplicitAuthorize = c.onClientAuthorize
@@ -185,6 +187,8 @@ func (c *Connection) Connect() {
 // By default, the connection has a message read limit of [ably.maxMessageSize] or 65536 bytes.
 // When the limit is hit, the connection will be closed with StatusMessageTooBig.
 func (c *Connection) SetReadLimit(readLimit int64) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	c.readLimit = readLimit
 	c.isReadLimitSetExternally = true
 }
@@ -264,7 +268,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 		"timestamp": []string{strconv.FormatInt(unixMilli(c.opts.Now()), 10)},
 		"echo":      []string{"true"},
 		"format":    []string{"msgpack"},
-		"v":         []string{ablyVersion},
+		"v":         []string{ablyProtocolVersion},
 	}
 	if c.opts.NoEcho {
 		query.Set("echo", "false")
@@ -285,16 +289,12 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	switch mode {
 	case resumeMode:
 		query.Set("resume", c.key)
-		if c.serial != nil {
-			query.Set("connectionSerial", fmt.Sprint(*c.serial))
-		}
 	case recoveryMode:
 		m := strings.Split(c.opts.Recover, ":")
 		if len(m) != 3 {
 			return nil, errors.New("conn: Invalid recovery key")
 		}
 		query.Set("recover", m[0])
-		query.Set("connectionSerial", m[1])
 	}
 	return query, nil
 }
@@ -496,13 +496,31 @@ func (c *Connection) ErrorReason() *ErrorInfo {
 	return c.errorReason
 }
 
+// Deprecated: this property is deprecated, use CreateRecoveryKey method instead.
 func (c *Connection) RecoveryKey() string {
+	return c.CreateRecoveryKey()
+}
+
+// CreateRecoveryKey is an attribute composed of the connectionKey, messageSerial and channelSerials (RTN16g, RTN16g1, RTN16h).
+func (c *Connection) CreateRecoveryKey() string {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.key == "" {
+	if empty(c.key) || c.state == ConnectionStateClosing ||
+		c.state == ConnectionStateClosed ||
+		c.state == ConnectionStateFailed ||
+		c.state == ConnectionStateSuspended {
 		return ""
 	}
-	return strings.Join([]string{c.key, fmt.Sprint(*c.serial), fmt.Sprint(c.msgSerial)}, ":")
+	recoveryContext := RecoveryKeyContext{
+		ConnectionKey:  c.key,
+		MsgSerial:      c.msgSerial,
+		ChannelSerials: c.client.Channels.GetChannelSerials(),
+	}
+	recoveryKey, err := recoveryContext.Encode()
+	if err != nil {
+		c.log().Errorf("Error while encoding recoveryKey %v", err)
+	}
+	return recoveryKey
 }
 
 // Serial gives serial number of a message received most recently.
@@ -700,10 +718,6 @@ func (c *Connection) log() logger {
 	return c.auth.log()
 }
 
-func (c *Connection) setSerial(serial *int64) {
-	c.serial = serial
-}
-
 func (c *Connection) resendPending() {
 	c.mtx.Lock()
 	cx := c.pending.Dismiss()
@@ -750,11 +764,6 @@ func (c *Connection) eventloop() {
 		}
 		lastActivityAt = c.opts.Now()
 		msg.updateInnerMessagesEmptyFields() // TM2a, TM2c, TM2f
-		if msg.ConnectionSerial != 0 {
-			c.mtx.Lock()
-			c.setSerial(&msg.ConnectionSerial)
-			c.mtx.Unlock()
-		}
 		switch msg.Action {
 		case actionHeartbeat:
 		case actionAck:
@@ -990,8 +999,9 @@ func (c *Connection) setState(state ConnectionState, err error, retryIn time.Dur
 }
 
 func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time.Duration) error {
-	if state == ConnectionStateClosed {
-		c.key, c.id = "", "" //(RTN16c)
+	if state == ConnectionStateClosing || state == ConnectionStateClosed ||
+		state == ConnectionStateSuspended || state == ConnectionStateFailed {
+		c.key, c.id = "", "" //(RTN8c, RTN9c)
 	}
 
 	previous := c.state

@@ -217,11 +217,11 @@ const (
 	DefaultCipherAlgorithm = defaultCipherAlgorithm
 	DefaultCipherMode      = defaultCipherMode
 
-	AblyVersionHeader = ablyVersionHeader
-	AblyVersion       = ablyVersion
-	LibraryVersion    = libraryVersion
-	AblyAgentHeader   = ablyAgentHeader
-	AblySDKIdentifier = ablySDKIdentifier
+	AblyProtocolVersionHeader = ablyProtocolVersionHeader
+	AblyProtocolVersion       = ablyProtocolVersion
+	ClientLibraryVersion      = clientLibraryVersion
+	AblyAgentHeader           = ablyAgentHeader
+	AblySDKIdentifier         = ablySDKIdentifier
 
 	EncUTF8   = encUTF8
 	EncJSON   = encJSON

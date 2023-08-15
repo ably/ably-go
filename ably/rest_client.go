@@ -824,9 +824,9 @@ func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, e
 	if r.header != nil {
 		copyHeader(req.Header, r.header)
 	}
-	req.Header.Set("Accept", protocol) //spec RSC19c
-	req.Header.Set(ablyVersionHeader, ablyVersion)
-	req.Header.Set(ablyAgentHeader, ablyAgentIdentifier(c.opts.Agents))
+	req.Header.Set("Accept", protocol)                                  // RSC19c
+	req.Header.Set(ablyProtocolVersionHeader, ablyProtocolVersion)      // RSC7a
+	req.Header.Set(ablyAgentHeader, ablyAgentIdentifier(c.opts.Agents)) // RSC7d
 	if c.opts.ClientID != "" && c.Auth.method == authBasic {
 		// References RSA7e2
 		h := base64.StdEncoding.EncodeToString([]byte(c.opts.ClientID))

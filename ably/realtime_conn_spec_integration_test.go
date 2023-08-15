@@ -97,7 +97,7 @@ func Test_RTN2_WebsocketQueryParams(t *testing.T) {
 	t.Run("RTN2f: api version v should be the API version", func(t *testing.T) {
 		requestParams := setup()
 		libVersion := requestParams["v"]
-		assert.Equal(t, []string{ably.AblyVersion}, libVersion)
+		assert.Equal(t, []string{ably.AblyProtocolVersion}, libVersion)
 	})
 }
 
@@ -314,133 +314,6 @@ type connectionStateChanges chan ably.ConnectionStateChange
 
 func (c connectionStateChanges) Receive(change ably.ConnectionStateChange) {
 	c <- change
-}
-
-func TestRealtimeConn_RTN10_ConnectionSerial(t *testing.T) {
-	t.Run("RTN10a: Should be unset until connected, should set after connected", func(t *testing.T) {
-		connDetails := ably.ConnectionDetails{
-			ConnectionKey:      "foo",
-			ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 20),
-			MaxIdleInterval:    ably.DurationFromMsecs(time.Minute * 5),
-		}
-
-		in := make(chan *ably.ProtocolMessage, 1)
-		out := make(chan *ably.ProtocolMessage, 16)
-
-		c, _ := ably.NewRealtime(
-			ably.WithAutoConnect(false),
-			ably.WithToken("fake:token"),
-			ably.WithDial(MessagePipe(in, out)))
-
-		stateChange := make(connectionStateChanges, 2)
-		c.Connection.OnAll(stateChange.Receive)
-
-		assert.Equal(t, ably.ConnectionStateInitialized, c.Connection.State(),
-			"expected %v; got %v", ably.ConnectionStateInitialized, c.Connection.State())
-
-		serial := c.Connection.Serial()
-		assert.Nil(t, serial,
-			"Connection serial should be nil when initialized/not connected")
-		c.Connect()
-
-		var change ably.ConnectionStateChange
-
-		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
-		assert.Equal(t, ably.ConnectionStateConnecting, change.Current,
-			"expected %v; got %v", ably.ConnectionStateConnecting, change.Current)
-
-		serial = c.Connection.Serial()
-		assert.Nil(t, serial,
-			"Connection serial should be nil when connecting/not connected")
-
-		in <- &ably.ProtocolMessage{
-			Action:            ably.ActionConnected,
-			ConnectionID:      "connection",
-			ConnectionSerial:  2,
-			ConnectionDetails: &connDetails,
-		}
-
-		ablytest.Soon.Recv(t, &change, stateChange, t.Fatalf)
-		assert.Equal(t, ably.ConnectionStateConnected, change.Current,
-			"expected %v; got %v", ably.ConnectionStateConnected, change.Current)
-
-		err := ablytest.Wait(ablytest.AssertionWaiter(func() bool {
-			return *c.Connection.Serial() == 2
-		}), nil)
-
-		assert.NoError(t, err,
-			"Expected 2, Received %v", *c.Connection.Serial())
-	})
-
-	t.Run("RTN10b: Should be set everytime message with connection-serial is received", func(t *testing.T) {
-		connDetails := ably.ConnectionDetails{
-			ConnectionKey:      "foo",
-			ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 20),
-			MaxIdleInterval:    ably.DurationFromMsecs(time.Minute * 5),
-		}
-
-		in := make(chan *ably.ProtocolMessage, 1)
-		out := make(chan *ably.ProtocolMessage, 16)
-
-		in <- &ably.ProtocolMessage{
-			Action:            ably.ActionConnected,
-			ConnectionID:      "connection",
-			ConnectionSerial:  2,
-			ConnectionDetails: &connDetails,
-		}
-
-		c, _ := ably.NewRealtime(
-			ably.WithAutoConnect(false),
-			ably.WithToken("fake:token"),
-			ably.WithDial(MessagePipe(in, out)))
-
-		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
-		assert.NoError(t, err)
-		assert.Equal(t, int64(2), *c.Connection.Serial(),
-			"Connection serial should be set to 2")
-
-		in <- &ably.ProtocolMessage{
-			Action:            ably.ActionAttached,
-			ConnectionID:      "connection",
-			ConnectionSerial:  4,
-			ConnectionDetails: &connDetails,
-		}
-
-		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
-			return *c.Connection.Serial() == 4
-		}), nil)
-
-		assert.NoError(t, err,
-			"Expected 4, Received %v", *c.Connection.Serial())
-
-		in <- &ably.ProtocolMessage{
-			Action:            ably.ActionMessage,
-			ConnectionID:      "connection",
-			ConnectionSerial:  5,
-			ConnectionDetails: &connDetails,
-		}
-
-		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
-			return *c.Connection.Serial() == 5
-		}), nil)
-
-		assert.NoError(t, err,
-			"Expected 5, Received %v", *c.Connection.Serial())
-
-		in <- &ably.ProtocolMessage{
-			Action:            ably.ActionHeartbeat,
-			ConnectionID:      "connection",
-			ConnectionSerial:  6,
-			ConnectionDetails: &connDetails,
-		}
-
-		err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
-			return *c.Connection.Serial() == 6
-		}), nil)
-
-		assert.NoError(t, err,
-			"Expected 6, Received %v", *c.Connection.Serial())
-	})
 }
 
 func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
@@ -1046,16 +919,6 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 			"expected resume query param to be set")
 		assert.Equal(t, connKey, resume,
 			"resume: expected %q got %q", connKey, resume)
-	}
-
-	{ //(RTN15b2)
-		u := metaList[1].dial
-		serial := u.Query().Get("connectionSerial")
-		connSerial := fmt.Sprint(metaList[0].Messages()[0].ConnectionSerial)
-		assert.NotEqual(t, "", serial,
-			"expected connectionSerial query param to be set")
-		assert.Equal(t, connSerial, serial,
-			"connectionSerial: expected %q got %q", connSerial, serial)
 	}
 }
 
@@ -2163,18 +2026,6 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		assert.Error(t, err, "expected reason to be set")
 		if err == nil {
 			t.Fatal("expected reason to be set")
-		}
-		{ // (RTN16a)
-			recoverValue := query.Get("recover")
-			assert.NotEqual(t, "", recoverValue,
-				"expected recover query param to be set")
-			assert.Equal(t, "_____!ablygo_test_fake-key____", recoverValue,
-				"expected \"_____!ablygo_test_fake-key____\" got %q", recoverValue)
-			serial := query.Get("connectionSerial")
-			assert.NotEqual(t, "", serial,
-				"expected connectionSerial query param to be set")
-			assert.Equal(t, "5", serial,
-				"connectionSerial: expected \"5\" got %q", serial)
 		}
 		{ //(RTN16e)
 			info := err.(*ably.ErrorInfo)
