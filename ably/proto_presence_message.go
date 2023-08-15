@@ -62,38 +62,41 @@ func (m PresenceMessage) String() string {
 }
 
 // RTP2b1
-func (msg *PresenceMessage) isServerSynthesizedPresenceMessage() bool {
-	return strings.HasPrefix(msg.ID, msg.ConnectionID)
+func (msg *PresenceMessage) isServerSynthesized() bool {
+	return !strings.HasPrefix(msg.ID, msg.ConnectionID)
 }
 
-func (incomingMessage *PresenceMessage) IsOlderThan(oldMessage *PresenceMessage) (bool, error) {
-	if oldMessage.isServerSynthesizedPresenceMessage() ||
-		incomingMessage.isServerSynthesizedPresenceMessage() {
-		return oldMessage.Timestamp > incomingMessage.Timestamp, nil
+// RTP2b2
+func (msg *PresenceMessage) getMsgSerialAndIndex() (int64, int64, error) {
+	msgIds := strings.Split(msg.ID, ":")
+	if len(msgIds) != 3 {
+		return 0, 0, fmt.Errorf("parsing error, the presence message has invalid id %v", msg.ID)
 	}
-
-	presenceIdErr := func(presenceMsgId string) error {
-		return fmt.Errorf("parsing error, the presence message has invalid id %v", presenceMsgId)
+	msgSerial, err := strconv.ParseInt(msgIds[1], 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing error, the presence message has invalid msgSerial, for msgId %v", msg.ID)
 	}
-
-	oldMessageIds := strings.Split(oldMessage.ID, ":")
-	incomingMessageIds := strings.Split(incomingMessage.ID, ":")
-
-	oldMessageSerial, err := strconv.ParseInt(oldMessageIds[1], 10, 64)
-	oldMessageIndex, err := strconv.ParseInt(oldMessageIds[2], 10, 64)
-	if len(oldMessageIds) != 3 || err != nil {
-		return false, presenceIdErr(oldMessage.ID)
+	msgIndex, err := strconv.ParseInt(msgIds[2], 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing error, the presence message has invalid msgIndex, for msgId %v", msg.ID)
 	}
+	return msgSerial, msgIndex, nil
+}
 
-	incomingMessageSerial, err := strconv.ParseInt(incomingMessageIds[1], 10, 64)
-	incomingMessageIndex, err := strconv.ParseInt(incomingMessageIds[2], 10, 64)
-	if len(incomingMessageIds) != 3 || err != nil {
-		return true, presenceIdErr(incomingMessage.ID)
+func (msg1 *PresenceMessage) IsNewerThan(msg2 *PresenceMessage) (bool, error) {
+	if msg1.isServerSynthesized() || msg2.isServerSynthesized() {
+		return msg1.Timestamp > msg2.Timestamp, nil
 	}
-
-	if oldMessageSerial == incomingMessageSerial {
-		return oldMessageIndex > incomingMessageIndex, nil
+	msg1Serial, msg1Index, err := msg1.getMsgSerialAndIndex()
+	if err != nil {
+		return false, err
 	}
-
-	return oldMessageSerial > incomingMessageSerial, nil
+	msg2Serial, msg2Index, err := msg2.getMsgSerialAndIndex()
+	if err != nil {
+		return true, err
+	}
+	if msg1Serial == msg2Serial {
+		return msg1Index > msg2Index, nil
+	}
+	return msg1Serial > msg2Serial, nil
 }

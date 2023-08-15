@@ -194,19 +194,18 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		}
 	}
 
-	// Filter out old presenceMessages by their timestamp.
-	newPresenceMessages := make([]*PresenceMessage, 0, len(msg.Presence))
 	// Update presence map / channel's member state.
+	newPresenceMessages := make([]*PresenceMessage, 0, len(msg.Presence))
 	for _, presenceMember := range msg.Presence {
-		// RTP2
 		memberKey := presenceMember.ConnectionID + presenceMember.ClientID
-
-		if oldPresenceMember, ok := pres.members[memberKey]; ok { // RTP2a
-			isIncomingMessageOld, err := presenceMember.IsOlderThan(oldPresenceMember)
-			pres.log().Error(err)
-			// TODO - publish channel error event here without state change
-			if isIncomingMessageOld { // RTP2b1
-				continue // do not process message with older timestamp // RTP2b1a
+		if existingMember, ok := pres.members[memberKey]; ok { // RTP2a
+			isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
+			if err != nil {
+				pres.log().Error(err)
+				// TODO - publish channel error event here without state change
+			}
+			if !isMemberNew {
+				continue // do not accept if incoming member is old
 			}
 		}
 		switch presenceMember.Action {
