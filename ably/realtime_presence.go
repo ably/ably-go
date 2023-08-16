@@ -202,7 +202,8 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 			isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
 			if err != nil {
 				pres.log().Error(err)
-				// TODO - publish channel error event here without state change
+				errorInfo := newError(0, err)
+				pres.channel.errorEmitter.Emit(subscriptionName("error"), (*errorMessage)(errorInfo))
 			}
 			if !isMemberNew {
 				continue // do not accept if incoming member is old

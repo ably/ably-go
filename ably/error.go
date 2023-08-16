@@ -58,6 +58,10 @@ type ErrorInfo struct {
 	err error
 }
 
+type errorMessage ErrorInfo
+
+func (*errorMessage) isEmitterData() {}
+
 // Error implements the builtin error interface.
 func (e ErrorInfo) Error() string {
 	errorHref := e.HRef

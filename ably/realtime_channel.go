@@ -233,6 +233,7 @@ type RealtimeChannel struct {
 
 	client         *Realtime
 	messageEmitter *eventEmitter
+	errorEmitter   *eventEmitter
 	queue          *msgQueue
 	options        *channelOptions
 
@@ -544,6 +545,17 @@ func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message
 		unsubscribe()
 		return nil, err
 	}
+	return unsubscribe, nil
+}
+
+// SubscribeAll registers an event listener for error messages on this channel.
+//
+// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
+func (c *RealtimeChannel) OnError(handle func(*ErrorInfo)) (func(), error) {
+	// unsubscribe deregisters all listeners to error messages on this channel.
+	unsubscribe := c.errorEmitter.OnAll(func(err emitterData) {
+		handle((*ErrorInfo)(err.(*errorMessage)))
+	})
 	return unsubscribe, nil
 }
 
