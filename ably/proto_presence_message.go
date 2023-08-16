@@ -61,12 +61,10 @@ func (m PresenceMessage) String() string {
 	}[m.Action], m.ClientID, m.Data)
 }
 
-// RTP2b1
 func (msg *PresenceMessage) isServerSynthesized() bool {
 	return !strings.HasPrefix(msg.ID, msg.ConnectionID)
 }
 
-// RTP2b2
 func (msg *PresenceMessage) getMsgSerialAndIndex() (int64, int64, error) {
 	msgIds := strings.Split(msg.ID, ":")
 	if len(msgIds) != 3 {
@@ -84,9 +82,12 @@ func (msg *PresenceMessage) getMsgSerialAndIndex() (int64, int64, error) {
 }
 
 func (msg1 *PresenceMessage) IsNewerThan(msg2 *PresenceMessage) (bool, error) {
+	// RTP2b1
 	if msg1.isServerSynthesized() || msg2.isServerSynthesized() {
 		return msg1.Timestamp > msg2.Timestamp, nil
 	}
+
+	// RTP2b2
 	msg1Serial, msg1Index, err := msg1.getMsgSerialAndIndex()
 	if err != nil {
 		return false, err
