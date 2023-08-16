@@ -137,3 +137,25 @@ func TestIfHasFlg(t *testing.T) {
 	assert.False(t, flags.Has(ably.FlagHasBacklog),
 		"Shouldn't contain flag %v", ably.FlagHasBacklog)
 }
+
+func TestPresenceMessagesShouldReturnErrorFor(t *testing.T) {
+	oldPresenceMsg := &ably.PresenceMessage{
+		Action: ably.PresenceActionPresent,
+		Message: ably.Message{
+			ID:           "123:12:0",
+			Timestamp:    123,
+			ConnectionID: "123",
+		},
+	}
+	newPresenceMessage := &ably.PresenceMessage{
+		Action: ably.PresenceActionPresent,
+		Message: ably.Message{
+			ID:           "123:12:1",
+			Timestamp:    124,
+			ConnectionID: "123",
+		},
+	}
+	isNewMsg, err := oldPresenceMsg.IsNewerThan(newPresenceMessage)
+	assert.Nil(t, err)
+	assert.False(t, isNewMsg)
+}
