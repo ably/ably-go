@@ -190,7 +190,7 @@ func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*Presenc
 		}
 		if isMemberNew {
 			delete(memberMap, memberKey)
-			return true
+			return existingMember.Action != PresenceActionAbsent
 		}
 	}
 	return false
