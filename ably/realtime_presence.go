@@ -174,23 +174,20 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	}
 
 	// RTP17
+	// TODO - Add newness check for incoming message
 	for _, presenceMember := range msg.Presence {
 		memberKey := presenceMember.ClientID
 		if pres.channel.client.Connection.id != presenceMember.ConnectionID {
 			continue
 		}
 		switch presenceMember.Action {
-		case PresenceActionEnter:
-			pres.members[memberKey] = presenceMember
-		case PresenceActionUpdate:
+		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
 			presenceMember.Action = PresenceActionPresent
-			fallthrough
-		case PresenceActionPresent:
-			delete(pres.stale, memberKey)
 			pres.members[memberKey] = presenceMember
 		case PresenceActionLeave:
-			// todo : check for synthesized leave
-			delete(pres.members, memberKey)
+			if !presenceMember.isServerSynthesized() {
+				delete(pres.members, memberKey)
+			}
 		}
 	}
 
@@ -210,12 +207,8 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 			}
 		}
 		switch presenceMember.Action {
-		case PresenceActionEnter:
-			pres.members[memberKey] = presenceMember
-		case PresenceActionUpdate:
+		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
 			presenceMember.Action = PresenceActionPresent
-			fallthrough
-		case PresenceActionPresent:
 			delete(pres.stale, memberKey)
 			pres.members[memberKey] = presenceMember
 		case PresenceActionLeave:
