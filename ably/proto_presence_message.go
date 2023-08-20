@@ -81,6 +81,7 @@ func (msg *PresenceMessage) getMsgSerialAndIndex() (int64, int64, error) {
 	return msgSerial, msgIndex, nil
 }
 
+// RTP2b, RTP2c
 func (msg1 *PresenceMessage) IsNewerThan(msg2 *PresenceMessage) (bool, error) {
 	// RTP2b1
 	if msg1.isServerSynthesized() || msg2.isServerSynthesized() {

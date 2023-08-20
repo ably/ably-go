@@ -100,7 +100,7 @@ func (pres *RealtimePresence) syncWait() {
 	pres.syncMtx.Unlock()
 }
 
-func syncSerial(msg *protocolMessage) string {
+func syncSerial(msg *protocolMessage) string { // RTP18
 	if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 {
 		return msg.ChannelSerial[i+1:]
 	}
@@ -203,22 +203,22 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		}
 	}
 	pres.mtx.Lock()
-	if syncSerial != "" {
+	if syncSerial != "" { //RTP2g
 		pres.syncStart(syncSerial)
 	}
 
 	// RTP17 - Update internal presence map
 	for _, presenceMember := range msg.Presence {
-		memberKey := presenceMember.ClientID
+		memberKey := presenceMember.ClientID // RTP17h
 		if pres.channel.client.Connection.id != presenceMember.ConnectionID {
 			continue
 		}
 		switch presenceMember.Action {
-		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
-			presenceMemberShallowCopy := presenceMember
+		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d, RTP17b
+			presenceMemberShallowCopy := presenceMember // RTP2g shouldn't mutate action for next loop
 			presenceMemberShallowCopy.Action = PresenceActionPresent
 			pres.addPresenceMember(pres.internalMembers, memberKey, presenceMemberShallowCopy)
-		case PresenceActionLeave:
+		case PresenceActionLeave: // RTP17b, RTP2e
 			if !presenceMember.isServerSynthesized() {
 				pres.removePresenceMember(pres.internalMembers, memberKey, presenceMember)
 			}
@@ -231,12 +231,12 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		memberKey := presenceMember.ConnectionID + presenceMember.ClientID
 		memberUpdated := false
 		switch presenceMember.Action {
-		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
+		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d
 			delete(pres.stale, memberKey)
 			presenceMemberShallowCopy := presenceMember
-			presenceMemberShallowCopy.Action = PresenceActionPresent
+			presenceMemberShallowCopy.Action = PresenceActionPresent // RTP2g
 			memberUpdated = pres.addPresenceMember(pres.members, memberKey, presenceMemberShallowCopy)
-		case PresenceActionLeave:
+		case PresenceActionLeave: // RTP2e
 			memberUpdated = pres.removePresenceMember(pres.members, memberKey, presenceMember)
 		}
 		if memberUpdated {
@@ -251,7 +251,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	msg.Count = len(updatedPresenceMessages)
 	msg.Presence = updatedPresenceMessages
 	for _, msg := range msg.Presence {
-		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg))
+		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg)) // RTP2g
 	}
 }
 
