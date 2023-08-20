@@ -162,6 +162,40 @@ func (pres *RealtimePresence) syncEnd() {
 	pres.syncMtx.Unlock()
 }
 
+func (pres *RealtimePresence) addPresenceMember(memberMap map[string]*PresenceMessage, memberKey string, presenceMember *PresenceMessage) bool {
+	if existingMember, ok := memberMap[memberKey]; ok { // RTP2a
+		isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
+		if err != nil {
+			pres.log().Error(err)
+			errorInfo := newError(0, err)
+			pres.channel.errorEmitter.Emit(subscriptionName("error"), (*errorMessage)(errorInfo))
+		}
+		if isMemberNew {
+			memberMap[memberKey] = presenceMember
+			return true
+		}
+		return false
+	}
+	memberMap[memberKey] = presenceMember
+	return true
+}
+
+func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*PresenceMessage, memberKey string, presenceMember *PresenceMessage) bool {
+	if existingMember, ok := memberMap[memberKey]; ok { // RTP2a
+		isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
+		if err != nil {
+			pres.log().Error(err)
+			errorInfo := newError(0, err)
+			pres.channel.errorEmitter.Emit(subscriptionName("error"), (*errorMessage)(errorInfo))
+		}
+		if isMemberNew {
+			delete(memberMap, memberKey)
+			return true
+		}
+	}
+	return false
+}
+
 func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncSerial string) {
 	for _, presmsg := range msg.Presence {
 		if presmsg.Timestamp == 0 {
@@ -173,8 +207,22 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		pres.syncStart(syncSerial)
 	}
 
-	// RTP17
-	// TODO - Add newness check for incoming message
+	// Update presence map / channel's member state.
+	newPresenceMessages := make([]*PresenceMessage, 0, len(msg.Presence))
+	for _, presenceMember := range msg.Presence {
+		memberKey := presenceMember.ConnectionID + presenceMember.ClientID
+		switch presenceMember.Action {
+		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
+			presenceMember.Action = PresenceActionPresent
+			delete(pres.stale, memberKey)
+			pres.addPresenceMember(pres.members, memberKey, presenceMember)
+		case PresenceActionLeave:
+			pres.removePresenceMember(pres.members, memberKey, presenceMember)
+		}
+		newPresenceMessages = append(newPresenceMessages, presenceMember)
+	}
+
+	// RTP17 - Update internal presence map
 	for _, presenceMember := range msg.Presence {
 		memberKey := presenceMember.ClientID
 		if pres.channel.client.Connection.id != presenceMember.ConnectionID {
@@ -183,38 +231,12 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		switch presenceMember.Action {
 		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
 			presenceMember.Action = PresenceActionPresent
-			pres.members[memberKey] = presenceMember
+			pres.addPresenceMember(pres.internalMembers, memberKey, presenceMember)
 		case PresenceActionLeave:
 			if !presenceMember.isServerSynthesized() {
-				delete(pres.members, memberKey)
+				pres.removePresenceMember(pres.internalMembers, memberKey, presenceMember)
 			}
 		}
-	}
-
-	// Update presence map / channel's member state.
-	newPresenceMessages := make([]*PresenceMessage, 0, len(msg.Presence))
-	for _, presenceMember := range msg.Presence {
-		memberKey := presenceMember.ConnectionID + presenceMember.ClientID
-		if existingMember, ok := pres.members[memberKey]; ok { // RTP2a
-			isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
-			if err != nil {
-				pres.log().Error(err)
-				errorInfo := newError(0, err)
-				pres.channel.errorEmitter.Emit(subscriptionName("error"), (*errorMessage)(errorInfo))
-			}
-			if !isMemberNew {
-				continue // do not accept if incoming member is old
-			}
-		}
-		switch presenceMember.Action {
-		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
-			presenceMember.Action = PresenceActionPresent
-			delete(pres.stale, memberKey)
-			pres.members[memberKey] = presenceMember
-		case PresenceActionLeave:
-			delete(pres.members, memberKey)
-		}
-		newPresenceMessages = append(newPresenceMessages, presenceMember)
 	}
 
 	if syncSerial == "" {
