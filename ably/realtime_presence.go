@@ -207,21 +207,6 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		pres.syncStart(syncSerial)
 	}
 
-	// Update presence map / channel's member state.
-	newPresenceMessages := make([]*PresenceMessage, 0, len(msg.Presence))
-	for _, presenceMember := range msg.Presence {
-		memberKey := presenceMember.ConnectionID + presenceMember.ClientID
-		switch presenceMember.Action {
-		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
-			presenceMember.Action = PresenceActionPresent
-			delete(pres.stale, memberKey)
-			pres.addPresenceMember(pres.members, memberKey, presenceMember)
-		case PresenceActionLeave:
-			pres.removePresenceMember(pres.members, memberKey, presenceMember)
-		}
-		newPresenceMessages = append(newPresenceMessages, presenceMember)
-	}
-
 	// RTP17 - Update internal presence map
 	for _, presenceMember := range msg.Presence {
 		memberKey := presenceMember.ClientID
@@ -230,8 +215,9 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		}
 		switch presenceMember.Action {
 		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
-			presenceMember.Action = PresenceActionPresent
-			pres.addPresenceMember(pres.internalMembers, memberKey, presenceMember)
+			presenceMemberShallowCopy := presenceMember
+			presenceMemberShallowCopy.Action = PresenceActionPresent
+			pres.addPresenceMember(pres.internalMembers, memberKey, presenceMemberShallowCopy)
 		case PresenceActionLeave:
 			if !presenceMember.isServerSynthesized() {
 				pres.removePresenceMember(pres.internalMembers, memberKey, presenceMember)
@@ -239,12 +225,31 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		}
 	}
 
+	// Update presence map / channel's member state.
+	updatedPresenceMessages := make([]*PresenceMessage, 0, len(msg.Presence))
+	for _, presenceMember := range msg.Presence {
+		memberKey := presenceMember.ConnectionID + presenceMember.ClientID
+		memberUpdated := false
+		switch presenceMember.Action {
+		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent:
+			delete(pres.stale, memberKey)
+			presenceMemberShallowCopy := presenceMember
+			presenceMemberShallowCopy.Action = PresenceActionPresent
+			memberUpdated = pres.addPresenceMember(pres.members, memberKey, presenceMemberShallowCopy)
+		case PresenceActionLeave:
+			memberUpdated = pres.removePresenceMember(pres.members, memberKey, presenceMember)
+		}
+		if memberUpdated {
+			updatedPresenceMessages = append(updatedPresenceMessages, presenceMember)
+		}
+	}
+
 	if syncSerial == "" {
 		pres.syncEnd()
 	}
 	pres.mtx.Unlock()
-	msg.Count = len(newPresenceMessages)
-	msg.Presence = newPresenceMessages
+	msg.Count = len(updatedPresenceMessages)
+	msg.Presence = updatedPresenceMessages
 	for _, msg := range msg.Presence {
 		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg))
 	}
