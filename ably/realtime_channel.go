@@ -805,10 +805,12 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		if msg.Flags != 0 {
 			c.setModes(channelModeFromFlag(msg.Flags))
 		}
-		c.Presence.onAttach(msg)
+
+		isNewAttach := c.state != ChannelStateAttached
+		c.Presence.onAttach(msg, isNewAttach)
 
 		isAttachResumed := msg.Flags.Has(flagResumed)
-		if c.state != ChannelStateAttached || !isAttachResumed { //RTL12
+		if isNewAttach || !isAttachResumed { //RTL12
 			c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), isAttachResumed)
 		}
 		c.queue.Flush()

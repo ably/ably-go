@@ -108,10 +108,15 @@ func syncSerial(msg *protocolMessage) string { // RTP18
 	return ""
 }
 
-func (pres *RealtimePresence) onAttach(msg *protocolMessage) {
+func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 	serial := syncSerial(msg)
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
+	if isNewAttach {
+		for _, member := range pres.internalMembers {
+			pres.EnterClient(context.Background(), member.ClientID, member.Data)
+		}
+	}
 	if msg.Flags.Has(flagHasPresence) {
 		pres.syncStart(serial)
 	} else {
