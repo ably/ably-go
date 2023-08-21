@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 )
 
 type syncState uint8
@@ -19,17 +20,17 @@ const (
 // It allows entering, leaving and updating presence state for the current client or on behalf of other client.
 // It enables the presence set to be entered and subscribed to, and the historic presence set to be retrieved for a channel.
 type RealtimePresence struct {
-	mtx             sync.Mutex
-	data            interface{}
-	serial          string
-	messageEmitter  *eventEmitter
-	channel         *RealtimeChannel
-	members         map[string]*PresenceMessage
-	internalMembers map[string]*PresenceMessage // RTP17
-	stale           map[string]struct{}
-	state           PresenceAction
-	syncMtx         sync.Mutex
-	syncState       syncState
+	mtx                 sync.Mutex
+	data                interface{}
+	serial              string
+	messageEmitter      *eventEmitter
+	channel             *RealtimeChannel
+	members             map[string]*PresenceMessage
+	internalMembers     map[string]*PresenceMessage // RTP17
+	syncResidualMembers map[string]*PresenceMessage
+	state               PresenceAction
+	syncMtx             sync.Mutex
+	syncState           syncState
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
@@ -111,12 +112,14 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage) {
 	serial := syncSerial(msg)
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
-	switch {
-	case msg.Flags.Has(flagHasPresence):
+	if msg.Flags.Has(flagHasPresence) {
 		pres.syncStart(serial)
-	case pres.syncState == syncInitial:
-		pres.syncState = syncComplete
-		pres.syncMtx.Unlock()
+	} else {
+		pres.leaveMembers(pres.members) // RTP19a
+		if pres.syncState == syncInitial {
+			pres.syncState = syncComplete
+			pres.syncMtx.Unlock()
+		}
 	}
 }
 
@@ -137,9 +140,22 @@ func (pres *RealtimePresence) syncStart(serial string) {
 	}
 	pres.serial = serial
 	pres.syncState = syncInProgress
-	pres.stale = make(map[string]struct{}, len(pres.members))
-	for memberKey := range pres.members {
-		pres.stale[memberKey] = struct{}{}
+	pres.syncResidualMembers = make(map[string]*PresenceMessage, len(pres.members)) // RTP19
+	for memberKey, member := range pres.members {
+		pres.syncResidualMembers[memberKey] = member
+	}
+}
+
+// RTP19, RTP19a
+func (pres *RealtimePresence) leaveMembers(members map[string]*PresenceMessage) {
+	for memberKey := range members { // RTP19
+		delete(pres.members, memberKey)
+	}
+	for _, msg := range members {
+		msg.Action = PresenceActionLeave
+		msg.ID = ""
+		msg.Timestamp = time.Now().UnixMilli()
+		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg)) // RTP2g
 	}
 }
 
@@ -147,15 +163,14 @@ func (pres *RealtimePresence) syncEnd() {
 	if pres.syncState != syncInProgress {
 		return
 	}
-	for memberKey := range pres.stale {
-		delete(pres.members, memberKey)
-	}
-	for memberKey, presence := range pres.members {
+	pres.leaveMembers(pres.syncResidualMembers) // RTP19
+
+	for memberKey, presence := range pres.members { // RTP2f
 		if presence.Action == PresenceActionAbsent {
 			delete(pres.members, memberKey)
 		}
 	}
-	pres.stale = nil
+	pres.syncResidualMembers = nil
 	pres.syncState = syncComplete
 	// Sync has completed, unblock all callers to Get(true) waiting
 	// for the sync.
@@ -232,7 +247,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		memberUpdated := false
 		switch presenceMember.Action {
 		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d
-			delete(pres.stale, memberKey)
+			delete(pres.syncResidualMembers, memberKey)
 			presenceMemberShallowCopy := presenceMember
 			presenceMemberShallowCopy.Action = PresenceActionPresent // RTP2g
 			memberUpdated = pres.addPresenceMember(pres.members, memberKey, presenceMemberShallowCopy)
