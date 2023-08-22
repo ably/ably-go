@@ -112,9 +112,21 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 	serial := syncSerial(msg)
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
-	if isNewAttach {
+	if isNewAttach { // RTP17f
 		for _, member := range pres.internalMembers {
-			pres.EnterClient(context.Background(), member.ClientID, member.Data)
+			err := pres.enterClient(context.Background(), member.ClientID, member.Data, member.ID) // RTP17g
+			// RTP17e
+			if err != nil {
+				change := ChannelStateChange{
+					Current:  pres.channel.state,
+					Previous: pres.channel.state,
+					Reason:   newError(91004, err),
+					Resumed:  true,
+					Event:    ChannelEventUpdate,
+				}
+				pres.channel.emitter.Emit(change.Event, change) //
+			}
+			pres.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
 		}
 	}
 	if msg.Flags.Has(flagHasPresence) {
@@ -464,6 +476,10 @@ func (pres *RealtimePresence) Leave(ctx context.Context, data interface{}) error
 // If the context is cancelled before the operation finishes, the call returns with an error,
 // but the operation carries on in the background and presence state may eventually be updated anyway.
 func (pres *RealtimePresence) EnterClient(ctx context.Context, clientID string, data interface{}) error {
+	return pres.enterClient(ctx, clientID, data, "")
+}
+
+func (pres *RealtimePresence) enterClient(ctx context.Context, clientID string, data interface{}, msgId string) error {
 	pres.mtx.Lock()
 	pres.data = data
 	pres.state = PresenceActionEnter
@@ -473,6 +489,7 @@ func (pres *RealtimePresence) EnterClient(ctx context.Context, clientID string, 
 	}
 	msg.Data = data
 	msg.ClientID = clientID
+	msg.ID = msgId
 	res, err := pres.send(&msg)
 	if err != nil {
 		return err
