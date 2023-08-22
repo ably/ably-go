@@ -117,6 +117,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 			err := pres.enterClient(context.Background(), member.ClientID, member.Data, member.ID) // RTP17g
 			// RTP17e
 			if err != nil {
+				pres.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
 				change := ChannelStateChange{
 					Current:  pres.channel.state,
 					Previous: pres.channel.state,
@@ -124,9 +125,8 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 					Resumed:  true,
 					Event:    ChannelEventUpdate,
 				}
-				pres.channel.emitter.Emit(change.Event, change) //
+				pres.channel.emitter.Emit(change.Event, change)
 			}
-			pres.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
 		}
 	}
 	if msg.Flags.Has(flagHasPresence) {
