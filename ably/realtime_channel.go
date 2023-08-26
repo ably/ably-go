@@ -274,7 +274,7 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 		c.queue.Flush()
 	case ConnectionStateFailed:
 		c.setState(ChannelStateFailed, change.Reason, false)
-		c.queue.Fail(change.Reason)
+		c.queue.Fail(change.Reason, false)
 	}
 }
 
@@ -858,7 +858,7 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		c.Presence.processIncomingMessage(msg, "")
 	case actionError:
 		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error), false)
-		c.queue.Fail(newErrorFromProto(msg.Error))
+		c.queue.Fail(newErrorFromProto(msg.Error), false)
 	case actionMessage:
 		if c.State() == ChannelStateAttached {
 			for _, msg := range msg.Messages {

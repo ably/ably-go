@@ -190,14 +190,14 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 	}
 }
 
-type msgch struct {
+type msgWithAck struct {
 	msg   *protocolMessage
 	onAck func(err error)
 }
 
 type msgQueue struct {
 	mtx   sync.Mutex
-	queue []msgch
+	queue []msgWithAck
 	conn  *Connection
 }
 
@@ -210,28 +210,33 @@ func newMsgQueue(conn *Connection) *msgQueue {
 func (q *msgQueue) Enqueue(msg *protocolMessage, onAck func(err error)) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
-	q.queue = append(q.queue, msgch{msg, onAck})
+	q.queue = append(q.queue, msgWithAck{msg, onAck})
 	q.mtx.Unlock()
 }
 
 func (q *msgQueue) Flush() {
 	q.mtx.Lock()
-	for _, msgch := range q.queue {
-		q.conn.send(msgch.msg, msgch.onAck)
+	for _, msgWithAck := range q.queue {
+		q.conn.send(msgWithAck.msg, msgWithAck.onAck)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
 }
 
-func (q *msgQueue) Fail(err error) {
+func (q *msgQueue) Fail(err error, onlyPresenceMessages bool) {
 	q.mtx.Lock()
-	for _, msgch := range q.queue {
-		q.log().Errorf("failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
-		if msgch.onAck != nil {
-			msgch.onAck(newError(90000, err))
+	var nonFailedQueueMessages []msgWithAck
+	for _, msgWithAck := range q.queue {
+		if onlyPresenceMessages && msgWithAck.msg.Action != actionPresence {
+			nonFailedQueueMessages = append(nonFailedQueueMessages, msgWithAck)
+			continue
+		}
+		q.log().Errorf("failure sending message (serial=%d): %v", msgWithAck.msg.MsgSerial, err)
+		if msgWithAck.onAck != nil {
+			msgWithAck.onAck(newError(90000, err))
 		}
 	}
-	q.queue = nil
+	q.queue = nonFailedQueueMessages
 	q.mtx.Unlock()
 }
 

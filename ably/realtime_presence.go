@@ -65,12 +65,12 @@ func (pres *RealtimePresence) onChannelDetachOrFailed(err ErrorInfo) {
 	for k := range pres.internalMembers {
 		delete(pres.internalMembers, k)
 	}
-	// TODO - fail all queued messages
+	pres.channel.queue.Fail(err, true)
 }
 
 // RTP5f
 func (pres *RealtimePresence) onChannelSuspended(err ErrorInfo) {
-	// TODO - fail all queued messages
+	pres.channel.queue.Fail(err, true)
 }
 
 func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {

@@ -914,7 +914,7 @@ func (c *Connection) failedConnSideEffects(err *errorInfo) {
 	}
 	c.lockSetState(ConnectionStateFailed, newErrorFromProto(err), 0)
 	c.mtx.Unlock()
-	c.queue.Fail(newErrorFromProto(err))
+	c.queue.Fail(newErrorFromProto(err), false)
 	if c.conn != nil {
 		c.conn.Close()
 	}
