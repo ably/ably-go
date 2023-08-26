@@ -214,12 +214,17 @@ func (q *msgQueue) Enqueue(msg *protocolMessage, onAck func(err error)) {
 	q.mtx.Unlock()
 }
 
-func (q *msgQueue) Flush() {
+func (q *msgQueue) Flush(onlyPresenceMessages bool) {
 	q.mtx.Lock()
+	var pendingQueuedMessages []msgWithAck
 	for _, msgWithAck := range q.queue {
+		if onlyPresenceMessages && msgWithAck.msg.Action != actionPresence {
+			pendingQueuedMessages = append(pendingQueuedMessages, msgWithAck)
+			continue
+		}
 		q.conn.send(msgWithAck.msg, msgWithAck.onAck)
 	}
-	q.queue = nil
+	q.queue = pendingQueuedMessages
 	q.mtx.Unlock()
 }
 

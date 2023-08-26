@@ -871,7 +871,7 @@ func (c *Connection) eventloop() {
 				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 				c.mtx.Unlock()
 			}
-			c.queue.Flush()
+			c.queue.Flush(false)
 		case actionDisconnected:
 			if !isTokenError(msg.Error) {
 				// The spec doesn't say what to do in this case, so do nothing.

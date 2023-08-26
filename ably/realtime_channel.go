@@ -271,7 +271,7 @@ func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions
 func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	switch change.Current {
 	case ConnectionStateConnected:
-		c.queue.Flush()
+		c.queue.Flush(false)
 	case ConnectionStateFailed:
 		c.setState(ChannelStateFailed, change.Reason, false)
 		c.queue.Fail(change.Reason, false)
@@ -813,7 +813,7 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		if isNewAttach || !isAttachResumed { //RTL12
 			c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), isAttachResumed)
 		}
-		c.queue.Flush()
+		c.queue.Flush(false)
 	case actionDetached:
 		c.mtx.Lock()
 		err := error(newErrorFromProto(msg.Error))
@@ -960,9 +960,21 @@ func (c *RealtimeChannel) setState(state ChannelState, err error, resumed bool) 
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
+	// RT5Pa
+	if state == ChannelStateDetached || state == ChannelStateFailed {
+		c.Presence.onChannelDetachedOrFailed(channelStateError(state, err))
+	}
 	// RTP5a1
 	if state == ChannelStateDetached || state == ChannelStateSuspended || state == ChannelStateFailed {
 		c.properties.ChannelSerial = ""
+	}
+	// RTP5b
+	if state == ChannelStateAttached {
+		c.queue.Flush(true)
+	}
+	// RTP5f
+	if state == ChannelStateSuspended {
+		c.Presence.onChannelSuspended(channelStateError(state, err))
 	}
 
 	return c.lockSetState(state, err, resumed)

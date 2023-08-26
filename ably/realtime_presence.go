@@ -58,7 +58,7 @@ func (pres *RealtimePresence) verifyChanState() error {
 }
 
 // RTP5a
-func (pres *RealtimePresence) onChannelDetachOrFailed(err ErrorInfo) {
+func (pres *RealtimePresence) onChannelDetachedOrFailed(err error) {
 	for k := range pres.members {
 		delete(pres.members, k)
 	}
@@ -69,7 +69,7 @@ func (pres *RealtimePresence) onChannelDetachOrFailed(err ErrorInfo) {
 }
 
 // RTP5f
-func (pres *RealtimePresence) onChannelSuspended(err ErrorInfo) {
+func (pres *RealtimePresence) onChannelSuspended(err error) {
 	pres.channel.queue.Fail(err, true)
 }
 
@@ -128,6 +128,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 	serial := syncSerial(msg)
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
+	// TODO - need to move this logic only when channel enters attached state
 	if isNewAttach { // RTP17f
 		for _, member := range pres.internalMembers {
 			err := pres.enterClient(context.Background(), member.ClientID, member.Data, member.ID) // RTP17g
