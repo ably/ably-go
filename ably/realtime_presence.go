@@ -57,6 +57,22 @@ func (pres *RealtimePresence) verifyChanState() error {
 	}
 }
 
+// RTP5a
+func (pres *RealtimePresence) onChannelDetachOrFailed(err ErrorInfo) {
+	for k := range pres.members {
+		delete(pres.members, k)
+	}
+	for k := range pres.internalMembers {
+		delete(pres.internalMembers, k)
+	}
+	// TODO - fail all queued messages
+}
+
+// RTP5f
+func (pres *RealtimePresence) onChannelSuspended(err ErrorInfo) {
+	// TODO - fail all queued messages
+}
+
 func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	attached, err := pres.channel.attach()
 	if err != nil {
