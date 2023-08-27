@@ -606,6 +606,7 @@ func (c *Connection) advanceSerial() {
 func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 	hasMsgSerial := msg.Action == actionMessage || msg.Action == actionPresence
 	c.mtx.Lock()
+	// RTP16a - in case of presence msg send, check for connection status and send accordingly
 	switch state := c.state; state {
 	default:
 		c.mtx.Unlock()

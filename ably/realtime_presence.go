@@ -48,9 +48,10 @@ func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 	return pres
 }
 
+// RTP16c
 func (pres *RealtimePresence) verifyChanState() error {
 	switch state := pres.channel.State(); state {
-	case ChannelStateDetached, ChannelStateDetaching, ChannelStateFailed:
+	case ChannelStateDetaching, ChannelStateDetached, ChannelStateFailed, ChannelStateSuspended:
 		return newError(91001, fmt.Errorf("unable to enter presence channel (invalid channel state: %s)", state.String()))
 	default:
 		return nil
@@ -74,13 +75,17 @@ func (pres *RealtimePresence) onChannelSuspended(err error) {
 }
 
 func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
+	// No need to do RTP16b since below action will make sure it goes
+	// into attached or failed states
 	attached, err := pres.channel.attach()
 	if err != nil {
 		return nil, err
 	}
+	// RTP16c
 	if err := pres.verifyChanState(); err != nil {
 		return nil, err
 	}
+	// RTP16 - state is attached at this stage
 	protomsg := &protocolMessage{
 		Action:   actionPresence,
 		Channel:  pres.channel.Name,
