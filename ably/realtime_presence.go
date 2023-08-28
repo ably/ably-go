@@ -79,31 +79,34 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	if err := pres.verifyChanState(); err != nil {
 		return nil, err
 	}
-	// RTP16 - state is attached at this stage
-	protomsg := &protocolMessage{
-		Action:   actionPresence,
-		Channel:  pres.channel.Name,
-		Presence: []*PresenceMessage{msg},
-	}
-	if pres.channel.state == ChannelStateAttached {
-		return resultFunc(func(ctx context.Context) error {
+	presenceSendFunc := func(ctx context.Context) error {
+		protomsg := &protocolMessage{
+			Action:   actionPresence,
+			Channel:  pres.channel.Name,
+			Presence: []*PresenceMessage{msg},
+		}
+		listen := make(chan error, 1)
+		onAck := func(err error) {
+			listen <- err
+		}
+		if err := pres.channel.send(protomsg, onAck); err != nil {
+			return err
+		}
 
-			listen := make(chan error, 1)
-			onAck := func(err error) {
-				listen <- err
-			}
-			if err := pres.channel.send(protomsg, onAck); err != nil {
-				return err
-			}
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case err := <-listen:
-				return err
-			}
-		}), nil
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-listen:
+			return err
+		}
 	}
+	if pres.channel.state == ChannelStateInitialized {
+		_, err := pres.channel.attach()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return resultFunc(presenceSendFunc), nil
 }
 
 func (pres *RealtimePresence) syncWait() {
