@@ -75,12 +75,6 @@ func (pres *RealtimePresence) onChannelSuspended(err error) {
 }
 
 func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
-	// No need to do RTP16b since below action will make sure it goes
-	// into attached or failed states
-	attached, err := pres.channel.attach()
-	if err != nil {
-		return nil, err
-	}
 	// RTP16c
 	if err := pres.verifyChanState(); err != nil {
 		return nil, err
@@ -91,27 +85,25 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 		Channel:  pres.channel.Name,
 		Presence: []*PresenceMessage{msg},
 	}
-	return resultFunc(func(ctx context.Context) error {
-		err := attached.Wait(ctx)
-		if err != nil {
-			return err
-		}
+	if pres.channel.state == ChannelStateAttached {
+		return resultFunc(func(ctx context.Context) error {
 
-		listen := make(chan error, 1)
-		onAck := func(err error) {
-			listen <- err
-		}
-		if err := pres.channel.send(protomsg, onAck); err != nil {
-			return err
-		}
+			listen := make(chan error, 1)
+			onAck := func(err error) {
+				listen <- err
+			}
+			if err := pres.channel.send(protomsg, onAck); err != nil {
+				return err
+			}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case err := <-listen:
-			return err
-		}
-	}), nil
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case err := <-listen:
+				return err
+			}
+		}), nil
+	}
 }
 
 func (pres *RealtimePresence) syncWait() {
