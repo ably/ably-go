@@ -109,6 +109,10 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	return resultFunc(presenceSendFunc), nil
 }
 
+func (pres *RealtimePresence) enqueuePresenceMsg() {
+
+}
+
 func (pres *RealtimePresence) syncWait() {
 	// If there's an undergoing sync operation or we wait till channel gets
 	// attached, the following lock is going to block until the operations
