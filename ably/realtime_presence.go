@@ -2,6 +2,7 @@ package ably
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -31,6 +32,7 @@ type RealtimePresence struct {
 	state               PresenceAction
 	syncMtx             sync.Mutex
 	syncState           syncState
+	queue               *msgQueue
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
@@ -41,6 +43,7 @@ func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 		internalMembers: make(map[string]*PresenceMessage),
 		syncState:       syncInitial,
 	}
+	pres.queue = newMsgQueue(pres.channel.client.Connection)
 	// Lock syncMtx to make all callers to Get(true) wait until the presence
 	// is in initial sync state. This is to not make them early return
 	// with an empty presence list before channel attaches.
@@ -66,12 +69,23 @@ func (pres *RealtimePresence) onChannelDetachedOrFailed(err error) {
 	for k := range pres.internalMembers {
 		delete(pres.internalMembers, k)
 	}
-	pres.channel.queue.Fail(err, true)
+	pres.queue.Fail(err)
 }
 
 // RTP5f
 func (pres *RealtimePresence) onChannelSuspended(err error) {
-	pres.channel.queue.Fail(err, true)
+	pres.queue.Fail(err)
+}
+
+func (pres *RealtimePresence) maybeEnqueue(msg *protocolMessage, onAck func(err error)) bool {
+	if pres.channel.opts().NoQueueing {
+		if onAck != nil {
+			onAck(errors.New("unable enqueue message because Options.QueueMessages is set to false"))
+		}
+		return false
+	}
+	pres.queue.Enqueue(msg, onAck)
+	return true
 }
 
 func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
@@ -79,38 +93,34 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	if err := pres.verifyChanState(); err != nil {
 		return nil, err
 	}
-	presenceSendFunc := func(ctx context.Context) error {
-		protomsg := &protocolMessage{
-			Action:   actionPresence,
-			Channel:  pres.channel.Name,
-			Presence: []*PresenceMessage{msg},
+	protomsg := &protocolMessage{
+		Action:   actionPresence,
+		Channel:  pres.channel.Name,
+		Presence: []*PresenceMessage{msg},
+	}
+	listen := make(chan error, 1)
+	onAck := func(err error) {
+		listen <- err
+	}
+	switch pres.channel.state {
+	case ChannelStateInitialized:
+		if pres.maybeEnqueue(protomsg, onAck) {
+			pres.channel.attach()
 		}
-		listen := make(chan error, 1)
-		onAck := func(err error) {
-			listen <- err
-		}
-		if err := pres.channel.send(protomsg, onAck); err != nil {
-			return err
-		}
+	case ChannelStateAttaching:
+		pres.maybeEnqueue(protomsg, onAck)
+	case ChannelStateAttached:
+		pres.channel.client.Connection.send(protomsg, onAck)
+	}
 
+	return resultFunc(func(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case err := <-listen:
 			return err
 		}
-	}
-	if pres.channel.state == ChannelStateInitialized {
-		_, err := pres.channel.attach()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return resultFunc(presenceSendFunc), nil
-}
-
-func (pres *RealtimePresence) enqueuePresenceMsg() {
-
+	}), nil
 }
 
 func (pres *RealtimePresence) syncWait() {

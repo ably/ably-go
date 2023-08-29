@@ -214,34 +214,24 @@ func (q *msgQueue) Enqueue(msg *protocolMessage, onAck func(err error)) {
 	q.mtx.Unlock()
 }
 
-func (q *msgQueue) Flush(onlyPresenceMessages bool) {
+func (q *msgQueue) Flush() {
 	q.mtx.Lock()
-	var pendingQueuedMessages []msgWithAck
-	for _, msgWithAck := range q.queue {
-		if onlyPresenceMessages && msgWithAck.msg.Action != actionPresence {
-			pendingQueuedMessages = append(pendingQueuedMessages, msgWithAck)
-			continue
-		}
-		q.conn.send(msgWithAck.msg, msgWithAck.onAck)
+	for _, msgch := range q.queue {
+		q.conn.send(msgch.msg, msgch.onAck)
 	}
-	q.queue = pendingQueuedMessages
+	q.queue = nil
 	q.mtx.Unlock()
 }
 
-func (q *msgQueue) Fail(err error, onlyPresenceMessages bool) {
+func (q *msgQueue) Fail(err error) {
 	q.mtx.Lock()
-	var nonFailedQueueMessages []msgWithAck
-	for _, msgWithAck := range q.queue {
-		if onlyPresenceMessages && msgWithAck.msg.Action != actionPresence {
-			nonFailedQueueMessages = append(nonFailedQueueMessages, msgWithAck)
-			continue
-		}
-		q.log().Errorf("failure sending message (serial=%d): %v", msgWithAck.msg.MsgSerial, err)
-		if msgWithAck.onAck != nil {
-			msgWithAck.onAck(newError(90000, err))
+	for _, msgch := range q.queue {
+		q.log().Errorf("failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
+		if msgch.onAck != nil {
+			msgch.onAck(newError(90000, err))
 		}
 	}
-	q.queue = nonFailedQueueMessages
+	q.queue = nil
 	q.mtx.Unlock()
 }
 

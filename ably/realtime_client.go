@@ -78,7 +78,7 @@ func (c *Realtime) onReconnected(isNewID bool) {
 		// No need to reattach: state is preserved. We just need to flush the
 		// queue of pending messages.
 		for _, ch := range c.Channels.Iterate() {
-			ch.queue.Flush(false)
+			ch.queue.Flush()
 		}
 		//RTN19a
 		c.Connection.resendPending()
