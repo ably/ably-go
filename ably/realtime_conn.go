@@ -620,9 +620,9 @@ func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 			if onAck != nil {
 				onAck(connStateError(state, errQueueing))
 			}
+		} else {
+			c.queue.Enqueue(msg, onAck) // RTL4i
 		}
-		c.queue.Enqueue(msg, onAck) // RTL4i
-
 	case ConnectionStateConnected:
 		if err := c.verifyAndUpdateMessages(msg); err != nil {
 			c.mtx.Unlock()
