@@ -642,6 +642,7 @@ func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 			// reconnection logic. But in case it isn't, force that by closing the
 			// connection. Otherwise, the message we enqueue here may be in the queue
 			// indefinitely.
+			c.log().Warnf("transport level failure while sending message, %v", err)
 			c.conn.Close()
 			c.mtx.Unlock()
 			c.queue.Enqueue(msg, onAck)
