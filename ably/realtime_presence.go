@@ -88,13 +88,6 @@ func (pres *RealtimePresence) maybeEnqueue(msg *protocolMessage, onAck func(err 
 	return true
 }
 
-func (pres *RealtimePresence) sendLocalPresenceQueueMessages() {
-	if len(pres.queue.queue) == 0 {
-		return
-	}
-	protoPresenceMsg := &protocolMessage{Presence: make([]*PresenceMessage, len(pres.queue.queue))}
-}
-
 func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	// RTP16c
 	if err := pres.verifyChanState(); err != nil {
@@ -176,7 +169,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 			pres.syncMtx.Unlock()
 		}
 	}
-	pres.sendLocalPresenceQueueMessages()
+	pres.queue.Flush()
 }
 
 // SyncComplete gives true if the initial SYNC operation has completed for the members present on the channel.
