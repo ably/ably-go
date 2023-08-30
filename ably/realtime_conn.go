@@ -873,7 +873,7 @@ func (c *Connection) eventloop() {
 				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 				c.mtx.Unlock()
 			}
-			c.queue.Flush(false)
+			c.queue.Flush()
 		case actionDisconnected:
 			if !isTokenError(msg.Error) {
 				// The spec doesn't say what to do in this case, so do nothing.
@@ -916,7 +916,7 @@ func (c *Connection) failedConnSideEffects(err *errorInfo) {
 	}
 	c.lockSetState(ConnectionStateFailed, newErrorFromProto(err), 0)
 	c.mtx.Unlock()
-	c.queue.Fail(newErrorFromProto(err), false)
+	c.queue.Fail(newErrorFromProto(err))
 	if c.conn != nil {
 		c.conn.Close()
 	}
