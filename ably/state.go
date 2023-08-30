@@ -216,8 +216,8 @@ func (q *msgQueue) Enqueue(msg *protocolMessage, onAck func(err error)) {
 
 func (q *msgQueue) Flush() {
 	q.mtx.Lock()
-	for _, msgch := range q.queue {
-		q.conn.send(msgch.msg, msgch.onAck)
+	for _, queueMsg := range q.queue {
+		q.conn.send(queueMsg.msg, queueMsg.onAck)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
@@ -225,10 +225,10 @@ func (q *msgQueue) Flush() {
 
 func (q *msgQueue) Fail(err error) {
 	q.mtx.Lock()
-	for _, msgch := range q.queue {
-		q.log().Errorf("failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
-		if msgch.onAck != nil {
-			msgch.onAck(newError(90000, err))
+	for _, queueMsg := range q.queue {
+		q.log().Errorf("failure sending message (serial=%d): %v", queueMsg.msg.MsgSerial, err)
+		if queueMsg.onAck != nil {
+			queueMsg.onAck(newError(90000, err))
 		}
 	}
 	q.queue = nil
