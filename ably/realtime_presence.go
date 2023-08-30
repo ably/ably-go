@@ -52,7 +52,7 @@ func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 }
 
 // RTP16c
-func (pres *RealtimePresence) verifyChanState() error {
+func (pres *RealtimePresence) isValidChannelState() error {
 	switch state := pres.channel.State(); state {
 	case ChannelStateDetaching, ChannelStateDetached, ChannelStateFailed, ChannelStateSuspended:
 		return newError(91001, fmt.Errorf("unable to enter presence channel (invalid channel state: %s)", state.String()))
@@ -69,10 +69,10 @@ func (pres *RealtimePresence) onChannelDetachedOrFailed(err error) {
 	for k := range pres.internalMembers {
 		delete(pres.internalMembers, k)
 	}
-	pres.queue.Fail(err)
+	pres.queue.Fail(err) // RTP16b
 }
 
-// RTP5f
+// RTP5f, RTP16b
 func (pres *RealtimePresence) onChannelSuspended(err error) {
 	pres.queue.Fail(err)
 }
@@ -90,7 +90,7 @@ func (pres *RealtimePresence) maybeEnqueue(msg *protocolMessage, onAck func(err 
 
 func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	// RTP16c
-	if err := pres.verifyChanState(); err != nil {
+	if err := pres.isValidChannelState(); err != nil {
 		return nil, err
 	}
 	protomsg := &protocolMessage{
@@ -103,14 +103,14 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 		listen <- err
 	}
 	switch pres.channel.state {
-	case ChannelStateInitialized:
+	case ChannelStateInitialized: // RTP16b
 		if pres.maybeEnqueue(protomsg, onAck) {
 			pres.channel.attach()
 		}
-	case ChannelStateAttaching:
+	case ChannelStateAttaching: // RTP16b
 		pres.maybeEnqueue(protomsg, onAck)
-	case ChannelStateAttached:
-		pres.channel.client.Connection.send(protomsg, onAck)
+	case ChannelStateAttached: // RTP16a
+		pres.channel.client.Connection.send(protomsg, onAck) // RTL6c2
 	}
 
 	return resultFunc(func(ctx context.Context) error {
@@ -139,7 +139,6 @@ func syncSerial(msg *protocolMessage) string { // RTP18
 }
 
 func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
-	serial := syncSerial(msg)
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
 	if isNewAttach { // RTP17f
@@ -159,8 +158,9 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 			}
 		}
 	}
+	// RTP1
 	if msg.Flags.Has(flagHasPresence) {
-		pres.syncStart(serial)
+		pres.syncStart(syncSerial(msg))
 	} else {
 		pres.leaveMembers(pres.members) // RTP19a
 		if pres.syncState == syncInitial {
@@ -168,6 +168,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 			pres.syncMtx.Unlock()
 		}
 	}
+	// RTP5b
 	pres.queue.Flush()
 }
 
@@ -266,7 +267,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		}
 	}
 	pres.mtx.Lock()
-	if syncSerial != "" { //RTP2g
+	if syncSerial != "" { // RTP18a
 		pres.syncStart(syncSerial)
 	}
 
@@ -307,14 +308,14 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		}
 	}
 
-	if syncSerial == "" {
+	if syncSerial == "" { // RTP18b
 		pres.syncEnd()
 	}
 	pres.mtx.Unlock()
-	msg.Count = len(updatedPresenceMessages)
-	msg.Presence = updatedPresenceMessages
-	for _, msg := range msg.Presence {
-		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg)) // RTP2g
+
+	// RTP2g
+	for _, msg := range updatedPresenceMessages {
+		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg))
 	}
 }
 

@@ -48,7 +48,7 @@ func TestVerifyChanState(t *testing.T) {
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
 			presence := newRealtimePresence(test.channel)
-			err := presence.verifyChanState()
+			err := presence.isValidChannelState()
 			assert.Equal(t, test.expectedErr, err)
 		})
 	}
