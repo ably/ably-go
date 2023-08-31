@@ -26,7 +26,7 @@ type RealtimePresence struct {
 	serial              string
 	messageEmitter      *eventEmitter
 	channel             *RealtimeChannel
-	members             map[string]*PresenceMessage
+	members             map[string]*PresenceMessage // RTP2
 	internalMembers     map[string]*PresenceMessage // RTP17
 	syncResidualMembers map[string]*PresenceMessage
 	state               PresenceAction
@@ -204,7 +204,7 @@ func (pres *RealtimePresence) leaveMembers(members map[string]*PresenceMessage) 
 		msg.Action = PresenceActionLeave
 		msg.ID = ""
 		msg.Timestamp = time.Now().UnixMilli()
-		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg)) // RTP2g
+		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg))
 	}
 }
 
@@ -274,7 +274,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		}
 		switch presenceMember.Action {
 		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d, RTP17b
-			presenceMemberShallowCopy := presenceMember // RTP2g shouldn't mutate action for next loop
+			presenceMemberShallowCopy := presenceMember
 			presenceMemberShallowCopy.Action = PresenceActionPresent
 			pres.addPresenceMember(pres.internalMembers, memberKey, presenceMemberShallowCopy)
 		case PresenceActionLeave: // RTP17b, RTP2e
@@ -287,17 +287,18 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 	// Update presence map / channel's member state.
 	updatedPresenceMessages := make([]*PresenceMessage, 0, len(msg.Presence))
 	for _, presenceMember := range msg.Presence {
-		memberKey := presenceMember.ConnectionID + presenceMember.ClientID
+		memberKey := presenceMember.ConnectionID + presenceMember.ClientID // TP3h
 		memberUpdated := false
 		switch presenceMember.Action {
 		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d
 			delete(pres.syncResidualMembers, memberKey)
 			presenceMemberShallowCopy := presenceMember
-			presenceMemberShallowCopy.Action = PresenceActionPresent // RTP2g
+			presenceMemberShallowCopy.Action = PresenceActionPresent
 			memberUpdated = pres.addPresenceMember(pres.members, memberKey, presenceMemberShallowCopy)
 		case PresenceActionLeave: // RTP2e
 			memberUpdated = pres.removePresenceMember(pres.members, memberKey, presenceMember)
 		}
+		// RTP2g
 		if memberUpdated {
 			updatedPresenceMessages = append(updatedPresenceMessages, presenceMember)
 		}
