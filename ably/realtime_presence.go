@@ -141,7 +141,7 @@ func syncSerial(msg *protocolMessage) string { // RTP18
 func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
-	if isNewAttach { // RTP17f
+	if isNewAttach { // RTP17f, RTP17
 		for _, member := range pres.internalMembers {
 			err := pres.enterClient(context.Background(), member.ClientID, member.Data, member.ID) // RTP17g
 			// RTP17e
@@ -168,8 +168,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 			pres.syncMtx.Unlock()
 		}
 	}
-	// RTP5b
-	pres.queue.Flush()
+	pres.queue.Flush() // RTP5b
 }
 
 // SyncComplete gives true if the initial SYNC operation has completed for the members present on the channel.
@@ -197,7 +196,7 @@ func (pres *RealtimePresence) syncStart(serial string) {
 
 // RTP19, RTP19a
 func (pres *RealtimePresence) leaveMembers(members map[string]*PresenceMessage) {
-	for memberKey := range members { // RTP19
+	for memberKey := range members {
 		delete(pres.members, memberKey)
 	}
 	for _, msg := range members {
@@ -226,6 +225,7 @@ func (pres *RealtimePresence) syncEnd() {
 	pres.syncMtx.Unlock()
 }
 
+// RTP2a, RTP2b, RTP2c
 func (pres *RealtimePresence) addPresenceMember(memberMap map[string]*PresenceMessage, memberKey string, presenceMember *PresenceMessage) bool {
 	if existingMember, ok := memberMap[memberKey]; ok { // RTP2a
 		isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
@@ -244,6 +244,7 @@ func (pres *RealtimePresence) addPresenceMember(memberMap map[string]*PresenceMe
 	return true
 }
 
+// RTP2a, RTP2b, RTP2c
 func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*PresenceMessage, memberKey string, presenceMember *PresenceMessage) bool {
 	if existingMember, ok := memberMap[memberKey]; ok { // RTP2a
 		isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
@@ -268,8 +269,8 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 
 	// RTP17 - Update internal presence map
 	for _, presenceMember := range msg.Presence {
-		memberKey := presenceMember.ClientID // RTP17h
-		if pres.channel.client.Connection.id != presenceMember.ConnectionID {
+		memberKey := presenceMember.ClientID                                  // RTP17h
+		if pres.channel.client.Connection.id != presenceMember.ConnectionID { // RTP17
 			continue
 		}
 		switch presenceMember.Action {
