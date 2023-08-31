@@ -261,11 +261,6 @@ func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*Presenc
 }
 
 func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncSerial string) {
-	for _, presmsg := range msg.Presence {
-		if presmsg.Timestamp == 0 {
-			presmsg.Timestamp = msg.Timestamp
-		}
-	}
 	pres.mtx.Lock()
 	if syncSerial != "" { // RTP18a
 		pres.syncStart(syncSerial)
