@@ -968,10 +968,6 @@ func (c *RealtimeChannel) setState(state ChannelState, err error, resumed bool) 
 	if state == ChannelStateDetached || state == ChannelStateSuspended || state == ChannelStateFailed {
 		c.properties.ChannelSerial = ""
 	}
-	// RTP5b
-	if state == ChannelStateAttached {
-		c.queue.Flush()
-	}
 	// RTP5f
 	if state == ChannelStateSuspended {
 		c.Presence.onChannelSuspended(channelStateError(state, err))
