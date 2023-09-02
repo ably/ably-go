@@ -21,18 +21,17 @@ const (
 // It allows entering, leaving and updating presence state for the current client or on behalf of other client.
 // It enables the presence set to be entered and subscribed to, and the historic presence set to be retrieved for a channel.
 type RealtimePresence struct {
-	mtx                 sync.Mutex
-	data                interface{}
-	serial              string
-	messageEmitter      *eventEmitter
-	channel             *RealtimeChannel
-	members             map[string]*PresenceMessage // RTP2
-	internalMembers     map[string]*PresenceMessage // RTP17
-	syncResidualMembers map[string]*PresenceMessage
-	state               PresenceAction
-	syncMtx             sync.Mutex
-	syncState           syncState
-	queue               *msgQueue
+	mtx               sync.Mutex
+	data              interface{}
+	messageEmitter    *eventEmitter
+	channel           *RealtimeChannel
+	members           map[string]*PresenceMessage // RTP2
+	internalMembers   map[string]*PresenceMessage // RTP17
+	beforeSyncMembers map[string]*PresenceMessage
+	state             PresenceAction
+	syncMtx           sync.Mutex
+	syncState         syncState
+	queue             *msgQueue
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
@@ -131,11 +130,18 @@ func (pres *RealtimePresence) syncWait() {
 	pres.syncMtx.Unlock()
 }
 
-func syncSerial(msg *protocolMessage) string { // RTP18
-	if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 {
-		return msg.ChannelSerial[i+1:]
+// RTP18
+func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncCursor bool) {
+	if empty(msg.ChannelSerial) { // RTP18c
+		noChannelSerial = true
+		return
 	}
-	return ""
+	if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 { // RTP18a
+		// syncCursor = msg.ChannelSerial[i+1:]
+		syncCursor = true
+		return
+	}
+	return // RTP18b
 }
 
 func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
@@ -160,7 +166,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
 	}
 	// RTP1
 	if msg.Flags.Has(flagHasPresence) {
-		pres.syncStart(syncSerial(msg))
+		pres.syncStart()
 	} else {
 		pres.leaveMembers(pres.members) // RTP19a
 		if pres.syncState == syncInitial {
@@ -178,7 +184,7 @@ func (pres *RealtimePresence) SyncComplete() bool {
 	return pres.syncState == syncComplete
 }
 
-func (pres *RealtimePresence) syncStart(serial string) {
+func (pres *RealtimePresence) syncStart() {
 	if pres.syncState == syncInProgress {
 		return
 	} else if pres.syncState != syncInitial {
@@ -186,11 +192,10 @@ func (pres *RealtimePresence) syncStart(serial string) {
 		// initial sync, the callers are already waiting.
 		pres.syncMtx.Lock()
 	}
-	pres.serial = serial
 	pres.syncState = syncInProgress
-	pres.syncResidualMembers = make(map[string]*PresenceMessage, len(pres.members)) // RTP19
+	pres.beforeSyncMembers = make(map[string]*PresenceMessage, len(pres.members)) // RTP19
 	for memberKey, member := range pres.members {
-		pres.syncResidualMembers[memberKey] = member
+		pres.beforeSyncMembers[memberKey] = member
 	}
 }
 
@@ -211,14 +216,14 @@ func (pres *RealtimePresence) syncEnd() {
 	if pres.syncState != syncInProgress {
 		return
 	}
-	pres.leaveMembers(pres.syncResidualMembers) // RTP19
+	pres.leaveMembers(pres.beforeSyncMembers) // RTP19
 
 	for memberKey, presence := range pres.members { // RTP2f
 		if presence.Action == PresenceActionAbsent {
 			delete(pres.members, memberKey)
 		}
 	}
-	pres.syncResidualMembers = nil
+	pres.beforeSyncMembers = nil
 	pres.syncState = syncComplete
 	// Sync has completed, unblock all callers to Get(true) waiting
 	// for the sync.
@@ -261,12 +266,26 @@ func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*Presenc
 	return false
 }
 
-func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncSerial string) {
-	pres.mtx.Lock()
-	if syncSerial != "" { // RTP18a
-		pres.syncStart(syncSerial)
+// RTP18
+// TODO - Part of RTP18a where new sequence id is received in middle of sync
+// will not call synStart because sync is in progress.
+// Though it will process the message in the next step when lock is ended.
+func (pres *RealtimePresence) processSyncMessage(msg *protocolMessage) {
+	hasAllPresenceData, syncCursor := syncSerial(msg)
+
+	if hasAllPresenceData || syncCursor { // RTP18a, RTP18c
+		pres.syncStart()
 	}
 
+	pres.processIncomingMessage(msg)
+
+	if hasAllPresenceData || !syncCursor { // RTP18b, RTP18c
+		pres.syncEnd()
+	}
+}
+
+func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage) {
+	pres.mtx.Lock()
 	// RTP17 - Update internal presence map
 	for _, presenceMember := range msg.Presence {
 		memberKey := presenceMember.ClientID                                  // RTP17h
@@ -292,7 +311,7 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		memberUpdated := false
 		switch presenceMember.Action {
 		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d
-			delete(pres.syncResidualMembers, memberKey)
+			delete(pres.beforeSyncMembers, memberKey)
 			presenceMemberShallowCopy := presenceMember
 			presenceMemberShallowCopy.Action = PresenceActionPresent
 			memberUpdated = pres.addPresenceMember(pres.members, memberKey, presenceMemberShallowCopy)
@@ -303,10 +322,6 @@ func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncS
 		if memberUpdated {
 			updatedPresenceMessages = append(updatedPresenceMessages, presenceMember)
 		}
-	}
-
-	if syncSerial == "" { // RTP18b
-		pres.syncEnd()
 	}
 	pres.mtx.Unlock()
 

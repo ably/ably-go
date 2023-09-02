@@ -853,9 +853,9 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 
 		c.lockStartRetryAttachLoop(err)
 	case actionSync:
-		c.Presence.processIncomingMessage(msg, syncSerial(msg))
+		c.Presence.processSyncMessage(msg) // RTP18
 	case actionPresence:
-		c.Presence.processIncomingMessage(msg, "")
+		c.Presence.processIncomingMessage(msg)
 	case actionError:
 		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error), false)
 		c.queue.Fail(newErrorFromProto(msg.Error))
