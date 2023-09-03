@@ -266,10 +266,10 @@ func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*Presenc
 }
 
 // RTP18
-// TODO - Part of RTP18a where new sequence id is received in middle of sync
-// will not call synStart because sync is in progress.
-// Though it will process the message in the next step when lock is ended.
 func (pres *RealtimePresence) processProtoSyncMessage(msg *protocolMessage) {
+	// TODO - Part of RTP18a where new sequence id is received in middle of sync will not call synStart
+	// because sync is in progress. Though it will wait till all proto messages are processed.
+	// This is not implemented because of additional complexity of managing locks.
 	hasAllPresenceData, syncCursor := syncSerial(msg)
 
 	if hasAllPresenceData || syncCursor { // RTP18a, RTP18c
