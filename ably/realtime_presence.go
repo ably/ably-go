@@ -144,23 +144,18 @@ func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncCursor bool) {
 	return // RTP18b
 }
 
-func (pres *RealtimePresence) onAttach(msg *protocolMessage, isNewAttach bool) {
+func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMessageLoss bool) {
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
-	if isNewAttach { // RTP17f, RTP17
+	// RTP17f
+	if isAttachWithoutMessageLoss {
 		for _, member := range pres.internalMembers {
-			err := pres.enterClient(context.Background(), member.ClientID, member.Data, member.ID) // RTP17g
+			// RTP17g
+			err := pres.enterClient(context.Background(), member.ClientID, member.Data, member.ID)
 			// RTP17e
 			if err != nil {
-				pres.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
-				change := ChannelStateChange{
-					Current:  pres.channel.state,
-					Previous: pres.channel.state,
-					Reason:   newError(91004, err),
-					Resumed:  true,
-					Event:    ChannelEventUpdate,
-				}
-				pres.channel.emitter.Emit(change.Event, change)
+				pres.channel.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
+				pres.channel.emitErrorUpdate(newError(91004, err), msg.Flags.Has(flagResumed))
 			}
 		}
 	}

@@ -805,13 +805,13 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		if msg.Flags != 0 {
 			c.setModes(channelModeFromFlag(msg.Flags))
 		}
-
-		isNewAttach := c.state != ChannelStateAttached
-		c.Presence.onAttach(msg, isNewAttach)
-
-		isAttachResumed := msg.Flags.Has(flagResumed)
-		if isNewAttach || !isAttachResumed { //RTL12
-			c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), isAttachResumed)
+		// RTL12
+		if c.state == ChannelStateAttached && !msg.Flags.Has(flagResumed) {
+			c.emitErrorUpdate(newErrorFromProto(msg.Error), false) // RTL12
+			c.Presence.onAttach(msg, false)
+		} else {
+			c.Presence.onAttach(msg, true)
+			c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(flagResumed))
 		}
 		c.queue.Flush()
 	case actionDetached:
@@ -986,6 +986,17 @@ func (c *RealtimeChannel) lockSetAttachResume(state ChannelState) {
 	if state == ChannelStateFailed {
 		c.attachResume = false
 	}
+}
+
+func (channel *RealtimeChannel) emitErrorUpdate(err *ErrorInfo, resumed bool) {
+	change := ChannelStateChange{
+		Current:  channel.state,
+		Previous: channel.state,
+		Reason:   err,
+		Resumed:  resumed,
+		Event:    ChannelEventUpdate,
+	}
+	channel.emitter.Emit(change.Event, change)
 }
 
 func (c *RealtimeChannel) lockSetState(state ChannelState, err error, resumed bool) error {
