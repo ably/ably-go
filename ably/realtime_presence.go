@@ -109,7 +109,7 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	case ChannelStateAttaching: // RTP16b
 		pres.maybeEnqueue(protomsg, onAck)
 	case ChannelStateAttached: // RTP16a
-		pres.channel.client.Connection.send(protomsg, onAck) // RTL6c2
+		pres.channel.client.Connection.send(protomsg, onAck) // RTP16a, RTL6c
 	}
 
 	return resultFunc(func(ctx context.Context) error {
@@ -144,20 +144,24 @@ func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncCursor bool) {
 	return // RTP18b
 }
 
+func (pres *RealtimePresence) enterMembersFromInternalPresenceMap() {
+	for _, member := range pres.internalMembers {
+		// RTP17g
+		err := pres.enterClient(context.Background(), member.ClientID, member.Data, member.ID)
+		// RTP17e
+		if err != nil {
+			pres.channel.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
+			pres.channel.emitErrorUpdate(newError(91004, err), true)
+		}
+	}
+}
+
 func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMessageLoss bool) {
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
 	// RTP17f
 	if isAttachWithoutMessageLoss {
-		for _, member := range pres.internalMembers {
-			// RTP17g
-			err := pres.enterClient(context.Background(), member.ClientID, member.Data, member.ID)
-			// RTP17e
-			if err != nil {
-				pres.channel.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
-				pres.channel.emitErrorUpdate(newError(91004, err), msg.Flags.Has(flagResumed))
-			}
-		}
+		pres.enterMembersFromInternalPresenceMap()
 	}
 	// RTP1
 	if msg.Flags.Has(flagHasPresence) {
@@ -265,21 +269,21 @@ func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*Presenc
 // TODO - Part of RTP18a where new sequence id is received in middle of sync
 // will not call synStart because sync is in progress.
 // Though it will process the message in the next step when lock is ended.
-func (pres *RealtimePresence) processSyncMessage(msg *protocolMessage) {
+func (pres *RealtimePresence) processProtoSyncMessage(msg *protocolMessage) {
 	hasAllPresenceData, syncCursor := syncSerial(msg)
 
 	if hasAllPresenceData || syncCursor { // RTP18a, RTP18c
 		pres.syncStart()
 	}
 
-	pres.processIncomingMessage(msg)
+	pres.processProtoPresenceMessage(msg)
 
 	if hasAllPresenceData || !syncCursor { // RTP18b, RTP18c
 		pres.syncEnd()
 	}
 }
 
-func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage) {
+func (pres *RealtimePresence) processProtoPresenceMessage(msg *protocolMessage) {
 	pres.mtx.Lock()
 	// RTP17 - Update internal presence map
 	for _, presenceMember := range msg.Presence {
