@@ -131,17 +131,18 @@ func (pres *RealtimePresence) syncWait() {
 }
 
 // RTP18
-func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncCursor bool) {
+func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncSequenceId string, syncCursor string) {
 	if empty(msg.ChannelSerial) { // RTP18c
 		noChannelSerial = true
 		return
 	}
-	if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 { // RTP18a
-		// syncCursor = msg.ChannelSerial[i+1:]
-		syncCursor = true
-		return
+	// RTP18a
+	serials := strings.Split(msg.ChannelSerial, ":")
+	syncSequenceId = serials[0]
+	if len(serials) > 1 {
+		syncCursor = serials[1]
 	}
-	return // RTP18b
+	return false, syncSequenceId, syncCursor
 }
 
 func (pres *RealtimePresence) enterMembersFromInternalPresenceMap() {
@@ -270,15 +271,13 @@ func (pres *RealtimePresence) processProtoSyncMessage(msg *protocolMessage) {
 	// TODO - Part of RTP18a where new sequence id is received in middle of sync will not call synStart
 	// because sync is in progress. Though it will wait till all proto messages are processed.
 	// This is not implemented because of additional complexity of managing locks.
-	hasAllPresenceData, syncCursor := syncSerial(msg)
+	noChannelSerial, _, syncCursor := syncSerial(msg)
 
-	if hasAllPresenceData || syncCursor { // RTP18a, RTP18c
-		pres.syncStart()
-	}
+	pres.syncStart() // RTP18a, RTP18c
 
 	pres.processProtoPresenceMessage(msg)
 
-	if hasAllPresenceData || !syncCursor { // RTP18b, RTP18c
+	if noChannelSerial || empty(syncCursor) { // RTP18c, RTP18b
 		pres.syncEnd()
 	}
 }
