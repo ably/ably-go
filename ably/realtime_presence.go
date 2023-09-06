@@ -68,7 +68,7 @@ func (pres *RealtimePresence) onChannelDetachedOrFailed(err error) {
 	for k := range pres.internalMembers {
 		delete(pres.internalMembers, k)
 	}
-	pres.queue.Fail(err) // RTP16b
+	pres.queue.Fail(err)
 }
 
 // RTP5f, RTP16b
@@ -160,6 +160,7 @@ func (pres *RealtimePresence) enterMembersFromInternalPresenceMap() {
 func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMessageLoss bool) {
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
+	pres.queue.Flush() // RTP5b
 	// RTP17f
 	if isAttachWithoutMessageLoss {
 		pres.enterMembersFromInternalPresenceMap()
@@ -174,7 +175,6 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMess
 			pres.syncMtx.Unlock()
 		}
 	}
-	pres.queue.Flush() // RTP5b
 }
 
 // SyncComplete gives true if the initial SYNC operation has completed for the members present on the channel.
@@ -270,7 +270,7 @@ func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*Presenc
 func (pres *RealtimePresence) processProtoSyncMessage(msg *protocolMessage) {
 	// TODO - Part of RTP18a where new sequence id is received in middle of sync will not call synStart
 	// because sync is in progress. Though it will wait till all proto messages are processed.
-	// This is not implemented because of additional complexity of managing locks.
+	// This is not implemented because of additional complexity of managing locks and reverting to prev. memberstate
 	noChannelSerial, _, syncCursor := syncSerial(msg)
 
 	pres.syncStart() // RTP18a, RTP18c
