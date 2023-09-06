@@ -148,7 +148,7 @@ func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncSequenceId stri
 func (pres *RealtimePresence) enterMembersFromInternalPresenceMap() {
 	for _, member := range pres.internalMembers {
 		// RTP17g
-		err := pres.enterClient(context.Background(), member.ClientID, member.Data, member.ID)
+		err := pres.EnterClient(context.Background(), member.ClientID, member.Data)
 		// RTP17e
 		if err != nil {
 			pres.channel.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
@@ -518,10 +518,6 @@ func (pres *RealtimePresence) Leave(ctx context.Context, data interface{}) error
 // If the context is cancelled before the operation finishes, the call returns with an error,
 // but the operation carries on in the background and presence state may eventually be updated anyway.
 func (pres *RealtimePresence) EnterClient(ctx context.Context, clientID string, data interface{}) error {
-	return pres.enterClient(ctx, clientID, data, "")
-}
-
-func (pres *RealtimePresence) enterClient(ctx context.Context, clientID string, data interface{}, msgId string) error {
 	pres.mtx.Lock()
 	pres.data = data
 	pres.state = PresenceActionEnter
@@ -531,7 +527,6 @@ func (pres *RealtimePresence) enterClient(ctx context.Context, clientID string, 
 	}
 	msg.Data = data
 	msg.ClientID = clientID
-	msg.ID = msgId
 	res, err := pres.send(&msg)
 	if err != nil {
 		return err
