@@ -160,11 +160,6 @@ func (pres *RealtimePresence) enterMembersFromInternalPresenceMap() {
 func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMessageLoss bool) {
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
-	pres.queue.Flush() // RTP5b
-	// RTP17f
-	if isAttachWithoutMessageLoss {
-		pres.enterMembersFromInternalPresenceMap()
-	}
 	// RTP1
 	if msg.Flags.Has(flagHasPresence) {
 		pres.syncStart()
@@ -174,6 +169,11 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMess
 			pres.syncState = syncComplete
 			pres.syncMtx.Unlock()
 		}
+	}
+	pres.queue.Flush() // RTP5b
+	// RTP17f
+	if isAttachWithoutMessageLoss {
+		pres.enterMembersFromInternalPresenceMap()
 	}
 }
 
