@@ -5,6 +5,7 @@ package ablyutil
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 )
 
@@ -30,4 +31,29 @@ func TestMsgpack(t *testing.T) {
 			ts.Errorf("expected 12 got %v", b.Key)
 		}
 	})
+}
+
+func TestMsgpackJson(t *testing.T) {
+	extras := map[string]interface{}{
+		"headers": map[string]interface{}{
+			"version": 1,
+		},
+	}
+
+	b, err := MarshalMsgpack(extras)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got map[string]interface{}
+	err = UnmarshalMsgpack(b, &got)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buff := bytes.Buffer{}
+	err = json.NewEncoder(&buff).Encode(got)
+	if err != nil {
+		t.Fatal(err)
+	}
 }

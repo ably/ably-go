@@ -107,6 +107,34 @@ func loadMsgpackFixtures() ([]MsgpackTestFixture, error) {
 	return o, err
 }
 
+func TestMsgpackExtrasJsonCompatible(t *testing.T) {
+	p := protocolMessage{
+		Messages: []*Message{
+			{
+				Name: "my event",
+				Data: "hello world",
+				Extras: map[string]interface{}{
+					"headers": map[string]interface{}{
+						"version": 1,
+					},
+				},
+			},
+		},
+	}
+
+	b, err := ablyutil.MarshalMsgpack(p)
+	assert.NoError(t, err)
+
+	var got ProtocolMessage
+	assert.NoError(t, ablyutil.UnmarshalMsgpack(b, &got))
+
+	msg, err := got.Messages[0].withDecodedData(nil)
+	assert.NoError(t, err)
+
+	buff := bytes.Buffer{}
+	assert.NoError(t, json.NewEncoder(&buff).Encode(msg))
+}
+
 func TestMsgpackDecoding(t *testing.T) {
 	msgpackTestFixtures, err := loadMsgpackFixtures()
 	require.NoError(t, err)
