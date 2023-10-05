@@ -1,6 +1,12 @@
 # Change Log
 
-# Changelog
+## [1.2.14](https://github.com/ably/ably-go/tree/1.2.14)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.13...v1.2.14)
+
+**Merged pull requests:**
+
+- Fix message extras unmarshaled to incompatible json type [\#624](https://github.com/ably/ably-go/pull/624) ([zknill](https://github.com/zknill))
 
 ## [1.2.13](https://github.com/ably/ably-go/tree/1.2.13)
 
