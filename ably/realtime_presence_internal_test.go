@@ -4,13 +4,14 @@
 package ably
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVerifyChanState(t *testing.T) {
+func TestVerifyChanState_RTP16(t *testing.T) {
 	tests := map[string]struct {
 		channel     *RealtimeChannel
 		expectedErr error
@@ -27,9 +28,9 @@ func TestVerifyChanState(t *testing.T) {
 			channel:     mockChannelWithState(&ChannelStateAttached, nil),
 			expectedErr: nil,
 		},
-		`No error if the channel is in state: "SUSPENDED"`: {
+		`Error if the channel is in state: "SUSPENDED"`: {
 			channel:     mockChannelWithState(&ChannelStateSuspended, nil),
-			expectedErr: nil,
+			expectedErr: newError(91001, errors.New("unable to enter presence channel (invalid channel state: SUSPENDED)")),
 		},
 		`Error if the channel is in state: "DETACHING"`: {
 			channel:     mockChannelWithState(&ChannelStateDetaching, nil),
@@ -67,7 +68,15 @@ func TestSend(t *testing.T) {
 				Message: Message{Name: "Hello"},
 				Action:  PresenceActionEnter,
 			},
-			expectedErr: nil,
+			expectedErr: (*ErrorInfo)(nil),
+		},
+		`Error if channel is: "ATTACHED" and connection is :"CLOSED"`: {
+			channel: mockChannelWithState(&ChannelStateAttached, &ConnectionStateClosed),
+			msg: PresenceMessage{
+				Message: Message{Name: "Hello"},
+				Action:  PresenceActionEnter,
+			},
+			expectedErr: newError(80017, errors.New("Connection unavailable")),
 		},
 		`Error if channel is: "DETACHED" and connection is :"CLOSED"`: {
 			channel: mockChannelWithState(&ChannelStateDetached, &ConnectionStateClosed),
@@ -75,15 +84,15 @@ func TestSend(t *testing.T) {
 				Message: Message{Name: "Hello"},
 				Action:  PresenceActionEnter,
 			},
-			expectedErr: newError(80000, errors.New("cannot Attach channel because connection is in CLOSED state")),
+			expectedErr: newError(91001, errors.New("unable to enter presence channel (invalid channel state: DETACHED)")),
 		},
 	}
 
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
 			presence := newRealtimePresence(test.channel)
-			_, err := presence.send(&test.msg)
-			assert.Equal(t, test.expectedErr, err)
+			err := presence.EnterClient(context.Background(), "clientId", &test.msg.Message)
+			assert.Equal(t, test.expectedErr, err.(*ErrorInfo))
 		})
 	}
 }
