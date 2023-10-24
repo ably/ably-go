@@ -58,32 +58,23 @@ func TestVerifyChanState_RTP16(t *testing.T) {
 func TestSend(t *testing.T) {
 	tests := map[string]struct {
 		channel        *RealtimeChannel
-		msg            PresenceMessage
+		msg            Message
 		expectedResult result
 		expectedErr    error
 	}{
 		`No error sending presence if the channel is in state: "ATTACHED"`: {
-			channel: mockChannelWithState(&ChannelStateAttached, nil),
-			msg: PresenceMessage{
-				Message: Message{Name: "Hello"},
-				Action:  PresenceActionEnter,
-			},
+			channel:     mockChannelWithState(&ChannelStateAttached, nil),
+			msg:         Message{Name: "Hello"},
 			expectedErr: (*ErrorInfo)(nil),
 		},
 		`Error if channel is: "ATTACHED" and connection is :"CLOSED"`: {
-			channel: mockChannelWithState(&ChannelStateAttached, &ConnectionStateClosed),
-			msg: PresenceMessage{
-				Message: Message{Name: "Hello"},
-				Action:  PresenceActionEnter,
-			},
+			channel:     mockChannelWithState(&ChannelStateAttached, &ConnectionStateClosed),
+			msg:         Message{Name: "Hello"},
 			expectedErr: newError(80017, errors.New("Connection unavailable")),
 		},
 		`Error if channel is: "DETACHED" and connection is :"CLOSED"`: {
-			channel: mockChannelWithState(&ChannelStateDetached, &ConnectionStateClosed),
-			msg: PresenceMessage{
-				Message: Message{Name: "Hello"},
-				Action:  PresenceActionEnter,
-			},
+			channel:     mockChannelWithState(&ChannelStateDetached, &ConnectionStateClosed),
+			msg:         Message{Name: "Hello"},
 			expectedErr: newError(91001, errors.New("unable to enter presence channel (invalid channel state: DETACHED)")),
 		},
 	}
@@ -91,7 +82,7 @@ func TestSend(t *testing.T) {
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
 			presence := newRealtimePresence(test.channel)
-			err := presence.EnterClient(context.Background(), "clientId", &test.msg.Message)
+			err := presence.EnterClient(context.Background(), "clientId", &test.msg)
 			assert.Equal(t, test.expectedErr, err.(*ErrorInfo))
 		})
 	}
