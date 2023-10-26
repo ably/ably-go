@@ -61,10 +61,6 @@ type Connection struct {
 	// a realtime client docs for more info (RTN9).
 	key string
 
-	// serial is the serial number of the last message to be received on this connection, used automatically by
-	// the library when recovering or resuming a connection. When recovering a connection explicitly, the recoveryKey
-	// is used in the recover client options as it contains both the key and the last message serial (RTN10).
-	serial       *int64
 	msgSerial    int64
 	connStateTTL durationFromMsecs
 	err          error
@@ -521,14 +517,6 @@ func (c *Connection) CreateRecoveryKey() string {
 		c.log().Errorf("Error while encoding recoveryKey %v", err)
 	}
 	return recoveryKey
-}
-
-// Serial gives serial number of a message received most recently.
-// Last known serial number is used when recovering connection state.
-func (c *Connection) Serial() *int64 {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-	return c.serial
 }
 
 // State returns current state of the connection.

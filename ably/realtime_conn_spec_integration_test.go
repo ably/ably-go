@@ -2034,11 +2034,6 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 			reason := client2.Connection.ErrorReason()
 			assert.Equal(t, 80008, int(reason.Code),
 				"expected 80008 got %d", reason.Code)
-			serial := client2.Connection.Serial()
-			assert.NotNil(t, serial)
-			// verify serial is -1 (new connection), not 5
-			assert.Equal(t, int64(-1), *serial,
-				"expected -1 got %d", serial)
 			msgSerial := client2.Connection.MsgSerial()
 			// verify msgSerial is 0 (new connection), not 3
 			assert.Equal(t, int64(0), msgSerial,

@@ -57,11 +57,6 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err, "Connect()=%v", err)
 
-	serial := client.Connection.Serial()
-	assert.NotNil(t, serial)
-	assert.Equal(t, int64(-1), *serial,
-		"want serial=-1; got %d", client.Connection.Serial())
-
 	err = ablytest.FullRealtimeCloser(client).Close()
 	assert.NoError(t, err,
 		"ablytest.FullRealtimeCloser(client).Close()=%v", err)
