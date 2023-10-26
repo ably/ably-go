@@ -11,7 +11,7 @@ const (
 	ablyProtocolVersionHeader = "X-Ably-Version"
 	ablyErrorCodeHeader       = "X-Ably-Errorcode"
 	ablyErrorMessageHeader    = "X-Ably-Errormessage"
-	clientLibraryVersion      = "1.2.12"
+	clientLibraryVersion      = "1.2.14"
 	clientRuntimeName         = "go"
 	ablyProtocolVersion       = "2" // CSV2
 	ablyClientIDHeader        = "X-Ably-ClientId"
