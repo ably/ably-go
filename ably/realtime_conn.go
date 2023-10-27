@@ -851,6 +851,7 @@ func (c *Connection) eventloop() {
 			if reconnecting {
 				// (RTN15c1) (RTN15c2)
 				c.mtx.Lock()
+				// RTN15c7 - if error, set on connection and part of emitted connected event
 				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 				c.mtx.Unlock()
 				// (RTN15c3)
