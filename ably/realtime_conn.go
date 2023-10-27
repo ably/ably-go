@@ -822,6 +822,12 @@ func (c *Connection) eventloop() {
 			previousID := c.id
 			c.id = msg.ConnectionID
 			isNewID := previousID != msg.ConnectionID
+
+			// recover is used when set via clientOptions#recover initially, resume will be used for all subsequent requests.
+			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.Recover)
+
+			failedResumeOrRecover := isNewID && msg.Error != nil // RTN15c7, RTN16d
+
 			if reconnecting && mode == recoveryMode && msg.Error == nil {
 				// we are setting msgSerial as per (RTN16f)
 				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
