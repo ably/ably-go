@@ -866,7 +866,7 @@ func (c *Connection) eventloop() {
 				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 				c.mtx.Unlock()
 			}
-			c.queue.Flush()
+			c.sendPendingMessagesOnConnected(failedResumeOrRecover)
 		case actionDisconnected:
 			if !isTokenError(msg.Error) {
 				// The spec doesn't say what to do in this case, so do nothing.
@@ -898,6 +898,23 @@ func (c *Connection) eventloop() {
 			c.callbacks.onChannelMsg(msg)
 		}
 	}
+}
+
+func (c *Connection) sendPendingMessagesOnConnected(failedResumeOrRecover bool) {
+	// RTN19a1
+	if failedResumeOrRecover {
+		// foreach (var messageAndCallback in State.WaitingForAck)
+		// {
+		//     State.PendingMessages.Add(new MessageAndCallback(
+		//         messageAndCallback.Message,
+		//         messageAndCallback.Callback,
+		//         messageAndCallback.Logger));
+		// }
+	} else {
+		// RTN19a2 - successful resume, msgSerial doesn't change
+		c.resendPending()
+	}
+	c.queue.Flush()
 }
 
 func (c *Connection) failedConnSideEffects(err *errorInfo) {
