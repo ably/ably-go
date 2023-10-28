@@ -793,6 +793,9 @@ func (c *Connection) eventloop() {
 		case actionConnected:
 			c.mtx.Lock()
 
+			// recover is used when set via clientOptions#recover initially, resume will be used for all subsequent requests.
+			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.Recover)
+
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
 			mode := c.getMode()
@@ -822,9 +825,6 @@ func (c *Connection) eventloop() {
 			previousID := c.id
 			c.id = msg.ConnectionID
 			isNewID := previousID != msg.ConnectionID
-
-			// recover is used when set via clientOptions#recover initially, resume will be used for all subsequent requests.
-			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.Recover)
 
 			failedResumeOrRecover := isNewID && msg.Error != nil // RTN15c7, RTN16d
 
