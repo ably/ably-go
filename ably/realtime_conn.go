@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -286,11 +285,11 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	case resumeMode:
 		query.Set("resume", c.key)
 	case recoveryMode:
-		m := strings.Split(c.opts.Recover, ":")
-		if len(m) != 3 {
-			return nil, errors.New("conn: Invalid recovery key")
+		recoveryKey, err := DecodeRecoveryKey(c.opts.Recover)
+		if err != nil {
+			c.log().Errorf("error decoding recovery key, %v", err)
 		}
-		query.Set("recover", m[0])
+		query.Set("recover", recoveryKey.ConnectionKey)
 	}
 	return query, nil
 }
