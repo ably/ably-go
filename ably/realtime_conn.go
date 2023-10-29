@@ -795,6 +795,7 @@ func (c *Connection) eventloop() {
 
 			// recover is used when set via clientOptions#recover initially, resume will be used for all subsequent requests.
 			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.Recover)
+			c.opts.Recover = "" // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
 
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
@@ -835,7 +836,9 @@ func (c *Connection) eventloop() {
 					//TODO: how to handle this? Panic?
 				}
 				c.msgSerial = msgSerial
-			} else if isNewID {
+			}
+
+			if isConnectionResumeOrRecoverAttempt && failedResumeOrRecover {
 				c.msgSerial = 0
 			}
 
@@ -846,27 +849,20 @@ func (c *Connection) eventloop() {
 				continue
 			}
 
+			// (RTN15c1) (RTN15c2)
+			// RTN24, RTN15c7 - if error, set on connection and part of emitted connected event
+			c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 			c.mtx.Unlock()
 
 			if reconnecting {
-				// (RTN15c1) (RTN15c2)
-				c.mtx.Lock()
-				// RTN15c7 - if error, set on connection and part of emitted connected event
-				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
-				c.mtx.Unlock()
+
 				// (RTN15c3)
 				// we are calling this outside of locks to avoid deadlock because in the
 				// RealtimeClient client where this callback is implemented we do some ops
 				// with this Conn where we re acquire Conn.Lock again.
-				c.callbacks.onReconnected(isNewID)
-			} else {
-				// preserve old behavior.
-				c.mtx.Lock()
-				// RTN24
-				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
-				c.mtx.Unlock()
+				c.callbacks.onReconnected(failedResumeOrRecover)
 			}
-			c.sendPendingMessagesOnConnected(failedResumeOrRecover)
+			c.queue.Flush()
 		case actionDisconnected:
 			if !isTokenError(msg.Error) {
 				// The spec doesn't say what to do in this case, so do nothing.
@@ -898,23 +894,6 @@ func (c *Connection) eventloop() {
 			c.callbacks.onChannelMsg(msg)
 		}
 	}
-}
-
-func (c *Connection) sendPendingMessagesOnConnected(failedResumeOrRecover bool) {
-	// RTN19a1
-	if failedResumeOrRecover {
-		// foreach (var messageAndCallback in State.WaitingForAck)
-		// {
-		//     State.PendingMessages.Add(new MessageAndCallback(
-		//         messageAndCallback.Message,
-		//         messageAndCallback.Callback,
-		//         messageAndCallback.Logger));
-		// }
-	} else {
-		// RTN19a2 - successful resume, msgSerial doesn't change
-		c.resendPending()
-	}
-	c.queue.Flush()
 }
 
 func (c *Connection) failedConnSideEffects(err *errorInfo) {
