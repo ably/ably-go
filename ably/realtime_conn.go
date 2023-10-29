@@ -831,11 +831,11 @@ func (c *Connection) eventloop() {
 
 			if reconnecting && mode == recoveryMode && msg.Error == nil {
 				// we are setting msgSerial as per (RTN16f)
-				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
+				recoveryKey, err := DecodeRecoveryKey(c.opts.Recover)
 				if err != nil {
-					//TODO: how to handle this? Panic?
+					c.log().Errorf("error decoding recovery key, %v", err)
 				}
-				c.msgSerial = msgSerial
+				c.msgSerial = recoveryKey.MsgSerial
 			}
 
 			if isConnectionResumeOrRecoverAttempt && failedResumeOrRecover {
