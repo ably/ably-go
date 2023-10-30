@@ -28,6 +28,14 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c.rest = rest
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
+	if !empty(c.opts().Recover) {
+		recover, err := DecodeRecoveryKey(c.opts().Recover)
+		if err != nil {
+			c.log().Errorf("Error decoding recover with error %v", err)
+		} else {
+			c.Channels.SetChannelSerialsFromRecoverOption(recover.ChannelSerials)
+		}
+	}
 	conn := newConn(c.opts(), rest.Auth, connCallbacks{
 		c.onChannelMsg,
 		c.onReconnected,
