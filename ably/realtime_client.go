@@ -74,17 +74,6 @@ func (c *Realtime) onChannelMsg(msg *protocolMessage) {
 }
 
 func (c *Realtime) onReconnected(isNewID bool) {
-	if !isNewID /* RTN15c3, RTN15g3 */ {
-		// No need to reattach: state is preserved. We just need to flush the
-		// queue of pending messages.
-		for _, ch := range c.Channels.Iterate() {
-			ch.queue.Flush()
-		}
-		//RTN19a
-		c.Connection.resendPending()
-		return
-	}
-
 	for _, ch := range c.Channels.Iterate() {
 		switch ch.State() {
 		// RTN15g3, RTN15c6, RTN15c7, RTN16l, RTN19b
@@ -94,6 +83,19 @@ func (c *Realtime) onReconnected(isNewID bool) {
 			ch.detachSkipVerifyActive()
 		}
 	}
+
+	if !isNewID /* RTN15c3, RTN15g3 */ {
+		// No need to reattach: state is preserved. We just need to flush the
+		// queue of pending messages.
+		// TODO - Once channel is attached, channel queue will be flushed
+		// for _, ch := range c.Channels.Iterate() {
+		// 	ch.queue.Flush()
+		// }
+		//RTN19a
+		c.Connection.resendPending()
+		return
+	}
+
 	//RTN19a
 	c.Connection.resendPending()
 }
