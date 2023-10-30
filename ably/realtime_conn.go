@@ -90,7 +90,7 @@ type connCallbacks struct {
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels, and we don't have it here, so we let RealtimeClient do the
 	// work.
-	onReconnected func(isNewID bool)
+	onReconnected func(failedResumeOrRecover bool)
 	// onReconnectionFailed is called when we get a FAILED response from a
 	// reconnection request.
 	onReconnectionFailed func(*errorInfo)
@@ -703,6 +703,15 @@ func (c *Connection) setConn(conn conn) {
 
 func (c *Connection) log() logger {
 	return c.auth.log()
+}
+
+func (c *Connection) resendAcks() {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(c.pending.queue))
+	for _, v := range c.pending.queue {
+		c.conn.Send(v.msg)
+	}
 }
 
 func (c *Connection) resendPending() {

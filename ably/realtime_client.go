@@ -73,7 +73,7 @@ func (c *Realtime) onChannelMsg(msg *protocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
 }
 
-func (c *Realtime) onReconnected(isNewID bool) {
+func (c *Realtime) onReconnected(failedResumeOrRecover bool) {
 	for _, ch := range c.Channels.Iterate() {
 		switch ch.State() {
 		// RTN15g3, RTN15c6, RTN15c7, RTN16l, RTN19b
@@ -84,20 +84,19 @@ func (c *Realtime) onReconnected(isNewID bool) {
 		}
 	}
 
-	if !isNewID /* RTN15c3, RTN15g3 */ {
+	if failedResumeOrRecover /* RTN15c3, RTN15g3 */ {
 		// No need to reattach: state is preserved. We just need to flush the
 		// queue of pending messages.
 		// TODO - Once channel is attached, channel queue will be flushed
 		// for _, ch := range c.Channels.Iterate() {
 		// 	ch.queue.Flush()
 		// }
-		//RTN19a
+		//RTN19a1
 		c.Connection.resendPending()
-		return
+	} else {
+		//RTN19a2 - successful resume, msgSerial doesn't change
+		c.Connection.resendAcks()
 	}
-
-	//RTN19a
-	c.Connection.resendPending()
 }
 
 func (c *Realtime) onReconnectionFailed(err *errorInfo) {
