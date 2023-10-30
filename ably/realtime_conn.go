@@ -45,7 +45,7 @@ type Connection struct {
 	state ConnectionState
 
 	// errorReason is an [ably.ErrorInfo] object describing the last error received if
-	// a connection failure occurs (RTN14a).
+	// a connection failure occurs (RTN14a, RTN15c7).
 	errorReason *ErrorInfo
 
 	internalEmitter ConnectionEventEmitter
