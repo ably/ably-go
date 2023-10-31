@@ -809,7 +809,7 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 			c.lockSetState(ChannelStateDetached, err, false)
 			c.mtx.Unlock()
 			return
-		case ChannelStateAttached: // TODO: Also SUSPENDED; RTL13a
+		case ChannelStateAttached, ChannelStateSuspended: // RTL13a
 			var res result
 			res, err = c.lockAttach(err)
 			if err != nil {
