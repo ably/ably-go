@@ -47,11 +47,12 @@ func newChannels(client *Realtime) *RealtimeChannels {
 	}
 }
 
+// RTN16j, RTL15b
 func (channels *RealtimeChannels) SetChannelSerialsFromRecoverOption(serials map[string]string) {
 	channels.mtx.Lock()
 	defer channels.mtx.Unlock()
 	for channelName, channelSerial := range serials {
-		channel := channels.chans[channelName]
+		channel := channels.Get(channelName)
 		channel.properties.ChannelSerial = channelSerial
 	}
 }
@@ -822,7 +823,7 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 			c.lockSetState(ChannelStateDetached, err, false)
 			c.mtx.Unlock()
 			return
-		case ChannelStateAttached: // TODO: Also SUSPENDED; RTL13a
+		case ChannelStateAttached, ChannelStateSuspended: // RTL13a
 			var res result
 			res, err = c.lockAttach(err)
 			if err != nil {

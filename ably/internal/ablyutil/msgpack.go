@@ -3,6 +3,7 @@ package ablyutil
 import (
 	"bytes"
 	"io"
+	"reflect"
 
 	"github.com/ugorji/go/codec"
 )
@@ -13,6 +14,7 @@ func init() {
 	handle.Raw = true
 	handle.WriteExt = true
 	handle.RawToString = true
+	handle.MapType = reflect.TypeOf(map[string]interface{}(nil))
 }
 
 // UnmarshalMsgpack decodes the MessagePack-encoded data and stores the result in the

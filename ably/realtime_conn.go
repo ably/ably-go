@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -46,7 +45,7 @@ type Connection struct {
 	state ConnectionState
 
 	// errorReason is an [ably.ErrorInfo] object describing the last error received if
-	// a connection failure occurs (RTN14a).
+	// a connection failure occurs (RTN14a, RTN15c7).
 	errorReason *ErrorInfo
 
 	internalEmitter ConnectionEventEmitter
@@ -61,10 +60,6 @@ type Connection struct {
 	// a realtime client docs for more info (RTN9).
 	key string
 
-	// serial is the serial number of the last message to be received on this connection, used automatically by
-	// the library when recovering or resuming a connection. When recovering a connection explicitly, the recoveryKey
-	// is used in the recover client options as it contains both the key and the last message serial (RTN10).
-	serial       *int64
 	msgSerial    int64
 	connStateTTL durationFromMsecs
 	err          error
@@ -95,7 +90,7 @@ type connCallbacks struct {
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels, and we don't have it here, so we let RealtimeClient do the
 	// work.
-	onReconnected func(isNewID bool)
+	onReconnected func(failedResumeOrRecover bool)
 	// onReconnectionFailed is called when we get a FAILED response from a
 	// reconnection request.
 	onReconnectionFailed func(*errorInfo)
@@ -290,11 +285,11 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	case resumeMode:
 		query.Set("resume", c.key)
 	case recoveryMode:
-		m := strings.Split(c.opts.Recover, ":")
-		if len(m) != 3 {
-			return nil, errors.New("conn: Invalid recovery key")
+		recoveryKeyContext, err := DecodeRecoveryKey(c.opts.Recover)
+		if err != nil {
+			c.log().Errorf("error decoding recovery key, %v", err)
 		}
-		query.Set("recover", m[0])
+		query.Set("recover", recoveryKeyContext.ConnectionKey)
 	}
 	return query, nil
 }
@@ -523,14 +518,6 @@ func (c *Connection) CreateRecoveryKey() string {
 	return recoveryKey
 }
 
-// Serial gives serial number of a message received most recently.
-// Last known serial number is used when recovering connection state.
-func (c *Connection) Serial() *int64 {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-	return c.serial
-}
-
 // State returns current state of the connection.
 func (c *Connection) State() ConnectionState {
 	c.mtx.Lock()
@@ -720,6 +707,15 @@ func (c *Connection) log() logger {
 	return c.auth.log()
 }
 
+func (c *Connection) resendAcks() {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(c.pending.queue))
+	for _, v := range c.pending.queue {
+		c.conn.Send(v.msg)
+	}
+}
+
 func (c *Connection) resendPending() {
 	c.mtx.Lock()
 	cx := c.pending.Dismiss()
@@ -807,9 +803,12 @@ func (c *Connection) eventloop() {
 		case actionConnected:
 			c.mtx.Lock()
 
+			// recover is used when set via clientOptions#recover initially, resume will be used for all reconnects.
+			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.Recover)
+			c.opts.Recover = "" // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
+
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
-			mode := c.getMode()
 			if msg.ConnectionDetails != nil { // RTN21
 				connDetails = msg.ConnectionDetails
 				c.key = connDetails.ConnectionKey //(RTN15e) (RTN16d)
@@ -833,17 +832,13 @@ func (c *Connection) eventloop() {
 				c.reconnecting = false
 				c.reauthorizing = false
 			}
-			previousID := c.id
+
+			isNewID := c.id != msg.ConnectionID
 			c.id = msg.ConnectionID
-			isNewID := previousID != msg.ConnectionID
-			if reconnecting && mode == recoveryMode && msg.Error == nil {
-				// we are setting msgSerial as per (RTN16f)
-				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
-				if err != nil {
-					//TODO: how to handle this? Panic?
-				}
-				c.msgSerial = msgSerial
-			} else if isNewID {
+
+			failedResumeOrRecover := isNewID && msg.Error != nil // RTN15c7, RTN16d
+
+			if isConnectionResumeOrRecoverAttempt && failedResumeOrRecover {
 				c.msgSerial = 0
 			}
 
@@ -854,24 +849,18 @@ func (c *Connection) eventloop() {
 				continue
 			}
 
+			// (RTN15c1) (RTN15c2)
+			// RTN24, RTN15c7 - if error, set on connection and part of emitted connected event
+			c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 			c.mtx.Unlock()
 
 			if reconnecting {
-				// (RTN15c1) (RTN15c2)
-				c.mtx.Lock()
-				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
-				c.mtx.Unlock()
+
 				// (RTN15c3)
 				// we are calling this outside of locks to avoid deadlock because in the
 				// RealtimeClient client where this callback is implemented we do some ops
 				// with this Conn where we re acquire Conn.Lock again.
-				c.callbacks.onReconnected(isNewID)
-			} else {
-				// preserve old behavior.
-				c.mtx.Lock()
-				// RTN24
-				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
-				c.mtx.Unlock()
+				c.callbacks.onReconnected(failedResumeOrRecover)
 			}
 			c.queue.Flush()
 		case actionDisconnected:

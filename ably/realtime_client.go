@@ -37,6 +37,16 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 		c.Channels.broadcastConnStateChange(change)
 	})
 	c.Connection = conn
+
+	if !empty(c.opts().Recover) {
+		recoverKeyContext, err := DecodeRecoveryKey(c.opts().Recover)
+		if err != nil {
+			c.log().Errorf("Error decoding recover with error %v", err)
+		} else {
+			c.Channels.SetChannelSerialsFromRecoverOption(recoverKeyContext.ChannelSerials)
+			c.Connection.msgSerial = recoverKeyContext.MsgSerial
+		}
+	}
 	return c, nil
 }
 
@@ -73,29 +83,22 @@ func (c *Realtime) onChannelMsg(msg *protocolMessage) {
 	c.Channels.Get(msg.Channel).notify(msg)
 }
 
-func (c *Realtime) onReconnected(isNewID bool) {
-	if !isNewID /* RTN15c3, RTN15g3 */ {
-		// No need to reattach: state is preserved. We just need to flush the
-		// queue of pending messages.
-		for _, ch := range c.Channels.Iterate() {
-			ch.queue.Flush()
-		}
-		//RTN19a
-		c.Connection.resendPending()
-		return
-	}
-
+func (c *Realtime) onReconnected(failedResumeOrRecover bool) {
 	for _, ch := range c.Channels.Iterate() {
 		switch ch.State() {
-		// TODO: SUSPENDED
-		case ChannelStateAttaching, ChannelStateAttached: //RTN19b
+		// RTN15g3, RTN15c6, RTN15c7, RTN16l
+		case ChannelStateAttaching, ChannelStateAttached, ChannelStateSuspended:
 			ch.mayAttach(false)
 		case ChannelStateDetaching: //RTN19b
 			ch.detachSkipVerifyActive()
 		}
 	}
-	//RTN19a
-	c.Connection.resendPending()
+
+	if failedResumeOrRecover { //RTN19a1
+		c.Connection.resendPending()
+	} else { //RTN19a2 - successful resume, msgSerial doesn't change
+		c.Connection.resendAcks()
+	}
 }
 
 func (c *Realtime) onReconnectionFailed(err *errorInfo) {
