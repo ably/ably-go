@@ -28,14 +28,6 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c.rest = rest
 	c.Auth = rest.Auth
 	c.Channels = newChannels(c)
-	if !empty(c.opts().Recover) {
-		recover, err := DecodeRecoveryKey(c.opts().Recover)
-		if err != nil {
-			c.log().Errorf("Error decoding recover with error %v", err)
-		} else {
-			c.Channels.SetChannelSerialsFromRecoverOption(recover.ChannelSerials)
-		}
-	}
 	conn := newConn(c.opts(), rest.Auth, connCallbacks{
 		c.onChannelMsg,
 		c.onReconnected,
@@ -45,6 +37,16 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 		c.Channels.broadcastConnStateChange(change)
 	})
 	c.Connection = conn
+
+	if !empty(c.opts().Recover) {
+		recoverKeyContext, err := DecodeRecoveryKey(c.opts().Recover)
+		if err != nil {
+			c.log().Errorf("Error decoding recover with error %v", err)
+		} else {
+			c.Channels.SetChannelSerialsFromRecoverOption(recoverKeyContext.ChannelSerials)
+			c.Connection.msgSerial = recoverKeyContext.MsgSerial
+		}
+	}
 	return c, nil
 }
 
@@ -84,7 +86,7 @@ func (c *Realtime) onChannelMsg(msg *protocolMessage) {
 func (c *Realtime) onReconnected(failedResumeOrRecover bool) {
 	for _, ch := range c.Channels.Iterate() {
 		switch ch.State() {
-		// RTN15g3, RTN15c6, RTN15c7, RTN16l, RTN19b
+		// RTN15g3, RTN15c6, RTN15c7, RTN16l
 		case ChannelStateAttaching, ChannelStateAttached, ChannelStateSuspended:
 			ch.mayAttach(false)
 		case ChannelStateDetaching: //RTN19b
@@ -92,17 +94,9 @@ func (c *Realtime) onReconnected(failedResumeOrRecover bool) {
 		}
 	}
 
-	if failedResumeOrRecover /* RTN15c3, RTN15g3 */ {
-		// No need to reattach: state is preserved. We just need to flush the
-		// queue of pending messages.
-		// TODO - Once channel is attached, channel queue will be flushed
-		// for _, ch := range c.Channels.Iterate() {
-		// 	ch.queue.Flush()
-		// }
-		//RTN19a1
+	if failedResumeOrRecover { //RTN19a1
 		c.Connection.resendPending()
-	} else {
-		//RTN19a2 - successful resume, msgSerial doesn't change
+	} else { //RTN19a2 - successful resume, msgSerial doesn't change
 		c.Connection.resendAcks()
 	}
 }

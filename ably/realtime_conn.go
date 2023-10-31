@@ -285,11 +285,11 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	case resumeMode:
 		query.Set("resume", c.key)
 	case recoveryMode:
-		recoveryKey, err := DecodeRecoveryKey(c.opts.Recover)
+		recoveryKeyContext, err := DecodeRecoveryKey(c.opts.Recover)
 		if err != nil {
 			c.log().Errorf("error decoding recovery key, %v", err)
 		}
-		query.Set("recover", recoveryKey.ConnectionKey)
+		query.Set("recover", recoveryKeyContext.ConnectionKey)
 	}
 	return query, nil
 }
@@ -801,13 +801,12 @@ func (c *Connection) eventloop() {
 		case actionConnected:
 			c.mtx.Lock()
 
-			// recover is used when set via clientOptions#recover initially, resume will be used for all subsequent requests.
+			// recover is used when set via clientOptions#recover initially, resume will be used for all reconnects.
 			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.Recover)
 			c.opts.Recover = "" // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
 
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
-			mode := c.getMode()
 			if msg.ConnectionDetails != nil { // RTN21
 				connDetails = msg.ConnectionDetails
 				c.key = connDetails.ConnectionKey //(RTN15e) (RTN16d)
@@ -831,20 +830,11 @@ func (c *Connection) eventloop() {
 				c.reconnecting = false
 				c.reauthorizing = false
 			}
-			previousID := c.id
+
+			isNewID := c.id != msg.ConnectionID
 			c.id = msg.ConnectionID
-			isNewID := previousID != msg.ConnectionID
 
 			failedResumeOrRecover := isNewID && msg.Error != nil // RTN15c7, RTN16d
-
-			if reconnecting && mode == recoveryMode && msg.Error == nil {
-				// we are setting msgSerial as per (RTN16f)
-				recoveryKey, err := DecodeRecoveryKey(c.opts.Recover)
-				if err != nil {
-					c.log().Errorf("error decoding recovery key, %v", err)
-				}
-				c.msgSerial = recoveryKey.MsgSerial
-			}
 
 			if isConnectionResumeOrRecoverAttempt && failedResumeOrRecover {
 				c.msgSerial = 0
