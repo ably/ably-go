@@ -283,13 +283,13 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	}
 	switch mode {
 	case resumeMode:
-		query.Set("resume", c.key)
+		query.Set("resume", c.key) // RTN15b
 	case recoveryMode:
 		recoveryKeyContext, err := DecodeRecoveryKey(c.opts.Recover)
 		if err != nil {
 			c.log().Errorf("error decoding recovery key, %v", err)
 		}
-		query.Set("recover", recoveryKeyContext.ConnectionKey)
+		query.Set("recover", recoveryKeyContext.ConnectionKey) // RTN16k
 	}
 	return query, nil
 }
@@ -500,6 +500,7 @@ func (c *Connection) RecoveryKey() string {
 func (c *Connection) CreateRecoveryKey() string {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+	// RTN16g2
 	if empty(c.key) || c.state == ConnectionStateClosing ||
 		c.state == ConnectionStateClosed ||
 		c.state == ConnectionStateFailed ||
