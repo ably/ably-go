@@ -45,7 +45,7 @@ func goWaiter(f func() error) result {
 var (
 	errDisconnected   = newErrorf(ErrDisconnected, "Connection temporarily unavailable")
 	errSuspended      = newErrorf(ErrConnectionSuspended, "Connection unavailable")
-	errClosed         = newErrorf(ErrConnectionClosed, "Connection unavailable")
+	errClosed         = newErrorf(ErrConnectionClosed, "Connection closed")
 	errFailed         = newErrorf(ErrConnectionFailed, "Connection failed")
 	errNeverConnected = newErrorf(ErrConnectionSuspended, "Unable to establish connection")
 
@@ -58,7 +58,6 @@ var connStateErrors = map[ConnectionState]ErrorInfo{
 	ConnectionStateDisconnected: *errDisconnected,
 	ConnectionStateFailed:       *errFailed,
 	ConnectionStateSuspended:    *errSuspended,
-	ConnectionStateClosed:       *errClosed,
 }
 
 func connStateError(state ConnectionState, err error) *ErrorInfo {

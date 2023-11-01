@@ -31,8 +31,7 @@ func TestRealtimeConn_Connect(t *testing.T) {
 	defer off()
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected), nil)
-	assert.NoError(t, err,
-		"Connect()=%v", err)
+	assert.NoError(t, err, "Connect()=%v", err)
 
 	err = ablytest.FullRealtimeCloser(client).Close()
 	assert.NoError(t, err, "ablytest.FullRealtimeCloser(client).Close()=%v", err)
