@@ -599,7 +599,11 @@ func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 	default:
 		c.mtx.Unlock()
 		if onAck != nil {
-			onAck(connStateError(state, nil))
+			if c.state == ConnectionStateClosed {
+				onAck(errClosed)
+			} else {
+				onAck(connStateError(state, nil))
+			}
 		}
 
 	case ConnectionStateInitialized, ConnectionStateConnecting, ConnectionStateDisconnected:
