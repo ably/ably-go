@@ -11,7 +11,7 @@ func (c ErrorCode) String() string {
 		return "(error code not set)"
 	case 10000:
 		return "no error"
- 	case 20000:
+	case 20000:
 		return "general error code"
 	case 40000:
 		return "bad request"
