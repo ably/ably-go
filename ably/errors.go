@@ -11,6 +11,8 @@ func (c ErrorCode) String() string {
 		return "(error code not set)"
 	case 10000:
 		return "no error"
+ 	case 20000:
+		return "general error code"
 	case 40000:
 		return "bad request"
 	case 40001:
@@ -307,6 +309,16 @@ func (c ErrorCode) String() string {
 		return "presence state is out of sync"
 	case 91100:
 		return "member implicitly left presence channel (connection closed)"
+	case 101000:
+		return "must have a non-empty name for the space"
+	case 101001:
+		return "must enter a space to perform this operation"
+	case 101002:
+		return "lock request already exists"
+	case 101003:
+		return "lock is currently locked"
+	case 101004:
+		return "lock was invalidated by a concurrent lock request which now holds the lock"
 	}
 	return ""
 }
