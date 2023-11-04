@@ -854,17 +854,11 @@ func (c *Connection) eventloop() {
 				continue
 			}
 
-			// (RTN15c1) (RTN15c2)
-			// RTN24, RTN15c7 - if error, set on connection and part of emitted connected event
+			// RTN24, RTN15c6, RTN15c7 - if error, set on connection and part of emitted connected event
 			c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 			c.mtx.Unlock()
 
 			if reconnecting {
-
-				// (RTN15c3)
-				// we are calling this outside of locks to avoid deadlock because in the
-				// RealtimeClient client where this callback is implemented we do some ops
-				// with this Conn where we re acquire Conn.Lock again.
 				c.callbacks.onReconnected(failedResumeOrRecover)
 			}
 			c.queue.Flush()
