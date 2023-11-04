@@ -931,19 +931,19 @@ func recent(msgs []*ably.ProtocolMessage, action ably.ProtoAction) *ably.Protoco
 	return nil
 }
 
-func TestRealtimeConn_RTN15c1(t *testing.T) {
+func TestRealtimeConn_RTN15c6(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	var metaList []*transportMessages
+	var dialConn []*transportMessages
 	gotDial := make(chan chan struct{})
 
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 			m := &transportMessages{dial: u}
-			metaList = append(metaList, m)
-			if len(metaList) > 1 {
+			dialConn = append(dialConn, m)
+			if len(dialConn) > 1 {
 				goOn := make(chan struct{})
 				gotDial <- goOn
 				<-goOn
@@ -970,22 +970,19 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	off := channel.OnAll(chanStateChanges.Receive)
 	defer off()
 
-	stateChanges := make(chan ably.ConnectionStateChange, 16)
+	connStateChanges := make(chan ably.ConnectionStateChange, 16)
 	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
-		stateChanges <- c
+		connStateChanges <- c
 	})
 
 	doEOF <- struct{}{}
 
-	var state ably.ConnectionStateChange
+	var connState ably.ConnectionStateChange
 
-	select {
-	case state = <-stateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't transition on EOF")
-	}
-	assert.Equal(t, ably.ConnectionStateDisconnected, state.Current,
-		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, state.Current)
+	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
+
+	assert.Equal(t, ably.ConnectionStateDisconnected, connState.Current,
+		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
 	goOn := <-gotDial
@@ -993,34 +990,27 @@ func TestRealtimeConn_RTN15c1(t *testing.T) {
 	assert.NoError(t, err)
 	close(goOn)
 
-	select {
-	case state = <-stateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't reconnect")
-	}
-	assert.Equal(t, ably.ConnectionStateConnecting, state.Current,
-		"expected transition to %v, got %v", ably.ConnectionStateConnecting, state.Current)
-	select {
-	case msg := <-sub:
-		assert.Equal(t, "data", msg.Data,
-			"expected message with data \"data\" got %v", msg.Data)
-	case <-time.After(ablytest.Timeout):
-		t.Fatal("expected message after connection recovery; got none")
-	}
+	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnecting, connState.Current, "expected no state change; got %+v", connState.Current)
 
-	// (RTN15c1)
-	//
-	// - current connectionId == resume message connectionId
-	// - resume message has no error
-	// - no channel state changes happened.
+	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnected, connState.Current, "expected no state change; got %+v", connState.Current)
+	assert.Nil(t, connState.Reason, "expected no state change; got %+v", connState.Current)
 
+	// Check channel goes into attaching and attached state
 	var change ably.ChannelStateChange
 	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
-	assert.Equal(t, change.Previous, change.Current,
-		"expected no state change; got %+v", change)
-	assert.Equal(t, client.Connection.ID(), metaList[1].Messages()[0].ConnectionID,
-		"expected %q to equal %q", client.Connection.ID(), metaList[1].Messages()[0].ConnectionID)
-	assert.Nil(t, metaList[1].Messages()[0].Error,
+	assert.Equal(t, ably.ChannelStateAttaching, change.Current, "expected no state change; got %+v", change)
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ChannelStateAttached, change.Current, "expected no state change; got %+v", change)
+
+	var msg *ably.Message
+	ablytest.Soon.Recv(t, &msg, sub, t.Fatalf)
+
+	// Check for resume success
+	assert.Equal(t, client.Connection.ID(), dialConn[1].Messages()[0].ConnectionID,
+		"expected %q to equal %q", client.Connection.ID(), dialConn[1].Messages()[0].ConnectionID)
+	assert.Nil(t, dialConn[1].Messages()[0].Error,
 		"expected resume error to be nil")
 }
 
