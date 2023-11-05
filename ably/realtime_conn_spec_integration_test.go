@@ -1133,32 +1133,22 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	var metaList []*transportMessages
-	gotDial := make(chan chan struct{})
+	continueDial := make(chan struct{}, 1)
+	continueDial <- struct{}{}
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &transportMessages{dial: u}
-			metaList = append(metaList, m)
-			if len(metaList) > 1 {
-				goOn := make(chan struct{})
-				gotDial <- goOn
-				<-goOn
-			}
+			<-continueDial
 			c, err := ably.DialWebsocket(protocol, u, timeout)
-			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				if len(metaList) == 2 && len(m.Messages()) == 0 {
-					msg.Action = ably.ActionError
-					msg.Error = &ably.ProtoErrorInfo{StatusCode: http.StatusBadRequest}
-				}
-				m.Add(msg)
-			}}, err
+			return protoConnWithFakeEOF{
+				Conn:  c,
+				doEOF: doEOF,
+			}, err
 		}))
 	defer safeclose(t, &closeClient{Closer: ablytest.FullRealtimeCloser(client), skip: []int{http.StatusBadRequest}}, app)
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
-	assert.NoError(t, err,
-		"Connect=%s", err)
+	assert.NoError(t, err, "Connect=%s", err)
 
 	channel := client.Channels.Get("channel")
 	err = channel.Attach(context.Background())
@@ -1167,52 +1157,43 @@ func TestRealtimeConn_RTN15c4(t *testing.T) {
 	off := channel.On(ably.ChannelEventFailed, chanStateChanges.Receive)
 	defer off()
 
-	stateChanges := make(chan ably.ConnectionStateChange, 16)
+	connStateChanges := make(chan ably.ConnectionStateChange, 16)
 	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
-		stateChanges <- c
+		connStateChanges <- c
 	})
 
+	client.Connection.SetKey("wrong-conn-key") // wrong connection key for next resume request
 	doEOF <- struct{}{}
 
-	var state ably.ConnectionStateChange
+	var connState ably.ConnectionStateChange
 
-	select {
-	case state = <-stateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't transition on EOF")
-	}
-	assert.Equal(t, ably.ConnectionStateDisconnected, state.Current,
-		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, state.Current)
+	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateDisconnected, connState.Current,
+		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
+
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
-	goOn := <-gotDial
 	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
-	close(goOn)
 
-	select {
-	case state = <-stateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't reconnect")
-	}
-	assert.Equal(t, ably.ConnectionStateConnecting, state.Current,
-		"expected transition to %v, got %v", ably.ConnectionStateConnecting, state.Current)
-	<-stateChanges
-	var chanState ably.ChannelStateChange
-	select {
-	case chanState = <-chanStateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't change state")
-	}
-	assert.Equal(t, ably.ChannelStateFailed, chanState.Current,
-		"expected transition to %v, got %v", ably.ChannelStateFailed, chanState.Current)
+	continueDial <- struct{}{}
+
+	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnecting, connState.Current)
+
+	// Connection goes into failed state
+	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateFailed, connState.Current)
+
+	// Check channel goes into failed state
+	var change ably.ChannelStateChange
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ChannelStateFailed, change.Current)
+
 	reason := client.Connection.ErrorReason()
 	assert.NotNil(t, reason, "expected reason to be set")
 	assert.Equal(t, http.StatusBadRequest, reason.StatusCode,
 		"expected %d got %d", http.StatusBadRequest, reason.StatusCode)
-	// The client should transition to the FAILED state
-	assert.Equal(t, ably.ConnectionStateFailed, client.Connection.State(),
-		"expected transition to %v, got %v", ably.ConnectionStateFailed, client.Connection.State())
 }
 
 func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
