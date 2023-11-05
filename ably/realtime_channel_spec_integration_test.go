@@ -223,8 +223,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 		channel.OnAll(channelStateChanges.Receive)
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		// connection is initialized
-		err = channel.Attach(canceledCtx)
+		err = channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
 		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
@@ -301,8 +304,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 		channel.OnAll(channelStateChanges.Receive)
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		// connection is failed
-		err = channel.Attach(canceledCtx)
+		err = channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
 		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
@@ -341,8 +346,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 		channel.OnAll(channelStateChanges.Receive)
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		// connection state is suspended
-		err = channel.Attach(canceledCtx)
+		err = channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
 		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
@@ -386,12 +393,15 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channel := client.Channels.Get("test")
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		channeloff := channel.OnAll(channelStateChanges.Receive)
 		defer channeloff()
 
 		var channelStatechange ably.ChannelStateChange
 
-		err := channel.Attach(canceledCtx)
+		err := channel.Attach(ctx)
 		assert.NoError(t, err)
 
 		// Check that the attach message is sent
@@ -677,9 +687,12 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		assert.Equal(t, ably.ConnectionStateConnected, c.Realtime.Connection.State(),
 			"expected %v; got %v", ably.ConnectionStateConnected, c.Realtime.Connection.State())
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		recorder.Reset() //reset the recorded messages to zero
 
-		err = channel.Attach(canceledCtx)
+		err = channel.Attach(ctx)
 		assert.NoError(t, err)
 
 		// Check that the attach message is sent
@@ -871,7 +884,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 		channel.OnAll(channelStateChanges.Receive)
 
-		channel.Attach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
 		checkIfAttachSentFn := recorder.CheckIfSent(ably.ActionAttach, 1)
@@ -929,7 +945,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 		channel.OnAll(channelStateChanges.Receive)
 
-		channel.Attach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
 		checkIfAttachSentFn := recorder.CheckIfSent(ably.ActionAttach, 1)
@@ -969,7 +988,9 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	t.Run("RTL4j RTL13a: If channel attach is not a clean attach, should set ATTACH_RESUME in the ATTACH message", func(t *testing.T) {
 		in, out, _, channel, stateChanges, _ := setup(t)
 
-		channel.Attach(canceledCtx)
+		cancelledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+		channel.Attach(cancelledCtx)
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume ATTACHING
 		channel.OnAll(stateChanges.Receive)
@@ -1152,7 +1173,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			ably.ChannelWithParams("test2", "blahblah"),
 			ably.ChannelWithParams("delta", "vcdiff"))
 
-		err := channel.Attach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err := channel.Attach(ctx)
 		assert.NoError(t, err)
 
 		attachMessage := recorder.FindFirst(ably.ActionAttach)
@@ -1181,10 +1205,13 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			ably.ChannelWithParams("test2", "blahblah"),
 			ably.ChannelWithParams("delta", "vcdiff"))
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 		channel.OnAll(channelStateChanges.Receive)
 
-		err := channel.Attach(canceledCtx)
+		err := channel.Attach(ctx)
 		assert.NoError(t, err)
 
 		ablytest.Soon.Recv(t, nil, channelStateChanges, t.Fatalf) // CONSUME ATTACHING
@@ -1216,7 +1243,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channel := client.Channels.Get("test",
 			ably.ChannelWithModes(channelModes...))
 
-		err := channel.Attach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err := channel.Attach(ctx)
 		assert.NoError(t, err)
 
 		attachMessage := recorder.FindFirst(ably.ActionAttach)
@@ -1239,10 +1269,13 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channel := client.Channels.Get("test",
 			ably.ChannelWithModes(channelModes...))
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 		channel.OnAll(channelStateChanges.Receive)
 
-		err := channel.Attach(canceledCtx)
+		err := channel.Attach(ctx)
 		assert.NoError(t, err)
 
 		ablytest.Soon.Recv(t, nil, channelStateChanges, t.Fatalf) // CONSUME ATTACHING
@@ -1316,6 +1349,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		channel.OnAll(channelStateChanges.Receive)
 
@@ -1323,7 +1358,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		assert.Equal(t, ably.ChannelStateInitialized, channel.State(),
 			"expected %v; got %v", ably.ChannelStateInitialized, channel.State())
 
-		err = channel.Detach(canceledCtx)
+		err = channel.Detach(ctx)
 		assert.NoError(t, err)
 
 		// Check that the detach message isn't sent
@@ -1404,7 +1439,9 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		assert.Equal(t, ably.ChannelStateFailed, channelStatechange.Current,
 			"expected %v; got %v (event: %+v)", ably.ChannelStateFailed, channelStatechange.Current, channelStatechange)
 
-		err = channel.Detach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err = channel.Detach(ctx)
 
 		// Check that the detach message isn't sent
 		checkIfDetachSent := recorder.CheckIfSent(ably.ActionDetach, 1)
@@ -1446,12 +1483,15 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		channel := client.Channels.Get("test")
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		channeloff := channel.OnAll(channelStateChanges.Receive)
 		defer channeloff()
 
 		var channelStatechange ably.ChannelStateChange
 
-		err := channel.Attach(canceledCtx)
+		err := channel.Attach(ctx)
 		assert.NoError(t, err)
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
@@ -1625,7 +1665,10 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			closing,
 		)
 
-		err = channel.Detach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err = channel.Detach(ctx)
 
 		// Check that the detach message isn't sent
 		checkIfDetachSent := recorder.CheckIfSent(ably.ActionDetach, 1)
@@ -1688,7 +1731,10 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			connecting,
 		)
 
-		channel.Detach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		channel.Detach(ctx)
 
 		// Check that the detach message isn't sent
 		checkIfDetachSent := recorder.CheckIfSent(ably.ActionDetach, 1)
@@ -1754,7 +1800,10 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			disconnected,
 		)
 
-		channel.Detach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		channel.Detach(ctx)
 
 		// Check that the detach message isn't sent
 		checkIfDetachSent := recorder.CheckIfSent(ably.ActionDetach, 1)
@@ -1855,13 +1904,14 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	t.Run("RTL5j: if channel state is SUSPENDED, immediately transition to DETACHED state", func(t *testing.T) {
 		t.Skip("Channel SUSPENDED not implemented yet")
 		_, _, _, channel, stateChanges, _ := setup(t)
-
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
 		channel.OnAll(stateChanges.Receive)
 
 		//channel.SetState(ably.ChannelStateSuspended, nil)
 		ablytest.Instantly.Recv(t, nil, stateChanges, t.Fatalf) // State will be changed to suspended
 
-		channel.Detach(canceledCtx)
+		channel.Detach(ctx)
 
 		var change ably.ChannelStateChange
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
@@ -1878,7 +1928,10 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		var outMsg *ably.ProtocolMessage
 		var change ably.ChannelStateChange
 
-		channel.Attach(canceledCtx)
+		cancelledContext, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		channel.Attach(cancelledContext)
 
 		// get channel state to attaching
 		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
@@ -1956,6 +2009,9 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 			channel, closer := chanTransitioner.To(transition...)
 			defer safeclose(t, closer)
 
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
 			// Make a second client to subscribe and check that messages are
 			// published without interferring with the first client's state.
 
@@ -1972,7 +2028,7 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = channel.Publish(canceledCtx, "test", nil)
+			err = channel.Publish(ctx, "test", nil)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				t.Fatal(err)
 			}
@@ -2076,7 +2132,10 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 			closer = c.To(trans.connAfter...)
 			defer safeclose(t, closer)
 
-			err = channel.Publish(canceledCtx, "test", nil)
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			err = channel.Publish(ctx, "test", nil)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				t.Fatal(err)
 			}
@@ -2243,7 +2302,9 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 
 		channel = c.Channels.Get("test")
 
-		go channel.Attach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go channel.Attach(ctx)
 
 		ablytest.Instantly.Recv(t, nil, afterCalls, t.Fatalf) // Consume expiry timer for attach
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)        // Consume ATTACHING
@@ -2369,7 +2430,9 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 
 		channel = c.Channels.Get("test")
 
-		go channel.Attach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go channel.Attach(ctx)
 
 		ablytest.Soon.Recv(t, nil, afterCalls, t.Fatalf) // consume TIMER
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)   // Consume ATTACHING
@@ -2595,11 +2658,14 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		stateChanges = make(ably.ChannelStateChanges, 10)
 		channel.OnAll(stateChanges.Receive)
 
-		channel.SubscribeAll(canceledCtx, func(message *ably.Message) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		channel.SubscribeAll(ctx, func(message *ably.Message) {
 			msg <- message
 		})
 
-		channel.Attach(canceledCtx)
+		channel.Attach(ctx)
 		return
 	}
 
@@ -2656,7 +2722,9 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		receiveMessage()
 		ablytest.Instantly.Recv(t, nil, msg, t.Fatalf)
 
-		channel.Detach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		channel.Detach(ctx)
 		// Get the channel to DETACHED.
 
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf) // Consume DETACHING
