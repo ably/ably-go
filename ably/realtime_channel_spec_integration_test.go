@@ -245,7 +245,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, closer)
 
 		// connection is closing
-		err = channel.Attach(canceledCtx)
+		err = channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
 		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSent)
@@ -263,7 +263,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, closer)
 
 		// connection is closed
-		err = channel.Attach(canceledCtx)
+		err = channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
 		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSent)
@@ -1359,7 +1359,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		assert.Equal(t, ably.ChannelStateDetached, channelStatechange.Current,
 			"expected %v; got %v (event: %+v)", ably.ChannelStateDetached, channelStatechange.Current, channelStatechange)
 
-		err = channel.Detach(canceledCtx)
+		err = channel.Detach(ctx)
 		assert.NoError(t, err)
 
 		// Check that the detach message isn't sent
@@ -1462,7 +1462,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		assert.Equal(t, ably.ChannelStateAttached, channelStatechange.Current,
 			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, channelStatechange.Current, channelStatechange)
 
-		err = channel.Detach(canceledCtx)
+		err = channel.Detach(ctx)
 		assert.NoError(t, err)
 
 		// Check that the detach message sent
@@ -1641,7 +1641,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		err = channel.Detach(canceledCtx)
+		err = channel.Detach(ctx)
 
 		// Check that the detach message isn't sent
 		detachSent = ablytest.Instantly.IsTrue(checkIfDetachSent)
@@ -1899,7 +1899,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		assert.Equal(t, ably.ChannelStateAttached, change.Current,
 			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current, change)
 
-		channel.Detach(canceledCtx)
+		channel.Detach(cancelledContext)
 
 		ablytest.Instantly.Recv(t, &outMsg, out, t.Fatalf)
 		assert.Equal(t, ably.ActionDetach, outMsg.Action,
