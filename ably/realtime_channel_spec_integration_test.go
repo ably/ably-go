@@ -184,9 +184,6 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4a: If already attached, nothing is done", func(t *testing.T) {
 		in, out, _, channel, stateChanges, _ := setup(t)
-		ctx, cancel := context.WithCancel(context.Background())
-
-		cancel()
 		channel.OnAll(stateChanges.Receive)
 
 		// Get the channel to ATTACHED.
@@ -203,7 +200,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current)
 
 		// Attach the channel again
-		channel.Attach(ctx)
+		channel.Attach(canceledCtx)
 
 		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
@@ -742,8 +739,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channelTransitioner.To(chAttaching)
 
 		// check if attach message is sent
-		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
-		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent)
+		checkIfAttachSentFn := recorder.CheckIfSent(ably.ActionAttach, 1)
+		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.True(t, attachSent,
 			"Should send attach message, since channel is attached")
 
@@ -764,8 +761,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		})
 
 		// Check that the attach message isn't sent
-		checkIfAttachSent = recorder.CheckIfSent(ably.ActionAttach, 1)
-		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSent)
+		checkIfAttachSentFn = recorder.CheckIfSent(ably.ActionAttach, 1)
+		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.False(t, attachSent,
 			"Attach message was sent")
 
@@ -807,8 +804,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channelTransitioner.To(chAttaching, chAttached, chDetaching)
 
 		// check if attach message is sent
-		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
-		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent)
+		checkIfAttachSentFn := recorder.CheckIfSent(ably.ActionAttach, 1)
+		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.True(t, attachSent,
 			"Should send attach message, since channel is attached")
 
@@ -837,8 +834,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		})
 
 		// Check that the attach message isn't sent
-		checkIfAttachSent = recorder.CheckIfSent(ably.ActionAttach, 1)
-		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSent)
+		checkIfAttachSentFn = recorder.CheckIfSent(ably.ActionAttach, 1)
+		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.False(t, attachSent, "Attach message was sent before connection is established")
 
 		ablytest.Instantly.NoRecv(t, nil, channelStateChanges, t.Fatalf) // Shouldn't send attach, waiting for detach
@@ -850,7 +847,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			"expected %v; got %v (event: %+v)", ably.ChannelStateDetached, channelStatechange.Current, channelStatechange)
 
 		// Check that the attach message is sent
-		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSent)
+		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.True(t, attachSent, "Should send attach message, since channel is detached")
 
 		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
@@ -893,8 +890,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
-		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
-		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent)
+		checkIfAttachSentFn := recorder.CheckIfSent(ably.ActionAttach, 1)
+		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.False(t, attachSent,
 			"Attach message was sent before connection is established")
 
@@ -913,7 +910,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		defer safeclose(t, closer)
 
 		// Check that the attach message is sent
-		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSent)
+		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.True(t, attachSent,
 			"Should send attach message, since connected")
 
@@ -954,8 +951,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
-		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
-		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent)
+		checkIfAttachSentFn := recorder.CheckIfSent(ably.ActionAttach, 1)
+		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.False(t, attachSent,
 			"Attach message was sent before connection is established")
 
@@ -973,10 +970,15 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		)
 
 		// Check that the attach message is sent
-		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSent)
+		attachSent = ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.True(t, attachSent, "Should send attach message, since connected")
 
 		defer safeclose(t, closer)
+
+		// Reconnection makes explicit attach for each channel RTN15c6, RTN15c7
+		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		assert.Equal(t, ably.ChannelStateAttaching, channelStatechange.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttaching, channelStatechange.Current, channelStatechange)
 
 		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		assert.Equal(t, ably.ChannelStateAttached, channelStatechange.Current,
@@ -2855,9 +2857,7 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 
 		channel = c.Channels.Get("test")
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		go channel.Attach(ctx)
+		go channel.Attach(canceledCtx)
 
 		ablytest.Instantly.Recv(t, nil, afterCalls, t.Fatalf) // Consume timer
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)        // Consume ATTACHING
