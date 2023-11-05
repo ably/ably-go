@@ -1748,12 +1748,16 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		assert.True(t, detachSent,
 			"Detach message was not sent")
 
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		assert.Equal(t, ably.ChannelStateDetaching, channelStatechange.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateDetaching, channelStatechange.Current, channelStatechange)
+
 		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		assert.Equal(t, ably.ChannelStateDetached, channelStatechange.Current,
 			"expected %v; got %v (event: %+v)", ably.ChannelStateDetached, channelStatechange.Current, channelStatechange)
 	})
 
-	t.Run("RTL5h : If Connection state DISCONNECTED, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
+	t.Run("RTL5h, RTN19b: If Connection state DISCONNECTED, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
 
 		app, err := ablytest.NewSandbox(nil)
 		assert.NoError(t, err)
@@ -1792,8 +1796,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		channel.Detach(canceledCtx)
 
 		// Check that the detach message isn't sent
-		checkIfDetachSent := recorder.CheckIfSent(ably.ActionDetach, 1)
-		detachSent := ablytest.Instantly.IsTrue(checkIfDetachSent)
+		checkIfDetachSentFn := recorder.CheckIfSent(ably.ActionDetach, 1)
+		detachSent := ablytest.Instantly.IsTrue(checkIfDetachSentFn)
 		assert.False(t, detachSent,
 			"Detach message was sent before connection is established")
 
@@ -1811,9 +1815,12 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		defer safeclose(t, closer)
 
 		// Check that the detach message sent
-		detachSent = ablytest.Instantly.IsTrue(checkIfDetachSent)
-		assert.True(t, detachSent,
-			"Detach message was not sent")
+		detachSent = ablytest.Instantly.IsTrue(checkIfDetachSentFn)
+		assert.True(t, detachSent, "Detach message was not sent")
+
+		ablytest.Instantly.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
+		assert.Equal(t, ably.ChannelStateDetaching, channelStatechange.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateDetaching, channelStatechange.Current, channelStatechange)
 
 		ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 		assert.Equal(t, ably.ChannelStateDetached, channelStatechange.Current,
