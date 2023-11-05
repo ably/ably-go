@@ -105,6 +105,12 @@ func (c *RealtimeChannel) SetAttachResume(value bool) {
 	c.attachResume = value
 }
 
+func (c *RealtimeChannel) SetState(chanState ChannelState) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.state = chanState
+}
+
 func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }
@@ -191,6 +197,12 @@ func (c *Connection) PendingItems() int {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return len(c.pending.queue)
+}
+
+func (c *Connection) SetKey(key string) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.key = key
 }
 
 func (c *Connection) ConnectionStateTTL() time.Duration {

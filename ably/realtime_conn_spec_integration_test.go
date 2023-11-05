@@ -935,28 +935,29 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	var dialConn []*transportMessages
-	gotDial := make(chan chan struct{})
+	continueDial := make(chan struct{}, 1)
+	continueDial <- struct{}{}
 
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &transportMessages{dial: u}
-			dialConn = append(dialConn, m)
-			if len(dialConn) > 1 {
-				goOn := make(chan struct{})
-				gotDial <- goOn
-				<-goOn
-			}
+			<-continueDial
 			c, err := ably.DialWebsocket(protocol, u, timeout)
-			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				m.Add(msg)
-			}}, err
+			return protoConnWithFakeEOF{
+				Conn:  c,
+				doEOF: doEOF,
+			}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err, "Connect=%s", err)
+	prevConnId := client.Connection.ID()
+
+	// Increase msgSerial, to test that it doesn't reset later.
+	err = client.Channels.Get("publish").Publish(context.Background(), "test", nil)
+	assert.NoError(t, err)
+	assert.NotZero(t, client.Connection.MsgSerial())
 
 	channel := client.Channels.Get("channel")
 	err = channel.Attach(context.Background())
@@ -983,18 +984,19 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 
 	assert.Equal(t, ably.ConnectionStateDisconnected, connState.Current,
 		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
+
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
-	goOn := <-gotDial
 	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
-	close(goOn)
+
+	continueDial <- struct{}{}
 
 	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
-	assert.Equal(t, ably.ConnectionStateConnecting, connState.Current, "expected no state change; got %+v", connState.Current)
+	assert.Equal(t, ably.ConnectionStateConnecting, connState.Current, "expected connecting; got %+v", connState.Current)
 
 	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
-	assert.Equal(t, ably.ConnectionStateConnected, connState.Current, "expected no state change; got %+v", connState.Current)
+	assert.Equal(t, ably.ConnectionStateConnected, connState.Current, "expected connected; got %+v", connState.Current)
 	assert.Nil(t, connState.Reason, "expected nil conn error, got %+v", connState.Reason)
 
 	// Check channel goes into attaching and attached state
@@ -1004,210 +1006,127 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
 	assert.Equal(t, ably.ChannelStateAttached, change.Current, "expected no state change; got %+v", change)
 
+	// Expect message to be received after resume success
 	var msg *ably.Message
 	ablytest.Soon.Recv(t, &msg, sub, t.Fatalf)
 
 	// Check for resume success
-	assert.Equal(t, client.Connection.ID(), dialConn[1].Messages()[0].ConnectionID,
-		"expected %q to equal %q", client.Connection.ID(), dialConn[1].Messages()[0].ConnectionID)
-	assert.Nil(t, dialConn[1].Messages()[0].Error,
-		"expected resume error to be nil")
+	assert.Equal(t, prevConnId, client.Connection.ID())
+	assert.Nil(t, client.Connection.ErrorReason())
+	assert.NotZero(t, client.Connection.MsgSerial())
+
+	// Set channel to attaching state
+	channel.SetState(ably.ChannelStateAttaching)
+	doEOF <- struct{}{}
+	continueDial <- struct{}{}
+
+	// Check channel goes into attaching and attached state
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ChannelStateAttaching, change.Current, "expected no state change; got %+v", change)
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ChannelStateAttached, change.Current, "expected no state change; got %+v", change)
+
+	// Set channel to suspended state
+	channel.SetState(ably.ChannelStateSuspended)
+	doEOF <- struct{}{}
+	continueDial <- struct{}{}
+
+	// Check channel goes into attaching and attached state
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ChannelStateAttaching, change.Current, "expected no state change; got %+v", change)
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ChannelStateAttached, change.Current, "expected no state change; got %+v", change)
+
+	// Check for resume success
+	assert.Equal(t, prevConnId, client.Connection.ID())
+	assert.Nil(t, client.Connection.ErrorReason())
+	assert.NotZero(t, client.Connection.MsgSerial())
 }
 
 func TestRealtimeConn_RTN15c7_attached(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
-	throwResumeErr := false
-	var metaList []*transportMessages
-	gotDial := make(chan chan struct{})
+
+	continueDial := make(chan struct{}, 1)
+	continueDial <- struct{}{}
+
 	app, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &transportMessages{dial: u}
-			metaList = append(metaList, m)
-			if len(metaList) > 1 {
-				goOn := make(chan struct{})
-				gotDial <- goOn
-				<-goOn
-			}
+			<-continueDial
 			c, err := ably.DialWebsocket(protocol, u, timeout)
-			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				if throwResumeErr && msg.Action == ably.ActionConnected {
-					msg.Error = &ably.ProtoErrorInfo{StatusCode: 401}
-					msg.ConnectionID = "new-conn-id"
-				}
-				m.Add(msg)
-			}}, err
+			return protoConnWithFakeEOF{
+				Conn:  c,
+				doEOF: doEOF,
+			}, err
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
-	assert.NoError(t, err,
-		"Connect=%s", err)
+	assert.NoError(t, err, "Connect=%s", err)
+	prevConnId := client.Connection.ID()
 
 	// Increase msgSerial, to test that it gets reset later.
 	err = client.Channels.Get("publish").Publish(context.Background(), "test", nil)
 	assert.NoError(t, err)
+	assert.NotZero(t, client.Connection.MsgSerial())
 
 	channel := client.Channels.Get("channel")
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
 
-	chanStateChanges := make(ably.ChannelStateChanges, 18)
-	off := channel.On(ably.ChannelEventAttaching, chanStateChanges.Receive)
+	_, unsub, err := ablytest.ReceiveMessages(channel, "")
+	assert.NoError(t, err)
+	defer unsub()
+
+	chanStateChanges := make(ably.ChannelStateChanges)
+	off := channel.OnAll(chanStateChanges.Receive)
 	defer off()
 
-	stateChanges := make(chan ably.ConnectionStateChange, 16)
+	connStateChanges := make(chan ably.ConnectionStateChange, 16)
 	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
-		stateChanges <- c
+		connStateChanges <- c
 	})
 
-	throwResumeErr = true
+	client.Connection.SetKey("xxxxx!xxxxxxx-xxxxxxxx-xxxxxxxx") // invalid connection key for next resume request
 	doEOF <- struct{}{}
 
-	var state ably.ConnectionStateChange
+	var connState ably.ConnectionStateChange
 
-	select {
-	case state = <-stateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't transition on EOF")
-	}
-	assert.Equal(t, ably.ConnectionStateDisconnected, state.Current,
-		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, state.Current)
+	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateDisconnected, connState.Current,
+		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
 
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
-	goOn := <-gotDial
 	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
-	close(goOn)
 
-	select {
-	case state = <-stateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't reconnect")
-	}
-	assert.Equal(t, ably.ConnectionStateConnecting, state.Current,
-		"expected transition to %v, got %v", ably.ConnectionStateConnecting, state.Current)
+	continueDial <- struct{}{}
 
-	<-stateChanges
+	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnecting, connState.Current)
 
-	var chanState ably.ChannelStateChange
-	select {
-	case chanState = <-chanStateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't change state")
-	}
-	// we are testing to make sure we have initiated a new attach for channels
-	// in ATTACHED state.
-	assert.Equal(t, ably.ChannelStateAttaching, chanState.Current,
-		"expected transition to %v, got %v", ably.ChannelStateAttaching, chanState.Current)
+	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnected, connState.Current)
+	assert.NotNil(t, connState.Reason, "expected not nil connError, got nil connError")
 
-	reason := client.Connection.ErrorReason()
-	assert.NotNil(t, reason, "expected reason to be set")
-	assert.Equal(t, 401, reason.StatusCode,
-		"expected status code 401 got %d", reason.StatusCode)
-	assert.Equal(t, int64(0), client.Connection.MsgSerial(),
-		"expected msgSerial to be reset; got %d", client.Connection.MsgSerial())
-}
+	// Check channel goes into attaching and attached state
+	var change ably.ChannelStateChange
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ChannelStateAttaching, change.Current)
+	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
+	assert.Equal(t, ably.ChannelStateAttached, change.Current)
 
-func TestRealtimeConn_RTN15c7_attaching(t *testing.T) {
+	// Check for resume failure
+	assert.NotEqual(t, prevConnId, client.Connection.ID())
+	assert.Zero(t, client.Connection.MsgSerial())
+	assert.NotNil(t, client.Connection.ErrorReason())
+	assert.Equal(t, 400, client.Connection.ErrorReason().StatusCode)
 
-	doEOF := make(chan struct{}, 1)
-
-	var metaList []*transportMessages
-	gotDial := make(chan chan struct{})
-	app, client := ablytest.NewRealtime(
-		ably.WithAutoConnect(false),
-		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			m := &transportMessages{dial: u}
-			metaList = append(metaList, m)
-			if len(metaList) > 1 {
-				goOn := make(chan struct{})
-				gotDial <- goOn
-				<-goOn
-			}
-			c, err := ably.DialWebsocket(protocol, u, timeout)
-			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF, onMessage: func(msg *ably.ProtocolMessage) {
-				if len(metaList) == 2 && len(m.Messages()) == 0 {
-					msg.Error = &ably.ProtoErrorInfo{StatusCode: 401}
-					msg.ConnectionID = "new-conn-id"
-				}
-				if msg.Action == ably.ActionAttached {
-					msg.Action = ably.ActionHeartbeat
-				}
-				m.Add(msg)
-			}}, err
-		}))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-
-	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
-	assert.NoError(t, err,
-		"Connect=%s", err)
-
-	// Increase msgSerial, to test that it gets reset later.
-	err = client.Channels.Get("publish").Publish(context.Background(), "test", nil)
-	assert.NoError(t, err)
-
-	channel := client.Channels.Get("channel")
-	attaching := make(ably.ChannelStateChanges, 1)
-	off := channel.On(ably.ChannelEventAttaching, attaching.Receive)
-	defer off()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go func() {
-		channel.Attach(ctx)
-	}()
-
-	ablytest.Soon.Recv(t, nil, attaching, t.Fatalf)
-
-	stateChanges := make(chan ably.ConnectionStateChange, 16)
-	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
-		stateChanges <- c
-	})
-
-	doEOF <- struct{}{}
-
-	var state ably.ConnectionStateChange
-
-	select {
-	case state = <-stateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't transition on EOF")
-	}
-	assert.Equal(t, ably.ConnectionStateDisconnected, state.Current,
-		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, state.Current)
-	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
-
-	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish(ctx, "name", "data")
-	assert.NoError(t, err)
-	close(goOn)
-
-	select {
-	case state = <-stateChanges:
-	case <-time.After(50 * time.Millisecond):
-		t.Fatal("didn't reconnect")
-	}
-	assert.Equal(t, ably.ConnectionStateConnecting, state.Current,
-		"expected transition to %v, got %v", ably.ConnectionStateConnecting, state.Current)
-
-	<-stateChanges
-
-	// we are testing to make sure we have initiated a new attach for channels
-	// in ATTACHING  state.
-	assert.Equal(t, ably.ChannelStateAttaching, channel.State(),
-		"expected transition to %v, got %v", ably.ChannelStateAttaching, channel.State())
-
-	reason := client.Connection.ErrorReason()
-	assert.NotNil(t, reason,
-		"expected reason to be set")
-	assert.Equal(t, 401, reason.StatusCode,
-		"expected status code 401 got %d", reason.StatusCode)
-	assert.Equal(t, int64(0), client.Connection.MsgSerial(),
-		"expected msgSerial to be reset; got %d", client.Connection.MsgSerial())
+	// Todo - Expect message not to be arrived due to resume failure
+	// var msg *ably.Message
+	// ablytest.Soon.NoRecv(t, &msg, sub, t.Fatalf)
 }
 
 func TestRealtimeConn_RTN15c4(t *testing.T) {
