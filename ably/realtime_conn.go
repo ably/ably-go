@@ -82,6 +82,7 @@ type Connection struct {
 
 	readLimit                int64
 	isReadLimitSetExternally bool
+	recover                  string
 }
 
 type connCallbacks struct {
@@ -108,6 +109,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *R
 		callbacks: callbacks,
 		client:    client,
 		readLimit: maxMessageSize,
+		recover:   opts.Recover,
 	}
 	auth.onExplicitAuthorize = c.onClientAuthorize
 	c.queue = newMsgQueue(c)
@@ -249,7 +251,7 @@ func (c *Connection) getMode() connectionMode {
 	if c.key != "" {
 		return resumeMode
 	}
-	if c.opts.GetRecover() != "" {
+	if c.recover != "" {
 		return recoveryMode
 	}
 	return normalMode
@@ -285,7 +287,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	case resumeMode:
 		query.Set("resume", c.key) // RTN15b
 	case recoveryMode:
-		recoveryKeyContext, err := DecodeRecoveryKey(c.opts.GetRecover())
+		recoveryKeyContext, err := DecodeRecoveryKey(c.recover)
 		if err != nil {
 			c.log().Errorf("error decoding recovery key, %v", err)
 		}
@@ -809,8 +811,8 @@ func (c *Connection) eventloop() {
 			c.mtx.Lock()
 
 			// recover is used when set via clientOptions#recover initially, resume will be used for all reconnects.
-			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.GetRecover())
-			c.opts.SetRecover("") // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
+			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.recover)
+			c.recover = "" // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
 
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
