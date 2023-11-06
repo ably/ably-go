@@ -1347,11 +1347,11 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	connIDs <- "conn-1"
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
+	prevConnectionKey := c.Connection.Key()
 
-	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf) // discard first URL; we're interested in reconnections
+	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf)
 
 	// Get channels to ATTACHING, ATTACHED and DETACHED. (TODO: SUSPENDED)
-
 	attaching := c.Channels.Get("attaching")
 	_ = ablytest.ResultFunc.Go(func(ctx context.Context) error { return attaching.Attach(ctx) })
 	msg := <-out
@@ -1407,30 +1407,39 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	connIDs <- "conn-1" // Same connection ID so the resume "succeeds".
 	var dialed *url.URL
 	ablytest.Instantly.Recv(t, &dialed, dials, t.Fatalf)
-	resume := dialed.Query().Get("resume")
-	assert.NotEqual(t, "", resume, "expected a resume key; got %v", resume)
-
-	// Now do the same, but past connectionStateTTL + maxIdleInterval. This
-	// should make a fresh connection.
-
+	assert.Equal(t, prevConnectionKey, dialed.Query().Get("resume"))
 	ablytest.Instantly.Recv(t, nil, connected, t.Fatalf) // wait for CONNECTED before disconnecting again
-
-	setNow(now().Add(discardStateTTL + 1))
-	breakConn()
-
-	connIDs <- "conn-2"
-	ablytest.Instantly.Recv(t, &dialed, dials, t.Fatalf)
-	resume = dialed.Query().Get("resume")
-	assert.Equal(t, "", resume,
-		"didn't expect a resume key; got %v", resume)
-
-	recoverValue := dialed.Query().Get("recover")
-	assert.Equal(t, "", recoverValue,
-		"didn't expect a recover key; got %v", dialed)
 
 	// RTN15g3: Expect the previously attaching and attached channels to be
 	// attached again.
 	attachExpected := map[string]struct{}{
+		"attaching": {},
+		"attached":  {},
+	}
+	for len(attachExpected) > 0 {
+		var msg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
+		_, ok := attachExpected[msg.Channel]
+		assert.True(t, ok,
+			"ATTACH sent for unexpected or already attaching channel %q", msg.Channel)
+		delete(attachExpected, msg.Channel)
+	}
+	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+
+	// Now do the same, but past connectionStateTTL + maxIdleInterval. This
+	// should make a fresh connection.
+
+	setNow(now().Add(discardStateTTL + 1))
+	breakConn()
+	connIDs <- "conn-2" // different connection id, so resume failure
+	ablytest.Instantly.Recv(t, &dialed, dials, t.Fatalf)
+	assert.Empty(t, dialed.Query().Get("resume"))
+	assert.Empty(t, dialed.Query().Get("recover"))
+	ablytest.Instantly.Recv(t, nil, connected, t.Fatalf)
+
+	// RTN15g3: Expect the previously attaching and attached channels to be
+	// attached again.
+	attachExpected = map[string]struct{}{
 		"attaching": {},
 		"attached":  {},
 	}
