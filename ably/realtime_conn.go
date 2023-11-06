@@ -249,7 +249,7 @@ func (c *Connection) getMode() connectionMode {
 	if c.key != "" {
 		return resumeMode
 	}
-	if c.opts.Recover != "" {
+	if c.opts.GetRecover() != "" {
 		return recoveryMode
 	}
 	return normalMode
@@ -285,7 +285,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	case resumeMode:
 		query.Set("resume", c.key) // RTN15b
 	case recoveryMode:
-		recoveryKeyContext, err := DecodeRecoveryKey(c.opts.Recover)
+		recoveryKeyContext, err := DecodeRecoveryKey(c.opts.GetRecover())
 		if err != nil {
 			c.log().Errorf("error decoding recovery key, %v", err)
 		}
@@ -809,8 +809,8 @@ func (c *Connection) eventloop() {
 			c.mtx.Lock()
 
 			// recover is used when set via clientOptions#recover initially, resume will be used for all reconnects.
-			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.Recover)
-			c.opts.Recover = "" // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
+			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.GetRecover())
+			c.opts.SetRecover("") // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
 
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.

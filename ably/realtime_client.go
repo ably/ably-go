@@ -39,8 +39,8 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c.Connection = conn
 
 	// RTN16
-	if !empty(c.opts().Recover) {
-		recoverKeyContext, err := DecodeRecoveryKey(c.opts().Recover)
+	if !empty(c.opts().GetRecover()) {
+		recoverKeyContext, err := DecodeRecoveryKey(c.opts().GetRecover())
 		if err != nil {
 			c.log().Errorf("Error decoding recover with error %v", err)
 		} else {

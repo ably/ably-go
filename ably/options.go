@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -235,6 +236,7 @@ func (opts *authOptions) KeySecret() string {
 // clientOptions passes additional client-specific properties to the [ably.NewREST] or to the [ably.NewRealtime].
 // Properties set using [ably.clientOptions] are used instead of the [ably.defaultOptions] values.
 type clientOptions struct {
+	mtx *sync.Mutex
 
 	// authOptions Embedded an [ably.authOptions] object (TO3j).
 	authOptions
@@ -1154,6 +1156,18 @@ func WithRecover(key string) ClientOption {
 	return func(os *clientOptions) {
 		os.Recover = key
 	}
+}
+
+func (opts *clientOptions) SetRecover(recover string) {
+	opts.mtx.Lock()
+	defer opts.mtx.Unlock()
+	opts.Recover = recover
+}
+
+func (opts *clientOptions) GetRecover() string {
+	opts.mtx.Lock()
+	defer opts.mtx.Unlock()
+	return opts.Recover
 }
 
 // WithTLS is used for setting NoTLS using [ably.ClientOption].
