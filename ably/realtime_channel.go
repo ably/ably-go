@@ -62,7 +62,7 @@ func (channels *RealtimeChannels) GetChannelSerials() map[string]string {
 	defer channels.mtx.Unlock()
 	channelSerials := make(map[string]string)
 	for channelName, realtimeChannel := range channels.chans {
-		channelSerials[channelName] = realtimeChannel.properties.ChannelSerial
+		channelSerials[channelName] = realtimeChannel.getChannelSerial()
 	}
 	return channelSerials
 }
@@ -354,7 +354,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 			Action:  actionAttach,
 			Channel: c.Name,
 		}
-		msg.ChannelSerial = c.getChannelSerial() // RTL4c1
+		msg.ChannelSerial = c.properties.ChannelSerial // RTL4c1, accessing locked
 		if len(c.channelOpts().Params) > 0 {
 			msg.Params = c.channelOpts().Params
 		}
@@ -789,7 +789,7 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 	if !empty(msg.ChannelSerial) && msg.Action == actionMessage ||
 		msg.Action == actionPresence || msg.Action == actionAttached {
 		c.log().Debugf("Setting channel serial for channelName - %v, previous - %v, current - %v",
-			c.Name, c.properties.ChannelSerial, msg.ChannelSerial)
+			c.Name, c.getChannelSerial(), msg.ChannelSerial)
 		c.setChannelSerial(msg.ChannelSerial)
 	}
 
@@ -979,7 +979,7 @@ func (c *RealtimeChannel) setState(state ChannelState, err error, resumed bool) 
 	}
 	// RTP5a1
 	if state == ChannelStateDetached || state == ChannelStateSuspended || state == ChannelStateFailed {
-		c.setChannelSerial("")
+		c.properties.ChannelSerial = "" // setting on already locked method
 	}
 	// RTP5f
 	if state == ChannelStateSuspended {
