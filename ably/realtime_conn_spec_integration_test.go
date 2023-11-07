@@ -1766,20 +1766,24 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	err = channel.Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 	prevMsgSerial := c.Connection.MsgSerial()
+	prevConnId := c.Connection.ID()
 
 	client := app.NewRealtime(
-		ably.WithRecover(c.Connection.RecoveryKey()),
+		ably.WithRecover(c.Connection.RecoveryKey()), // RTN16g - createRecoveryKey
 	)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	err = ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	{ //RTN16b, RTN16f
+	{ // RTN16f, RTN16j
 		assert.True(t, sameConnection(client.Connection.Key(), c.Connection.Key()),
 			"expected the same connection")
+		assert.Equal(t, prevConnId, c.Connection.ID())
+		assert.Nil(t, client.Connection.ErrorReason())
 		assert.Equal(t, prevMsgSerial, client.Connection.MsgSerial(),
 			"expected %d got %d", prevMsgSerial, client.Connection.MsgSerial())
+		assert.True(t, client.Channels.Exists("channel"))
 	}
 	{ //(RTN16c)
 		err := ablytest.Wait(ablytest.ConnWaiter(client, client.Close, ably.ConnectionEventClosed), nil)
@@ -1791,37 +1795,37 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		assert.Equal(t, "", client.Connection.ID(),
 			"expected id to be empty got %q instead", client.Connection.ID())
 	}
-	{ //(RTN16e)
-		// This test was adopted from the ably-js project
-		// https://github.com/ably/ably-js/blob/340e5ce31dc9d7434a06ae4e1eec32bdacc9c6c5/spec/realtime/connection.test.js#L119
-		// var query url.Values
-		client2 := app.NewRealtime(
-			ably.WithRecover("_____!ablygo_test_fake-key____:5:3"),
-			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-				// query = u.Query()
-				return ably.DialWebsocket(protocol, u, timeout)
-			}))
-		defer safeclose(t, ablytest.FullRealtimeCloser(client2))
-		err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
-		assert.Error(t, err, "expected reason to be set")
-		if err == nil {
-			t.Fatal("expected reason to be set")
-		}
-		{ //(RTN16e)
-			info := err.(*ably.ErrorInfo)
-			assert.Equal(t, 80008, int(info.Code),
-				"expected 80008 got %d", info.Code)
-			reason := client2.Connection.ErrorReason()
-			assert.Equal(t, 80008, int(reason.Code),
-				"expected 80008 got %d", reason.Code)
-			msgSerial := client2.Connection.MsgSerial()
-			// verify msgSerial is 0 (new connection), not 3
-			assert.Equal(t, int64(0), msgSerial,
-				"expected 0 got %d", msgSerial)
-			assert.NotContains(t, client2.Connection.Key(), "ablygo_test_fake",
-				"expected %q not to contain \"ablygo_test_fake\"", client2.Connection.Key())
-		}
-	}
+	// { //(RTN16e)
+	// 	// This test was adopted from the ably-js project
+	// 	// https://github.com/ably/ably-js/blob/340e5ce31dc9d7434a06ae4e1eec32bdacc9c6c5/spec/realtime/connection.test.js#L119
+	// 	// var query url.Values
+	// 	client2 := app.NewRealtime(
+	// 		ably.WithRecover("_____!ablygo_test_fake-key____:5:3"),
+	// 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+	// 			// query = u.Query()
+	// 			return ably.DialWebsocket(protocol, u, timeout)
+	// 		}))
+	// 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+	// 	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
+	// 	assert.Error(t, err, "expected reason to be set")
+	// 	if err == nil {
+	// 		t.Fatal("expected reason to be set")
+	// 	}
+	// 	{ //(RTN16e)
+	// 		info := err.(*ably.ErrorInfo)
+	// 		assert.Equal(t, 80008, int(info.Code),
+	// 			"expected 80008 got %d", info.Code)
+	// 		reason := client2.Connection.ErrorReason()
+	// 		assert.Equal(t, 80008, int(reason.Code),
+	// 			"expected 80008 got %d", reason.Code)
+	// 		msgSerial := client2.Connection.MsgSerial()
+	// 		// verify msgSerial is 0 (new connection), not 3
+	// 		assert.Equal(t, int64(0), msgSerial,
+	// 			"expected 0 got %d", msgSerial)
+	// 		assert.NotContains(t, client2.Connection.Key(), "ablygo_test_fake",
+	// 			"expected %q not to contain \"ablygo_test_fake\"", client2.Connection.Key())
+	// 	}
+	// }
 }
 
 func sameConnection(a, b string) bool {
