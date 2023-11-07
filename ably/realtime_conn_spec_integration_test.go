@@ -1774,8 +1774,18 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	channel := c.Channels.Get("channel")
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
+
+	var msg *ably.Message
+	sub, unsub, err := ablytest.ReceiveMessages(channel, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unsub()
 	err = channel.Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
+
+	ablytest.Soon.Recv(t, &msg, sub, t.Fatalf)
+	assert.Equal(t, "data", msg.Data)
 
 	prevMsgSerial := c.Connection.MsgSerial()
 	prevConnId := c.Connection.ID()
