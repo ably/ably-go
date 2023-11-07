@@ -1413,12 +1413,18 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 	// RTN15g3: Expect the previously attaching and attached channels to be
 	// attached again.
 
-	ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
-	assert.Equal(t, "attaching", msg.Channel)
-
-	ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
-	assert.Equal(t, "attached", msg.Channel)
-
+	attachExpected := map[string]struct{}{
+		"attaching": {},
+		"attached":  {},
+	}
+	for len(attachExpected) > 0 {
+		var msg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
+		_, ok := attachExpected[msg.Channel]
+		assert.True(t, ok,
+			"ATTACH sent for unexpected or already attaching channel %q", msg.Channel)
+		delete(attachExpected, msg.Channel)
+	}
 	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 
 	// Now do the same, but past connectionStateTTL + maxIdleInterval. This
@@ -1434,13 +1440,18 @@ func TestRealtimeConn_RTN15g_NewConnectionOnStateLost(t *testing.T) {
 
 	// RTN15g3: Expect the previously attaching and attached channels to be
 	// attached again.
-
-	ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
-	assert.Equal(t, "attaching", msg.Channel)
-
-	ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
-	assert.Equal(t, "attached", msg.Channel)
-
+	attachExpected = map[string]struct{}{
+		"attaching": {},
+		"attached":  {},
+	}
+	for len(attachExpected) > 0 {
+		var msg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &msg, out, t.Fatalf)
+		_, ok := attachExpected[msg.Channel]
+		assert.True(t, ok,
+			"ATTACH sent for unexpected or already attaching channel %q", msg.Channel)
+		delete(attachExpected, msg.Channel)
+	}
 	ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 }
 

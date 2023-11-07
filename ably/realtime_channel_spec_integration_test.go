@@ -2835,7 +2835,9 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 
 		channel = c.Channels.Get("test")
 
-		go channel.Attach(canceledCtx)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go channel.Attach(ctx)
 
 		ablytest.Instantly.Recv(t, nil, afterCalls, t.Fatalf) // Consume timer
 		ablytest.Instantly.Recv(t, nil, out, t.Fatalf)        // Consume ATTACHING
