@@ -290,8 +290,9 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 		recoveryKeyContext, err := DecodeRecoveryKey(c.recover)
 		if err != nil {
 			c.log().Errorf("error decoding recovery key, %v", err)
+		} else {
+			query.Set("recover", recoveryKeyContext.ConnectionKey) // RTN16k
 		}
-		query.Set("recover", recoveryKeyContext.ConnectionKey) // RTN16k
 	}
 	return query, nil
 }
