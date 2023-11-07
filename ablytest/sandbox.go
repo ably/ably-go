@@ -165,7 +165,7 @@ func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
 			}
 		}
 
-		if err != nil {
+		if err != nil || (resp != nil && resp.StatusCode == 504) { // gateway timeout
 			// Timeout. Back off before allowing another attempt.
 			log.Println("warn: request timeout, attempting retry")
 			time.Sleep(retryInterval)
