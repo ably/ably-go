@@ -49,8 +49,6 @@ func newChannels(client *Realtime) *RealtimeChannels {
 
 // RTN16j, RTL15b
 func (channels *RealtimeChannels) SetChannelSerialsFromRecoverOption(serials map[string]string) {
-	channels.mtx.Lock()
-	defer channels.mtx.Unlock()
 	for channelName, channelSerial := range serials {
 		channel := channels.Get(channelName)
 		channel.setChannelSerial(channelSerial)
@@ -706,7 +704,9 @@ func (c *RealtimeChannel) HistoryUntilAttach(o ...HistoryOption) (*HistoryReques
 	}
 
 	untilAttachParam := func(o *historyOptions) {
+		c.mtx.Lock()
 		o.params.Set("fromSerial", c.properties.AttachSerial)
+		c.mtx.Unlock()
 	}
 	o = append(o, untilAttachParam)
 
@@ -795,8 +795,10 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 
 	switch msg.Action {
 	case actionAttached:
+		c.mtx.Lock()
 		c.properties.AttachSerial = msg.ChannelSerial // RTL15a
-		if c.State() == ChannelStateDetaching {       // RTL5K
+		c.mtx.Unlock()
+		if c.State() == ChannelStateDetaching { // RTL5K
 			c.sendDetachMsg()
 			return
 		}
