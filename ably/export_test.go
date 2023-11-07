@@ -93,6 +93,12 @@ func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
 }
 
+func (c *RealtimeChannel) GetChannelSerial() string {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.properties.ChannelSerial
+}
+
 func (c *RealtimeChannel) GetAttachResume() bool {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
