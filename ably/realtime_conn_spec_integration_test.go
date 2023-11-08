@@ -1829,13 +1829,13 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	{ //(RTN16l)
 		// This test was adopted from the ably-js project
 		// https://github.com/ably/ably-js/blob/340e5ce31dc9d7434a06ae4e1eec32bdacc9c6c5/spec/realtime/connection.test.js#L119
-		// var query url.Values
+		var query url.Values
 		decodedRecoveryKey.ConnectionKey = "ablygo_test_fake-key____"
 		faultyRecoveryKey, _ := decodedRecoveryKey.Encode()
 		client2 := app.NewRealtime(
 			ably.WithRecover(faultyRecoveryKey),
 			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-				// query = u.Query()
+				query = u.Query()
 				return ably.DialWebsocket(protocol, u, timeout)
 			}))
 		defer safeclose(t, ablytest.FullRealtimeCloser(client2))
@@ -1843,6 +1843,11 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		assert.Error(t, err, "expected reason to be set")
 		if err == nil {
 			t.Fatal("expected reason to be set")
+		}
+		{ // (RTN16i)
+			recoverValue := query.Get("recover")
+			assert.NotEmpty(t, recoverValue)
+			assert.Equal(t, "ablygo_test_fake-key____", recoverValue)
 		}
 		{ //(RTN16e)
 			info := err.(*ably.ErrorInfo)
