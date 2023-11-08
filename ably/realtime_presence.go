@@ -101,7 +101,7 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	onAck := func(err error) {
 		listen <- err
 	}
-	switch pres.channel.state {
+	switch pres.channel.State() {
 	case ChannelStateInitialized: // RTP16b
 		if pres.maybeEnqueue(protomsg, onAck) {
 			pres.channel.attach()
