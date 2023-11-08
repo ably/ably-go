@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"syscall"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -159,9 +160,11 @@ func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
 		req.Header.Set("Accept", "application/json")
 		resp, err := app.client.Do(req)
 		if err != nil {
-			// return from this function now only if the error wasn't due to a timeout
-			if err, ok := err.(*url.Error); ok && !err.Timeout() {
-				return nil, err
+			if !errors.Is(err, syscall.ECONNRESET) { // if not connection reset by peer
+				// return error if it wasn't due to a timeout
+				if err, ok := err.(*url.Error); ok && !err.Timeout() {
+					return nil, err
+				}
 			}
 		}
 
