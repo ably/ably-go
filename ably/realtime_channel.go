@@ -975,7 +975,7 @@ func (c *RealtimeChannel) setState(state ChannelState, err error, resumed bool) 
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
-	// RT5Pa
+	// RTP5a
 	if state == ChannelStateDetached || state == ChannelStateFailed {
 		c.Presence.onChannelDetachedOrFailed(channelStateError(state, err))
 	}
