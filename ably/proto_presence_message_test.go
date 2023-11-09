@@ -271,11 +271,46 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		assert.Equal(t, ably.PresenceActionPresent, member2.Action)
 	})
 
-	t.Run("RTP2", func(t *testing.T) {
+	t.Run("RTP2b1: check for newness by timestamp is synthesized", func(t *testing.T) {
 
 	})
+
+	t.Run("RTP2b2: check for newness by timestamp is not synthesized", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP2c: check for newness during sync", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP2d: when presence msg with ENTER, UPDATE AND PRESENT arrives, add to presence map with action as present", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP2e: when presence msg with LEAVE action arrives, remove member from presence map", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP2f: when presence msg with LEAVE action arrives, if sync in progress, store as absent and remove it later", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP2g: incoming event should be emitted on realtimepresence object", func(t *testing.T) {
+
+	})
+
 }
 
-func Test_Presence_SYNC_RTP18(t *testing.T) {
-	assert.True(t, true)
+func Test_Presence_server_initiated_sync_RTP18(t *testing.T) {
+	t.Run("RTP18a: client determines a new sync started with <sync sequence id>:<cursor value>", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP18b: client determines sync ended with <sync sequence id>:", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP18: client determines sync started and ended with <sync sequence id>:", func(t *testing.T) {
+
+	})
 }
