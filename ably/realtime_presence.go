@@ -286,8 +286,8 @@ func (pres *RealtimePresence) processProtoPresenceMessage(msg *protocolMessage) 
 	pres.mtx.Lock()
 	// RTP17 - Update internal presence map
 	for _, presenceMember := range msg.Presence {
-		memberKey := presenceMember.ClientID                                  // RTP17h
-		if pres.channel.client.Connection.id != presenceMember.ConnectionID { // RTP17
+		memberKey := presenceMember.ClientID                                    // RTP17h
+		if pres.channel.client.Connection.ID() != presenceMember.ConnectionID { // RTP17
 			continue
 		}
 		switch presenceMember.Action {
