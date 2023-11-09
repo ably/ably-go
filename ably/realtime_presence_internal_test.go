@@ -113,11 +113,3 @@ func TestSend(t *testing.T) {
 		})
 	}
 }
-
-func Test_PresenceMap_RTP2(t *testing.T) {
-	assert.True(t, true)
-}
-
-func Test_Presence_SYNC_RTP18(t *testing.T) {
-	assert.True(t, true)
-}
