@@ -4,6 +4,7 @@
 package ably_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -172,9 +173,12 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		channel *ably.RealtimeChannel,
 		stateChanges ably.ChannelStateChanges,
 		afterCalls chan ablytest.AfterCall,
+		presenceMsgCh chan *ably.PresenceMessage,
 	) {
 		in = make(chan *ably.ProtocolMessage, 1)
 		out = make(chan *ably.ProtocolMessage, 16)
+		presenceMsgCh = make(chan *ably.PresenceMessage, 16)
+
 		afterCalls = make(chan ablytest.AfterCall, 1)
 		now, after := ablytest.TimeFuncs(afterCalls)
 
@@ -199,44 +203,77 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 
 		channel = c.Channels.Get("test")
 		stateChanges = make(ably.ChannelStateChanges, 10)
+		channel.OnAll(stateChanges.Receive)
+
+		in <- &ably.ProtocolMessage{
+			Action:  ably.ActionAttached,
+			Channel: channel.Name,
+		}
+
+		var change ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		assert.Equal(t, ably.ChannelStateAttached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current)
+
+		channel.Presence.SubscribeAll(context.Background(), func(message *ably.PresenceMessage) {
+			presenceMsgCh <- message
+		})
 		return
 	}
 
-	t.Run("RTL14: when Error, should transition to failed state", func(t *testing.T) {
-		in, out, _, channel, stateChanges, afterCalls := setup(t)
+	t.Run("RTP2: should maintain a list of members present on the channel", func(t *testing.T) {
+		in, _, _, channel, _, _, presenceMsgCh := setup(t)
 
-		errInfo := ably.ProtoErrorInfo{
-			StatusCode: 500,
-			Code:       50500,
-			Message:    "fake error",
+		initialMembers := channel.Presence.GetMembers()
+		assert.Empty(t, initialMembers)
+
+		presenceMsg1 := &ably.PresenceMessage{
+			Action: ably.PresenceActionPresent,
+			Message: ably.Message{
+				ID:           "123:12:1",
+				Timestamp:    125,
+				ConnectionID: "987",
+				ClientID:     "999",
+			},
 		}
 
-		in <- &ably.ProtocolMessage{
-			Action:  ably.ActionError,
-			Channel: channel.Name,
-			Error:   &errInfo,
+		presenceMsg2 := &ably.PresenceMessage{
+			Action: ably.PresenceActionPresent,
+			Message: ably.Message{
+				ID:           "123:12:2",
+				Timestamp:    123,
+				ConnectionID: "784",
+				ClientID:     "999",
+			},
 		}
 
-		// Expect a state change with the error.
+		msg := &ably.ProtocolMessage{
+			Action:   ably.ActionPresence,
+			Channel:  channel.Name,
+			Presence: []*ably.PresenceMessage{presenceMsg1},
+		}
 
-		var change ably.ChannelStateChange
-		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
-		assert.Equal(t, ably.ChannelStateFailed, change.Current,
-			"expected %v; got %v (event: %+v)", change)
+		in <- msg
+		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
+		presenceMembers := channel.Presence.GetMembers()
 
-		got := fmt.Sprint(change.Reason)
-		assert.Contains(t, got, "fake error",
-			"expected error info to contain \"fake error\"; got %v", got)
+		assert.Equal(t, 1, len(presenceMembers))
+		member := presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
+		assert.Equal(t, ably.PresenceActionPresent, member.Action)
 
-		got = fmt.Sprint(channel.ErrorReason())
-		assert.Contains(t, got, "fake error",
-			"expected error info to contain \"fake error\"; got %v", got)
+		msg.Presence = []*ably.PresenceMessage{presenceMsg2}
+		in <- msg
 
-		ablytest.Instantly.NoRecv(t, nil, afterCalls, t.Fatalf)
-		ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
-		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
+		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
+		assert.Equal(t, 2, len(channel.Presence.GetMembers()))
+		member2 := presenceMembers[presenceMsg2.ConnectionID+presenceMsg2.ClientID]
+		assert.Equal(t, ably.PresenceActionPresent, member2.Action)
 	})
 
+	t.Run("RTP2", func(t *testing.T) {
+
+	})
 }
 
 func Test_Presence_SYNC_RTP18(t *testing.T) {

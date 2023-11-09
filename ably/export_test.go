@@ -211,6 +211,12 @@ func (c *Connection) SetKey(key string) {
 	c.key = key
 }
 
+func (c *RealtimePresence) GetMembers() map[string]*PresenceMessage {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.members
+}
+
 func (c *Connection) ConnectionStateTTL() time.Duration {
 	return c.connectionStateTTL()
 }
