@@ -314,3 +314,25 @@ func Test_Presence_server_initiated_sync_RTP18(t *testing.T) {
 
 	})
 }
+
+func Test_internal_presencemap_RTP17(t *testing.T) {
+	t.Run("RTP17: presence object should have second presencemap containing only currentConnectionId", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP17b: apply presence message events as per spec", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP17h: presencemap should be keyed by clientId", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP17f, RTP17g: automatic re-entry whenever channel moves into ATTACHED state", func(t *testing.T) {
+
+	})
+
+	t.Run("RTP17e: publish error if automatic re-enter failed", func(t *testing.T) {
+
+	})
+}
