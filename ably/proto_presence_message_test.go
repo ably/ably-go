@@ -280,7 +280,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		presenceMsg1 := &ably.PresenceMessage{
 			Action: ably.PresenceActionPresent,
 			Message: ably.Message{
-				ID:           "987:12:1",
+				ID:           "987:12:5",
 				Timestamp:    125,
 				ConnectionID: "987",
 				ClientID:     "999",
@@ -290,7 +290,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		presenceMsg2 := &ably.PresenceMessage{
 			Action: ably.PresenceActionPresent,
 			Message: ably.Message{
-				ID:           "989:12:2",
+				ID:           "989:12:0",
 				Timestamp:    128,
 				ConnectionID: "987",
 				ClientID:     "999",
@@ -304,27 +304,75 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		}
 
 		in <- msg
-		ablytest.Soon.Recv(t, nil, presenceMsgCh, t.Fatalf)
+		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
 		presenceMembers := channel.Presence.GetMembers()
 
 		assert.Equal(t, 1, len(presenceMembers))
 		member := presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
 		assert.Equal(t, ably.PresenceActionPresent, member.Action)
-		assert.Equal(t, "987:12:1", member.ID)
+		assert.Equal(t, "987:12:5", member.ID)
 
 		msg.Presence = []*ably.PresenceMessage{presenceMsg2}
 		in <- msg
 
-		ablytest.Soon.Recv(t, nil, presenceMsgCh, t.Fatalf)
+		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
 		presenceMembers = channel.Presence.GetMembers()
 		assert.Equal(t, 1, len(presenceMembers))
 		member = presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
 		assert.Equal(t, ably.PresenceActionPresent, member.Action)
-		assert.Equal(t, "989:12:2", member.ID)
+		assert.Equal(t, "989:12:0", member.ID)
 	})
 
 	t.Run("RTP2b2: check for newness by timestamp is not synthesized", func(t *testing.T) {
+		in, _, _, channel, _, _, presenceMsgCh := setup(t)
 
+		initialMembers := channel.Presence.GetMembers()
+		assert.Empty(t, initialMembers)
+
+		presenceMsg1 := &ably.PresenceMessage{
+			Action: ably.PresenceActionPresent,
+			Message: ably.Message{
+				ID:           "987:12:5",
+				Timestamp:    125,
+				ConnectionID: "987",
+				ClientID:     "999",
+			},
+		}
+
+		presenceMsg2 := &ably.PresenceMessage{
+			Action: ably.PresenceActionPresent,
+			Message: ably.Message{
+				ID:           "987:12:0",
+				Timestamp:    128,
+				ConnectionID: "987",
+				ClientID:     "999",
+			},
+		}
+
+		msg := &ably.ProtocolMessage{
+			Action:   ably.ActionPresence,
+			Channel:  channel.Name,
+			Presence: []*ably.PresenceMessage{presenceMsg1},
+		}
+
+		in <- msg
+		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
+		presenceMembers := channel.Presence.GetMembers()
+
+		assert.Equal(t, 1, len(presenceMembers))
+		member := presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
+		assert.Equal(t, ably.PresenceActionPresent, member.Action)
+		assert.Equal(t, "987:12:5", member.ID)
+
+		msg.Presence = []*ably.PresenceMessage{presenceMsg2}
+		in <- msg
+
+		ablytest.Instantly.NoRecv(t, nil, presenceMsgCh, t.Fatalf)
+		presenceMembers = channel.Presence.GetMembers()
+		assert.Equal(t, 1, len(presenceMembers))
+		member = presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
+		assert.Equal(t, ably.PresenceActionPresent, member.Action)
+		assert.Equal(t, "987:12:5", member.ID)
 	})
 
 	t.Run("RTP2c: check for newness during sync", func(t *testing.T) {
