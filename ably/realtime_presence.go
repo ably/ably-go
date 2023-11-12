@@ -292,9 +292,9 @@ func (pres *RealtimePresence) processProtoPresenceMessage(msg *protocolMessage) 
 		}
 		switch presenceMember.Action {
 		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d, RTP17b
-			presenceMemberShallowCopy := presenceMember
+			presenceMemberShallowCopy := *presenceMember
 			presenceMemberShallowCopy.Action = PresenceActionPresent
-			pres.addPresenceMember(pres.internalMembers, memberKey, presenceMemberShallowCopy)
+			pres.addPresenceMember(pres.internalMembers, memberKey, &presenceMemberShallowCopy)
 		case PresenceActionLeave: // RTP17b, RTP2e
 			if !presenceMember.isServerSynthesized() {
 				pres.removePresenceMember(pres.internalMembers, memberKey, presenceMember)
@@ -310,9 +310,9 @@ func (pres *RealtimePresence) processProtoPresenceMessage(msg *protocolMessage) 
 		switch presenceMember.Action {
 		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d
 			delete(pres.beforeSyncMembers, memberKey)
-			presenceMemberShallowCopy := presenceMember
+			presenceMemberShallowCopy := *presenceMember
 			presenceMemberShallowCopy.Action = PresenceActionPresent
-			memberUpdated = pres.addPresenceMember(pres.members, memberKey, presenceMemberShallowCopy)
+			memberUpdated = pres.addPresenceMember(pres.members, memberKey, &presenceMemberShallowCopy)
 		case PresenceActionLeave: // RTP2e
 			memberUpdated = pres.removePresenceMember(pres.members, memberKey, presenceMember)
 		}

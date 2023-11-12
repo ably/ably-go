@@ -323,7 +323,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		assert.Equal(t, "989:12:0", member.ID)
 	})
 
-	t.Run("RTP2b2: check for newness by serial if not synthesized", func(t *testing.T) {
+	t.Run("RTP2b2, RTP2d: check for newness by serial if not synthesized", func(t *testing.T) {
 		in, _, _, channel, _, _, presenceMsgCh := setup(t)
 
 		initialMembers := channel.Presence.GetMembers()
@@ -399,8 +399,68 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 
 	})
 
-	t.Run("RTP2d: when presence msg with ENTER, UPDATE AND PRESENT arrives, add to presence map with action as present", func(t *testing.T) {
+	t.Run("RTP2d, RTP2g: when presence msg with ENTER, UPDATE AND PRESENT arrives, add to presence map with action as present", func(t *testing.T) {
+		in, _, _, channel, _, _, presenceMsgCh := setup(t)
 
+		initialMembers := channel.Presence.GetMembers()
+		assert.Empty(t, initialMembers)
+
+		presenceMsg1 := &ably.PresenceMessage{
+			Action: ably.PresenceActionEnter,
+			Message: ably.Message{
+				ID:           "987:12:0",
+				Timestamp:    125,
+				ConnectionID: "987",
+				ClientID:     "999",
+			},
+		}
+
+		presenceMsg2 := &ably.PresenceMessage{
+			Action: ably.PresenceActionUpdate,
+			Message: ably.Message{
+				ID:           "987:12:1",
+				Timestamp:    128,
+				ConnectionID: "988",
+				ClientID:     "999",
+			},
+		}
+
+		presenceMsg3 := &ably.PresenceMessage{
+			Action: ably.PresenceActionPresent,
+			Message: ably.Message{
+				ID:           "987:12:2",
+				Timestamp:    128,
+				ConnectionID: "989",
+				ClientID:     "999",
+			},
+		}
+
+		msg := &ably.ProtocolMessage{
+			Action:   ably.ActionPresence,
+			Channel:  channel.Name,
+			Presence: []*ably.PresenceMessage{presenceMsg1},
+		}
+
+		var presenceMsg *ably.PresenceMessage
+		in <- msg
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf) // RTP2g
+		assert.Equal(t, ably.PresenceActionEnter, presenceMsg.Action)
+
+		msg.Presence = []*ably.PresenceMessage{presenceMsg2}
+		in <- msg
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+		assert.Equal(t, ably.PresenceActionUpdate, presenceMsg.Action)
+
+		msg.Presence = []*ably.PresenceMessage{presenceMsg3}
+		in <- msg
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+		assert.Equal(t, ably.PresenceActionPresent, presenceMsg.Action)
+
+		members := channel.Presence.GetMembers()
+		assert.Equal(t, 3, len(members))
+		for _, pm := range members {
+			assert.Equal(t, ably.PresenceActionPresent, pm.Action)
+		}
 	})
 
 	t.Run("RTP2e: when presence msg with LEAVE action arrives, remove member from presence map", func(t *testing.T) {
