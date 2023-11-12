@@ -396,7 +396,67 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 	})
 
 	t.Run("RTP2c: check for newness during sync", func(t *testing.T) {
+		in, _, _, channel, stateChanges, _, presenceMsgCh := setup(t)
 
+		initialMembers := channel.Presence.GetMembers()
+		assert.Empty(t, initialMembers)
+
+		presenceMsg1 := &ably.PresenceMessage{
+			Action: ably.PresenceActionPresent,
+			Message: ably.Message{
+				ID:           "987:12:5",
+				Timestamp:    125,
+				ConnectionID: "987",
+				ClientID:     "999",
+			},
+		}
+
+		presenceMsg2 := &ably.PresenceMessage{
+			Action: ably.PresenceActionPresent,
+			Message: ably.Message{
+				ID:           "987:12:0",
+				Timestamp:    128,
+				ConnectionID: "987",
+				ClientID:     "999",
+			},
+		}
+
+		presenceMsg3 := &ably.PresenceMessage{
+			Action: ably.PresenceActionPresent,
+			Message: ably.Message{
+				ID:           "987:12:7",
+				Timestamp:    128,
+				ConnectionID: "987",
+				ClientID:     "999",
+			},
+		}
+
+		syncMessage := &ably.ProtocolMessage{
+			Action:        ably.ActionSync,
+			Channel:       channel.Name,
+			ChannelSerial: "abcdefg:",
+			Presence:      []*ably.PresenceMessage{presenceMsg1, presenceMsg2, presenceMsg3},
+		}
+
+		assert.True(t, channel.Presence.SyncComplete())
+
+		in <- &ably.ProtocolMessage{
+			Action:  ably.ActionAttached,
+			Flags:   ably.FlagHasPresence,
+			Channel: channel.Name,
+		}
+
+		ablytest.Instantly.Recv(t, nil, stateChanges, t.Fatalf)
+		assert.False(t, channel.Presence.SyncComplete())
+
+		in <- syncMessage
+
+		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
+		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
+
+		assert.True(t, channel.Presence.SyncComplete())
+		presenceMembers := channel.Presence.GetMembers()
+		assert.Equal(t, 1, len(presenceMembers))
 	})
 
 	t.Run("RTP2d, RTP2g: when presence msg with ENTER, UPDATE AND PRESENT arrives, add to presence map with action as present", func(t *testing.T) {
