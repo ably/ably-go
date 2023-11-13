@@ -915,16 +915,264 @@ func Test_RTP1_attach_with_presence_flag(t *testing.T) {
 }
 
 func Test_internal_presencemap_RTP17(t *testing.T) {
-	t.Run("RTP17: presence object should have second presencemap containing only currentConnectionId", func(t *testing.T) {
+	const channelRetryTimeout = 123 * time.Millisecond
+	const realtimeRequestTimeout = 2 * time.Second
 
+	setup := func(t *testing.T) (
+		in, out chan *ably.ProtocolMessage,
+		c *ably.Realtime,
+		channel *ably.RealtimeChannel,
+		stateChanges ably.ChannelStateChanges,
+		presenceMsgCh chan *ably.PresenceMessage,
+	) {
+		in = make(chan *ably.ProtocolMessage, 1)
+		out = make(chan *ably.ProtocolMessage, 16)
+		presenceMsgCh = make(chan *ably.PresenceMessage, 16)
+
+		c, _ = ably.NewRealtime(
+			ably.WithToken("fake:token"),
+			ably.WithAutoConnect(false),
+			ably.WithChannelRetryTimeout(channelRetryTimeout),
+			ably.WithRealtimeRequestTimeout(realtimeRequestTimeout),
+			ably.WithDial(MessagePipe(in, out)),
+		)
+
+		in <- &ably.ProtocolMessage{
+			Action:            ably.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &ably.ConnectionDetails{},
+		}
+
+		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+		assert.NoError(t, err)
+
+		channel = c.Channels.Get("test")
+		stateChanges = make(ably.ChannelStateChanges, 10)
+		channel.OnAll(stateChanges.Receive)
+
+		in <- &ably.ProtocolMessage{
+			Action:  ably.ActionAttached,
+			Channel: channel.Name,
+		}
+
+		var change ably.ChannelStateChange
+
+		ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+		assert.Equal(t, ably.ChannelStateAttached, change.Current,
+			"expected %v; got %v (event: %+v)", ably.ChannelStateAttached, change.Current)
+
+		channel.Presence.SubscribeAll(context.Background(), func(message *ably.PresenceMessage) {
+			presenceMsgCh <- message
+		})
+		return
+	}
+
+	t.Run("RTP17: presence object should have second presencemap containing only currentConnectionId", func(t *testing.T) {
+		in, _, client, channel, _, presenceMsgCh := setup(t)
+
+		initialMembers := channel.Presence.GetMembers()
+		assert.Empty(t, initialMembers)
+
+		presenceMsg1 := &ably.PresenceMessage{
+			Action: ably.PresenceActionEnter,
+			Message: ably.Message{
+				ID:           "987:12:0",
+				Timestamp:    125,
+				ConnectionID: client.Connection.ID(),
+				ClientID:     "999",
+			},
+		}
+
+		presenceMsg2 := &ably.PresenceMessage{
+			Action: ably.PresenceActionUpdate,
+			Message: ably.Message{
+				ID:           "988:12:1",
+				Timestamp:    128,
+				ConnectionID: "988",
+				ClientID:     "999",
+			},
+		}
+
+		presenceMsg3 := &ably.PresenceMessage{
+			Action: ably.PresenceActionEnter,
+			Message: ably.Message{
+				ID:           "987:13:0",
+				Timestamp:    130,
+				ConnectionID: "987",
+				ClientID:     "999",
+			},
+		}
+
+		msg := &ably.ProtocolMessage{
+			Action:   ably.ActionPresence,
+			Channel:  channel.Name,
+			Presence: []*ably.PresenceMessage{presenceMsg1, presenceMsg2, presenceMsg3},
+		}
+
+		var presenceMsg *ably.PresenceMessage
+		in <- msg
+
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+
+		members := channel.Presence.GetMembers()
+		assert.Equal(t, 3, len(members))
+
+		internalMembers := channel.Presence.InternalMembers()
+		assert.Equal(t, 1, len(internalMembers))
+
+		for _, pm := range internalMembers {
+			assert.Equal(t, client.Connection.ID(), pm.ConnectionID)
+		}
 	})
 
 	t.Run("RTP17b: apply presence message events as per spec", func(t *testing.T) {
+		in, _, client, channel, _, presenceMsgCh := setup(t)
+
+		presenceMsg1 := &ably.PresenceMessage{
+			Action: ably.PresenceActionEnter,
+			Message: ably.Message{
+				ID:           "987:12:0",
+				Timestamp:    125,
+				ConnectionID: client.Connection.ID(),
+				ClientID:     "999",
+				Data:         "msg1",
+			},
+		}
+		msg := &ably.ProtocolMessage{
+			Action:  ably.ActionPresence,
+			Channel: channel.Name,
+		}
+		msg.Presence = []*ably.PresenceMessage{presenceMsg1}
+
+		var presenceMsg *ably.PresenceMessage
+		in <- msg
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+
+		internalMembers := channel.Presence.InternalMembers()
+		assert.Equal(t, 1, len(internalMembers))
+		internalMember := internalMembers["999"]
+		assert.Equal(t, client.Connection.ID(), internalMember.ConnectionID)
+
+		presenceMsg2 := &ably.PresenceMessage{
+			Action: ably.PresenceActionUpdate,
+			Message: ably.Message{
+				ID:           "987:12:1",
+				Timestamp:    125,
+				ConnectionID: client.Connection.ID(),
+				ClientID:     "456",
+			},
+		}
+
+		msg.Presence = []*ably.PresenceMessage{presenceMsg2}
+
+		in <- msg
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+
+		internalMembers = channel.Presence.InternalMembers()
+		assert.Equal(t, 2, len(internalMembers))
+		internalMember = internalMembers["456"]
+		assert.Equal(t, client.Connection.ID(), internalMember.ConnectionID)
+
+		presenceMsg3 := &ably.PresenceMessage{
+			Action: ably.PresenceActionPresent,
+			Message: ably.Message{
+				ID:           client.Connection.ID() + ":12:3",
+				Timestamp:    125,
+				ConnectionID: client.Connection.ID(),
+				ClientID:     "978",
+			},
+		}
+
+		msg.Presence = []*ably.PresenceMessage{presenceMsg3}
+
+		in <- msg
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+
+		internalMembers = channel.Presence.InternalMembers()
+		assert.Equal(t, 3, len(internalMembers))
+		internalMember = internalMembers["978"]
+		assert.Equal(t, client.Connection.ID(), internalMember.ConnectionID)
+
+		// server synthesized, connectionId not substring of ID
+		leaveMsg1 := &ably.PresenceMessage{
+			Action: ably.PresenceActionLeave,
+			Message: ably.Message{
+				ID:           "987:12:3",
+				Timestamp:    125,
+				ConnectionID: client.Connection.ID(),
+				ClientID:     "978",
+			},
+		}
+
+		msg.Presence = []*ably.PresenceMessage{leaveMsg1}
+
+		in <- msg
+		ablytest.Instantly.NoRecv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+
+		internalMembers = channel.Presence.InternalMembers()
+		assert.Equal(t, 3, len(internalMembers))
+		internalMember = internalMembers["978"]
+		assert.Equal(t, client.Connection.ID(), internalMember.ConnectionID)
+
+		// not a server synthesized
+		leaveMsg2 := &ably.PresenceMessage{
+			Action: ably.PresenceActionLeave,
+			Message: ably.Message{
+				ID:           client.Connection.ID() + ":12:4",
+				Timestamp:    125,
+				ConnectionID: client.Connection.ID(),
+				ClientID:     "978",
+			},
+		}
+		msg.Presence = []*ably.PresenceMessage{leaveMsg2}
+
+		in <- msg
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+
+		internalMembers = channel.Presence.InternalMembers()
+		assert.Equal(t, 2, len(internalMembers))
 
 	})
 
 	t.Run("RTP17h: presencemap should be keyed by clientId", func(t *testing.T) {
+		in, _, client, channel, _, presenceMsgCh := setup(t)
 
+		initialMembers := channel.Presence.GetMembers()
+		assert.Empty(t, initialMembers)
+
+		presenceMsg1 := &ably.PresenceMessage{
+			Action: ably.PresenceActionEnter,
+			Message: ably.Message{
+				ID:           "987:12:0",
+				Timestamp:    125,
+				ConnectionID: client.Connection.ID(),
+				ClientID:     "999",
+			},
+		}
+
+		msg := &ably.ProtocolMessage{
+			Action:   ably.ActionPresence,
+			Channel:  channel.Name,
+			Presence: []*ably.PresenceMessage{presenceMsg1},
+		}
+
+		var presenceMsg *ably.PresenceMessage
+		in <- msg
+
+		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
+
+		members := channel.Presence.GetMembers()
+		assert.Equal(t, 1, len(members))
+
+		internalMembers := channel.Presence.InternalMembers()
+		assert.Equal(t, 1, len(internalMembers))
+
+		for key, pm := range internalMembers {
+			assert.Equal(t, client.Connection.ID(), pm.ConnectionID)
+			assert.Equal(t, "999", key)
+		}
 	})
 
 	t.Run("RTP17f, RTP17g: automatic re-entry whenever channel moves into ATTACHED state", func(t *testing.T) {

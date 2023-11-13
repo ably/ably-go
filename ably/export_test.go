@@ -217,6 +217,12 @@ func (c *RealtimePresence) GetMembers() map[string]*PresenceMessage {
 	return c.members
 }
 
+func (c *RealtimePresence) InternalMembers() map[string]*PresenceMessage {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.internalMembers
+}
+
 func (c *RealtimePresence) SyncInitial() bool {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
