@@ -1003,15 +1003,15 @@ func (c *RealtimeChannel) lockSetAttachResume(state ChannelState) {
 	}
 }
 
-func (channel *RealtimeChannel) emitErrorUpdate(err *ErrorInfo, resumed bool) {
+func (c *RealtimeChannel) emitErrorUpdate(err *ErrorInfo, resumed bool) {
 	change := ChannelStateChange{
-		Current:  channel.state,
-		Previous: channel.state,
+		Current:  c.state,
+		Previous: c.state,
 		Reason:   err,
 		Resumed:  resumed,
 		Event:    ChannelEventUpdate,
 	}
-	channel.emitter.Emit(change.Event, change)
+	c.emitter.Emit(change.Event, change)
 }
 
 func (c *RealtimeChannel) lockSetState(state ChannelState, err error, resumed bool) error {

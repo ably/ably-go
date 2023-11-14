@@ -173,7 +173,7 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMess
 	pres.queue.Flush() // RTP5b
 	// RTP17f
 	if isAttachWithoutMessageLoss {
-		pres.enterMembersFromInternalPresenceMap()
+		go pres.enterMembersFromInternalPresenceMap()
 	}
 }
 
