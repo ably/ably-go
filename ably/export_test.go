@@ -205,6 +205,19 @@ func (c *Connection) PendingItems() int {
 	return len(c.pending.queue)
 }
 
+type MsgWithAckCallback = msgWithAckCallback
+
+// AckAll empties queue and acks all pending callbacks
+func (c *Connection) AckAll() {
+	c.mtx.Lock()
+	cx := c.pending.Dismiss()
+	c.mtx.Unlock()
+	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(cx))
+	for _, v := range cx {
+		v.onAck(nil)
+	}
+}
+
 func (c *Connection) SetKey(key string) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()

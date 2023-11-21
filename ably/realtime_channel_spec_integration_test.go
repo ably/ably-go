@@ -310,8 +310,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		err = channel.Attach(ctx)
 
 		// Check that the attach message isn't sent
-		checkIfAttachSent := recorder.CheckIfSent(ably.ActionAttach, 1)
-		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSent)
+		checkIfAttachSentFn := recorder.CheckIfSent(ably.ActionAttach, 1)
+		attachSent := ablytest.Instantly.IsTrue(checkIfAttachSentFn)
 		assert.False(t, attachSent,
 			"Attach message was sent before connection is established")
 

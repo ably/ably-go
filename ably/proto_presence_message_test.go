@@ -1171,7 +1171,7 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 	})
 
 	t.Run("RTP17f, RTP17g, RTP17e: automatic re-entry whenever channel moves into ATTACHED state", func(t *testing.T) {
-		in, _, client, channel, stateChanges, presenceMsgCh := setup(t)
+		in, out, client, channel, stateChanges, presenceMsgCh := setup(t)
 
 		presenceMsg1 := &ably.PresenceMessage{
 			Action: ably.PresenceActionPresent,
@@ -1229,8 +1229,21 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 		var chanChange ably.ChannelStateChange
 		ablytest.Instantly.Recv(t, &chanChange, stateChanges, t.Fatalf)
 
-		// Enter from internal map
-		// ablytest.Soon.Recv(t, nil, out, t.Fatalf)
-		// ablytest.Soon.Recv(t, nil, out, t.Fatalf)
+		// Send enter for internal messages
+		var protoMsg *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &protoMsg, out, t.Fatalf)
+		for _, v := range protoMsg.Presence {
+			assert.Equal(t, ably.PresenceActionEnter, v.Action)
+			assert.Equal(t, client.Connection.ID(), v.ConnectionID)
+		}
+		client.Connection.AckAll()
+
+		ablytest.Instantly.Recv(t, &protoMsg, out, t.Fatalf)
+		for _, v := range protoMsg.Presence {
+			assert.Equal(t, ably.PresenceActionEnter, v.Action)
+			assert.Equal(t, client.Connection.ID(), v.ConnectionID)
+		}
+		client.Connection.AckAll()
+		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 	})
 }
