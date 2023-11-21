@@ -175,13 +175,15 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMess
 	pres.queue.Flush() // RTP5b
 	// RTP17f
 	if isAttachWithoutMessageLoss {
-		internalMembers := make([]*PresenceMessage, len(pres.internalMembers))
-		indexCounter := 0
-		for _, member := range pres.internalMembers {
-			internalMembers[indexCounter] = member
-			indexCounter = indexCounter + 1
+		if len(pres.internalMembers) > 0 {
+			internalMembers := make([]*PresenceMessage, len(pres.internalMembers))
+			indexCounter := 0
+			for _, member := range pres.internalMembers {
+				internalMembers[indexCounter] = member
+				indexCounter = indexCounter + 1
+			}
+			go pres.enterMembers(internalMembers)
 		}
-		go pres.enterMembers(internalMembers)
 	}
 }
 
