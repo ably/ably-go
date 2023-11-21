@@ -926,7 +926,7 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 		presenceMsgCh = make(chan *ably.PresenceMessage, 16)
 
 		c, _ = ably.NewRealtime(
-			ably.WithToken("fake:token"),
+			ably.WithKey("Auth:Key"),
 			ably.WithAutoConnect(false),
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithRealtimeRequestTimeout(realtimeRequestTimeout),
@@ -1231,6 +1231,6 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 
 		// Enter from internal map
 		// ablytest.Soon.Recv(t, nil, out, t.Fatalf)
-		// ablytest.Instantly.Recv(t, nil, out, t.Fatalf)
+		// ablytest.Soon.Recv(t, nil, out, t.Fatalf)
 	})
 }

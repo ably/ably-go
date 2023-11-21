@@ -147,16 +147,23 @@ func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncSequenceId stri
 
 func (pres *RealtimePresence) enterMembersFromInternalPresenceMap() {
 	pres.mtx.Lock()
-	internalMembers := pres.internalMembers
+	internalMembers := make([]*PresenceMessage, len(pres.internalMembers))
+	indexCounter := 0
+	for _, member := range pres.internalMembers {
+		internalMembers[indexCounter] = member
+		indexCounter = indexCounter + 1
+	}
 	pres.mtx.Unlock()
 	for _, member := range internalMembers {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		// RTP17g
-		err := pres.EnterClient(context.Background(), member.ClientID, member.Data)
+		err := pres.EnterClient(ctx, member.ClientID, member.Data)
 		// RTP17e
 		if err != nil {
 			pres.channel.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
 			pres.channel.emitErrorUpdate(newError(91004, err), true)
 		}
+		cancel()
 	}
 }
 
