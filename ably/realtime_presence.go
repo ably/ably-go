@@ -145,15 +145,7 @@ func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncSequenceId stri
 	return false, syncSequenceId, syncCursor
 }
 
-func (pres *RealtimePresence) enterMembersFromInternalPresenceMap() {
-	pres.mtx.Lock()
-	internalMembers := make([]*PresenceMessage, len(pres.internalMembers))
-	indexCounter := 0
-	for _, member := range pres.internalMembers {
-		internalMembers[indexCounter] = member
-		indexCounter = indexCounter + 1
-	}
-	pres.mtx.Unlock()
+func (pres *RealtimePresence) enterMembers(internalMembers []*PresenceMessage) {
 	for _, member := range internalMembers {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		// RTP17g
@@ -183,7 +175,13 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMess
 	pres.queue.Flush() // RTP5b
 	// RTP17f
 	if isAttachWithoutMessageLoss {
-		go pres.enterMembersFromInternalPresenceMap()
+		internalMembers := make([]*PresenceMessage, len(pres.internalMembers))
+		indexCounter := 0
+		for _, member := range pres.internalMembers {
+			internalMembers[indexCounter] = member
+			indexCounter = indexCounter + 1
+		}
+		go pres.enterMembers(internalMembers)
 	}
 }
 
