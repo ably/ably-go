@@ -2113,11 +2113,11 @@ func TestRealtimeConn_RTN14b(t *testing.T) {
 
 type closeConn struct {
 	ably.Conn
-	closed int
+	closed atomic.Int64
 }
 
 func (c *closeConn) Close() error {
-	c.closed++
+	c.closed.Add(1)
 	return c.Conn.Close()
 }
 
@@ -2170,7 +2170,7 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 			"expected status 400 got %v", c.Connection.ErrorReason().StatusCode)
 
 		// we make sure the connection is closed
-		assert.Equal(t, 1, ls.closed, "expected 1 got %v", ls.closed)
+		assert.Equal(t, 1, ls.closed.Load(), "expected 1 got %v", ls.closed.Load())
 	})
 }
 
