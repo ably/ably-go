@@ -2170,7 +2170,7 @@ func TestRealtimeConn_RTN14g(t *testing.T) {
 			"expected status 400 got %v", c.Connection.ErrorReason().StatusCode)
 
 		// we make sure the connection is closed
-		assert.Equal(t, 1, ls.closed.Load(), "expected 1 got %v", ls.closed.Load())
+		assert.Equal(t, int64(1), ls.closed.Load(), "expected 1 got %v", ls.closed.Load())
 	})
 }
 
