@@ -23,7 +23,7 @@ func TestProtocolMessageEncodeZeroSerials(t *testing.T) {
 	}
 	encoded, err := ablyutil.MarshalMsgpack(msg)
 	assert.NoError(t, err)
-	// expect a 3-element map with both the serial fields set to zero
+	// expect a 2-element map with both the serial fields set to zero
 	expected := []byte("\x82\xa2id\xa4test\xa9msgSerial\x00")
 	assert.True(t, bytes.Equal(encoded, expected),
 		"unexpected msgpack encoding\nexpected: %x\nactual:   %x", expected, encoded)
