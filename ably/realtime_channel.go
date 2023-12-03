@@ -547,17 +547,6 @@ func (c *RealtimeChannel) SubscribeAll(ctx context.Context, handle func(*Message
 	return unsubscribe, nil
 }
 
-// OnError registers an event listener for error messages on this channel.
-//
-// See package-level documentation => [ably] Event Emitters for details about messages dispatch.
-func (c *RealtimeChannel) OnError(handle func(*ErrorInfo)) (func(), error) {
-	// unsubscribe deregisters all listeners to error messages on this channel.
-	unsubscribe := c.errorEmitter.OnAll(func(err emitterData) {
-		handle((*ErrorInfo)(err.(*errorMessage)))
-	})
-	return unsubscribe, nil
-}
-
 type channelStateChanges chan ChannelStateChange
 
 func (c channelStateChanges) Receive(change ChannelStateChange) {

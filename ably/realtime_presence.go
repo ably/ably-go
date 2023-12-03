@@ -246,8 +246,6 @@ func (pres *RealtimePresence) addPresenceMember(memberMap map[string]*PresenceMe
 		isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
 		if err != nil {
 			pres.log().Error(err)
-			errorInfo := newError(0, err)
-			pres.channel.errorEmitter.Emit(subscriptionName("error"), (*errorMessage)(errorInfo))
 		}
 		if isMemberNew {
 			memberMap[memberKey] = presenceMember
@@ -265,8 +263,6 @@ func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*Presenc
 		isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
 		if err != nil {
 			pres.log().Error(err)
-			errorInfo := newError(0, err)
-			pres.channel.errorEmitter.Emit(subscriptionName("error"), (*errorMessage)(errorInfo))
 		}
 		if isMemberNew {
 			delete(memberMap, memberKey)
