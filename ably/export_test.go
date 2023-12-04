@@ -205,14 +205,12 @@ func (c *Connection) PendingItems() int {
 	return len(c.pending.queue)
 }
 
-type MsgWithAckCallback = msgWithAckCallback
-
 // AckAll empties queue and acks all pending callbacks
 func (c *Connection) AckAll() {
 	c.mtx.Lock()
 	cx := c.pending.Dismiss()
 	c.mtx.Unlock()
-	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(cx))
+	c.log().Infof("Ack all %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
 		v.onAck(nil)
 	}
@@ -224,16 +222,24 @@ func (c *Connection) SetKey(key string) {
 	c.key = key
 }
 
-func (c *RealtimePresence) GetMembers() map[string]*PresenceMessage {
+func (c *RealtimePresence) Members() map[string]*PresenceMessage {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	return c.members
+	presenceMembers := make(map[string]*PresenceMessage, len(c.members))
+	for k, pm := range c.members {
+		presenceMembers[k] = pm
+	}
+	return presenceMembers
 }
 
 func (c *RealtimePresence) InternalMembers() map[string]*PresenceMessage {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	return c.internalMembers
+	internalMembers := make(map[string]*PresenceMessage, len(c.internalMembers))
+	for k, pm := range c.internalMembers {
+		internalMembers[k] = pm
+	}
+	return internalMembers
 }
 
 func (c *RealtimePresence) SyncInitial() bool {

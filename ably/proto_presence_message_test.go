@@ -225,7 +225,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 	t.Run("RTP2: should maintain a list of members present on the channel", func(t *testing.T) {
 		in, _, _, channel, _, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -256,7 +256,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 
 		in <- msg
 		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
-		presenceMembers := channel.Presence.GetMembers()
+		presenceMembers := channel.Presence.Members()
 
 		assert.Equal(t, 1, len(presenceMembers))
 		member := presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
@@ -266,7 +266,9 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		in <- msg
 
 		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
-		assert.Equal(t, 2, len(channel.Presence.GetMembers()))
+
+		presenceMembers = channel.Presence.Members()
+		assert.Equal(t, 2, len(presenceMembers))
 		member2 := presenceMembers[presenceMsg2.ConnectionID+presenceMsg2.ClientID]
 		assert.Equal(t, ably.PresenceActionPresent, member2.Action)
 	})
@@ -274,7 +276,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 	t.Run("RTP2b1: check for newness by timestamp is synthesized", func(t *testing.T) {
 		in, _, _, channel, _, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -305,7 +307,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 
 		in <- msg
 		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
-		presenceMembers := channel.Presence.GetMembers()
+		presenceMembers := channel.Presence.Members()
 
 		assert.Equal(t, 1, len(presenceMembers))
 		member := presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
@@ -316,7 +318,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		in <- msg
 
 		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
-		presenceMembers = channel.Presence.GetMembers()
+		presenceMembers = channel.Presence.Members()
 		assert.Equal(t, 1, len(presenceMembers))
 		member = presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
 		assert.Equal(t, ably.PresenceActionPresent, member.Action)
@@ -326,7 +328,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 	t.Run("RTP2b2, RTP2d: check for newness by serial if not synthesized", func(t *testing.T) {
 		in, _, _, channel, _, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -367,7 +369,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 
 		in <- msg
 		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
-		presenceMembers := channel.Presence.GetMembers()
+		presenceMembers := channel.Presence.Members()
 
 		assert.Equal(t, 1, len(presenceMembers))
 		member := presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
@@ -378,7 +380,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		in <- msg
 
 		ablytest.Instantly.NoRecv(t, nil, presenceMsgCh, t.Fatalf)
-		presenceMembers = channel.Presence.GetMembers()
+		presenceMembers = channel.Presence.Members()
 		assert.Equal(t, 1, len(presenceMembers))
 		member = presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
 		assert.Equal(t, ably.PresenceActionPresent, member.Action)
@@ -388,7 +390,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		in <- msg
 
 		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
-		presenceMembers = channel.Presence.GetMembers()
+		presenceMembers = channel.Presence.Members()
 		assert.Equal(t, 1, len(presenceMembers))
 		member = presenceMembers[presenceMsg1.ConnectionID+presenceMsg1.ClientID]
 		assert.Equal(t, ably.PresenceActionPresent, member.Action)
@@ -398,7 +400,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 	t.Run("RTP2c: check for newness during sync", func(t *testing.T) {
 		in, _, _, channel, stateChanges, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		assert.False(t, channel.Presence.SyncInitial())
@@ -460,14 +462,14 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 
 		assert.True(t, channel.Presence.SyncComplete())
 		assert.False(t, channel.Presence.SyncInitial())
-		presenceMembers := channel.Presence.GetMembers()
+		presenceMembers := channel.Presence.Members()
 		assert.Equal(t, 1, len(presenceMembers))
 	})
 
 	t.Run("RTP2d, RTP2g: when presence msg with ENTER, UPDATE AND PRESENT arrives, add to presence map with action as present", func(t *testing.T) {
 		in, _, _, channel, _, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -524,7 +526,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
 		assert.Equal(t, ably.PresenceActionPresent, presenceMsg.Action)
 
-		members := channel.Presence.GetMembers()
+		members := channel.Presence.Members()
 		assert.Equal(t, 3, len(members))
 		for _, pm := range members {
 			assert.Equal(t, ably.PresenceActionPresent, pm.Action)
@@ -534,7 +536,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 	t.Run("RTP2e, RTP2g: when presence msg with LEAVE action arrives, remove member from presence map", func(t *testing.T) {
 		in, _, _, channel, _, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -579,7 +581,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
 		assert.Equal(t, ably.PresenceActionEnter, presenceMsg.Action)
 
-		members := channel.Presence.GetMembers()
+		members := channel.Presence.Members()
 		assert.Equal(t, 1, len(members))
 
 		msg.Presence = []*ably.PresenceMessage{presenceMsg2}
@@ -588,7 +590,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
 		assert.Equal(t, ably.PresenceActionUpdate, presenceMsg.Action)
 
-		members = channel.Presence.GetMembers()
+		members = channel.Presence.Members()
 		assert.Equal(t, 2, len(members))
 
 		msg.Presence = []*ably.PresenceMessage{presenceMsg3}
@@ -597,7 +599,7 @@ func Test_PresenceMap_RTP2(t *testing.T) {
 		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
 		assert.Equal(t, ably.PresenceActionLeave, presenceMsg.Action)
 
-		members = channel.Presence.GetMembers()
+		members = channel.Presence.Members()
 		assert.Equal(t, 1, len(members))
 		for _, pm := range members {
 			assert.Equal(t, ably.PresenceActionPresent, pm.Action)
@@ -662,7 +664,7 @@ func Test_Presence_server_initiated_sync_RTP18(t *testing.T) {
 	t.Run("RTP18a: client determines a new sync started with <sync sequence id>:<cursor value>", func(t *testing.T) {
 		in, _, _, channel, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -715,14 +717,14 @@ func Test_Presence_server_initiated_sync_RTP18(t *testing.T) {
 		assert.True(t, channel.Presence.SyncInProgress())
 		assert.False(t, channel.Presence.SyncComplete())
 
-		presenceMembers := channel.Presence.GetMembers()
+		presenceMembers := channel.Presence.Members()
 		assert.Equal(t, 1, len(presenceMembers))
 	})
 
 	t.Run("RTP18b: client determines sync ended with <sync sequence id>:", func(t *testing.T) {
 		in, _, _, channel, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -754,7 +756,7 @@ func Test_Presence_server_initiated_sync_RTP18(t *testing.T) {
 		assert.True(t, channel.Presence.SyncInProgress())
 		assert.False(t, channel.Presence.SyncComplete())
 
-		presenceMembers := channel.Presence.GetMembers()
+		presenceMembers := channel.Presence.Members()
 		assert.Equal(t, 1, len(presenceMembers))
 
 		presenceMsg2 := &ably.PresenceMessage{
@@ -782,14 +784,14 @@ func Test_Presence_server_initiated_sync_RTP18(t *testing.T) {
 		assert.False(t, channel.Presence.SyncInProgress())
 		assert.True(t, channel.Presence.SyncComplete())
 
-		presenceMembers = channel.Presence.GetMembers()
+		presenceMembers = channel.Presence.Members()
 		assert.Equal(t, 2, len(presenceMembers))
 	})
 
 	t.Run("RTP18: client determines sync started and ended with <sync sequence id>:", func(t *testing.T) {
 		in, _, _, channel, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -842,7 +844,7 @@ func Test_Presence_server_initiated_sync_RTP18(t *testing.T) {
 		assert.False(t, channel.Presence.SyncInProgress())
 		assert.True(t, channel.Presence.SyncComplete())
 
-		presenceMembers := channel.Presence.GetMembers()
+		presenceMembers := channel.Presence.Members()
 		assert.Equal(t, 1, len(presenceMembers))
 	})
 }
@@ -894,7 +896,7 @@ func Test_RTP1_attach_with_presence_flag(t *testing.T) {
 	assert.False(t, channel.Presence.SyncInProgress())
 	assert.True(t, channel.Presence.SyncComplete())
 
-	initialMembers := channel.Presence.GetMembers()
+	initialMembers := channel.Presence.Members()
 	assert.Empty(t, initialMembers)
 
 	in <- &ably.ProtocolMessage{
@@ -966,7 +968,7 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 	t.Run("RTP17: presence object should have second presencemap containing only currentConnectionId", func(t *testing.T) {
 		in, _, client, channel, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -1012,7 +1014,7 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
 		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
 
-		members := channel.Presence.GetMembers()
+		members := channel.Presence.Members()
 		assert.Equal(t, 3, len(members))
 
 		internalMembers := channel.Presence.InternalMembers()
@@ -1134,7 +1136,7 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 	t.Run("RTP17h: presencemap should be keyed by clientId", func(t *testing.T) {
 		in, _, client, channel, _, presenceMsgCh := setup(t)
 
-		initialMembers := channel.Presence.GetMembers()
+		initialMembers := channel.Presence.Members()
 		assert.Empty(t, initialMembers)
 
 		presenceMsg1 := &ably.PresenceMessage{
@@ -1158,7 +1160,7 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 
 		ablytest.Instantly.Recv(t, &presenceMsg, presenceMsgCh, t.Fatalf)
 
-		members := channel.Presence.GetMembers()
+		members := channel.Presence.Members()
 		assert.Equal(t, 1, len(members))
 
 		internalMembers := channel.Presence.InternalMembers()
@@ -1214,7 +1216,7 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
 		ablytest.Instantly.Recv(t, nil, presenceMsgCh, t.Fatalf)
 
-		members := channel.Presence.GetMembers()
+		members := channel.Presence.Members()
 		assert.Equal(t, 3, len(members))
 
 		internalMembers := channel.Presence.InternalMembers()
