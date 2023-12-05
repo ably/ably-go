@@ -1224,7 +1224,6 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 
 		in <- &ably.ProtocolMessage{
 			Action:  ably.ActionAttached,
-			Flags:   ably.FlagResumed,
 			Channel: channel.Name,
 		}
 

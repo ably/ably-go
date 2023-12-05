@@ -797,10 +797,12 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		if msg.Flags != 0 {
 			c.setModes(channelModeFromFlag(msg.Flags))
 		}
-		// RTL12
-		if c.state == ChannelStateAttached && !msg.Flags.Has(flagResumed) {
-			c.emitErrorUpdate(newErrorFromProto(msg.Error), false) // RTL12
-			c.Presence.onAttach(msg, false)
+
+		if c.State() == ChannelStateAttached {
+			if !msg.Flags.Has(flagResumed) { // RTL12
+				c.Presence.onAttach(msg, true)
+				c.emitErrorUpdate(newErrorFromProto(msg.Error), false)
+			}
 		} else {
 			c.Presence.onAttach(msg, true)
 			c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(flagResumed))
