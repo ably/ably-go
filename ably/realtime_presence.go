@@ -44,9 +44,6 @@ func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 		syncDone:        make(chan struct{}),
 	}
 	pres.queue = newMsgQueue(pres.channel.client.Connection)
-	// Lock syncMtx to make all callers to Get(true) wait until the presence
-	// is in initial sync state. This is to not make them early return
-	// with an empty presence list before channel attaches.
 	return pres
 }
 
@@ -202,8 +199,7 @@ func (pres *RealtimePresence) syncStart() {
 	if pres.syncState == syncInProgress {
 		return
 	} else if pres.syncState != syncInitial {
-		// Sync has started, make all callers to Get(true) wait. If it's channel's
-		// initial sync, the callers are already waiting.
+		// Start new sync after previous one was finished
 		pres.syncDone = make(chan struct{})
 	}
 	pres.syncState = syncInProgress
