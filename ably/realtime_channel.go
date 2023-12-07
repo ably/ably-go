@@ -787,7 +787,7 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		c.mtx.Lock()
 		c.properties.AttachSerial = msg.ChannelSerial // RTL15a
 		c.mtx.Unlock()
-		if c.State() == ChannelStateDetaching { // RTL5K
+		if c.State() == ChannelStateDetaching || c.State() == ChannelStateDetached { // RTL5K
 			c.sendDetachMsg()
 			return
 		}
