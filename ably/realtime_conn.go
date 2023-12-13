@@ -45,7 +45,7 @@ type Connection struct {
 	state ConnectionState
 
 	// errorReason is an [ably.ErrorInfo] object describing the last error received if
-	// a connection failure occurs (RTN14a, RTN15c7).
+	// a connection failure occurs (RTN14a, RTN15c7, RTN25).
 	errorReason *ErrorInfo
 
 	internalEmitter ConnectionEventEmitter
@@ -82,6 +82,7 @@ type Connection struct {
 
 	readLimit                int64
 	isReadLimitSetExternally bool
+	recover                  string
 }
 
 type connCallbacks struct {
@@ -108,6 +109,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *R
 		callbacks: callbacks,
 		client:    client,
 		readLimit: maxMessageSize,
+		recover:   opts.Recover,
 	}
 	auth.onExplicitAuthorize = c.onClientAuthorize
 	c.queue = newMsgQueue(c)
@@ -249,7 +251,7 @@ func (c *Connection) getMode() connectionMode {
 	if c.key != "" {
 		return resumeMode
 	}
-	if c.opts.Recover != "" {
+	if c.recover != "" {
 		return recoveryMode
 	}
 	return normalMode
@@ -283,13 +285,14 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	}
 	switch mode {
 	case resumeMode:
-		query.Set("resume", c.key)
+		query.Set("resume", c.key) // RTN15b
 	case recoveryMode:
-		recoveryKeyContext, err := DecodeRecoveryKey(c.opts.Recover)
+		recoveryKeyContext, err := DecodeRecoveryKey(c.recover)
 		if err != nil {
 			c.log().Errorf("error decoding recovery key, %v", err)
+		} else {
+			query.Set("recover", recoveryKeyContext.ConnectionKey) // RTN16k
 		}
-		query.Set("recover", recoveryKeyContext.ConnectionKey)
 	}
 	return query, nil
 }
@@ -500,6 +503,7 @@ func (c *Connection) RecoveryKey() string {
 func (c *Connection) CreateRecoveryKey() string {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+	// RTN16g2
 	if empty(c.key) || c.state == ConnectionStateClosing ||
 		c.state == ConnectionStateClosed ||
 		c.state == ConnectionStateFailed ||
@@ -593,11 +597,16 @@ func (c *Connection) advanceSerial() {
 func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 	hasMsgSerial := msg.Action == actionMessage || msg.Action == actionPresence
 	c.mtx.Lock()
+	// RTP16a - in case of presence msg send, check for connection status and send accordingly
 	switch state := c.state; state {
 	default:
 		c.mtx.Unlock()
 		if onAck != nil {
-			onAck(connStateError(state, nil))
+			if c.state == ConnectionStateClosed {
+				onAck(errClosed)
+			} else {
+				onAck(connStateError(state, nil))
+			}
 		}
 
 	case ConnectionStateInitialized, ConnectionStateConnecting, ConnectionStateDisconnected:
@@ -606,9 +615,9 @@ func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 			if onAck != nil {
 				onAck(connStateError(state, errQueueing))
 			}
+		} else {
+			c.queue.Enqueue(msg, onAck) // RTL4i
 		}
-		c.queue.Enqueue(msg, onAck) // RTL4i
-
 	case ConnectionStateConnected:
 		if err := c.verifyAndUpdateMessages(msg); err != nil {
 			c.mtx.Unlock()
@@ -628,6 +637,7 @@ func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 			// reconnection logic. But in case it isn't, force that by closing the
 			// connection. Otherwise, the message we enqueue here may be in the queue
 			// indefinitely.
+			c.log().Warnf("transport level failure while sending message, %v", err)
 			c.conn.Close()
 			c.mtx.Unlock()
 			c.queue.Enqueue(msg, onAck)
@@ -802,8 +812,8 @@ func (c *Connection) eventloop() {
 			c.mtx.Lock()
 
 			// recover is used when set via clientOptions#recover initially, resume will be used for all reconnects.
-			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.opts.Recover)
-			c.opts.Recover = "" // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
+			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.recover)
+			c.recover = "" // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
 
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
@@ -847,17 +857,11 @@ func (c *Connection) eventloop() {
 				continue
 			}
 
-			// (RTN15c1) (RTN15c2)
-			// RTN24, RTN15c7 - if error, set on connection and part of emitted connected event
+			// RTN24, RTN15c6, RTN15c7 - if error, set on connection and part of emitted connected event
 			c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 			c.mtx.Unlock()
 
 			if reconnecting {
-
-				// (RTN15c3)
-				// we are calling this outside of locks to avoid deadlock because in the
-				// RealtimeClient client where this callback is implemented we do some ops
-				// with this Conn where we re acquire Conn.Lock again.
 				c.callbacks.onReconnected(failedResumeOrRecover)
 			}
 			c.queue.Flush()

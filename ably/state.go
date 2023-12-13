@@ -45,6 +45,7 @@ func goWaiter(f func() error) result {
 var (
 	errDisconnected   = newErrorf(ErrDisconnected, "Connection temporarily unavailable")
 	errSuspended      = newErrorf(ErrConnectionSuspended, "Connection unavailable")
+	errClosed         = newErrorf(ErrConnectionClosed, "Connection unavailable")
 	errFailed         = newErrorf(ErrConnectionFailed, "Connection failed")
 	errNeverConnected = newErrorf(ErrConnectionSuspended, "Unable to establish connection")
 
@@ -105,7 +106,7 @@ func channelStateError(state ChannelState, err error) *ErrorInfo {
 
 // pendingEmitter emits confirmation events triggered by ACK or NACK messages.
 type pendingEmitter struct {
-	queue []msgCh
+	queue []msgWithAckCallback
 	log   logger
 }
 
@@ -115,15 +116,10 @@ func newPendingEmitter(log logger) pendingEmitter {
 	}
 }
 
-type msgCh struct {
-	msg   *protocolMessage
-	onAck func(err error)
-}
-
 // Dismiss lets go of the channels that are waiting for an error on this queue.
 // The queue can continue sending messages.
-func (q *pendingEmitter) Dismiss() []msgCh {
-	cx := make([]msgCh, len(q.queue))
+func (q *pendingEmitter) Dismiss() []msgWithAckCallback {
+	cx := make([]msgWithAckCallback, len(q.queue))
 	copy(cx, q.queue)
 	q.queue = nil
 	return cx
@@ -136,7 +132,7 @@ func (q *pendingEmitter) Enqueue(msg *protocolMessage, onAck func(err error)) {
 			panic(fmt.Sprintf("protocol violation: expected next enqueued message to have msgSerial %d; got %d", expected, got))
 		}
 	}
-	q.queue = append(q.queue, msgCh{msg, onAck})
+	q.queue = append(q.queue, msgWithAckCallback{msg, onAck})
 }
 
 func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
@@ -190,14 +186,14 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 	}
 }
 
-type msgch struct {
+type msgWithAckCallback struct {
 	msg   *protocolMessage
 	onAck func(err error)
 }
 
 type msgQueue struct {
 	mtx   sync.Mutex
-	queue []msgch
+	queue []msgWithAckCallback
 	conn  *Connection
 }
 
@@ -210,14 +206,14 @@ func newMsgQueue(conn *Connection) *msgQueue {
 func (q *msgQueue) Enqueue(msg *protocolMessage, onAck func(err error)) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
-	q.queue = append(q.queue, msgch{msg, onAck})
+	q.queue = append(q.queue, msgWithAckCallback{msg, onAck})
 	q.mtx.Unlock()
 }
 
 func (q *msgQueue) Flush() {
 	q.mtx.Lock()
-	for _, msgch := range q.queue {
-		q.conn.send(msgch.msg, msgch.onAck)
+	for _, queueMsg := range q.queue {
+		q.conn.send(queueMsg.msg, queueMsg.onAck)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
@@ -225,10 +221,10 @@ func (q *msgQueue) Flush() {
 
 func (q *msgQueue) Fail(err error) {
 	q.mtx.Lock()
-	for _, msgch := range q.queue {
-		q.log().Errorf("failure sending message (serial=%d): %v", msgch.msg.MsgSerial, err)
-		if msgch.onAck != nil {
-			msgch.onAck(newError(90000, err))
+	for _, queueMsg := range q.queue {
+		q.log().Errorf("failure sending message (serial=%d): %v", queueMsg.msg.MsgSerial, err)
+		if queueMsg.onAck != nil {
+			queueMsg.onAck(newError(90000, err))
 		}
 	}
 	q.queue = nil

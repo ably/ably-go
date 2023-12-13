@@ -49,11 +49,9 @@ func newChannels(client *Realtime) *RealtimeChannels {
 
 // RTN16j, RTL15b
 func (channels *RealtimeChannels) SetChannelSerialsFromRecoverOption(serials map[string]string) {
-	channels.mtx.Lock()
-	defer channels.mtx.Unlock()
 	for channelName, channelSerial := range serials {
 		channel := channels.Get(channelName)
-		channel.properties.ChannelSerial = channelSerial
+		channel.setChannelSerial(channelSerial)
 	}
 }
 
@@ -62,7 +60,7 @@ func (channels *RealtimeChannels) GetChannelSerials() map[string]string {
 	defer channels.mtx.Unlock()
 	channelSerials := make(map[string]string)
 	for channelName, realtimeChannel := range channels.chans {
-		channelSerials[channelName] = realtimeChannel.properties.ChannelSerial
+		channelSerials[channelName] = realtimeChannel.getChannelSerial()
 	}
 	return channelSerials
 }
@@ -234,6 +232,7 @@ type RealtimeChannel struct {
 
 	client         *Realtime
 	messageEmitter *eventEmitter
+	errorEmitter   *eventEmitter
 	queue          *msgQueue
 	options        *channelOptions
 
@@ -353,7 +352,7 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 			Action:  actionAttach,
 			Channel: c.Name,
 		}
-		msg.ChannelSerial = c.properties.ChannelSerial // RTL4c1
+		msg.ChannelSerial = c.properties.ChannelSerial // RTL4c1, accessing locked
 		if len(c.channelOpts().Params) > 0 {
 			msg.Params = c.channelOpts().Params
 		}
@@ -694,7 +693,9 @@ func (c *RealtimeChannel) HistoryUntilAttach(o ...HistoryOption) (*HistoryReques
 	}
 
 	untilAttachParam := func(o *historyOptions) {
+		c.mtx.Lock()
 		o.params.Set("fromSerial", c.properties.AttachSerial)
+		c.mtx.Unlock()
 	}
 	o = append(o, untilAttachParam)
 
@@ -777,14 +778,16 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 	if !empty(msg.ChannelSerial) && msg.Action == actionMessage ||
 		msg.Action == actionPresence || msg.Action == actionAttached {
 		c.log().Debugf("Setting channel serial for channelName - %v, previous - %v, current - %v",
-			c.Name, c.properties.ChannelSerial, msg.ChannelSerial)
-		c.properties.ChannelSerial = msg.ChannelSerial
+			c.Name, c.getChannelSerial(), msg.ChannelSerial)
+		c.setChannelSerial(msg.ChannelSerial)
 	}
 
 	switch msg.Action {
 	case actionAttached:
+		c.mtx.Lock()
 		c.properties.AttachSerial = msg.ChannelSerial // RTL15a
-		if c.State() == ChannelStateDetaching {       // RTL5K
+		c.mtx.Unlock()
+		if c.State() == ChannelStateDetaching || c.State() == ChannelStateDetached { // RTL5K
 			c.sendDetachMsg()
 			return
 		}
@@ -794,11 +797,15 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		if msg.Flags != 0 {
 			c.setModes(channelModeFromFlag(msg.Flags))
 		}
-		c.Presence.onAttach(msg)
 
-		isAttachResumed := msg.Flags.Has(flagResumed)
-		if c.state != ChannelStateAttached || !isAttachResumed { //RTL12
-			c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), isAttachResumed)
+		if c.State() == ChannelStateAttached {
+			if !msg.Flags.Has(flagResumed) { // RTL12
+				c.Presence.onAttach(msg, true)
+				c.emitErrorUpdate(newErrorFromProto(msg.Error), false)
+			}
+		} else {
+			c.Presence.onAttach(msg, true)
+			c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(flagResumed))
 		}
 		c.queue.Flush()
 	case actionDetached:
@@ -840,9 +847,9 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 
 		c.lockStartRetryAttachLoop(err)
 	case actionSync:
-		c.Presence.processIncomingMessage(msg, syncSerial(msg))
+		c.Presence.processProtoSyncMessage(msg) // RTP18
 	case actionPresence:
-		c.Presence.processIncomingMessage(msg, "")
+		c.Presence.processProtoPresenceMessage(msg)
 	case actionError:
 		c.setState(ChannelStateFailed, newErrorFromProto(msg.Error), false)
 		c.queue.Fail(newErrorFromProto(msg.Error))
@@ -911,6 +918,18 @@ func (c *RealtimeChannel) setParams(params channelParams) {
 	c.params = params
 }
 
+func (c *RealtimeChannel) setChannelSerial(serial string) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.properties.ChannelSerial = serial
+}
+
+func (c *RealtimeChannel) getChannelSerial() string {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.properties.ChannelSerial
+}
+
 func (c *RealtimeChannel) setModes(modes []ChannelMode) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
@@ -947,9 +966,17 @@ func (c *RealtimeChannel) setState(state ChannelState, err error, resumed bool) 
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
+	// RTP5a
+	if state == ChannelStateDetached || state == ChannelStateFailed {
+		c.Presence.onChannelDetachedOrFailed(channelStateError(state, err))
+	}
 	// RTP5a1
 	if state == ChannelStateDetached || state == ChannelStateSuspended || state == ChannelStateFailed {
-		c.properties.ChannelSerial = ""
+		c.properties.ChannelSerial = "" // setting on already locked method
+	}
+	// RTP5f
+	if state == ChannelStateSuspended {
+		c.Presence.onChannelSuspended(channelStateError(state, err))
 	}
 
 	return c.lockSetState(state, err, resumed)
@@ -965,6 +992,17 @@ func (c *RealtimeChannel) lockSetAttachResume(state ChannelState) {
 	if state == ChannelStateFailed {
 		c.attachResume = false
 	}
+}
+
+func (c *RealtimeChannel) emitErrorUpdate(err *ErrorInfo, resumed bool) {
+	change := ChannelStateChange{
+		Current:  c.state,
+		Previous: c.state,
+		Reason:   err,
+		Resumed:  resumed,
+		Event:    ChannelEventUpdate,
+	}
+	c.emitter.Emit(change.Event, change)
 }
 
 func (c *RealtimeChannel) lockSetState(state ChannelState, err error, resumed bool) error {

@@ -38,13 +38,14 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	})
 	c.Connection = conn
 
+	// RTN16
 	if !empty(c.opts().Recover) {
 		recoverKeyContext, err := DecodeRecoveryKey(c.opts().Recover)
 		if err != nil {
 			c.log().Errorf("Error decoding recover with error %v", err)
 		} else {
-			c.Channels.SetChannelSerialsFromRecoverOption(recoverKeyContext.ChannelSerials)
-			c.Connection.msgSerial = recoverKeyContext.MsgSerial
+			c.Channels.SetChannelSerialsFromRecoverOption(recoverKeyContext.ChannelSerials) // RTN16j
+			c.Connection.msgSerial = recoverKeyContext.MsgSerial                            // RTN16f
 		}
 	}
 	return c, nil

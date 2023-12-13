@@ -4,13 +4,40 @@
 package ably
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVerifyChanState(t *testing.T) {
+var (
+	buffer     bytes.Buffer
+	mocklogger = log.New(&buffer, "logger: ", log.Lshortfile)
+)
+
+// mockChannelWithState is a test helper that returns a mock channel in a specified state
+func mockChannelWithState(channelState *ChannelState, connectionState *ConnectionState) *RealtimeChannel {
+	mockChannel := RealtimeChannel{
+		client: &Realtime{
+			rest: &REST{
+				log: logger{l: &stdLogger{mocklogger}},
+			},
+			Connection: &Connection{},
+		},
+	}
+	if channelState != nil {
+		mockChannel.state = *channelState
+	}
+	if connectionState != nil {
+		mockChannel.client.Connection.state = *connectionState
+	}
+	return &mockChannel
+}
+
+func TestVerifyChanState_RTP16(t *testing.T) {
 	tests := map[string]struct {
 		channel     *RealtimeChannel
 		expectedErr error
@@ -27,9 +54,9 @@ func TestVerifyChanState(t *testing.T) {
 			channel:     mockChannelWithState(&ChannelStateAttached, nil),
 			expectedErr: nil,
 		},
-		`No error if the channel is in state: "SUSPENDED"`: {
+		`Error if the channel is in state: "SUSPENDED"`: {
 			channel:     mockChannelWithState(&ChannelStateSuspended, nil),
-			expectedErr: nil,
+			expectedErr: newError(91001, errors.New("unable to enter presence channel (invalid channel state: SUSPENDED)")),
 		},
 		`Error if the channel is in state: "DETACHING"`: {
 			channel:     mockChannelWithState(&ChannelStateDetaching, nil),
@@ -48,7 +75,7 @@ func TestVerifyChanState(t *testing.T) {
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
 			presence := newRealtimePresence(test.channel)
-			err := presence.verifyChanState()
+			err := presence.isValidChannelState()
 			assert.Equal(t, test.expectedErr, err)
 		})
 	}
@@ -57,33 +84,32 @@ func TestVerifyChanState(t *testing.T) {
 func TestSend(t *testing.T) {
 	tests := map[string]struct {
 		channel        *RealtimeChannel
-		msg            PresenceMessage
+		msg            Message
 		expectedResult result
 		expectedErr    error
 	}{
 		`No error sending presence if the channel is in state: "ATTACHED"`: {
-			channel: mockChannelWithState(&ChannelStateAttached, nil),
-			msg: PresenceMessage{
-				Message: Message{Name: "Hello"},
-				Action:  PresenceActionEnter,
-			},
-			expectedErr: nil,
+			channel:     mockChannelWithState(&ChannelStateAttached, nil),
+			msg:         Message{Name: "Hello"},
+			expectedErr: (*ErrorInfo)(nil),
+		},
+		`Error if channel is: "ATTACHED" and connection is :"CLOSED"`: {
+			channel:     mockChannelWithState(&ChannelStateAttached, &ConnectionStateClosed),
+			msg:         Message{Name: "Hello"},
+			expectedErr: newError(80017, errors.New("Connection unavailable")),
 		},
 		`Error if channel is: "DETACHED" and connection is :"CLOSED"`: {
-			channel: mockChannelWithState(&ChannelStateDetached, &ConnectionStateClosed),
-			msg: PresenceMessage{
-				Message: Message{Name: "Hello"},
-				Action:  PresenceActionEnter,
-			},
-			expectedErr: newError(80000, errors.New("cannot Attach channel because connection is in CLOSED state")),
+			channel:     mockChannelWithState(&ChannelStateDetached, &ConnectionStateClosed),
+			msg:         Message{Name: "Hello"},
+			expectedErr: newError(91001, errors.New("unable to enter presence channel (invalid channel state: DETACHED)")),
 		},
 	}
 
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
 			presence := newRealtimePresence(test.channel)
-			_, err := presence.send(&test.msg)
-			assert.Equal(t, test.expectedErr, err)
+			err := presence.EnterClient(context.Background(), "clientId", &test.msg)
+			assert.Equal(t, test.expectedErr, err.(*ErrorInfo))
 		})
 	}
 }

@@ -2,9 +2,11 @@ package ably
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 )
 
 type syncState uint8
@@ -19,17 +21,17 @@ const (
 // It allows entering, leaving and updating presence state for the current client or on behalf of other client.
 // It enables the presence set to be entered and subscribed to, and the historic presence set to be retrieved for a channel.
 type RealtimePresence struct {
-	mtx             sync.Mutex
-	data            interface{}
-	serial          string
-	messageEmitter  *eventEmitter
-	channel         *RealtimeChannel
-	members         map[string]*PresenceMessage
-	internalMembers map[string]*PresenceMessage // RTP17
-	stale           map[string]struct{}
-	state           PresenceAction
-	syncMtx         sync.Mutex
-	syncState       syncState
+	mtx               sync.Mutex
+	data              interface{}
+	messageEmitter    *eventEmitter
+	channel           *RealtimeChannel
+	members           map[string]*PresenceMessage // RTP2
+	internalMembers   map[string]*PresenceMessage // RTP17
+	beforeSyncMembers map[string]*PresenceMessage
+	state             PresenceAction
+	syncState         syncState
+	queue             *msgQueue
+	syncDone          chan struct{}
 }
 
 func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
@@ -39,29 +41,52 @@ func newRealtimePresence(channel *RealtimeChannel) *RealtimePresence {
 		members:         make(map[string]*PresenceMessage),
 		internalMembers: make(map[string]*PresenceMessage),
 		syncState:       syncInitial,
+		syncDone:        make(chan struct{}),
 	}
-	// Lock syncMtx to make all callers to Get(true) wait until the presence
-	// is in initial sync state. This is to not make them early return
-	// with an empty presence list before channel attaches.
-	pres.syncMtx.Lock()
+	pres.queue = newMsgQueue(pres.channel.client.Connection)
 	return pres
 }
 
-func (pres *RealtimePresence) verifyChanState() error {
+// RTP16c
+func (pres *RealtimePresence) isValidChannelState() error {
 	switch state := pres.channel.State(); state {
-	case ChannelStateDetached, ChannelStateDetaching, ChannelStateFailed:
+	case ChannelStateDetaching, ChannelStateDetached, ChannelStateFailed, ChannelStateSuspended:
 		return newError(91001, fmt.Errorf("unable to enter presence channel (invalid channel state: %s)", state.String()))
 	default:
 		return nil
 	}
 }
 
-func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
-	attached, err := pres.channel.attach()
-	if err != nil {
-		return nil, err
+// RTP5a
+func (pres *RealtimePresence) onChannelDetachedOrFailed(err error) {
+	for k := range pres.members {
+		delete(pres.members, k)
 	}
-	if err := pres.verifyChanState(); err != nil {
+	for k := range pres.internalMembers {
+		delete(pres.internalMembers, k)
+	}
+	pres.queue.Fail(err)
+}
+
+// RTP5f, RTP16b
+func (pres *RealtimePresence) onChannelSuspended(err error) {
+	pres.queue.Fail(err)
+}
+
+func (pres *RealtimePresence) maybeEnqueue(msg *protocolMessage, onAck func(err error)) bool {
+	if pres.channel.opts().NoQueueing {
+		if onAck != nil {
+			onAck(errors.New("unable enqueue message because Options.QueueMessages is set to false"))
+		}
+		return false
+	}
+	pres.queue.Enqueue(msg, onAck)
+	return true
+}
+
+func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
+	// RTP16c
+	if err := pres.isValidChannelState(); err != nil {
 		return nil, err
 	}
 	protomsg := &protocolMessage{
@@ -69,20 +94,22 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 		Channel:  pres.channel.Name,
 		Presence: []*PresenceMessage{msg},
 	}
+	listen := make(chan error, 1)
+	onAck := func(err error) {
+		listen <- err
+	}
+	switch pres.channel.State() {
+	case ChannelStateInitialized: // RTP16b
+		if pres.maybeEnqueue(protomsg, onAck) {
+			pres.channel.attach()
+		}
+	case ChannelStateAttaching: // RTP16b
+		pres.maybeEnqueue(protomsg, onAck)
+	case ChannelStateAttached: // RTP16a
+		pres.channel.client.Connection.send(protomsg, onAck) // RTP16a, RTL6c
+	}
+
 	return resultFunc(func(ctx context.Context) error {
-		err := attached.Wait(ctx)
-		if err != nil {
-			return err
-		}
-
-		listen := make(chan error, 1)
-		onAck := func(err error) {
-			listen <- err
-		}
-		if err := pres.channel.send(protomsg, onAck); err != nil {
-			return err
-		}
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -92,31 +119,72 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	}), nil
 }
 
-func (pres *RealtimePresence) syncWait() {
+func (pres *RealtimePresence) syncWait(ctx context.Context) error {
 	// If there's an undergoing sync operation or we wait till channel gets
 	// attached, the following lock is going to block until the operations
 	// complete.
-	pres.syncMtx.Lock()
-	pres.syncMtx.Unlock()
-}
-
-func syncSerial(msg *protocolMessage) string {
-	if i := strings.IndexRune(msg.ChannelSerial, ':'); i != -1 {
-		return msg.ChannelSerial[i+1:]
+	select {
+	case <-pres.syncDone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-	return ""
 }
 
-func (pres *RealtimePresence) onAttach(msg *protocolMessage) {
-	serial := syncSerial(msg)
+// RTP18
+func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncSequenceId string, syncCursor string) {
+	if empty(msg.ChannelSerial) { // RTP18c
+		noChannelSerial = true
+		return
+	}
+	// RTP18a
+	serials := strings.Split(msg.ChannelSerial, ":")
+	syncSequenceId = serials[0]
+	if len(serials) > 1 {
+		syncCursor = serials[1]
+	}
+	return false, syncSequenceId, syncCursor
+}
+
+func (pres *RealtimePresence) enterMembers(internalMembers []*PresenceMessage) {
+	for _, member := range internalMembers {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		// RTP17g
+		err := pres.EnterClient(ctx, member.ClientID, member.Data)
+		// RTP17e
+		if err != nil {
+			pres.channel.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
+			pres.channel.emitErrorUpdate(newError(91004, err), true)
+		}
+		cancel()
+	}
+}
+
+func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMessageLoss bool) {
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
-	switch {
-	case msg.Flags.Has(flagHasPresence):
-		pres.syncStart(serial)
-	case pres.syncState == syncInitial:
-		pres.syncState = syncComplete
-		pres.syncMtx.Unlock()
+	// RTP1
+	if msg.Flags.Has(flagHasPresence) {
+		pres.syncStart()
+	} else {
+		pres.leaveMembers(pres.members) // RTP19a
+		if pres.syncState == syncInitial {
+			pres.syncState = syncComplete
+			close(pres.syncDone)
+		}
+	}
+	pres.queue.Flush() // RTP5b
+	// RTP17f
+	if isAttachWithoutMessageLoss {
+		if len(pres.internalMembers) > 0 {
+			internalMembers := make([]*PresenceMessage, len(pres.internalMembers))
+			indexCounter := 0
+			for _, member := range pres.internalMembers {
+				internalMembers[indexCounter] = member
+				indexCounter = indexCounter + 1
+			}
+			go pres.enterMembers(internalMembers)
+		}
 	}
 }
 
@@ -127,19 +195,30 @@ func (pres *RealtimePresence) SyncComplete() bool {
 	return pres.syncState == syncComplete
 }
 
-func (pres *RealtimePresence) syncStart(serial string) {
+func (pres *RealtimePresence) syncStart() {
 	if pres.syncState == syncInProgress {
 		return
 	} else if pres.syncState != syncInitial {
-		// Sync has started, make all callers to Get(true) wait. If it's channel's
-		// initial sync, the callers are already waiting.
-		pres.syncMtx.Lock()
+		// Start new sync after previous one was finished
+		pres.syncDone = make(chan struct{})
 	}
-	pres.serial = serial
 	pres.syncState = syncInProgress
-	pres.stale = make(map[string]struct{}, len(pres.members))
-	for memberKey := range pres.members {
-		pres.stale[memberKey] = struct{}{}
+	pres.beforeSyncMembers = make(map[string]*PresenceMessage, len(pres.members)) // RTP19
+	for memberKey, member := range pres.members {
+		pres.beforeSyncMembers[memberKey] = member
+	}
+}
+
+// RTP19, RTP19a
+func (pres *RealtimePresence) leaveMembers(members map[string]*PresenceMessage) {
+	for memberKey := range members {
+		delete(pres.members, memberKey)
+	}
+	for _, msg := range members {
+		msg.Action = PresenceActionLeave
+		msg.ID = ""
+		msg.Timestamp = time.Now().UnixMilli()
+		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg))
 	}
 }
 
@@ -147,62 +226,111 @@ func (pres *RealtimePresence) syncEnd() {
 	if pres.syncState != syncInProgress {
 		return
 	}
-	for memberKey := range pres.stale {
-		delete(pres.members, memberKey)
-	}
-	for memberKey, presence := range pres.members {
+	pres.leaveMembers(pres.beforeSyncMembers) // RTP19
+
+	for memberKey, presence := range pres.members { // RTP2f
 		if presence.Action == PresenceActionAbsent {
 			delete(pres.members, memberKey)
 		}
 	}
-	pres.stale = nil
+	pres.beforeSyncMembers = nil
 	pres.syncState = syncComplete
 	// Sync has completed, unblock all callers to Get(true) waiting
 	// for the sync.
-	pres.syncMtx.Unlock()
+	close(pres.syncDone)
 }
 
-func (pres *RealtimePresence) processIncomingMessage(msg *protocolMessage, syncSerial string) {
-	for _, presmsg := range msg.Presence {
-		if presmsg.Timestamp == 0 {
-			presmsg.Timestamp = msg.Timestamp
+// RTP2a, RTP2b, RTP2c
+func (pres *RealtimePresence) addPresenceMember(memberMap map[string]*PresenceMessage, memberKey string, presenceMember *PresenceMessage) bool {
+	if existingMember, ok := memberMap[memberKey]; ok { // RTP2a
+		isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
+		if err != nil {
+			pres.log().Error(err)
+		}
+		if isMemberNew {
+			memberMap[memberKey] = presenceMember
+			return true
+		}
+		return false
+	}
+	memberMap[memberKey] = presenceMember
+	return true
+}
+
+// RTP2a, RTP2b, RTP2c
+func (pres *RealtimePresence) removePresenceMember(memberMap map[string]*PresenceMessage, memberKey string, presenceMember *PresenceMessage) bool {
+	if existingMember, ok := memberMap[memberKey]; ok { // RTP2a
+		isMemberNew, err := presenceMember.IsNewerThan(existingMember) // RTP2b
+		if err != nil {
+			pres.log().Error(err)
+		}
+		if isMemberNew {
+			delete(memberMap, memberKey)
+			return existingMember.Action != PresenceActionAbsent
 		}
 	}
-	pres.mtx.Lock()
-	if syncSerial != "" {
-		pres.syncStart(syncSerial)
-	}
-	// Filter out old messages by their timestamp.
-	messages := make([]*PresenceMessage, 0, len(msg.Presence))
-	// Update presence map / channel's member state.
-	for _, member := range msg.Presence {
-		memberKey := member.ConnectionID + member.ClientID
-		if oldMember, ok := pres.members[memberKey]; ok {
-			if member.Timestamp <= oldMember.Timestamp {
-				continue // do not process old message
-			}
-		}
-		switch member.Action {
-		case PresenceActionEnter:
-			pres.members[memberKey] = member
-		case PresenceActionUpdate:
-			member.Action = PresenceActionPresent
-			fallthrough
-		case PresenceActionPresent:
-			delete(pres.stale, memberKey)
-			pres.members[memberKey] = member
-		case PresenceActionLeave:
-			delete(pres.members, memberKey)
-		}
-		messages = append(messages, member)
-	}
-	if syncSerial == "" {
+	return false
+}
+
+// RTP18
+func (pres *RealtimePresence) processProtoSyncMessage(msg *protocolMessage) {
+	// TODO - Part of RTP18a where new sequence id is received in middle of sync will not call synStart
+	// because sync is in progress. Though it will wait till all proto messages are processed.
+	// This is not implemented because of additional complexity of managing locks and reverting to prev. memberstate
+	noChannelSerial, _, syncCursor := syncSerial(msg)
+
+	pres.syncStart() // RTP18a, RTP18c
+
+	pres.processProtoPresenceMessage(msg)
+
+	if noChannelSerial || empty(syncCursor) { // RTP18c, RTP18b
 		pres.syncEnd()
 	}
+}
+
+func (pres *RealtimePresence) processProtoPresenceMessage(msg *protocolMessage) {
+	pres.mtx.Lock()
+	// RTP17 - Update internal presence map
+	for _, presenceMember := range msg.Presence {
+		memberKey := presenceMember.ClientID                                    // RTP17h
+		if pres.channel.client.Connection.ID() != presenceMember.ConnectionID { // RTP17
+			continue
+		}
+		switch presenceMember.Action {
+		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d, RTP17b
+			presenceMemberShallowCopy := *presenceMember
+			presenceMemberShallowCopy.Action = PresenceActionPresent
+			pres.addPresenceMember(pres.internalMembers, memberKey, &presenceMemberShallowCopy)
+		case PresenceActionLeave: // RTP17b, RTP2e
+			if !presenceMember.isServerSynthesized() {
+				pres.removePresenceMember(pres.internalMembers, memberKey, presenceMember)
+			}
+		}
+	}
+
+	// Update presence map / channel's member state.
+	updatedPresenceMessages := make([]*PresenceMessage, 0, len(msg.Presence))
+	for _, presenceMember := range msg.Presence {
+		memberKey := presenceMember.ConnectionID + presenceMember.ClientID // TP3h
+		memberUpdated := false
+		switch presenceMember.Action {
+		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d
+			delete(pres.beforeSyncMembers, memberKey)
+			presenceMemberShallowCopy := *presenceMember
+			presenceMemberShallowCopy.Action = PresenceActionPresent
+			memberUpdated = pres.addPresenceMember(pres.members, memberKey, &presenceMemberShallowCopy)
+		case PresenceActionLeave: // RTP2e
+			memberUpdated = pres.removePresenceMember(pres.members, memberKey, presenceMember)
+		}
+		// RTP2g
+		if memberUpdated {
+			updatedPresenceMessages = append(updatedPresenceMessages, presenceMember)
+		}
+	}
 	pres.mtx.Unlock()
-	msg.Count = len(messages)
-	msg.Presence = messages
-	for _, msg := range msg.Presence {
+
+	// RTP2g
+	for _, msg := range updatedPresenceMessages {
 		pres.messageEmitter.Emit(msg.Action, (*subscriptionPresenceMessage)(msg))
 	}
 }
@@ -267,7 +395,10 @@ func (pres *RealtimePresence) GetWithOptions(ctx context.Context, options ...Pre
 	}
 
 	if opts.waitForSync {
-		pres.syncWait()
+		err = pres.syncWait(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pres.mtx.Lock()

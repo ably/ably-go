@@ -93,6 +93,12 @@ func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
 }
 
+func (c *RealtimeChannel) GetChannelSerial() string {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.properties.ChannelSerial
+}
+
 func (c *RealtimeChannel) GetAttachResume() bool {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
@@ -103,6 +109,12 @@ func (c *RealtimeChannel) SetAttachResume(value bool) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	c.attachResume = value
+}
+
+func (c *RealtimeChannel) SetState(chanState ChannelState) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.state = chanState
 }
 
 func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
@@ -191,6 +203,55 @@ func (c *Connection) PendingItems() int {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	return len(c.pending.queue)
+}
+
+// AckAll empties queue and acks all pending callbacks
+func (c *Connection) AckAll() {
+	c.mtx.Lock()
+	cx := c.pending.Dismiss()
+	c.mtx.Unlock()
+	c.log().Infof("Ack all %d messages waiting for ACK/NACK", len(cx))
+	for _, v := range cx {
+		v.onAck(nil)
+	}
+}
+
+func (c *Connection) SetKey(key string) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.key = key
+}
+
+func (c *RealtimePresence) Members() map[string]*PresenceMessage {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	presenceMembers := make(map[string]*PresenceMessage, len(c.members))
+	for k, pm := range c.members {
+		presenceMembers[k] = pm
+	}
+	return presenceMembers
+}
+
+func (c *RealtimePresence) InternalMembers() map[string]*PresenceMessage {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	internalMembers := make(map[string]*PresenceMessage, len(c.internalMembers))
+	for k, pm := range c.internalMembers {
+		internalMembers[k] = pm
+	}
+	return internalMembers
+}
+
+func (c *RealtimePresence) SyncInitial() bool {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.syncState == syncInitial
+}
+
+func (c *RealtimePresence) SyncInProgress() bool {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.syncState == syncInProgress
 }
 
 func (c *Connection) ConnectionStateTTL() time.Duration {

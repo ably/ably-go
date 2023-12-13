@@ -235,7 +235,6 @@ func (opts *authOptions) KeySecret() string {
 // clientOptions passes additional client-specific properties to the [ably.NewREST] or to the [ably.NewRealtime].
 // Properties set using [ably.clientOptions] are used instead of the [ably.defaultOptions] values.
 type clientOptions struct {
-
 	// authOptions Embedded an [ably.authOptions] object (TO3j).
 	authOptions
 

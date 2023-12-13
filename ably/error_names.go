@@ -24,6 +24,7 @@ const (
 	ErrTimeoutError                              ErrorCode = 50003
 	ErrConnectionFailed                          ErrorCode = 80000
 	ErrConnectionSuspended                       ErrorCode = 80002
+	ErrConnectionClosed                          ErrorCode = 80017
 	ErrDisconnected                              ErrorCode = 80003
 	ErrProtocolError                             ErrorCode = 80013
 	ErrChannelOperationFailed                    ErrorCode = 90000
