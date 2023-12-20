@@ -104,6 +104,7 @@ func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[
 	var ops websocket.DialOptions
 	ops.HTTPHeader = make(http.Header)
 	ops.HTTPHeader.Add(ablyAgentHeader, ablyAgentIdentifier(agents))
+	ops.CompressionMode = websocket.CompressionContextTakeover
 
 	c, _, err := websocket.Dial(ctx, uri, &ops)
 
