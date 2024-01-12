@@ -775,8 +775,8 @@ func (c *RealtimeChannel) ErrorReason() *ErrorInfo {
 
 func (c *RealtimeChannel) notify(msg *protocolMessage) {
 	// RTL15b
-	if !empty(msg.ChannelSerial) && msg.Action == actionMessage ||
-		msg.Action == actionPresence || msg.Action == actionAttached {
+	if !empty(msg.ChannelSerial) && (msg.Action == actionMessage ||
+		msg.Action == actionPresence || msg.Action == actionAttached) {
 		c.log().Debugf("Setting channel serial for channelName - %v, previous - %v, current - %v",
 			c.Name, c.getChannelSerial(), msg.ChannelSerial)
 		c.setChannelSerial(msg.ChannelSerial)
