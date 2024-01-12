@@ -146,11 +146,12 @@ func syncSerial(msg *protocolMessage) (noChannelSerial bool, syncSequenceId stri
 	return false, syncSequenceId, syncCursor
 }
 
+// for every attach local members will be entered
 func (pres *RealtimePresence) enterMembers(internalMembers []*PresenceMessage) {
 	for _, member := range internalMembers {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		// RTP17g
-		err := pres.EnterClient(ctx, member.ClientID, member.Data)
+		err := pres.enterClientWithId(ctx, member.ID, member.ClientID, member.Data)
 		// RTP17e
 		if err != nil {
 			pres.channel.log().Errorf("Error for internal member presence enter with id %v, clientId %v, err %v", member.ID, member.ClientID, err)
@@ -533,6 +534,24 @@ func (pres *RealtimePresence) EnterClient(ctx context.Context, clientID string, 
 	msg := PresenceMessage{
 		Action: PresenceActionEnter,
 	}
+	msg.Data = data
+	msg.ClientID = clientID
+	res, err := pres.send(&msg)
+	if err != nil {
+		return err
+	}
+	return res.Wait(ctx)
+}
+
+func (pres *RealtimePresence) enterClientWithId(ctx context.Context, id string, clientID string, data interface{}) error {
+	pres.mtx.Lock()
+	pres.data = data
+	pres.state = PresenceActionEnter
+	pres.mtx.Unlock()
+	msg := PresenceMessage{
+		Action: PresenceActionEnter,
+	}
+	msg.ID = id
 	msg.Data = data
 	msg.ClientID = clientID
 	res, err := pres.send(&msg)
