@@ -1233,16 +1233,18 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 		// Send enter for internal messages
 		var protoMsg *ably.ProtocolMessage
 		ablytest.Instantly.Recv(t, &protoMsg, out, t.Fatalf)
-		for _, v := range protoMsg.Presence {
-			assert.Equal(t, ably.PresenceActionEnter, v.Action)
-			assert.Equal(t, client.Connection.ID(), v.ConnectionID)
+		for _, enteredMsg := range protoMsg.Presence {
+			assert.Equal(t, ably.PresenceActionEnter, enteredMsg.Action)
+			assert.Equal(t, "987:12:0", enteredMsg.ID)
+			assert.Equal(t, client.Connection.ID(), enteredMsg.ConnectionID)
 		}
 		client.Connection.AckAll()
 
 		ablytest.Instantly.Recv(t, &protoMsg, out, t.Fatalf)
-		for _, v := range protoMsg.Presence {
-			assert.Equal(t, ably.PresenceActionEnter, v.Action)
-			assert.Equal(t, client.Connection.ID(), v.ConnectionID)
+		for _, enteredMsg := range protoMsg.Presence {
+			assert.Equal(t, ably.PresenceActionEnter, enteredMsg.Action)
+			assert.Equal(t, "987:12:1", enteredMsg.ID)
+			assert.Equal(t, client.Connection.ID(), enteredMsg.ConnectionID)
 		}
 		client.Connection.AckAll()
 		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
