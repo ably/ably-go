@@ -160,7 +160,7 @@ func (pres *RealtimePresence) enterMembers(internalMembers []*PresenceMessage) {
 	}
 }
 
-func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMessageLoss bool) {
+func (pres *RealtimePresence) onAttach(msg *protocolMessage) {
 	pres.mtx.Lock()
 	defer pres.mtx.Unlock()
 	// RTP1
@@ -173,18 +173,17 @@ func (pres *RealtimePresence) onAttach(msg *protocolMessage, isAttachWithoutMess
 			close(pres.syncDone)
 		}
 	}
-	pres.queue.Flush() // RTP5b
+	// RTP5b
+	pres.queue.Flush()
 	// RTP17f
-	if isAttachWithoutMessageLoss {
-		if len(pres.internalMembers) > 0 {
-			internalMembers := make([]*PresenceMessage, len(pres.internalMembers))
-			indexCounter := 0
-			for _, member := range pres.internalMembers {
-				internalMembers[indexCounter] = member
-				indexCounter = indexCounter + 1
-			}
-			go pres.enterMembers(internalMembers)
+	if len(pres.internalMembers) > 0 {
+		internalMembers := make([]*PresenceMessage, len(pres.internalMembers))
+		indexCounter := 0
+		for _, member := range pres.internalMembers {
+			internalMembers[indexCounter] = member
+			indexCounter = indexCounter + 1
 		}
+		go pres.enterMembers(internalMembers)
 	}
 }
 

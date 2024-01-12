@@ -800,11 +800,11 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 
 		if c.State() == ChannelStateAttached {
 			if !msg.Flags.Has(flagResumed) { // RTL12
-				c.Presence.onAttach(msg, true)
+				c.Presence.onAttach(msg)
 				c.emitErrorUpdate(newErrorFromProto(msg.Error), false)
 			}
 		} else {
-			c.Presence.onAttach(msg, true)
+			c.Presence.onAttach(msg)
 			c.setState(ChannelStateAttached, newErrorFromProto(msg.Error), msg.Flags.Has(flagResumed))
 		}
 		c.queue.Flush()
