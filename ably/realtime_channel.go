@@ -60,7 +60,9 @@ func (channels *RealtimeChannels) GetChannelSerials() map[string]string {
 	defer channels.mtx.Unlock()
 	channelSerials := make(map[string]string)
 	for channelName, realtimeChannel := range channels.chans {
-		channelSerials[channelName] = realtimeChannel.getChannelSerial()
+		if realtimeChannel.State() == ChannelStateAttached {
+			channelSerials[channelName] = realtimeChannel.getChannelSerial()
+		}
 	}
 	return channelSerials
 }
