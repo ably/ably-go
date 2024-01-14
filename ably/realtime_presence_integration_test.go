@@ -29,6 +29,19 @@ func contains(members []*ably.PresenceMessage, clients ...string) error {
 	return nil
 }
 
+func containsIds(members []*ably.PresenceMessage, ids ...string) error {
+	lookup := make(map[string]struct{}, len(members))
+	for _, member := range members {
+		lookup[member.ID] = struct{}{}
+	}
+	for _, id := range ids {
+		if _, ok := lookup[id]; !ok {
+			return fmt.Errorf("ID=%q not found in presence map", id)
+		}
+	}
+	return nil
+}
+
 func generateClients(num int) []string {
 	clients := make([]string, 0, num)
 	for i := 0; i < num; i++ {
