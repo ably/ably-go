@@ -42,7 +42,9 @@ func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	if !empty(c.opts().Recover) {
 		recoverKeyContext, err := DecodeRecoveryKey(c.opts().Recover)
 		if err != nil {
+			// Ignoring error since no recover will be used for new connection
 			c.log().Errorf("Error decoding recover with error %v", err)
+			c.log().Errorf("Trying a fresh connection instead")
 		} else {
 			c.Channels.SetChannelSerialsFromRecoverOption(recoverKeyContext.ChannelSerials) // RTN16j
 			c.Connection.msgSerial = recoverKeyContext.MsgSerial                            // RTN16f
