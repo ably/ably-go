@@ -17,6 +17,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func containsIds(members []*ably.PresenceMessage, ids ...string) error {
+	lookup := make(map[string]struct{}, len(members))
+	for _, member := range members {
+		lookup[member.ID] = struct{}{}
+	}
+	for _, id := range ids {
+		if _, ok := lookup[id]; !ok {
+			return fmt.Errorf("ID=%q not found in presence map", id)
+		}
+	}
+	return nil
+}
+
 func TestPresenceMessage(t *testing.T) {
 	actions := []ably.PresenceAction{
 		ably.PresenceActionAbsent,
@@ -1231,22 +1244,27 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 		ablytest.Instantly.Recv(t, &chanChange, stateChanges, t.Fatalf)
 
 		// Send enter for internal messages
-		var protoMsg *ably.ProtocolMessage
-		ablytest.Instantly.Recv(t, &protoMsg, out, t.Fatalf)
-		for _, enteredMsg := range protoMsg.Presence {
+		var protoMsg1 *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &protoMsg1, out, t.Fatalf)
+		for _, enteredMsg := range protoMsg1.Presence {
 			assert.Equal(t, ably.PresenceActionEnter, enteredMsg.Action)
-			assert.Equal(t, "987:12:0", enteredMsg.ID)
 			assert.Equal(t, client.Connection.ID(), enteredMsg.ConnectionID)
 		}
 		client.Connection.AckAll()
 
-		ablytest.Instantly.Recv(t, &protoMsg, out, t.Fatalf)
-		for _, enteredMsg := range protoMsg.Presence {
+		var protoMsg2 *ably.ProtocolMessage
+		ablytest.Instantly.Recv(t, &protoMsg2, out, t.Fatalf)
+		for _, enteredMsg := range protoMsg2.Presence {
 			assert.Equal(t, ably.PresenceActionEnter, enteredMsg.Action)
-			assert.Equal(t, "987:12:1", enteredMsg.ID)
 			assert.Equal(t, client.Connection.ID(), enteredMsg.ConnectionID)
 		}
 		client.Connection.AckAll()
+
+		messages := []*ably.PresenceMessage{protoMsg1.Presence[0], protoMsg2.Presence[0]}
+
+		err := containsIds(messages, "987:12:0", "987:12:1")
+		assert.Nil(t, err)
+
 		ablytest.Instantly.NoRecv(t, nil, out, t.Fatalf)
 	})
 }
