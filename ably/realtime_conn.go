@@ -498,6 +498,7 @@ func (c *Connection) ErrorReason() *ErrorInfo {
 
 // Deprecated: this property is deprecated, use CreateRecoveryKey method instead.
 func (c *Connection) RecoveryKey() string {
+	c.log().Warn("RecoveryKey is deprecated, use CreateRecoveryKey method instead")
 	return c.CreateRecoveryKey()
 }
 
