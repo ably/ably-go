@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -46,7 +45,7 @@ type Connection struct {
 	state ConnectionState
 
 	// errorReason is an [ably.ErrorInfo] object describing the last error received if
-	// a connection failure occurs (RTN14a).
+	// a connection failure occurs (RTN14a, RTN15c7, RTN25).
 	errorReason *ErrorInfo
 
 	internalEmitter ConnectionEventEmitter
@@ -61,10 +60,6 @@ type Connection struct {
 	// a realtime client docs for more info (RTN9).
 	key string
 
-	// serial is the serial number of the last message to be received on this connection, used automatically by
-	// the library when recovering or resuming a connection. When recovering a connection explicitly, the recoveryKey
-	// is used in the recover client options as it contains both the key and the last message serial (RTN10).
-	serial       *int64
 	msgSerial    int64
 	connStateTTL durationFromMsecs
 	err          error
@@ -83,9 +78,11 @@ type Connection struct {
 	// after a reauthorization, to avoid re-reauthorizing.
 	reauthorizing bool
 	arg           connArgs
+	client        *Realtime
 
 	readLimit                int64
 	isReadLimitSetExternally bool
+	recover                  string
 }
 
 type connCallbacks struct {
@@ -94,13 +91,13 @@ type connCallbacks struct {
 	// move this up because some implementation details for (RTN15c) requires
 	// access to Channels, and we don't have it here, so we let RealtimeClient do the
 	// work.
-	onReconnected func(isNewID bool)
+	onReconnected func(failedResumeOrRecover bool)
 	// onReconnectionFailed is called when we get a FAILED response from a
 	// reconnection request.
 	onReconnectionFailed func(*errorInfo)
 }
 
-func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connection {
+func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *Realtime) *Connection {
 	c := &Connection{
 		ConnectionEventEmitter: ConnectionEventEmitter{newEventEmitter(auth.log())},
 		state:                  ConnectionStateInitialized,
@@ -110,7 +107,9 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks) *Connecti
 		pending:   newPendingEmitter(auth.log()),
 		auth:      auth,
 		callbacks: callbacks,
+		client:    client,
 		readLimit: maxMessageSize,
+		recover:   opts.Recover,
 	}
 	auth.onExplicitAuthorize = c.onClientAuthorize
 	c.queue = newMsgQueue(c)
@@ -185,6 +184,8 @@ func (c *Connection) Connect() {
 // By default, the connection has a message read limit of [ably.maxMessageSize] or 65536 bytes.
 // When the limit is hit, the connection will be closed with StatusMessageTooBig.
 func (c *Connection) SetReadLimit(readLimit int64) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	c.readLimit = readLimit
 	c.isReadLimitSetExternally = true
 }
@@ -250,7 +251,7 @@ func (c *Connection) getMode() connectionMode {
 	if c.key != "" {
 		return resumeMode
 	}
-	if c.opts.Recover != "" {
+	if c.recover != "" {
 		return recoveryMode
 	}
 	return normalMode
@@ -264,7 +265,7 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 		"timestamp": []string{strconv.FormatInt(unixMilli(c.opts.Now()), 10)},
 		"echo":      []string{"true"},
 		"format":    []string{"msgpack"},
-		"v":         []string{ablyVersion},
+		"v":         []string{ablyProtocolVersion},
 	}
 	if c.opts.NoEcho {
 		query.Set("echo", "false")
@@ -284,17 +285,16 @@ func (c *Connection) params(mode connectionMode) (url.Values, error) {
 	}
 	switch mode {
 	case resumeMode:
-		query.Set("resume", c.key)
-		if c.serial != nil {
-			query.Set("connectionSerial", fmt.Sprint(*c.serial))
-		}
+		query.Set("resume", c.key) // RTN15b
 	case recoveryMode:
-		m := strings.Split(c.opts.Recover, ":")
-		if len(m) != 3 {
-			return nil, errors.New("conn: Invalid recovery key")
+		recoveryKeyContext, err := DecodeRecoveryKey(c.recover)
+		if err != nil {
+			// Ignoring error since no recover will be used for new connection
+			c.log().Errorf("Error decoding recovery key, %v", err)
+			c.log().Errorf("Trying a fresh connection instead")
+		} else {
+			query.Set("recover", recoveryKeyContext.ConnectionKey) // RTN16k
 		}
-		query.Set("recover", m[0])
-		query.Set("connectionSerial", m[1])
 	}
 	return query, nil
 }
@@ -496,21 +496,33 @@ func (c *Connection) ErrorReason() *ErrorInfo {
 	return c.errorReason
 }
 
+// Deprecated: this property is deprecated, use CreateRecoveryKey method instead.
 func (c *Connection) RecoveryKey() string {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-	if c.key == "" {
-		return ""
-	}
-	return strings.Join([]string{c.key, fmt.Sprint(*c.serial), fmt.Sprint(c.msgSerial)}, ":")
+	c.log().Warn("RecoveryKey is deprecated, use CreateRecoveryKey method instead")
+	return c.CreateRecoveryKey()
 }
 
-// Serial gives serial number of a message received most recently.
-// Last known serial number is used when recovering connection state.
-func (c *Connection) Serial() *int64 {
+// CreateRecoveryKey is an attribute composed of the connectionKey, messageSerial and channelSerials (RTN16g, RTN16g1, RTN16h).
+func (c *Connection) CreateRecoveryKey() string {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	return c.serial
+	// RTN16g2
+	if empty(c.key) || c.state == ConnectionStateClosing ||
+		c.state == ConnectionStateClosed ||
+		c.state == ConnectionStateFailed ||
+		c.state == ConnectionStateSuspended {
+		return ""
+	}
+	recoveryContext := RecoveryKeyContext{
+		ConnectionKey:  c.key,
+		MsgSerial:      c.msgSerial,
+		ChannelSerials: c.client.Channels.GetChannelSerials(),
+	}
+	recoveryKey, err := recoveryContext.Encode()
+	if err != nil {
+		c.log().Errorf("Error while encoding recoveryKey %v", err)
+	}
+	return recoveryKey
 }
 
 // State returns current state of the connection.
@@ -588,11 +600,16 @@ func (c *Connection) advanceSerial() {
 func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 	hasMsgSerial := msg.Action == actionMessage || msg.Action == actionPresence
 	c.mtx.Lock()
+	// RTP16a - in case of presence msg send, check for connection status and send accordingly
 	switch state := c.state; state {
 	default:
 		c.mtx.Unlock()
 		if onAck != nil {
-			onAck(connStateError(state, nil))
+			if c.state == ConnectionStateClosed {
+				onAck(errClosed)
+			} else {
+				onAck(connStateError(state, nil))
+			}
 		}
 
 	case ConnectionStateInitialized, ConnectionStateConnecting, ConnectionStateDisconnected:
@@ -601,9 +618,9 @@ func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 			if onAck != nil {
 				onAck(connStateError(state, errQueueing))
 			}
+		} else {
+			c.queue.Enqueue(msg, onAck) // RTL4i
 		}
-		c.queue.Enqueue(msg, onAck) // RTL4i
-
 	case ConnectionStateConnected:
 		if err := c.verifyAndUpdateMessages(msg); err != nil {
 			c.mtx.Unlock()
@@ -623,6 +640,7 @@ func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 			// reconnection logic. But in case it isn't, force that by closing the
 			// connection. Otherwise, the message we enqueue here may be in the queue
 			// indefinitely.
+			c.log().Warnf("transport level failure while sending message, %v", err)
 			c.conn.Close()
 			c.mtx.Unlock()
 			c.queue.Enqueue(msg, onAck)
@@ -700,8 +718,13 @@ func (c *Connection) log() logger {
 	return c.auth.log()
 }
 
-func (c *Connection) setSerial(serial *int64) {
-	c.serial = serial
+func (c *Connection) resendAcks() {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(c.pending.queue))
+	for _, v := range c.pending.queue {
+		c.conn.Send(v.msg)
+	}
 }
 
 func (c *Connection) resendPending() {
@@ -750,11 +773,6 @@ func (c *Connection) eventloop() {
 		}
 		lastActivityAt = c.opts.Now()
 		msg.updateInnerMessagesEmptyFields() // TM2a, TM2c, TM2f
-		if msg.ConnectionSerial != 0 {
-			c.mtx.Lock()
-			c.setSerial(&msg.ConnectionSerial)
-			c.mtx.Unlock()
-		}
 		switch msg.Action {
 		case actionHeartbeat:
 		case actionAck:
@@ -796,9 +814,12 @@ func (c *Connection) eventloop() {
 		case actionConnected:
 			c.mtx.Lock()
 
+			// recover is used when set via clientOptions#recover initially, resume will be used for all reconnects.
+			isConnectionResumeOrRecoverAttempt := !empty(c.key) || !empty(c.recover)
+			c.recover = "" // RTN16k, explicitly setting null so it won't be used for subsequent connection requests
+
 			// we need to get this before we set c.key so as to be sure if we were
 			// resuming or recovering the connection.
-			mode := c.getMode()
 			if msg.ConnectionDetails != nil { // RTN21
 				connDetails = msg.ConnectionDetails
 				c.key = connDetails.ConnectionKey //(RTN15e) (RTN16d)
@@ -822,17 +843,13 @@ func (c *Connection) eventloop() {
 				c.reconnecting = false
 				c.reauthorizing = false
 			}
-			previousID := c.id
+
+			isNewID := c.id != msg.ConnectionID
 			c.id = msg.ConnectionID
-			isNewID := previousID != msg.ConnectionID
-			if reconnecting && mode == recoveryMode && msg.Error == nil {
-				// we are setting msgSerial as per (RTN16f)
-				msgSerial, err := strconv.ParseInt(strings.Split(c.opts.Recover, ":")[2], 10, 64)
-				if err != nil {
-					//TODO: how to handle this? Panic?
-				}
-				c.msgSerial = msgSerial
-			} else if isNewID {
+
+			failedResumeOrRecover := isNewID && msg.Error != nil // RTN15c7, RTN16d
+
+			if isConnectionResumeOrRecoverAttempt && failedResumeOrRecover {
 				c.msgSerial = 0
 			}
 
@@ -843,24 +860,12 @@ func (c *Connection) eventloop() {
 				continue
 			}
 
+			// RTN24, RTN15c6, RTN15c7 - if error, set on connection and part of emitted connected event
+			c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
 			c.mtx.Unlock()
 
 			if reconnecting {
-				// (RTN15c1) (RTN15c2)
-				c.mtx.Lock()
-				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
-				c.mtx.Unlock()
-				// (RTN15c3)
-				// we are calling this outside of locks to avoid deadlock because in the
-				// RealtimeClient client where this callback is implemented we do some ops
-				// with this Conn where we re acquire Conn.Lock again.
-				c.callbacks.onReconnected(isNewID)
-			} else {
-				// preserve old behavior.
-				c.mtx.Lock()
-				// RTN24
-				c.lockSetState(ConnectionStateConnected, newErrorFromProto(msg.Error), 0)
-				c.mtx.Unlock()
+				c.callbacks.onReconnected(failedResumeOrRecover)
 			}
 			c.queue.Flush()
 		case actionDisconnected:
@@ -990,8 +995,9 @@ func (c *Connection) setState(state ConnectionState, err error, retryIn time.Dur
 }
 
 func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time.Duration) error {
-	if state == ConnectionStateClosed {
-		c.key, c.id = "", "" //(RTN16c)
+	if state == ConnectionStateClosing || state == ConnectionStateClosed ||
+		state == ConnectionStateSuspended || state == ConnectionStateFailed {
+		c.key, c.id = "", "" //(RTN8c, RTN9c)
 	}
 
 	previous := c.state

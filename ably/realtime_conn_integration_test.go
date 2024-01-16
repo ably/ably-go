@@ -23,7 +23,7 @@ var connTransitions = []ably.ConnectionState{
 	ably.ConnectionStateClosed,
 }
 
-func TestRealtimeConn_Connect(t *testing.T) {
+func TestRealtimeConn_AutoConnect_And_Close(t *testing.T) {
 	var rec ablytest.ConnStatesRecorder
 	app, client := ablytest.NewRealtime()
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
@@ -31,13 +31,7 @@ func TestRealtimeConn_Connect(t *testing.T) {
 	defer off()
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected), nil)
-	assert.NoError(t, err,
-		"Connect()=%v", err)
-
-	serial := client.Connection.Serial()
-	assert.NotNil(t, serial)
-	assert.Equal(t, int64(-1), *serial,
-		"want serial=-1; got %d", client.Connection.Serial())
+	assert.NoError(t, err, "Connect()=%v", err)
 
 	err = ablytest.FullRealtimeCloser(client).Close()
 	assert.NoError(t, err, "ablytest.FullRealtimeCloser(client).Close()=%v", err)
@@ -49,7 +43,7 @@ func TestRealtimeConn_Connect(t *testing.T) {
 	}
 }
 
-func TestRealtimeConn_NoConnect(t *testing.T) {
+func TestRealtimeConn_No_AutoConnect(t *testing.T) {
 	var rec ablytest.ConnStatesRecorder
 	opts := []ably.ClientOption{
 		ably.WithAutoConnect(false),
@@ -62,37 +56,9 @@ func TestRealtimeConn_NoConnect(t *testing.T) {
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err, "Connect()=%v", err)
 
-	serial := client.Connection.Serial()
-	assert.NotNil(t, serial)
-	assert.Equal(t, int64(-1), *serial,
-		"want serial=-1; got %d", client.Connection.Serial())
-
 	err = ablytest.FullRealtimeCloser(client).Close()
 	assert.NoError(t, err,
 		"ablytest.FullRealtimeCloser(client).Close()=%v", err)
-
-	if !ablytest.Soon.IsTrue(func() bool {
-		return ablytest.Contains(rec.States(), connTransitions)
-	}) {
-		t.Fatalf("expected %+v, got %+v", connTransitions, rec.States())
-	}
-}
-
-func TestRealtimeConn_ConnectClose(t *testing.T) {
-	var rec ablytest.ConnStatesRecorder
-	app, client := ablytest.NewRealtime()
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-	off := rec.Listen(client)
-	defer off()
-
-	err := ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected), nil)
-	assert.NoError(t, err)
-	err = ablytest.FullRealtimeCloser(client).Close()
-	assert.NoError(t, err,
-		"ablytest.FullRealtimeCloser(client).Close()=%v", err)
-
-	err = ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventClosed), nil)
-	assert.NoError(t, err)
 
 	if !ablytest.Soon.IsTrue(func() bool {
 		return ablytest.Contains(rec.States(), connTransitions)

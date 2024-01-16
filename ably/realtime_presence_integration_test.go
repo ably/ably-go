@@ -57,7 +57,7 @@ func TestRealtimePresence_Sync(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRealtimePresence_Sync250(t *testing.T) {
+func TestRealtimePresence_Sync250_RTP4(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 	client2 := app.NewRealtime(nil...)
@@ -163,6 +163,32 @@ func ExampleRealtimePresence_Enter() {
 
 	// The client announces presence with Enter.
 	if err := channel.Presence.Enter(ctx, nil); err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+// When a client is created without a ClientID, EnterClient is used to announce the presence of a client.
+// This example shows a client without a clientID announcing the presence of "Client A" using EnterClient.
+func ExampleRealtimePresence_EnterClient() {
+
+	// A new realtime client is created without providing a ClientID.
+	client, err := ably.NewRealtime(
+		ably.WithKey("ABLY_PRIVATE_KEY"),
+	)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	// A new channel is initialised.
+	channel := client.Channels.Get("chat")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	// The presence of Client A is announced using EnterClient.
+	if err := channel.Presence.EnterClient(ctx, "Client A", nil); err != nil {
 		fmt.Println(err)
 		return
 	}

@@ -8,20 +8,20 @@ import (
 
 // constants for rsc7
 const (
-	ablyVersionHeader      = "X-Ably-Version"
-	ablyErrorCodeHeader    = "X-Ably-Errorcode"
-	ablyErrorMessageHeader = "X-Ably-Errormessage"
-	libraryVersion         = "1.2.14"
-	libraryName            = "go"
-	ablyVersion            = "1.2"
-	ablyClientIDHeader     = "X-Ably-ClientId"
-	hostHeader             = "Host"
-	ablyAgentHeader        = "Ably-Agent"                // RSC7d
-	ablySDKIdentifier      = "ably-go/" + libraryVersion // RSC7d1
+	ablyProtocolVersionHeader = "X-Ably-Version"
+	ablyErrorCodeHeader       = "X-Ably-Errorcode"
+	ablyErrorMessageHeader    = "X-Ably-Errormessage"
+	clientLibraryVersion      = "1.2.14"
+	clientRuntimeName         = "go"
+	ablyProtocolVersion       = "2" // CSV2
+	ablyClientIDHeader        = "X-Ably-ClientId"
+	hostHeader                = "Host"
+	ablyAgentHeader           = "Ably-Agent"                      // RSC7d
+	ablySDKIdentifier         = "ably-go/" + clientLibraryVersion // RSC7d1
 )
 
 var goRuntimeIdentifier = func() string {
-	return fmt.Sprintf("%s/%s", libraryName, runtime.Version()[2:])
+	return fmt.Sprintf("%s/%s", clientRuntimeName, runtime.Version()[2:])
 }()
 
 func ablyAgentIdentifier(agents map[string]string) string {

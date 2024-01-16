@@ -2,6 +2,8 @@ package ably
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 // PresenceAction describes the possible actions members in the presence set can emit (TP2).
@@ -57,4 +59,46 @@ func (m PresenceMessage) String() string {
 		"leave",
 		"update",
 	}[m.Action], m.ClientID, m.Data)
+}
+
+func (msg *PresenceMessage) isServerSynthesized() bool {
+	return !strings.HasPrefix(msg.ID, msg.ConnectionID)
+}
+
+func (msg *PresenceMessage) getMsgSerialAndIndex() (int64, int64, error) {
+	msgIds := strings.Split(msg.ID, ":")
+	if len(msgIds) != 3 {
+		return 0, 0, fmt.Errorf("parsing error, the presence message has invalid id %v", msg.ID)
+	}
+	msgSerial, err := strconv.ParseInt(msgIds[1], 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing error, the presence message has invalid msgSerial, for msgId %v", msg.ID)
+	}
+	msgIndex, err := strconv.ParseInt(msgIds[2], 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing error, the presence message has invalid msgIndex, for msgId %v", msg.ID)
+	}
+	return msgSerial, msgIndex, nil
+}
+
+// RTP2b, RTP2c
+func (msg1 *PresenceMessage) IsNewerThan(msg2 *PresenceMessage) (bool, error) {
+	// RTP2b1
+	if msg1.isServerSynthesized() || msg2.isServerSynthesized() {
+		return msg1.Timestamp >= msg2.Timestamp, nil
+	}
+
+	// RTP2b2
+	msg1Serial, msg1Index, err := msg1.getMsgSerialAndIndex()
+	if err != nil {
+		return false, err
+	}
+	msg2Serial, msg2Index, err := msg2.getMsgSerialAndIndex()
+	if err != nil {
+		return true, err
+	}
+	if msg1Serial == msg2Serial {
+		return msg1Index >= msg2Index, nil
+	}
+	return msg1Serial > msg2Serial, nil
 }

@@ -231,9 +231,9 @@ func TestRSC7(t *testing.T) {
 	ablytest.Instantly.Recv(t, &req, requests, t.Fatalf)
 
 	t.Run("must set version header", func(t *testing.T) {
-		h := req.Header.Get(ably.AblyVersionHeader)
-		assert.Equal(t, ably.AblyVersion, h,
-			"expected %s got %s", ably.AblyVersion, h)
+		h := req.Header.Get(ably.AblyProtocolVersionHeader)
+		assert.Equal(t, ably.AblyProtocolVersion, h,
+			"expected %s got %s", ably.AblyProtocolVersion, h)
 	})
 }
 
