@@ -1,5 +1,25 @@
 # Change Log
 
+## [1.2.15](https://github.com/ably/ably-go/tree/1.2.15)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.14...v1.2.15)
+
+**Closed issues:**
+
+- Implement no connection serial [\#612](https://github.com/ably/ably-go/issues/612)
+- Potential go routine on blocking functions [\#623](https://github.com/ably/ably-go/issues/623)
+- Client gives up on reconnect [\#606](https://github.com/ably/ably-go/issues/606)
+- RTP5: Channel state change side effects on presence [\#259](https://github.com/ably/ably-go/issues/259)
+- RTP18: Server-initiated presence sync [\#256](https://github.com/ably/ably-go/issues/256)
+- RTP2, RTP17, RTP19: PresenceMap [\#255](https://github.com/ably/ably-go/issues/255)
+- RTP1: HAS\_PRESENCE flag [\#248](https://github.com/ably/ably-go/issues/248)
+- RTP16: Presence connection state conditions [\#214](https://github.com/ably/ably-go/issues/214)
+
+**Merged pull requests:**
+
+- \[SDK-222\] \[no connection serial \] + implement missing internal presence map + presencequeue [\#621](https://github.com/ably/ably-go/pull/621) ([sacOO7](https://github.com/sacOO7))
+- \[SDK-3746\] Feature/integration 2.0 [\#613](https://github.com/ably/ably-go/pull/613) ([sacOO7](https://github.com/sacOO7))
+
 ## [1.2.14](https://github.com/ably/ably-go/tree/1.2.14)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.13...v1.2.14)
