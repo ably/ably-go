@@ -1111,7 +1111,7 @@ func Test_internal_presencemap_RTP17(t *testing.T) {
 			Action: ably.PresenceActionLeave,
 			Message: ably.Message{
 				ID:           "987:12:3",
-				Timestamp:    125,
+				Timestamp:    124,
 				ConnectionID: client.Connection.ID(),
 				ClientID:     "978",
 			},
