@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ablytest"
 
 	"github.com/stretchr/testify/assert"
@@ -320,7 +321,7 @@ func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 	assert.NoError(t, err, "client2:.Subscribe(context.Background())=%v", err)
 	defer unsub2()
 
-	messageWith2MbSize := ablytest.GenerateRandomString(2048)
+	messageWith2MbSize := ablyutil.GenerateRandomString(2048)
 	err = channel1.Publish(context.Background(), "hello", messageWith2MbSize)
 	assert.NoError(t, err, "client1: Publish()=%v", err)
 

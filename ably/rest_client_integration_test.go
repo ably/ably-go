@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -320,7 +321,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 	})
 }
 
-func TestRest_hostfallback(t *testing.T) {
+func TestRest_RSC15_HostFallback(t *testing.T) {
 
 	app, err := ablytest.NewSandbox(nil)
 	assert.NoError(t, err)
@@ -329,7 +330,7 @@ func TestRest_hostfallback(t *testing.T) {
 		var retryCount int
 		var hosts []string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			hosts = append(hosts, r.Host)
+			hosts = append(hosts, strings.Split(r.Host, ":")[0])
 			retryCount++
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
@@ -337,37 +338,93 @@ func TestRest_hostfallback(t *testing.T) {
 		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(newHTTPClientMock(server)))...)...)
 		assert.NoError(t, err)
 		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
-		assert.Error(t, err,
-			"expected an error")
+		assert.Error(t, err, "expected an error")
 		return retryCount, hosts
 	}
-	t.Run("RSC15d RSC15a must use alternative host", func(t *testing.T) {
+
+	t.Run("RSC15a, RSC15b, RSC15d, RSC15g3: must use alternative host", func(t *testing.T) {
+		options := []ably.ClientOption{
+			ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
+			ably.WithTLS(false),
+			ably.WithEnvironment(""), // remove default sandbox env
+			ably.WithHTTPMaxRetryCount(10),
+			ably.WithUseTokenAuth(true),
+		}
+		retryCount, hosts := runTestServer(t, options)
+		assert.Equal(t, 6, retryCount)                          // 1 primary and 5 default fallback hosts
+		assert.Equal(t, "rest.ably.io", hosts[0])               // primary host
+		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:]) // remaining fallback hosts
+		assertUnique(t, hosts)                                  // ensure all picked fallbacks are unique
+	})
+
+	runTestServerWithRequestTimeout := func(t *testing.T, options []ably.ClientOption) (int, []string) {
+		var retryCount int
+		var hosts []string
+		allHostsTried := make(chan struct{}, 1)
+		var mtx sync.Mutex
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mtx.Lock()
+			defer mtx.Unlock()
+			hosts = append(hosts, strings.Split(r.Host, ":")[0])
+			retryCount++
+			time.Sleep(2 * time.Second)
+			if retryCount == 6 {
+				allHostsTried <- struct{}{}
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+		httpClientMock := &http.Client{
+			Timeout: 1 * time.Second,
+			Transport: &http.Transport{
+				Proxy: func(*http.Request) (*url.URL, error) { return url.Parse(server.URL) },
+			},
+		}
+		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(httpClientMock))...)...)
+		assert.NoError(t, err)
+		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+		<-allHostsTried
+		assert.Contains(t, err.Error(), "context deadline exceeded (Client.Timeout exceeded while awaiting headers)")
+		return retryCount, hosts
+	}
+
+	t.Run("RSC15l2 must use alternative host on timeout", func(t *testing.T) {
 
 		options := []ably.ClientOption{
 			ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
 			ably.WithTLS(false),
+			ably.WithEnvironment(""), // remove default sandbox env
+			ably.WithHTTPMaxRetryCount(10),
 			ably.WithUseTokenAuth(true),
 		}
-		retryCount, hosts := runTestServer(t, options)
-		assert.Equal(t, 4, retryCount,
-			"expected 4 http calls got %d", retryCount)
-		// make sure the host header is set. Since we are using defaults from the spec
-		// the hosts should be in [a..e].ably-realtime.com
-		expect := strings.Join(ably.DefaultFallbackHosts(), ", ")
-		for _, host := range hosts[1:] {
-			assert.Contains(t, expect, host,
-				"expected %s got be in %s", host, expect)
-		}
-
-		// ensure all picked fallbacks are unique
-		uniq := make(map[string]bool)
-		for _, h := range hosts {
-			_, ok := uniq[h]
-			assert.False(t, ok,
-				"duplicate fallback %s", h)
-			uniq[h] = true
-		}
+		retryCount, hosts := runTestServerWithRequestTimeout(t, options)
+		assert.Equal(t, 6, retryCount)                          // 1 primary and 5 default fallback hosts
+		assert.Equal(t, "rest.ably.io", hosts[0])               // primary host
+		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:]) // remaining fallback hosts
+		assertUnique(t, hosts)                                  // ensure all picked fallbacks are unique
 	})
+
+	t.Run("RSC15l1 must use alternative host on host unresolvable or unreachable", func(t *testing.T) {
+		options := []ably.ClientOption{
+			ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
+			ably.WithRESTHost("foobar.ably.com"),
+			ably.WithFallbackHosts([]string{
+				"spam.ably.com",
+				"tatto.ably.com",
+				"rest.ably.io"}),
+			ably.WithTLS(false),
+			ably.WithUseTokenAuth(true),
+		}
+		client, err := ably.NewREST(app.Options(options...)...)
+		assert.NoError(t, err)
+		tm, err := client.Time(context.Background())
+		assert.Nil(t, err)
+		assert.NotNil(t, tm)
+		time.Sleep(2 * time.Second)
+		cachedFallbackHost := client.GetCachedFallbackHost()
+		assert.Equal(t, "rest.ably.io", cachedFallbackHost)
+	})
+
 	t.Run("rsc15b", func(t *testing.T) {
 		t.Run("must not occur when default rest.ably.io is overridden", func(t *testing.T) {
 

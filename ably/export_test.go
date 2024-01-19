@@ -65,6 +65,10 @@ func UnwrapStatusCode(err error) int {
 	return statusCode(err)
 }
 
+func IsTimeoutOrDnsErr(err error) bool {
+	return isTimeoutOrDnsErr(err)
+}
+
 func (a *Auth) Timestamp(ctx context.Context, query bool) (time.Time, error) {
 	return a.timestamp(ctx, query)
 }

@@ -606,7 +606,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	err = ablytest.FullRealtimeCloser(client).Close()
 	assert.NoError(t, err,
 		"Close()=%v", err)
-	recUrls := rec.URL()
+	recUrls := rec.URLs()
 	assert.NotEqual(t, 0, len(recUrls),
 		"want urls to be non-empty")
 	for _, recUrl := range recUrls {
