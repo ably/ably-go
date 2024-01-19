@@ -711,6 +711,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 		c.log.Verbose("RestClient: enabling httptrace")
 	}
 	resp, err := c.opts.httpclient().Do(req)
+	serverResp := resp
 	if err == nil {
 		resp, err = handle(resp, r.Out)
 	} else {
@@ -718,7 +719,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 	}
 	if err != nil {
 		c.log.Error("RestClient: error handling response: ", err)
-		if canFallBack(err, resp) {
+		if canFallBack(err, serverResp) {
 			fallbacks, _ := c.opts.getFallbackHosts()
 			c.log.Infof("RestClient: trying to fallback with hosts=%v", fallbacks)
 			if len(fallbacks) > 0 {
@@ -757,6 +758,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 					req.Host = ""
 					req.Header.Set(hostHeader, h)
 					resp, err := c.opts.httpclient().Do(req)
+					serverResp := resp
 					if err == nil {
 						resp, err = handle(resp, r.Out)
 					} else {
@@ -767,7 +769,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 						if iteration == maxLimit-1 {
 							return nil, err
 						}
-						if canFallBack(err, resp) {
+						if canFallBack(err, serverResp) {
 							iteration++
 							continue
 						}
