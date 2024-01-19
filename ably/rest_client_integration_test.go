@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -360,14 +361,17 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		var retryCount int
 		var hosts []string
 		allHostsTried := make(chan struct{}, 1)
+		var mtx sync.Mutex
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mtx.Lock()
+			defer mtx.Unlock()
 			hosts = append(hosts, strings.Split(r.Host, ":")[0])
 			retryCount++
 			time.Sleep(2 * time.Second)
-			w.WriteHeader(http.StatusInternalServerError)
-			if len(hosts) == 6 {
+			if retryCount == 6 {
 				allHostsTried <- struct{}{}
 			}
+			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
 		httpClientMock := &http.Client{
@@ -398,6 +402,27 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		assert.Equal(t, "rest.ably.io", hosts[0])               // primary host
 		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:]) // remaining fallback hosts
 		assertUnique(t, hosts)                                  // ensure all picked fallbacks are unique
+	})
+
+	t.Run("RSC15l1 must use alternative host on host unresolvable or unreachable", func(t *testing.T) {
+		options := []ably.ClientOption{
+			ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
+			ably.WithRESTHost("foobar.ably.com"),
+			ably.WithFallbackHosts([]string{
+				"spam.ably.com",
+				"tatto.ably.com",
+				"rest.ably.io"}),
+			ably.WithTLS(false),
+			ably.WithUseTokenAuth(true),
+		}
+		client, err := ably.NewREST(app.Options(options...)...)
+		assert.NoError(t, err)
+		tm, err := client.Time(context.Background())
+		assert.Nil(t, err)
+		assert.NotNil(t, tm)
+		time.Sleep(2 * time.Second)
+		cachedFallbackHost := client.GetCachedFallbackHost()
+		assert.Equal(t, "rest.ably.io", cachedFallbackHost)
 	})
 
 	t.Run("rsc15b", func(t *testing.T) {
