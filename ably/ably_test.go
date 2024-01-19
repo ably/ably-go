@@ -191,7 +191,7 @@ func (pc pipeConn) Close() error {
 // MessageRecorder
 type MessageRecorder struct {
 	mu       sync.Mutex
-	url      []*url.URL
+	urls     []*url.URL
 	sent     []*ably.ProtocolMessage
 	received []*ably.ProtocolMessage
 }
@@ -207,7 +207,7 @@ func NewMessageRecorder() *MessageRecorder {
 // Reset resets the recorded urls, sent and received messages
 func (rec *MessageRecorder) Reset() {
 	rec.mu.Lock()
-	rec.url = nil
+	rec.urls = nil
 	rec.sent = nil
 	rec.received = nil
 	rec.mu.Unlock()
@@ -216,7 +216,7 @@ func (rec *MessageRecorder) Reset() {
 // Dial
 func (rec *MessageRecorder) Dial(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 	rec.mu.Lock()
-	rec.url = append(rec.url, u)
+	rec.urls = append(rec.urls, u)
 	rec.mu.Unlock()
 	conn, err := ably.DialWebsocket(proto, u, timeout)
 	if err != nil {
@@ -229,11 +229,11 @@ func (rec *MessageRecorder) Dial(proto string, u *url.URL, timeout time.Duration
 }
 
 // URL
-func (rec *MessageRecorder) URL() []*url.URL {
+func (rec *MessageRecorder) URLs() []*url.URL {
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
-	newUrl := make([]*url.URL, len(rec.url))
-	copy(newUrl, rec.url)
+	newUrl := make([]*url.URL, len(rec.urls))
+	copy(newUrl, rec.urls)
 	return newUrl
 }
 
@@ -522,3 +522,24 @@ var canceledCtx context.Context = func() context.Context {
 	cancel()
 	return ctx
 }()
+
+func assertSubset(t *testing.T, set []string, subset []string) {
+	t.Helper()
+	for _, item := range subset {
+		if !ablyutil.SliceContains(set, item) {
+			t.Errorf("expected %s got be in %s", item, set)
+		}
+	}
+}
+
+func assertUnique(t *testing.T, list []string) {
+	t.Helper()
+	hashSet := ablyutil.NewHashSet()
+	for _, item := range list {
+		if hashSet.Has(item) {
+			t.Errorf("duplicate item %s", item)
+		} else {
+			hashSet.Add(item)
+		}
+	}
+}
