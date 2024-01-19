@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.2.16](https://github.com/ably/ably-go/tree/1.2.16)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.15...v1.2.16)
+
+**Closed issues:**
+
+- ably-go doesn't retry requests to fallback hosts on a timeout [\#626](https://github.com/ably/ably-go/issues/626)
+
+**Merged pull requests:**
+
+- Fix/host fallback conditions [\#629](https://github.com/ably/ably-go/pull/629) ([sacOO7](https://github.com/sacOO7))
+
 ## [1.2.15](https://github.com/ably/ably-go/tree/1.2.15)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.14...v1.2.15)
