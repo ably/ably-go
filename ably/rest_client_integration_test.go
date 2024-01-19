@@ -359,11 +359,15 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 	runTestServerWithRequestTimeout := func(t *testing.T, options []ably.ClientOption) (int, []string) {
 		var retryCount int
 		var hosts []string
+		allHostsTried := make(chan struct{}, 1)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hosts = append(hosts, strings.Split(r.Host, ":")[0])
 			retryCount++
 			time.Sleep(2 * time.Second)
 			w.WriteHeader(http.StatusInternalServerError)
+			if len(hosts) == 6 {
+				allHostsTried <- struct{}{}
+			}
 		}))
 		defer server.Close()
 		httpClientMock := &http.Client{
@@ -374,8 +378,9 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		}
 		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(httpClientMock))...)...)
 		assert.NoError(t, err)
-		err1 := client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
-		assert.Contains(t, err1.Error(), "context deadline exceeded (Client.Timeout exceeded while awaiting headers)")
+		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+		<-allHostsTried
+		assert.Contains(t, err.Error(), "context deadline exceeded (Client.Timeout exceeded while awaiting headers)")
 		return retryCount, hosts
 	}
 
