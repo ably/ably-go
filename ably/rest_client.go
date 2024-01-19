@@ -797,17 +797,9 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 }
 
 func canFallBack(err error, res *http.Response) bool {
-	return isTimeoutOrDnsErr(err) || //RSC15l1, RSC15l2
-		(res.StatusCode >= http.StatusInternalServerError && //RSC15l3
-			res.StatusCode <= http.StatusGatewayTimeout) ||
-		isCloudFrontError(res) //RSC15l4
-}
-
-// RSC15l4
-func isCloudFrontError(res *http.Response) bool {
-	return res != nil &&
-		strings.EqualFold(res.Header.Get("Server"), "CloudFront") &&
-		res.StatusCode >= http.StatusBadRequest
+	return isStatusCodeBetween500_504(res) || // RSC15l3
+		isCloudFrontError(res) || //RSC15l4
+		isTimeoutOrDnsErr(err) //RSC15l1, RSC15l2
 }
 
 func isTimeoutOrDnsErr(err error) bool {
@@ -819,6 +811,20 @@ func isTimeoutOrDnsErr(err error) bool {
 	}
 	var dnsErr *net.DNSError
 	return errors.As(err, &dnsErr) // RSC15l1
+}
+
+// RSC15l3
+func isStatusCodeBetween500_504(res *http.Response) bool {
+	return res != nil &&
+		res.StatusCode >= http.StatusInternalServerError &&
+		res.StatusCode <= http.StatusGatewayTimeout
+}
+
+// RSC15l4
+func isCloudFrontError(res *http.Response) bool {
+	return res != nil &&
+		strings.EqualFold(res.Header.Get("Server"), "CloudFront") &&
+		res.StatusCode >= http.StatusBadRequest
 }
 
 // newHTTPRequest creates a new http.Request that can be sent to ably endpoints.
