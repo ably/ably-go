@@ -301,18 +301,18 @@ func TestRealtimeChannel_SetDefaultReadLimitIfServerHasNoLimit(t *testing.T) {
 	}
 	wrappedDialWebsocket, interceptMsg := DialIntercept(dial)
 
-	connMsgContext, cancel := context.WithCancel(context.Background())
-	connMessageCh := interceptMsg(connMsgContext, ably.ActionConnected)
+	ctx, cancel := context.WithCancel(context.Background())
+	msgCh := interceptMsg(ctx, ably.ActionConnected)
 
 	app, client := ablytest.NewRealtime(ably.WithDial(wrappedDialWebsocket))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
-	connWaiter := ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected)
+	connectedWaiter := ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected)
 
-	msg := <-connMessageCh
-	msg.ConnectionDetails.MaxMessageSize = 0 // 0 represents limitless message size
-	cancel()
+	connectedMsg := <-msgCh
+	connectedMsg.ConnectionDetails.MaxMessageSize = 0 // 0 represents limitless message size
+	cancel()                                          // unblocks updated message to be processed
 
-	err := ablytest.Wait(connWaiter, nil)
+	err := ablytest.Wait(connectedWaiter, nil)
 	assert.Nil(t, err)
 
 	// If server set limit is 0, value is set to default readlimit
