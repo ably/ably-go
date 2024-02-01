@@ -317,7 +317,8 @@ func TestRealtimeChannel_SetsNoLimitIfServerNoLimits(t *testing.T) {
 	}
 
 	// Wait for a little bit for things to settle
-	time.Sleep(1 * time.Second)
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
 
 	// Check that the connection read limit is the default - due to websocket.go
 	// Only allowing the value to be set if the connection is a certain type
