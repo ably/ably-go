@@ -988,6 +988,10 @@ func (vc verboseConn) Close() error {
 	return vc.conn.Close()
 }
 
+func (vc verboseConn) Unwrap() conn {
+	return vc.conn
+}
+
 func (c *Connection) setState(state ConnectionState, err error, retryIn time.Duration) error {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
