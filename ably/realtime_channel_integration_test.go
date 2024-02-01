@@ -294,36 +294,29 @@ func TestRealtimeChannel_ShouldSetProvidedReadLimit(t *testing.T) {
 	assert.Equal(t, int64(2048), client.Connection.ReadLimit())
 }
 
-func TestRealtimeChannel_SetDefaultLimitIfNoServerLimit(t *testing.T) {
-	in := make(chan *ably.ProtocolMessage, 1)
-	out := make(chan *ably.ProtocolMessage, 16)
+func TestRealtimeChannel_SetDefaultReadLimitIfServerHasNoLimit(t *testing.T) {
 
-	_, c := ablytest.NewRealtime(ably.WithDial(MessagePipe(in, out)))
-
-	connDetails := ably.ConnectionDetails{
-		ClientID:           "id1",
-		ConnectionKey:      "foo",
-		MaxFrameSize:       12,
-		MaxInboundRate:     14,
-		MaxMessageSize:     0,  // 0 represents no limit on message size
-		ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 2),
-		MaxIdleInterval:    ably.DurationFromMsecs(time.Second),
+	dial := func(proto string, url *url.URL, timeout time.Duration) (ably.Conn, error) {
+		return ably.DialWebsocket(proto, url, timeout)
 	}
+	wrappedDialWebsocket, interceptMsg := DialIntercept(dial)
 
-	in <- &ably.ProtocolMessage{
-		Action:            ably.ActionConnected,
-		ConnectionID:      "connection-id-1",
-		ConnectionDetails: &connDetails,
-	}
+	connMsgContext, cancel := context.WithCancel(context.Background())
+	connMessageCh := interceptMsg(connMsgContext, ably.ActionConnected)
 
-	// Wait for a little bit for things to settle
-	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
-	assert.NoError(t, err)
+	app, client := ablytest.NewRealtime(ably.WithDial(wrappedDialWebsocket))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	connWaiter := ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected)
 
-	// Check that the connection read limit is the default - due to websocket.go
-	// Only allowing the value to be set if the connection is a certain type
-	// We'll just check -1 here
-	assert.Equal(t, int64(-1), c.Connection.ReadLimit())
+	msg := <-connMessageCh
+	msg.ConnectionDetails.MaxMessageSize = 0 // 0 represents limitless message size
+	cancel()
+
+	err := ablytest.Wait(connWaiter, nil)
+	assert.Nil(t, err)
+
+	// If server set limit is 0, value is set to default readlimit
+	assert.Equal(t, int64(65536), client.Connection.ReadLimit())
 }
 
 func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
