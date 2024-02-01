@@ -294,7 +294,7 @@ func TestRealtimeChannel_ShouldSetProvidedReadLimit(t *testing.T) {
 	assert.Equal(t, int64(2048), client.Connection.ReadLimit())
 }
 
-func TestRealtimeChannel_SetsNoLimitIfServerNoLimits(t *testing.T) {
+func TestRealtimeChannel_SetDefaultLimitIfNoServerLimit(t *testing.T) {
 	in := make(chan *ably.ProtocolMessage, 1)
 	out := make(chan *ably.ProtocolMessage, 16)
 
