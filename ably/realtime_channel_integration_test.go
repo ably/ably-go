@@ -294,6 +294,47 @@ func TestRealtimeChannel_ShouldSetProvidedReadLimit(t *testing.T) {
 	assert.Equal(t, int64(2048), client.Connection.ReadLimit())
 }
 
+func TestRealtimeChannel_SetsNoLimitIfServerNoLimits(t *testing.T) {
+	// Mock out the dial
+	dial := DialFunc(func(p string, url *url.URL, timeout time.Duration) (ably.Conn, error) {
+		return connMock{
+			SendFunc: func(m *ably.ProtocolMessage) error {
+				return nil
+			},
+			ReceiveFunc: func(deadline time.Time) (*ably.ProtocolMessage, error) {
+				connDetails := ably.ConnectionDetails{
+					ClientID:           "id1",
+					ConnectionKey:      "foo",
+					MaxFrameSize:       12,
+					MaxInboundRate:     14,
+					MaxMessageSize:     0,
+					ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 2),
+					MaxIdleInterval:    ably.DurationFromMsecs(time.Second),
+				}
+
+				return &ably.ProtocolMessage{
+					Action:            ably.ActionConnected,
+					ConnectionID:      "connection-id-1",
+					ConnectionDetails: &connDetails,
+				}, nil
+			},
+			CloseFunc: func() error {
+				return nil
+			},
+		}, nil
+	})
+
+	_, c := ablytest.NewRealtime(ably.WithDial(dial))
+
+	// Wait for a little bit for things to settle
+	time.Sleep(1 * time.Second)
+
+	// Check that the connection read limit is the default - due to websocket.go
+	// Only allowing the value to be set if the connection is a certain type
+	// We'll just check -1 here
+	assert.Equal(t, int64(-1), c.Connection.ReadLimit())
+}
+
 func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)

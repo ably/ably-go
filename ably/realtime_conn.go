@@ -826,7 +826,7 @@ func (c *Connection) eventloop() {
 				c.connStateTTL = connDetails.ConnectionStateTTL
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(connDetails.ClientID)
-				if !c.isReadLimitSetExternally {
+				if !c.isReadLimitSetExternally && connDetails.MaxMessageSize > 0 {
 					c.readLimit = connDetails.MaxMessageSize // set MaxMessageSize limit as per TO3l8
 				}
 			}
