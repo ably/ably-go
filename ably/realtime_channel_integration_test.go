@@ -305,7 +305,7 @@ func TestRealtimeChannel_SetDefaultLimitIfNoServerLimit(t *testing.T) {
 		ConnectionKey:      "foo",
 		MaxFrameSize:       12,
 		MaxInboundRate:     14,
-		MaxMessageSize:     0,
+		MaxMessageSize:     0,  // 0 represents no limit on message size
 		ConnectionStateTTL: ably.DurationFromMsecs(time.Minute * 2),
 		MaxIdleInterval:    ably.DurationFromMsecs(time.Second),
 	}
