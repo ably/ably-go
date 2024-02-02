@@ -492,6 +492,10 @@ type interceptConn struct {
 	active *activeIntercept
 }
 
+func (c interceptConn) Unwrap() ably.Conn {
+	return c.Conn
+}
+
 func (c interceptConn) Receive(deadline time.Time) (*ably.ProtocolMessage, error) {
 	msg, err := c.Conn.Receive(deadline)
 	if err != nil {

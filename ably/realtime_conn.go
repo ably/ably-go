@@ -826,7 +826,7 @@ func (c *Connection) eventloop() {
 				c.connStateTTL = connDetails.ConnectionStateTTL
 				// Spec RSA7b3, RSA7b4, RSA12a
 				c.auth.updateClientID(connDetails.ClientID)
-				if !c.isReadLimitSetExternally {
+				if !c.isReadLimitSetExternally && connDetails.MaxMessageSize > 0 {
 					c.readLimit = connDetails.MaxMessageSize // set MaxMessageSize limit as per TO3l8
 				}
 			}
@@ -986,6 +986,10 @@ func (vc verboseConn) Receive(deadline time.Time) (*protocolMessage, error) {
 func (vc verboseConn) Close() error {
 	vc.logger.Verbosef("Realtime Connection: closed")
 	return vc.conn.Close()
+}
+
+func (vc verboseConn) Unwrap() conn {
+	return vc.conn
 }
 
 func (c *Connection) setState(state ConnectionState, err error, retryIn time.Duration) error {
