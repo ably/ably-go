@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.2.17](https://github.com/ably/ably-go/tree/v1.2.17)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.16...v1.2.17)
+
+**Merged pull requests:**
+
+- fix: keep client default client read limit when realtime doesn't specify [\#631](https://github.com/ably/ably-go/pull/631) ([AndyTWF](https://github.com/AndyTWF))
+
 ## [1.2.16](https://github.com/ably/ably-go/tree/1.2.16)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.15...v1.2.16)
