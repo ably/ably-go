@@ -44,7 +44,6 @@ compliance:
     Connection:
       Disconnected Retry Timeout:
       Get Identifier:
-      Incremental Backoff:
       Lifecycle Control:
       Recovery:
       State Events:
@@ -83,10 +82,6 @@ compliance:
     Support Hyperlink on Request Failure:
   Service:
     Environment:
-    Fallbacks:
-      Hosts:
-      Retry Count:
-      Retry Timeout:
     Host:
   Testing:
     Disable TLS:

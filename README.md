@@ -404,24 +404,14 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 ### REST API
 
 - [Push notifications admin API](https://ably.com/docs/general/push/admin) is not implemented.
-
 - [JWT authentication](https://ably.com/docs/core-features/authentication#ably-jwt-process) is not implemented.
 
 ### Realtime API
 
-- There is no channel `suspended` state; this means that the client will not automatically reattach to channels if a
-  connection becomes `suspended` and then resumes, and presence members associated with the client will not be
-  automatically re-entered.
-
-- Inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
-  connection.
-
-- Realtime connection failure handling is partially implemented.
-
+- Inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime connection.
+- Realtime fallbacks not supported.
 - Realtime Ping function is not implemented.
-
 - Message Delta Compression is not implemented.
-
 - Push Notification Target functional is not applicable for the SDK and thus not implemented.
 
 ## Support, feedback and troubleshooting
