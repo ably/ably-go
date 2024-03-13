@@ -395,7 +395,7 @@ Our [current approach to versioning](https://ably.com/documentation/client-lib-d
 
 ## Feature support
 
-This library targets the Ably 1.2 [client library specification](https://ably.com/docs/client-lib-development-guide/features). List of available features for our client library SDKs can be found on our [feature support matrix](https://ably.com/download/sdk-feature-support-matrix) page.
+This library targets the Ably 1.2 [client library specification](https://ably.com/docs/client-lib-development-guide/features).
 
 ## Known limitations
 
