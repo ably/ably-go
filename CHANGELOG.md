@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.2.18](https://github.com/ably/ably-go/tree/v1.2.18)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.17...v1.2.18)
+
+**Fixed bugs:**
+
+- Suspended connection goes to failed state on resume attempt [\#638](https://github.com/ably/ably-go/issues/638)
+
+**Closed issues:**
+
+- Flaky test - TestRealtimePresence\_EnsureChannelIsAttached [\#508](https://github.com/ably/ably-go/issues/508)
+
 ## [1.2.17](https://github.com/ably/ably-go/tree/v1.2.17)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.16...v1.2.17)
