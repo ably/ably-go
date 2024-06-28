@@ -259,3 +259,64 @@ func TestRealtimeConn_SendErrorReconnects(t *testing.T) {
 	ablytest.Soon.Recv(t, &err, publishErr, t.Fatalf)
 	assert.NoError(t, err)
 }
+
+func TestRealtimeConn_ReconnectFromSuspendedState(t *testing.T) {
+	dialErr := make(chan error, 1)
+	msgReceiveErr := make(chan error, 1)
+
+	dial := DialFunc(func(p string, url *url.URL, timeout time.Duration) (ably.Conn, error) {
+		err := <-dialErr
+		if err != nil {
+			return nil, err
+		}
+		ws, err := ably.DialWebsocket(p, url, timeout)
+		if err != nil {
+			return nil, err
+		}
+		return connMock{
+			SendFunc: ws.Send,
+			ReceiveFunc: func(deadline time.Time) (*ably.ProtocolMessage, error) {
+				err := <-msgReceiveErr
+				if err != nil {
+					return nil, err
+				}
+				msg, err := ws.Receive(deadline)
+				if msg.Action == ably.ActionConnected {
+					msg.ConnectionDetails.ConnectionStateTTL = ably.DurationFromMsecs(500 * time.Millisecond)
+				}
+				return msg, err
+			},
+			CloseFunc: ws.Close,
+		}, nil
+	})
+
+	// No errors for first connect
+	dialErr <- nil
+	msgReceiveErr <- nil
+
+	app, c := ablytest.NewRealtime(ably.WithDial(dial),
+		ably.WithDisconnectedRetryTimeout(time.Second),
+		ably.WithSuspendedRetryTimeout(time.Second))
+	defer func() {
+		msgReceiveErr <- nil // receive safe close event
+		safeclose(t, ablytest.FullRealtimeCloser(c), app)
+	}()
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	// Initiate disconnect and fail subsequent reconnects
+	msgReceiveErr <- errors.New("initiate disconnect")
+	dialErr <- errors.New("initiate failure for subsequent reconnects")
+
+	ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventDisconnected), nil)
+	ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventSuspended), nil)
+	ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventSuspended), nil)
+
+	// Enable successful connection again
+	dialErr <- nil
+	msgReceiveErr <- nil
+
+	err = ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+}
