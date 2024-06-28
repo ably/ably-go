@@ -201,9 +201,6 @@ func (c *Connection) Close() {
 // If not in connecting or connected state, this method causes the connection to open, entering the
 // [ably.ConnectionStateConnecting] state (RTC1b, RTN3, RTN11).
 func (c *Connection) connect(arg connArgs) (result, error) {
-	c.mtx.Lock()
-	arg.mode = c.getMode()
-	c.mtx.Unlock()
 	return c.connectWithRetryLoop(arg)
 }
 
@@ -212,27 +209,21 @@ type connArgs struct {
 	connDetails    *connectionDetails
 	result         bool
 	dialOnce       bool
-	mode           connectionMode
 	retryIn        time.Duration
 }
 
 func (c *Connection) reconnect(arg connArgs) (result, error) {
 	c.mtx.Lock()
 
-	var mode connectionMode
 	if arg.connDetails != nil && c.opts.Now().Sub(arg.lastActivityAt) >= time.Duration(arg.connDetails.ConnectionStateTTL+arg.connDetails.MaxIdleInterval) {
 		// RTN15g
 		c.msgSerial = 0
 		c.key = ""
 		// c.id isn't cleared since it's used later to determine if the
 		// reconnection resulted in a new transport-level connection.
-		mode = normalMode
-	} else {
-		mode = c.getMode()
 	}
 
 	c.mtx.Unlock()
-	arg.mode = mode
 	r, err := c.connectWithRetryLoop(arg)
 	if err != nil {
 		return nil, err
@@ -248,6 +239,8 @@ func (c *Connection) reconnect(arg connArgs) (result, error) {
 }
 
 func (c *Connection) getMode() connectionMode {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	if c.key != "" {
 		return resumeMode
 	}
@@ -392,7 +385,8 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 			ConnectionStateDisconnected,
 		)
 	}
-	query, err := c.params(arg.mode)
+	connectMode := c.getMode()
+	query, err := c.params(connectMode)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +410,7 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 	// Start eventloop
 	go c.eventloop()
 
-	c.reconnecting = arg.mode == recoveryMode || arg.mode == resumeMode
+	c.reconnecting = connectMode == recoveryMode || connectMode == resumeMode
 	c.arg = arg
 	return res, nil
 }
