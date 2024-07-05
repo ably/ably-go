@@ -403,20 +403,19 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 
 ### REST API
 
-- [Push notifications admin API](https://ably.com/docs/general/push/admin) is not implemented.
+- [Push notifications admin API](https://ably.com/docs/api/rest-sdk/push-admin) is not implemented.
 
-- [JWT authentication](https://ably.com/docs/core-features/authentication#ably-jwt-process) is not implemented.
+- [JWT authentication](https://ably.com/docs/auth/token?lang=javascript#jwt) using `auth-url` is not implemented.
+See [jwt auth issue](https://github.com/ably/ably-go/issues/569) for more details.
 
 ### Realtime API
 
-- There is no channel `suspended` state; this means that the client will not automatically reattach to channels if a
-  connection becomes `suspended` and then resumes, and presence members associated with the client will not be
-  automatically re-entered.
-
 - Inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
-  connection.
+  connection. See [server initiated auth](https://github.com/ably/ably-go/issues/228) for more details.
 
-- Realtime connection failure handling is partially implemented.
+- Realtime connection failure handling is partially implemented. See [host fallback](https://github.com/ably/ably-go/issues/225) for more details.
+
+- Channel suspended state is partially implemented. See [suspended channel state](https://github.com/ably/ably-go/issues/568).
 
 - Realtime Ping function is not implemented.
 
