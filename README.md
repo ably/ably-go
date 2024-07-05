@@ -403,9 +403,9 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 
 ### REST API
 
-- [Push notifications admin API](https://ably.com/docs/general/push/admin) is not implemented.
+- [Push notifications admin API](https://ably.com/docs/api/rest-sdk/push-admin) is not implemented.
 
-- [JWT authentication](https://ably.com/docs/core-features/authentication#ably-jwt-process) using `auth-url` is not implemented.
+- [JWT authentication](https://ably.com/docs/auth/token?lang=javascript#jwt) using `auth-url` is not implemented.
 See [jwt auth issue](https://github.com/ably/ably-go/issues/569) for more details.
 
 ### Realtime API
