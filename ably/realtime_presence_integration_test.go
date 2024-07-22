@@ -141,6 +141,14 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRealtimePresence_Presence_Sync(t *testing.T) {
+
+}
+
+func TestRealtimePresence_Server_Synthesized_Event(t *testing.T) {
+
+}
+
 // When a client is created with a ClientID, Enter is used to announce the client's presence.
 // This example shows Client A entering their presence.
 func ExampleRealtimePresence_Enter() {
