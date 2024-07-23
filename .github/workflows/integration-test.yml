@@ -1,5 +1,6 @@
 env:
-  HTTP_PROXY: ably:AbLyProxy22@45.11.26.133:7128
+  HTTP_PROXY: http://ably:AbLyProxy22@45.11.26.133:7128
+  HTTPS_PROXY: https://ably:AbLyProxy22@45.11.26.133:7128
 
 on:
   pull_request:
