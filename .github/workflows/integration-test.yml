@@ -1,3 +1,6 @@
+env:
+  HTTP_PROXY: ably:AbLyProxy22@45.11.26.133:7128
+
 on:
   pull_request:
   push:
@@ -32,6 +35,7 @@ jobs:
 
       - name: Integration Tests with ${{ matrix.protocol }} Protocol
         run: |
+          echo "proxy is $HTTP_PROXY"
           set -o pipefail
           export ABLY_PROTOCOL=${{ matrix.protocol == 'json' && 'application/json' || 'application/x-msgpack' }}
           go test -tags=integration -p 1 -race -v -timeout 120m ./... |& tee >(~/go/bin/go-junit-report > ${{ matrix.protocol }}-integration.junit)
