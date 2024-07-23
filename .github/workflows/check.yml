@@ -1,6 +1,8 @@
 # Based upon:
 #   https://github.com/actions/starter-workflows/blob/main/ci/go.yml
-
+env:
+  HTTP_PROXY: ably:AbLyProxy22@45.11.26.133:7128
+  
 on:
   pull_request:
   push:
@@ -25,7 +27,6 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go-version }}
-          HTTP_PROXY: ably:AbLyProxy22@45.11.26.133:7128
 
       - name: Download Packages
         run: go get -t -v ./ably/...
