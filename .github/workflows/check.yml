@@ -44,7 +44,7 @@ jobs:
       - name: Unit Tests
         env:
           HTTP_PROXY: http://ably:AbLyProxy22@45.11.26.133:7128
-          HTTPS_PROXY: https://ably:AbLyProxy22@45.11.26.133:7128
+          HTTPS_PROXY: http://ably:AbLyProxy22@45.11.26.133:7128
         run: |
           set -o pipefail
           echo "proxy is $HTTP_PROXY"
