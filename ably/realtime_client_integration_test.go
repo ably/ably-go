@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -230,4 +231,32 @@ func TestRealtime_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 
 	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+}
+
+func TestRealtimeProxySupport(t *testing.T) {
+	var clientUsesProxyFromEnv = false
+	// Create HTTP server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clientUsesProxyFromEnv = true
+		w.WriteHeader(http.StatusInternalServerError) // respond with http 500 error code instead of upgrading connection
+	}))
+	defer server.Close()
+
+	// Set HTTP_PROXY env. variable to HTTP server url
+	os.Setenv("HTTP_PROXY", server.URL)
+	os.Setenv("HTTPS_PROXY", server.URL)
+
+	// Create ably realtime client
+	client, err := ably.NewRealtime(ably.WithTLS(false), ably.WithToken("fake:token"))
+	assert.NoError(t, err)
+	defer client.Close()
+	// Wait for state to become disconnected due to 500 error returned by proxy server
+	err = ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
+	assert.Contains(t, err.Error(), "expected handshake response status code 101 but got 500")
+
+	assert.True(t, clientUsesProxyFromEnv)
+
+	// Unset HTTP_PROXY env. variable
+	os.Unsetenv("HTTP_PROXY")
+	os.Unsetenv("HTTPS_PROXY")
 }
