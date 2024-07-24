@@ -141,11 +141,65 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRealtimePresence_Presence_Sync(t *testing.T) {
+func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
+	app, client1 := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 
+	client2 := app.NewRealtime(ably.WithClientID("client2"))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+
+	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	channel1 := client1.Channels.Get("channel")
+	err = channel1.Attach(context.Background())
+	assert.NoError(t, err)
+
+	channel2 := client2.Channels.Get("channel")
+	err = channel2.Attach(context.Background())
+	assert.NoError(t, err)
+
+	subCh1, unsub1, err := ablytest.ReceivePresenceMessages(channel1, nil)
+	assert.NoError(t, err)
+	defer unsub1()
+
+	// ENTER
+	err = channel2.Presence.Enter(context.Background(), "enter client2")
+	assert.NoError(t, err)
+
+	member_received := <-subCh1
+	assert.Len(t, subCh1, 0) // Ensure no more updates received
+
+	assert.Equal(t, member_received.Action, ably.PresenceActionEnter)
+	assert.Equal(t, member_received.ClientID, "client2")
+	assert.Equal(t, member_received.Data, "enter client2")
+
+	// UPDATE
+	err = channel2.Presence.Update(context.Background(), "update client2")
+	assert.NoError(t, err)
+
+	member_received = <-subCh1
+	assert.Len(t, subCh1, 0) // Ensure no more updates received
+
+	assert.Equal(t, member_received.Action, ably.PresenceActionUpdate)
+	assert.Equal(t, member_received.ClientID, "client2")
+	assert.Equal(t, member_received.Data, "update client2")
+
+	// LEAVE
+	err = channel2.Presence.Leave(context.Background(), "leave client2")
+	assert.NoError(t, err)
+
+	member_received = <-subCh1
+	assert.Len(t, subCh1, 0) // Ensure no more updates received
+
+	assert.Equal(t, member_received.Action, ably.PresenceActionLeave)
+	assert.Equal(t, member_received.ClientID, "client2")
+	assert.Equal(t, member_received.Data, "leave client2")
 }
 
-func TestRealtimePresence_Server_Synthesized_Event(t *testing.T) {
+func TestRealtimePresence_Server_Synthesized_Leave(t *testing.T) {
 
 }
 
