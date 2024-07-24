@@ -199,8 +199,59 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	assert.Equal(t, member_received.Data, "leave client2")
 }
 
-func TestRealtimePresence_Server_Synthesized_Leave(t *testing.T) {
+func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
+	app, client1 := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 
+	client2 := app.NewRealtime(ably.WithClientID("client2"))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+
+	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	client1Channel := client1.Channels.Get("channel")
+	err = client1Channel.Attach(context.Background())
+
+	assert.NoError(t, err)
+
+	client2Channel := client2.Channels.Get("channel")
+	err = client2Channel.Attach(context.Background())
+	assert.NoError(t, err)
+
+	subCh1, unsub1, err := ablytest.ReceivePresenceMessages(client1Channel, nil)
+	assert.NoError(t, err)
+	defer unsub1()
+
+	// ENTER
+	err = client2Channel.Presence.Enter(context.Background(), "enter client2")
+	assert.NoError(t, err)
+
+	member_received := <-subCh1
+	assert.Len(t, subCh1, 0) // Ensure no more updates received
+	assert.Equal(t, member_received.Action, ably.PresenceActionEnter)
+	assert.Equal(t, member_received.ClientID, "client2")
+	assert.Equal(t, member_received.Data, "enter client2")
+
+	members, err := client1Channel.Presence.Get(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, members, 1)
+
+	// Server Synthesized Leave when client2 disconnects
+	client2.Close()
+
+	member_received = <-subCh1
+	assert.Len(t, subCh1, 0) // Ensure no more updates received
+
+	assert.Equal(t, member_received.Action, ably.PresenceActionLeave)
+	assert.Equal(t, member_received.ClientID, "client2")
+
+	// Make sure no members are present on the channel
+	members, err = client1Channel.Presence.Get(context.Background())
+	assert.NoError(t, err)
+	assert.Empty(t, members)
 }
 
 // When a client is created with a ClientID, Enter is used to announce the client's presence.
