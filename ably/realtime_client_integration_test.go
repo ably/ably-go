@@ -243,8 +243,9 @@ func TestRealtimeProxySupport(t *testing.T) {
 	defer server.Close()
 
 	// Set HTTP_PROXY env. variable to HTTP server url
-	os.Unsetenv("NO_PROXY")
-	t.Setenv("HTTP_PROXY", server.URL)
+	net.LookupIP("localhost")
+	err := os.Setenv("HTTP_PROXY", server.URL)
+	assert.NoError(t, err)
 
 	// Create ably realtime client
 	client, err := ably.NewRealtime(ably.WithTLS(false), ably.WithToken("fake:token"))
@@ -255,4 +256,6 @@ func TestRealtimeProxySupport(t *testing.T) {
 	assert.Contains(t, err.Error(), "expected handshake response status code 101 but got 500")
 
 	assert.True(t, clientUsesProxyFromEnv)
+
+	os.Unsetenv("HTTP_PROXY")
 }
