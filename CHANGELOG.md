@@ -1,5 +1,18 @@
 # Change Log
 
+## [1.2.19](https://github.com/ably/ably-go/tree/v1.2.19)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.18...v1.2.19)
+
+**Fixed bugs:**
+
+- A synthetic leave does not trigger the presence event listener callback [\#646](https://github.com/ably/ably-go/issues/646)
+
+**Closed issues:**
+
+- Add CI support for GO 1.21 and 1.22 [\#641](https://github.com/ably/ably-go/issues/641)
+- Update README - Known limitations [\#639](https://github.com/ably/ably-go/issues/639)
+
 ## [1.2.18](https://github.com/ably/ably-go/tree/v1.2.18)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.17...v1.2.18)
