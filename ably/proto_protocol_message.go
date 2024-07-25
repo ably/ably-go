@@ -178,8 +178,8 @@ func (msg *protocolMessage) String() string {
 	case actionDetached:
 		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
 	case actionPresence, actionSync:
-		return fmt.Sprintf("(action=%q, id=%q, channel=%q, timestamp=%d, presenceMessages=%v)",
-			msg.Action, msg.ConnectionID, msg.Channel, msg.Timestamp, msg.Presence)
+		return fmt.Sprintf("(action=%q, id=%v, channel=%q, timestamp=%d, connectionId=%v, presenceMessages=%v)",
+			msg.Action, msg.ID, msg.Channel, msg.Timestamp, msg.ConnectionID, msg.Presence)
 	case actionMessage:
 		return fmt.Sprintf("(action=%q, id=%q, messages=%v)", msg.Action,
 			msg.ConnectionID, msg.Messages)

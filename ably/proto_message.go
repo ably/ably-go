@@ -24,7 +24,7 @@ type Message struct {
 	// ClientID is of the publisher of this message (RSL1g1, TM2b).
 	ClientID string `json:"clientId,omitempty" codec:"clientId,omitempty"`
 	// ConnectionID of the publisher of this message (TM2c).
-	ConnectionID string `json:"connectionId,omitempty" codec:"connectionID,omitempty"`
+	ConnectionID string `json:"connectionId,omitempty" codec:"connectionId,omitempty"`
 	// Deprecated: This attribute is deprecated and will be removed in future versions
 	// ConnectionKey is a connectionKey of the active connection.
 	ConnectionKey string `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`

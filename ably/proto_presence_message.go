@@ -52,13 +52,13 @@ type PresenceMessage struct {
 }
 
 func (m PresenceMessage) String() string {
-	return fmt.Sprintf("<PresenceMessage %v clientID=%v data=%v>", [...]string{
+	return fmt.Sprintf("<PresenceMessage %v id=%v connectionId=%v clientID=%v data=%v>", [...]string{
 		"absent",
 		"present",
 		"enter",
 		"leave",
 		"update",
-	}[m.Action], m.ClientID, m.Data)
+	}[m.Action], m.ID, m.ConnectionID, m.ClientID, m.Data)
 }
 
 func (msg *PresenceMessage) isServerSynthesized() bool {
