@@ -353,6 +353,25 @@ client, err = ably.NewRealtime(
 )
 ```
 
+## Proxy support
+- `ably-go` doesn't offer proxy option as a separate feature.
+- Although, you can set it via environment variables and go will take care of setting it internally.
+
+```
+HTTP_PROXY=proxy_url
+HTTPS_PROXY=tls_proxy_url
+```
+
+- Above configuration should work for both rest and realtime clients.
+- For rest client, you can also set proxy by providing custom http client option `ably.WithHTTPClient`.
+```go
+ably.WithHTTPClient(&http.Client{
+        Transport: &http.Transport{
+                Proxy:        proxy // custom proxy implementation
+        },
+})
+```
+
 ## Note on usage of ablytest package
 Although the `ablytest` package is available as a part of ably-go, we do not recommend using it as a sandbox for your own testing, since it's specifically intended for client library SDKs and we don’t provide any guarantees for support or that it will remain publicly accessible.
 It can lead to unexpected behaviour, since some beta features may be deployed on the `sandbox` environment so that they can be tested before going into production.
