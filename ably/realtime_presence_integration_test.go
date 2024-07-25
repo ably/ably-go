@@ -172,9 +172,9 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	member_received := <-subCh1
 	assert.Len(t, subCh1, 0) // Ensure no more updates received
 
-	assert.Equal(t, member_received.Action, ably.PresenceActionEnter)
-	assert.Equal(t, member_received.ClientID, "client2")
-	assert.Equal(t, member_received.Data, "enter client2")
+	assert.Equal(t, ably.PresenceActionEnter, member_received.Action)
+	assert.Equal(t, "client2", member_received.ClientID)
+	assert.Equal(t, "enter client2", member_received.Data)
 
 	// UPDATE
 	err = channel2.Presence.Update(context.Background(), "update client2")
@@ -183,9 +183,9 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	member_received = <-subCh1
 	assert.Len(t, subCh1, 0) // Ensure no more updates received
 
-	assert.Equal(t, member_received.Action, ably.PresenceActionUpdate)
-	assert.Equal(t, member_received.ClientID, "client2")
-	assert.Equal(t, member_received.Data, "update client2")
+	assert.Equal(t, ably.PresenceActionUpdate, member_received.Action)
+	assert.Equal(t, "client2", member_received.ClientID)
+	assert.Equal(t, "update client2", member_received.Data)
 
 	// LEAVE
 	err = channel2.Presence.Leave(context.Background(), "leave client2")
@@ -194,9 +194,9 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	member_received = <-subCh1
 	assert.Len(t, subCh1, 0) // Ensure no more updates received
 
-	assert.Equal(t, member_received.Action, ably.PresenceActionLeave)
-	assert.Equal(t, member_received.ClientID, "client2")
-	assert.Equal(t, member_received.Data, "leave client2")
+	assert.Equal(t, ably.PresenceActionLeave, member_received.Action)
+	assert.Equal(t, "client2", member_received.ClientID)
+	assert.Equal(t, "leave client2", member_received.Data)
 }
 
 func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
@@ -231,9 +231,9 @@ func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
 
 	member_received := <-subCh1
 	assert.Len(t, subCh1, 0) // Ensure no more updates received
-	assert.Equal(t, member_received.Action, ably.PresenceActionEnter)
-	assert.Equal(t, member_received.ClientID, "client2")
-	assert.Equal(t, member_received.Data, "enter client2")
+	assert.Equal(t, ably.PresenceActionEnter, member_received.Action)
+	assert.Equal(t, "client2", member_received.ClientID)
+	assert.Equal(t, "enter client2", member_received.Data)
 
 	members, err := client1Channel.Presence.Get(context.Background())
 	assert.NoError(t, err)
@@ -245,8 +245,8 @@ func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
 	member_received = <-subCh1
 	assert.Len(t, subCh1, 0) // Ensure no more updates received
 
-	assert.Equal(t, member_received.Action, ably.PresenceActionLeave)
-	assert.Equal(t, member_received.ClientID, "client2")
+	assert.Equal(t, ably.PresenceActionLeave, member_received.Action)
+	assert.Equal(t, "client2", member_received.ClientID)
 
 	// Make sure no members are present on the channel
 	members, err = client1Channel.Presence.Get(context.Background())
