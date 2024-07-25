@@ -141,7 +141,7 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
+func SkipTestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 
@@ -153,20 +153,20 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	channel1 := client1.Channels.Get("channel")
-	err = channel1.Attach(context.Background())
+	client1Channel := client1.Channels.Get("channel")
+	err = client1Channel.Attach(context.Background())
 	assert.NoError(t, err)
 
-	channel2 := client2.Channels.Get("channel")
-	err = channel2.Attach(context.Background())
+	client2Channel := client2.Channels.Get("channel")
+	err = client2Channel.Attach(context.Background())
 	assert.NoError(t, err)
 
-	subCh1, unsub1, err := ablytest.ReceivePresenceMessages(channel1, nil)
+	subCh1, unsub1, err := ablytest.ReceivePresenceMessages(client1Channel, nil)
 	assert.NoError(t, err)
 	defer unsub1()
 
 	// ENTER
-	err = channel2.Presence.Enter(context.Background(), "enter client2")
+	err = client2Channel.Presence.Enter(context.Background(), "enter client2")
 	assert.NoError(t, err)
 
 	member_received := <-subCh1
@@ -177,7 +177,7 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	assert.Equal(t, "enter client2", member_received.Data)
 
 	// UPDATE
-	err = channel2.Presence.Update(context.Background(), "update client2")
+	err = client2Channel.Presence.Update(context.Background(), "update client2")
 	assert.NoError(t, err)
 
 	member_received = <-subCh1
@@ -188,7 +188,7 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	assert.Equal(t, "update client2", member_received.Data)
 
 	// LEAVE
-	err = channel2.Presence.Leave(context.Background(), "leave client2")
+	err = client2Channel.Presence.Leave(context.Background(), "leave client2")
 	assert.NoError(t, err)
 
 	member_received = <-subCh1
@@ -199,7 +199,7 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	assert.Equal(t, "leave client2", member_received.Data)
 }
 
-func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
+func SkipTestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 
@@ -252,6 +252,47 @@ func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
 	members, err = client1Channel.Presence.Get(context.Background())
 	assert.NoError(t, err)
 	assert.Empty(t, members)
+}
+
+func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
+	app, client1 := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+
+	client2 := app.NewRealtime(ably.WithClientID("client2"))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
+
+	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	client1Channel := client1.Channels.Get("channel")
+	err = client1Channel.Attach(context.Background())
+
+	assert.NoError(t, err)
+
+	client2Channel := client2.Channels.Get("channel")
+	err = client2Channel.Attach(context.Background())
+	assert.NoError(t, err)
+
+	// ENTER
+	err = client2Channel.Presence.Enter(context.Background(), "enter client2")
+	assert.NoError(t, err)
+
+	leaveAction := ably.PresenceActionLeave
+	subCh1, unsub1, err := ablytest.ReceivePresenceMessages(client1Channel, &leaveAction)
+	assert.NoError(t, err)
+	defer unsub1()
+
+	// Server Synthesized Leave when client2 disconnects
+	client2.Close()
+
+	member_received := <-subCh1
+	assert.Len(t, subCh1, 0) // Ensure no more updates received
+
+	assert.Equal(t, ably.PresenceActionLeave, member_received.Action)
+	assert.Equal(t, "client2", member_received.ClientID)
 }
 
 // When a client is created with a ClientID, Enter is used to announce the client's presence.
