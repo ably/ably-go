@@ -116,7 +116,7 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 
-	client2 := app.NewRealtime(ably.WithClientID("client2"))
+	client2 := app.NewRealtime(ably.WithClientID("client2"), ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
@@ -174,7 +174,7 @@ func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 
-	client2 := app.NewRealtime(ably.WithClientID("client2"))
+	client2 := app.NewRealtime(ably.WithClientID("client2"), ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)

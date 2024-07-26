@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -22,9 +23,11 @@ const (
 type websocketConn struct {
 	conn  *websocket.Conn
 	proto proto
+	id    string
 }
 
 func (ws *websocketConn) Send(msg *protocolMessage) error {
+	fmt.Printf("MSG SEND %v :: %v\n", ws.id, msg)
 	switch ws.proto {
 	case jsonProto:
 		p, err := json.Marshal(msg)
@@ -61,11 +64,13 @@ func (ws *websocketConn) Receive(deadline time.Time) (*protocolMessage, error) {
 	switch ws.proto {
 	case jsonProto:
 		err := json.Unmarshal(data, msg)
+		fmt.Printf("MSG RECEIVE %v :: %v\n", ws.id, msg)
 		if err != nil {
 			return nil, err
 		}
 	case msgpackProto:
 		err := ablyutil.UnmarshalMsgpack(data, msg)
+		fmt.Printf("MSG RECEIVE %v :: %v\n", ws.id, msg)
 		if err != nil {
 			return nil, err
 		}
@@ -79,6 +84,7 @@ func (ws *websocketConn) Close() error {
 
 func dialWebsocket(proto string, u *url.URL, timeout time.Duration, agents map[string]string) (*websocketConn, error) {
 	ws := &websocketConn{}
+	ws.id = randomString(5)
 	switch proto {
 	case "application/json":
 		ws.proto = jsonProto
