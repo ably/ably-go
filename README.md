@@ -354,16 +354,32 @@ client, err = ably.NewRealtime(
 ```
 
 ## Proxy support
-- `ably-go` doesn't offer proxy option as a separate feature.
-- Although, you can set it via environment variables and go will take care of setting it internally.
+The `ably-go` SDK doesn't provide a direct option to set a proxy in its configuration. However, you can use standard environment variables to set up a proxy for all your HTTP and HTTPS connections. The Go programming language will automatically handle these settings.
 
-```
-HTTP_PROXY=proxy_url
-HTTPS_PROXY=tls_proxy_url
+### Setting Up Proxy via Environment Variables
+
+To configure the proxy, set the `HTTP_PROXY` and `HTTPS_PROXY` environment variables with the URL of your proxy server. Here's an example of how to set these variables:
+
+```bash
+export HTTP_PROXY=http://proxy.example.com:8080
+export HTTPS_PROXY=http://proxy.example.com:8080
 ```
 
-- Above configuration should work for both rest and realtime clients.
-- For rest client, you can also set proxy by providing custom http client option `ably.WithHTTPClient`.
+- `proxy.example.com` is the domain or IP address of your proxy server.
+- `8080` is the port number of your proxy server.
+
+#### Considerations
+- **Protocol:** Make sure to include the protocol (`http` or `https`) in the proxy URL.
+- **Authentication:** If your proxy requires authentication, you can include the username and password in the URL. For example: `http://username:password@proxy.example.com:8080`.
+
+After setting the environment variables, the `ably-go` SDK will route its traffic through the specified proxy for both Rest and Realtime clients.
+
+For more details on environment variable configurations in Go, you can refer to the [official Go documentation on http.ProxyFromEnvironment](https://golang.org/pkg/net/http/#ProxyFromEnvironment).
+
+### Setting Up Proxy via custom http client
+
+For Rest client, you can also set proxy by providing custom http client option `ably.WithHTTPClient`:
+
 ```go
 ably.WithHTTPClient(&http.Client{
         Transport: &http.Transport{
@@ -371,7 +387,8 @@ ably.WithHTTPClient(&http.Client{
         },
 })
 ```
-- Note that connection reliability is totally dependent on health of proxy server and ably will not be responsible for errors introduced by proxy server.
+
+**Important Note** - Connection reliability is totally dependent on health of proxy server and ably will not be responsible for errors introduced by proxy server.
 
 ## Note on usage of ablytest package
 Although the `ablytest` package is available as a part of ably-go, we do not recommend using it as a sandbox for your own testing, since it's specifically intended for client library SDKs and we don’t provide any guarantees for support or that it will remain publicly accessible.
