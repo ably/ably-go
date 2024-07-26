@@ -85,7 +85,7 @@ func (msg *PresenceMessage) getMsgSerialAndIndex() (int64, int64, error) {
 func (msg1 *PresenceMessage) IsNewerThan(msg2 *PresenceMessage) (bool, error) {
 	// RTP2b1
 	if msg1.isServerSynthesized() || msg2.isServerSynthesized() {
-		return msg1.Timestamp >= msg2.Timestamp, nil
+		return msg1.Timestamp > msg2.Timestamp, nil
 	}
 
 	// RTP2b2
@@ -98,7 +98,7 @@ func (msg1 *PresenceMessage) IsNewerThan(msg2 *PresenceMessage) (bool, error) {
 		return true, err
 	}
 	if msg1Serial == msg2Serial {
-		return msg1Index >= msg2Index, nil
+		return msg1Index > msg2Index, nil
 	}
 	return msg1Serial > msg2Serial, nil
 }
