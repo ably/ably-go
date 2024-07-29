@@ -98,7 +98,7 @@ func (msg1 *PresenceMessage) IsNewerThan(msg2 *PresenceMessage) (bool, error) {
 		return true, err
 	}
 	if msg1Serial == msg2Serial {
-		return msg1Index >= msg2Index, nil
+		return msg1Index > msg2Index, nil
 	}
 	return msg1Serial > msg2Serial, nil
 }
