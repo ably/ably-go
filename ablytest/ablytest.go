@@ -17,7 +17,7 @@ import (
 var Timeout = 30 * time.Second
 var NoBinaryProtocol bool
 var DefaultLogLevel = ably.LogNone
-var Environment = "sandbox"
+var Environment = "lmars-dev"
 
 func nonil(err ...error) error {
 	for _, err := range err {

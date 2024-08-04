@@ -222,7 +222,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateFailed), func(t *testing.T) {
 
 		options := []ably.ClientOption{
-			ably.WithEnvironment("sandbox"),
+			ably.WithEnvironment("lmars-dev"),
 			ably.WithAutoConnect(false),
 			ably.WithKey("made:up"),
 		}

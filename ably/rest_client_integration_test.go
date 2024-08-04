@@ -814,7 +814,7 @@ func postStats(app *ablytest.Sandbox, stats []*ably.Stats) error {
 		return fmt.Errorf("marshaling stats: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", "https://sandbox-rest.ably.io/stats", bytes.NewReader(statsJSON))
+	req, err := http.NewRequest("POST", "https://lmars-dev-rest.ably.io/stats", bytes.NewReader(statsJSON))
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
