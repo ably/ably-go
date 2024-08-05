@@ -315,7 +315,6 @@ func (pres *RealtimePresence) processProtoPresenceMessage(msg *protocolMessage) 
 		memberUpdated := false
 		switch presenceMember.Action {
 		case PresenceActionEnter, PresenceActionUpdate, PresenceActionPresent: // RTP2d
-			delete(pres.beforeSyncMembers, memberKey)
 			presenceMemberShallowCopy := *presenceMember
 			presenceMemberShallowCopy.Action = PresenceActionPresent
 			memberUpdated = pres.addPresenceMember(pres.members, memberKey, &presenceMemberShallowCopy)
@@ -324,6 +323,7 @@ func (pres *RealtimePresence) processProtoPresenceMessage(msg *protocolMessage) 
 		}
 		// RTP2g
 		if memberUpdated {
+			delete(pres.beforeSyncMembers, memberKey)
 			updatedPresenceMessages = append(updatedPresenceMessages, presenceMember)
 		}
 	}
