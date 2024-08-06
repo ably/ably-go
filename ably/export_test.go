@@ -6,10 +6,44 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"time"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
 
 func NewClientOptions(os ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(os...)
+}
+
+func NewRealtimeHosts(opts *clientOptions) *realtimeHosts {
+	return newRealtimeHosts(opts)
+}
+
+func (realtimeHosts *realtimeHosts) NextFallbackHost() string {
+	return realtimeHosts.nextFallbackHost()
+}
+
+func (realtimeHosts *realtimeHosts) GetAllRemainingFallbackHosts() []string {
+	var hosts []string
+	for true {
+		fallbackHost := realtimeHosts.NextFallbackHost()
+		if ablyutil.Empty(fallbackHost) {
+			break
+		}
+		hosts = append(hosts, fallbackHost)
+	}
+	return hosts
+}
+
+func (realtimeHosts *realtimeHosts) ResetVisitedFallbackHosts() {
+	realtimeHosts.resetVisitedFallbackHosts()
+}
+
+func (realtimeHosts *realtimeHosts) FallbackHostsRemaining() int {
+	return realtimeHosts.fallbackHostsRemaining()
+}
+
+func (realtimeHosts *realtimeHosts) GetPreferredHost() string {
+	return realtimeHosts.getPreferredHost()
 }
 
 func GetEnvFallbackHosts(env string) []string {
