@@ -2,7 +2,6 @@ package ably
 
 import (
 	"sync"
-	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
@@ -68,30 +67,4 @@ func (realtimeHosts *realtimeHosts) getPreferredHost() string {
 	host := realtimeHosts.getPrimaryHost() // primary host is always preferred host/ fallback host in realtime
 	realtimeHosts.visitedHosts.Add(host)
 	return host
-}
-
-// hostCache caches a successful fallback host for 10 minutes.
-// Only used by REST client while making requests RSC15f
-type hostCache struct {
-	duration time.Duration
-
-	sync.RWMutex
-	deadline time.Time
-	host     string
-}
-
-func (c *hostCache) put(host string) {
-	c.Lock()
-	defer c.Unlock()
-	c.host = host
-	c.deadline = time.Now().Add(c.duration)
-}
-
-func (c *hostCache) get() string {
-	c.RLock()
-	defer c.RUnlock()
-	if ablyutil.Empty(c.host) || time.Until(c.deadline) <= 0 {
-		return ""
-	}
-	return c.host
 }
