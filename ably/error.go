@@ -147,6 +147,17 @@ func errFromUnprocessableBody(resp *http.Response) error {
 	return &ErrorInfo{Code: ErrBadRequest, StatusCode: resp.StatusCode, err: err}
 }
 
+func isTimeoutOrDnsErr(err error) bool {
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() { // RSC15l2
+			return true
+		}
+	}
+	var dnsErr *net.DNSError
+	return errors.As(err, &dnsErr) // RSC15l1
+}
+
 func checkValidHTTPResponse(resp *http.Response) error {
 	type errorBody struct {
 		Error errorInfo `json:"error,omitempty" codec:"error,omitempty"`

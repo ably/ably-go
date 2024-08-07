@@ -14,31 +14,33 @@ import (
 )
 
 func TestDefaultFallbacks_RSC15h(t *testing.T) {
-	t.Run("with env should return environment fallback hosts", func(t *testing.T) {
-		expectedFallBackHosts := []string{
-			"a.ably-realtime.com",
-			"b.ably-realtime.com",
-			"c.ably-realtime.com",
-			"d.ably-realtime.com",
-			"e.ably-realtime.com",
-		}
-		hosts := ably.DefaultFallbackHosts()
-		assert.Equal(t, expectedFallBackHosts, hosts)
-	})
+	expectedFallBackHosts := []string{
+		"a.ably-realtime.com",
+		"b.ably-realtime.com",
+		"c.ably-realtime.com",
+		"d.ably-realtime.com",
+		"e.ably-realtime.com",
+	}
+	hosts := ably.DefaultFallbackHosts()
+	assert.Equal(t, expectedFallBackHosts, hosts)
 }
 
 func TestEnvFallbackHosts_RSC15i(t *testing.T) {
-	t.Run("with env should return environment fallback hosts", func(t *testing.T) {
-		expectedFallBackHosts := []string{
-			"sandbox-a-fallback.ably-realtime.com",
-			"sandbox-b-fallback.ably-realtime.com",
-			"sandbox-c-fallback.ably-realtime.com",
-			"sandbox-d-fallback.ably-realtime.com",
-			"sandbox-e-fallback.ably-realtime.com",
-		}
-		hosts := ably.GetEnvFallbackHosts("sandbox")
-		assert.Equal(t, expectedFallBackHosts, hosts)
-	})
+	expectedFallBackHosts := []string{
+		"sandbox-a-fallback.ably-realtime.com",
+		"sandbox-b-fallback.ably-realtime.com",
+		"sandbox-c-fallback.ably-realtime.com",
+		"sandbox-d-fallback.ably-realtime.com",
+		"sandbox-e-fallback.ably-realtime.com",
+	}
+	hosts := ably.GetEnvFallbackHosts("sandbox")
+	assert.Equal(t, expectedFallBackHosts, hosts)
+}
+
+func TestInternetConnectionCheck_RTN17c(t *testing.T) {
+	t.Parallel()
+	clientOptions := ably.NewClientOptions()
+	assert.True(t, clientOptions.HasActiveInternetConnection())
 }
 
 func TestFallbackHosts_RSC15b(t *testing.T) {

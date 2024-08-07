@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -28,6 +29,9 @@ const (
 	Port           = 80
 	TLSPort        = 443
 	maxMessageSize = 65536 // 64kb, default value TO3l8
+
+	internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
+	internetCheckOk  = "yes\n"
 )
 
 var defaultOptions = clientOptions{
@@ -593,6 +597,19 @@ func (opts *clientOptions) protocol() string {
 
 func (opts *clientOptions) idempotentRESTPublishing() bool {
 	return opts.IdempotentRESTPublishing
+}
+
+func (opts *clientOptions) hasActiveInternetConnection() bool {
+	res, err := opts.httpclient().Get(internetCheckUrl)
+	if err != nil {
+		return false
+	}
+	data, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		return false
+	}
+	return string(data) == internetCheckOk
 }
 
 type ScopeParams struct {
