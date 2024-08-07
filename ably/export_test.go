@@ -159,6 +159,10 @@ func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
 }
 
+func (opts *clientOptions) HasActiveInternetConnection() bool {
+	return opts.hasActiveInternetConnection()
+}
+
 func NewErrorInfo(code ErrorCode, err error) *ErrorInfo {
 	return newError(code, err)
 }
