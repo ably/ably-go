@@ -6,13 +6,11 @@ import (
 	_ "crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"mime"
-	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -802,17 +800,6 @@ func canFallBack(err error, res *http.Response) bool {
 	return isStatusCodeBetween500_504(res) || // RSC15l3
 		isCloudFrontError(res) || //RSC15l4
 		isTimeoutOrDnsErr(err) //RSC15l1, RSC15l2
-}
-
-func isTimeoutOrDnsErr(err error) bool {
-	var netErr net.Error
-	if errors.As(err, &netErr) {
-		if netErr.Timeout() { // RSC15l2
-			return true
-		}
-	}
-	var dnsErr *net.DNSError
-	return errors.As(err, &dnsErr) // RSC15l1
 }
 
 // RSC15l3
