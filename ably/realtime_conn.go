@@ -62,7 +62,6 @@ type Connection struct {
 
 	msgSerial    int64
 	connStateTTL durationFromMsecs
-	err          error
 	conn         conn
 	opts         *clientOptions
 	pending      pendingEmitter
@@ -78,6 +77,7 @@ type Connection struct {
 	// after a reauthorization, to avoid re-reauthorizing.
 	reauthorizing bool
 	arg           connArgs
+	hosts         *realtimeHosts
 	client        *Realtime
 
 	readLimit                int64
@@ -113,6 +113,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *R
 	}
 	auth.onExplicitAuthorize = c.onClientAuthorize
 	c.queue = newMsgQueue(c)
+	c.hosts = newRealtimeHosts(c.opts)
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)
 		go func() {
