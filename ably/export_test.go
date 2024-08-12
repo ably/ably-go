@@ -70,8 +70,8 @@ func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }
 
-func (opts *clientOptions) RealtimeURL() string {
-	return opts.realtimeURL()
+func (opts *clientOptions) RealtimeURL(realtimeHost string) string {
+	return opts.realtimeURL(realtimeHost)
 }
 
 func (c *REST) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {

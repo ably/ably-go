@@ -390,7 +390,7 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 	var conn conn
 	host := c.hosts.getPreferredHost()
 	for {
-		u, err := url.Parse(host)
+		u, err := url.Parse(c.opts.realtimeURL(host))
 		if err != nil {
 			return nil, err
 		}
