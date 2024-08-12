@@ -126,6 +126,15 @@ func unwrapConn(c conn) conn {
 	return unwrapConn(u.Unwrap())
 }
 
+func extractHttpResponseFromConn(c conn) *http.Response {
+	unwrappedConn := unwrapConn(c)
+	websocketConn, ok := unwrappedConn.(*websocketConn)
+	if ok {
+		return websocketConn.resp
+	}
+	return nil
+}
+
 func setConnectionReadLimit(c conn, readLimit int64) error {
 	unwrappedConn := unwrapConn(c)
 	websocketConn, ok := unwrappedConn.(*websocketConn)
