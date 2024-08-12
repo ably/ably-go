@@ -368,16 +368,16 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 }
 
 func (c *Connection) connectWith(arg connArgs) (result, error) {
+	defer c.hosts.resetVisitedFallbackHosts()
+	connectMode := c.getMode()
+
 	c.mtx.Lock()
 	// set ably connection state to connecting, connecting state exists regardless of whether raw connection is successful or not
 	if !c.isActive() { // check if already in connecting state
 		c.lockSetState(ConnectionStateConnecting, nil, 0)
 	}
 	c.mtx.Unlock()
-	u, err := url.Parse(c.opts.realtimeURL())
-	if err != nil {
-		return nil, err
-	}
+
 	var res result
 	if arg.result {
 		res = c.internalEmitter.listenResult(
@@ -386,22 +386,38 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 			ConnectionStateDisconnected,
 		)
 	}
-	connectMode := c.getMode()
-	query, err := c.params(connectMode)
-	if err != nil {
-		return nil, err
-	}
-	u.RawQuery = query.Encode()
-	proto := c.opts.protocol()
 
-	if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
-		return nopResult, nil
-	}
+	var conn conn
+	host := c.hosts.getPreferredHost()
+	for {
+		u, err := url.Parse(host)
+		if err != nil {
+			return nil, err
+		}
+		query, err := c.params(connectMode)
+		if err != nil {
+			return nil, err
+		}
+		u.RawQuery = query.Encode()
+		proto := c.opts.protocol()
 
-	// if err is nil, raw connection with server is successful
-	conn, err := c.dial(proto, u)
-	if err != nil {
-		return nil, err
+		if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
+			return nopResult, nil
+		}
+		// if err is nil, raw connection with server is successful
+		conn, err = c.dial(proto, u)
+		if err == nil { // success
+			if host != c.hosts.getPrimaryHost() { // RTN17e
+				// set preferred rest host same as active realtime host
+			}
+			break
+		}
+		resp := extractHttpResponseFromConn(c.conn)
+		if c.hosts.fallbackHostsRemaining() > 0 && canFallBack(err, resp) && c.opts.hasActiveInternetConnection() { // RTN17d, RTN17c
+			host = c.hosts.nextFallbackHost()
+		} else {
+			return nil, err
+		}
 	}
 
 	c.mtx.Lock()
