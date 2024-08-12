@@ -22,6 +22,7 @@ const (
 type websocketConn struct {
 	conn  *websocket.Conn
 	proto proto
+	resp  *http.Response
 }
 
 func (ws *websocketConn) Send(msg *protocolMessage) error {
@@ -88,7 +89,8 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration, agents map[s
 		return nil, errors.New(`invalid protocol "` + proto + `"`)
 	}
 	// Starts a raw websocket connection with server
-	conn, err := dialWebsocketTimeout(u.String(), "https://"+u.Host, timeout, agents)
+	conn, resp, err := dialWebsocketTimeout(u.String(), "https://"+u.Host, timeout, agents)
+	ws.resp = resp
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +99,7 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration, agents map[s
 }
 
 // dialWebsocketTimeout dials the websocket with a timeout.
-func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[string]string) (*websocket.Conn, error) {
+func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[string]string) (*websocket.Conn, *http.Response, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -105,13 +107,13 @@ func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[
 	ops.HTTPHeader = make(http.Header)
 	ops.HTTPHeader.Add(ablyAgentHeader, ablyAgentIdentifier(agents))
 
-	c, _, err := websocket.Dial(ctx, uri, &ops)
+	c, resp, err := websocket.Dial(ctx, uri, &ops)
 
 	if err != nil {
-		return nil, err
+		return nil, resp, err
 	}
 
-	return c, nil
+	return c, resp, nil
 }
 
 func unwrapConn(c conn) conn {
