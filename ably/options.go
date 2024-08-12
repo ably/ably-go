@@ -487,8 +487,12 @@ func (opts *clientOptions) restURL() (restUrl string) {
 }
 
 func (opts *clientOptions) realtimeURL(realtimeHost string) (realtimeUrl string) {
-	port, _ := opts.activePort()
-	baseUrl := net.JoinHostPort(realtimeHost, strconv.Itoa(port))
+	baseUrl := realtimeHost
+	_, _, err := net.SplitHostPort(baseUrl)
+	if err != nil { // set port if not set in provided realtimeHost
+		port, _ := opts.activePort()
+		baseUrl = net.JoinHostPort(baseUrl, strconv.Itoa(port))
+	}
 	if opts.NoTLS {
 		return "ws://" + baseUrl
 	}

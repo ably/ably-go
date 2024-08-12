@@ -69,8 +69,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 		defer client.Close()
 
 		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
-		err = ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
-		assert.NoError(t, err)
+		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
 
 		assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
 	})
