@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 	"github.com/ably/ably-go/ablytest"
 
 	"github.com/stretchr/testify/assert"
@@ -136,59 +137,31 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 }
 
 func TestRealtime_RTN17_HostFallback(t *testing.T) {
+	t.Parallel()
 
 	getDNSErr := func() *net.DNSError {
 		return &net.DNSError{
-			Err:         "Can't resolve host",
-			Name:        "Host unresolvable",
-			Server:      "rest.ably.com",
-			IsTimeout:   false,
-			IsTemporary: false,
-			IsNotFound:  false,
+			IsTimeout: false,
 		}
 	}
 
 	getTimeoutErr := func() error {
-		dnsErr := getDNSErr()
-		dnsErr.IsTimeout = true
-		return dnsErr
+		return &errTimeout{}
 	}
 
 	setUpWithError := func(err error, opts ...ably.ClientOption) (visitedHosts []string) {
-		hostCh := make(chan string, 1)
-		errCh := make(chan error, 1)
-		defaultOptions := []ably.ClientOption{
-			ably.WithAutoConnect(false),
+		client, _ := ably.NewRealtime(append(opts, ably.WithAutoConnect(false), ably.WithKey("fake:key"),
 			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-				hostCh <- u.Hostname()
-				return nil, <-errCh
-			}),
-		}
-		opts = append(opts, defaultOptions...)
-		_, client := ablytest.NewRealtime(opts...)
-		client.Connect()
-		connDisconnectedEventChan := make(chan struct{})
-		// inject error to return after receiving host and break the loop once disconnect event is received
-		go func(err error) {
-			for {
-				select {
-				case host := <-hostCh:
-					visitedHosts = append(visitedHosts, host)
-					errCh <- err
-				case <-connDisconnectedEventChan:
-					return
-				}
-			}
-		}(err)
-		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
-		connDisconnectedEventChan <- struct{}{}
+				visitedHosts = append(visitedHosts, u.Hostname())
+				return nil, err
+			}))...)
+		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventDisconnected), nil)
 		return
 	}
 
 	t.Run("RTN17a: First attempt should be on default host first", func(t *testing.T) {
-		t.Parallel()
 		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong"))
-		expectedHost := "sandbox-realtime.ably.io"
+		expectedHost := "realtime.ably.io"
 
 		assert.Equal(t, expectedHost, visitedHosts[0])
 	})
@@ -197,10 +170,9 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 		t.Parallel()
 
 		t.Run("apply when default realtime endpoint is not overridden, port/tlsport not set", func(t *testing.T) {
-			t.Parallel()
 			visitedHosts := setUpWithError(getTimeoutErr())
-			expectedPrimaryHost := "sandbox-realtime.ably.io"
-			expectedFallbackHosts := ably.GetEnvFallbackHosts("sandbox")
+			expectedPrimaryHost := "realtime.ably.io"
+			expectedFallbackHosts := ably.DefaultFallbackHosts()
 
 			assert.Equal(t, 6, len(visitedHosts))
 			assert.Equal(t, expectedPrimaryHost, visitedHosts[0])
@@ -208,7 +180,6 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 		})
 
 		t.Run("does not apply when the custom realtime endpoint is used", func(t *testing.T) {
-			t.Parallel()
 			visitedHosts := setUpWithError(getTimeoutErr(), ably.WithRealtimeHost("custom-realtime.ably.io"))
 			expectedHost := "custom-realtime.ably.io"
 
@@ -217,10 +188,9 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 		})
 
 		t.Run("apply when fallbacks are provided", func(t *testing.T) {
-			t.Parallel()
 			fallbacks := []string{"fallback0", "fallback1", "fallback2"}
 			visitedHosts := setUpWithError(getTimeoutErr(), ably.WithFallbackHosts(fallbacks))
-			expectedPrimaryHost := "sandbox-realtime.ably.io"
+			expectedPrimaryHost := "realtime.ably.io"
 
 			assert.Equal(t, 4, len(visitedHosts))
 			assert.Equal(t, expectedPrimaryHost, visitedHosts[0])
@@ -228,7 +198,6 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 		})
 
 		t.Run("apply when fallbackHostUseDefault is true, even if env. or host is set", func(t *testing.T) {
-			t.Parallel()
 			visitedHosts := setUpWithError(
 				getTimeoutErr(),
 				ably.WithFallbackHostsUseDefault(true),
@@ -247,7 +216,7 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 	t.Run("RTN17c: Verifies internet connection is active in case of error necessitating use of an alternative host", func(t *testing.T) {
 		t.Parallel()
 		const internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
-		rec, optn := recorder()
+		rec, optn := ablytest.NewHttpRecorder()
 		visitedHosts := setUpWithError(getDNSErr(), optn...)
 		assert.Equal(t, 6, len(visitedHosts)) // including primary host
 		assert.Equal(t, 5, len(rec.Requests()))
@@ -257,13 +226,43 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 	})
 
 	t.Run("RTN17d: Check for compatible errors before attempting to reconnect to a fallback host", func(t *testing.T) {
-		t.Parallel()
 		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong")) // non-dns or non-timeout error
 		assert.Equal(t, 1, len(visitedHosts))
 		visitedHosts = setUpWithError(getDNSErr())
 		assert.Equal(t, 6, len(visitedHosts))
 		visitedHosts = setUpWithError(getTimeoutErr())
 		assert.Equal(t, 6, len(visitedHosts))
+	})
+
+	t.Run("RTN17e: Same fallback host should be used for REST as Realtime Fallback Host for a given active connection", func(t *testing.T) {
+		errCh := make(chan error, 1)
+		errCh <- getTimeoutErr()
+		realtimeMsgRecorder := NewMessageRecorder()         // websocket recorder
+		restMsgRecorder, optn := ablytest.NewHttpRecorder() // http recorder
+		_, client := ablytest.NewRealtime(ably.WithAutoConnect(false),
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+				err, ok := <-errCh
+				if ok {
+					close(errCh)
+					return nil, err // return timeout error for primary host
+				}
+				return realtimeMsgRecorder.Dial(protocol, u, timeout) // return dial for subsequent dials
+			}), optn[0])
+		defer client.Close()
+
+		err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
+		if err != nil {
+			t.Fatalf("Error connecting host with error %v", err)
+		}
+		realtimeSuccessHost := realtimeMsgRecorder.URLs()[0].Hostname()
+		fallbackHosts := ably.GetEnvFallbackHosts("sandbox")
+		if !ablyutil.SliceContains(fallbackHosts, realtimeSuccessHost) {
+			t.Fatalf("realtime host must be one of fallback hosts, received %v", realtimeSuccessHost)
+		}
+
+		client.Time(context.Background())                            // make a rest request
+		restSuccessHost := restMsgRecorder.Request(1).URL.Hostname() // second request is to get the time, first for internet connection
+		assert.Equal(t, realtimeSuccessHost, restSuccessHost)
 	})
 }
 

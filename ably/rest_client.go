@@ -134,6 +134,7 @@ type REST struct {
 
 	opts                *clientOptions
 	successFallbackHost *fallbackCache
+	activeRealtimeHost  string // RTN17e
 	log                 logger
 }
 
@@ -191,6 +192,10 @@ func (c *REST) Time(ctx context.Context) (time.Time, error) {
 func (c *REST) Stats(o ...StatsOption) StatsRequest {
 	params := (&statsOptions{}).apply(o...)
 	return StatsRequest{r: c.newPaginatedRequest("/stats", "", params)}
+}
+
+func (c *REST) setActiveRealtimeHost(realtimeHost string) {
+	c.activeRealtimeHost = realtimeHost
 }
 
 // A StatsOption configures a call to REST.Stats or Realtime.Stats.
@@ -702,8 +707,12 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 	}
 	if h := c.successFallbackHost.get(); h != "" {
 		req.URL.Host = h // RSC15f
-		c.log.Verbosef("RestClient: setting URL.Host=%q", h)
+		c.log.Verbosef("RestClient: setting cached URL.Host=%q", h)
+	} else if !empty(c.activeRealtimeHost) { // RTN17e
+		req.URL.Host = c.activeRealtimeHost
+		c.log.Verbosef("RestClient: setting activeRealtimeHost URL.Host=%q", c.activeRealtimeHost)
 	}
+
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
 		c.log.Verbose("RestClient: enabling httptrace")

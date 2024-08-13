@@ -231,24 +231,23 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 		Hijack(http.RoundTripper) http.RoundTripper
 	}
 	appHTTPClient := NewHTTPClient()
+
+	// If opts want to record round trips inject the recording transport
+	// via TransportHijacker interface.
+	if httpClient := ClientOptionsInspector.HTTPClient(opts); httpClient != nil {
+		if hijacker, ok := httpClient.Transport.(transportHijacker); ok {
+			appHTTPClient.Transport = hijacker.Hijack(appHTTPClient.Transport)
+			opts = append(opts, ably.WithHTTPClient(appHTTPClient))
+		}
+	}
+
 	appOpts := []ably.ClientOption{
 		ably.WithKey(app.Key()),
 		ably.WithEnvironment(app.Environment),
 		ably.WithUseBinaryProtocol(!NoBinaryProtocol),
-		ably.WithHTTPClient(appHTTPClient),
 		ably.WithLogLevel(DefaultLogLevel),
 	}
-
-	// If opts want to record round trips inject the recording transport
-	// via TransportHijacker interface.
-	opt := MergeOptions(opts)
-	if httpClient := ClientOptionsInspector.HTTPClient(opt); httpClient != nil {
-		if hijacker, ok := httpClient.Transport.(transportHijacker); ok {
-			appHTTPClient.Transport = hijacker.Hijack(appHTTPClient.Transport)
-			opt = append(opt, ably.WithHTTPClient(appHTTPClient))
-		}
-	}
-	appOpts = MergeOptions(appOpts, opt)
+	appOpts = MergeOptions(appOpts, opts)
 
 	return appOpts
 }

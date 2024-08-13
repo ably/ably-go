@@ -408,7 +408,9 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 		conn, err = c.dial(proto, u)
 		if err == nil { // success
 			if host != c.hosts.getPrimaryHost() { // RTN17e
-				// set preferred rest host same as active realtime host
+				c.client.rest.setActiveRealtimeHost(host)
+			} else if !empty(c.client.rest.activeRealtimeHost) {
+				c.client.rest.setActiveRealtimeHost("") // reset to default
 			}
 			break
 		}
