@@ -135,6 +135,138 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 	})
 }
 
+func TestRealtime_RTN17_HostFallback(t *testing.T) {
+
+	getDNSErr := func() *net.DNSError {
+		return &net.DNSError{
+			Err:         "Can't resolve host",
+			Name:        "Host unresolvable",
+			Server:      "rest.ably.com",
+			IsTimeout:   false,
+			IsTemporary: false,
+			IsNotFound:  false,
+		}
+	}
+
+	getTimeoutErr := func() error {
+		dnsErr := getDNSErr()
+		dnsErr.IsTimeout = true
+		return dnsErr
+	}
+
+	setUpWithError := func(err error, opts ...ably.ClientOption) (visitedHosts []string) {
+		hostCh := make(chan string, 1)
+		errCh := make(chan error, 1)
+		defaultOptions := []ably.ClientOption{
+			ably.WithAutoConnect(false),
+			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+				hostCh <- u.Hostname()
+				return nil, <-errCh
+			}),
+		}
+		opts = append(opts, defaultOptions...)
+		_, client := ablytest.NewRealtime(opts...)
+		client.Connect()
+		connDisconnectedEventChan := make(chan struct{})
+		// inject error to return after receiving host and break the loop once disconnect event is received
+		go func(err error) {
+			for {
+				select {
+				case host := <-hostCh:
+					visitedHosts = append(visitedHosts, host)
+					errCh <- err
+				case <-connDisconnectedEventChan:
+					return
+				}
+			}
+		}(err)
+		ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
+		connDisconnectedEventChan <- struct{}{}
+		return
+	}
+
+	t.Run("RTN17a: First attempt should be on default host first", func(t *testing.T) {
+		t.Parallel()
+		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong"))
+		expectedHost := "sandbox-realtime.ably.io"
+
+		assert.Equal(t, expectedHost, visitedHosts[0])
+	})
+
+	t.Run("RTN17b: Fallback behaviour", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("apply when default realtime endpoint is not overridden, port/tlsport not set", func(t *testing.T) {
+			t.Parallel()
+			visitedHosts := setUpWithError(getTimeoutErr())
+			expectedPrimaryHost := "sandbox-realtime.ably.io"
+			expectedFallbackHosts := ably.GetEnvFallbackHosts("sandbox")
+
+			assert.Equal(t, 6, len(visitedHosts))
+			assert.Equal(t, expectedPrimaryHost, visitedHosts[0])
+			assert.ElementsMatch(t, expectedFallbackHosts, visitedHosts[1:])
+		})
+
+		t.Run("does not apply when the custom realtime endpoint is used", func(t *testing.T) {
+			t.Parallel()
+			visitedHosts := setUpWithError(getTimeoutErr(), ably.WithRealtimeHost("custom-realtime.ably.io"))
+			expectedHost := "custom-realtime.ably.io"
+
+			assert.Equal(t, 1, len(visitedHosts))
+			assert.Equal(t, expectedHost, visitedHosts[0])
+		})
+
+		t.Run("apply when fallbacks are provided", func(t *testing.T) {
+			t.Parallel()
+			fallbacks := []string{"fallback0", "fallback1", "fallback2"}
+			visitedHosts := setUpWithError(getTimeoutErr(), ably.WithFallbackHosts(fallbacks))
+			expectedPrimaryHost := "sandbox-realtime.ably.io"
+
+			assert.Equal(t, 4, len(visitedHosts))
+			assert.Equal(t, expectedPrimaryHost, visitedHosts[0])
+			assert.ElementsMatch(t, fallbacks, visitedHosts[1:])
+		})
+
+		t.Run("apply when fallbackHostUseDefault is true, even if env. or host is set", func(t *testing.T) {
+			t.Parallel()
+			visitedHosts := setUpWithError(
+				getTimeoutErr(),
+				ably.WithFallbackHostsUseDefault(true),
+				ably.WithEnvironment("custom"),
+				ably.WithRealtimeHost("custom-ably.realtime.com"))
+
+			expectedPrimaryHost := "custom-ably.realtime.com"
+			expectedFallbackHosts := ably.DefaultFallbackHosts()
+
+			assert.Equal(t, 6, len(visitedHosts))
+			assert.Equal(t, expectedPrimaryHost, visitedHosts[0])
+			assert.ElementsMatch(t, expectedFallbackHosts, visitedHosts[1:])
+		})
+	})
+
+	t.Run("RTN17c: Verifies internet connection is active in case of error necessitating use of an alternative host", func(t *testing.T) {
+		t.Parallel()
+		const internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
+		rec, optn := recorder()
+		visitedHosts := setUpWithError(getDNSErr(), optn...)
+		assert.Equal(t, 6, len(visitedHosts)) // including primary host
+		assert.Equal(t, 5, len(rec.Requests()))
+		for _, request := range rec.Requests() {
+			assert.Equal(t, request.URL.String(), internetCheckUrl)
+		}
+	})
+
+	t.Run("RTN17d: Check for compatible errors before attempting to reconnect to a fallback host", func(t *testing.T) {
+		t.Parallel()
+		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong")) // non-dns or non-timeout error
+		assert.Equal(t, 1, len(visitedHosts))
+		visitedHosts = setUpWithError(getDNSErr())
+		assert.Equal(t, 6, len(visitedHosts))
+		visitedHosts = setUpWithError(getTimeoutErr())
+		assert.Equal(t, 6, len(visitedHosts))
+	})
+}
+
 func checkUnique(ch chan string, typ string, n int) error {
 	close(ch)
 	uniq := make(map[string]struct{}, n)
