@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
 
 var (
@@ -77,7 +79,6 @@ type Connection struct {
 	// after a reauthorization, to avoid re-reauthorizing.
 	reauthorizing bool
 	arg           connArgs
-	hosts         *realtimeHosts
 	client        *Realtime
 
 	readLimit                int64
@@ -113,7 +114,6 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *R
 	}
 	auth.onExplicitAuthorize = c.onClientAuthorize
 	c.queue = newMsgQueue(c)
-	c.hosts = newRealtimeHosts(c.opts)
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)
 		go func() {
@@ -368,7 +368,6 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 }
 
 func (c *Connection) connectWith(arg connArgs) (result, error) {
-	defer c.hosts.resetVisitedFallbackHosts()
 	connectMode := c.getMode()
 
 	c.mtx.Lock()
@@ -388,8 +387,11 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 	}
 
 	var conn conn
-	host := c.hosts.getPreferredHost()
-	for {
+	primaryHost := c.opts.getRealtimeHost()
+	fallbackHosts, _ := c.opts.getFallbackHosts()
+	// Always try primary host first and then fallback hosts for realtime conn
+	hosts := append([]string{primaryHost}, ablyutil.Shuffle(fallbackHosts)...)
+	for hostCounter, host := range hosts {
 		u, err := url.Parse(c.opts.realtimeURL(host))
 		if err != nil {
 			return nil, err
@@ -407,7 +409,7 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 		// if err is nil, raw connection with server is successful
 		conn, err = c.dial(proto, u)
 		if err == nil { // success
-			if host != c.hosts.getPrimaryHost() { // RTN17e
+			if host != primaryHost { // RTN17e
 				c.client.rest.setActiveRealtimeHost(host)
 			} else if !empty(c.client.rest.activeRealtimeHost) {
 				c.client.rest.setActiveRealtimeHost("") // reset to default
@@ -415,11 +417,10 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 			break
 		}
 		resp := extractHttpResponseFromConn(c.conn)
-		if c.hosts.fallbackHostsRemaining() > 0 && canFallBack(err, resp) && c.opts.hasActiveInternetConnection() { // RTN17d, RTN17c
-			host = c.hosts.nextFallbackHost()
-		} else {
-			return nil, err
+		if hostCounter < len(hosts)-1 && canFallBack(err, resp) && c.opts.hasActiveInternetConnection() { // RTN17d, RTN17c
+			continue
 		}
+		return nil, err
 	}
 
 	c.mtx.Lock()
