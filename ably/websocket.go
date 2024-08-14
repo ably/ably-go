@@ -22,7 +22,21 @@ const (
 type websocketConn struct {
 	conn  *websocket.Conn
 	proto proto
-	resp  *http.Response
+}
+
+type websocketErr struct {
+	err  error
+	resp *http.Response
+}
+
+// websocketErr implements the builtin error interface.
+func (e *websocketErr) Error() string {
+	return e.err.Error()
+}
+
+// Unwrap implements the implicit interface that errors.Unwrap understands.
+func (e *websocketErr) Unwrap() error {
+	return e.err
 }
 
 func (ws *websocketConn) Send(msg *protocolMessage) error {
@@ -90,9 +104,8 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration, agents map[s
 	}
 	// Starts a raw websocket connection with server
 	conn, resp, err := dialWebsocketTimeout(u.String(), "https://"+u.Host, timeout, agents)
-	ws.resp = resp
 	if err != nil {
-		return nil, err
+		return nil, &websocketErr{err: err, resp: resp}
 	}
 	ws.conn = conn
 	return ws, nil
@@ -126,11 +139,10 @@ func unwrapConn(c conn) conn {
 	return unwrapConn(u.Unwrap())
 }
 
-func extractHttpResponseFromConn(c conn) *http.Response {
-	unwrappedConn := unwrapConn(c)
-	websocketConn, ok := unwrappedConn.(*websocketConn)
+func extractHttpResponseFromError(err error) *http.Response {
+	wsErr, ok := err.(*websocketErr)
 	if ok {
-		return websocketConn.resp
+		return wsErr.resp
 	}
 	return nil
 }

@@ -266,6 +266,29 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 	})
 }
 
+func TestRealtime_RTN17_Integration_HostFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	serverURL, err := url.Parse(server.URL)
+	assert.NoError(t, err)
+
+	app, realtime := ablytest.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithFallbackHosts(ably.GetEnvFallbackHosts(ablytest.Environment)),
+		ably.WithRealtimeHost(serverURL.Host))
+
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
+	if err != nil {
+		t.Fatalf("Error connecting host with error %v", err)
+	}
+}
+
 func checkUnique(ch chan string, typ string, n int) error {
 	close(ch)
 	uniq := make(map[string]struct{}, n)

@@ -416,7 +416,7 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 			}
 			break
 		}
-		resp := extractHttpResponseFromConn(c.conn)
+		resp := extractHttpResponseFromError(err)
 		if hostCounter < len(hosts)-1 && canFallBack(err, resp) && c.opts.hasActiveInternetConnection() { // RTN17d, RTN17c
 			continue
 		}
