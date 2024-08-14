@@ -543,7 +543,7 @@ func detectAuthMethod(opts *clientOptions) (int, error) {
 	if !isKeyValid {
 		return 0, newError(ErrInvalidCredential, errInvalidKey)
 	}
-	if opts.NoTLS {
+  if opts.NoTLS && opts.Environment != "local" {
 		return 0, newError(ErrInvalidUseOfBasicAuthOverNonTLSTransport, errInsecureBasicAuth)
 	}
 	return authBasic, nil

@@ -237,6 +237,8 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 		ably.WithUseBinaryProtocol(!NoBinaryProtocol),
 		ably.WithHTTPClient(appHTTPClient),
 		ably.WithLogLevel(DefaultLogLevel),
+    ably.WithPort(8081),
+    ably.WithTLS(false),
 	}
 
 	// If opts want to record round trips inject the recording transport
@@ -254,7 +256,7 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 }
 
 func (app *Sandbox) URL(paths ...string) string {
-	return "https://" + app.Environment + "-rest.ably.io/" + path.Join(paths...)
+  return "http://" + app.Environment + "-rest.ably.io:8081/" + path.Join(paths...)
 }
 
 func NewHTTPClient() *http.Client {
