@@ -38,7 +38,6 @@ func TestEnvFallbackHosts_RSC15i(t *testing.T) {
 }
 
 func TestInternetConnectionCheck_RTN17c(t *testing.T) {
-	t.Parallel()
 	clientOptions := ably.NewClientOptions()
 	assert.True(t, clientOptions.HasActiveInternetConnection())
 }

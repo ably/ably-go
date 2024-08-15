@@ -36,10 +36,6 @@ func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }
 
-func (opts *clientOptions) RealtimeURL(realtimeHost string) string {
-	return opts.realtimeURL(realtimeHost)
-}
-
 func (c *REST) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
 	return c.post(ctx, path, in, out)
 }
@@ -95,6 +91,10 @@ func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
 
 func (c *REST) GetCachedFallbackHost() string {
 	return c.successFallbackHost.get()
+}
+
+func (c *REST) ActiveRealtimeHost() string {
+	return c.activeRealtimeHost
 }
 
 func (c *RealtimeChannel) GetChannelSerial() string {
@@ -228,6 +228,10 @@ func (c *Connection) SetKey(key string) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	c.key = key
+}
+
+func (r *Realtime) Rest() *REST {
+	return r.rest
 }
 
 func (c *RealtimePresence) Members() map[string]*PresenceMessage {

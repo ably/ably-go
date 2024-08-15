@@ -62,7 +62,6 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 		client, err := ably.NewRealtime(
 			ably.WithEnvironment(ablytest.Environment),
 			ably.WithTLS(false),
-			ably.WithFallbackHosts([]string{}),
 			ably.WithToken("fake:token"),
 			ably.WithUseTokenAuth(true),
 			ably.WithRealtimeHost(serverURL.Host))
@@ -89,7 +88,6 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			ably.WithEnvironment(ablytest.Environment),
 			ably.WithTLS(false),
 			ably.WithToken("fake:token"),
-			ably.WithFallbackHosts([]string{}),
 			ably.WithUseTokenAuth(true),
 			ably.WithRealtimeHost(serverURL.Host),
 			ably.WithAgents(map[string]string{
@@ -119,7 +117,6 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			ably.WithEnvironment(ablytest.Environment),
 			ably.WithTLS(false),
 			ably.WithToken("fake:token"),
-			ably.WithFallbackHosts([]string{}),
 			ably.WithUseTokenAuth(true),
 			ably.WithRealtimeHost(serverURL.Host),
 			ably.WithAgents(map[string]string{
@@ -266,7 +263,7 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 	})
 }
 
-func TestRealtime_RTN17_Integration_HostFallback(t *testing.T) {
+func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -278,15 +275,40 @@ func TestRealtime_RTN17_Integration_HostFallback(t *testing.T) {
 		ably.WithAutoConnect(false),
 		ably.WithTLS(false),
 		ably.WithUseTokenAuth(true),
-		ably.WithFallbackHosts(ably.GetEnvFallbackHosts(ablytest.Environment)),
+		ably.WithFallbackHosts([]string{"sandbox-a-fallback.ably-realtime.com"}),
 		ably.WithRealtimeHost(serverURL.Host))
 
 	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
-	if err != nil {
-		t.Fatalf("Error connecting host with error %v", err)
-	}
+	assert.Nil(t, err)
+
+	assert.Equal(t, "sandbox-a-fallback.ably-realtime.com", realtime.Rest().ActiveRealtimeHost())
+}
+
+func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(3 * time.Second)
+		w.WriteHeader(http.StatusSwitchingProtocols)
+	}))
+	defer server.Close()
+	serverURL, err := url.Parse(server.URL)
+	assert.NoError(t, err)
+
+	app, realtime := ablytest.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithFallbackHosts([]string{"sandbox-a-fallback.ably-realtime.com"}),
+		ably.WithRealtimeRequestTimeout(2*time.Second),
+		ably.WithRealtimeHost(serverURL.Host))
+
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+
+	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
+	assert.Nil(t, err)
+
+	assert.Equal(t, "sandbox-a-fallback.ably-realtime.com", realtime.Rest().ActiveRealtimeHost())
 }
 
 func checkUnique(ch chan string, typ string, n int) error {
