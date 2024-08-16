@@ -876,7 +876,7 @@ func (c *Connection) eventloop() {
 				return
 			}
 
-			// RTN15h2
+			// RTN15h2, RTN22a
 			c.reauthorize(connArgs{
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
