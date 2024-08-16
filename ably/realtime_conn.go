@@ -889,6 +889,9 @@ func (c *Connection) eventloop() {
 			if c.conn != nil {
 				c.conn.Close()
 			}
+		case actionAuth:
+			// RTN22
+			c.auth.Authorize(context.Background(), c.auth.params)
 		default:
 			c.callbacks.onChannelMsg(msg)
 		}
