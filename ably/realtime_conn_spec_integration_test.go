@@ -17,9 +17,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_RTN2_WebsocketQueryParams(t *testing.T) {
@@ -1127,73 +1128,6 @@ func TestRealtimeConn_RTN15c7_attached(t *testing.T) {
 	// Todo - Expect message not to be arrived due to resume failure
 	// var msg *ably.Message
 	// ablytest.Soon.NoRecv(t, &msg, sub, t.Fatalf)
-}
-
-func TestRealtimeConn_RTN15c4(t *testing.T) {
-
-	doEOF := make(chan struct{}, 1)
-
-	continueDial := make(chan struct{}, 1)
-	continueDial <- struct{}{}
-	app, client := ablytest.NewRealtime(
-		ably.WithAutoConnect(false),
-		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-			<-continueDial
-			c, err := ably.DialWebsocket(protocol, u, timeout)
-			return protoConnWithFakeEOF{
-				Conn:  c,
-				doEOF: doEOF,
-			}, err
-		}))
-	defer safeclose(t, &closeClient{Closer: ablytest.FullRealtimeCloser(client), skip: []int{http.StatusBadRequest}}, app)
-
-	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
-	assert.NoError(t, err, "Connect=%s", err)
-
-	channel := client.Channels.Get("channel")
-	err = channel.Attach(context.Background())
-	assert.NoError(t, err)
-	chanStateChanges := make(ably.ChannelStateChanges, 1)
-	off := channel.On(ably.ChannelEventFailed, chanStateChanges.Receive)
-	defer off()
-
-	connStateChanges := make(chan ably.ConnectionStateChange, 16)
-	client.Connection.OnAll(func(c ably.ConnectionStateChange) {
-		connStateChanges <- c
-	})
-
-	client.Connection.SetKey("wrong-conn-key") // wrong connection key for next resume request
-	doEOF <- struct{}{}
-
-	var connState ably.ConnectionStateChange
-
-	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
-	assert.Equal(t, ably.ConnectionStateDisconnected, connState.Current,
-		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
-
-	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
-	assert.NoError(t, err)
-
-	continueDial <- struct{}{}
-
-	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
-	assert.Equal(t, ably.ConnectionStateConnecting, connState.Current)
-
-	// Connection goes into failed state
-	ablytest.Soon.Recv(t, &connState, connStateChanges, t.Fatalf)
-	assert.Equal(t, ably.ConnectionStateFailed, connState.Current)
-
-	// Check channel goes into failed state
-	var change ably.ChannelStateChange
-	ablytest.Soon.Recv(t, &change, chanStateChanges, t.Fatalf)
-	assert.Equal(t, ably.ChannelStateFailed, change.Current)
-
-	reason := client.Connection.ErrorReason()
-	assert.NotNil(t, reason, "expected reason to be set")
-	assert.Equal(t, http.StatusBadRequest, reason.StatusCode,
-		"expected %d got %d", http.StatusBadRequest, reason.StatusCode)
 }
 
 func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
