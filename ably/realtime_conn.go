@@ -111,7 +111,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *R
 		readLimit: maxMessageSize,
 		recover:   opts.Recover,
 	}
-	auth.onExplicitAuthorize = c.onClientAuthorize
+	auth.onExplicitAuthorize = c.onExplicitAuthorize
 	c.queue = newMsgQueue(c)
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)
@@ -930,8 +930,30 @@ func (c *Connection) reauthorize(arg connArgs) {
 	c.reconnect(arg)
 }
 
-func (c *Connection) onClientAuthorize(ctx context.Context, token *TokenDetails) {
-	switch c.State() {
+func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetails) error {
+	switch state := c.State(); state {
+	case ConnectionStateConnecting:
+		// RTC8b says: "all current connection attempts should be halted, and
+		// after obtaining a new token the library should immediately initiate a
+		// connection attempt using the new token". But the WebSocket library
+		// doesn't really allow us to halt the connection attempt. Instead, once
+		// the connection transitions out of CONNECTING (either to CONNECTED or
+		// to a failure state), we attempt to connect again, which will use
+		// the new token.
+		c.log().Info("client-requested authorization while CONNECTING. Will reconnect with new token.")
+		done := make(chan error)
+
+		c.internalEmitter.OnceAll(func(_ ConnectionStateChange) {
+			done <- c.onExplicitAuthorize(ctx, token)
+		})
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-done:
+			return err
+		}
+
 	case ConnectionStateConnected:
 		c.log().Verbosef("starting client-requested reauthorization with token: %+v", token)
 
@@ -952,9 +974,38 @@ func (c *Connection) onClientAuthorize(ctx context.Context, token *TokenDetails)
 
 		select {
 		case <-ctx.Done():
-		case <-changes:
+			return ctx.Err()
+		case change := <-changes:
+			return change.Reason.unwrapNil()
+		}
+
+	case
+		ConnectionStateDisconnected,
+		ConnectionStateSuspended,
+		ConnectionStateFailed,
+		ConnectionStateClosed:
+		c.log().Infof("client-requested authorization while %s: connecting with new token", state)
+
+		done := make(chan error)
+		c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
+			if change.Current == ConnectionStateConnecting {
+				done <- c.onExplicitAuthorize(ctx, token)
+			} else {
+				done <- change.Reason.unwrapNil()
+			}
+		})
+
+		c.Connect()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-done:
+			return err
 		}
 	}
+
+	return nil
 }
 
 func (c *Connection) lockedReauthorizationFailed(err error) {
