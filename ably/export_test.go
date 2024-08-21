@@ -310,6 +310,7 @@ const (
 	ActionPresence     = actionPresence
 	ActionMessage      = actionMessage
 	ActionSync         = actionSync
+	ActionAuth         = actionAuth
 
 	FlagHasPresence       = flagHasPresence
 	FlagHasBacklog        = flagHasBacklog
