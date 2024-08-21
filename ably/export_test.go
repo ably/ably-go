@@ -85,12 +85,8 @@ func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
 }
 
-func (c *REST) SetSuccessFallbackHost(duration time.Duration) {
-	c.successFallbackHost = &fallbackCache{duration: duration}
-}
-
 func (c *REST) GetCachedFallbackHost() string {
-	return c.successFallbackHost.get()
+	return c.hostCache.get()
 }
 
 func (c *REST) ActiveRealtimeHost() string {
