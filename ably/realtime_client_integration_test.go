@@ -5,6 +5,7 @@ package ably_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/ably/ably-go/ablytest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRealtime_RealtimeHost(t *testing.T) {
@@ -147,20 +149,19 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 	}
 
 	setUpWithError := func(err error, opts ...ably.ClientOption) (visitedHosts []string) {
-		client, _ := ably.NewRealtime(append(opts, ably.WithAutoConnect(false), ably.WithKey("fake:key"),
+		client, err := ably.NewRealtime(append(opts, ably.WithAutoConnect(false), ably.WithKey("fake:key"),
 			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 				visitedHosts = append(visitedHosts, u.Hostname())
 				return nil, err
 			}))...)
+		require.NoError(t, err)
 		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventDisconnected), nil)
 		return
 	}
 
-	t.Run("RTN17a: First attempt should be on default host first", func(t *testing.T) {
-		visitedHosts := setUpWithError(fmt.Errorf("host url is wrong"))
-		expectedHost := "realtime.ably.io"
-
-		assert.Equal(t, expectedHost, visitedHosts[0])
+	t.Run("RTN17a: First attempt should be made on default primary host", func(t *testing.T) {
+		visitedHosts := setUpWithError(errors.New("host url is wrong"))
+		assert.Equal(t, "realtime.ably.io", visitedHosts[0])
 	})
 
 	t.Run("RTN17b: Fallback behaviour", func(t *testing.T) {
@@ -180,7 +181,7 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			visitedHosts := setUpWithError(getTimeoutErr(), ably.WithRealtimeHost("custom-realtime.ably.io"))
 			expectedHost := "custom-realtime.ably.io"
 
-			assert.Equal(t, 1, len(visitedHosts))
+			require.Equal(t, 1, len(visitedHosts))
 			assert.Equal(t, expectedHost, visitedHosts[0])
 		})
 
@@ -281,7 +282,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testin
 	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "sandbox-a-fallback.ably-realtime.com", realtime.Rest().ActiveRealtimeHost())
 }
@@ -306,7 +307,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
 	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
 	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, "sandbox-a-fallback.ably-realtime.com", realtime.Rest().ActiveRealtimeHost())
 }
