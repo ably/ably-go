@@ -155,7 +155,7 @@ func isTimeoutOrDnsErr(err error) bool {
 		}
 	}
 	var dnsErr *net.DNSError
-	return errors.Is(err, dnsErr) // RSC15l1
+	return errors.As(err, &dnsErr) // RSC15l1
 }
 
 func checkValidHTTPResponse(resp *http.Response) error {
