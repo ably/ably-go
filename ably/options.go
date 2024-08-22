@@ -604,8 +604,8 @@ func (opts *clientOptions) hasActiveInternetConnection() bool {
 	if err != nil {
 		return false
 	}
+	defer res.Body.Close()
 	data, err := io.ReadAll(res.Body)
-	res.Body.Close()
 	if err != nil {
 		return false
 	}
