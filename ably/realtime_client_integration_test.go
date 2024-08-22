@@ -148,11 +148,11 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 		return &errTimeout{}
 	}
 
-	setUpWithError := func(err error, opts ...ably.ClientOption) (visitedHosts []string) {
+	setUpWithError := func(customErr error, opts ...ably.ClientOption) (visitedHosts []string) {
 		client, err := ably.NewRealtime(append(opts, ably.WithAutoConnect(false), ably.WithKey("fake:key"),
 			ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 				visitedHosts = append(visitedHosts, u.Hostname())
-				return nil, err
+				return nil, customErr
 			}))...)
 		require.NoError(t, err)
 		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventDisconnected), nil)

@@ -388,9 +388,14 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 
 	var conn conn
 	primaryHost := c.opts.getRealtimeHost()
-	fallbackHosts, _ := c.opts.getFallbackHosts()
+	hosts := []string{primaryHost}
+	fallbackHosts, err := c.opts.getFallbackHosts()
+	if err != nil {
+		c.log().Warn(err)
+	} else {
+		hosts = append(hosts, ablyutil.Shuffle(fallbackHosts)...)
+	}
 	// Always try primary host first and then fallback hosts for realtime conn
-	hosts := append([]string{primaryHost}, ablyutil.Shuffle(fallbackHosts)...)
 	for hostCounter, host := range hosts {
 		u, err := url.Parse(c.opts.realtimeURL(host))
 		if err != nil {
@@ -408,19 +413,19 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 		}
 		// if err is nil, raw connection with server is successful
 		conn, err = c.dial(proto, u)
-		if err == nil { // success
-			if host != primaryHost { // RTN17e
-				c.client.rest.setActiveRealtimeHost(host)
-			} else if !empty(c.client.rest.activeRealtimeHost) {
-				c.client.rest.setActiveRealtimeHost("") // reset to default
+		if err != nil {
+			resp := extractHttpResponseFromError(err)
+			if hostCounter < len(hosts)-1 && canFallBack(err, resp) && c.opts.hasActiveInternetConnection() { // RTN17d, RTN17c
+				continue
 			}
-			break
+			return nil, err
 		}
-		resp := extractHttpResponseFromError(err)
-		if hostCounter < len(hosts)-1 && canFallBack(err, resp) && c.opts.hasActiveInternetConnection() { // RTN17d, RTN17c
-			continue
+		if host != primaryHost { // RTN17e
+			c.client.rest.setActiveRealtimeHost(host)
+		} else if !empty(c.client.rest.activeRealtimeHost) {
+			c.client.rest.setActiveRealtimeHost("") // reset to default
 		}
-		return nil, err
+		break
 	}
 
 	c.mtx.Lock()
