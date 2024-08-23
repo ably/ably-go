@@ -1,6 +1,7 @@
 package ably
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -30,8 +31,9 @@ const (
 	TLSPort        = 443
 	maxMessageSize = 65536 // 64kb, default value TO3l8
 
+	// RTN17c
 	internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
-	internetCheckOk  = "yes\n"
+	internetCheckOk  = "yes"
 )
 
 var defaultOptions = clientOptions{
@@ -599,9 +601,10 @@ func (opts *clientOptions) idempotentRESTPublishing() bool {
 	return opts.IdempotentRESTPublishing
 }
 
+// RTN17c
 func (opts *clientOptions) hasActiveInternetConnection() bool {
 	res, err := opts.httpclient().Get(internetCheckUrl)
-	if err != nil {
+	if err != nil || res.StatusCode != 200 {
 		return false
 	}
 	defer res.Body.Close()
@@ -609,7 +612,7 @@ func (opts *clientOptions) hasActiveInternetConnection() bool {
 	if err != nil {
 		return false
 	}
-	return string(data) == internetCheckOk
+	return bytes.Contains(data, []byte(internetCheckOk))
 }
 
 type ScopeParams struct {
