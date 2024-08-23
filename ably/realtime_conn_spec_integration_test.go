@@ -1589,9 +1589,10 @@ func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
 		},
 	}
 
-	// No state change expected before a reauthorization and reconnection
-	// attempt.
-	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+	// Connecting state expected before a reauthorization and reconnection attempt.
+	var stateChange ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnecting, stateChange.Current)
 
 	// The DISCONNECTED causes a reauth, and dial again with the new
 	// token.
@@ -1669,6 +1670,12 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 		},
 	}
 
+	// Connecting state expected before a reauthorization and reconnection attempt.
+	var stateChange ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnecting, stateChange.Current)
+	assert.Equal(t, ably.ConnectionStateConnecting, c.Connection.State())
+
 	// The DISCONNECTED causes a reauth, and dial again with the new
 	// token.
 	var dialURL *url.URL
@@ -1684,12 +1691,87 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 		ConnectionDetails: &ably.ConnectionDetails{},
 	}
 
-	// Expect a UPDATED event.
+	// Expect a CONNECTED event from previous CONNECTING state
 
 	var change ably.ConnectionStateChange
 	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
 
-	assert.Equal(t, ably.ConnectionEventUpdate, change.Event,
+	assert.Equal(t, ably.ConnectionEventConnected, change.Event,
+		"expected UPDATED event; got %v", change)
+
+	// Expect no further events.break
+	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+}
+
+func TestRealtimeConn_RTN15h3_Success(t *testing.T) {
+	in := make(chan *ably.ProtocolMessage, 1)
+	out := make(chan *ably.ProtocolMessage, 16)
+	dials := make(chan *url.URL, 1)
+
+	c, _ := ably.NewRealtime(
+		ably.WithToken("fake:token"),
+		ably.WithAutoConnect(false),
+		ably.WithAuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+			return ably.TokenString("good:token"), nil
+		}),
+		ably.WithDial(func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+			dials <- u
+			return MessagePipe(in, out)(proto, u, timeout)
+		}))
+
+	in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &ably.ConnectionDetails{},
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf)
+
+	stateChanges := make(chan ably.ConnectionStateChange, 1)
+
+	off := c.Connection.OnAll(func(change ably.ConnectionStateChange) {
+		stateChanges <- change
+	})
+	defer off()
+
+	in <- &ably.ProtocolMessage{
+		Action: ably.ActionDisconnected,
+		Error: &ably.ProtoErrorInfo{
+			StatusCode: 506,
+			Code:       50600,
+			Message:    "server error",
+		},
+	}
+
+	// Connecting state expected before reconnection attempt.
+	var stateChange ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnecting, stateChange.Current)
+	assert.Equal(t, ably.ConnectionStateConnecting, c.Connection.State())
+
+	// The DISCONNECTED causes a reauth, and dial again with the existing token
+	var dialURL *url.URL
+	ablytest.Instantly.Recv(t, &dialURL, dials, t.Fatalf)
+
+	assert.Equal(t, "fake:token", dialURL.Query().Get("access_token"),
+		"expected fake:token; got %q", dialURL.Query().Get("access_token"))
+
+	// Simulate a successful reconnection.
+	in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "new-connection-id",
+		ConnectionDetails: &ably.ConnectionDetails{},
+	}
+
+	// Expect a CONNECTED event from previous CONNECTING state
+
+	var change ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+
+	assert.Equal(t, ably.ConnectionEventConnected, change.Event,
 		"expected UPDATED event; got %v", change)
 
 	// Expect no further events.break

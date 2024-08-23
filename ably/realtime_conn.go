@@ -805,6 +805,7 @@ func (c *Connection) eventloop() {
 			c.mtx.Unlock()
 
 			c.failedConnSideEffects(msg.Error)
+			return
 		case actionConnected:
 			c.mtx.Lock()
 
@@ -862,26 +863,29 @@ func (c *Connection) eventloop() {
 				c.callbacks.onReconnected(failedResumeOrRecover)
 			}
 			c.queue.Flush()
-		case actionDisconnected:
-			if !isTokenError(msg.Error) {
-				// The spec doesn't say what to do in this case, so do nothing.
-				// Ably is supposed to then close the transport, which will
-				// trigger a transition to DISCONNECTED.
-				continue
-			}
-
-			if !c.auth.isTokenRenewable() {
+		case actionDisconnected: // RTN15h
+			if isTokenError(msg.Error) {
 				// RTN15h1
-				c.failedConnSideEffects(msg.Error)
+				if !c.auth.isTokenRenewable() {
+					c.failedConnSideEffects(msg.Error)
+					return
+				}
+				// RTN15h2, RTN22a
+				c.setState(ConnectionStateConnecting, newErrorFromProto(msg.Error), 0)
+				c.reauthorize(connArgs{
+					lastActivityAt: lastActivityAt,
+					connDetails:    connDetails,
+				})
 				return
 			}
-
-			// RTN15h2, RTN22a
-			c.reauthorize(connArgs{
+			// RTN15h3
+			c.setState(ConnectionStateConnecting, newErrorFromProto(msg.Error), 0)
+			c.reconnect(connArgs{
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
 			})
 			return
+
 		case actionClosed:
 			c.mtx.Lock()
 			c.lockSetState(ConnectionStateClosed, nil, 0)
