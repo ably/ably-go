@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"mime"
 	"net"
@@ -841,13 +840,13 @@ func decode(typ string, r io.Reader, out interface{}) error {
 	case "application/json":
 		return json.NewDecoder(r).Decode(out)
 	case "application/x-msgpack":
-		b, err := ioutil.ReadAll(r)
+		b, err := io.ReadAll(r)
 		if err != nil {
 			return err
 		}
 		return ablyutil.UnmarshalMsgpack(b, out)
 	case "text/plain":
-		p, err := ioutil.ReadAll(r)
+		p, err := io.ReadAll(r)
 		if err != nil {
 			return err
 		}
@@ -864,7 +863,7 @@ func decodeResp(resp *http.Response, out interface{}) error {
 	if err != nil {
 		return err
 	}
-	b, _ := ioutil.ReadAll(resp.Body)
+	b, _ := io.ReadAll(resp.Body)
 
 	return decode(typ, bytes.NewReader(b), out)
 }

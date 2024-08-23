@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -48,7 +48,7 @@ func TestRestClient(t *testing.T) {
 			mockBody := []byte("{}")
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var err error
-				buffer, err = ioutil.ReadAll(r.Body)
+				buffer, err = io.ReadAll(r.Body)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -77,7 +77,7 @@ func TestRestClient(t *testing.T) {
 			mockBody := []byte{0x80}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var err error
-				buffer, err = ioutil.ReadAll(r.Body)
+				buffer, err = io.ReadAll(r.Body)
 				assert.NoError(t, err)
 				w.Header().Set("Content-Type", mockType)
 				w.WriteHeader(200)

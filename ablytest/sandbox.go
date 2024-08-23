@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -177,7 +177,7 @@ func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
 			defer resp.Body.Close()
 			if resp.StatusCode > 299 {
 				err := errors.New(http.StatusText(resp.StatusCode))
-				if p, e := ioutil.ReadAll(resp.Body); e == nil && len(p) != 0 {
+				if p, e := io.ReadAll(resp.Body); e == nil && len(p) != 0 {
 					err = fmt.Errorf("request error: %s (%q)", err, p)
 				}
 				return nil, err

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -47,7 +46,7 @@ func Query(req *http.Request) (url.Values, error) {
 	case "GET":
 		return req.URL.Query(), nil
 	case "POST":
-		p, err := ioutil.ReadAll(req.Body)
+		p, err := io.ReadAll(req.Body)
 		if err != nil {
 			return nil, err
 		}
