@@ -280,6 +280,11 @@ type DurationFromMsecs = durationFromMsecs
 type ProtoErrorInfo = errorInfo
 type ProtoFlag = protoFlag
 type ProtocolMessage = protocolMessage
+type WebsocketErr = websocketErr
+
+func (w *WebsocketErr) HttpResp() *http.Response {
+	return w.resp
+}
 
 const (
 	DefaultCipherKeyLength = defaultCipherKeyLength
