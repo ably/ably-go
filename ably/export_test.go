@@ -36,10 +36,6 @@ func (opts *clientOptions) RestURL() string {
 	return opts.restURL()
 }
 
-func (opts *clientOptions) RealtimeURL() string {
-	return opts.realtimeURL()
-}
-
 func (c *REST) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
 	return c.post(ctx, path, in, out)
 }
@@ -93,6 +89,10 @@ func (c *REST) GetCachedFallbackHost() string {
 	return c.hostCache.get()
 }
 
+func (c *REST) ActiveRealtimeHost() string {
+	return c.activeRealtimeHost
+}
+
 func (c *RealtimeChannel) GetChannelSerial() string {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
@@ -119,6 +119,10 @@ func (c *RealtimeChannel) SetState(chanState ChannelState) {
 
 func (opts *clientOptions) GetFallbackRetryTimeout() time.Duration {
 	return opts.fallbackRetryTimeout()
+}
+
+func (opts *clientOptions) HasActiveInternetConnection() bool {
+	return opts.hasActiveInternetConnection()
 }
 
 func NewErrorInfo(code ErrorCode, err error) *ErrorInfo {
@@ -222,6 +226,10 @@ func (c *Connection) SetKey(key string) {
 	c.key = key
 }
 
+func (r *Realtime) Rest() *REST {
+	return r.rest
+}
+
 func (c *RealtimePresence) Members() map[string]*PresenceMessage {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
@@ -272,6 +280,11 @@ type DurationFromMsecs = durationFromMsecs
 type ProtoErrorInfo = errorInfo
 type ProtoFlag = protoFlag
 type ProtocolMessage = protocolMessage
+type WebsocketErr = websocketErr
+
+func (w *WebsocketErr) HttpResp() *http.Response {
+	return w.resp
+}
 
 const (
 	DefaultCipherKeyLength = defaultCipherKeyLength

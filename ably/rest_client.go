@@ -6,13 +6,11 @@ import (
 	_ "crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"mime"
-	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -134,9 +132,10 @@ type REST struct {
 	//Channels is a [ably.RESTChannels] object (RSN1).
 	Channels *RESTChannels
 
-	opts      *clientOptions
-	hostCache *hostCache
-	log       logger
+	opts               *clientOptions
+	hostCache          *hostCache
+	activeRealtimeHost string // RTN17e
+	log                logger
 }
 
 // NewREST construct a RestClient object using an [ably.ClientOption] object to configure
@@ -193,6 +192,10 @@ func (c *REST) Time(ctx context.Context) (time.Time, error) {
 func (c *REST) Stats(o ...StatsOption) StatsRequest {
 	params := (&statsOptions{}).apply(o...)
 	return StatsRequest{r: c.newPaginatedRequest("/stats", "", params)}
+}
+
+func (c *REST) setActiveRealtimeHost(realtimeHost string) {
+	c.activeRealtimeHost = realtimeHost
 }
 
 // A StatsOption configures a call to REST.Stats or Realtime.Stats.
@@ -641,8 +644,12 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 	}
 	if h := c.hostCache.get(); h != "" {
 		req.URL.Host = h // RSC15f
-		c.log.Verbosef("RestClient: setting URL.Host=%q", h)
+		c.log.Verbosef("RestClient: setting cached URL.Host=%q", h)
+	} else if !empty(c.activeRealtimeHost) { // RTN17e
+		req.URL.Host = c.activeRealtimeHost
+		c.log.Verbosef("RestClient: setting activeRealtimeHost URL.Host=%q", c.activeRealtimeHost)
 	}
+
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
 		c.log.Verbose("RestClient: enabling httptrace")
@@ -739,17 +746,6 @@ func canFallBack(err error, res *http.Response) bool {
 	return isStatusCodeBetween500_504(res) || // RSC15l3
 		isCloudFrontError(res) || //RSC15l4
 		isTimeoutOrDnsErr(err) //RSC15l1, RSC15l2
-}
-
-func isTimeoutOrDnsErr(err error) bool {
-	var netErr net.Error
-	if errors.As(err, &netErr) {
-		if netErr.Timeout() { // RSC15l2
-			return true
-		}
-	}
-	var dnsErr *net.DNSError
-	return errors.As(err, &dnsErr) // RSC15l1
 }
 
 // RSC15l3
