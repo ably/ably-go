@@ -261,6 +261,21 @@ func (rec *MessageRecorder) CheckIfSent(action ably.ProtoAction, times int) func
 	}
 }
 
+func (rec *MessageRecorder) CheckIfReceived(action ably.ProtoAction, times int) func() bool {
+	return func() bool {
+		counter := 0
+		for _, m := range rec.Received() {
+			if m.Action == action {
+				counter++
+				if counter == times {
+					return true
+				}
+			}
+		}
+		return false
+	}
+}
+
 func (rec *MessageRecorder) FindFirst(action ably.ProtoAction) *ably.ProtocolMessage {
 	for _, m := range rec.Sent() {
 		if m.Action == action {

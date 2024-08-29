@@ -262,6 +262,10 @@ func (c *Connection) ConnectionStateTTL() time.Duration {
 	return c.connectionStateTTL()
 }
 
+func (r *Realtime) Logger() logger {
+	return r.log()
+}
+
 func NewInternalLogger(l Logger) logger {
 	return logger{l: l}
 }

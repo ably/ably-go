@@ -1778,6 +1778,56 @@ func TestRealtimeConn_RTN15h3_Success(t *testing.T) {
 	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
 }
 
+func TestRealtimeConn_RTN15h_Integration_ClientInitiatedAuth(t *testing.T) {
+	t.Parallel()
+	app, restClient := ablytest.NewREST()
+	defer safeclose(t, app)
+	recorder := NewMessageRecorder()
+
+	authCallbackTokens := []string{}
+	// Returns token that expires after 3 seconds causing disconnect every 3 seconds
+	authCallback := func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+		token, err := restClient.Auth.RequestToken(context.Background(), &ably.TokenParams{TTL: 3000})
+		authCallbackTokens = append(authCallbackTokens, token.Token)
+		return token, err
+	}
+
+	realtime, err := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithDial(recorder.Dial),
+		ably.WithEnvironment(ablytest.Environment),
+		ably.WithAuthCallback(authCallback))
+
+	assert.NoError(t, err)
+	defer realtime.Close()
+
+	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	for i := 0; i < 3; i++ {
+		err = ablytest.Wait(ablytest.ConnWaiter(realtime, nil, ably.ConnectionEventConnecting), nil)
+		var errorInfo *ably.ErrorInfo
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &errorInfo)
+		assert.Equal(t, 401, errorInfo.StatusCode)
+		assert.Equal(t, 40142, int(errorInfo.Code))
+		assert.ErrorContains(t, err, "token expired")
+		err = ablytest.Wait(ablytest.ConnWaiter(realtime, nil, ably.ConnectionEventConnected), nil)
+		assert.NoError(t, err)
+		assert.Equal(t, ably.ConnectionStateConnected, realtime.Connection.State())
+	}
+
+	assert.True(t, ablytest.Instantly.IsTrue(recorder.CheckIfReceived(ably.ActionDisconnected, 3)))
+	tokens := []string{}
+	assert.Len(t, recorder.URLs(), 4) // 4 connect attempts made in total, disconnect received after each one
+	for _, url := range recorder.URLs() {
+		tokens = append(tokens, url.Query().Get("access_token"))
+	}
+	assert.Len(t, tokens, 4) // 4 tokens explicitly requested and supplied for every attempt
+	assertUnique(t, tokens)  // Make sure all tokens are unique for every connection attempt
+	assert.ElementsMatch(t, authCallbackTokens, tokens)
+}
+
 func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 
 	in := make(chan *ably.ProtocolMessage, 1)
