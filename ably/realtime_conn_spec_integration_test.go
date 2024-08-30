@@ -175,7 +175,6 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 			"fake disconnection failed: %v", err)
 
 		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
-
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateSuspended), func(t *testing.T) {
@@ -1592,6 +1591,8 @@ func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
 	// Connecting state expected before a reauthorization and reconnection attempt.
 	var stateChange ably.ConnectionStateChange
 	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateDisconnected, stateChange.Current)
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
 	assert.Equal(t, ably.ConnectionStateConnecting, stateChange.Current)
 
 	// The DISCONNECTED causes a reauth, and dial again with the new
@@ -1673,6 +1674,8 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 	// Connecting state expected before a reauthorization and reconnection attempt.
 	var stateChange ably.ConnectionStateChange
 	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateDisconnected, stateChange.Current)
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
 	assert.Equal(t, ably.ConnectionStateConnecting, stateChange.Current)
 	assert.Equal(t, ably.ConnectionStateConnecting, c.Connection.State())
 
@@ -1749,6 +1752,8 @@ func TestRealtimeConn_RTN15h3_Success(t *testing.T) {
 	// Connecting state expected before reconnection attempt.
 	var stateChange ably.ConnectionStateChange
 	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateDisconnected, stateChange.Current)
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
 	assert.Equal(t, ably.ConnectionStateConnecting, stateChange.Current)
 	assert.Equal(t, ably.ConnectionStateConnecting, c.Connection.State())
 
@@ -1772,7 +1777,7 @@ func TestRealtimeConn_RTN15h3_Success(t *testing.T) {
 	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
 
 	assert.Equal(t, ably.ConnectionEventConnected, change.Event,
-		"expected UPDATED event; got %v", change)
+		"expected CONNECTED event; got %v", change)
 
 	// Expect no further events.break
 	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
@@ -1805,7 +1810,7 @@ func TestRealtimeConn_RTN15h_Integration_ClientInitiatedAuth(t *testing.T) {
 	assert.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
-		err = ablytest.Wait(ablytest.ConnWaiter(realtime, nil, ably.ConnectionEventConnecting), nil)
+		err = ablytest.Wait(ablytest.ConnWaiter(realtime, nil, ably.ConnectionEventDisconnected), nil)
 		var errorInfo *ably.ErrorInfo
 		assert.Error(t, err)
 		assert.ErrorAs(t, err, &errorInfo)

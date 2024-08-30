@@ -755,7 +755,7 @@ func (c *Connection) eventloop() {
 				c.mtx.Unlock()
 				return
 			}
-			// RTN23a
+			// RTN23a, RTN15a
 			c.lockSetState(ConnectionStateDisconnected, err, 0)
 			c.mtx.Unlock()
 			arg := connArgs{
@@ -871,7 +871,7 @@ func (c *Connection) eventloop() {
 					return
 				}
 				// RTN15h2, RTN22a
-				c.setState(ConnectionStateConnecting, newErrorFromProto(msg.Error), 0)
+				c.setState(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0)
 				c.reauthorize(connArgs{
 					lastActivityAt: lastActivityAt,
 					connDetails:    connDetails,
@@ -879,7 +879,7 @@ func (c *Connection) eventloop() {
 				return
 			}
 			// RTN15h3
-			c.setState(ConnectionStateConnecting, newErrorFromProto(msg.Error), 0)
+			c.setState(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0)
 			c.reconnect(connArgs{
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
