@@ -183,6 +183,9 @@ func (msg *protocolMessage) String() string {
 	case actionMessage:
 		return fmt.Sprintf("(action=%q, id=%q, messages=%v)", msg.Action,
 			msg.ConnectionID, msg.Messages)
+	case actionAuth:
+		return fmt.Sprintf("(action=%q, id=%q, auth=%v)", msg.Action,
+			msg.ConnectionID, msg.Auth)
 	default:
 		return fmt.Sprintf("%#v", msg)
 	}

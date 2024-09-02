@@ -272,6 +272,9 @@ func (rec *MessageRecorder) CheckIfReceived(action ably.ProtoAction, times int) 
 				}
 			}
 		}
+		if times == 0 && times == counter {
+			return true
+		}
 		return false
 	}
 }
