@@ -893,9 +893,10 @@ func (c *Connection) eventloop() {
 			if c.conn != nil {
 				c.conn.Close()
 			}
-		case actionAuth:
-			// RTN22
-			c.auth.Authorize(context.Background(), c.auth.params)
+		case actionAuth: // RTN22
+			canceledCtx, cancel := context.WithCancel(context.Background())
+			cancel() // Cancel context to unblock current eventloop to receieve new messages
+			c.auth.Authorize(canceledCtx, c.auth.params)
 		default:
 			c.callbacks.onChannelMsg(msg)
 		}
