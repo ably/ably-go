@@ -462,8 +462,9 @@ func (a *Auth) requestAuthURL(ctx context.Context, params *TokenParams, opts *au
 	if err != nil {
 		return nil, a.newError(40004, err)
 	}
+	// RSA4f
 	switch typ {
-	case "text/plain":
+	case "text/plain", "application/jwt":
 		token, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, a.newError(40000, err)
