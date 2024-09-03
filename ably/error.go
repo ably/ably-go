@@ -3,7 +3,7 @@ package ably
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net"
 	"net/http"
@@ -140,7 +140,7 @@ func statusCode(err error) int {
 }
 
 func errFromUnprocessableBody(resp *http.Response) error {
-	errMsg, err := ioutil.ReadAll(resp.Body)
+	errMsg, err := io.ReadAll(resp.Body)
 	if err == nil {
 		err = errors.New(string(errMsg))
 	}
