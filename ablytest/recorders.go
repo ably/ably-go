@@ -23,6 +23,13 @@ type RoundTripRecorder struct {
 	stopped int32
 }
 
+func NewHttpRecorder() (*RoundTripRecorder, []ably.ClientOption) {
+	rec := &RoundTripRecorder{}
+	httpClient := &http.Client{Transport: &http.Transport{}}
+	httpClient.Transport = rec.Hijack(httpClient.Transport)
+	return rec, []ably.ClientOption{ably.WithHTTPClient(httpClient)}
+}
+
 var _ http.RoundTripper = (*RoundTripRecorder)(nil)
 
 // Len gives number of recorded request/response pairs.

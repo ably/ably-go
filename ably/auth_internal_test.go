@@ -270,8 +270,8 @@ func TestRequestToken(t *testing.T) {
 			auth: &Auth{
 				clientID: "aClientID",
 				client: &REST{
-					successFallbackHost: &fallbackCache{},
-					log:                 logger{l: &stdLogger{mocklogger}},
+					hostCache: &hostCache{},
+					log:       logger{l: &stdLogger{mocklogger}},
 					opts: &clientOptions{authOptions: authOptions{
 						AuthURL: "foo.com",
 						Key:     "abc:def",
