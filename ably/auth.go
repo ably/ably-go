@@ -462,7 +462,7 @@ func (a *Auth) requestAuthURL(ctx context.Context, params *TokenParams, opts *au
 		return nil, a.newError(40004, err)
 	}
 	switch typ {
-	case "text/plain":
+	case "text/plain", "application/jwt":
 		token, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, a.newError(40000, err)
