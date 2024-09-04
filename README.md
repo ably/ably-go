@@ -433,11 +433,11 @@ Our [current approach to versioning](https://ably.com/documentation/client-lib-d
 
 ## Feature support
 
-This library targets the Ably 1.2 [client library specification](https://ably.com/docs/client-lib-development-guide/features). List of available features for our client library SDKs can be found on our [feature support matrix](https://ably.com/download/sdk-feature-support-matrix) page.
+This library targets the Ably 2.0.0 [client library specification](https://sdk.ably.com/builds/ably/specification/main/features/#CSV1). List of available features can be found on our [feature support matrix](https://sdk.ably.com/builds/ably/ably-go/main/features/) page.
 
 ## Known limitations
 
-As of release 1.2.0, the following are not implemented and will be covered in future 1.2.x releases. If there are features that are currently missing that are a high priority for your use-case then please [contact Ably customer support](https://ably.com/support). Pull Requests are also welcomed.
+As of latest release, the following features are not implemented and will be covered in future releases. If there are features that are currently missing that are a high priority for your use-case then please [contact Ably customer support](https://ably.com/support). Pull Requests are also welcomed.
 
 ### REST API
 
