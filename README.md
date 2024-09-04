@@ -388,7 +388,8 @@ ably.WithHTTPClient(&http.Client{
 })
 ```
 
-**Important Note** - Connection reliability is totally dependent on health of proxy server and ably will not be responsible for errors introduced by proxy server.
+**Important Note** - Connection reliability is totally dependent on health of proxy server and ably will not be responsible for errors introduced by proxy server. You may need to increase request timeouts in order to compensate for connection wait time period introduced by proxy server.
+e.g use of `WithHTTPRequestTimeout`, `WithRealtimeRequestTimeout`.
 
 ## Note on usage of ablytest package
 Although the `ablytest` package is available as a part of ably-go, we do not recommend using it as a sandbox for your own testing, since it's specifically intended for client library SDKs and we don’t provide any guarantees for support or that it will remain publicly accessible.
