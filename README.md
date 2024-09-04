@@ -326,6 +326,54 @@ if err != nil {
 fmt.Print(status, status.ChannelId)
 ```
 
+### Authentication
+- It is recommended to use `ABLY_KEY` at server side. Check [official ably auth documentation](https://ably.com/docs/auth) for more info.
+- `ABLY_KEY` should not be exposed at client side where it can be used for malicious purposes.
+- Server can use `ABLY_KEY` for initializing the `AblyRest` instance.
+
+```go
+restClient, err := ably.NewREST(ably.WithKey("API_KEY"))
+```
+- Token requests are issued by your servers and signed using your private API key.
+- This is the preferred method of authentication as no secrets are ever shared, and the token request can be issued to trusted clients without communicating with Ably.
+```go
+// e.g. Gin server endpoint
+router.GET("/token", getToken)
+func getToken(c *gin.Context) {
+    token, err := restClient.Auth.CreateTokenRequest(nil)
+    c.IndentedJSON(http.StatusOK, token)
+}
+
+```
+- You can also return JWT string token signed using `ABLY_KEY` as per [official ably JWT doc](https://ably.com/tutorials/jwt-authentication). When using `WithAuthURL` clientOption at client side, response contentType header should be set to either `text/plain` or `application/jwt`.
+
+### Using the Token auth at client side
+
+- You provide either `WithAuthCallback` or `WithAuthURL` as a clientOption to request token.
+
+```go
+authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+        // HTTP client impl. to fetch token, you can pass tokenParams based on your requirement
+        token, err := requestTokenFrom(ctx, "/token");
+        if err != nil {
+                return nil, err // You can also log error here
+        }
+        return token, err
+})
+
+```
+- If JWT token is returned by server
+```go
+authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+        jwtTokenString, err := requestTokenFrom(ctx, "/jwtToken");
+        if err != nil {
+                return nil, err // You can also log error here
+        }
+        return jwtTokenString, err // return standard jwt base64 encoded token that starts with "ey"
+})
+```
+- Check [official token auth documentation](https://ably.com/docs/auth/token?lang=csharp) for more information.
+
 ### Configure logging
 - By default, internal logger prints output to `stdout` with default logging level of `warning`.
 - You need to create a custom Logger that implements `ably.Logger` interface.
