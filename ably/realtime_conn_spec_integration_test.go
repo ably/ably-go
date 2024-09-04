@@ -3027,17 +3027,10 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		app := ablytest.MustSandbox(nil)
 		defer safeclose(t, app)
 
-		key, secret := app.KeyParts()
-		authParams := url.Values{}
-		authParams.Add("environment", app.Environment)
-		authParams.Add("returnType", "jwt")
-		authParams.Add("keyName", key)
-		authParams.Add("keySecret", secret)
-
 		rec, optn := ablytest.NewHttpRecorder()
 		rest, err := ably.NewREST(
-			ably.WithAuthURL("https://echo.ably.io/createJWT"),
-			ably.WithAuthParams(authParams),
+			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
+			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second)),
 			ably.WithEnvironment(app.Environment),
 			ably.WithKey(""),
 			optn[0],
@@ -3052,7 +3045,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 
 		// first request is jwt request
 		jwtRequest := rec.Request(0).URL
-		assert.Equal(t, "echo.ably.io/createJWT", jwtRequest.Host+jwtRequest.Path)
+		assert.Equal(t, ablytest.CREATE_JWT_URL, "https://"+jwtRequest.Host+jwtRequest.Path)
 		// response is jwt token
 		jwtResponse, err := io.ReadAll(rec.Response(0).Body)
 		assert.NoError(t, err)

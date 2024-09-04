@@ -256,6 +256,43 @@ func (app *Sandbox) URL(paths ...string) string {
 	return "https://" + app.Environment + "-rest.ably.io/" + path.Join(paths...)
 }
 
+// Source code for the same => https://github.com/ably/echoserver/blob/main/app.js
+var CREATE_JWT_URL string = "https://echo.ably.io/createJWT"
+
+// Returns authParams, required for authUrl as a mode of auth
+func (app *Sandbox) GetJwtAuthParams(expiresIn time.Duration) url.Values {
+	key, secret := app.KeyParts()
+	authParams := url.Values{}
+	authParams.Add("environment", app.Environment)
+	authParams.Add("returnType", "jwt")
+	authParams.Add("keyName", key)
+	authParams.Add("keySecret", secret)
+	authParams.Add("expiresIn", fmt.Sprint(expiresIn.Milliseconds()))
+	return authParams
+}
+
+// Returns JWT with given expiry
+func (app *Sandbox) CreateJwt(expiresIn time.Duration) (string, error) {
+	u, err := url.Parse(CREATE_JWT_URL)
+	if err != nil {
+		return "", err
+	}
+	u.RawQuery = app.GetJwtAuthParams(expiresIn).Encode()
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return "", fmt.Errorf("client: could not create request: %s", err)
+	}
+	res, err := app.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("client: error making http request: %s", err)
+	}
+	resBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("client: could not read response body: %s", err)
+	}
+	return string(resBody), nil
+}
+
 func NewHTTPClient() *http.Client {
 	const timeout = time.Minute
 	return &http.Client{
