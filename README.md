@@ -490,9 +490,6 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 
 - [Push notifications admin API](https://ably.com/docs/api/rest-sdk/push-admin) is not implemented.
 
-- [JWT authentication](https://ably.com/docs/auth/token?lang=javascript#jwt) using `auth-url` is not implemented.
-See [jwt auth issue](https://github.com/ably/ably-go/issues/569) for more details.
-
 ### Realtime API
 
 - Channel suspended state is partially implemented. See [suspended channel state](https://github.com/ably/ably-go/issues/568).
