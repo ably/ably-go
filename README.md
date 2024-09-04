@@ -345,15 +345,20 @@ func getToken(c *gin.Context) {
 }
 
 ```
-- You can also return JWT string token signed using `ABLY_KEY` as per [official ably JWT doc](https://ably.com/tutorials/jwt-authentication). When using `WithAuthURL` clientOption at client side, response contentType header should be set to either `text/plain` or `application/jwt`.
+
+- You can also return JWT string token signed using `ABLY_KEY` as per [official ably JWT doc](https://ably.com/tutorials/jwt-authentication).
+- When using `WithAuthURL` clientOption at client side, for JWT response, contentType header should be set to  `text/plain` or `application/jwt`. For `ably.TokenRequest`/ `ably.TokenDetails`, set it as  `application/json`.
 
 ### Using the Token auth at client side
 
-- You provide either `WithAuthCallback` or `WithAuthURL` as a clientOption to request token.
+- You can provide either `WithAuthCallback` or `WithAuthURL` as a clientOption to request token.
+- `WithAuthUrl` automatically decodes response based on response contentType.
 
 ```go
 authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
         // HTTP client impl. to fetch token, you can pass tokenParams based on your requirement
+        // Return token of type ably.TokenDetails, ably.TokenRequest or ably.TokenString
+        // This may need manually decoding tokens based on the response.
         token, err := requestTokenFrom(ctx, "/token");
         if err != nil {
                 return nil, err // You can also log error here
@@ -369,7 +374,7 @@ authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenPar
         if err != nil {
                 return nil, err // You can also log error here
         }
-        return jwtTokenString, err // return standard jwt base64 encoded token that starts with "ey"
+        return ably.TokenString(jwtTokenString), err // return jwt token that starts with "ey"
 })
 ```
 - Check [official token auth documentation](https://ably.com/docs/auth/token?lang=csharp) for more information.
