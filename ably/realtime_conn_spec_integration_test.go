@@ -1724,9 +1724,10 @@ func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.
 	recorder := NewMessageRecorder()
 
 	authCallbackTokens := []string{}
+	tokenExpiry := 3 * time.Second
 	// Returns token that expires after 3 seconds causing disconnect every 3 seconds
 	authCallback := func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
-		token, err := restClient.Auth.RequestToken(context.Background(), &ably.TokenParams{TTL: 3000})
+		token, err := restClient.Auth.RequestToken(context.Background(), &ably.TokenParams{TTL: tokenExpiry.Milliseconds()})
 		authCallbackTokens = append(authCallbackTokens, token.Token)
 		return token, err
 	}
@@ -1787,8 +1788,8 @@ func TestRealtimeConn_RTN22_RTC8_Integration_ServerInitiatedAuth(t *testing.T) {
 	// Server sends AUTH message 30 seconds before token expiry.
 	// So sending client token with expiry of 33 seconds, server will send AUTH msg after 3 seconds.
 	authCallback := func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
-		tokenExpiry := 33000
-		token, err := restClient.Auth.RequestToken(context.Background(), &ably.TokenParams{TTL: int64(tokenExpiry)})
+		tokenExpiry := 33 * time.Second
+		token, err := restClient.Auth.RequestToken(context.Background(), &ably.TokenParams{TTL: tokenExpiry.Milliseconds()})
 		authCallbackTokens = append(authCallbackTokens, token.Token)
 		return token, err
 	}
