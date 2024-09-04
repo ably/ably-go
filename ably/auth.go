@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
@@ -446,7 +445,7 @@ func (a *Auth) requestAuthURL(ctx context.Context, params *TokenParams, opts *au
 	case "POST":
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("Content-Length", strconv.Itoa(len(query)))
-		req.Body = ioutil.NopCloser(strings.NewReader(query))
+		req.Body = io.NopCloser(strings.NewReader(query))
 	default:
 		return nil, a.newError(40500, nil)
 	}
@@ -464,7 +463,7 @@ func (a *Auth) requestAuthURL(ctx context.Context, params *TokenParams, opts *au
 	}
 	switch typ {
 	case "text/plain":
-		token, err := ioutil.ReadAll(resp.Body)
+		token, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, a.newError(40000, err)
 		}

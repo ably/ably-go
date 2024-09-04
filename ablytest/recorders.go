@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -21,6 +20,13 @@ type RoundTripRecorder struct {
 	reqs    []*http.Request
 	resps   []*http.Response
 	stopped int32
+}
+
+func NewHttpRecorder() (*RoundTripRecorder, []ably.ClientOption) {
+	rec := &RoundTripRecorder{}
+	httpClient := &http.Client{Transport: &http.Transport{}}
+	httpClient.Transport = rec.Hijack(httpClient.Transport)
+	return rec, []ably.ClientOption{ably.WithHTTPClient(httpClient)}
 }
 
 var _ http.RoundTripper = (*RoundTripRecorder)(nil)
@@ -98,7 +104,7 @@ func (rec *RoundTripRecorder) Reset() {
 func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, error) {
 	var buf bytes.Buffer
 	if req.Body != nil {
-		req.Body = ioutil.NopCloser(io.TeeReader(req.Body, &buf))
+		req.Body = io.NopCloser(io.TeeReader(req.Body, &buf))
 	}
 	resp, err := rec.Transport.RoundTrip(req)
 	req.Body = body(buf.Bytes())
@@ -246,5 +252,5 @@ func (c realtimeIOCloser) Close() error {
 }
 
 func body(p []byte) io.ReadCloser {
-	return ioutil.NopCloser(bytes.NewReader(p))
+	return io.NopCloser(bytes.NewReader(p))
 }

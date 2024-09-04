@@ -3,7 +3,7 @@ package ably
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net"
 	"net/http"
@@ -140,11 +140,22 @@ func statusCode(err error) int {
 }
 
 func errFromUnprocessableBody(resp *http.Response) error {
-	errMsg, err := ioutil.ReadAll(resp.Body)
+	errMsg, err := io.ReadAll(resp.Body)
 	if err == nil {
 		err = errors.New(string(errMsg))
 	}
 	return &ErrorInfo{Code: ErrBadRequest, StatusCode: resp.StatusCode, err: err}
+}
+
+func isTimeoutOrDnsErr(err error) bool {
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() { // RSC15l2
+			return true
+		}
+	}
+	var dnsErr *net.DNSError
+	return errors.As(err, &dnsErr) // RSC15l1
 }
 
 func checkValidHTTPResponse(resp *http.Response) error {

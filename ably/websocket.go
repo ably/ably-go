@@ -24,6 +24,21 @@ type websocketConn struct {
 	proto proto
 }
 
+type websocketErr struct {
+	err  error
+	resp *http.Response
+}
+
+// websocketErr implements the builtin error interface.
+func (e *websocketErr) Error() string {
+	return e.err.Error()
+}
+
+// Unwrap implements the implicit interface that errors.Unwrap understands.
+func (e *websocketErr) Unwrap() error {
+	return e.err
+}
+
 func (ws *websocketConn) Send(msg *protocolMessage) error {
 	switch ws.proto {
 	case jsonProto:
@@ -88,16 +103,16 @@ func dialWebsocket(proto string, u *url.URL, timeout time.Duration, agents map[s
 		return nil, errors.New(`invalid protocol "` + proto + `"`)
 	}
 	// Starts a raw websocket connection with server
-	conn, err := dialWebsocketTimeout(u.String(), "https://"+u.Host, timeout, agents)
+	conn, resp, err := dialWebsocketTimeout(u.String(), "https://"+u.Host, timeout, agents)
 	if err != nil {
-		return nil, err
+		return nil, &websocketErr{err: err, resp: resp}
 	}
 	ws.conn = conn
 	return ws, nil
 }
 
 // dialWebsocketTimeout dials the websocket with a timeout.
-func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[string]string) (*websocket.Conn, error) {
+func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[string]string) (*websocket.Conn, *http.Response, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -105,13 +120,13 @@ func dialWebsocketTimeout(uri, origin string, timeout time.Duration, agents map[
 	ops.HTTPHeader = make(http.Header)
 	ops.HTTPHeader.Add(ablyAgentHeader, ablyAgentIdentifier(agents))
 
-	c, _, err := websocket.Dial(ctx, uri, &ops)
+	c, resp, err := websocket.Dial(ctx, uri, &ops)
 
 	if err != nil {
-		return nil, err
+		return nil, resp, err
 	}
 
-	return c, nil
+	return c, resp, nil
 }
 
 func unwrapConn(c conn) conn {
@@ -122,6 +137,14 @@ func unwrapConn(c conn) conn {
 		return c
 	}
 	return unwrapConn(u.Unwrap())
+}
+
+func extractHttpResponseFromError(err error) *http.Response {
+	wsErr, ok := err.(*websocketErr)
+	if ok {
+		return wsErr.resp
+	}
+	return nil
 }
 
 func setConnectionReadLimit(c conn, readLimit int64) error {

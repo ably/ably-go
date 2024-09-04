@@ -1,9 +1,11 @@
 package ably
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -28,6 +30,10 @@ const (
 	Port           = 80
 	TLSPort        = 443
 	maxMessageSize = 65536 // 64kb, default value TO3l8
+
+	// RTN17c
+	internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
+	internetCheckOk  = "yes"
 )
 
 var defaultOptions = clientOptions{
@@ -482,10 +488,10 @@ func (opts *clientOptions) restURL() (restUrl string) {
 	return "https://" + baseUrl
 }
 
-func (opts *clientOptions) realtimeURL() (realtimeUrl string) {
-	baseUrl := opts.getRealtimeHost()
+func (opts *clientOptions) realtimeURL(realtimeHost string) (realtimeUrl string) {
+	baseUrl := realtimeHost
 	_, _, err := net.SplitHostPort(baseUrl)
-	if err != nil { // set port if not set in baseUrl
+	if err != nil { // set port if not set in provided realtimeHost
 		port, _ := opts.activePort()
 		baseUrl = net.JoinHostPort(baseUrl, strconv.Itoa(port))
 	}
@@ -593,6 +599,20 @@ func (opts *clientOptions) protocol() string {
 
 func (opts *clientOptions) idempotentRESTPublishing() bool {
 	return opts.IdempotentRESTPublishing
+}
+
+// RTN17c
+func (opts *clientOptions) hasActiveInternetConnection() bool {
+	res, err := opts.httpclient().Get(internetCheckUrl)
+	if err != nil || res.StatusCode != 200 {
+		return false
+	}
+	defer res.Body.Close()
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		return false
+	}
+	return bytes.Contains(data, []byte(internetCheckOk))
 }
 
 type ScopeParams struct {

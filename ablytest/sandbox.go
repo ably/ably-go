@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -177,7 +177,7 @@ func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
 			defer resp.Body.Close()
 			if resp.StatusCode > 299 {
 				err := errors.New(http.StatusText(resp.StatusCode))
-				if p, e := ioutil.ReadAll(resp.Body); e == nil && len(p) != 0 {
+				if p, e := io.ReadAll(resp.Body); e == nil && len(p) != 0 {
 					err = fmt.Errorf("request error: %s (%q)", err, p)
 				}
 				return nil, err
@@ -241,14 +241,13 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 
 	// If opts want to record round trips inject the recording transport
 	// via TransportHijacker interface.
-	opt := MergeOptions(opts)
-	if httpClient := ClientOptionsInspector.HTTPClient(opt); httpClient != nil {
+	if httpClient := ClientOptionsInspector.HTTPClient(opts); httpClient != nil {
 		if hijacker, ok := httpClient.Transport.(transportHijacker); ok {
 			appHTTPClient.Transport = hijacker.Hijack(appHTTPClient.Transport)
-			opt = append(opt, ably.WithHTTPClient(appHTTPClient))
+			opts = append(opts, ably.WithHTTPClient(appHTTPClient))
 		}
 	}
-	appOpts = MergeOptions(appOpts, opt)
+	appOpts = MergeOptions(appOpts, opts)
 
 	return appOpts
 }

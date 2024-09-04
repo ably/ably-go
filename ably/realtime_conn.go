@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/ably/ably-go/ably/internal/ablyutil"
 )
 
 var (
@@ -62,7 +64,6 @@ type Connection struct {
 
 	msgSerial    int64
 	connStateTTL durationFromMsecs
-	err          error
 	conn         conn
 	opts         *clientOptions
 	pending      pendingEmitter
@@ -367,16 +368,15 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 }
 
 func (c *Connection) connectWith(arg connArgs) (result, error) {
+	connectMode := c.getMode()
+
 	c.mtx.Lock()
 	// set ably connection state to connecting, connecting state exists regardless of whether raw connection is successful or not
 	if !c.isActive() { // check if already in connecting state
 		c.lockSetState(ConnectionStateConnecting, nil, 0)
 	}
 	c.mtx.Unlock()
-	u, err := url.Parse(c.opts.realtimeURL())
-	if err != nil {
-		return nil, err
-	}
+
 	var res result
 	if arg.result {
 		res = c.internalEmitter.listenResult(
@@ -385,22 +385,47 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 			ConnectionStateDisconnected,
 		)
 	}
-	connectMode := c.getMode()
-	query, err := c.params(connectMode)
-	if err != nil {
-		return nil, err
-	}
-	u.RawQuery = query.Encode()
-	proto := c.opts.protocol()
 
-	if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
-		return nopResult, nil
-	}
-
-	// if err is nil, raw connection with server is successful
-	conn, err := c.dial(proto, u)
+	var conn conn
+	primaryHost := c.opts.getRealtimeHost()
+	hosts := []string{primaryHost}
+	fallbackHosts, err := c.opts.getFallbackHosts()
 	if err != nil {
-		return nil, err
+		c.log().Warn(err)
+	} else {
+		hosts = append(hosts, ablyutil.Shuffle(fallbackHosts)...)
+	}
+	// Always try primary host first and then fallback hosts for realtime conn
+	for hostCounter, host := range hosts {
+		u, err := url.Parse(c.opts.realtimeURL(host))
+		if err != nil {
+			return nil, err
+		}
+		query, err := c.params(connectMode)
+		if err != nil {
+			return nil, err
+		}
+		u.RawQuery = query.Encode()
+		proto := c.opts.protocol()
+
+		if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
+			return nopResult, nil
+		}
+		// if err is nil, raw connection with server is successful
+		conn, err = c.dial(proto, u)
+		if err != nil {
+			resp := extractHttpResponseFromError(err)
+			if hostCounter < len(hosts)-1 && canFallBack(err, resp) && c.opts.hasActiveInternetConnection() { // RTN17d, RTN17c
+				continue
+			}
+			return nil, err
+		}
+		if host != primaryHost { // RTN17e
+			c.client.rest.setActiveRealtimeHost(host)
+		} else if !empty(c.client.rest.activeRealtimeHost) {
+			c.client.rest.setActiveRealtimeHost("") // reset to default
+		}
+		break
 	}
 
 	c.mtx.Lock()
