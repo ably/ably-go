@@ -5,7 +5,6 @@ package ably_test
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -3024,39 +3023,56 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 	})
 
 	t.Run("RTC8a4: reauthorize with JWT token", func(t *testing.T) {
+		t.Parallel()
 		app := ablytest.MustSandbox(nil)
 		defer safeclose(t, app)
 
-		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(
-			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
-			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second)),
-			ably.WithEnvironment(app.Environment),
-			ably.WithKey(""),
-			optn[0],
-		)
+		authCallbackTokens := []string{}
+		tokenExpiry := 3 * time.Second
+		// Returns token that expires after 3 seconds causing disconnect every 3 seconds
+		authCallback := func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+			jwtTokenString, err := app.CreateJwt(tokenExpiry)
+			if err != nil {
+				return nil, err
+			}
+			authCallbackTokens = append(authCallbackTokens, jwtTokenString)
+			return ably.TokenString(jwtTokenString), nil
+		}
 
-		assert.NoError(t, err, "rest()=%v", err)
-		_, err = rest.Stats().Pages(context.Background())
-		assert.NoError(t, err, "Stats()=%v", err)
+		realtime, err := ably.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithAuthCallback(authCallback))
 
-		assert.Len(t, rec.Requests(), 2)
-		assert.Len(t, rec.Responses(), 2)
-
-		// first request is jwt request
-		jwtRequest := rec.Request(0).URL
-		assert.Equal(t, ablytest.CREATE_JWT_URL, "https://"+jwtRequest.Host+jwtRequest.Path)
-		// response is jwt token
-		jwtResponse, err := io.ReadAll(rec.Response(0).Body)
 		assert.NoError(t, err)
-		assert.Subset(t, jwtResponse, []byte("ey")) // JWT starts with ey
+		defer realtime.Close()
 
-		// Second request is made to stats with given jwt token (base64 encoded)
-		statsRequest := rec.Request(1)
-		assert.Equal(t, "/stats", statsRequest.URL.Path)
-		encodedToken := base64.StdEncoding.EncodeToString(jwtResponse)
+		err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
 		assert.NoError(t, err)
-		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
+
+		changes := make(ably.ConnStateChanges, 2)
+		off := realtime.Connection.OnAll(changes.Receive)
+		defer off()
+		var state ably.ConnectionStateChange
+
+		// Disconnects due to timeout
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventDisconnected, state.Event)
+		// Reconnect again using new JWT token
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventConnecting, state.Event)
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventConnected, state.Event)
+		assert.Nil(t, state.Reason)
+		assert.Equal(t, ably.ConnectionStateConnected, realtime.Connection.State())
+
+		ablytest.Instantly.NoRecv(t, nil, changes, t.Fatalf)
+
+		// Make sure requested tokens are JWT tokens
+		assert.Len(t, authCallbackTokens, 2)
+		assert.True(t, strings.HasPrefix(authCallbackTokens[0], "ey"))
+		assert.True(t, strings.HasPrefix(authCallbackTokens[1], "ey"))
+		assertUnique(t, authCallbackTokens)
 	})
 
 	t.Run("RTC8a2: Failed reauth moves connection to FAILED", func(t *testing.T) {

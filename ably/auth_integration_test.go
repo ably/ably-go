@@ -4,10 +4,12 @@
 package ably_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -340,6 +342,87 @@ func TestAuth_RequestToken(t *testing.T) {
 		assert.NoError(t, err,
 			"c.Stats()=%v (method=%s)", err, method)
 	}
+}
+
+func TestAuth_JWT_Token(t *testing.T) {
+
+	t.Run("Should be able to authenticate using authURL", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+
+		rec, optn := ablytest.NewHttpRecorder()
+		rest, err := ably.NewREST(
+			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
+			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second)),
+			ably.WithEnvironment(app.Environment),
+			ably.WithKey(""),
+			optn[0],
+		)
+
+		assert.NoError(t, err, "rest()=%v", err)
+		_, err = rest.Stats().Pages(context.Background())
+		assert.NoError(t, err, "Stats()=%v", err)
+
+		assert.Len(t, rec.Requests(), 2)
+		assert.Len(t, rec.Responses(), 2)
+
+		// first request is jwt request
+		jwtRequest := rec.Request(0).URL
+		assert.Equal(t, ablytest.CREATE_JWT_URL, "https://"+jwtRequest.Host+jwtRequest.Path)
+		// response is jwt token
+		jwtResponse, err := io.ReadAll(rec.Response(0).Body)
+		assert.NoError(t, err)
+		assert.True(t, bytes.HasPrefix(jwtResponse, []byte("ey")))
+
+		// Second request is made to stats with given jwt token (base64 encoded)
+		statsRequest := rec.Request(1)
+		assert.Equal(t, "/stats", statsRequest.URL.Path)
+		encodedToken := base64.StdEncoding.EncodeToString(jwtResponse)
+		assert.NoError(t, err)
+		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
+	})
+
+	t.Run("Should be able to authenticate using authCallback", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+
+		jwtToken := ""
+		authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+			jwtTokenString, err := app.CreateJwt(time.Second * 30)
+			jwtToken = jwtTokenString
+			if err != nil {
+				return nil, err
+			}
+			return ably.TokenString(jwtTokenString), nil
+		})
+
+		rec, optn := ablytest.NewHttpRecorder()
+		rest, err := ably.NewREST(
+			ably.WithEnvironment(app.Environment),
+			ably.WithKey(""),
+			authCallback,
+			optn[0],
+		)
+
+		assert.NoError(t, err, "rest()=%v", err)
+		_, err = rest.Stats().Pages(context.Background())
+		assert.NoError(t, err, "Stats()=%v", err)
+
+		assert.Len(t, rec.Requests(), 1)
+		assert.Len(t, rec.Responses(), 1)
+
+		assert.True(t, strings.HasPrefix(jwtToken, "ey"))
+		// Second request is made to stats with given jwt token (base64 encoded)
+		statsRequest := rec.Request(0)
+		assert.Equal(t, "/stats", statsRequest.URL.Path)
+		encodedToken := base64.StdEncoding.EncodeToString([]byte(jwtToken))
+		assert.NoError(t, err)
+		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
+	})
+
+	t.Run("Should return error when JWT is invalid", func(t *testing.T) {
+
+	})
 }
 
 func TestAuth_ReuseClientID(t *testing.T) {

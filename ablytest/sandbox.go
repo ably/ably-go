@@ -267,7 +267,7 @@ func (app *Sandbox) GetJwtAuthParams(expiresIn time.Duration) url.Values {
 	authParams.Add("returnType", "jwt")
 	authParams.Add("keyName", key)
 	authParams.Add("keySecret", secret)
-	authParams.Add("expiresIn", fmt.Sprint(expiresIn.Milliseconds()))
+	authParams.Add("expiresIn", fmt.Sprint(expiresIn.Seconds()))
 	return authParams
 }
 
