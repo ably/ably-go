@@ -5,6 +5,7 @@ package ably_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -3022,7 +3023,46 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 	})
 
 	t.Run("RTC8a4: reauthorize with JWT token", func(t *testing.T) {
-		t.Skip("not implemented")
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+
+		key, secret := app.KeyParts()
+		authParams := url.Values{}
+		authParams.Add("environment", app.Environment)
+		authParams.Add("returnType", "jwt")
+		authParams.Add("keyName", key)
+		authParams.Add("keySecret", secret)
+
+		rec, optn := ablytest.NewHttpRecorder()
+		rest, err := ably.NewREST(
+			ably.WithAuthURL("https://echo.ably.io/createJWT"),
+			ably.WithAuthParams(authParams),
+			ably.WithEnvironment(app.Environment),
+			ably.WithKey(""),
+			optn[0],
+		)
+
+		assert.NoError(t, err, "rest()=%v", err)
+		_, err = rest.Stats().Pages(context.Background())
+		assert.NoError(t, err, "Stats()=%v", err)
+
+		assert.Len(t, rec.Requests(), 2)
+		assert.Len(t, rec.Responses(), 2)
+
+		// first request is jwt request
+		jwtRequest := rec.Request(0).URL
+		assert.Equal(t, "echo.ably.io/createJWT", jwtRequest.Host+jwtRequest.Path)
+		// response is jwt token
+		jwtResponse, err := io.ReadAll(rec.Response(0).Body)
+		assert.NoError(t, err)
+		assert.Subset(t, jwtResponse, []byte("ey")) // JWT starts with ey
+
+		// Second request is made to stats with given jwt token (base64 encoded)
+		statsRequest := rec.Request(1)
+		assert.Equal(t, "/stats", statsRequest.URL.Path)
+		encodedToken := base64.StdEncoding.EncodeToString(jwtResponse)
+		assert.NoError(t, err)
+		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
 	})
 
 	t.Run("RTC8a2: Failed reauth moves connection to FAILED", func(t *testing.T) {
