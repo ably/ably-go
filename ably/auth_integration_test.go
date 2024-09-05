@@ -346,12 +346,32 @@ func TestAuth_RequestToken(t *testing.T) {
 
 func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 
-	t.Run("Get JWT from echo server", func(t *testing.T) {
+	t.Run("Get JWT from echo server and use it as token", func(t *testing.T) {
 		app := ablytest.MustSandbox(nil)
 		defer safeclose(t, app)
 		jwt, err := app.CreateJwt(3*time.Second, false)
 		assert.NoError(t, err)
 		assert.True(t, strings.HasPrefix(jwt, "ey"))
+
+		rec, optn := ablytest.NewHttpRecorder()
+		rest, err := ably.NewREST(
+			ably.WithToken(jwt),
+			ably.WithEnvironment(app.Environment),
+			ably.WithKey(""),
+			optn[0],
+		)
+		assert.NoError(t, err, "rest()=%v", err)
+
+		_, err = rest.Stats().Pages(context.Background())
+		assert.NoError(t, err, "Stats()=%v", err)
+
+		assert.Len(t, rec.Requests(), 1)
+		assert.Len(t, rec.Responses(), 1)
+
+		statsRequest := rec.Request(0)
+		assert.Equal(t, "/stats", statsRequest.URL.Path)
+		encodedToken := base64.StdEncoding.EncodeToString([]byte(jwt))
+		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
 	})
 
 	t.Run("RSA8g, RSA3d: Should be able to authenticate using authURL", func(t *testing.T) {
@@ -363,11 +383,10 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
 			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, false)),
 			ably.WithEnvironment(app.Environment),
-			ably.WithKey(""),
 			optn[0],
 		)
-
 		assert.NoError(t, err, "rest()=%v", err)
+
 		_, err = rest.Stats().Pages(context.Background())
 		assert.NoError(t, err, "Stats()=%v", err)
 
@@ -386,7 +405,6 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		statsRequest := rec.Request(1)
 		assert.Equal(t, "/stats", statsRequest.URL.Path)
 		encodedToken := base64.StdEncoding.EncodeToString(jwtResponse)
-		assert.NoError(t, err)
 		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
 	})
 
@@ -407,12 +425,11 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		rec, optn := ablytest.NewHttpRecorder()
 		rest, err := ably.NewREST(
 			ably.WithEnvironment(app.Environment),
-			ably.WithKey(""),
 			authCallback,
 			optn[0],
 		)
+		assert.NoError(t, err)
 
-		assert.NoError(t, err, "rest()=%v", err)
 		_, err = rest.Stats().Pages(context.Background())
 		assert.NoError(t, err, "Stats()=%v", err)
 
@@ -424,7 +441,6 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		statsRequest := rec.Request(0)
 		assert.Equal(t, "/stats", statsRequest.URL.Path)
 		encodedToken := base64.StdEncoding.EncodeToString([]byte(jwtToken))
-		assert.NoError(t, err)
 		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
 	})
 
@@ -437,14 +453,13 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
 			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, true)),
 			ably.WithEnvironment(app.Environment),
-			ably.WithKey(""),
 			optn[0],
 		)
-
 		assert.NoError(t, err, "rest()=%v", err)
+
 		_, err = rest.Stats().Pages(context.Background())
 		var errorInfo *ably.ErrorInfo
-		assert.Error(t, err, "Stats()=%v", err)
+		assert.Error(t, err)
 		assert.ErrorAs(t, err, &errorInfo)
 		assert.Equal(t, 40144, int(errorInfo.Code))
 		assert.Equal(t, 401, errorInfo.StatusCode)
