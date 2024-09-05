@@ -260,24 +260,28 @@ func (app *Sandbox) URL(paths ...string) string {
 var CREATE_JWT_URL string = "https://echo.ably.io/createJWT"
 
 // Returns authParams, required for authUrl as a mode of auth
-func (app *Sandbox) GetJwtAuthParams(expiresIn time.Duration) url.Values {
+func (app *Sandbox) GetJwtAuthParams(expiresIn time.Duration, invalid bool) url.Values {
 	key, secret := app.KeyParts()
 	authParams := url.Values{}
 	authParams.Add("environment", app.Environment)
 	authParams.Add("returnType", "jwt")
 	authParams.Add("keyName", key)
-	authParams.Add("keySecret", secret)
+	if invalid {
+		authParams.Add("keySecret", "invalid")
+	} else {
+		authParams.Add("keySecret", secret)
+	}
 	authParams.Add("expiresIn", fmt.Sprint(expiresIn.Seconds()))
 	return authParams
 }
 
 // Returns JWT with given expiry
-func (app *Sandbox) CreateJwt(expiresIn time.Duration) (string, error) {
+func (app *Sandbox) CreateJwt(expiresIn time.Duration, invalid bool) (string, error) {
 	u, err := url.Parse(CREATE_JWT_URL)
 	if err != nil {
 		return "", err
 	}
-	u.RawQuery = app.GetJwtAuthParams(expiresIn).Encode()
+	u.RawQuery = app.GetJwtAuthParams(expiresIn, invalid).Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		return "", fmt.Errorf("client: could not create request: %s", err)

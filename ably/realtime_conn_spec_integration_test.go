@@ -3031,7 +3031,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		tokenExpiry := 3 * time.Second
 		// Returns token that expires after 3 seconds causing disconnect every 3 seconds
 		authCallback := func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
-			jwtTokenString, err := app.CreateJwt(tokenExpiry)
+			jwtTokenString, err := app.CreateJwt(tokenExpiry, false)
 			if err != nil {
 				return nil, err
 			}

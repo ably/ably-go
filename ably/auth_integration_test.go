@@ -349,7 +349,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 	t.Run("Get JWT from echo server", func(t *testing.T) {
 		app := ablytest.MustSandbox(nil)
 		defer safeclose(t, app)
-		jwt, err := app.CreateJwt(3 * time.Second)
+		jwt, err := app.CreateJwt(3*time.Second, false)
 		assert.NoError(t, err)
 		assert.True(t, strings.HasPrefix(jwt, "ey"))
 	})
@@ -361,7 +361,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		rec, optn := ablytest.NewHttpRecorder()
 		rest, err := ably.NewREST(
 			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
-			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second)),
+			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, false)),
 			ably.WithEnvironment(app.Environment),
 			ably.WithKey(""),
 			optn[0],
@@ -396,7 +396,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 
 		jwtToken := ""
 		authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
-			jwtTokenString, err := app.CreateJwt(time.Second * 30)
+			jwtTokenString, err := app.CreateJwt(time.Second*30, false)
 			jwtToken = jwtTokenString
 			if err != nil {
 				return nil, err
@@ -428,8 +428,30 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
 	})
 
-	t.Run("Should return error when JWT is invalid", func(t *testing.T) {
+	t.Run("RSA4e, RSA4b: Should return error when JWT is invalid", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
 
+		rec, optn := ablytest.NewHttpRecorder()
+		rest, err := ably.NewREST(
+			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
+			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, true)),
+			ably.WithEnvironment(app.Environment),
+			ably.WithKey(""),
+			optn[0],
+		)
+
+		assert.NoError(t, err, "rest()=%v", err)
+		_, err = rest.Stats().Pages(context.Background())
+		var errorInfo *ably.ErrorInfo
+		assert.Error(t, err, "Stats()=%v", err)
+		assert.ErrorAs(t, err, &errorInfo)
+		assert.Equal(t, 40144, int(errorInfo.Code))
+		assert.Equal(t, 401, errorInfo.StatusCode)
+		assert.Contains(t, err.Error(), "invalid JWT format")
+
+		assert.Len(t, rec.Requests(), 2)
+		assert.Len(t, rec.Responses(), 2)
 	})
 }
 
