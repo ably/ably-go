@@ -344,9 +344,17 @@ func TestAuth_RequestToken(t *testing.T) {
 	}
 }
 
-func TestAuth_JWT_Token(t *testing.T) {
+func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 
-	t.Run("Should be able to authenticate using authURL", func(t *testing.T) {
+	t.Run("Get JWT from echo server", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+		jwt, err := app.CreateJwt(3 * time.Second)
+		assert.NoError(t, err)
+		assert.True(t, strings.HasPrefix(jwt, "ey"))
+	})
+
+	t.Run("RSA8g, RSA3d: Should be able to authenticate using authURL", func(t *testing.T) {
 		app := ablytest.MustSandbox(nil)
 		defer safeclose(t, app)
 
@@ -382,7 +390,7 @@ func TestAuth_JWT_Token(t *testing.T) {
 		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
 	})
 
-	t.Run("Should be able to authenticate using authCallback", func(t *testing.T) {
+	t.Run("RSA8g, RSA3d: Should be able to authenticate using authCallback", func(t *testing.T) {
 		app := ablytest.MustSandbox(nil)
 		defer safeclose(t, app)
 

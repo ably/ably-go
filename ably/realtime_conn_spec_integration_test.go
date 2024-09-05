@@ -3022,7 +3022,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		ablytest.Instantly.Recv(t, nil, authorizeDone, t.Fatalf)
 	})
 
-	t.Run("RTC8a4: reauthorize with JWT token", func(t *testing.T) {
+	t.Run("RTC8a4, RSA3d: reauthorize with JWT token", func(t *testing.T) {
 		t.Parallel()
 		app := ablytest.MustSandbox(nil)
 		defer safeclose(t, app)
@@ -3039,9 +3039,11 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 			return ably.TokenString(jwtTokenString), nil
 		}
 
+		realtimeMsgRecorder := NewMessageRecorder()
 		realtime, err := ably.NewRealtime(
 			ably.WithAutoConnect(false),
 			ably.WithEnvironment(ablytest.Environment),
+			ably.WithDial(realtimeMsgRecorder.Dial),
 			ably.WithAuthCallback(authCallback))
 
 		assert.NoError(t, err)
@@ -3073,6 +3075,10 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		assert.True(t, strings.HasPrefix(authCallbackTokens[0], "ey"))
 		assert.True(t, strings.HasPrefix(authCallbackTokens[1], "ey"))
 		assertUnique(t, authCallbackTokens)
+		// 2 Dial attempts made
+		assert.Len(t, realtimeMsgRecorder.URLs(), 2)
+		assert.Equal(t, authCallbackTokens[0], realtimeMsgRecorder.URLs()[0].Query().Get("access_token"))
+		assert.Equal(t, authCallbackTokens[1], realtimeMsgRecorder.URLs()[1].Query().Get("access_token"))
 	})
 
 	t.Run("RTC8a2: Failed reauth moves connection to FAILED", func(t *testing.T) {
