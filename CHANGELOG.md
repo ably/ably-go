@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.2.20](https://github.com/ably/ably-go/tree/v1.2.20)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.19...v1.2.20)
+
+**Implemented enhancements:**
+
+- RTN17: Realtime Host fallback [\#225](https://github.com/ably/ably-go/issues/225)
+
+**Closed issues:**
+
+- Rest fallback RSC15 [\#658](https://github.com/ably/ably-go/issues/658)
+- Rest/Realtime proxy support [\#652](https://github.com/ably/ably-go/issues/652)
+- Fix skipped presence integration tests for ENTER, UPDATE and LEAVE [\#651](https://github.com/ably/ably-go/issues/651)
+- RTN22, RTC8: Server-initiated reauth [\#228](https://github.com/ably/ably-go/issues/228)
+
 ## [1.2.19](https://github.com/ably/ably-go/tree/v1.2.19)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.18...v1.2.19)
