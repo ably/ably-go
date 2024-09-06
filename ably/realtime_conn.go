@@ -112,7 +112,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *R
 		readLimit: maxMessageSize,
 		recover:   opts.Recover,
 	}
-	auth.onExplicitAuthorize = c.onClientAuthorize
+	auth.onExplicitAuthorize = c.onExplicitAuthorize
 	c.queue = newMsgQueue(c)
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)
@@ -780,7 +780,7 @@ func (c *Connection) eventloop() {
 				c.mtx.Unlock()
 				return
 			}
-			// RTN23a
+			// RTN23a, RTN15a
 			c.lockSetState(ConnectionStateDisconnected, err, 0)
 			c.mtx.Unlock()
 			arg := connArgs{
@@ -830,6 +830,7 @@ func (c *Connection) eventloop() {
 			c.mtx.Unlock()
 
 			c.failedConnSideEffects(msg.Error)
+			return
 		case actionConnected:
 			c.mtx.Lock()
 
@@ -887,26 +888,29 @@ func (c *Connection) eventloop() {
 				c.callbacks.onReconnected(failedResumeOrRecover)
 			}
 			c.queue.Flush()
-		case actionDisconnected:
-			if !isTokenError(msg.Error) {
-				// The spec doesn't say what to do in this case, so do nothing.
-				// Ably is supposed to then close the transport, which will
-				// trigger a transition to DISCONNECTED.
-				continue
-			}
-
-			if !c.auth.isTokenRenewable() {
+		case actionDisconnected: // RTN15h
+			if isTokenError(msg.Error) {
 				// RTN15h1
-				c.failedConnSideEffects(msg.Error)
+				if !c.auth.isTokenRenewable() {
+					c.failedConnSideEffects(msg.Error)
+					return
+				}
+				// RTN15h2, RTN22a
+				c.setState(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0)
+				c.reauthorize(connArgs{
+					lastActivityAt: lastActivityAt,
+					connDetails:    connDetails,
+				})
 				return
 			}
-
-			// RTN15h2
-			c.reauthorize(connArgs{
+			// RTN15h3
+			c.setState(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0)
+			c.reconnect(connArgs{
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
 			})
 			return
+
 		case actionClosed:
 			c.mtx.Lock()
 			c.lockSetState(ConnectionStateClosed, nil, 0)
@@ -914,6 +918,10 @@ func (c *Connection) eventloop() {
 			if c.conn != nil {
 				c.conn.Close()
 			}
+		case actionAuth: // RTN22
+			canceledCtx, cancel := context.WithCancel(context.Background())
+			cancel() // Cancel context to unblock current eventloop to receieve new messages
+			c.auth.Authorize(canceledCtx, c.auth.params)
 		default:
 			c.callbacks.onChannelMsg(msg)
 		}
@@ -952,8 +960,30 @@ func (c *Connection) reauthorize(arg connArgs) {
 	c.reconnect(arg)
 }
 
-func (c *Connection) onClientAuthorize(ctx context.Context, token *TokenDetails) {
-	switch c.State() {
+func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetails) error {
+	switch state := c.State(); state {
+	case ConnectionStateConnecting:
+		// RTC8b says: "all current connection attempts should be halted, and
+		// after obtaining a new token the library should immediately initiate a
+		// connection attempt using the new token". But the WebSocket library
+		// doesn't really allow us to halt the connection attempt. Instead, once
+		// the connection transitions out of CONNECTING (either to CONNECTED or
+		// to a failure state), we attempt to connect again, which will use
+		// the new token.
+		c.log().Info("client-requested authorization while CONNECTING. Will reconnect with new token.")
+		done := make(chan error)
+
+		c.internalEmitter.OnceAll(func(_ ConnectionStateChange) {
+			done <- c.onExplicitAuthorize(ctx, token)
+		})
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-done:
+			return err
+		}
+
 	case ConnectionStateConnected:
 		c.log().Verbosef("starting client-requested reauthorization with token: %+v", token)
 
@@ -974,9 +1004,38 @@ func (c *Connection) onClientAuthorize(ctx context.Context, token *TokenDetails)
 
 		select {
 		case <-ctx.Done():
-		case <-changes:
+			return ctx.Err()
+		case change := <-changes:
+			return change.Reason.unwrapNil()
+		}
+
+	case
+		ConnectionStateDisconnected,
+		ConnectionStateSuspended,
+		ConnectionStateFailed,
+		ConnectionStateClosed:
+		c.log().Infof("client-requested authorization while %s: connecting with new token", state)
+
+		done := make(chan error)
+		c.internalEmitter.OnceAll(func(change ConnectionStateChange) {
+			if change.Current == ConnectionStateConnecting {
+				done <- c.onExplicitAuthorize(ctx, token)
+			} else {
+				done <- change.Reason.unwrapNil()
+			}
+		})
+
+		c.Connect()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-done:
+			return err
 		}
 	}
+
+	return nil
 }
 
 func (c *Connection) lockedReauthorizationFailed(err error) {

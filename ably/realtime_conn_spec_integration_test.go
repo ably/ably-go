@@ -176,7 +176,6 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 			"fake disconnection failed: %v", err)
 
 		ablytest.Soon.Recv(t, nil, changes, t.Fatalf)
-
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateSuspended), func(t *testing.T) {
@@ -1523,9 +1522,12 @@ func TestRealtimeConn_RTN15h2_ReauthWithBadToken(t *testing.T) {
 		},
 	}
 
-	// No state change expected before a reauthorization and reconnection
-	// attempt.
-	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+	// Connecting state expected before a reauthorization and reconnection attempt.
+	var stateChange ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateDisconnected, stateChange.Current)
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnecting, stateChange.Current)
 
 	// The DISCONNECTED causes a reauth, and dial again with the new
 	// token.
@@ -1603,6 +1605,14 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 		},
 	}
 
+	// Connecting state expected before a reauthorization and reconnection attempt.
+	var stateChange ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateDisconnected, stateChange.Current)
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnecting, stateChange.Current)
+	assert.Equal(t, ably.ConnectionStateConnecting, c.Connection.State())
+
 	// The DISCONNECTED causes a reauth, and dial again with the new
 	// token.
 	var dialURL *url.URL
@@ -1618,16 +1628,213 @@ func TestRealtimeConn_RTN15h2_Success(t *testing.T) {
 		ConnectionDetails: &ably.ConnectionDetails{},
 	}
 
-	// Expect a UPDATED event.
+	// Expect a CONNECTED event from previous CONNECTING state
 
 	var change ably.ConnectionStateChange
 	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
 
-	assert.Equal(t, ably.ConnectionEventUpdate, change.Event,
+	assert.Equal(t, ably.ConnectionEventConnected, change.Event,
 		"expected UPDATED event; got %v", change)
 
 	// Expect no further events.break
 	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+}
+
+func TestRealtimeConn_RTN15h3_Success(t *testing.T) {
+	in := make(chan *ably.ProtocolMessage, 1)
+	out := make(chan *ably.ProtocolMessage, 16)
+	dials := make(chan *url.URL, 1)
+
+	c, _ := ably.NewRealtime(
+		ably.WithToken("fake:token"),
+		ably.WithAutoConnect(false),
+		ably.WithAuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+			return ably.TokenString("good:token"), nil
+		}),
+		ably.WithDial(func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+			dials <- u
+			return MessagePipe(in, out)(proto, u, timeout)
+		}))
+
+	in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &ably.ConnectionDetails{},
+	}
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	ablytest.Instantly.Recv(t, nil, dials, t.Fatalf)
+
+	stateChanges := make(chan ably.ConnectionStateChange, 1)
+
+	off := c.Connection.OnAll(func(change ably.ConnectionStateChange) {
+		stateChanges <- change
+	})
+	defer off()
+
+	in <- &ably.ProtocolMessage{
+		Action: ably.ActionDisconnected,
+		Error: &ably.ProtoErrorInfo{
+			StatusCode: 506,
+			Code:       50600,
+			Message:    "server error",
+		},
+	}
+
+	// Connecting state expected before reconnection attempt.
+	var stateChange ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateDisconnected, stateChange.Current)
+	ablytest.Instantly.Recv(t, &stateChange, stateChanges, t.Fatalf)
+	assert.Equal(t, ably.ConnectionStateConnecting, stateChange.Current)
+	assert.Equal(t, ably.ConnectionStateConnecting, c.Connection.State())
+
+	// The DISCONNECTED causes a reauth, and dial again with the existing token
+	var dialURL *url.URL
+	ablytest.Instantly.Recv(t, &dialURL, dials, t.Fatalf)
+
+	assert.Equal(t, "fake:token", dialURL.Query().Get("access_token"),
+		"expected fake:token; got %q", dialURL.Query().Get("access_token"))
+
+	// Simulate a successful reconnection.
+	in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "new-connection-id",
+		ConnectionDetails: &ably.ConnectionDetails{},
+	}
+
+	// Expect a CONNECTED event from previous CONNECTING state
+
+	var change ably.ConnectionStateChange
+	ablytest.Instantly.Recv(t, &change, stateChanges, t.Fatalf)
+
+	assert.Equal(t, ably.ConnectionEventConnected, change.Event,
+		"expected CONNECTED event; got %v", change)
+
+	// Expect no further events.break
+	ablytest.Instantly.NoRecv(t, nil, stateChanges, t.Fatalf)
+}
+
+func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.T) {
+	t.Parallel()
+	app, restClient := ablytest.NewREST()
+	defer safeclose(t, app)
+	recorder := NewMessageRecorder()
+
+	authCallbackTokens := []string{}
+	tokenExpiry := 3 * time.Second
+	// Returns token that expires after 3 seconds causing disconnect every 3 seconds
+	authCallback := func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+		token, err := restClient.Auth.RequestToken(context.Background(), &ably.TokenParams{TTL: tokenExpiry.Milliseconds()})
+		authCallbackTokens = append(authCallbackTokens, token.Token)
+		return token, err
+	}
+
+	realtime, err := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithDial(recorder.Dial),
+		ably.WithEnvironment(ablytest.Environment),
+		ably.WithAuthCallback(authCallback))
+
+	assert.NoError(t, err)
+	defer realtime.Close()
+
+	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	changes := make(ably.ConnStateChanges, 2)
+	off := realtime.Connection.OnAll(changes.Receive)
+	defer off()
+	var state ably.ConnectionStateChange
+
+	for i := 0; i < 3; i++ {
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventDisconnected, state.Event)
+		assert.Equal(t, ably.ConnectionStateDisconnected, state.Current)
+		assert.Error(t, state.Reason)
+		assert.Equal(t, 401, state.Reason.StatusCode)
+		assert.Equal(t, 40142, int(state.Reason.Code))
+		assert.ErrorContains(t, state.Reason, "token expired")
+
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventConnecting, state.Event)
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventConnected, state.Event)
+		assert.Nil(t, state.Reason)
+		assert.Equal(t, ably.ConnectionStateConnected, realtime.Connection.State())
+	}
+	ablytest.Instantly.NoRecv(t, nil, changes, t.Fatalf)
+	assert.True(t, ablytest.Instantly.IsTrue(recorder.CheckIfReceived(ably.ActionDisconnected, 3)))
+
+	tokens := []string{}
+	assert.Len(t, recorder.URLs(), 4) // 4 connect attempts made in total, disconnect received after each one
+	for _, url := range recorder.URLs() {
+		tokens = append(tokens, url.Query().Get("access_token"))
+	}
+	assert.Len(t, tokens, 4) // 4 tokens explicitly requested and supplied for every attempt
+	assertUnique(t, tokens)  // Make sure all tokens are unique for every connection attempt
+	assert.ElementsMatch(t, authCallbackTokens, tokens)
+}
+
+func TestRealtimeConn_RTN22_RTC8_Integration_ServerInitiatedAuth(t *testing.T) {
+	app, restClient := ablytest.NewREST()
+	defer safeclose(t, app)
+
+	recorder := NewMessageRecorder()
+	authCallbackTokens := []string{}
+
+	// Server sends AUTH message 30 seconds before token expiry.
+	// So sending client token with expiry of 33 seconds, server will send AUTH msg after 3 seconds.
+	authCallback := func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+		tokenExpiry := 33 * time.Second
+		token, err := restClient.Auth.RequestToken(context.Background(), &ably.TokenParams{TTL: tokenExpiry.Milliseconds()})
+		authCallbackTokens = append(authCallbackTokens, token.Token)
+		return token, err
+	}
+
+	realtime, err := ably.NewRealtime(
+		ably.WithAutoConnect(false),
+		ably.WithDial(recorder.Dial),
+		ably.WithUseBinaryProtocol(false),
+		ably.WithEnvironment(ablytest.Environment),
+		ably.WithAuthCallback(authCallback))
+
+	assert.NoError(t, err)
+	defer realtime.Close()
+
+	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	changes := make(ably.ConnStateChanges, 2)
+	off := realtime.Connection.OnAll(changes.Receive)
+	defer off()
+	var state ably.ConnectionStateChange
+
+	for i := 0; i < 3; i++ {
+		// auth msg sent by ably server every 3 seconds, so connection is updated by client
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventUpdate, state.Event)
+		assert.Equal(t, ably.ConnectionStateConnected, state.Previous)
+		assert.Nil(t, state.Reason)
+		assert.Equal(t, ably.ConnectionStateConnected, realtime.Connection.State())
+		assert.True(t, ablytest.Instantly.IsTrue(recorder.CheckIfReceived(ably.ActionAuth, i+1)))
+	}
+	ablytest.Instantly.NoRecv(t, nil, changes, t.Fatalf)
+	assert.True(t, ablytest.Instantly.IsTrue(recorder.CheckIfReceived(ably.ActionDisconnected, 0)))
+
+	// Only one dial attempt
+	tokens := []string{}
+	assert.Len(t, recorder.URLs(), 1)
+	for _, url := range recorder.URLs() {
+		tokens = append(tokens, url.Query().Get("access_token"))
+	}
+	assert.Len(t, tokens, 1)
+
+	assert.Len(t, authCallbackTokens, 4)
+	assert.Equal(t, tokens[0], authCallbackTokens[0])
+	assertUnique(t, authCallbackTokens)
 }
 
 func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {

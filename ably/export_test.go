@@ -266,6 +266,10 @@ func (c *Connection) ConnectionStateTTL() time.Duration {
 	return c.connectionStateTTL()
 }
 
+func (r *Realtime) Logger() logger {
+	return r.log()
+}
+
 func NewInternalLogger(l Logger) logger {
 	return logger{l: l}
 }
@@ -319,6 +323,7 @@ const (
 	ActionPresence     = actionPresence
 	ActionMessage      = actionMessage
 	ActionSync         = actionSync
+	ActionAuth         = actionAuth
 
 	FlagHasPresence       = flagHasPresence
 	FlagHasBacklog        = flagHasBacklog

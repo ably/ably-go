@@ -447,9 +447,6 @@ See [jwt auth issue](https://github.com/ably/ably-go/issues/569) for more detail
 
 ### Realtime API
 
-- Inband reauthentication is not supported; expiring tokens will trigger a disconnection and resume of a realtime
-  connection. See [server initiated auth](https://github.com/ably/ably-go/issues/228) for more details.
-
 - Channel suspended state is partially implemented. See [suspended channel state](https://github.com/ably/ably-go/issues/568).
 
 - Realtime Ping function is not implemented.
