@@ -259,7 +259,14 @@ func (app *Sandbox) URL(paths ...string) string {
 // Source code for the same => https://github.com/ably/echoserver/blob/main/app.js
 var CREATE_JWT_URL string = "https://echo.ably.io/createJWT"
 
-// Returns authParams, required for authUrl as a mode of auth
+// GetJwtAuthParams constructs the authentication parameters required for JWT creation.
+// Required when authUrl is chosen as a mode of auth
+//
+// Parameters:
+// - expiresIn: The duration until the JWT expires.
+// - invalid: A boolean flag indicating whether to use an invalid key secret.
+//
+// Returns: A url.Values object containing the authentication parameters.
 func (app *Sandbox) GetJwtAuthParams(expiresIn time.Duration, invalid bool) url.Values {
 	key, secret := app.KeyParts()
 	authParams := url.Values{}
@@ -275,7 +282,15 @@ func (app *Sandbox) GetJwtAuthParams(expiresIn time.Duration, invalid bool) url.
 	return authParams
 }
 
-// Returns JWT with given expiry
+// CreateJwt generates a JWT with the specified expiration time.
+//
+// Parameters:
+// - expiresIn: The duration until the JWT expires.
+// - invalid: A boolean flag indicating whether to use an invalid key secret.
+//
+// Returns:
+// - A string containing the generated JWT.
+// - An error if the JWT creation fails.
 func (app *Sandbox) CreateJwt(expiresIn time.Duration, invalid bool) (string, error) {
 	u, err := url.Parse(CREATE_JWT_URL)
 	if err != nil {
@@ -288,11 +303,16 @@ func (app *Sandbox) CreateJwt(expiresIn time.Duration, invalid bool) (string, er
 	}
 	res, err := app.client.Do(req)
 	if err != nil {
+		res.Body.Close()
 		return "", fmt.Errorf("client: error making http request: %s", err)
 	}
+	defer res.Body.Close()
 	resBody, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", fmt.Errorf("client: could not read response body: %s", err)
+	}
+	if res.StatusCode != 200 {
+		return "", fmt.Errorf("non-success response received: %v:%s", res.StatusCode, resBody)
 	}
 	return string(resBody), nil
 }
