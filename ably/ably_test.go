@@ -272,7 +272,8 @@ func (rec *MessageRecorder) CheckIfReceived(action ably.ProtoAction, times int) 
 				}
 			}
 		}
-		if times == 0 && times == counter {
+		// Check if no msg of given action type received
+		if times == 0 && counter == 0 {
 			return true
 		}
 		return false
