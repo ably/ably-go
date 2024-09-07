@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -346,7 +347,39 @@ func TestAuth_RequestToken(t *testing.T) {
 
 func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 
-	t.Run("Get JWT from echo server and use it as token", func(t *testing.T) {
+	t.Run("Get JWT from echo server", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+		jwt, err := app.CreateJwt(3*time.Second, false)
+		assert.NoError(t, err)
+		assert.True(t, strings.HasPrefix(jwt, "ey"))
+
+		// JWT header assertions
+		header := strings.Split(jwt, ".")[0]
+		jwtToken, err := base64.RawStdEncoding.DecodeString(header)
+		assert.NoError(t, err)
+		var result map[string]interface{}
+		err = json.Unmarshal(jwtToken, &result)
+		assert.NoError(t, err)
+		assert.Equal(t, "HS256", result["alg"])
+		assert.Equal(t, "JWT", result["typ"])
+		assert.Contains(t, result, "kid")
+		assert.NoError(t, err)
+
+		// JWT payload assertions
+		payload := strings.Split(jwt, ".")[1]
+		jwtToken, err = base64.RawStdEncoding.DecodeString(payload)
+		assert.NoError(t, err)
+		err = json.Unmarshal(jwtToken, &result)
+		assert.NoError(t, err)
+		assert.Contains(t, result, "iat")
+		assert.Contains(t, result, "exp")
+
+		// check expiry of 3 seconds
+		assert.Equal(t, float64(3), result["exp"].(float64)-result["iat"].(float64))
+	})
+
+	t.Run("Should be able to use it as a token", func(t *testing.T) {
 		app := ablytest.MustSandbox(nil)
 		defer safeclose(t, app)
 		jwt, err := app.CreateJwt(3*time.Second, false)
@@ -357,7 +390,6 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		rest, err := ably.NewREST(
 			ably.WithToken(jwt),
 			ably.WithEnvironment(app.Environment),
-			ably.WithKey(""),
 			optn[0],
 		)
 		assert.NoError(t, err, "rest()=%v", err)
