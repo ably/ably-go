@@ -449,6 +449,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 			jwtTokenString, err := app.CreateJwt(time.Second*30, false)
 			jwtToken = jwtTokenString
 			if err != nil {
+				t.Fatalf("Error creating JWT: %v", err)
 				return nil, err
 			}
 			return ably.TokenString(jwtTokenString), nil
