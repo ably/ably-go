@@ -327,15 +327,15 @@ fmt.Print(status, status.ChannelId)
 ```
 
 ### Authentication
-- It is recommended to use `ABLY_KEY` at server side. Check [official ably auth documentation](https://ably.com/docs/auth) for more info.
-- `ABLY_KEY` should not be exposed at client side where it can be used for malicious purposes.
-- Server can use `ABLY_KEY` for initializing the `AblyRest` instance.
+
+It is recommended to only use an `ABLY_KEY` for authentication on server-side applications. For client-side applications, you should use token authentication to prevent your API key from being shared. See the [authentication documentation](https://ably.com/docs/auth) for more information.
 
 ```go
 restClient, err := ably.NewREST(ably.WithKey("API_KEY"))
 ```
-- Token requests are issued by your servers and signed using your private API key.
-- This is the preferred method of authentication as no secrets are ever shared, and the token request can be issued to trusted clients without communicating with Ably.
+
+Token requests are issued by your servers and signed using your private API key as below.
+
 ```go
 // e.g. Gin server endpoint
 router.GET("/token", getToken)
@@ -351,23 +351,23 @@ func getToken(c *gin.Context) {
 
 ### Using the Token auth at client side
 
-- You can provide either `WithAuthCallback` or `WithAuthURL` as a clientOption to request token.
-- `WithAuthUrl` automatically decodes response based on response contentType.
+You can provide either `WithAuthCallback` or `WithAuthURL` as a clientOption to request token. `WithAuthUrl` automatically decodes response based on the response contentType. `WithAuthCallback` may need manual decoding based on the response.
 
 ```go
+// Return token of type ably.TokenRequest, ably.TokenDetails or ably.TokenString
 authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
         // HTTP client impl. to fetch token, you can pass tokenParams based on your requirement
-        // Return token of type ably.TokenDetails, ably.TokenRequest or ably.TokenString
-        // This may need manually decoding tokens based on the response.
-        token, err := requestTokenFrom(ctx, "/token");
+        tokenReqJsonString, err := requestTokenFrom(ctx, "/token");
         if err != nil {
                 return nil, err // You can also log error here
         }
-        return token, err
+        var req ably.TokenRequest
+        err := json.Unmarshal(tokenReqJsonString, &req)
+        return req, err
 })
 
 ```
-- If JWT token is returned by server
+If JWT token is returned by server
 ```go
 authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
         jwtTokenString, err := requestTokenFrom(ctx, "/jwtToken");
@@ -377,7 +377,7 @@ authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenPar
         return ably.TokenString(jwtTokenString), err // return jwt token that starts with "ey"
 })
 ```
-- Check [official token auth documentation](https://ably.com/docs/auth/token?lang=csharp) for more information.
+Note - Check [official token auth documentation](https://ably.com/docs/auth/token?lang=go) for more information.
 
 ### Configure logging
 - By default, internal logger prints output to `stdout` with default logging level of `warning`.
