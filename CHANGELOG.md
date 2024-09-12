@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.2.21](https://github.com/ably/ably-go/tree/v1.2.21)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.20...v1.2.21)
+
+**Implemented enhancements:**
+
+- JWT (JSON Web Token) authentication [\#569](https://github.com/ably/ably-go/issues/569)
+
 ## [1.2.20](https://github.com/ably/ably-go/tree/v1.2.20)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.19...v1.2.20)
