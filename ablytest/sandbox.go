@@ -256,6 +256,67 @@ func (app *Sandbox) URL(paths ...string) string {
 	return "https://" + app.Environment + "-rest.ably.io/" + path.Join(paths...)
 }
 
+// Source code for the same => https://github.com/ably/echoserver/blob/main/app.js
+var CREATE_JWT_URL string = "https://echo.ably.io/createJWT"
+
+// GetJwtAuthParams constructs the authentication parameters required for JWT creation.
+// Required when authUrl is chosen as a mode of auth
+//
+// Parameters:
+// - expiresIn: The duration until the JWT expires.
+// - invalid: A boolean flag indicating whether to use an invalid key secret.
+//
+// Returns: A url.Values object containing the authentication parameters.
+func (app *Sandbox) GetJwtAuthParams(expiresIn time.Duration, invalid bool) url.Values {
+	key, secret := app.KeyParts()
+	authParams := url.Values{}
+	authParams.Add("environment", app.Environment)
+	authParams.Add("returnType", "jwt")
+	authParams.Add("keyName", key)
+	if invalid {
+		authParams.Add("keySecret", "invalid")
+	} else {
+		authParams.Add("keySecret", secret)
+	}
+	authParams.Add("expiresIn", fmt.Sprint(expiresIn.Seconds()))
+	return authParams
+}
+
+// CreateJwt generates a JWT with the specified expiration time.
+//
+// Parameters:
+// - expiresIn: The duration until the JWT expires.
+// - invalid: A boolean flag indicating whether to use an invalid key secret.
+//
+// Returns:
+// - A string containing the generated JWT.
+// - An error if the JWT creation fails.
+func (app *Sandbox) CreateJwt(expiresIn time.Duration, invalid bool) (string, error) {
+	u, err := url.Parse(CREATE_JWT_URL)
+	if err != nil {
+		return "", err
+	}
+	u.RawQuery = app.GetJwtAuthParams(expiresIn, invalid).Encode()
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return "", fmt.Errorf("client: could not create request: %s", err)
+	}
+	res, err := app.client.Do(req)
+	if err != nil {
+		res.Body.Close()
+		return "", fmt.Errorf("client: error making http request: %s", err)
+	}
+	defer res.Body.Close()
+	resBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("client: could not read response body: %s", err)
+	}
+	if res.StatusCode != 200 {
+		return "", fmt.Errorf("non-success response received: %v:%s", res.StatusCode, resBody)
+	}
+	return string(resBody), nil
+}
+
 func NewHTTPClient() *http.Client {
 	const timeout = time.Minute
 	return &http.Client{

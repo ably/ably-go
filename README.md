@@ -326,6 +326,56 @@ if err != nil {
 fmt.Print(status, status.ChannelId)
 ```
 
+### Authentication
+
+Initialize `ably.NewREST` using `ABLY_KEY`. Check [Authentication Doc](https://ably.com/docs/auth) for more information types of auth and it's server/client-side usage.
+
+```go
+restClient, err := ably.NewREST(ably.WithKey("API_KEY"))
+```
+
+Token requests are signed using provided `API_KEY` and issued by your servers.
+
+```go
+// e.g. Gin server endpoint
+router.GET("/token", getToken)
+func getToken(c *gin.Context) {
+    token, err := restClient.Auth.CreateTokenRequest(nil)
+    c.IndentedJSON(http.StatusOK, token)
+}
+```
+
+- When using `WithAuthURL` clientOption at client side, for [JWT token](https://ably.com/tutorials/jwt-authentication) response, contentType header should be set to  `text/plain` or `application/jwt`. For `ably.TokenRequest`/ `ably.TokenDetails`, set it as  `application/json`.
+
+### Using the Token auth at client side
+
+`WithAuthUrl` clientOption automatically decodes response based on the response contentType, `WithAuthCallback` needs manual decoding based on the response. See [official token auth documentation](https://ably.com/docs/auth/token?lang=go) for more information.
+
+```go
+// Return token of type ably.TokenRequest, ably.TokenDetails or ably.TokenString
+authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+        // HTTP client impl. to fetch token, you can pass tokenParams based on your requirement
+        tokenReqJsonString, err := requestTokenFrom(ctx, "/token");
+        if err != nil {
+                return nil, err
+        }
+        var req ably.TokenRequest
+        err := json.Unmarshal(tokenReqJsonString, &req)
+        return req, err
+})
+
+```
+If [JWT token](https://ably.com/tutorials/jwt-authentication) is returned by server
+```go
+authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+        jwtTokenString, err := requestTokenFrom(ctx, "/jwtToken"); // jwtTokenString starts with "ey"
+        if err != nil {
+                return nil, err
+        }
+        return ably.TokenString(jwtTokenString), err
+})
+```
+
 ### Configure logging
 - By default, internal logger prints output to `stdout` with default logging level of `warning`.
 - You need to create a custom Logger that implements `ably.Logger` interface.
@@ -441,9 +491,6 @@ As of release 1.2.0, the following are not implemented and will be covered in fu
 ### REST API
 
 - [Push notifications admin API](https://ably.com/docs/api/rest-sdk/push-admin) is not implemented.
-
-- [JWT authentication](https://ably.com/docs/auth/token?lang=javascript#jwt) using `auth-url` is not implemented.
-See [jwt auth issue](https://github.com/ably/ably-go/issues/569) for more details.
 
 ### Realtime API
 

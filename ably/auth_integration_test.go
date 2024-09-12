@@ -4,10 +4,13 @@
 package ably_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -340,6 +343,164 @@ func TestAuth_RequestToken(t *testing.T) {
 		assert.NoError(t, err,
 			"c.Stats()=%v (method=%s)", err, method)
 	}
+}
+
+func TestAuth_JWT_Token_RSA8c(t *testing.T) {
+
+	t.Run("Get JWT from echo server", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+		jwt, err := app.CreateJwt(3*time.Second, false)
+		assert.NoError(t, err)
+		assert.True(t, strings.HasPrefix(jwt, "ey"))
+
+		// JWT header assertions
+		header := strings.Split(jwt, ".")[0]
+		jwtToken, err := base64.RawStdEncoding.DecodeString(header)
+		assert.NoError(t, err)
+		var result map[string]interface{}
+		err = json.Unmarshal(jwtToken, &result)
+		assert.NoError(t, err)
+		assert.Equal(t, "HS256", result["alg"])
+		assert.Equal(t, "JWT", result["typ"])
+		assert.Contains(t, result, "kid")
+		assert.NoError(t, err)
+
+		// JWT payload assertions
+		payload := strings.Split(jwt, ".")[1]
+		jwtToken, err = base64.RawStdEncoding.DecodeString(payload)
+		assert.NoError(t, err)
+		err = json.Unmarshal(jwtToken, &result)
+		assert.NoError(t, err)
+		assert.Contains(t, result, "iat")
+		assert.Contains(t, result, "exp")
+
+		// check expiry of 3 seconds
+		assert.Equal(t, float64(3), result["exp"].(float64)-result["iat"].(float64))
+	})
+
+	t.Run("Should be able to use it as a token", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+		jwt, err := app.CreateJwt(3*time.Second, false)
+		assert.NoError(t, err)
+		assert.True(t, strings.HasPrefix(jwt, "ey"))
+
+		rec, optn := ablytest.NewHttpRecorder()
+		rest, err := ably.NewREST(
+			ably.WithToken(jwt),
+			ably.WithEnvironment(app.Environment),
+			optn[0],
+		)
+		assert.NoError(t, err, "rest()=%v", err)
+
+		_, err = rest.Stats().Pages(context.Background())
+		assert.NoError(t, err, "Stats()=%v", err)
+
+		assert.Len(t, rec.Requests(), 1)
+		assert.Len(t, rec.Responses(), 1)
+
+		statsRequest := rec.Request(0)
+		assert.Equal(t, "/stats", statsRequest.URL.Path)
+		encodedToken := base64.StdEncoding.EncodeToString([]byte(jwt))
+		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
+	})
+
+	t.Run("RSA8g, RSA3d: Should be able to authenticate using authURL", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+
+		rec, optn := ablytest.NewHttpRecorder()
+		rest, err := ably.NewREST(
+			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
+			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, false)),
+			ably.WithEnvironment(app.Environment),
+			optn[0],
+		)
+		assert.NoError(t, err, "rest()=%v", err)
+
+		_, err = rest.Stats().Pages(context.Background())
+		assert.NoError(t, err, "Stats()=%v", err)
+
+		assert.Len(t, rec.Requests(), 2)
+		assert.Len(t, rec.Responses(), 2)
+
+		// first request is jwt request
+		jwtRequest := rec.Request(0).URL
+		assert.Equal(t, ablytest.CREATE_JWT_URL, "https://"+jwtRequest.Host+jwtRequest.Path)
+		// response is jwt token
+		jwtResponse, err := io.ReadAll(rec.Response(0).Body)
+		assert.NoError(t, err)
+		assert.True(t, bytes.HasPrefix(jwtResponse, []byte("ey")))
+
+		// Second request is made to stats with given jwt token (base64 encoded)
+		statsRequest := rec.Request(1)
+		assert.Equal(t, "/stats", statsRequest.URL.Path)
+		encodedToken := base64.StdEncoding.EncodeToString(jwtResponse)
+		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
+	})
+
+	t.Run("RSA8g, RSA3d: Should be able to authenticate using authCallback", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+
+		jwtToken := ""
+		authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+			jwtTokenString, err := app.CreateJwt(time.Second*30, false)
+			jwtToken = jwtTokenString
+			if err != nil {
+				t.Fatalf("Error creating JWT: %v", err)
+				return nil, err
+			}
+			return ably.TokenString(jwtTokenString), nil
+		})
+
+		rec, optn := ablytest.NewHttpRecorder()
+		rest, err := ably.NewREST(
+			ably.WithEnvironment(app.Environment),
+			authCallback,
+			optn[0],
+		)
+		assert.NoError(t, err)
+
+		_, err = rest.Stats().Pages(context.Background())
+		assert.NoError(t, err, "Stats()=%v", err)
+
+		assert.Len(t, rec.Requests(), 1)
+		assert.Len(t, rec.Responses(), 1)
+
+		assert.True(t, strings.HasPrefix(jwtToken, "ey"))
+		// Second request is made to stats with given jwt token (base64 encoded)
+		statsRequest := rec.Request(0)
+		assert.Equal(t, "/stats", statsRequest.URL.Path)
+		encodedToken := base64.StdEncoding.EncodeToString([]byte(jwtToken))
+		assert.Equal(t, "Bearer "+encodedToken, statsRequest.Header.Get("Authorization"))
+	})
+
+	t.Run("RSA4e, RSA4b: Should return error when JWT is invalid", func(t *testing.T) {
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+
+		rec, optn := ablytest.NewHttpRecorder()
+		rest, err := ably.NewREST(
+			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
+			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, true)),
+			ably.WithEnvironment(app.Environment),
+			optn[0],
+		)
+		assert.NoError(t, err, "rest()=%v", err)
+
+		_, err = rest.Stats().Pages(context.Background())
+		var errorInfo *ably.ErrorInfo
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &errorInfo)
+		assert.Equal(t, 40144, int(errorInfo.Code))
+		assert.Equal(t, 401, errorInfo.StatusCode)
+		assert.Contains(t, err.Error(), "invalid JWT format")
+
+		assert.Len(t, rec.Requests(), 2)
+		assert.Len(t, rec.Responses(), 2)
+	})
 }
 
 func TestAuth_ReuseClientID(t *testing.T) {

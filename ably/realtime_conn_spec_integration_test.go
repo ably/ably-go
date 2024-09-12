@@ -3022,8 +3022,63 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		ablytest.Instantly.Recv(t, nil, authorizeDone, t.Fatalf)
 	})
 
-	t.Run("RTC8a4: reauthorize with JWT token", func(t *testing.T) {
-		t.Skip("not implemented")
+	t.Run("RTC8a4, RSA3d: reauthorize with JWT token", func(t *testing.T) {
+		t.Parallel()
+		app := ablytest.MustSandbox(nil)
+		defer safeclose(t, app)
+
+		authCallbackTokens := []string{}
+		tokenExpiry := 3 * time.Second
+		// Returns token that expires after 3 seconds causing disconnect every 3 seconds
+		authCallback := func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
+			jwtTokenString, err := app.CreateJwt(tokenExpiry, false)
+			if err != nil {
+				return nil, err
+			}
+			authCallbackTokens = append(authCallbackTokens, jwtTokenString)
+			return ably.TokenString(jwtTokenString), nil
+		}
+
+		realtimeMsgRecorder := NewMessageRecorder()
+		realtime, err := ably.NewRealtime(
+			ably.WithAutoConnect(false),
+			ably.WithEnvironment(ablytest.Environment),
+			ably.WithDial(realtimeMsgRecorder.Dial),
+			ably.WithAuthCallback(authCallback))
+
+		assert.NoError(t, err)
+		defer realtime.Close()
+
+		err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
+		assert.NoError(t, err)
+
+		changes := make(ably.ConnStateChanges, 2)
+		off := realtime.Connection.OnAll(changes.Receive)
+		defer off()
+		var state ably.ConnectionStateChange
+
+		// Disconnects due to timeout
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventDisconnected, state.Event)
+		// Reconnect again using new JWT token
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventConnecting, state.Event)
+		ablytest.Soon.Recv(t, &state, changes, t.Fatalf)
+		assert.Equal(t, ably.ConnectionEventConnected, state.Event)
+		assert.Nil(t, state.Reason)
+		assert.Equal(t, ably.ConnectionStateConnected, realtime.Connection.State())
+
+		ablytest.Instantly.NoRecv(t, nil, changes, t.Fatalf)
+
+		// Make sure requested tokens are JWT tokens
+		assert.Len(t, authCallbackTokens, 2)
+		assert.True(t, strings.HasPrefix(authCallbackTokens[0], "ey"))
+		assert.True(t, strings.HasPrefix(authCallbackTokens[1], "ey"))
+		assertUnique(t, authCallbackTokens)
+		// 2 Dial attempts made
+		assert.Len(t, realtimeMsgRecorder.URLs(), 2)
+		assert.Equal(t, authCallbackTokens[0], realtimeMsgRecorder.URLs()[0].Query().Get("access_token"))
+		assert.Equal(t, authCallbackTokens[1], realtimeMsgRecorder.URLs()[1].Query().Get("access_token"))
 	})
 
 	t.Run("RTC8a2: Failed reauth moves connection to FAILED", func(t *testing.T) {
