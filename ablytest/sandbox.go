@@ -135,11 +135,29 @@ func NewSandbox(config *Config) (*Sandbox, error) {
 	return NewSandboxWithEnv(config, Environment)
 }
 
+// This code is copied from options.go
+func hasActiveInternetConnection(httpClient *http.Client) bool {
+	res, err := httpClient.Get("https://internet-up.ably-realtime.com/is-the-internet-up.txt")
+	if err != nil || res.StatusCode != 200 {
+		return false
+	}
+	defer res.Body.Close()
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		return false
+	}
+	return bytes.Contains(data, []byte("yes"))
+}
+
 func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
+	httpClient := NewHTTPClient()
+	if !hasActiveInternetConnection(httpClient) {
+		return nil, errors.New("internet is not available, cannot setup ably sandbox")
+	}
 	app := &Sandbox{
 		Config:      config,
 		Environment: env,
-		client:      NewHTTPClient(),
+		client:      httpClient,
 	}
 	if app.Config == nil {
 		app.Config = DefaultConfig()
