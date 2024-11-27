@@ -1947,7 +1947,7 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	assert.NoError(t, err)
 
 	{ // RTN16f, RTN16j, RTN16d
-		assert.Equal(t, prevConnId, c.Connection.ID(),
+		assert.Equal(t, prevConnId, client.Connection.ID(),
 			"expected the same connection")
 		assert.Nil(t, client.Connection.ErrorReason())
 		assert.Equal(t, prevMsgSerial, client.Connection.MsgSerial(),
