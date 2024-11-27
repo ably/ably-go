@@ -1947,9 +1947,8 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	assert.NoError(t, err)
 
 	{ // RTN16f, RTN16j, RTN16d
-		assert.True(t, sameConnection(client.Connection.Key(), c.Connection.Key()),
+		assert.Equal(t, prevConnId, c.Connection.ID(),
 			"expected the same connection")
-		assert.Equal(t, prevConnId, c.Connection.ID())
 		assert.Nil(t, client.Connection.ErrorReason())
 		assert.Equal(t, prevMsgSerial, client.Connection.MsgSerial(),
 			"expected %d got %d", prevMsgSerial, client.Connection.MsgSerial())
@@ -2004,10 +2003,6 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 				"expected %q not to contain \"ablygo_test_fake\"", client2.Connection.Key())
 		}
 	}
-}
-
-func sameConnection(a, b string) bool {
-	return strings.Split(a, "-")[0] == strings.Split(b, "-")[0]
 }
 
 func TestRealtimeConn_RTN23(t *testing.T) {
