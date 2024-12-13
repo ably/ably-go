@@ -408,6 +408,10 @@ type clientOptions struct {
 	// LogHandler controls the log output of the library. This is a function to handle each line of log output.
 	// platform specific (TO3c)
 	LogHandler Logger
+
+	// InsecureAllowBasicAuthWithoutTLS permits an API key to be used even if the connection
+	// will not use TLS, something which would otherwise not be permitted for security reasons.
+	InsecureAllowBasicAuthWithoutTLS bool
 }
 
 func (opts *clientOptions) validate() error {
@@ -1313,6 +1317,14 @@ func WithFallbackHostsUseDefault(fallbackHostsUseDefault bool) ClientOption {
 func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (conn, error)) ClientOption {
 	return func(os *clientOptions) {
 		os.Dial = dial
+	}
+}
+
+// WithInsecureAllowBasicAuthWithoutTLS permits an API key to be used even if the connection
+// will not use TLS, something which would otherwise not be permitted for security reasons.
+func WithInsecureAllowBasicAuthWithoutTLS() ClientOption {
+	return func(opts *clientOptions) {
+		opts.InsecureAllowBasicAuthWithoutTLS = true
 	}
 }
 
