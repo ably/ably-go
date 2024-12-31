@@ -16,6 +16,14 @@ func GetEnvFallbackHosts(env string) []string {
 	return getEnvFallbackHosts(env)
 }
 
+func GetEndpointFallbackHosts(endpoint string) []string {
+	return getEndpointFallbackHosts(endpoint)
+}
+
+func (opts *clientOptions) GetEndpoint() string {
+	return opts.getEndpoint()
+}
+
 func (opts *clientOptions) GetRestHost() string {
 	return opts.getRestHost()
 }
@@ -190,6 +198,10 @@ func WithConnectionStateTTL(d time.Duration) ClientOption {
 
 func ApplyOptionsWithDefaults(o ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(o...)
+}
+
+func EndpointFqdn(endpoint string) bool {
+	return endpointFqdn(endpoint)
 }
 
 type ConnStateChanges = connStateChanges

@@ -12,6 +12,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,9 @@ import (
 const (
 	protocolJSON    = "application/json"
 	protocolMsgPack = "application/x-msgpack"
+
+	// endpoint is the default routing policy used to connect to Ably
+	endpoint = "main"
 
 	// restHost is the primary ably host.
 	restHost = "rest.ably.io"
@@ -37,6 +41,7 @@ const (
 )
 
 var defaultOptions = clientOptions{
+	Endpoint:                 endpoint,
 	RESTHost:                 restHost,
 	FallbackHosts:            defaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
@@ -59,13 +64,24 @@ var defaultOptions = clientOptions{
 }
 
 func defaultFallbackHosts() []string {
-	return []string{
-		"a.ably-realtime.com",
-		"b.ably-realtime.com",
-		"c.ably-realtime.com",
-		"d.ably-realtime.com",
-		"e.ably-realtime.com",
+	return endpointFallbacks("main", "ably-realtime.com")
+}
+
+func getEndpointFallbackHosts(endpoint string) []string {
+	if match := regexp.MustCompile(`^nonprod:(.*)$`).FindStringSubmatch(endpoint); match != nil {
+		namespace := match[1]
+		return endpointFallbacks(namespace, "ably-realtime-nonprod.com")
 	}
+
+	return endpointFallbacks(endpoint, "ably-realtime.com")
+}
+
+func endpointFallbacks(namespace, root string) []string {
+	var fallbacks []string
+	for _, id := range []string{"a", "b", "c", "d", "e"} {
+		fallbacks = append(fallbacks, fmt.Sprintf("%s.%s.fallback.%s", namespace, id, root))
+	}
+	return fallbacks
 }
 
 func getEnvFallbackHosts(env string) []string {
@@ -244,8 +260,17 @@ type clientOptions struct {
 	// authOptions Embedded an [ably.authOptions] object (TO3j).
 	authOptions
 
-	// RESTHost enables a non-default Ably host to be specified. For development environments only.
-	// The default value is rest.ably.io (RSC12, TO3k2).
+	// Endpoint specifies the domain used to connect to Ably. It has the following properties:
+	// If the endpoint option is a production routing policy name of the form [name] then the primary domain is [name].realtime.ably.net (REC1b4).
+	// If the endpoint option is a non-production routing policy name of the form nonprod:[name] then the primary domain is [name].realtime.ably-nonprod.net (REC1b3).
+	// If the endpoint option is a domain name, determined by it containing at least one period (.) then the primary domain is the value of the endpoint option (REC1b2).
+	// If any one of the deprecated options environment, restHost, realtimeHost are also specified then the options as a set are invalid (REC1b1).
+	Endpoint string
+
+	// Deprecated: this property is deprecated and will be removed in a future version.
+	// RESTHost enables a non-default Ably host to be specified. For
+	// development environments only. The default value is rest.ably.io (RSC12,
+	// TO3k2).
 	RESTHost string
 
 	// Deprecated: this property is deprecated and will be removed in a future version.
@@ -257,10 +282,12 @@ type clientOptions struct {
 	// please specify them here (RSC15b, RSC15a, TO3k6).
 	FallbackHosts []string
 
+	// Deprecated: this property is deprecated and will be removed in a future version.
 	// RealtimeHost enables a non-default Ably host to be specified for realtime connections.
 	// For development environments only. The default value is realtime.ably.io (RTC1d, TO3k3).
 	RealtimeHost string
 
+	// Deprecated: this property is deprecated and will be removed in a future version.
 	// Environment enables a custom environment to be used with the Ably service.
 	// Optional: prefixes both hostname with the environment string (RSC15b, TO3k1).
 	Environment string
@@ -415,6 +442,13 @@ type clientOptions struct {
 }
 
 func (opts *clientOptions) validate() error {
+	if !empty(opts.Endpoint) && (!empty(opts.Environment) || !empty(opts.RealtimeHost) || !empty(opts.RESTHost)) {
+		err := errors.New("invalid client option: cannot use endpoint with any of environment, realtimeHost or restHost")
+		logger := opts.LogHandler
+		logger.Printf(LogError, "Invalid client options : %v", err.Error())
+		return err
+	}
+
 	_, err := opts.getFallbackHosts()
 	if err != nil {
 		logger := opts.LogHandler
@@ -450,7 +484,39 @@ func (opts *clientOptions) activePort() (port int, isDefault bool) {
 	return
 }
 
+func (opts *clientOptions) usingLegacyOpts() bool {
+	return empty(opts.Endpoint) && (!empty(opts.Environment) || !empty(opts.RESTHost) || !empty(opts.RealtimeHost))
+}
+
+// endpointFqdn handles an endpoint that uses a hostname, which may be an IPv4
+// address, IPv6 address or localhost
+func endpointFqdn(endpoint string) bool {
+	return strings.Contains(endpoint, ".") || strings.Contains(endpoint, "::") || endpoint == "localhost"
+}
+
+func (opts *clientOptions) getEndpoint() string {
+	endpoint := opts.Endpoint
+	if empty(endpoint) {
+		endpoint = defaultOptions.Endpoint
+	}
+
+	if endpointFqdn(opts.Endpoint) {
+		return endpoint
+	}
+
+	if match := regexp.MustCompile(`^nonprod:(.*)$`).FindStringSubmatch(endpoint); match != nil {
+		namespace := match[1]
+		return fmt.Sprintf("%s.realtime.ably-nonprod.net", namespace)
+	}
+
+	return fmt.Sprintf("%s.realtime.ably.net", endpoint)
+}
+
 func (opts *clientOptions) getRestHost() string {
+	if !opts.usingLegacyOpts() {
+		return opts.getEndpoint()
+	}
+
 	if !empty(opts.RESTHost) {
 		return opts.RESTHost
 	}
@@ -461,6 +527,10 @@ func (opts *clientOptions) getRestHost() string {
 }
 
 func (opts *clientOptions) getRealtimeHost() string {
+	if !opts.usingLegacyOpts() {
+		return opts.getEndpoint()
+	}
+
 	if !empty(opts.RealtimeHost) {
 		return opts.RealtimeHost
 	}
@@ -508,6 +578,7 @@ func (opts *clientOptions) realtimeURL(realtimeHost string) (realtimeUrl string)
 func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 	logger := opts.LogHandler
 	_, isDefaultPort := opts.activePort()
+
 	if opts.FallbackHostsUseDefault {
 		if opts.FallbackHosts != nil {
 			return nil, errors.New("fallbackHosts and fallbackHostsUseDefault cannot both be set")
@@ -521,12 +592,21 @@ func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 		logger.Printf(LogWarning, "Deprecated fallbackHostsUseDefault : using default fallbackhosts")
 		return defaultOptions.FallbackHosts, nil
 	}
+
+	if opts.FallbackHosts == nil && !empty(opts.Endpoint) {
+		if endpointFqdn(opts.Endpoint) {
+			return opts.FallbackHosts, nil
+		}
+		return getEndpointFallbackHosts(opts.Endpoint), nil
+	}
+
 	if opts.FallbackHosts == nil && empty(opts.RESTHost) && empty(opts.RealtimeHost) && isDefaultPort {
 		if opts.isProductionEnvironment() {
 			return defaultOptions.FallbackHosts, nil
 		}
 		return getEnvFallbackHosts(opts.Environment), nil
 	}
+
 	return opts.FallbackHosts, nil
 }
 
@@ -1070,6 +1150,18 @@ func WithEchoMessages(echo bool) ClientOption {
 	}
 }
 
+// WithEndpoint is used for setting Endpoint using [ably.ClientOption].
+// Endpoint specifies the domain used to connect to Ably. It has the following properties:
+// If the endpoint option is a production routing policy name of the form [name] then the primary domain is [name].realtime.ably.net (REC1b4).
+// If the endpoint option is a non-production routing policy name of the form nonprod:[name] then the primary domain is [name].realtime.ably-nonprod.net (REC1b3).
+// If the endpoint option is a domain name, determined by it containing at least one period (.) then the primary domain is the value of the endpoint option (REC1b2).
+// If any one of the deprecated options environment, restHost, realtimeHost are also specified then the options as a set are invalid (REC1b1).
+func WithEndpoint(env string) ClientOption {
+	return func(os *clientOptions) {
+		os.Endpoint = env
+	}
+}
+
 // WithEnvironment is used for setting Environment using [ably.ClientOption].
 // Environment enables a custom environment to be used with the Ably service.
 // Optional: prefixes both hostname with the environment string (RSC15b, TO3k1).
@@ -1331,6 +1423,7 @@ func WithInsecureAllowBasicAuthWithoutTLS() ClientOption {
 func applyOptionsWithDefaults(opts ...ClientOption) *clientOptions {
 	to := defaultOptions
 	// No need to set hosts by default
+	to.Endpoint = ""
 	to.RESTHost = ""
 	to.RealtimeHost = ""
 	to.FallbackHosts = nil
