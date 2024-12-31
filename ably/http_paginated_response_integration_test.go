@@ -21,7 +21,7 @@ func TestHTTPPaginatedFallback(t *testing.T) {
 	assert.NoError(t, err)
 	defer app.Close()
 	opts := app.Options(ably.WithUseBinaryProtocol(false),
-		ably.WithRESTHost("ably.invalid"),
+		ably.WithEndpoint("ably.invalid"),
 		ably.WithFallbackHosts(nil))
 	client, err := ably.NewREST(opts...)
 	assert.NoError(t, err)

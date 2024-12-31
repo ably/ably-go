@@ -54,7 +54,7 @@ func TestIssue127ErrorResponse(t *testing.T) {
 		ably.WithKey("xxxxxxx.yyyyyyy:zzzzzzz"),
 		ably.WithTLS(false),
 		ably.WithUseTokenAuth(true),
-		ably.WithRESTHost(endpointURL.Hostname()),
+		ably.WithEndpoint(endpointURL.Hostname()),
 	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
 	opts = append(opts, ably.WithPort(int(port)))
@@ -134,7 +134,7 @@ func TestIssue_154(t *testing.T) {
 		ably.WithKey("xxxxxxx.yyyyyyy:zzzzzzz"),
 		ably.WithTLS(false),
 		ably.WithUseTokenAuth(true),
-		ably.WithRESTHost(endpointURL.Hostname()),
+		ably.WithEndpoint(endpointURL.Hostname()),
 	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
 	opts = append(opts, ably.WithPort(int(port)))
