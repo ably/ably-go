@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strings"
 	"syscall"
 	"time"
 
@@ -99,7 +100,12 @@ var PresenceFixtures = func() []Presence {
 }
 
 type Sandbox struct {
-	Config      *Config
+	Config *Config
+
+	// Endpoint is the hostname to connect to
+	Endpoint string
+
+	// Environment is used in auth parameters
 	Environment string
 
 	client *http.Client
@@ -132,13 +138,14 @@ func MustSandbox(config *Config) *Sandbox {
 }
 
 func NewSandbox(config *Config) (*Sandbox, error) {
-	return NewSandboxWithEnv(config, Environment)
+	return NewSandboxWithEndpoint(config, Endpoint, Environment)
 }
 
-func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
+func NewSandboxWithEndpoint(config *Config, endpoint, environment string) (*Sandbox, error) {
 	app := &Sandbox{
 		Config:      config,
-		Environment: env,
+		Endpoint:    endpoint,
+		Environment: environment,
 		client:      NewHTTPClient(),
 	}
 	if app.Config == nil {
@@ -233,7 +240,7 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 	appHTTPClient := NewHTTPClient()
 	appOpts := []ably.ClientOption{
 		ably.WithKey(app.Key()),
-		ably.WithEnvironment(app.Environment),
+		ably.WithEndpoint(app.Endpoint),
 		ably.WithUseBinaryProtocol(!NoBinaryProtocol),
 		ably.WithHTTPClient(appHTTPClient),
 		ably.WithLogLevel(DefaultLogLevel),
@@ -253,7 +260,12 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 }
 
 func (app *Sandbox) URL(paths ...string) string {
-	return "https://" + app.Environment + "-rest.ably.io/" + path.Join(paths...)
+	if strings.HasPrefix(app.Endpoint, "nonprod:") {
+		namespace := strings.TrimPrefix(app.Endpoint, "nonprod:")
+		return fmt.Sprintf("https://%s.realtime.ably-nonprod.net/%s", namespace, path.Join(paths...))
+	}
+
+	return fmt.Sprintf("https://%s.realtime.ably.net/%s", app.Endpoint, path.Join(paths...))
 }
 
 // Source code for the same => https://github.com/ably/echoserver/blob/main/app.js

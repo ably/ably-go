@@ -12,16 +12,12 @@ func NewClientOptions(os ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(os...)
 }
 
-func GetEnvFallbackHosts(env string) []string {
-	return getEnvFallbackHosts(env)
+func GetEndpointFallbackHosts(endpoint string) []string {
+	return getEndpointFallbackHosts(endpoint)
 }
 
-func (opts *clientOptions) GetRestHost() string {
-	return opts.getRestHost()
-}
-
-func (opts *clientOptions) GetRealtimeHost() string {
-	return opts.getRealtimeHost()
+func (opts *clientOptions) GetHostname() string {
+	return opts.getHostname()
 }
 
 func (opts *clientOptions) ActivePort() (int, bool) {
@@ -190,6 +186,10 @@ func WithConnectionStateTTL(d time.Duration) ClientOption {
 
 func ApplyOptionsWithDefaults(o ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(o...)
+}
+
+func IsEndpointFQDN(endpoint string) bool {
+	return isEndpointFQDN(endpoint)
 }
 
 type ConnStateChanges = connStateChanges
