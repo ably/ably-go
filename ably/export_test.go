@@ -12,24 +12,12 @@ func NewClientOptions(os ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(os...)
 }
 
-func GetEnvFallbackHosts(env string) []string {
-	return getEnvFallbackHosts(env)
-}
-
 func GetEndpointFallbackHosts(endpoint string) []string {
 	return getEndpointFallbackHosts(endpoint)
 }
 
 func (opts *clientOptions) GetEndpoint() string {
 	return opts.getEndpoint()
-}
-
-func (opts *clientOptions) GetRestHost() string {
-	return opts.getRestHost()
-}
-
-func (opts *clientOptions) GetRealtimeHost() string {
-	return opts.getRealtimeHost()
 }
 
 func (opts *clientOptions) ActivePort() (int, bool) {
