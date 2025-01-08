@@ -30,7 +30,7 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 		"::1",
 	}
 
-	t.Run("with endpoint option", func(t *testing.T) {
+	t.Run("REC1b with endpoint option", func(t *testing.T) {
 		for _, host := range hosts {
 			dial := make(chan string, 1)
 			client, err := ably.NewRealtime(
@@ -52,7 +52,7 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 		}
 	})
 
-	t.Run("with legacy realtimeHost option", func(t *testing.T) {
+	t.Run("REC1d2 with legacy realtimeHost option", func(t *testing.T) {
 		for _, host := range hosts {
 			dial := make(chan string, 1)
 			client, err := ably.NewRealtime(
@@ -326,11 +326,10 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			assert.ElementsMatch(t, expectedFallbackHosts, visitedHosts[1:])
 		})
 
-		t.Run("apply when fallbackHostUseDefault is true, even if legacy environment or realtimeHost is set", func(t *testing.T) {
+		t.Run("apply when fallbackHostUseDefault is true, even if legacy realtimeHost is set", func(t *testing.T) {
 			visitedHosts := initClientWithConnError(
 				getTimeoutErr(),
 				ably.WithFallbackHostsUseDefault(true),
-				ably.WithEnvironment("custom"),
 				ably.WithRealtimeHost("custom-ably.realtime.com"))
 
 			expectedPrimaryHost := "custom-ably.realtime.com"
@@ -384,7 +383,7 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			t.Fatalf("Error connecting host with error %v", err)
 		}
 		realtimeSuccessHost := realtimeMsgRecorder.URLs()[0].Hostname()
-		fallbackHosts := ably.GetEnvFallbackHosts("sandbox")
+		fallbackHosts := ably.GetEndpointFallbackHosts("sandbox")
 		if !ablyutil.SliceContains(fallbackHosts, realtimeSuccessHost) {
 			t.Fatalf("realtime host must be one of fallback hosts, received %v", realtimeSuccessHost)
 		}
