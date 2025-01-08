@@ -63,12 +63,14 @@ var defaultOptions = clientOptions{
 	LogLevel:                 LogWarning, // RSC2
 }
 
+var nonprodRegexp = regexp.MustCompile(`^nonprod:(.*)$`)
+
 func defaultFallbackHosts() []string {
 	return endpointFallbacks("main", "ably-realtime.com")
 }
 
 func getEndpointFallbackHosts(endpoint string) []string {
-	if match := regexp.MustCompile(`^nonprod:(.*)$`).FindStringSubmatch(endpoint); match != nil {
+	if match := nonprodRegexp.FindStringSubmatch(endpoint); match != nil {
 		namespace := match[1]
 		return endpointFallbacks(namespace, "ably-realtime-nonprod.com")
 	}
@@ -504,7 +506,7 @@ func (opts *clientOptions) getEndpoint() string {
 		return endpoint
 	}
 
-	if match := regexp.MustCompile(`^nonprod:(.*)$`).FindStringSubmatch(endpoint); match != nil {
+	if match := nonprodRegexp.FindStringSubmatch(endpoint); match != nil {
 		namespace := match[1]
 		return fmt.Sprintf("%s.realtime.ably-nonprod.net", namespace)
 	}
