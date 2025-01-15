@@ -12,7 +12,6 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -63,8 +62,6 @@ var defaultOptions = clientOptions{
 	LogLevel:                 LogWarning, // RSC2
 }
 
-var nonprodRegexp = regexp.MustCompile(`^nonprod:(.*)$`)
-
 func defaultFallbackHosts() []string {
 	return endpointFallbacks("main", "ably-realtime.com")
 }
@@ -74,8 +71,8 @@ func getEndpointFallbackHosts(endpoint string) []string {
 		return endpointFallbacks("sandbox", "ably-realtime-nonprod.com")
 	}
 
-	if match := nonprodRegexp.FindStringSubmatch(endpoint); match != nil {
-		namespace := match[1]
+	if strings.HasPrefix(endpoint, "nonprod:") {
+		namespace := strings.TrimPrefix(endpoint, "nonprod:")
 		return endpointFallbacks(namespace, "ably-realtime-nonprod.com")
 	}
 
@@ -83,9 +80,9 @@ func getEndpointFallbackHosts(endpoint string) []string {
 }
 
 func endpointFallbacks(namespace, root string) []string {
-	var fallbacks []string
-	for _, id := range []string{"a", "b", "c", "d", "e"} {
-		fallbacks = append(fallbacks, fmt.Sprintf("%s.%s.fallback.%s", namespace, id, root))
+	fallbacks := make([]string, 5)
+	for i, id := range []string{"a", "b", "c", "d", "e"} {
+		fallbacks[i] = fmt.Sprintf("%s.%s.fallback.%s", namespace, id, root)
 	}
 	return fallbacks
 }
@@ -256,12 +253,7 @@ type clientOptions struct {
 	// authOptions Embedded an [ably.authOptions] object (TO3j).
 	authOptions
 
-	// Endpoint specifies the domain used to connect to Ably (REC1a).
-	// If the endpoint option is specified then (REC1b):
-	// If any one of the deprecated options environment, restHost, realtimeHost are also specified then the options as a set are invalid (REC1b1).
-	// If the endpoint option is a domain name, determined by it containing at least one period (.) then the primary domain is the value of the endpoint option (REC1b2).
-	// Otherwise, if the endpoint option is a non-production routing policy name of the form nonprod:[name] then the primary domain is [name].realtime.ably-nonprod.net (REC1b3).
-	// Otherwise, if the endpoint option is a production routing policy name of the form [name] then the primary domain is [name].realtime.ably.net (REC1b4).
+	// Endpoint specifies either a routing policy name or fully qualified domain name to connect to Ably.
 	Endpoint string
 
 	// Deprecated: this property is deprecated and will be removed in a future version.
@@ -474,9 +466,9 @@ func (opts *clientOptions) activePort() (port int, isDefault bool) {
 	return
 }
 
-// endpointFqdn handles an endpoint that uses a hostname, which may be an IPv4
+// isEndpointFQDN handles an endpoint that uses a hostname, which may be an IPv4
 // address, IPv6 address or localhost
-func endpointFqdn(endpoint string) bool {
+func isEndpointFQDN(endpoint string) bool {
 	return strings.Contains(endpoint, ".") || strings.Contains(endpoint, "::") || endpoint == "localhost"
 }
 
@@ -505,10 +497,10 @@ func (opts *clientOptions) endpointValueWithLegacySupport() string {
 }
 
 // REC2
-func (opts *clientOptions) getEndpoint() string {
+func (opts *clientOptions) getHostname() string {
 	ep := opts.endpointValueWithLegacySupport()
 
-	if endpointFqdn(ep) {
+	if isEndpointFQDN(ep) {
 		return ep
 	}
 
@@ -516,8 +508,8 @@ func (opts *clientOptions) getEndpoint() string {
 		return "sandbox.realtime.ably-nonprod.net"
 	}
 
-	if match := nonprodRegexp.FindStringSubmatch(ep); match != nil {
-		namespace := match[1]
+	if strings.HasPrefix(endpoint, "nonprod:") {
+		namespace := strings.TrimPrefix(endpoint, "nonprod:")
 		return fmt.Sprintf("%s.realtime.ably-nonprod.net", namespace)
 	}
 
@@ -529,7 +521,7 @@ func empty(s string) bool {
 }
 
 func (opts *clientOptions) restURL() (restUrl string) {
-	baseUrl := opts.getEndpoint()
+	baseUrl := opts.getHostname()
 	_, _, err := net.SplitHostPort(baseUrl)
 	if err != nil { // set port if not set in baseUrl
 		port, _ := opts.activePort()
@@ -574,7 +566,7 @@ func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 
 	if opts.FallbackHosts == nil {
 		ep := opts.endpointValueWithLegacySupport()
-		if endpointFqdn(ep) {
+		if isEndpointFQDN(ep) {
 			return opts.FallbackHosts, nil
 		}
 		return getEndpointFallbackHosts(ep), nil
@@ -1123,23 +1115,23 @@ func WithEchoMessages(echo bool) ClientOption {
 	}
 }
 
-// WithEndpoint is used for setting Endpoint using [ably.ClientOption].
-// Endpoint specifies the domain used to connect to Ably (REC1a).
-// If the endpoint option is specified then (REC1b):
-// If any one of the deprecated options environment, restHost, realtimeHost are also specified then the options as a set are invalid (REC1b1).
-// If the endpoint option is a domain name, determined by it containing at least one period (.) then the primary domain is the value of the endpoint option (REC1b2).
-// Otherwise, if the endpoint option is a non-production routing policy name of the form nonprod:[name] then the primary domain is [name].realtime.ably-nonprod.net (REC1b3).
-// Otherwise, if the endpoint option is a production routing policy name of the form [name] then the primary domain is [name].realtime.ably.net (REC1b4).
+// WithEndpoint sets a custom endpoint for connecting to the Ably service (see
+// [Platform Customization] for more information).
+//
+// [Platform Customization]: https://ably.com/docs/platform-customization
 func WithEndpoint(env string) ClientOption {
 	return func(os *clientOptions) {
 		os.Endpoint = env
 	}
 }
 
-// WithEnvironment is used for setting Environment using [ably.ClientOption].
-// If the deprecated environment option is specified then it defines a production routing policy name [name] (REC1c):
-// If any one of the deprecated options restHost, realtimeHost are also specified then the options as a set are invalid (REC1c1).
-// Otherwise, the primary domain is [name].realtime.ably.net (REC1c2).
+// WithEndpoint sets a custom endpoint for connecting to the Ably service (see
+// [Platform Customization] for more information).
+//
+// Deprecated: this option is deprecated and will be removed in a future
+// version.
+//
+// [Platform Customization]: https://ably.com/docs/platform-customization
 func WithEnvironment(env string) ClientOption {
 	return func(os *clientOptions) {
 		os.Environment = env
@@ -1197,6 +1189,9 @@ func WithQueueMessages(queue bool) ClientOption {
 // WithRESTHost is used for setting RESTHost using [ably.ClientOption].
 // RESTHost enables a non-default Ably host to be specified. For development environments only.
 // The default value is rest.ably.io (RSC12, TO3k2).
+//
+// Deprecated: this option is deprecated and will be removed in a future
+// version.
 func WithRESTHost(host string) ClientOption {
 	return func(os *clientOptions) {
 		os.RESTHost = host
@@ -1216,6 +1211,9 @@ func WithHTTPRequestTimeout(timeout time.Duration) ClientOption {
 // WithRealtimeHost is used for setting RealtimeHost using [ably.ClientOption].
 // RealtimeHost enables a non-default Ably host to be specified for realtime connections.
 // For development environments only. The default value is realtime.ably.io (RTC1d, TO3k3).
+//
+// Deprecated: this option is deprecated and will be removed in a future
+// version.
 func WithRealtimeHost(host string) ClientOption {
 	return func(os *clientOptions) {
 		os.RealtimeHost = host

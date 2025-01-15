@@ -17,7 +17,7 @@ func GetEndpointFallbackHosts(endpoint string) []string {
 }
 
 func (opts *clientOptions) GetEndpoint() string {
-	return opts.getEndpoint()
+	return opts.getHostname()
 }
 
 func (opts *clientOptions) ActivePort() (int, bool) {
@@ -189,7 +189,7 @@ func ApplyOptionsWithDefaults(o ...ClientOption) *clientOptions {
 }
 
 func EndpointFqdn(endpoint string) bool {
-	return endpointFqdn(endpoint)
+	return isEndpointFQDN(endpoint)
 }
 
 type ConnStateChanges = connStateChanges
