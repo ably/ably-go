@@ -23,8 +23,8 @@ const (
 	protocolJSON    = "application/json"
 	protocolMsgPack = "application/x-msgpack"
 
-	// endpoint is the default routing policy used to connect to Ably
-	endpoint = "main"
+	// defaultEndpoint is the default routing policy used to connect to Ably
+	defaultEndpoint = "main"
 
 	// restHost is the primary ably host.
 	restHost = "rest.ably.io"
@@ -40,7 +40,7 @@ const (
 )
 
 var defaultOptions = clientOptions{
-	Endpoint:                 endpoint,
+	Endpoint:                 defaultEndpoint,
 	RESTHost:                 restHost,
 	FallbackHosts:            defaultFallbackHosts(),
 	HTTPMaxRetryCount:        3,
@@ -498,13 +498,13 @@ func (opts *clientOptions) endpointValueWithLegacySupport() string {
 
 // REC2
 func (opts *clientOptions) getHostname() string {
-	ep := opts.endpointValueWithLegacySupport()
+	endpoint := opts.endpointValueWithLegacySupport()
 
-	if isEndpointFQDN(ep) {
-		return ep
+	if isEndpointFQDN(endpoint) {
+		return endpoint
 	}
 
-	if ep == "sandbox" {
+	if endpoint == "sandbox" {
 		return "sandbox.realtime.ably-nonprod.net"
 	}
 
@@ -513,7 +513,7 @@ func (opts *clientOptions) getHostname() string {
 		return fmt.Sprintf("%s.realtime.ably-nonprod.net", namespace)
 	}
 
-	return fmt.Sprintf("%s.realtime.ably.net", ep)
+	return fmt.Sprintf("%s.realtime.ably.net", endpoint)
 }
 
 func empty(s string) bool {
