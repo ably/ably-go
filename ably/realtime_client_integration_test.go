@@ -170,7 +170,6 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			assert.NoError(t, err)
 
 			client, err := ably.NewRealtime(
-				ably.WithEnvironment(ablytest.Environment),
 				ably.WithTLS(false),
 				ably.WithToken("fake:token"),
 				ably.WithUseTokenAuth(true),
@@ -195,7 +194,6 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			assert.NoError(t, err)
 
 			client, err := ably.NewRealtime(
-				ably.WithEnvironment(ablytest.Environment),
 				ably.WithTLS(false),
 				ably.WithToken("fake:token"),
 				ably.WithUseTokenAuth(true),
@@ -224,7 +222,6 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			assert.NoError(t, err)
 
 			client, err := ably.NewRealtime(
-				ably.WithEnvironment(ablytest.Environment),
 				ably.WithTLS(false),
 				ably.WithToken("fake:token"),
 				ably.WithUseTokenAuth(true),

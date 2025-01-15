@@ -466,8 +466,8 @@ func (opts *clientOptions) activePort() (port int, isDefault bool) {
 	return
 }
 
-// isEndpointFQDN handles an endpoint that uses a hostname, which may be an IPv4
-// address, IPv6 address or localhost
+// isEndpointFQDN returns true if the given endpoint is a hostname, which may
+// be an IPv4 address, IPv6 address or localhost
 func isEndpointFQDN(endpoint string) bool {
 	return strings.Contains(endpoint, ".") || strings.Contains(endpoint, "::") || endpoint == "localhost"
 }
@@ -1125,8 +1125,8 @@ func WithEndpoint(env string) ClientOption {
 	}
 }
 
-// WithEndpoint sets a custom endpoint for connecting to the Ably service (see
-// [Platform Customization] for more information).
+// WithEnvironment sets a custom endpoint for connecting to the Ably service
+// (see [Platform Customization] for more information).
 //
 // Deprecated: this option is deprecated and will be removed in a future
 // version.
