@@ -356,7 +356,7 @@ func NewRecorder(httpClient *http.Client) *HostRecorder {
 
 func (hr *HostRecorder) Options(host string, opts ...ably.ClientOption) []ably.ClientOption {
 	return append(opts,
-		ably.WithRealtimeHost(host),
+		ably.WithEndpoint(host),
 		ably.WithAutoConnect(false),
 		ably.WithDial(hr.dialWS),
 		ably.WithHTTPClient(hr.httpClient),

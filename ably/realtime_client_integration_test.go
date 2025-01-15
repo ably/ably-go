@@ -424,7 +424,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testin
 			}
 			return conn, err
 		}),
-		ably.WithRealtimeHost(serverURL.Host))
+		ably.WithEndpoint(serverURL.Host))
 
 	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
@@ -471,7 +471,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
 			}
 			return conn, err
 		}),
-		ably.WithRealtimeHost(serverURL.Host))
+		ably.WithEndpoint(serverURL.Host))
 
 	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
 
