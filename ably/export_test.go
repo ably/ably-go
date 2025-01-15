@@ -188,7 +188,7 @@ func ApplyOptionsWithDefaults(o ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(o...)
 }
 
-func EndpointFqdn(endpoint string) bool {
+func IsEndpointFQDN(endpoint string) bool {
 	return isEndpointFQDN(endpoint)
 }
 

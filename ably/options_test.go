@@ -441,9 +441,9 @@ func TestPaginateParams(t *testing.T) {
 	})
 }
 
-func TestEndpointFqdn(t *testing.T) {
-	assert.Equal(t, false, ably.EndpointFqdn("sandbox"))
-	assert.Equal(t, true, ably.EndpointFqdn("sandbox.example.com"))
-	assert.Equal(t, true, ably.EndpointFqdn("127.0.0.1"))
-	assert.Equal(t, true, ably.EndpointFqdn("localhost"))
+func TestIsEndpointFQDN(t *testing.T) {
+	assert.Equal(t, false, ably.IsEndpointFQDN("sandbox"))
+	assert.Equal(t, true, ably.IsEndpointFQDN("sandbox.example.com"))
+	assert.Equal(t, true, ably.IsEndpointFQDN("127.0.0.1"))
+	assert.Equal(t, true, ably.IsEndpointFQDN("localhost"))
 }
