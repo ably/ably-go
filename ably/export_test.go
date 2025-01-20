@@ -16,7 +16,7 @@ func GetEndpointFallbackHosts(endpoint string) []string {
 	return getEndpointFallbackHosts(endpoint)
 }
 
-func (opts *clientOptions) GetEndpoint() string {
+func (opts *clientOptions) GetHostname() string {
 	return opts.getHostname()
 }
 

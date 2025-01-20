@@ -71,7 +71,7 @@ func TestInternetConnectionCheck_RTN17c(t *testing.T) {
 func TestHosts_REC1(t *testing.T) {
 	t.Run("REC1a with default options", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions()
-		assert.Equal(t, "main.realtime.ably.net", clientOptions.GetEndpoint())
+		assert.Equal(t, "main.realtime.ably.net", clientOptions.GetHostname())
 		assert.False(t, clientOptions.NoTLS)
 		port, isDefaultPort := clientOptions.ActivePort()
 		assert.Equal(t, 443, port)
@@ -82,7 +82,7 @@ func TestHosts_REC1(t *testing.T) {
 
 	t.Run("REC1b with endpoint as a custom routing policy name", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions(ably.WithEndpoint("acme"))
-		assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetEndpoint())
+		assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetHostname())
 		assert.False(t, clientOptions.NoTLS)
 		port, isDefaultPort := clientOptions.ActivePort()
 		assert.Equal(t, 443, port)
@@ -93,7 +93,7 @@ func TestHosts_REC1(t *testing.T) {
 
 	t.Run("REC1b3 with endpoint as a nonprod routing policy name", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions(ably.WithEndpoint("nonprod:acme"))
-		assert.Equal(t, "acme.realtime.ably-nonprod.net", clientOptions.GetEndpoint())
+		assert.Equal(t, "acme.realtime.ably-nonprod.net", clientOptions.GetHostname())
 		assert.False(t, clientOptions.NoTLS)
 		port, isDefaultPort := clientOptions.ActivePort()
 		assert.Equal(t, 443, port)
@@ -104,7 +104,7 @@ func TestHosts_REC1(t *testing.T) {
 
 	t.Run("REC1b2 with endpoint as a fqdn with no fallbackHosts specified", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions(ably.WithEndpoint("foo.example.com"))
-		assert.Equal(t, "foo.example.com", clientOptions.GetEndpoint())
+		assert.Equal(t, "foo.example.com", clientOptions.GetHostname())
 		assert.False(t, clientOptions.NoTLS)
 		port, isDefaultPort := clientOptions.ActivePort()
 		assert.Equal(t, 443, port)
@@ -116,7 +116,7 @@ func TestHosts_REC1(t *testing.T) {
 
 	t.Run("REC1b2 REC2a2 with endpoint as a fqdn with fallbackHosts specified", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions(ably.WithEndpoint("foo.example.com"), ably.WithFallbackHosts([]string{"fallback.foo.example.com"}))
-		assert.Equal(t, "foo.example.com", clientOptions.GetEndpoint())
+		assert.Equal(t, "foo.example.com", clientOptions.GetHostname())
 		assert.False(t, clientOptions.NoTLS)
 		port, isDefaultPort := clientOptions.ActivePort()
 		assert.Equal(t, 443, port)
@@ -129,7 +129,7 @@ func TestHosts_REC1(t *testing.T) {
 	t.Run("legacy support", func(t *testing.T) {
 		t.Run("REC1c with production environment", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithEnvironment("production"))
-			assert.Equal(t, "main.realtime.ably.net", clientOptions.GetEndpoint())
+			assert.Equal(t, "main.realtime.ably.net", clientOptions.GetHostname())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -140,7 +140,7 @@ func TestHosts_REC1(t *testing.T) {
 
 		t.Run("REC1c with sandbox environment", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithEnvironment("sandbox"))
-			assert.Equal(t, "sandbox.realtime.ably-nonprod.net", clientOptions.GetEndpoint())
+			assert.Equal(t, "sandbox.realtime.ably-nonprod.net", clientOptions.GetHostname())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -151,7 +151,7 @@ func TestHosts_REC1(t *testing.T) {
 
 		t.Run("REC1c with custom environment", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithEnvironment("acme"))
-			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetEndpoint())
+			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetHostname())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -162,7 +162,7 @@ func TestHosts_REC1(t *testing.T) {
 
 		t.Run("REC1c REC2a1 with custom environment and fallbackHostUseDefault", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithEnvironment("acme"), ably.WithFallbackHostsUseDefault(true))
-			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetEndpoint())
+			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetHostname())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -177,7 +177,7 @@ func TestHosts_REC1(t *testing.T) {
 				ably.WithPort(8080),
 				ably.WithTLSPort(8081),
 			)
-			assert.Equal(t, "local.realtime.ably.net", clientOptions.GetEndpoint())
+			assert.Equal(t, "local.realtime.ably.net", clientOptions.GetHostname())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 8081, port)
@@ -188,7 +188,7 @@ func TestHosts_REC1(t *testing.T) {
 
 		t.Run("REC1d1 with custom restHost", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithRESTHost("test.org"))
-			assert.Equal(t, "test.org", clientOptions.GetEndpoint())
+			assert.Equal(t, "test.org", clientOptions.GetHostname())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -199,7 +199,7 @@ func TestHosts_REC1(t *testing.T) {
 
 		t.Run("REC1d2 with custom realtimeHost", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithRealtimeHost("ws.test.org"))
-			assert.Equal(t, "ws.test.org", clientOptions.GetEndpoint())
+			assert.Equal(t, "ws.test.org", clientOptions.GetHostname())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -210,7 +210,7 @@ func TestHosts_REC1(t *testing.T) {
 
 		t.Run("REC1d with custom restHost and realtimeHost", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithRealtimeHost("ws.test.org"), ably.WithRESTHost("test.org"))
-			assert.Equal(t, "test.org", clientOptions.GetEndpoint())
+			assert.Equal(t, "test.org", clientOptions.GetHostname())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -224,7 +224,7 @@ func TestHosts_REC1(t *testing.T) {
 				ably.WithRealtimeHost("ws.test.org"),
 				ably.WithRESTHost("test.org"),
 				ably.WithFallbackHostsUseDefault(true))
-			assert.Equal(t, "test.org", clientOptions.GetEndpoint())
+			assert.Equal(t, "test.org", clientOptions.GetHostname())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -236,7 +236,7 @@ func TestHosts_REC1(t *testing.T) {
 
 	t.Run("REC2a with fallbackHosts", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions(ably.WithFallbackHosts([]string{"a.example.com", "b.example.com"}))
-		assert.Equal(t, "main.realtime.ably.net", clientOptions.GetEndpoint())
+		assert.Equal(t, "main.realtime.ably.net", clientOptions.GetHostname())
 		assert.False(t, clientOptions.NoTLS)
 		port, isDefaultPort := clientOptions.ActivePort()
 		assert.Equal(t, 443, port)

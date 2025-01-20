@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -259,11 +259,10 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 	return appOpts
 }
 
-var nonprodRegexp = regexp.MustCompile(`^nonprod:(.*)$`)
-
 func (app *Sandbox) URL(paths ...string) string {
-	if match := nonprodRegexp.FindStringSubmatch(app.Endpoint); match != nil {
-		return fmt.Sprintf("https://%s.realtime.ably-nonprod.net/%s", match[1], path.Join(paths...))
+	if strings.HasPrefix(app.Endpoint, "nonprod:") {
+		namespace := strings.TrimPrefix(app.Endpoint, "nonprod:")
+		return fmt.Sprintf("https://%s.realtime.ably-nonprod.net/%s", namespace, path.Join(paths...))
 	}
 
 	return fmt.Sprintf("https://%s.realtime.ably.net/%s", app.Endpoint, path.Join(paths...))
