@@ -67,10 +67,6 @@ func defaultFallbackHosts() []string {
 }
 
 func getEndpointFallbackHosts(endpoint string) []string {
-	if endpoint == "sandbox" {
-		return endpointFallbacks("sandbox", "ably-realtime-nonprod.com")
-	}
-
 	if strings.HasPrefix(endpoint, "nonprod:") {
 		namespace := strings.TrimPrefix(endpoint, "nonprod:")
 		return endpointFallbacks(namespace, "ably-realtime-nonprod.com")
@@ -502,10 +498,6 @@ func (opts *clientOptions) getHostname() string {
 
 	if isEndpointFQDN(endpoint) {
 		return endpoint
-	}
-
-	if endpoint == "sandbox" {
-		return "sandbox.realtime.ably-nonprod.net"
 	}
 
 	if strings.HasPrefix(endpoint, "nonprod:") {
