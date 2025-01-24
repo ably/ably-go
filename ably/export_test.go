@@ -16,8 +16,16 @@ func GetEndpointFallbackHosts(endpoint string) []string {
 	return getEndpointFallbackHosts(endpoint)
 }
 
-func (opts *clientOptions) GetHostname() string {
-	return opts.getHostname()
+func (opts *clientOptions) GetRestHost() string {
+	return opts.getRestHost()
+}
+
+func (opts *clientOptions) GetRealtimeHost() string {
+	return opts.getRealtimeHost()
+}
+
+func (opts *clientOptions) GetHostnameFromEndpoint() string {
+	return opts.getHostnameFromEndpoint()
 }
 
 func (opts *clientOptions) ActivePort() (int, bool) {
@@ -199,7 +207,7 @@ type ChannelStateChanges = channelStateChanges
 const ConnectionStateTTLErrFmt = connectionStateTTLErrFmt
 
 func DefaultFallbackHosts() []string {
-	return defaultFallbackHosts()
+	return defaultOptions.FallbackHosts
 }
 
 // PendingItems returns the number of messages waiting for Ack/Nack
