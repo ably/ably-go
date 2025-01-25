@@ -105,9 +105,6 @@ type Sandbox struct {
 	// Endpoint is the hostname to connect to
 	Endpoint string
 
-	// Environment is used in auth parameters
-	Environment string
-
 	client *http.Client
 }
 
@@ -138,15 +135,14 @@ func MustSandbox(config *Config) *Sandbox {
 }
 
 func NewSandbox(config *Config) (*Sandbox, error) {
-	return NewSandboxWithEndpoint(config, Endpoint, Environment)
+	return NewSandboxWithEndpoint(config, Endpoint)
 }
 
-func NewSandboxWithEndpoint(config *Config, endpoint, environment string) (*Sandbox, error) {
+func NewSandboxWithEndpoint(config *Config, endpoint string) (*Sandbox, error) {
 	app := &Sandbox{
-		Config:      config,
-		Endpoint:    endpoint,
-		Environment: environment,
-		client:      NewHTTPClient(),
+		Config:   config,
+		Endpoint: endpoint,
+		client:   NewHTTPClient(),
 	}
 	if app.Config == nil {
 		app.Config = DefaultConfig()
@@ -282,7 +278,7 @@ var CREATE_JWT_URL string = "https://echo.ably.io/createJWT"
 func (app *Sandbox) GetJwtAuthParams(expiresIn time.Duration, invalid bool) url.Values {
 	key, secret := app.KeyParts()
 	authParams := url.Values{}
-	authParams.Add("environment", app.Environment)
+	authParams.Add("endpoint", app.Endpoint)
 	authParams.Add("returnType", "jwt")
 	authParams.Add("keyName", key)
 	if invalid {
