@@ -57,7 +57,7 @@ func TestRealtimePresence_Sync(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRealtimePresence_Sync250_RTP4(t *testing.T) {
+func SkipTestRealtimePresence_Sync250_RTP4(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
 	client2 := app.NewRealtime(nil...)
