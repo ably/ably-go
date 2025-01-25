@@ -402,10 +402,15 @@ func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testin
 	fallbackHost := "sandbox-a-fallback.ably-realtime.com"
 	connAttempts := 0
 
-	app, realtime := ablytest.NewRealtime(
+	app := ablytest.MustSandbox(nil)
+	defer safeclose(t, app)
+	jwt, err := app.CreateJwt(30*time.Second, false)
+	assert.NoError(t, err)
+
+	realtime := app.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithTLS(false),
-		ably.WithUseTokenAuth(true),
+		ably.WithToken(jwt),
 		ably.WithFallbackHosts([]string{fallbackHost}),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 			connAttempts += 1
@@ -446,10 +451,15 @@ func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
 	requestTimeout := 2 * time.Second
 	connAttempts := 0
 
-	app, realtime := ablytest.NewRealtime(
+	app := ablytest.MustSandbox(nil)
+	defer safeclose(t, app)
+	jwt, err := app.CreateJwt(30*time.Second, false)
+	assert.NoError(t, err)
+
+	realtime := app.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithTLS(false),
-		ably.WithUseTokenAuth(true),
+		ably.WithToken(jwt),
 		ably.WithFallbackHosts([]string{fallbackHost}),
 		ably.WithRealtimeRequestTimeout(requestTimeout),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
