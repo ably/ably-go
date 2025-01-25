@@ -428,8 +428,8 @@ type clientOptions struct {
 }
 
 func (opts *clientOptions) validate() error {
-	if !empty(opts.Endpoint) && (!empty(opts.Environment) || !empty(opts.RealtimeHost) || !empty(opts.RESTHost)) {
-		err := errors.New("invalid client option: cannot use endpoint with any of environment, realtimeHost or restHost")
+	if !empty(opts.Endpoint) && (!empty(opts.Environment) || !empty(opts.RealtimeHost) || !empty(opts.RESTHost) || opts.FallbackHostsUseDefault) {
+		err := errors.New("invalid client option: cannot use endpoint with any of deprecated options environment, realtimeHost, restHost or FallbackHostsUseDefault")
 		logger := opts.LogHandler
 		logger.Printf(LogError, "Invalid client options : %v", err.Error())
 		return err

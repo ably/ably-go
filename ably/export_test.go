@@ -24,6 +24,10 @@ func (opts *clientOptions) GetRealtimeHost() string {
 	return opts.getRealtimeHost()
 }
 
+func (opts *clientOptions) Validate() error {
+	return opts.validate()
+}
+
 func (opts *clientOptions) GetHostnameFromEndpoint() string {
 	return opts.getHostnameFromEndpoint()
 }

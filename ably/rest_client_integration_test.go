@@ -347,10 +347,10 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			ably.WithUseTokenAuth(true),
 		}
 		retryCount, hosts := runTestServer(t, options)
-		assert.Equal(t, 6, retryCount)                          // 1 primary and 5 default fallback hosts
-		assert.Equal(t, "main.realtime.ably.net", hosts[0])     // primary host
-		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:]) // remaining fallback hosts
-		assertUnique(t, hosts)                                  // ensure all picked fallbacks are unique
+		assert.Equal(t, 6, retryCount)                                 // 1 primary and 5 default fallback hosts
+		assert.Equal(t, "sandbox.realtime.ably-nonprod.net", hosts[0]) // primary host
+		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])        // remaining fallback hosts
+		assertUnique(t, hosts)                                         // ensure all picked fallbacks are unique
 	})
 
 	runTestServerWithRequestTimeout := func(t *testing.T, options []ably.ClientOption) (int, []string) {
@@ -393,10 +393,10 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			ably.WithUseTokenAuth(true),
 		}
 		retryCount, hosts := runTestServerWithRequestTimeout(t, options)
-		assert.Equal(t, 6, retryCount)                          // 1 primary and 5 default fallback hosts
-		assert.Equal(t, "main.realtime.ably.net", hosts[0])     // primary host
-		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:]) // remaining fallback hosts
-		assertUnique(t, hosts)                                  // ensure all picked fallbacks are unique
+		assert.Equal(t, 6, retryCount)                                 // 1 primary and 5 default fallback hosts
+		assert.Equal(t, "sandbox.realtime.ably-nonprod.net", hosts[0]) // primary host
+		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])        // remaining fallback hosts
+		assertUnique(t, hosts)                                         // ensure all picked fallbacks are unique
 	})
 
 	t.Run("RSC15l1 must use alternative host on host unresolvable or unreachable", func(t *testing.T) {

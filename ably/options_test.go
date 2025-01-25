@@ -160,22 +160,6 @@ func TestHosts_REC1(t *testing.T) {
 			assert.Equal(t, ably.DefaultFallbackHosts(), fallbackHosts)
 		})
 
-		// Fallbacks will be null since ports are not default
-		// t.Run("REC1c with legacy custom environment and non default ports", func(t *testing.T) {
-		// 	clientOptions := ably.NewClientOptions(
-		// 		ably.WithEnvironment("local"),
-		// 		ably.WithPort(8080),
-		// 		ably.WithTLSPort(8081),
-		// 	)
-		// 	assert.Equal(t, "local.realtime.ably.net", clientOptions.GetRestHost())
-		// 	assert.False(t, clientOptions.NoTLS)
-		// 	port, isDefaultPort := clientOptions.ActivePort()
-		// 	assert.Equal(t, 8081, port)
-		// 	assert.False(t, isDefaultPort)
-		// 	fallbackHosts, _ := clientOptions.GetFallbackHosts()
-		// 	assert.Equal(t, ably.GetEndpointFallbackHosts("local"), fallbackHosts)
-		// })
-
 		t.Run("REC1d1 with custom restHost", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithRESTHost("test.org"))
 			assert.Equal(t, "test.org", clientOptions.GetRestHost())
@@ -222,6 +206,15 @@ func TestHosts_REC1(t *testing.T) {
 			fallbackHosts, _ := clientOptions.GetFallbackHosts()
 			assert.Equal(t, ably.DefaultFallbackHosts(), fallbackHosts)
 		})
+	})
+
+	t.Run("If endpoint option is used with deprecated fallbackHostUseDefault, throw error", func(t *testing.T) {
+		clientOptions := ably.NewClientOptions(
+			ably.WithFallbackHostsUseDefault(true),
+			ably.WithEndpoint("custom"))
+		err := clientOptions.Validate()
+		assert.Equal(t, err.Error(),
+			"invalid client option: cannot use endpoint with any of deprecated options environment, realtimeHost, restHost or FallbackHostsUseDefault")
 	})
 
 	t.Run("REC2a with fallbackHosts", func(t *testing.T) {
