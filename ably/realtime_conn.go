@@ -388,7 +388,6 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 
 	var conn conn
 	primaryHost := c.opts.getRealtimeHost()
-
 	hosts := []string{primaryHost}
 	fallbackHosts, err := c.opts.getFallbackHosts()
 	if err != nil {

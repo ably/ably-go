@@ -59,20 +59,21 @@ var defaultOptions = clientOptions{
 	LogLevel:                 LogWarning, // RSC2
 }
 
-func getPrimaryProdHost(root string) string {
+func getPrimaryHost(root string) string {
+	// REC1b3
+	if strings.HasPrefix(root, "nonprod:") {
+		root := strings.TrimPrefix(root, "nonprod:")
+		return fmt.Sprintf("%s.realtime.ably-nonprod.net", root)
+	}
 	return fmt.Sprintf("%s.realtime.ably.net", root)
 }
 
-func getPrimaryNonProdHost(root string) string {
-	return fmt.Sprintf("%s.realtime.ably-nonprod.net", root)
-}
-
 func getEndpointFallbackHosts(endpoint string) []string {
-	if strings.HasPrefix(endpoint, "nonprod:") {
+	if strings.HasPrefix(endpoint, "nonprod:") { // REC2c3
 		root := strings.TrimPrefix(endpoint, "nonprod:")
 		return endpointFallbacks(root, "ably-realtime-nonprod.com")
 	}
-	return endpointFallbacks(endpoint, "ably-realtime.com")
+	return endpointFallbacks(endpoint, "ably-realtime.com") // REC2c4
 }
 
 // endpointFallbacks generates a list of fallback hosts based on the given namespace and root.
@@ -428,6 +429,7 @@ type clientOptions struct {
 }
 
 func (opts *clientOptions) validate() error {
+	// REC1b1
 	if !empty(opts.Endpoint) && (!empty(opts.Environment) || !empty(opts.RealtimeHost) || !empty(opts.RESTHost) || opts.FallbackHostsUseDefault) {
 		err := errors.New("invalid client option: cannot use endpoint with any of deprecated options environment, realtimeHost, restHost or FallbackHostsUseDefault")
 		logger := opts.LogHandler
@@ -478,7 +480,7 @@ func (opts *clientOptions) getRestHost() string {
 		return opts.RESTHost
 	}
 	if !opts.isProductionEnvironment() {
-		return getPrimaryProdHost(opts.Environment)
+		return getPrimaryHost(opts.Environment)
 	}
 	return defaultOptions.RESTHost
 }
@@ -496,7 +498,7 @@ func (opts *clientOptions) getRealtimeHost() string {
 		return opts.RESTHost
 	}
 	if !opts.isProductionEnvironment() {
-		return getPrimaryProdHost(opts.Environment)
+		return getPrimaryHost(opts.Environment)
 	}
 	return defaultOptions.RealtimeHost
 }
@@ -507,20 +509,16 @@ func isEndpointFQDN(endpoint string) bool {
 	return strings.Contains(endpoint, ".") || strings.Contains(endpoint, "::") || endpoint == "localhost"
 }
 
-// REC2
+// REC1b
 func (opts *clientOptions) getHostnameFromEndpoint() string {
 	endpoint := opts.Endpoint
 	if empty(endpoint) {
 		return defaultPrimaryHost
 	}
-	if isEndpointFQDN(endpoint) {
+	if isEndpointFQDN(endpoint) { // REC1b2
 		return endpoint
 	}
-	if strings.HasPrefix(endpoint, "nonprod:") {
-		root := strings.TrimPrefix(endpoint, "nonprod:")
-		return getPrimaryNonProdHost(root)
-	}
-	return getPrimaryProdHost(endpoint)
+	return getPrimaryHost(endpoint) // REC1b4
 }
 
 func empty(s string) bool {
@@ -556,12 +554,12 @@ func (opts *clientOptions) realtimeURL(realtimeHost string) (realtimeUrl string)
 func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 	if !empty(opts.Endpoint) {
 		if opts.FallbackHosts == nil {
-			if isEndpointFQDN(opts.Endpoint) {
+			if isEndpointFQDN(opts.Endpoint) { // REC2c2
 				return opts.FallbackHosts, nil
 			}
 			return getEndpointFallbackHosts(opts.Endpoint), nil
 		}
-		return opts.FallbackHosts, nil
+		return opts.FallbackHosts, nil //REC2a2
 	}
 
 	logger := opts.LogHandler
@@ -583,7 +581,7 @@ func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 		if opts.isProductionEnvironment() {
 			return defaultOptions.FallbackHosts, nil
 		}
-		return getEndpointFallbackHosts(opts.Environment), nil
+		return getEndpointFallbackHosts(opts.Environment), nil // REC2c5
 	}
 	return opts.FallbackHosts, nil
 }

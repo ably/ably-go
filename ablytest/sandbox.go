@@ -100,12 +100,9 @@ var PresenceFixtures = func() []Presence {
 }
 
 type Sandbox struct {
-	Config *Config
-
-	// Endpoint is the hostname to connect to
+	Config   *Config
 	Endpoint string
-
-	client *http.Client
+	client   *http.Client
 }
 
 func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
