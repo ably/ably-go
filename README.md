@@ -438,7 +438,8 @@ ably.WithHTTPClient(&http.Client{
 })
 ```
 
-**Important Note** - Connection reliability is totally dependent on health of proxy server and ably will not be responsible for errors introduced by proxy server.
+**Important Note** - Connection reliability is totally dependent on health of proxy server and ably will not be responsible for errors introduced by proxy server. You may need to increase request timeouts in order to compensate for connection wait time period introduced by proxy server.
+e.g use of `WithHTTPRequestTimeout`, `WithRealtimeRequestTimeout`.
 
 ## Note on usage of ablytest package
 Although the `ablytest` package is available as a part of ably-go, we do not recommend using it as a sandbox for your own testing, since it's specifically intended for client library SDKs and we don’t provide any guarantees for support or that it will remain publicly accessible.
@@ -482,11 +483,11 @@ Our [current approach to versioning](https://ably.com/documentation/client-lib-d
 
 ## Feature support
 
-This library targets the Ably 1.2 [client library specification](https://ably.com/docs/client-lib-development-guide/features). List of available features for our client library SDKs can be found on our [feature support matrix](https://ably.com/download/sdk-feature-support-matrix) page.
+This library targets the Ably 2.0.0 [client library specification](https://sdk.ably.com/builds/ably/specification/main/features/#CSV1). List of available features can be found on our [feature support matrix](https://sdk.ably.com/builds/ably/ably-go/main/features/) page.
 
 ## Known limitations
 
-As of release 1.2.0, the following are not implemented and will be covered in future 1.2.x releases. If there are features that are currently missing that are a high priority for your use-case then please [contact Ably customer support](https://ably.com/support). Pull Requests are also welcomed.
+As of latest release, the following features are not implemented and will be covered in future releases. If there are features that are currently missing that are a high priority for your use-case then please [contact Ably customer support](https://ably.com/support). Pull Requests are also welcomed.
 
 ### REST API
 
