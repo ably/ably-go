@@ -142,7 +142,7 @@ func TestRESTChannel(t *testing.T) {
 }
 
 func TestIdempotentPublishing(t *testing.T) {
-	app, err := ablytest.NewSandboxWithEnv(nil, ablytest.Environment)
+	app, err := ablytest.NewSandboxWithEndpoint(nil, ablytest.Endpoint)
 	assert.NoError(t, err)
 	defer app.Close()
 	options := app.Options(ably.WithIdempotentRESTPublishing(true))
@@ -295,7 +295,7 @@ func TestIdempotentPublishing(t *testing.T) {
 }
 
 func TestIdempotent_retry(t *testing.T) {
-	app, err := ablytest.NewSandboxWithEnv(nil, ablytest.Environment)
+	app, err := ablytest.NewSandboxWithEndpoint(nil, ablytest.Endpoint)
 	assert.NoError(t, err)
 	defer app.Close()
 	randomStr, err := ablyutil.BaseID()
@@ -312,7 +312,7 @@ func TestIdempotent_retry(t *testing.T) {
 		// failing all others via the test server
 		fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
 		nopts := []ably.ClientOption{
-			ably.WithEnvironment(ablytest.Environment),
+			ably.WithEndpoint(ablytest.Endpoint),
 			ably.WithTLS(false),
 			ably.WithFallbackHosts(fallbackHosts),
 			ably.WithIdempotentRESTPublishing(true),

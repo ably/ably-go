@@ -12,8 +12,8 @@ func NewClientOptions(os ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(os...)
 }
 
-func GetEnvFallbackHosts(env string) []string {
-	return getEnvFallbackHosts(env)
+func GetEndpointFallbackHosts(endpoint string) []string {
+	return getEndpointFallbackHosts(endpoint)
 }
 
 func (opts *clientOptions) GetRestHost() string {
@@ -22,6 +22,14 @@ func (opts *clientOptions) GetRestHost() string {
 
 func (opts *clientOptions) GetRealtimeHost() string {
 	return opts.getRealtimeHost()
+}
+
+func (opts *clientOptions) Validate() error {
+	return opts.validate()
+}
+
+func (opts *clientOptions) GetHostnameFromEndpoint() string {
+	return opts.getHostnameFromEndpoint()
 }
 
 func (opts *clientOptions) ActivePort() (int, bool) {
@@ -192,6 +200,10 @@ func ApplyOptionsWithDefaults(o ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(o...)
 }
 
+func IsEndpointFQDN(endpoint string) bool {
+	return isEndpointFQDN(endpoint)
+}
+
 type ConnStateChanges = connStateChanges
 
 type ChannelStateChanges = channelStateChanges
@@ -199,7 +211,7 @@ type ChannelStateChanges = channelStateChanges
 const ConnectionStateTTLErrFmt = connectionStateTTLErrFmt
 
 func DefaultFallbackHosts() []string {
-	return defaultFallbackHosts()
+	return defaultOptions.FallbackHosts
 }
 
 // PendingItems returns the number of messages waiting for Ack/Nack

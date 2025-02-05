@@ -222,7 +222,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateFailed), func(t *testing.T) {
 
 		options := []ably.ClientOption{
-			ably.WithEnvironment("sandbox"),
+			ably.WithEndpoint(ablytest.Endpoint),
 			ably.WithAutoConnect(false),
 			ably.WithKey("made:up"),
 		}
@@ -1735,7 +1735,7 @@ func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.
 	realtime, err := ably.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(recorder.Dial),
-		ably.WithEnvironment(ablytest.Environment),
+		ably.WithEndpoint(ablytest.Endpoint),
 		ably.WithAuthCallback(authCallback))
 
 	assert.NoError(t, err)
@@ -1798,7 +1798,7 @@ func TestRealtimeConn_RTN22_RTC8_Integration_ServerInitiatedAuth(t *testing.T) {
 		ably.WithAutoConnect(false),
 		ably.WithDial(recorder.Dial),
 		ably.WithUseBinaryProtocol(false),
-		ably.WithEnvironment(ablytest.Environment),
+		ably.WithEndpoint(ablytest.Endpoint),
 		ably.WithAuthCallback(authCallback))
 
 	assert.NoError(t, err)
@@ -3037,7 +3037,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		realtimeMsgRecorder := NewMessageRecorder()
 		realtime, err := ably.NewRealtime(
 			ably.WithAutoConnect(false),
-			ably.WithEnvironment(ablytest.Environment),
+			ably.WithEndpoint(ablytest.Endpoint),
 			ably.WithDial(realtimeMsgRecorder.Dial),
 			ably.WithAuthCallback(authCallback))
 

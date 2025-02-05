@@ -250,10 +250,9 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		assert.NoError(t, err)
 
 		opts := []ably.ClientOption{
-			ably.WithEnvironment(ablytest.Environment),
+			ably.WithEndpoint(serverURL.Host),
 			ably.WithTLS(false),
 			ably.WithUseTokenAuth(true),
-			ably.WithRESTHost(serverURL.Host),
 		}
 
 		client, err := ably.NewREST(opts...)
@@ -275,10 +274,9 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		assert.NoError(t, err)
 
 		opts := []ably.ClientOption{
-			ably.WithEnvironment(ablytest.Environment),
+			ably.WithEndpoint(serverURL.Host),
 			ably.WithTLS(false),
 			ably.WithUseTokenAuth(true),
-			ably.WithRESTHost(serverURL.Host),
 			ably.WithAgents(map[string]string{
 				"foo": "1.2.3",
 			}),
@@ -303,10 +301,9 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 		assert.NoError(t, err)
 
 		opts := []ably.ClientOption{
-			ably.WithEnvironment(ablytest.Environment),
+			ably.WithEndpoint(serverURL.Host),
 			ably.WithTLS(false),
 			ably.WithUseTokenAuth(true),
-			ably.WithRESTHost(serverURL.Host),
 			ably.WithAgents(map[string]string{
 				"bar": "",
 			}),
@@ -346,15 +343,14 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		options := []ably.ClientOption{
 			ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
 			ably.WithTLS(false),
-			ably.WithEnvironment(""), // remove default sandbox env
 			ably.WithHTTPMaxRetryCount(10),
 			ably.WithUseTokenAuth(true),
 		}
 		retryCount, hosts := runTestServer(t, options)
-		assert.Equal(t, 6, retryCount)                          // 1 primary and 5 default fallback hosts
-		assert.Equal(t, "rest.ably.io", hosts[0])               // primary host
-		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:]) // remaining fallback hosts
-		assertUnique(t, hosts)                                  // ensure all picked fallbacks are unique
+		assert.Equal(t, 6, retryCount)                                 // 1 primary and 5 default fallback hosts
+		assert.Equal(t, "sandbox.realtime.ably-nonprod.net", hosts[0]) // primary host
+		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])        // remaining fallback hosts
+		assertUnique(t, hosts)                                         // ensure all picked fallbacks are unique
 	})
 
 	runTestServerWithRequestTimeout := func(t *testing.T, options []ably.ClientOption) (int, []string) {
@@ -393,21 +389,20 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		options := []ably.ClientOption{
 			ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
 			ably.WithTLS(false),
-			ably.WithEnvironment(""), // remove default sandbox env
 			ably.WithHTTPMaxRetryCount(10),
 			ably.WithUseTokenAuth(true),
 		}
 		retryCount, hosts := runTestServerWithRequestTimeout(t, options)
-		assert.Equal(t, 6, retryCount)                          // 1 primary and 5 default fallback hosts
-		assert.Equal(t, "rest.ably.io", hosts[0])               // primary host
-		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:]) // remaining fallback hosts
-		assertUnique(t, hosts)                                  // ensure all picked fallbacks are unique
+		assert.Equal(t, 6, retryCount)                                 // 1 primary and 5 default fallback hosts
+		assert.Equal(t, "sandbox.realtime.ably-nonprod.net", hosts[0]) // primary host
+		assertSubset(t, ably.DefaultFallbackHosts(), hosts[1:])        // remaining fallback hosts
+		assertUnique(t, hosts)                                         // ensure all picked fallbacks are unique
 	})
 
 	t.Run("RSC15l1 must use alternative host on host unresolvable or unreachable", func(t *testing.T) {
 		options := []ably.ClientOption{
+			ably.WithEndpoint("foobar.ably.com"),
 			ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
-			ably.WithRESTHost("foobar.ably.com"),
 			ably.WithFallbackHosts([]string{
 				"spam.ably.com",
 				"tatto.ably.com",
@@ -430,7 +425,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 
 			options := []ably.ClientOption{
 				ably.WithTLS(false),
-				ably.WithRESTHost("example.com"),
+				ably.WithEndpoint("example.com"),
 				ably.WithUseTokenAuth(true),
 			}
 			retryCount, hosts := runTestServer(t, options)
@@ -444,7 +439,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 
 			options := []ably.ClientOption{
 				ably.WithTLS(false),
-				ably.WithRESTHost("example.com"),
+				ably.WithEndpoint("example.com"),
 				ably.WithFallbackHosts(ably.DefaultFallbackHosts()),
 				ably.WithUseTokenAuth(true),
 			}
@@ -460,7 +455,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		t.Run("must occur when fallbackHosts is set", func(t *testing.T) {
 			options := []ably.ClientOption{
 				ably.WithTLS(false),
-				ably.WithRESTHost("example.com"),
+				ably.WithEndpoint("example.com"),
 				ably.WithFallbackHosts([]string{"a.example.com"}),
 				ably.WithUseTokenAuth(true),
 			}
@@ -476,7 +471,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 	t.Run("RSC15e must start with default host", func(t *testing.T) {
 
 		options := []ably.ClientOption{
-			ably.WithEnvironment("production"),
+			ably.WithEndpoint("main"),
 			ably.WithTLS(false),
 			ably.WithUseTokenAuth(true),
 		}
@@ -492,7 +487,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 
 		options := []ably.ClientOption{
 			ably.WithTLS(false),
-			ably.WithRESTHost("example.com"),
+			ably.WithEndpoint("example.com"),
 			ably.WithFallbackHosts([]string{}),
 			ably.WithUseTokenAuth(true),
 		}
@@ -519,7 +514,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		defer server.Close()
 
 		nopts = []ably.ClientOption{
-			ably.WithEnvironment(ablytest.Environment),
+			ably.WithEndpoint(ablytest.Endpoint),
 			ably.WithTLS(false),
 			ably.WithFallbackHosts([]string{"fallback0", "fallback1", "fallback2"}),
 			ably.WithUseTokenAuth(true),

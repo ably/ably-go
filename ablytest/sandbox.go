@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strings"
 	"syscall"
 	"time"
 
@@ -99,10 +100,9 @@ var PresenceFixtures = func() []Presence {
 }
 
 type Sandbox struct {
-	Config      *Config
-	Environment string
-
-	client *http.Client
+	Config   *Config
+	Endpoint string
+	client   *http.Client
 }
 
 func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
@@ -132,14 +132,14 @@ func MustSandbox(config *Config) *Sandbox {
 }
 
 func NewSandbox(config *Config) (*Sandbox, error) {
-	return NewSandboxWithEnv(config, Environment)
+	return NewSandboxWithEndpoint(config, Endpoint)
 }
 
-func NewSandboxWithEnv(config *Config, env string) (*Sandbox, error) {
+func NewSandboxWithEndpoint(config *Config, endpoint string) (*Sandbox, error) {
 	app := &Sandbox{
-		Config:      config,
-		Environment: env,
-		client:      NewHTTPClient(),
+		Config:   config,
+		Endpoint: endpoint,
+		client:   NewHTTPClient(),
 	}
 	if app.Config == nil {
 		app.Config = DefaultConfig()
@@ -233,7 +233,7 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 	appHTTPClient := NewHTTPClient()
 	appOpts := []ably.ClientOption{
 		ably.WithKey(app.Key()),
-		ably.WithEnvironment(app.Environment),
+		ably.WithEndpoint(app.Endpoint),
 		ably.WithUseBinaryProtocol(!NoBinaryProtocol),
 		ably.WithHTTPClient(appHTTPClient),
 		ably.WithLogLevel(DefaultLogLevel),
@@ -253,7 +253,12 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 }
 
 func (app *Sandbox) URL(paths ...string) string {
-	return "https://" + app.Environment + "-rest.ably.io/" + path.Join(paths...)
+	if strings.HasPrefix(app.Endpoint, "nonprod:") {
+		namespace := strings.TrimPrefix(app.Endpoint, "nonprod:")
+		return fmt.Sprintf("https://%s.realtime.ably-nonprod.net/%s", namespace, path.Join(paths...))
+	}
+
+	return fmt.Sprintf("https://%s.realtime.ably.net/%s", app.Endpoint, path.Join(paths...))
 }
 
 // Source code for the same => https://github.com/ably/echoserver/blob/main/app.js
@@ -270,7 +275,7 @@ var CREATE_JWT_URL string = "https://echo.ably.io/createJWT"
 func (app *Sandbox) GetJwtAuthParams(expiresIn time.Duration, invalid bool) url.Values {
 	key, secret := app.KeyParts()
 	authParams := url.Values{}
-	authParams.Add("environment", app.Environment)
+	authParams.Add("endpoint", app.Endpoint)
 	authParams.Add("returnType", "jwt")
 	authParams.Add("keyName", key)
 	if invalid {
