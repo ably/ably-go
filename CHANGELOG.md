@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.2.22](https://github.com/ably/ably-go/tree/v.1.2.22)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.21...v.1.2.22)
+
+**Implemented enhancements:**
+
+- Added support for `endpoint` clientOption, marked other related options as deprecated [\#679](https://github.com/ably/ably-go/pull/679)
+
+**Closed issues:**
+
+- Fix failing test TestRealtime\_RTN17\_Integration\_HostFallback\_Timeout [\#678](https://github.com/ably/ably-go/issues/678)
+
 ## [1.2.21](https://github.com/ably/ably-go/tree/v1.2.21)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.20...v1.2.21)
