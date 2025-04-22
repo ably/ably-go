@@ -200,8 +200,8 @@ func ApplyOptionsWithDefaults(o ...ClientOption) *clientOptions {
 	return applyOptionsWithDefaults(o...)
 }
 
-func IsEndpointFQDN(endpoint string) bool {
-	return isEndpointFQDN(endpoint)
+func IsEndpointHostname(endpoint string) bool {
+	return isEndpointHostname(endpoint)
 }
 
 type ConnStateChanges = connStateChanges
