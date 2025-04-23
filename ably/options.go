@@ -503,9 +503,9 @@ func (opts *clientOptions) getRealtimeHost() string {
 	return defaultOptions.RealtimeHost
 }
 
-// isEndpointFQDN returns true if the given endpoint is a hostname, which may
+// REC1b2: isEndpointHostname returns true if the given endpoint is a hostname, which may
 // be an IPv4 address, IPv6 address or localhost
-func isEndpointFQDN(endpoint string) bool {
+func isEndpointHostname(endpoint string) bool {
 	return strings.Contains(endpoint, ".") || strings.Contains(endpoint, "::") || endpoint == "localhost"
 }
 
@@ -515,7 +515,7 @@ func (opts *clientOptions) getHostnameFromEndpoint() string {
 	if empty(endpoint) {
 		return defaultPrimaryHost
 	}
-	if isEndpointFQDN(endpoint) { // REC1b2
+	if isEndpointHostname(endpoint) { // REC1b2
 		return endpoint
 	}
 	return getPrimaryHost(endpoint) // REC1b4
@@ -554,7 +554,7 @@ func (opts *clientOptions) realtimeURL(realtimeHost string) (realtimeUrl string)
 func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 	if !empty(opts.Endpoint) {
 		if opts.FallbackHosts == nil {
-			if isEndpointFQDN(opts.Endpoint) { // REC2c2
+			if isEndpointHostname(opts.Endpoint) { // REC2c2
 				return opts.FallbackHosts, nil
 			}
 			return getEndpointFallbackHosts(opts.Endpoint), nil
