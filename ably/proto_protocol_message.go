@@ -3,6 +3,8 @@ package ably
 import (
 	"fmt"
 	"time"
+
+	"github.com/ably/ably-go/ably/objects"
 )
 
 // TR3
@@ -116,6 +118,7 @@ func coerceInt64(v interface{}) int64 {
 type protocolMessage struct {
 	Messages          []*Message         `json:"messages,omitempty" codec:"messages,omitempty"`
 	Presence          []*PresenceMessage `json:"presence,omitempty" codec:"presence,omitempty"`
+	State             []*objects.Message `json:"state,omitempty" codec:"state,omitempty"`
 	ID                string             `json:"id,omitempty" codec:"id,omitempty"`
 	ApplicationID     string             `json:"applicationId,omitempty" codec:"applicationId,omitempty"`
 	ConnectionID      string             `json:"connectionId,omitempty" codec:"connectionId,omitempty"`

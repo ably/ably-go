@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
+	"github.com/ably/ably-go/ably/objects"
 )
 
 var (
@@ -668,6 +669,44 @@ func (c *RealtimeChannel) PublishMultipleAsync(messages []*Message, onAck func(e
 	return c.send(msg, onAck)
 }
 
+// PublishObjects publishes the given object messages to the channel.
+//
+// An objects plugin must be configured on the realtime client, which is used
+// to prepare the message to be published (e.g. setting the objectId and
+// intialValue for a COUNTER_CREATE op).
+func (c *RealtimeChannel) PublishObjects(ctx context.Context, msgs ...*objects.Message) error {
+	plugin := c.client.opts().ObjectsPlugin
+	if plugin == nil {
+		return errors.New("missing objects plugin")
+	}
+	for _, msg := range msgs {
+		if err := plugin.PrepareObject(msg); err != nil {
+			return err
+		}
+	}
+
+	listen := make(chan error, 1)
+	onAck := func(err error) {
+		listen <- err
+	}
+
+	msg := &protocolMessage{
+		Action:  actionObject,
+		Channel: c.Name,
+		State:   msgs,
+	}
+	if err := c.send(msg, onAck); err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-listen:
+		return err
+	}
+}
+
 // History retrieves a [ably.HistoryRequest] object, containing an array of historical
 // [ably.Message] objects for the channel. If the channel is configured to persist messages,
 // then messages can be retrieved from history for up to 72 hours in the past. If not, messages can only be
@@ -860,6 +899,14 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 			for _, msg := range msg.Messages {
 				c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
 			}
+		}
+	case actionObject:
+		if plugin := c.client.opts().ObjectsPlugin; plugin != nil {
+			plugin.HandleObjectMessages(msg.State)
+		}
+	case actionObjectSync:
+		if plugin := c.client.opts().ObjectsPlugin; plugin != nil {
+			plugin.HandleObjectSyncMessages(msg.State, msg.ChannelSerial)
 		}
 	default:
 	}
