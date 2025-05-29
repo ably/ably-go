@@ -250,6 +250,9 @@ type RealtimeChannel struct {
 	attachResume bool
 
 	properties ChannelProperties
+
+	// LiveObjects provides access to LiveMap and LiveCounter objects for this channel.
+	liveObjects *objects.LiveObjects
 }
 
 func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions) *RealtimeChannel {
@@ -267,6 +270,7 @@ func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
+	c.liveObjects = objects.NewLiveObjects(c)
 	return c
 }
 
@@ -1001,6 +1005,16 @@ func (c *RealtimeChannel) Params() map[string]string {
 		params[key] = value
 	}
 	return params
+}
+
+// LiveObjects returns the LiveObjects instance for this channel, providing access to
+// LiveMap and LiveCounter objects that can be synchronized across clients.
+func (c *RealtimeChannel) LiveObjects() *objects.LiveObjects {
+	// Auto-register the plugin if not already set
+	if c.client.opts().ObjectsPlugin == nil {
+		c.client.opts().ObjectsPlugin = c.liveObjects.GetPlugin()
+	}
+	return c.liveObjects
 }
 
 func (c *RealtimeChannel) opts() *clientOptions {
