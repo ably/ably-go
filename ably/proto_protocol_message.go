@@ -3,6 +3,8 @@ package ably
 import (
 	"fmt"
 	"time"
+
+	"github.com/ably/ably-go/ably/objects"
 )
 
 // TR3
@@ -16,6 +18,8 @@ const (
 	flagPublish           protoFlag = 1 << 17
 	flagSubscribe         protoFlag = 1 << 18
 	flagPresenceSubscribe protoFlag = 1 << 19
+	flagObjectSubscribe   protoFlag = 1 << 24
+	flagObjectPublish     protoFlag = 1 << 25
 )
 
 type protoFlag int64
@@ -116,6 +120,7 @@ func coerceInt64(v interface{}) int64 {
 type protocolMessage struct {
 	Messages          []*Message         `json:"messages,omitempty" codec:"messages,omitempty"`
 	Presence          []*PresenceMessage `json:"presence,omitempty" codec:"presence,omitempty"`
+	State             []*objects.Message `json:"state,omitempty" codec:"state,omitempty"`
 	ID                string             `json:"id,omitempty" codec:"id,omitempty"`
 	ApplicationID     string             `json:"applicationId,omitempty" codec:"applicationId,omitempty"`
 	ConnectionID      string             `json:"connectionId,omitempty" codec:"connectionId,omitempty"`
