@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
+	"github.com/ably/ably-go/ably/objects"
 )
 
 const (
@@ -426,6 +427,15 @@ type clientOptions struct {
 	// InsecureAllowBasicAuthWithoutTLS permits an API key to be used even if the connection
 	// will not use TLS, something which would otherwise not be permitted for security reasons.
 	InsecureAllowBasicAuthWithoutTLS bool
+
+	// ExperimentalObjectsPlugin is the plugin to use to implement [LiveObjects] functionality.
+	//
+	// NOTE: this option is experimental, the LiveObjects plugin API may change in a
+	// backwards incompatible way between minor/patch versions. Once the API has been finalised,
+	// a new non-experimental option will be added, and this one will be removed.
+	//
+	// [LiveObjects]: https://ably.com/docs/liveobjects
+	ExperimentalObjectsPlugin objects.Plugin
 }
 
 func (opts *clientOptions) validate() error {
@@ -1401,6 +1411,20 @@ func WithDial(dial func(protocol string, u *url.URL, timeout time.Duration) (con
 func WithInsecureAllowBasicAuthWithoutTLS() ClientOption {
 	return func(opts *clientOptions) {
 		opts.InsecureAllowBasicAuthWithoutTLS = true
+	}
+}
+
+// WithExperimentalObjectsPlugin configures the client to use the given plugin to implement
+// [LiveObjects] functionality.
+//
+// NOTE: this option is experimental, the LiveObjects plugin API may change in a
+// backwards incompatible way between minor/patch versions. Once the API has been finalised,
+// a new non-experimental option will be added, and this one will be removed.
+//
+// [LiveObjects]: https://ably.com/docs/liveobjects
+func WithExperimentalObjectsPlugin(plugin objects.Plugin) ClientOption {
+	return func(opts *clientOptions) {
+		opts.ExperimentalObjectsPlugin = plugin
 	}
 }
 
