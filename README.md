@@ -54,7 +54,9 @@ Read the [CONTRIBUTING.md](./CONTRIBUTING.md) guidelines to contribute to Ably.
 ## Proxy support
 The `ably-go` SDK doesn't provide a direct option to set a proxy in its configuration. However, you can use standard environment variables to set up a proxy for all your HTTP and HTTPS connections. The Go programming language will automatically handle these settings.
 
-### Setting Up Proxy via Environment Variables
+<details>
+<summary>Set up proxy via environment variables details.</summary>
+
 
 To configure the proxy, set the `HTTP_PROXY` and `HTTPS_PROXY` environment variables with the URL of your proxy server. Here's an example of how to set these variables:
 
@@ -63,16 +65,14 @@ export HTTP_PROXY=http://proxy.example.com:8080
 export HTTPS_PROXY=http://proxy.example.com:8080
 ```
 
-- `proxy.example.com` is the domain or IP address of your proxy server.
-- `8080` is the port number of your proxy server.
+The `proxy.example.com` is the domain or IP address of your proxy server and `8080` is the port number of your proxy server.
 
-#### Considerations
-- **Protocol:** Make sure to include the protocol (`http` or `https`) in the proxy URL.
-- **Authentication:** If your proxy requires authentication, you can include the username and password in the URL. For example: `http://username:password@proxy.example.com:8080`.
+
+Include the protocol (`http` or `https`) in the proxy URL. If your proxy requires authentication, you can include the username and password in the URL, for example: `http://username:password@proxy.example.com:8080`.
 
 After setting the environment variables, the `ably-go` SDK will route its traffic through the specified proxy for both Rest and Realtime clients.
 
-For more details on environment variable configurations in Go, you can refer to the [official Go documentation on http.ProxyFromEnvironment](https://golang.org/pkg/net/http/#ProxyFromEnvironment).
+For more details on environment variable configurations in Go, see [ Go documentation on http.ProxyFromEnvironment](https://golang.org/pkg/net/http/#ProxyFromEnvironment).
 
 </details>
 
@@ -91,7 +91,7 @@ ably.WithHTTPClient(&http.Client{
 })
 ```
 
-**Important Note** - Connection reliability is totally dependent on health of proxy server and ably will not be responsible for errors introduced by proxy server.
+Connection reliability is totally dependent on health of proxy server and ably will not be responsible for errors introduced by proxy server.
 
 </details>
 
