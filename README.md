@@ -106,10 +106,6 @@ For help or technical support, visit Ably's [support page](https://ably.com/supp
 
 Version 1.2 introduced significant breaking changes from 1.1.5. See the [Upgrade / Migration Guide](UPDATING.md) for details on what changes are required in your code.
 
-Note: Our [versioning policy](https://ably.com/documentation/client-lib-development-guide/versioning) does not strictly follow semantic versioning. Breaking changes may occur in minor version updates.
-
----
-
 #### REST API
 
 - [Push notification target](https://ably.com/docs/account/app/notifications#push-notification-target) functionality is not applicable to this SDK.
@@ -117,19 +113,8 @@ Note: Our [versioning policy](https://ably.com/documentation/client-lib-developm
 
 #### Realtime API
 
-- Channel suspended state is partially implemented. See [suspended channel state](https://github.com/ably/ably-go/issues/568).
-
-- Realtime Ping function is not implemented.
-
-- Message Delta Compression is not implemented.
-
-- Push Notification Target functional is not applicable for the SDK and thus not implemented.
-
-## Support, feedback and troubleshooting
-
-Please visit https://faqs.ably.com/ for access to our knowledgebase. If you require support, please visit https://ably.com/support to submit a support ticket.
-
-You can also view the [community reported Github issues](https://github.com/ably/ably-go/issues).
-
-## Contributing
-For guidance on how to contribute to this project, see [CONTRIBUTING.md](CONTRIBUTING.md).
+- Partial support for [Channel Suspended State.](https://github.com/ably/ably-go/issues/568)
+- Ping functionality is not implemented.
+- [Delta compression](https://ably.com/docs/channels/options/deltas) is not implemented.
+- [Push notification target](https://ably.com/docs/account/app/notifications#push-notification-target) functionality is not applicable to this SDK.
+- No support for [Push Notifications Admin API.](https://ably.com/docs/api/realtime-sdk/push-admin)
