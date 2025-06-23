@@ -26,6 +26,19 @@ Everything you need to get started with Ably:
 
 ---
 
+## Supported platforms
+
+Ably aims to support a wide range of platforms. If you experience any compatibility issues, open an issue in the repository or contact [Ably support](https://ably.com/support).
+
+This SDK supports the following platforms:
+
+| Platform | Support |
+|----------|---------|
+| PHP      | >= 1.18 (Go 1.18+). |
+
+> [!IMPORTANT]
+> PHP SDK versions < 1.2.14 will be [deprecated](https://ably.com/docs/platform/deprecate/protocol-v1) from November 1, 2025.
+
 ## Releases
 
 The [CHANGELOG.md](/ably/ably-go/blob/main/CONTRIBUTING.md) contains details of the latest releases for this SDK. You can also view all Ably releases on [changelog.ably.com](https://changelog.ably.com).
@@ -61,7 +74,12 @@ After setting the environment variables, the `ably-go` SDK will route its traffi
 
 For more details on environment variable configurations in Go, you can refer to the [official Go documentation on http.ProxyFromEnvironment](https://golang.org/pkg/net/http/#ProxyFromEnvironment).
 
-### Setting Up Proxy via custom http client
+</details>
+
+
+<details>
+<summary>Set up proxy via custom http client details.</summary>
+
 
 For Rest client, you can also set proxy by providing custom http client option `ably.WithHTTPClient`:
 
@@ -86,24 +104,18 @@ For help or technical support, visit Ably's [support page](https://ably.com/supp
 
 ### Breaking API Changes in Version 1.2.x
 
-Please see our [Upgrade / Migration Guide](UPDATING.md) for notes on changes you need to make to your code to update it to use the new API introduced by version 1.2.x.
+Version 1.2 introduced significant breaking changes from 1.1.5. See the [Upgrade / Migration Guide](UPDATING.md) for details on what changes are required in your code.
 
-Users updating from version 1.1.5 of this library will note that there are significant breaking changes to the API.
-Our [current approach to versioning](https://ably.com/documentation/client-lib-development-guide/versioning) is not compliant with semantic versioning, which is why these changes are breaking despite presenting only a change in the `minor` component of the version number.
+Note: Our [versioning policy](https://ably.com/documentation/client-lib-development-guide/versioning) does not strictly follow semantic versioning. Breaking changes may occur in minor version updates.
 
-## Feature support
+---
 
-This library targets the Ably 1.2 [client library specification](https://ably.com/docs/client-lib-development-guide/features). List of available features for our client library SDKs can be found on our [feature support matrix](https://ably.com/download/sdk-feature-support-matrix) page.
+#### REST API
 
-## Known limitations
+- [Push notification target](https://ably.com/docs/account/app/notifications#push-notification-target) functionality is not applicable to this SDK.
+- No support for [Push Notifications Admin API.](https://ably.com/docs/api/rest-sdk/push-admin)
 
-As of release 1.2.0, the following are not implemented and will be covered in future 1.2.x releases. If there are features that are currently missing that are a high priority for your use-case then please [contact Ably customer support](https://ably.com/support). Pull Requests are also welcomed.
-
-### REST API
-
-- [Push notifications admin API](https://ably.com/docs/api/rest-sdk/push-admin) is not implemented.
-
-### Realtime API
+#### Realtime API
 
 - Channel suspended state is partially implemented. See [suspended channel state](https://github.com/ably/ably-go/issues/568).
 
