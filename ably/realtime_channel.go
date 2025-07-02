@@ -224,6 +224,16 @@ type RealtimeChannel struct {
 	// Presence is a [ably.RealtimePresence] object, provides for entering and leaving client presence (RTL9).
 	Presence *RealtimePresence
 
+	// ExperimentalObjects returns an experimental implementation of [LiveObjects] functionality
+	// capable of publishing and receiving object changes.
+	//
+	// NOTE: this method is experimental, the LiveObjects plugin API may change in a
+	// backwards incompatible way between minor/patch versions. Once the API has been finalised,
+	// a new non-experimental method will be added, and this one will be removed.
+	//
+	// [LiveObjects]: https://ably.com/docs/liveobjects
+	ExperimentalObjects *RealtimeExperimentalObjects
+
 	// state is the current [ably.ChannelState] of the channel (RTL2b).
 	state ChannelState
 
@@ -266,6 +276,7 @@ func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions
 	}
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
+	c.ExperimentalObjects = newRealtimeExperimentalObjects(c)
 	return c
 }
 
@@ -479,6 +490,18 @@ func (c *RealtimeChannel) sendDetachMsg() (result, error) {
 func (c *RealtimeChannel) detachUnsafe() (result, error) {
 	c.lockSetState(ChannelStateDetaching, nil, false) // no need to check for locks, method is already under lock context
 	return c.sendDetachMsg()
+}
+
+func (c *RealtimeChannel) getClientOptions() *clientOptions {
+	if c.client == nil {
+		return nil
+	}
+
+	return c.client.opts()
+}
+
+func (c *RealtimeChannel) getName() string {
+	return c.Name
 }
 
 type subscriptionName string
@@ -860,6 +883,14 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 			for _, msg := range msg.Messages {
 				c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
 			}
+		}
+	case actionObject:
+		if plugin := c.client.opts().ExperimentalObjectsPlugin; plugin != nil {
+			plugin.HandleObjectMessages(msg.State)
+		}
+	case actionObjectSync:
+		if plugin := c.client.opts().ExperimentalObjectsPlugin; plugin != nil {
+			plugin.HandleObjectSyncMessages(msg.State, msg.ChannelSerial)
 		}
 	default:
 	}

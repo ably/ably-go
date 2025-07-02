@@ -14,6 +14,10 @@ const (
 	ChannelModeSubscribe
 	// ChannelModePresenceSubscribe allows the attached channel to subscribe to Presence updates.
 	ChannelModePresenceSubscribe
+	// ChannelModeObjectSubscribe allows the attached channel to subscribe to Objects updates.
+	ChannelModeObjectSubscribe
+	// ChannelModeObjectPublish allows for objects messages to be published on the attached channel.
+	ChannelModeObjectPublish
 )
 
 func (mode ChannelMode) toFlag() protoFlag {
@@ -26,6 +30,10 @@ func (mode ChannelMode) toFlag() protoFlag {
 		return flagSubscribe
 	case ChannelModePresenceSubscribe:
 		return flagPresenceSubscribe
+	case ChannelModeObjectSubscribe:
+		return flagObjectSubscribe
+	case ChannelModeObjectPublish:
+		return flagObjectPublish
 	default:
 		return 0
 	}
@@ -44,6 +52,12 @@ func channelModeFromFlag(flags protoFlag) []ChannelMode {
 	}
 	if flags.Has(flagPresenceSubscribe) {
 		modes = append(modes, ChannelModePresenceSubscribe)
+	}
+	if flags.Has(flagObjectSubscribe) {
+		modes = append(modes, ChannelModeObjectSubscribe)
+	}
+	if flags.Has(flagObjectPublish) {
+		modes = append(modes, ChannelModeObjectPublish)
 	}
 	return modes
 }

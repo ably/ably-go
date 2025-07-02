@@ -9,6 +9,7 @@ const (
 	ErrBadRequest                                ErrorCode = 40000
 	ErrInvalidCredential                         ErrorCode = 40005
 	ErrInvalidClientID                           ErrorCode = 40012
+	ErrMissingPlugin                             ErrorCode = 40019
 	ErrUnauthorized                              ErrorCode = 40100
 	ErrInvalidCredentials                        ErrorCode = 40101
 	ErrIncompatibleCredentials                   ErrorCode = 40102
