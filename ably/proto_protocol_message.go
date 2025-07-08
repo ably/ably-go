@@ -162,26 +162,26 @@ func (msg *protocolMessage) String() string {
 	case actionConnect:
 		return fmt.Sprintf("(action=%q)", msg.Action)
 	case actionConnected:
-		return fmt.Sprintf("(action=%q, id=%q, details=%#v)", msg.Action, msg.ConnectionID, msg.ConnectionDetails)
+		return fmt.Sprintf("(action=%q, id=%q, details=%#v, error=%s)", msg.Action, msg.ConnectionID, msg.ConnectionDetails, msg.Error)
 	case actionDisconnect:
 		return fmt.Sprintf("(action=%q)", msg.Action)
 	case actionDisconnected:
-		return fmt.Sprintf("(action=%q)", msg.Action)
+		return fmt.Sprintf("(action=%q, error=%s)", msg.Action, msg.Error)
 	case actionClose:
 		return fmt.Sprintf("(action=%q)", msg.Action)
 	case actionClosed:
 		return fmt.Sprintf("(action=%q)", msg.Action)
 	case actionError:
-		return fmt.Sprintf("(action=%q, error=%#v)", msg.Action, msg.Error)
+		return fmt.Sprintf("(action=%q, error=%s)", msg.Action, msg.Error)
 	case actionAttach:
 		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
 	case actionAttached:
-		return fmt.Sprintf("(action=%q, channel=%q, channelSerial=%q, flags=%x)",
-			msg.Action, msg.Channel, msg.ChannelSerial, msg.Flags)
+		return fmt.Sprintf("(action=%q, channel=%q, channelSerial=%q, flags=%x, error=%s)",
+			msg.Action, msg.Channel, msg.ChannelSerial, msg.Flags, msg.Error)
 	case actionDetach:
 		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
 	case actionDetached:
-		return fmt.Sprintf("(action=%q, channel=%q)", msg.Action, msg.Channel)
+		return fmt.Sprintf("(action=%q, channel=%q, error=%s)", msg.Action, msg.Channel, msg.Error)
 	case actionPresence, actionSync:
 		return fmt.Sprintf("(action=%q, id=%v, channel=%q, timestamp=%d, connectionId=%v, presenceMessages=%v)",
 			msg.Action, msg.ID, msg.Channel, msg.Timestamp, msg.ConnectionID, msg.Presence)

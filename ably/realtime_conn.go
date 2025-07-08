@@ -1057,7 +1057,12 @@ func (vc verboseConn) Receive(deadline time.Time) (*protocolMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	vc.logger.Verbosef("Realtime Connection: received %s", msg)
+
+	if msg.Error != nil {
+		vc.logger.Errorf("Realtime Connection: error received %s", msg)
+	} else {
+		vc.logger.Verbosef("Realtime Connection: received %s", msg)
+	}
 	return msg, nil
 }
 
