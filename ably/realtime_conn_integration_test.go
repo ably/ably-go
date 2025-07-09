@@ -320,3 +320,60 @@ func TestRealtimeConn_ReconnectFromSuspendedState(t *testing.T) {
 	err = ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 }
+
+func TestRealtimeConn_PreviousConnectionsAreClosed(t *testing.T) {
+	msgReceiveErr := make(chan error, 1)
+	connectionClosed := make(chan struct{}, 1)
+	dial := DialFunc(func(p string, url *url.URL, timeout time.Duration) (ably.Conn, error) {
+		ws, err := ably.DialWebsocket(p, url, timeout)
+		if err != nil {
+			return nil, err
+		}
+		return connMock{
+			SendFunc: ws.Send,
+			ReceiveFunc: func(deadline time.Time) (*ably.ProtocolMessage, error) {
+				err := <-msgReceiveErr
+				if err != nil {
+					return nil, err
+				}
+				msg, err := ws.Receive(deadline)
+				if msg.Action == ably.ActionConnected {
+					msg.ConnectionDetails.ConnectionStateTTL = ably.DurationFromMsecs(500 * time.Millisecond)
+				}
+				return msg, err
+			},
+			CloseFunc: func() error {
+				err := ws.Close()
+				connectionClosed <- struct{}{}
+				return err
+			},
+		}, nil
+	})
+
+	// Allow successful connection
+	msgReceiveErr <- nil
+
+	app, c := ablytest.NewRealtime(ably.WithDial(dial),
+		ably.WithDisconnectedRetryTimeout(time.Second),
+		ably.WithSuspendedRetryTimeout(time.Second))
+	defer func() {
+		msgReceiveErr <- nil // receive safe close event
+		safeclose(t, ablytest.FullRealtimeCloser(c), app)
+	}()
+
+	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+
+	t.Log("sending receive error to simulate disconnect")
+	msgReceiveErr <- errors.New("initiate disconnect")
+
+	ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventDisconnected), nil)
+
+	t.Log("waiting for first connection to be closed")
+	<-connectionClosed
+	// Enable successful connection again
+	msgReceiveErr <- nil
+
+	err = ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
+	assert.NoError(t, err)
+}

@@ -729,8 +729,18 @@ func (c *Connection) lockIsActive() bool {
 
 func (c *Connection) setConn(conn conn) {
 	c.connMtx.Lock()
+	oldConn := c.conn
 	c.conn = conn
 	c.connMtx.Unlock()
+	if oldConn != nil {
+		// We don't want to block new connections waiting for the previous connection
+		// to close. The `conn` interface does not allow us to pass in a `context.Context`
+		// so we can't apply a timeout to this go-routine. The websocket library does apply
+		// its own 5s timeout to close the connection, so we can be confident this go-routine
+		// will not leak.
+		// see https://github.com/coder/websocket/blob/v1.8.7/write.go#L233
+		go oldConn.Close()
+	}
 }
 
 func (c *Connection) log() logger {
