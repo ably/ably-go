@@ -28,9 +28,9 @@ const (
 	defaultEndpoint    = "main"
 	defaultPrimaryHost = "main.realtime.ably.net" // REC1a
 
-	Port           = 80
-	TLSPort        = 443
-	maxMessageSize = 65536 // 64kb, default value TO3l8
+	Port             = 80
+	TLSPort          = 443
+	defaultReadLimit = 1024 * 1024 * 2 // 2mb
 
 	// RTN17c
 	internetCheckUrl = "https://internet-up.ably-realtime.com/is-the-internet-up.txt"
