@@ -259,6 +259,14 @@ type RealtimeChannel struct {
 	attachResume bool
 
 	properties ChannelProperties
+
+	// Delta support fields (RTL19, RTL20)
+	// basePayload stores the payload of the last message for delta decoding (RTL19).
+	basePayload []byte
+	// lastMessageID stores the ID of the last received message for delta validation (RTL20).
+	lastMessageID string
+	// decodingContext provides context for delta decoding including plugin access.
+	decodingContext *DecodingContext
 }
 
 func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions) *RealtimeChannel {
@@ -277,6 +285,12 @@ func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
 	c.ExperimentalObjects = newRealtimeExperimentalObjects(c)
+
+	// Initialize delta decoding context
+	c.decodingContext = &DecodingContext{
+		VCDiffPlugin: client.opts().VCDiffPlugin,
+	}
+
 	return c
 }
 
@@ -881,6 +895,14 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 	case actionMessage:
 		if c.State() == ChannelStateAttached {
 			for _, msg := range msg.Messages {
+				// Process message with delta support (RTL18, RTL19, RTL20)
+				err := c.processMessageWithDelta(msg)
+				if err != nil {
+					// RTL18: Delta decode failure recovery
+					c.client.log().Errorf("Delta decode failure on channel %q: %v", c.Name, err)
+					c.startDecodeFailureRecovery(err)
+					return
+				}
 				c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
 			}
 		}
@@ -894,6 +916,86 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		}
 	default:
 	}
+}
+
+// processMessageWithDelta processes a message with delta decoding support (RTL19, RTL20).
+func (c *RealtimeChannel) processMessageWithDelta(msg *Message) error {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
+	// Update decoding context with current state (RTL19, RTL20)
+	c.decodingContext.BasePayload = c.basePayload
+	c.decodingContext.LastMessageID = c.lastMessageID
+
+	// Decode message with delta support
+	var cipher channelCipher
+	if c.options != nil {
+		cipher, _ = (*protoChannelOptions)(c.options).GetCipher()
+	}
+	decodedMsg, newBasePayload, err := msg.withDecodedDataAndContext(cipher, c.decodingContext)
+	if err != nil {
+		// Check for specific delta-related errors
+		if containsErrorCode(err, 40018) || containsErrorCode(err, 40019) {
+			return err
+		}
+		// For other errors, just log and continue (RSL6b)
+		c.client.log().Warnf("Message decode error on channel %q: %v", c.Name, err)
+		// Still update the message with partial decoding
+		*msg = decodedMsg
+		return nil
+	}
+
+	// Update message with decoded data
+	*msg = decodedMsg
+
+	// Update base payload and last message ID for future delta decoding (RTL19, RTL20)
+	if newBasePayload != nil {
+		c.basePayload = newBasePayload
+	}
+	c.lastMessageID = msg.ID
+
+	return nil
+}
+
+// startDecodeFailureRecovery implements the RTL18 recovery procedure.
+func (c *RealtimeChannel) startDecodeFailureRecovery(reason error) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
+	c.client.log().Errorf("Starting decode failure recovery for channel %q", c.Name)
+
+	// RTL18c: Send ATTACH with channelSerial set to previous message
+	// Transition to ATTACHING state and wait for ATTACHED confirmation
+	errorInfo := newError(40018, reason)
+
+	c.lockSetState(ChannelStateAttaching, errorInfo, false)
+
+	// Send attach message - this will be handled by the normal attach flow
+	go func() {
+		res, err := c.attach()
+		if err != nil {
+			c.mtx.Lock()
+			c.lockSetState(ChannelStateFailed, err, false)
+			c.mtx.Unlock()
+			return
+		}
+		err = res.Wait(context.Background())
+		if err != nil {
+			c.mtx.Lock()
+			c.lockSetState(ChannelStateFailed, err, false)
+			c.mtx.Unlock()
+		}
+	}()
+}
+
+// containsErrorCode checks if an error contains a specific error code.
+func containsErrorCode(err error, code int) bool {
+	if err == nil {
+		return false
+	}
+	expectedMsg := fmt.Sprintf("(code %d)", code)
+	errStr := err.Error()
+	return len(errStr) >= len(expectedMsg) && errStr[len(errStr)-len(expectedMsg):] == expectedMsg
 }
 
 func (c *RealtimeChannel) lockStartRetryAttachLoop(err error) {
