@@ -220,6 +220,15 @@ func (opts *authOptions) externalTokenAuthSupported() bool {
 	return !(opts.Token == "" && opts.TokenDetails == nil && opts.AuthCallback == nil && opts.AuthURL == "")
 }
 
+// VCDiffDecoder provides an interface for decoding vcdiff-encoded message payloads (VD1, VD2).
+// This interface must be implemented by plugins that provide vcdiff delta decoding functionality.
+type VCDiffDecoder interface {
+	// Decode decodes a vcdiff delta against a base payload and returns the target payload (VD2a, PC3a).
+	// The base argument should receive the stored base payload of the last message on a channel.
+	// If the base payload is a string it should be encoded to binary using UTF-8 before being passed.
+	Decode(delta []byte, base []byte) ([]byte, error)
+}
+
 func (opts *authOptions) merge(extra *authOptions, defaults bool) *authOptions {
 	ablyutil.Merge(opts, extra, defaults)
 	return opts
@@ -436,6 +445,11 @@ type clientOptions struct {
 	//
 	// [LiveObjects]: https://ably.com/docs/liveobjects
 	ExperimentalObjectsPlugin objects.Plugin
+
+	// VCDiffPlugin is the plugin to use for decoding vcdiff-encoded message payloads (PC3).
+	// The plugin must implement the VCDiffDecoder interface and will be used to decode
+	// delta messages that have "vcdiff" in their encoding string.
+	VCDiffPlugin VCDiffDecoder
 }
 
 func (opts *clientOptions) validate() error {
@@ -1425,6 +1439,15 @@ func WithInsecureAllowBasicAuthWithoutTLS() ClientOption {
 func WithExperimentalObjectsPlugin(plugin objects.Plugin) ClientOption {
 	return func(opts *clientOptions) {
 		opts.ExperimentalObjectsPlugin = plugin
+	}
+}
+
+// WithVCDiffPlugin configures the client to use the given plugin to decode vcdiff-encoded
+// delta messages (PC3). The plugin must implement the VCDiffDecoder interface.
+// This is required for channels that have delta encoding enabled with params {"delta": "vcdiff"}.
+func WithVCDiffPlugin(plugin VCDiffDecoder) ClientOption {
+	return func(opts *clientOptions) {
+		opts.VCDiffPlugin = plugin
 	}
 }
 
