@@ -75,11 +75,12 @@ type VCDiffDecoder interface {
 }
 ```
 
-### VCDiffPlugin
+### AblyVCDiffDecoder
 
 - **File**: `vcdiff_plugin.go`
 - **Usage**: `ably.NewVCDiffPlugin()`
 - **Description**: Production-ready implementation using the [ably/vcdiff-go](https://github.com/ably/vcdiff-go) library
+- **Type**: Simplified struct that implements the `VCDiffDecoder` interface
 
 ### Client Configuration
 

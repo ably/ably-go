@@ -15,12 +15,17 @@ func TestVCDiffPlugin(t *testing.T) {
 		var _ VCDiffDecoder = plugin
 	})
 
+	t.Run("returns AblyVCDiffDecoder type", func(t *testing.T) {
+		_, ok := plugin.(AblyVCDiffDecoder)
+		assert.True(t, ok, "NewVCDiffPlugin should return AblyVCDiffDecoder type")
+	})
+
 	t.Run("handle empty delta", func(t *testing.T) {
 		base := []byte("hello world")
 		delta := []byte{}
 
 		result, err := plugin.Decode(delta, base)
-		
+
 		// Empty delta should still be processed by vcdiff library
 		// The library will determine if it's valid or not
 		if err != nil {
@@ -55,7 +60,7 @@ func TestVCDiffPlugin(t *testing.T) {
 		invalidDelta := []byte("this is not valid vcdiff data")
 
 		result, err := plugin.Decode(invalidDelta, base)
-		
+
 		// Should return an error for invalid vcdiff data
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -69,7 +74,7 @@ func TestVCDiffPlugin(t *testing.T) {
 func TestVCDiffPlugin_Integration(t *testing.T) {
 	t.Run("can be used as VCDiffDecoder in DecodingContext", func(t *testing.T) {
 		plugin := NewVCDiffPlugin()
-		
+
 		context := &DecodingContext{
 			VCDiffPlugin:  plugin,
 			BasePayload:   []byte("base data"),
@@ -82,7 +87,7 @@ func TestVCDiffPlugin_Integration(t *testing.T) {
 
 	t.Run("can be used with WithVCDiffPlugin option", func(t *testing.T) {
 		plugin := NewVCDiffPlugin()
-		
+
 		// Test that the plugin can be used with the client option
 		// This is a compile-time test to ensure types match
 		var option ClientOption = WithVCDiffPlugin(plugin)
