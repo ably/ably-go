@@ -276,6 +276,8 @@ type RealtimeChannel struct {
 	basePayload []byte
 	// lastMessageID stores the ID of the last received message for delta validation (RTL20).
 	lastMessageID string
+	// lastPayloadProtocolMessageChannelSerial stores the channel serial of the last received message for delta validation (RTL20).
+	lastPayloadProtocolMessageChannelSerial string
 	// decodeFailureRecoveryInProgress indicates whether the channel is currently recovering from a delta decode failure (RTL18).
 	decodeFailureRecoveryInProgress bool
 	// decodingContext provides context for delta decoding including plugin access.
@@ -393,6 +395,10 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 			Channel: c.Name,
 		}
 		msg.ChannelSerial = c.properties.ChannelSerial // RTL4c1, accessing locked
+		if c.decodeFailureRecoveryInProgress {
+			c.log().Verbosef("Delta decode failure recovery in progress, resetting ChannelSerial for channel %q", c.Name)
+			msg.ChannelSerial = c.lastPayloadProtocolMessageChannelSerial
+		}
 		if len(c.channelOpts().Params) > 0 {
 			msg.Params = c.channelOpts().Params
 		}
