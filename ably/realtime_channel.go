@@ -276,6 +276,8 @@ type RealtimeChannel struct {
 	basePayload []byte
 	// lastMessageID stores the ID of the last received message for delta validation (RTL20).
 	lastMessageID string
+	// decodeFailureRecoveryInProgress indicates whether the channel is currently recovering from a delta decode failure (RTL18).
+	decodeFailureRecoveryInProgress bool
 	// decodingContext provides context for delta decoding including plugin access.
 	decodingContext *DecodingContext
 }
@@ -972,31 +974,25 @@ func (c *RealtimeChannel) processMessageWithDelta(msg *Message) error {
 func (c *RealtimeChannel) startDecodeFailureRecovery(reason error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+	if c.decodeFailureRecoveryInProgress {
+		return
+	}
+	c.client.log().Warnf("Starting delta decode failure recovery process %q", c.Name)
+	c.decodeFailureRecoveryInProgress = true
 
-	c.client.log().Errorf("Starting decode failure recovery for channel %q", c.Name)
-
-	// RTL18c: Send ATTACH with channelSerial set to previous message
-	// Transition to ATTACHING state and wait for ATTACHED confirmation
-	errorInfo := newError(40018, reason)
-
-	c.lockSetState(ChannelStateAttaching, errorInfo, false)
-
-	// Send attach message - this will be handled by the normal attach flow
-	go func() {
-		res, err := c.attach()
-		if err != nil {
+	// Doesn't matter if attach succeeded or failed. Even if attach fails,
+	// recovery using lastMessage channelSerial will be re-tried on next attach
+	res, err := c.lockAttach(reason)
+	if err != nil {
+		c.decodeFailureRecoveryInProgress = false
+	} else {
+		go func() {
+			res.Wait(context.Background())
 			c.mtx.Lock()
-			c.lockSetState(ChannelStateFailed, err, false)
+			c.decodeFailureRecoveryInProgress = false
 			c.mtx.Unlock()
-			return
-		}
-		err = res.Wait(context.Background())
-		if err != nil {
-			c.mtx.Lock()
-			c.lockSetState(ChannelStateFailed, err, false)
-			c.mtx.Unlock()
-		}
-	}()
+		}()
+	}
 }
 
 // containsErrorCode checks if an error contains a specific error code.
