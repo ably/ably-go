@@ -47,27 +47,27 @@ type Message struct {
 // DeltaExtras describes a message whose payload is a "vcdiff"-encoded delta generated with respect to a base message (DE1, DE2).
 type DeltaExtras struct {
 	// From is the ID of the base message the delta was generated from (DE2a).
-	From string `json:"from,omitempty"`
+	From string
 	// Format is the delta format; currently only "vcdiff" is allowed (DE2b).
-	Format string `json:"format,omitempty"`
+	Format string
 }
 
 // extractDeltaExtras extracts delta information from the message extras field.
-// Returns nil if no delta information is present.
-func extractDeltaExtras(extras map[string]interface{}) *DeltaExtras {
+// Returns empty DeltaExtras if no delta information is present.
+func extractDeltaExtras(extras map[string]interface{}) DeltaExtras {
 	if extras == nil {
-		return nil
+		return DeltaExtras{}
 	}
 
 	deltaData, ok := extras["delta"]
 	if !ok {
-		return nil
+		return DeltaExtras{}
 	}
 
 	// Try to parse as map[string]interface{}
 	deltaMap, ok := deltaData.(map[string]interface{})
 	if !ok {
-		return nil
+		return DeltaExtras{}
 	}
 
 	var deltaExtras DeltaExtras
@@ -78,7 +78,7 @@ func extractDeltaExtras(extras map[string]interface{}) *DeltaExtras {
 		deltaExtras.Format = format
 	}
 
-	return &deltaExtras
+	return deltaExtras
 }
 
 // DecodingContext provides context needed for decoding messages, including delta support.
@@ -263,7 +263,7 @@ func (m Message) withDecodedDataAndContext(cipher channelCipher, ctx *DecodingCo
 
 			// Validate delta reference ID (RTL20)
 			deltaExtras := extractDeltaExtras(m.Extras)
-			if deltaExtras != nil && deltaExtras.From != ctx.LastMessageID {
+			if !empty(deltaExtras.From) && deltaExtras.From != ctx.LastMessageID {
 				return m, nil, fmt.Errorf("delta message decode failure - delta reference ID %q does not match stored ID %q (code 40018)", deltaExtras.From, ctx.LastMessageID)
 			}
 
