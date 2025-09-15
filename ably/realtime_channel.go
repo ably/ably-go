@@ -281,10 +281,6 @@ type RealtimeChannel struct {
 	properties ChannelProperties
 
 	// Delta support fields (RTL19, RTL20)
-	// basePayload stores the payload of the last message for delta decoding (RTL19).
-	basePayload []byte
-	// lastMessageID stores the ID of the last received message for delta validation (RTL20).
-	lastMessageID string
 	// lastPayloadProtocolMessageChannelSerial stores the channel serial of the last received message for delta validation (RTL20).
 	lastPayloadProtocolMessageChannelSerial string
 	// decodeFailureRecoveryInProgress indicates whether the channel is currently recovering from a delta decode failure (RTL18).
@@ -925,27 +921,35 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 			if c.options.isDeltaEncodingEnabled() {
 				firstMsg := msg.Messages[0]
 				serverStoredLastMessageId := extractDeltaExtras(firstMsg.Extras).From
-				if !empty(serverStoredLastMessageId) && serverStoredLastMessageId != c.lastMessageID {
+				lastMessageId := c.decodingContext.LastMessageID
+				if !empty(serverStoredLastMessageId) && serverStoredLastMessageId != lastMessageId {
 					// RTL18: Delta decode failure recovery
-					decodingErr := newErrorf(ErrDeltaDecodingFailed, "Delta decode failure on channel %q: expected message ID %q, got %q", c.Name, c.lastMessageID, serverStoredLastMessageId)
+					decodingErr := newErrorf(ErrDeltaDecodingFailed, "Delta decode failure on channel %q: expected message ID %q, got %q", c.Name, lastMessageId, serverStoredLastMessageId)
 					c.client.log().Error(decodingErr)
 					c.startDecodeFailureRecovery(decodingErr)
 					return
 				}
-			}
-			for _, msg := range msg.Messages {
 				// Process message with delta support (RTL18, RTL19, RTL20)
-				err := c.processMessageWithDelta(msg)
-				if err != nil {
-					// RTL18: Delta decode failure recovery
-					c.client.log().Errorf("Delta decode failure on channel %q: %v", c.Name, err)
-					c.startDecodeFailureRecovery(err)
-					return
+				for _, innerMsg := range msg.Messages {
+					var cipher channelCipher
+					if c.options != nil {
+						cipher, _ = (*protoChannelOptions)(c.options).GetCipher()
+					}
+					decodedMsg, err := innerMsg.withDecodedDataAndContext(cipher, c.decodingContext)
+					if err != nil {
+						if code(err) == ErrDeltaDecodingFailed {
+							// RTL18: Delta decode failure recovery
+							c.client.log().Errorf("Delta decode failure on channel %q: %v", c.Name, err)
+							c.startDecodeFailureRecovery(err)
+							return
+						}
+						// For other errors, just log and continue (RSL6b)
+						c.client.log().Warnf("Message decode error on channel %q: %v", c.Name, err)
+					}
+					*innerMsg = decodedMsg // Update message with decoded data
 				}
-			}
-			if c.options.isDeltaEncodingEnabled() {
 				lastMsg := msg.Messages[len(msg.Messages)-1]
-				c.lastMessageID = lastMsg.ID
+				c.decodingContext.LastMessageID = lastMsg.ID
 				c.lastPayloadProtocolMessageChannelSerial = msg.ChannelSerial
 			}
 			for _, msg := range msg.Messages {
@@ -974,45 +978,6 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 	}
 }
 
-// processMessageWithDelta processes a message with delta decoding support (RTL19, RTL20).
-func (c *RealtimeChannel) processMessageWithDelta(msg *Message) error {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-
-	// Update decoding context with current state (RTL19, RTL20)
-	c.decodingContext.BasePayload = c.basePayload
-	c.decodingContext.LastMessageID = c.lastMessageID
-
-	// Decode message with delta support
-	var cipher channelCipher
-	if c.options != nil {
-		cipher, _ = (*protoChannelOptions)(c.options).GetCipher()
-	}
-	decodedMsg, newBasePayload, err := msg.withDecodedDataAndContext(cipher, c.decodingContext)
-	if err != nil {
-		// Check for specific delta-related errors
-		if containsErrorCode(err, 40018) || containsErrorCode(err, 40019) {
-			return err
-		}
-		// For other errors, just log and continue (RSL6b)
-		c.client.log().Warnf("Message decode error on channel %q: %v", c.Name, err)
-		// Still update the message with partial decoding
-		*msg = decodedMsg
-		return nil
-	}
-
-	// Update message with decoded data
-	*msg = decodedMsg
-
-	// Update base payload and last message ID for future delta decoding (RTL19, RTL20)
-	if newBasePayload != nil {
-		c.basePayload = newBasePayload
-	}
-	c.lastMessageID = msg.ID
-
-	return nil
-}
-
 // startDecodeFailureRecovery implements the RTL18 recovery procedure.
 func (c *RealtimeChannel) startDecodeFailureRecovery(reason error) {
 	c.mtx.Lock()
@@ -1036,16 +1001,6 @@ func (c *RealtimeChannel) startDecodeFailureRecovery(reason error) {
 			c.mtx.Unlock()
 		}()
 	}
-}
-
-// containsErrorCode checks if an error contains a specific error code.
-func containsErrorCode(err error, code int) bool {
-	if err == nil {
-		return false
-	}
-	expectedMsg := fmt.Sprintf("(code %d)", code)
-	errStr := err.Error()
-	return len(errStr) >= len(expectedMsg) && errStr[len(errStr)-len(expectedMsg):] == expectedMsg
 }
 
 func (c *RealtimeChannel) lockStartRetryAttachLoop(err error) {

@@ -242,13 +242,18 @@ func (m Message) withDecodedData(cipher channelCipher) (Message, error) {
 }
 
 // withDecodedDataAndContext decodes message data with support for delta decoding (RTL19).
-func (m Message) withDecodedDataAndContext(cipher channelCipher, ctx *DecodingContext) (Message, []byte, error) {
+func (m Message) withDecodedDataAndContext(cipher channelCipher, ctx *DecodingContext) (Message, error) {
 	// strings.Split on empty string returns []string{""}
 	if m.Data == nil || m.Encoding == "" {
-		return m, nil, nil
+		return m, nil
 	}
-
-	var basePayloadForReturn []byte
+	if ctx != nil {
+		if data, err := coerceBytes(m.Data); err == nil {
+			ctx.BasePayload = data
+		} else if s, err := coerceString(m.Data); err == nil {
+			ctx.BasePayload = []byte(s) // Convert string to UTF-8 bytes
+		}
+	}
 	encodings := strings.Split(m.Encoding, "/")
 
 	for len(encodings) > 0 {
@@ -258,91 +263,80 @@ func (m Message) withDecodedDataAndContext(cipher channelCipher, ctx *DecodingCo
 		case encVCDiff:
 			// Handle vcdiff delta decoding (PC3, RTL18, RTL19, RTL20)
 			if ctx == nil || ctx.VCDiffPlugin == nil {
-				return m, nil, fmt.Errorf("missing VCdiff decoder plugin (code 40019)")
+				return m, newErrorf(ErrDeltaDecodingFailed, "missing VCdiff decoder plugin")
 			}
 
 			if ctx.BasePayload == nil {
-				return m, nil, fmt.Errorf("delta message decode failure - no base payload available (code 40018)")
+				return m, newErrorf(ErrDeltaDecodingFailed, "delta message decode failure - no base payload available")
 			}
 
 			deltaBytes, err := coerceBytes(m.Data)
 			if err != nil {
-				return m, nil, err
+				return m, newErrorf(ErrDeltaDecodingFailed, "failed to coerce delta bytes: %w", err)
 			}
 
 			// Decode the delta
 			result, err := ctx.VCDiffPlugin.Decode(deltaBytes, ctx.BasePayload)
 			if err != nil {
-				return m, nil, fmt.Errorf("vcdiff decode failed: %w (code 40018)", err)
+				return m, newErrorf(ErrDeltaDecodingFailed, "vcdiff decode failed: %w", err)
 			}
 
 			m.Data = result
-			basePayloadForReturn = result // Store as new base payload (RTL19c)
+			ctx.BasePayload = result // Store as new base payload (RTL19c)
 
 		case encBase64:
 			d, err := coerceString(m.Data)
 			if err != nil {
-				return m, nil, err
+				return m, err
 			}
 			data, err := base64.StdEncoding.DecodeString(d)
 			if err != nil {
-				return m, nil, err
+				return m, err
 			}
 			m.Data = data
-			// For non-delta messages, store as base payload after base64 decoding (RTL19a)
-			if basePayloadForReturn == nil {
-				basePayloadForReturn = data
+			if ctx != nil {
+				ctx.BasePayload = data // Store as new base payload (RTL19c)
 			}
 
 		case encUTF8:
 			d, err := coerceString(m.Data)
 			if err != nil {
-				return m, nil, err
+				return m, err
 			}
 			m.Data = d
 
 		case encJSON:
 			d, err := coerceBytes(m.Data)
 			if err != nil {
-				return m, nil, err
+				return m, err
 			}
 			var result interface{}
 			if err := json.Unmarshal(d, &result); err != nil {
-				return m, nil, fmt.Errorf("error unmarshaling JSON payload of type %T: %s", m.Data, err.Error())
+				return m, fmt.Errorf("error unmarshaling JSON payload of type %T: %s", m.Data, err.Error())
 			}
 			m.Data = result
 
 		default:
 			if strings.HasPrefix(encoding, encCipher) {
 				if cipher == nil {
-					return m, nil, fmt.Errorf("message data is encrypted as %s, but cipher wasn't provided", encoding)
+					return m, fmt.Errorf("message data is encrypted as %s, but cipher wasn't provided", encoding)
 				}
 				d, err := coerceBytes(m.Data)
 				if err != nil {
-					return m, nil, err
+					return m, err
 				}
 				d, err = cipher.Decrypt(d)
 				if err != nil {
-					return m, nil, fmt.Errorf("decrypting message data: %w", err)
+					return m, fmt.Errorf("decrypting message data: %w", err)
 				}
 				m.Data = d
 			} else {
-				return m, nil, fmt.Errorf("unknown encoding %s", encoding)
+				return m, fmt.Errorf("unknown encoding %s", encoding)
 			}
 		}
 		m.Encoding = strings.Join(encodings, "/")
 	}
-
-	// For non-delta messages, store the final decoded data as base payload (RTL19b)
-	if basePayloadForReturn == nil {
-		if data, err := coerceBytes(m.Data); err == nil {
-			basePayloadForReturn = data
-		} else if s, err := coerceString(m.Data); err == nil {
-			basePayloadForReturn = []byte(s) // Convert string to UTF-8 bytes
-		}
-	}
-
-	return m, basePayloadForReturn, nil
+	return m, nil
 }
 
 func coerceString(i interface{}) (string, error) {
