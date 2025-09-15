@@ -73,6 +73,15 @@ type ChannelOption func(*channelOptions)
 // channelOptions wraps ChannelOptions. It exists so that users can't implement their own ChannelOption.
 type channelOptions protoChannelOptions
 
+func (o *channelOptions) isDeltaEncodingEnabled() bool {
+	if o.Params != nil {
+		if val, ok := o.Params["delta"]; ok && val == "vcdiff" {
+			return true
+		}
+	}
+	return false
+}
+
 // DeriveOptions allows options to be used in creating a derived channel
 type DeriveOptions struct {
 	Filter string
@@ -913,6 +922,17 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		c.queue.Fail(newErrorFromProto(msg.Error))
 	case actionMessage:
 		if c.State() == ChannelStateAttached {
+			if c.options.isDeltaEncodingEnabled() {
+				firstMsg := msg.Messages[0]
+				serverStoredLastMessageId := extractDeltaExtras(firstMsg.Extras).From
+				if !empty(serverStoredLastMessageId) && serverStoredLastMessageId != c.lastMessageID {
+					// RTL18: Delta decode failure recovery
+					decodingErr := newErrorf(ErrDeltaDecodingFailed, "Delta decode failure on channel %q: expected message ID %q, got %q", c.Name, c.lastMessageID, serverStoredLastMessageId)
+					c.client.log().Error(decodingErr)
+					c.startDecodeFailureRecovery(decodingErr)
+					return
+				}
+			}
 			for _, msg := range msg.Messages {
 				// Process message with delta support (RTL18, RTL19, RTL20)
 				err := c.processMessageWithDelta(msg)
@@ -922,7 +942,24 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 					c.startDecodeFailureRecovery(err)
 					return
 				}
+			}
+			if c.options.isDeltaEncodingEnabled() {
+				lastMsg := msg.Messages[len(msg.Messages)-1]
+				c.lastMessageID = lastMsg.ID
+				c.lastPayloadProtocolMessageChannelSerial = msg.ChannelSerial
+			}
+			for _, msg := range msg.Messages {
 				c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
+			}
+		} else {
+			errorMsgPrefix := "Message skipped on a channel that is not ATTACHED."
+			if c.decodeFailureRecoveryInProgress {
+				errorMsgPrefix = "Delta recovery in progress - message skipped."
+			}
+
+			// log messages skipped per RTL17
+			for _, skippedMessage := range msg.Messages {
+				c.log().Verbosef("%s Message id = %s, channel = %s", errorMsgPrefix, skippedMessage.ID, c.Name)
 			}
 		}
 	case actionObject:

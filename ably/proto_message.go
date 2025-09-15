@@ -261,12 +261,6 @@ func (m Message) withDecodedDataAndContext(cipher channelCipher, ctx *DecodingCo
 				return m, nil, fmt.Errorf("missing VCdiff decoder plugin (code 40019)")
 			}
 
-			// Validate delta reference ID (RTL20)
-			deltaExtras := extractDeltaExtras(m.Extras)
-			if !empty(deltaExtras.From) && deltaExtras.From != ctx.LastMessageID {
-				return m, nil, fmt.Errorf("delta message decode failure - delta reference ID %q does not match stored ID %q (code 40018)", deltaExtras.From, ctx.LastMessageID)
-			}
-
 			if ctx.BasePayload == nil {
 				return m, nil, fmt.Errorf("delta message decode failure - no base payload available (code 40018)")
 			}
