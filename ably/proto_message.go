@@ -250,8 +250,8 @@ func (m Message) withDecodedDataAndContext(cipher channelCipher, ctx *DecodingCo
 	if ctx != nil {
 		if data, err := coerceBytes(m.Data); err == nil {
 			ctx.BasePayload = data
-		} else if s, err := coerceString(m.Data); err == nil {
-			ctx.BasePayload = []byte(s) // Convert string to UTF-8 bytes
+		} else {
+			return m, newErrorf(ErrDeltaDecodingFailed, "failed to coerce message data to bytes: %v", err)
 		}
 	}
 	encodings := strings.Split(m.Encoding, "/")

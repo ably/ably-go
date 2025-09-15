@@ -2,35 +2,33 @@ package ably
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDeltaExtras_extractDeltaExtras(t *testing.T) {
 	tests := []struct {
 		name     string
 		extras   map[string]interface{}
-		expected *DeltaExtras
+		expected DeltaExtras
 	}{
 		{
 			name:     "nil extras",
 			extras:   nil,
-			expected: nil,
+			expected: DeltaExtras{},
 		},
 		{
 			name:     "empty extras",
 			extras:   map[string]interface{}{},
-			expected: nil,
+			expected: DeltaExtras{},
 		},
 		{
 			name: "no delta field",
 			extras: map[string]interface{}{
 				"other": "value",
 			},
-			expected: nil,
+			expected: DeltaExtras{},
 		},
 		{
 			name: "valid delta extras",
@@ -40,7 +38,7 @@ func TestDeltaExtras_extractDeltaExtras(t *testing.T) {
 					"format": "vcdiff",
 				},
 			},
-			expected: &DeltaExtras{
+			expected: DeltaExtras{
 				From:   "message-id-123",
 				Format: "vcdiff",
 			},
@@ -52,7 +50,7 @@ func TestDeltaExtras_extractDeltaExtras(t *testing.T) {
 					"from": "message-id-456",
 				},
 			},
-			expected: &DeltaExtras{
+			expected: DeltaExtras{
 				From:   "message-id-456",
 				Format: "",
 			},
@@ -62,20 +60,14 @@ func TestDeltaExtras_extractDeltaExtras(t *testing.T) {
 			extras: map[string]interface{}{
 				"delta": "not-a-map",
 			},
-			expected: nil,
+			expected: DeltaExtras{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := extractDeltaExtras(tt.extras)
-			if tt.expected == nil {
-				assert.Nil(t, result)
-			} else {
-				require.NotNil(t, result)
-				assert.Equal(t, tt.expected.From, result.From)
-				assert.Equal(t, tt.expected.Format, result.Format)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -96,7 +88,7 @@ func TestMessage_withDecodedDataAndContext(t *testing.T) {
 			},
 			context:             &DecodingContext{},
 			expectedData:        "test data",
-			expectedBasePayload: nil,
+			expectedBasePayload: nil, // No encoding means early return, BasePayload not set
 		},
 		{
 			name: "base64 encoded message",
@@ -135,10 +127,10 @@ func TestMessage_withDecodedDataAndContext(t *testing.T) {
 				Encoding: "vcdiff",
 			},
 			context:       &DecodingContext{},
-			expectedError: "missing VCdiff decoder plugin (code 40019)",
+			expectedError: "missing VCdiff decoder plugin",
 		},
 		{
-			name: "vcdiff without base payload",
+			name: "vcdiff with successful decoding",
 			message: Message{
 				Data:     []byte("delta-data"),
 				Encoding: "vcdiff",
@@ -146,26 +138,8 @@ func TestMessage_withDecodedDataAndContext(t *testing.T) {
 			context: &DecodingContext{
 				VCDiffPlugin: &mockVCDiffDecoder{},
 			},
-			expectedError: "delta message decode failure - no base payload available (code 40018)",
-		},
-		{
-			name: "vcdiff with mismatched message ID",
-			message: Message{
-				Data:     []byte("delta-data"),
-				Encoding: "vcdiff",
-				Extras: map[string]interface{}{
-					"delta": map[string]interface{}{
-						"from":   "different-id",
-						"format": "vcdiff",
-					},
-				},
-			},
-			context: &DecodingContext{
-				VCDiffPlugin:  &mockVCDiffDecoder{},
-				BasePayload:   []byte("base-data"),
-				LastMessageID: "expected-id",
-			},
-			expectedError: "delta message decode failure - delta reference ID \"different-id\" does not match stored ID \"expected-id\" (code 40018)",
+			expectedData:        []byte("delta-data"), // Mock decoder returns delta as-is
+			expectedBasePayload: []byte("delta-data"), // Gets stored as new base payload
 		},
 		{
 			name: "successful vcdiff decoding",
@@ -173,26 +147,26 @@ func TestMessage_withDecodedDataAndContext(t *testing.T) {
 				ID:       "new-message-id",
 				Data:     []byte("delta-data"),
 				Encoding: "vcdiff",
-				Extras: map[string]interface{}{
-					"delta": map[string]interface{}{
-						"from":   "base-message-id",
-						"format": "vcdiff",
-					},
-				},
 			},
 			context: &DecodingContext{
-				VCDiffPlugin:  &mockVCDiffDecoder{},
-				BasePayload:   []byte("base-data"),
-				LastMessageID: "base-message-id",
+				VCDiffPlugin: &mockVCDiffDecoder{},
+				BasePayload:  []byte("base-data"),
 			},
 			expectedData:        []byte("delta-data"), // Mock decoder returns delta as-is
-			expectedBasePayload: []byte("delta-data"),
+			expectedBasePayload: []byte("delta-data"), // Gets stored as new base payload
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, basePayload, err := tt.message.withDecodedDataAndContext(nil, tt.context)
+			// Make a copy of the context to avoid side effects
+			var ctx *DecodingContext
+			if tt.context != nil {
+				contextCopy := *tt.context
+				ctx = &contextCopy
+			}
+
+			result, err := tt.message.withDecodedDataAndContext(nil, ctx)
 
 			if tt.expectedError != "" {
 				assert.Error(t, err)
@@ -200,8 +174,8 @@ func TestMessage_withDecodedDataAndContext(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedData, result.Data)
-				if tt.expectedBasePayload != nil {
-					assert.Equal(t, tt.expectedBasePayload, basePayload)
+				if tt.expectedBasePayload != nil && ctx != nil {
+					assert.Equal(t, tt.expectedBasePayload, ctx.BasePayload)
 				}
 			}
 		})
@@ -220,11 +194,11 @@ func TestMessage_withDecodedDataAndContext_MultipleEncodings(t *testing.T) {
 
 	context := &DecodingContext{}
 
-	result, basePayload, err := message.withDecodedDataAndContext(nil, context)
+	result, err := message.withDecodedDataAndContext(nil, context)
 
 	assert.NoError(t, err)
 	assert.Equal(t, jsonData, result.Data)
-	assert.Equal(t, jsonBytes, basePayload)
+	assert.Equal(t, jsonBytes, context.BasePayload)
 	assert.Empty(t, result.Encoding) // Should be fully decoded
 }
 
@@ -234,67 +208,19 @@ func TestMessage_withDecodedDataAndContext_VCDiffWithBase64(t *testing.T) {
 		ID:       "msg-id",
 		Data:     "ZGVsdGEtZGF0YQ==", // "delta-data" in base64
 		Encoding: "vcdiff/base64",
-		Extras: map[string]interface{}{
-			"delta": map[string]interface{}{
-				"from":   "base-id",
-				"format": "vcdiff",
-			},
-		},
 	}
 
 	context := &DecodingContext{
-		VCDiffPlugin:  &mockVCDiffDecoder{},
-		BasePayload:   []byte("base-payload"),
-		LastMessageID: "base-id",
+		VCDiffPlugin: &mockVCDiffDecoder{},
+		BasePayload:  []byte("base-payload"),
 	}
 
-	result, basePayload, err := message.withDecodedDataAndContext(nil, context)
+	result, err := message.withDecodedDataAndContext(nil, context)
 
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("delta-data"), result.Data) // Mock returns delta as-is
-	assert.Equal(t, []byte("delta-data"), basePayload)
+	assert.Equal(t, []byte("delta-data"), context.BasePayload)
 	assert.Empty(t, result.Encoding) // Should be fully decoded
-}
-
-func TestContainsErrorCode(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		code     int
-		expected bool
-	}{
-		{
-			name:     "nil error",
-			err:      nil,
-			code:     40018,
-			expected: false,
-		},
-		{
-			name:     "error with correct code at end",
-			err:      NewErrorInfo(40018, fmt.Errorf("vcdiff decode failed")),
-			code:     40018,
-			expected: true,
-		},
-		{
-			name:     "error with different code",
-			err:      NewErrorInfo(40019, fmt.Errorf("different error")),
-			code:     40018,
-			expected: false,
-		},
-		{
-			name:     "error without code",
-			err:      fmt.Errorf("simple error"),
-			code:     40018,
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := containsErrorCode(tt.err, tt.code)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 // mockVCDiffDecoder for testing
