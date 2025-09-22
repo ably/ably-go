@@ -1,5 +1,5 @@
-github.com/ably/vcdiff-go v0.0.1 h1:48gg4riW6VMl+7wbEysoyebzlUFNEfMqRydZt6GKo5A=
-github.com/ably/vcdiff-go v0.0.1/go.mod h1:lc/mP8Q/dUgQi3lYjEDDXRvINnFF1GeXsYa6/m97UPc=
+github.com/ably/vcdiff-go v0.0.0-20250922133141-6127bfd2feac h1:JDXvmid9rKtQZVBPfeRMvnfv8MXQBUqd9PXt9iHMj34=
+github.com/ably/vcdiff-go v0.0.0-20250922133141-6127bfd2feac/go.mod h1:y8j31IVCZtYwwwLZMGMwdrkP6RY2mDi3tM9zZ/X1/do=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
