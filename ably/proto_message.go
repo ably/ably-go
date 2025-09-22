@@ -243,98 +243,94 @@ func (m Message) withDecodedData(cipher channelCipher) (Message, error) {
 
 // withDecodedDataAndContext decodes message data with support for delta decoding (RTL19).
 func (m Message) withDecodedDataAndContext(cipher channelCipher, ctx *DecodingContext) (Message, error) {
-	// strings.Split on empty string returns []string{""}
-	if m.Data == nil || m.Encoding == "" {
-		return m, nil
+	var lastPayload []byte
+	if data, err := coerceBytes(m.Data); err == nil {
+		lastPayload = data
 	}
-	if ctx != nil {
-		if data, err := coerceBytes(m.Data); err == nil {
-			ctx.BasePayload = data
-		} else {
-			return m, newErrorf(ErrDeltaDecodingFailed, "failed to coerce message data to bytes: %v", err)
-		}
-	}
-	encodings := strings.Split(m.Encoding, "/")
 
-	for len(encodings) > 0 {
-		encoding := encodings[len(encodings)-1]
-		encodings = encodings[:len(encodings)-1]
-		switch encoding {
-		case encVCDiff:
-			// Handle vcdiff delta decoding (PC3, RTL18, RTL19, RTL20)
-			if ctx == nil || ctx.VCDiffPlugin == nil {
-				return m, newErrorf(ErrDeltaDecodingFailed, "missing VCdiff decoder plugin")
-			}
-
-			if ctx.BasePayload == nil {
-				return m, newErrorf(ErrDeltaDecodingFailed, "delta message decode failure - no base payload available")
-			}
-
-			deltaBytes, err := coerceBytes(m.Data)
-			if err != nil {
-				return m, newErrorf(ErrDeltaDecodingFailed, "failed to coerce delta bytes: %w", err)
-			}
-
-			// Decode the delta
-			result, err := ctx.VCDiffPlugin.Decode(deltaBytes, ctx.BasePayload)
-			if err != nil {
-				return m, newErrorf(ErrDeltaDecodingFailed, "vcdiff decode failed: %w", err)
-			}
-
-			m.Data = result
-			ctx.BasePayload = result // Store as new base payload (RTL19c)
-
-		case encBase64:
-			d, err := coerceString(m.Data)
-			if err != nil {
-				return m, err
-			}
-			data, err := base64.StdEncoding.DecodeString(d)
-			if err != nil {
-				return m, err
-			}
-			m.Data = data
-			if ctx != nil {
-				ctx.BasePayload = data // Store as new base payload (RTL19c)
-			}
-
-		case encUTF8:
-			d, err := coerceString(m.Data)
-			if err != nil {
-				return m, err
-			}
-			m.Data = d
-
-		case encJSON:
-			d, err := coerceBytes(m.Data)
-			if err != nil {
-				return m, err
-			}
-			var result interface{}
-			if err := json.Unmarshal(d, &result); err != nil {
-				return m, fmt.Errorf("error unmarshaling JSON payload of type %T: %s", m.Data, err.Error())
-			}
-			m.Data = result
-
-		default:
-			if strings.HasPrefix(encoding, encCipher) {
-				if cipher == nil {
-					return m, fmt.Errorf("message data is encrypted as %s, but cipher wasn't provided", encoding)
+	if !empty(m.Encoding) && m.Data != nil {
+		encodings := strings.Split(m.Encoding, "/")
+		for len(encodings) > 0 {
+			encoding := encodings[len(encodings)-1]
+			encodings = encodings[:len(encodings)-1]
+			switch encoding {
+			case encVCDiff:
+				// Handle vcdiff delta decoding (PC3, RTL18, RTL19, RTL20)
+				if ctx == nil || ctx.VCDiffPlugin == nil {
+					return m, newErrorf(ErrDeltaDecodingFailed, "missing VCdiff decoder plugin")
 				}
+
+				if ctx.BasePayload == nil {
+					return m, newErrorf(ErrDeltaDecodingFailed, "delta message decode failure - no base payload available")
+				}
+
+				deltaBytes, err := coerceBytes(m.Data)
+				if err != nil {
+					return m, newErrorf(ErrDeltaDecodingFailed, "failed to coerce delta bytes: %w", err)
+				}
+
+				// Decode the delta
+				result, err := ctx.VCDiffPlugin.Decode(deltaBytes, ctx.BasePayload)
+				if err != nil {
+					return m, newErrorf(ErrDeltaDecodingFailed, "vcdiff decode failed: %w", err)
+				}
+
+				m.Data = result
+				lastPayload = result
+
+			case encBase64:
+				d, err := coerceString(m.Data)
+				if err != nil {
+					return m, err
+				}
+				data, err := base64.StdEncoding.DecodeString(d)
+				if err != nil {
+					return m, err
+				}
+				m.Data = data
+				lastPayload = data
+
+			case encUTF8:
+				d, err := coerceString(m.Data)
+				if err != nil {
+					return m, err
+				}
+				m.Data = d
+
+			case encJSON:
 				d, err := coerceBytes(m.Data)
 				if err != nil {
 					return m, err
 				}
-				d, err = cipher.Decrypt(d)
-				if err != nil {
-					return m, fmt.Errorf("decrypting message data: %w", err)
+				var result interface{}
+				if err := json.Unmarshal(d, &result); err != nil {
+					return m, fmt.Errorf("error unmarshaling JSON payload of type %T: %s", m.Data, err.Error())
 				}
-				m.Data = d
-			} else {
-				return m, fmt.Errorf("unknown encoding %s", encoding)
+				m.Data = result
+
+			default:
+				if strings.HasPrefix(encoding, encCipher) {
+					if cipher == nil {
+						return m, fmt.Errorf("message data is encrypted as %s, but cipher wasn't provided", encoding)
+					}
+					d, err := coerceBytes(m.Data)
+					if err != nil {
+						return m, err
+					}
+					d, err = cipher.Decrypt(d)
+					if err != nil {
+						return m, fmt.Errorf("decrypting message data: %w", err)
+					}
+					m.Data = d
+				} else {
+					return m, fmt.Errorf("unknown encoding %s", encoding)
+				}
 			}
+			m.Encoding = strings.Join(encodings, "/")
 		}
-		m.Encoding = strings.Join(encodings, "/")
+	}
+	if ctx != nil {
+		ctx.BasePayload = lastPayload // Store as new base payload (RTL19c)
 	}
 	return m, nil
 }

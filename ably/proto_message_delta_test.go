@@ -130,7 +130,7 @@ func TestMessage_withDecodedDataAndContext(t *testing.T) {
 			expectedError: "missing VCdiff decoder plugin",
 		},
 		{
-			name: "vcdiff with successful decoding",
+			name: "vcdiff without base payload",
 			message: Message{
 				Data:     []byte("delta-data"),
 				Encoding: "vcdiff",
@@ -138,8 +138,7 @@ func TestMessage_withDecodedDataAndContext(t *testing.T) {
 			context: &DecodingContext{
 				VCDiffPlugin: &mockVCDiffDecoder{},
 			},
-			expectedData:        []byte("delta-data"), // Mock decoder returns delta as-is
-			expectedBasePayload: []byte("delta-data"), // Gets stored as new base payload
+			expectedError: "delta message decode failure - no base payload available",
 		},
 		{
 			name: "successful vcdiff decoding",
