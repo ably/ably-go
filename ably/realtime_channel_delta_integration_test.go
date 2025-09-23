@@ -232,7 +232,8 @@ func testDeltaPluginRecovery(t *testing.T, messageProcessor func(*ably.ProtocolM
 
 	originalStates := 2                                         // ATTACHING, ATTACHED
 	extraStates := 2 * noOfReattachCausedByDeltaDecodingFailure // Each delta decoding failure causes 2 extra states: ATTACHING, ATTACHED
-	for i := originalStates; i < originalStates+extraStates; i = i + 2 {
+	assert.Equal(t, originalStates+extraStates, len(channelStates), "Expected %d channel state changes, got %d", originalStates+extraStates, len(channelStates))
+	for i := originalStates; i < len(channelStates); i = i + 2 {
 		assert.Equal(t, ably.ChannelStateAttaching, channelStates[i].Current, "Expected state %d to be ATTACHING", i)
 		reattachReason := channelStates[i].Reason
 		assert.NotNil(t, reattachReason, "Expected reattach reason to be non-nil")

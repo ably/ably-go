@@ -56,12 +56,12 @@ jobs:
           server-auth: ${{ secrets.TEST_OBSERVABILITY_SERVER_AUTH_KEY }}
           path: '.'
 
-      - name: View test results
+      - name: View unit test results
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
           name: Unit Test Results (Go ${{ matrix.go-version }})
           path: unit.junit
           reporter: java-junit
-          fail-on-error: false
+          fail-on-error: true
           only-summary: false

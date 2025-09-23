@@ -3,7 +3,7 @@ module github.com/ably/ably-go
 go 1.18
 
 require (
-	github.com/ably/vcdiff-go v0.0.0-20250922133141-6127bfd2feac
+	github.com/ably/vcdiff-go v0.0.2
 	github.com/stretchr/testify v1.7.1
 	github.com/ugorji/go/codec v1.1.9
 	golang.org/x/sys v0.2.0

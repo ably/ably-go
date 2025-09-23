@@ -54,5 +54,5 @@ jobs:
           name: Integration Test Results (Go ${{ matrix.go-version }}, ${{ matrix.protocol }})
           path: ${{ matrix.protocol }}-integration.junit
           reporter: java-junit
-          fail-on-error: false
+          fail-on-error: true
           only-summary: false
