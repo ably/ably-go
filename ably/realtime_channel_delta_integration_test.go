@@ -7,9 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
+	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ablytest"
@@ -73,13 +72,16 @@ func TestDelta_PluginBasicFunctionality(t *testing.T) {
 
 	channel := realtime.Channels.Get("deltaPlugin", ably.ChannelWithVCDiff())
 
-	var channelStates []ably.ChannelStateChange
+	channelStatesCh := make(chan ably.ChannelStateChange, 10) // Buffered channel to avoid blocking
 	channel.OnAll(func(change ably.ChannelStateChange) {
-		channelStates = append(channelStates, change)
+		channelStatesCh <- change
 	})
-	var receivedMsgs []*ably.Message
+
+	receivedMsgsCh := make(chan *ably.Message, len(testData))
+	var totalReceivedMessages int64
 	channel.SubscribeAll(context.Background(), func(msg *ably.Message) {
-		receivedMsgs = append(receivedMsgs, msg)
+		receivedMsgsCh <- msg
+		atomic.AddInt64(&totalReceivedMessages, 1)
 	})
 
 	err = channel.Attach(context.Background())
@@ -97,14 +99,9 @@ func TestDelta_PluginBasicFunctionality(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	// Wait for messages to be received
-	err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
-		return len(receivedMsgs) == len(testData)
-	}), nil)
-	assert.NoError(t, err)
-
 	// Loop over each received message and compare with test data
-	for i, msg := range receivedMsgs {
+	for i := 0; i < len(testData); i++ {
+		msg := <-receivedMsgsCh
 		expectedData := testData[i]
 
 		// Compare JSON representations since data types might differ
@@ -113,25 +110,64 @@ func TestDelta_PluginBasicFunctionality(t *testing.T) {
 		assert.JSONEq(t, string(expectedJSON), string(actualJSON),
 			"Message data mismatch for message %d", i)
 	}
+	assert.Equal(t, len(testData), int(atomic.LoadInt64(&totalReceivedMessages)), "Expected to receive all published messages")
+
+	// Collect all channel state changes from channel
+	var channelStates []ably.ChannelStateChange
+	for len(channelStatesCh) > 0 {
+		change := <-channelStatesCh
+		channelStates = append(channelStates, change)
+	}
+
 	// Verify channel state changes
 	assert.Equal(t, len(channelStates), 2, "Expected 2 channel state changes")
 	assert.Equal(t, channelStates[0].Current, ably.ChannelStateAttaching, "Expected first state to be ATTACHING")
 	assert.Equal(t, channelStates[1].Current, ably.ChannelStateAttached, "Expected second state to be ATTACHED")
 }
 
-var testData2 = []map[string]interface{}{
-	{"foo": "bar", "count": 1, "status": "active"},
-	{"foo": "bar", "count": 1, "status": "active"},
-	{"foo": "bar", "count": 2, "status": "inactive"},
-	{"foo": "bar", "count": 3, "status": "inactive"},
-	{"foo": "bar", "count": 4, "status": "active"},
+func TestDeltaPluginRecovery(t *testing.T) {
+	t.Run("WithMessagesOutOfOrder", func(t *testing.T) {
+		testDeltaPluginRecovery(t, func(pm *ably.ProtocolMessage, noOfReattachCausedByDeltaDecodingFailure *int) {
+			if pm.Action == ably.ActionMessage && len(pm.Messages) > 0 {
+				protoMsg := pm.Messages[0]
+				if deltaInfo, ok := protoMsg.Extras["delta"].(map[string]interface{}); ok {
+					if format, ok := deltaInfo["format"].(string); ok && format == "vcdiff" {
+						// Simulate a scenario where the delta cannot be applied by corrupting the "from" field
+						deltaInfo["from"] = "non-existent-message-id"
+						*noOfReattachCausedByDeltaDecodingFailure++
+					}
+				}
+			}
+		})
+	})
+
+	t.Run("WithCorruptDelta", func(t *testing.T) {
+		testDeltaPluginRecovery(t, func(pm *ably.ProtocolMessage, noOfReattachCausedByDeltaDecodingFailure *int) {
+			if pm.Action == ably.ActionMessage && len(pm.Messages) > 0 {
+				protoMsg := pm.Messages[0]
+				if deltaInfo, ok := protoMsg.Extras["delta"].(map[string]interface{}); ok {
+					if format, ok := deltaInfo["format"].(string); ok && format == "vcdiff" {
+						// Corrupt the delta data to simulate a decoding failure
+						switch v := protoMsg.Data.(type) {
+						case []byte:
+							v[0] = 0 // Corrupt the first byte
+							protoMsg.Data = v
+						case string:
+							protoMsg.Data = "Q29ycnVwdCBkYXRh" // Base64 for "Corrupt data"
+						}
+						*noOfReattachCausedByDeltaDecodingFailure++
+					}
+				}
+			}
+		})
+	})
 }
 
-func TestDelta_PluginRecovery(t *testing.T) {
-	dial := func(proto string, url *url.URL, timeout time.Duration) (ably.Conn, error) {
-		return ably.DialWebsocket(proto, url, timeout)
-	}
-	wrappedDialWebsocket, interceptMsg := DialIntercept(dial)
+func testDeltaPluginRecovery(t *testing.T, messageProcessor func(*ably.ProtocolMessage, *int)) {
+	noOfReattachCausedByDeltaDecodingFailure := 0
+	wrappedDialWebsocket := DialWithMessagePreProcessor(func(pm *ably.ProtocolMessage) {
+		messageProcessor(pm, &noOfReattachCausedByDeltaDecodingFailure)
+	})
 
 	app, realtime := ablytest.NewRealtime(
 		ably.WithVCDiffPlugin(ably.NewVCDiffPlugin()),
@@ -144,13 +180,15 @@ func TestDelta_PluginRecovery(t *testing.T) {
 
 	channel := realtime.Channels.Get("deltaPlugin", ably.ChannelWithVCDiff())
 
-	var channelStates []ably.ChannelStateChange
+	channelStatesCh := make(chan ably.ChannelStateChange, 50) // Larger buffer for recovery tests
 	channel.OnAll(func(change ably.ChannelStateChange) {
-		channelStates = append(channelStates, change)
+		channelStatesCh <- change
 	})
-	var receivedMsgs []*ably.Message
+	receivedMsgsCh := make(chan *ably.Message, len(testData))
+	var totalReceivedMessages int64
 	channel.SubscribeAll(context.Background(), func(msg *ably.Message) {
-		receivedMsgs = append(receivedMsgs, msg)
+		receivedMsgsCh <- msg
+		atomic.AddInt64(&totalReceivedMessages, 1)
 	})
 
 	err = channel.Attach(context.Background())
@@ -162,39 +200,16 @@ func TestDelta_PluginRecovery(t *testing.T) {
 	}), nil)
 	assert.NoError(t, err)
 
-	// Publish test messages in a separate goroutine
-	readyForNext, ready := context.WithCancel(context.Background())
-	go func() {
-		for i, data := range testData2 {
-			err := channel.Publish(context.Background(), fmt.Sprintf("%d", i), data)
-			assert.NoError(t, err)
-			<-readyForNext.Done() // Wait until it's ok to publish the next message
-		}
-	}()
-
-	// Ignore the first base message
-	<-interceptMsg(canceledCtx, ably.ActionMessage)
-
-	// Intercept and pre-process next message
-	ctx, cancel := context.WithCancel(context.Background())
-	deltaMsgCh := interceptMsg(ctx, ably.ActionMessage)
-	ready() // Allow publishing to start
-	deltaMsg := (<-deltaMsgCh).Messages[0]
-	deltaMsg.Extras["delta"] = map[string]interface{}{
-		"format": "vcdiff",
-		"from":   "non-existent-message-id",
-	} // Corrupt the delta info to force recovery
-	cancel() // Process this message
-
-	// Wait for messages to be received
-	err = ablytest.Wait(ablytest.AssertionWaiter(func() bool {
-		return len(receivedMsgs) == len(testData)
-	}), nil)
-	assert.NoError(t, err)
+	// Publish test messages
+	for i, data := range testData {
+		err := channel.Publish(context.Background(), fmt.Sprintf("%d", i), data)
+		assert.NoError(t, err)
+	}
 
 	// Loop over each received message and compare with test data
-	for i, msg := range receivedMsgs {
-		expectedData := testData2[i]
+	for i := 0; i < len(testData); i++ {
+		msg := <-receivedMsgsCh
+		expectedData := testData[i]
 
 		// Compare JSON representations since data types might differ
 		expectedJSON, _ := json.Marshal(expectedData)
@@ -202,15 +217,26 @@ func TestDelta_PluginRecovery(t *testing.T) {
 		assert.JSONEq(t, string(expectedJSON), string(actualJSON),
 			"Message data mismatch for message %d", i)
 	}
+	assert.Equal(t, len(testData), int(atomic.LoadInt64(&totalReceivedMessages)), "Expected to receive all published messages")
+
+	// Collect all channel state changes from channel
+	var channelStates []ably.ChannelStateChange
+	for len(channelStatesCh) > 0 {
+		change := <-channelStatesCh
+		channelStates = append(channelStates, change)
+	}
+
 	// Verify channel state changes
-	assert.Equal(t, len(channelStates), 4, "Expected 2 channel state changes")
-	assert.Equal(t, channelStates[0].Current, ably.ChannelStateAttaching, "Expected first state to be ATTACHING")
-	assert.Equal(t, channelStates[1].Current, ably.ChannelStateAttached, "Expected second state to be ATTACHED")
-	assert.Equal(t, channelStates[2].Current, ably.ChannelStateAttaching, "Expected third state to be ATTACHING")
+	assert.Equal(t, ably.ChannelStateAttaching, channelStates[0].Current, "Expected first state to be ATTACHING")
+	assert.Equal(t, ably.ChannelStateAttached, channelStates[1].Current, "Expected second state to be ATTACHED")
 
-	reattachReason := channelStates[2].Reason
-	assert.NotNil(t, reattachReason, "Expected reattach reason to be non-nil")
-	assert.Equal(t, ably.ErrDeltaDecodingFailed, reattachReason.Code, "Expected reattach reason code to be ErrDeltaDecodingFailed")
-
-	assert.Equal(t, channelStates[3].Current, ably.ChannelStateAttached, "Expected fourth state to be ATTACHED")
+	originalStates := 2                                         // ATTACHING, ATTACHED
+	extraStates := 2 * noOfReattachCausedByDeltaDecodingFailure // Each delta decoding failure causes 2 extra states: ATTACHING, ATTACHED
+	for i := originalStates; i < originalStates+extraStates; i = i + 2 {
+		assert.Equal(t, ably.ChannelStateAttaching, channelStates[i].Current, "Expected state %d to be ATTACHING", i)
+		reattachReason := channelStates[i].Reason
+		assert.NotNil(t, reattachReason, "Expected reattach reason to be non-nil")
+		assert.Equal(t, ably.ErrDeltaDecodingFailed, reattachReason.Code, "Expected reattach reason code to be ErrDeltaDecodingFailed")
+		assert.Equal(t, ably.ChannelStateAttached, channelStates[i+1].Current, "Expected state %d to be ATTACHED", i+1)
+	}
 }

@@ -499,11 +499,27 @@ func DialIntercept(dial DialFunc) (_ DialFunc, intercept func(context.Context, .
 	}, intercept
 }
 
+func DialWithMessagePreProcessor(msgCallback func(*ably.ProtocolMessage)) (wrappedDial DialFunc) {
+	active := &activeIntercept{}
+	active.Lock()
+	defer active.Unlock()
+	active.msgCallback = msgCallback
+
+	return func(proto string, url *url.URL, timeout time.Duration) (ably.Conn, error) {
+		conn, err := ably.DialWebsocket(proto, url, timeout)
+		if err != nil {
+			return nil, err
+		}
+		return interceptConn{conn, active}, nil
+	}
+}
+
 type activeIntercept struct {
 	sync.Mutex
-	ctx     context.Context
-	actions []ably.ProtoAction
-	msg     chan<- *ably.ProtocolMessage
+	ctx         context.Context
+	actions     []ably.ProtoAction
+	msg         chan<- *ably.ProtocolMessage
+	msgCallback func(*ably.ProtocolMessage)
 }
 
 type interceptConn struct {
@@ -523,6 +539,10 @@ func (c interceptConn) Receive(deadline time.Time) (*ably.ProtocolMessage, error
 
 	c.active.Lock()
 	defer c.active.Unlock()
+
+	if c.active.msgCallback != nil {
+		c.active.msgCallback(msg)
+	}
 
 	if c.active.msg == nil {
 		return msg, err
