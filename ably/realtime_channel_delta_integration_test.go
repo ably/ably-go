@@ -148,12 +148,12 @@ func TestDeltaPluginRecovery(t *testing.T) {
 				if deltaInfo, ok := protoMsg.Extras["delta"].(map[string]interface{}); ok {
 					if format, ok := deltaInfo["format"].(string); ok && format == "vcdiff" {
 						// Corrupt the delta data to simulate a decoding failure
-						switch v := protoMsg.Data.(type) {
+						corruptData := "Q29ycnVwdCBkYXRh" // Base64 for "Corrupt data"
+						switch protoMsg.Data.(type) {
 						case []byte:
-							v[0] = 0 // Corrupt the first byte
-							protoMsg.Data = v
+							protoMsg.Data = []byte(corruptData)
 						case string:
-							protoMsg.Data = "Q29ycnVwdCBkYXRh" // Base64 for "Corrupt data"
+							protoMsg.Data = corruptData
 						}
 						*noOfReattachCausedByDeltaDecodingFailure++
 					}
