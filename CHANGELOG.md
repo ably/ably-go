@@ -1,8 +1,16 @@
 # Change Log
 
-## [1.2.22](https://github.com/ably/ably-go/tree/v.1.2.22)
+## [1.3.0](https://github.com/ably/ably-go/tree/v1.3.0)
 
-[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.21...v.1.2.22)
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.22...v1.3.0)
+
+**Closed issues:**
+
+- Implement vcdiff delta support [\#689](https://github.com/ably/ably-go/issues/689)
+
+## [1.2.22](https://github.com/ably/ably-go/tree/v1.2.22)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.2.21...v1.2.22)
 
 **Implemented enhancements:**
 
