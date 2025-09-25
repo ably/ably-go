@@ -15,6 +15,7 @@ const (
 	encJSON   = "json"
 	encBase64 = "base64"
 	encCipher = "cipher"
+	encVCDiff = "vcdiff"
 )
 
 // Message contains an individual message that is sent to, or received from, Ably.
@@ -41,6 +42,53 @@ type Message struct {
 	// Extras is a JSON object of arbitrary key-value pairs that may contain metadata, and/or ancillary payloads.
 	// Valid payloads include push, deltaExtras, ReferenceExtras and headers (TM2i).
 	Extras map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
+}
+
+// DeltaExtras describes a message whose payload is a "vcdiff"-encoded delta generated with respect to a base message (DE1, DE2).
+type DeltaExtras struct {
+	// From is the ID of the base message the delta was generated from (DE2a).
+	From string
+	// Format is the delta format; currently only "vcdiff" is allowed (DE2b).
+	Format string
+}
+
+// extractDeltaExtras extracts delta information from the message extras field.
+// Returns empty DeltaExtras if no delta information is present.
+func extractDeltaExtras(extras map[string]interface{}) DeltaExtras {
+	if extras == nil {
+		return DeltaExtras{}
+	}
+
+	deltaData, ok := extras["delta"]
+	if !ok {
+		return DeltaExtras{}
+	}
+
+	// Try to parse as map[string]interface{}
+	deltaMap, ok := deltaData.(map[string]interface{})
+	if !ok {
+		return DeltaExtras{}
+	}
+
+	var deltaExtras DeltaExtras
+	if from, ok := deltaMap["from"].(string); ok {
+		deltaExtras.From = from
+	}
+	if format, ok := deltaMap["format"].(string); ok {
+		deltaExtras.Format = format
+	}
+
+	return deltaExtras
+}
+
+// DecodingContext provides context needed for decoding messages, including delta support.
+type DecodingContext struct {
+	// VCDiffPlugin is the plugin to use for vcdiff delta decoding (PC3).
+	VCDiffPlugin VCDiffDecoder
+	// BasePayload is the stored base payload for delta decoding (RTL19).
+	BasePayload []byte
+	// LastMessageID is the ID of the last message used for delta validation (RTL20).
+	LastMessageID string
 }
 
 func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
@@ -189,6 +237,100 @@ func (m Message) withDecodedData(cipher channelCipher) (Message, error) {
 			}
 		}
 		m.Encoding = strings.Join(encodings, "/")
+	}
+	return m, nil
+}
+
+// withDecodedDataAndContext decodes message data with support for delta decoding (RTL19).
+func (m Message) withDecodedDataAndContext(cipher channelCipher, ctx *DecodingContext) (Message, error) {
+	var lastPayload []byte
+	if data, err := coerceBytes(m.Data); err == nil {
+		lastPayload = data
+	}
+
+	if !empty(m.Encoding) && m.Data != nil {
+		encodings := strings.Split(m.Encoding, "/")
+		for len(encodings) > 0 {
+			encoding := encodings[len(encodings)-1]
+			encodings = encodings[:len(encodings)-1]
+			switch encoding {
+			case encVCDiff:
+				// Handle vcdiff delta decoding (PC3, RTL18, RTL19, RTL20)
+				if ctx == nil || ctx.VCDiffPlugin == nil {
+					return m, newErrorf(ErrDeltaDecodingFailed, "missing VCdiff decoder plugin")
+				}
+
+				if ctx.BasePayload == nil {
+					return m, newErrorf(ErrDeltaDecodingFailed, "delta message decode failure - no base payload available")
+				}
+
+				deltaBytes, err := coerceBytes(m.Data)
+				if err != nil {
+					return m, newErrorf(ErrDeltaDecodingFailed, "failed to coerce delta bytes: %w", err)
+				}
+
+				// Decode the delta
+				result, err := ctx.VCDiffPlugin.Decode(deltaBytes, ctx.BasePayload)
+				if err != nil {
+					return m, newErrorf(ErrDeltaDecodingFailed, "vcdiff decode failed: %w", err)
+				}
+
+				m.Data = result
+				lastPayload = result
+
+			case encBase64:
+				d, err := coerceString(m.Data)
+				if err != nil {
+					return m, err
+				}
+				data, err := base64.StdEncoding.DecodeString(d)
+				if err != nil {
+					return m, err
+				}
+				m.Data = data
+				lastPayload = data
+
+			case encUTF8:
+				d, err := coerceString(m.Data)
+				if err != nil {
+					return m, err
+				}
+				m.Data = d
+
+			case encJSON:
+				d, err := coerceBytes(m.Data)
+				if err != nil {
+					return m, err
+				}
+				var result interface{}
+				if err := json.Unmarshal(d, &result); err != nil {
+					return m, fmt.Errorf("error unmarshaling JSON payload of type %T: %s", m.Data, err.Error())
+				}
+				m.Data = result
+
+			default:
+				if strings.HasPrefix(encoding, encCipher) {
+					if cipher == nil {
+						return m, fmt.Errorf("message data is encrypted as %s, but cipher wasn't provided", encoding)
+					}
+					d, err := coerceBytes(m.Data)
+					if err != nil {
+						return m, err
+					}
+					d, err = cipher.Decrypt(d)
+					if err != nil {
+						return m, fmt.Errorf("decrypting message data: %w", err)
+					}
+					m.Data = d
+				} else {
+					return m, fmt.Errorf("unknown encoding %s", encoding)
+				}
+			}
+			m.Encoding = strings.Join(encodings, "/")
+		}
+	}
+	if ctx != nil {
+		ctx.BasePayload = lastPayload // Store as new base payload (RTL19c)
 	}
 	return m, nil
 }

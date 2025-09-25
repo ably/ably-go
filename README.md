@@ -156,6 +156,5 @@ Version 1.2 introduced significant breaking changes from 1.1.5. See the [Upgrade
 
 - Partial support for [Channel Suspended State.](https://github.com/ably/ably-go/issues/568)
 - Ping functionality is not implemented.
-- [Delta compression](https://ably.com/docs/channels/options/deltas) is not implemented.
 - [Push notification target](https://ably.com/docs/account/app/notifications#push-notification-target) functionality is not applicable to this SDK.
 - No support for [Push Notifications Admin API.](https://ably.com/docs/api/realtime-sdk/push-admin)

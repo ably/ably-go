@@ -1165,7 +1165,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channel := client.Channels.Get("test",
 			ably.ChannelWithParams("test", "blah"),
 			ably.ChannelWithParams("test2", "blahblah"),
-			ably.ChannelWithParams("delta", "vcdiff"))
+			ably.ChannelWithVCDiff())
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -1197,7 +1197,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		channel := client.Channels.Get("test",
 			ably.ChannelWithParams("test", "blah"),
 			ably.ChannelWithParams("test2", "blahblah"),
-			ably.ChannelWithParams("delta", "vcdiff"))
+			ably.ChannelWithVCDiff())
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

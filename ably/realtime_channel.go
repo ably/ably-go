@@ -73,6 +73,15 @@ type ChannelOption func(*channelOptions)
 // channelOptions wraps ChannelOptions. It exists so that users can't implement their own ChannelOption.
 type channelOptions protoChannelOptions
 
+func (o *channelOptions) isDeltaEncodingEnabled() bool {
+	if o.Params != nil {
+		if val, ok := o.Params["delta"]; ok && val == "vcdiff" {
+			return true
+		}
+	}
+	return false
+}
+
 // DeriveOptions allows options to be used in creating a derived channel
 type DeriveOptions struct {
 	Filter string
@@ -105,6 +114,17 @@ func ChannelWithParams(key string, value string) ChannelOption {
 			o.Params = map[string]string{}
 		}
 		o.Params[key] = value
+	}
+}
+
+// ChannelWithVCDiff sets channel parameters for VCDIFF delta compression.
+// This is a convenience method that internally sets "delta" to "vcdiff" parameters.
+func ChannelWithVCDiff() ChannelOption {
+	return func(o *channelOptions) {
+		if o.Params == nil {
+			o.Params = map[string]string{}
+		}
+		o.Params["delta"] = "vcdiff"
 	}
 }
 
@@ -259,6 +279,14 @@ type RealtimeChannel struct {
 	attachResume bool
 
 	properties ChannelProperties
+
+	// Delta support fields (RTL19, RTL20)
+	// lastPayloadProtocolMessageChannelSerial stores the channel serial of the last received message for delta validation (RTL20).
+	lastPayloadProtocolMessageChannelSerial string
+	// decodeFailureRecoveryInProgress indicates whether the channel is currently recovering from a delta decode failure (RTL18).
+	decodeFailureRecoveryInProgress bool
+	// decodingContext provides context for delta decoding including plugin access.
+	decodingContext *DecodingContext
 }
 
 func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions) *RealtimeChannel {
@@ -277,6 +305,12 @@ func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions
 	c.Presence = newRealtimePresence(c)
 	c.queue = newMsgQueue(client.Connection)
 	c.ExperimentalObjects = newRealtimeExperimentalObjects(c)
+
+	// Initialize delta decoding context
+	c.decodingContext = &DecodingContext{
+		VCDiffPlugin: client.opts().VCDiffPlugin,
+	}
+
 	return c
 }
 
@@ -366,6 +400,10 @@ func (c *RealtimeChannel) lockAttach(err error) (result, error) {
 			Channel: c.Name,
 		}
 		msg.ChannelSerial = c.properties.ChannelSerial // RTL4c1, accessing locked
+		if c.decodeFailureRecoveryInProgress {
+			c.log().Verbosef("Delta decode failure recovery in progress, resetting ChannelSerial for channel %q", c.Name)
+			msg.ChannelSerial = c.lastPayloadProtocolMessageChannelSerial
+		}
 		if len(c.channelOpts().Params) > 0 {
 			msg.Params = c.channelOpts().Params
 		}
@@ -880,8 +918,52 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 		c.queue.Fail(newErrorFromProto(msg.Error))
 	case actionMessage:
 		if c.State() == ChannelStateAttached {
+			if c.options.isDeltaEncodingEnabled() {
+				firstMsg := msg.Messages[0]
+				serverStoredLastMessageId := extractDeltaExtras(firstMsg.Extras).From
+				lastMessageId := c.decodingContext.LastMessageID
+				if !empty(serverStoredLastMessageId) && serverStoredLastMessageId != lastMessageId {
+					// RTL18: Delta decode failure recovery
+					decodingErr := newErrorf(ErrDeltaDecodingFailed, "Delta decode failure on channel %q: expected message ID %q, got %q", c.Name, lastMessageId, serverStoredLastMessageId)
+					c.client.log().Error(decodingErr)
+					c.startDecodeFailureRecovery(decodingErr)
+					return
+				}
+				// Process message with delta support (RTL18, RTL19, RTL20)
+				for _, innerMsg := range msg.Messages {
+					var cipher channelCipher
+					if c.options != nil {
+						cipher, _ = (*protoChannelOptions)(c.options).GetCipher()
+					}
+					decodedMsg, err := innerMsg.withDecodedDataAndContext(cipher, c.decodingContext)
+					if err != nil {
+						if code(err) == ErrDeltaDecodingFailed {
+							// RTL18: Delta decode failure recovery
+							c.client.log().Errorf("Delta decode failure on channel %q: %v", c.Name, err)
+							c.startDecodeFailureRecovery(err)
+							return
+						}
+						// For other errors, just log and continue (RSL6b)
+						c.client.log().Warnf("Message decode error on channel %q: %v", c.Name, err)
+					}
+					*innerMsg = decodedMsg // Update message with decoded data
+				}
+				lastMsg := msg.Messages[len(msg.Messages)-1]
+				c.decodingContext.LastMessageID = lastMsg.ID
+				c.lastPayloadProtocolMessageChannelSerial = msg.ChannelSerial
+			}
 			for _, msg := range msg.Messages {
 				c.messageEmitter.Emit(subscriptionName(msg.Name), (*subscriptionMessage)(msg))
+			}
+		} else {
+			errorMsgPrefix := "Message skipped on a channel that is not ATTACHED."
+			if c.decodeFailureRecoveryInProgress {
+				errorMsgPrefix = "Delta recovery in progress - message skipped."
+			}
+
+			// log messages skipped per RTL17
+			for _, skippedMessage := range msg.Messages {
+				c.log().Verbosef("%s Message id = %s, channel = %s", errorMsgPrefix, skippedMessage.ID, c.Name)
 			}
 		}
 	case actionObject:
@@ -893,6 +975,31 @@ func (c *RealtimeChannel) notify(msg *protocolMessage) {
 			plugin.HandleObjectSyncMessages(msg.State, msg.ChannelSerial)
 		}
 	default:
+	}
+}
+
+// startDecodeFailureRecovery implements the RTL18 recovery procedure.
+func (c *RealtimeChannel) startDecodeFailureRecovery(reason error) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	if c.decodeFailureRecoveryInProgress {
+		return
+	}
+	c.client.log().Warnf("Starting delta decode failure recovery process %q", c.Name)
+	c.decodeFailureRecoveryInProgress = true
+
+	// Doesn't matter if attach succeeded or failed. Even if attach fails,
+	// recovery using lastMessage channelSerial will be re-tried on next attach
+	res, err := c.lockAttach(reason)
+	if err != nil {
+		c.decodeFailureRecoveryInProgress = false
+	} else {
+		go func() {
+			res.Wait(context.Background())
+			c.mtx.Lock()
+			c.decodeFailureRecoveryInProgress = false
+			c.mtx.Unlock()
+		}()
 	}
 }
 
