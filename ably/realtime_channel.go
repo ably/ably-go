@@ -207,8 +207,8 @@ func (c *RealtimeChannels) Exists(name string) bool {
 // To release a channel, the [ably.ChannelState] must be INITIALIZED, DETACHED, or FAILED (RSN4, RTS4).
 func (ch *RealtimeChannels) Release(ctx context.Context, name string) error {
 	ch.mtx.Lock()
-	defer ch.mtx.Unlock()
 	c, ok := ch.chans[name]
+	ch.mtx.Unlock()
 	if !ok {
 		return nil
 	}
@@ -216,7 +216,9 @@ func (ch *RealtimeChannels) Release(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
+	ch.mtx.Lock()
 	delete(ch.chans, name)
+	ch.mtx.Unlock()
 	return nil
 }
 
