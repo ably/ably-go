@@ -29,6 +29,7 @@ type mockResponse struct {
 	statusCode  int
 	body        []byte
 	contentType string
+	headers     map[string]string
 }
 
 func newMockRoundTripper() *mockRoundTripper {
@@ -40,6 +41,15 @@ func (m *mockRoundTripper) queueResponse(statusCode int, body []byte, contentTyp
 		statusCode:  statusCode,
 		body:        body,
 		contentType: contentType,
+	})
+}
+
+func (m *mockRoundTripper) queueResponseWithHeaders(statusCode int, body []byte, contentType string, headers map[string]string) {
+	m.responses = append(m.responses, &mockResponse{
+		statusCode:  statusCode,
+		body:        body,
+		contentType: contentType,
+		headers:     headers,
 	})
 }
 
@@ -68,12 +78,17 @@ func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	resp := m.responses[0]
 	m.responses = m.responses[1:]
 
+	header := http.Header{
+		"Content-Type": []string{resp.contentType},
+	}
+	for k, v := range resp.headers {
+		header.Set(k, v)
+	}
+
 	return &http.Response{
 		StatusCode: resp.statusCode,
 		Body:       io.NopCloser(bytes.NewReader(resp.body)),
-		Header: http.Header{
-			"Content-Type": []string{resp.contentType},
-		},
+		Header:     header,
 	}, nil
 }
 
