@@ -83,6 +83,14 @@ type Operation struct {
 	Counter      *Counter        `json:"counter,omitempty" codec:"counter,omitempty"`
 	Nonce        *string         `json:"nonce,omitempty" codec:"nonce,omitempty"`
 	InitialValue string          `json:"initialValue,omitempty" codec:"initialValue,omitempty"`
+
+	// Nested operation types — used by protocol v6+ for action-specific payloads. Not yet in use.
+	MapCreate     *MapCreate     `json:"mapCreate,omitempty" codec:"mapCreate,omitempty"`
+	MapSet        *MapSet        `json:"mapSet,omitempty" codec:"mapSet,omitempty"`
+	MapRemove     *MapRemove     `json:"mapRemove,omitempty" codec:"mapRemove,omitempty"`
+	CounterCreate *CounterCreate `json:"counterCreate,omitempty" codec:"counterCreate,omitempty"`
+	CounterInc    *CounterInc    `json:"counterInc,omitempty" codec:"counterInc,omitempty"`
+	ObjectDelete  *ObjectDelete  `json:"objectDelete,omitempty" codec:"objectDelete,omitempty"`
 }
 
 type CounterOp struct {
@@ -132,3 +140,29 @@ type MapEntry struct {
 	Timeserial *string `json:"timeserial,omitempty" codec:"timeserial,omitempty"`
 	Data       *Data   `json:"data,omitempty" codec:"data,omitempty"`
 }
+
+// Nested operation types — used by protocol v6+ for action-specific payloads.
+
+type MapCreate struct {
+	Semantics MapSemantics         `json:"semantics,omitempty" codec:"semantics,omitempty"`
+	Entries   map[string]*MapEntry `json:"entries,omitempty" codec:"entries,omitempty"`
+}
+
+type MapSet struct {
+	Key   string `json:"key,omitempty" codec:"key,omitempty"`
+	Value *Data  `json:"value,omitempty" codec:"value,omitempty"`
+}
+
+type MapRemove struct {
+	Key string `json:"key,omitempty" codec:"key,omitempty"`
+}
+
+type CounterCreate struct {
+	Count float64 `json:"count,omitempty" codec:"count,omitempty"`
+}
+
+type CounterInc struct {
+	Number float64 `json:"number,omitempty" codec:"number,omitempty"`
+}
+
+type ObjectDelete struct{}
