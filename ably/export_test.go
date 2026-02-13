@@ -222,7 +222,7 @@ func (c *Connection) AckAll() {
 	c.mtx.Unlock()
 	c.log().Infof("Ack all %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
-		v.onAck(nil)
+		v.callback.call(nil, nil)
 	}
 }
 

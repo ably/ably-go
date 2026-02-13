@@ -125,17 +125,17 @@ func (q *pendingEmitter) Dismiss() []msgWithAckCallback {
 	return cx
 }
 
-func (q *pendingEmitter) Enqueue(msg *protocolMessage, onAck func(err error)) {
+func (q *pendingEmitter) Enqueue(msg *protocolMessage, callback *ackCallback) {
 	if len(q.queue) > 0 {
 		expected := q.queue[len(q.queue)-1].msg.MsgSerial + 1
 		if got := msg.MsgSerial; expected != got {
 			panic(fmt.Sprintf("protocol violation: expected next enqueued message to have msgSerial %d; got %d", expected, got))
 		}
 	}
-	q.queue = append(q.queue, msgWithAckCallback{msg, onAck})
+	q.queue = append(q.queue, msgWithAckCallback{msg, callback})
 }
 
-func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
+func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo, conn *Connection) {
 	// The msgSerial from the server may not be the same we're waiting. If the
 	// server skipped some messages, they get implicitly NACKed. If the server
 	// ACKed some messages again, we ignore those. In both cases, we just need
@@ -180,15 +180,41 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 			err = errImplictNACK
 		}
 		q.log.Verbosef("received %v for message serial %d", msg.Action, sch.msg.MsgSerial)
-		if sch.onAck != nil {
-			sch.onAck(err)
+
+		// Call the callback with results and error
+		sch.callback.call(msg.Res, err)
+	}
+}
+
+type ackCallback struct {
+	onAck            func(err error)
+	onAckWithSerials func(serials []string, err error)
+}
+
+// call invokes the appropriate callback based on which is set.
+// If onAckWithSerials is set, extracts serials from res before calling.
+// If onAck is set, calls it with just the error.
+func (cb *ackCallback) call(res []*protocolPublishResult, err error) {
+	if cb == nil {
+		return
+	}
+	if cb.onAckWithSerials != nil {
+		// Extract serials from results
+		var serials []string
+		for _, result := range res {
+			if result != nil && len(result.Serials) > 0 {
+				serials = append(serials, result.Serials...)
+			}
 		}
+		cb.onAckWithSerials(serials, err)
+	} else if cb.onAck != nil {
+		cb.onAck(err)
 	}
 }
 
 type msgWithAckCallback struct {
-	msg   *protocolMessage
-	onAck func(err error)
+	msg      *protocolMessage
+	callback *ackCallback
 }
 
 type msgQueue struct {
@@ -203,17 +229,17 @@ func newMsgQueue(conn *Connection) *msgQueue {
 	}
 }
 
-func (q *msgQueue) Enqueue(msg *protocolMessage, onAck func(err error)) {
+func (q *msgQueue) Enqueue(msg *protocolMessage, callback *ackCallback) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
-	q.queue = append(q.queue, msgWithAckCallback{msg, onAck})
+	q.queue = append(q.queue, msgWithAckCallback{msg, callback})
 	q.mtx.Unlock()
 }
 
 func (q *msgQueue) Flush() {
 	q.mtx.Lock()
 	for _, queueMsg := range q.queue {
-		q.conn.send(queueMsg.msg, queueMsg.onAck)
+		q.conn.send(queueMsg.msg, queueMsg.callback)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
@@ -223,9 +249,7 @@ func (q *msgQueue) Fail(err error) {
 	q.mtx.Lock()
 	for _, queueMsg := range q.queue {
 		q.log().Errorf("failure sending message (serial=%d): %v", queueMsg.msg.MsgSerial, err)
-		if queueMsg.onAck != nil {
-			queueMsg.onAck(newError(90000, err))
-		}
+		queueMsg.callback.call(nil, newError(90000, err))
 	}
 	q.queue = nil
 	q.mtx.Unlock()

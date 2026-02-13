@@ -13,11 +13,18 @@ const (
 	ablyErrorMessageHeader    = "X-Ably-Errormessage"
 	clientLibraryVersion      = "1.3.0"
 	clientRuntimeName         = "go"
-	ablyProtocolVersion       = "2" // CSV2
-	ablyClientIDHeader        = "X-Ably-ClientId"
-	hostHeader                = "Host"
-	ablyAgentHeader           = "Ably-Agent"                      // RSC7d
-	ablySDKIdentifier         = "ably-go/" + clientLibraryVersion // RSC7d1
+	// ablyProtocolVersion is the default Ably protocol version used for all requests.
+	// Protocol v5 is required for message operations (publish/update/delete/append) to return
+	// message serials and version information.
+	//
+	// Note: Stats requests explicitly override this to use protocol v2 to maintain compatibility
+	// with the existing nested Stats structure. Migrating stats to the flattened v3+ format
+	// requires breaking API changes and is planned for ably-go v2.0.
+	ablyProtocolVersion = "5" // CSV2
+	ablyClientIDHeader  = "X-Ably-ClientId"
+	hostHeader          = "Host"
+	ablyAgentHeader     = "Ably-Agent"                      // RSC7d
+	ablySDKIdentifier   = "ably-go/" + clientLibraryVersion // RSC7d1
 )
 
 var goRuntimeIdentifier = func() string {

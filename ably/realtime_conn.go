@@ -614,36 +614,31 @@ func (c *Connection) advanceSerial() {
 	c.msgSerial = (c.msgSerial + 1) % maxint64
 }
 
-func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
+// send sends a message with a callback.
+func (c *Connection) send(msg *protocolMessage, callback *ackCallback) {
 	hasMsgSerial := msg.Action == actionMessage || msg.Action == actionPresence || msg.Action == actionObject
 	c.mtx.Lock()
 	// RTP16a - in case of presence msg send, check for connection status and send accordingly
 	switch state := c.state; state {
 	default:
 		c.mtx.Unlock()
-		if onAck != nil {
-			if c.state == ConnectionStateClosed {
-				onAck(errClosed)
-			} else {
-				onAck(connStateError(state, nil))
-			}
+		if c.state == ConnectionStateClosed {
+			callback.call(nil, errClosed)
+		} else {
+			callback.call(nil, connStateError(state, nil))
 		}
 
 	case ConnectionStateInitialized, ConnectionStateConnecting, ConnectionStateDisconnected:
 		c.mtx.Unlock()
 		if c.opts.NoQueueing {
-			if onAck != nil {
-				onAck(connStateError(state, errQueueing))
-			}
+			callback.call(nil, connStateError(state, errQueueing))
 		} else {
-			c.queue.Enqueue(msg, onAck) // RTL4i
+			c.queue.Enqueue(msg, callback) // RTL4i
 		}
 	case ConnectionStateConnected:
 		if err := c.verifyAndUpdateMessages(msg); err != nil {
 			c.mtx.Unlock()
-			if onAck != nil {
-				onAck(err)
-			}
+			callback.call(nil, err)
 			return
 		}
 		if hasMsgSerial {
@@ -660,13 +655,13 @@ func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 			c.log().Warnf("transport level failure while sending message, %v", err)
 			c.conn.Close()
 			c.mtx.Unlock()
-			c.queue.Enqueue(msg, onAck)
+			c.queue.Enqueue(msg, callback)
 		} else {
 			if hasMsgSerial {
 				c.advanceSerial()
 			}
-			if onAck != nil {
-				c.pending.Enqueue(msg, onAck)
+			if callback != nil {
+				c.pending.Enqueue(msg, callback)
 			}
 			c.mtx.Unlock()
 		}
@@ -760,7 +755,7 @@ func (c *Connection) resendPending() {
 	c.mtx.Unlock()
 	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
-		c.send(v.msg, v.onAck)
+		c.send(v.msg, v.callback)
 	}
 }
 
@@ -804,11 +799,11 @@ func (c *Connection) eventloop() {
 		case actionHeartbeat:
 		case actionAck:
 			c.mtx.Lock()
-			c.pending.Ack(msg, newErrorFromProto(msg.Error))
+			c.pending.Ack(msg, newErrorFromProto(msg.Error), c)
 			c.mtx.Unlock()
 		case actionNack:
 			c.mtx.Lock()
-			c.pending.Ack(msg, newErrorFromProto(msg.Error))
+			c.pending.Ack(msg, newErrorFromProto(msg.Error), c)
 			c.mtx.Unlock()
 		case actionError:
 

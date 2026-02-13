@@ -34,10 +34,11 @@ type Key struct {
 }
 
 type Namespace struct {
-	ID        string `json:"id"`
-	Created   int    `json:"created,omitempty"`
-	Modified  int    `json:"modified,omitempty"`
-	Persisted bool   `json:"persisted,omitempty"`
+	ID              string `json:"id"`
+	Created         int    `json:"created,omitempty"`
+	Modified        int    `json:"modified,omitempty"`
+	Persisted       bool   `json:"persisted,omitempty"`
+	MutableMessages bool   `json:"mutableMessages,omitempty"`
 }
 
 type Presence struct {
@@ -80,6 +81,7 @@ func DefaultConfig() *Config {
 		},
 		Namespaces: []Namespace{
 			{ID: "persisted", Persisted: true},
+			{ID: "mutable", MutableMessages: true},
 		},
 		Channels: []Channel{
 			{
