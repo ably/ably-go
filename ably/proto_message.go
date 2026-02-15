@@ -24,10 +24,10 @@ const (
 type MessageAction string
 
 const (
-	MessageActionCreate  MessageAction = "message.create"
-	MessageActionUpdate  MessageAction = "message.update"
-	MessageActionDelete  MessageAction = "message.delete"
-	MessageActionAppend  MessageAction = "message.append"
+	MessageActionCreate MessageAction = "message.create"
+	MessageActionUpdate MessageAction = "message.update"
+	MessageActionDelete MessageAction = "message.delete"
+	MessageActionAppend MessageAction = "message.append"
 )
 
 // MarshalJSON implements json.Marshaler to encode MessageAction as numeric for wire compatibility.

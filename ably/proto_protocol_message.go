@@ -123,25 +123,25 @@ type protocolPublishResult struct {
 }
 
 type protocolMessage struct {
-	Messages          []*Message                `json:"messages,omitempty" codec:"messages,omitempty"`
-	Presence          []*PresenceMessage        `json:"presence,omitempty" codec:"presence,omitempty"`
-	State             []*objects.Message        `json:"state,omitempty" codec:"state,omitempty"`
-	ID                string                    `json:"id,omitempty" codec:"id,omitempty"`
-	ApplicationID     string                    `json:"applicationId,omitempty" codec:"applicationId,omitempty"`
-	ConnectionID      string                    `json:"connectionId,omitempty" codec:"connectionId,omitempty"`
-	ConnectionKey     string                    `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
-	Channel           string                    `json:"channel,omitempty" codec:"channel,omitempty"`
-	ChannelSerial     string                    `json:"channelSerial,omitempty" codec:"channelSerial,omitempty"`
-	ConnectionDetails *connectionDetails        `json:"connectionDetails,omitempty" codec:"connectionDetails,omitempty"`
-	Error             *errorInfo                `json:"error,omitempty" codec:"error,omitempty"`
-	MsgSerial         int64                     `json:"msgSerial" codec:"msgSerial"`
-	Timestamp         int64                     `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
-	Count             int                       `json:"count,omitempty" codec:"count,omitempty"`
-	Action            protoAction               `json:"action,omitempty" codec:"action,omitempty"`
-	Flags             protoFlag                 `json:"flags,omitempty" codec:"flags,omitempty"`
-	Params            channelParams             `json:"params,omitempty" codec:"params,omitempty"`
-	Auth              *authDetails              `json:"auth,omitempty" codec:"auth,omitempty"`
-	Res               []*protocolPublishResult  `json:"res,omitempty" codec:"res,omitempty"`
+	Messages          []*Message               `json:"messages,omitempty" codec:"messages,omitempty"`
+	Presence          []*PresenceMessage       `json:"presence,omitempty" codec:"presence,omitempty"`
+	State             []*objects.Message       `json:"state,omitempty" codec:"state,omitempty"`
+	ID                string                   `json:"id,omitempty" codec:"id,omitempty"`
+	ApplicationID     string                   `json:"applicationId,omitempty" codec:"applicationId,omitempty"`
+	ConnectionID      string                   `json:"connectionId,omitempty" codec:"connectionId,omitempty"`
+	ConnectionKey     string                   `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
+	Channel           string                   `json:"channel,omitempty" codec:"channel,omitempty"`
+	ChannelSerial     string                   `json:"channelSerial,omitempty" codec:"channelSerial,omitempty"`
+	ConnectionDetails *connectionDetails       `json:"connectionDetails,omitempty" codec:"connectionDetails,omitempty"`
+	Error             *errorInfo               `json:"error,omitempty" codec:"error,omitempty"`
+	MsgSerial         int64                    `json:"msgSerial" codec:"msgSerial"`
+	Timestamp         int64                    `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
+	Count             int                      `json:"count,omitempty" codec:"count,omitempty"`
+	Action            protoAction              `json:"action,omitempty" codec:"action,omitempty"`
+	Flags             protoFlag                `json:"flags,omitempty" codec:"flags,omitempty"`
+	Params            channelParams            `json:"params,omitempty" codec:"params,omitempty"`
+	Auth              *authDetails             `json:"auth,omitempty" codec:"auth,omitempty"`
+	Res               []*protocolPublishResult `json:"res,omitempty" codec:"res,omitempty"`
 }
 
 // authDetails contains the token string used to authenticate a client with Ably.
