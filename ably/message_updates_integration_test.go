@@ -310,38 +310,38 @@ func TestRealtimeChannel_MessageUpdates(t *testing.T) {
 
 			// Simulate rapid token streaming
 			tokens := []string{" 42", ".", " This", " is", " correct", "."}
-			completed := make(chan int, len(tokens))
+			type ack struct {
+				result *ably.UpdateResult
+				err    error
+			}
+			acks := make(chan ack, len(tokens))
 
-			for i, token := range tokens {
+			for _, token := range tokens {
 				msg := &ably.Message{
 					Serial: publishResult.Serial,
 					Data:   token,
 				}
 
-				idx := i // Capture for closure
 				err := channel.AppendMessageAsync(msg, func(result *ably.UpdateResult, err error) {
-					if err != nil {
-						t.Logf("Append %d failed: %v", idx, err)
-					} else {
-						completed <- idx
-					}
+					acks <- ack{result, err}
 				})
-				require.NoError(t, err, "Failed to queue append %d", i)
+				require.NoError(t, err, "Failed to queue append %q", token)
 			}
 
 			// Wait for all appends to complete (with timeout)
 			timeout := time.After(10 * time.Second)
-			completedCount := 0
-			for completedCount < len(tokens) {
+			ackCount := 0
+			for ackCount < len(tokens) {
 				select {
-				case <-completed:
-					completedCount++
+				case ack := <-acks:
+					require.NoError(t, ack.err)
+					ackCount++
 				case <-timeout:
-					t.Fatalf("Timeout: Only %d/%d appends completed before timeout", completedCount, len(tokens))
+					t.Fatalf("Timeout: Only %d/%d appends completed before timeout", ackCount, len(tokens))
 				}
 			}
 
-			assert.Equal(t, len(tokens), completedCount, "All appends should complete")
+			assert.Equal(t, len(tokens), ackCount, "All appends should complete")
 		})
 	})
 }
