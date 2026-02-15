@@ -135,7 +135,7 @@ func (q *pendingEmitter) Enqueue(msg *protocolMessage, callback *ackCallback) {
 	q.queue = append(q.queue, msgWithAckCallback{msg, callback})
 }
 
-func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo, conn *Connection) {
+func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 	// The msgSerial from the server may not be the same we're waiting. If the
 	// server skipped some messages, they get implicitly NACKed. If the server
 	// ACKed some messages again, we ignore those. In both cases, we just need

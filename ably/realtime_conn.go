@@ -799,11 +799,11 @@ func (c *Connection) eventloop() {
 		case actionHeartbeat:
 		case actionAck:
 			c.mtx.Lock()
-			c.pending.Ack(msg, newErrorFromProto(msg.Error), c)
+			c.pending.Ack(msg, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
 		case actionNack:
 			c.mtx.Lock()
-			c.pending.Ack(msg, newErrorFromProto(msg.Error), c)
+			c.pending.Ack(msg, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
 		case actionError:
 
