@@ -181,8 +181,15 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 		}
 		q.log.Verbosef("received %v for message serial %d", msg.Action, sch.msg.MsgSerial)
 
-		// Call the callback with results and error
-		sch.callback.call(msg.Res, err)
+		// Extract the corresponding result for this message from the res array.
+		// The res array contains results only for messages that were actually ACKed,
+		// not for implicitly NACKed messages (those with i < serialShift).
+		var result []*protocolPublishResult
+		resIndex := i - serialShift
+		if msg.Res != nil && resIndex >= 0 && resIndex < len(msg.Res) {
+			result = []*protocolPublishResult{msg.Res[resIndex]}
+		}
+		sch.callback.call(result, err)
 	}
 }
 
