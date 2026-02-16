@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/ugorji/go/codec"
 )
 
 // encodings
@@ -17,6 +19,140 @@ const (
 	encCipher = "cipher"
 	encVCDiff = "vcdiff"
 )
+
+// MessageAction represents the type of operation performed on a message.
+type MessageAction string
+
+const (
+	MessageActionCreate MessageAction = "message.create"
+	MessageActionUpdate MessageAction = "message.update"
+	MessageActionDelete MessageAction = "message.delete"
+	MessageActionAppend MessageAction = "message.append"
+)
+
+// MarshalJSON implements json.Marshaler to encode MessageAction as numeric for wire compatibility.
+func (a MessageAction) MarshalJSON() ([]byte, error) {
+	var num int
+	switch a {
+	case MessageActionCreate:
+		num = 0
+	case MessageActionUpdate:
+		num = 1
+	case MessageActionDelete:
+		num = 2
+	case MessageActionAppend:
+		num = 5
+	default:
+		num = 0
+	}
+	return json.Marshal(num)
+}
+
+// UnmarshalJSON implements json.Unmarshaler to decode numeric wire format to MessageAction.
+func (a *MessageAction) UnmarshalJSON(data []byte) error {
+	var num int
+	if err := json.Unmarshal(data, &num); err != nil {
+		return err
+	}
+	switch num {
+	case 0:
+		*a = MessageActionCreate
+	case 1:
+		*a = MessageActionUpdate
+	case 2:
+		*a = MessageActionDelete
+	case 5:
+		*a = MessageActionAppend
+	default:
+		*a = MessageActionCreate
+	}
+	return nil
+}
+
+// CodecEncodeSelf implements codec.Selfer for MessagePack encoding.
+func (a MessageAction) CodecEncodeSelf(encoder *codec.Encoder) {
+	var num int
+	switch a {
+	case MessageActionCreate:
+		num = 0
+	case MessageActionUpdate:
+		num = 1
+	case MessageActionDelete:
+		num = 2
+	case MessageActionAppend:
+		num = 5
+	default:
+		num = 0
+	}
+	encoder.MustEncode(num)
+}
+
+// CodecDecodeSelf implements codec.Selfer for MessagePack decoding.
+func (a *MessageAction) CodecDecodeSelf(decoder *codec.Decoder) {
+	var num int
+	decoder.MustDecode(&num)
+	switch num {
+	case 0:
+		*a = MessageActionCreate
+	case 1:
+		*a = MessageActionUpdate
+	case 2:
+		*a = MessageActionDelete
+	case 5:
+		*a = MessageActionAppend
+	default:
+		*a = MessageActionCreate
+	}
+}
+
+// MessageVersion contains version information for a message operation.
+type MessageVersion struct {
+	Serial      string            `json:"serial,omitempty" codec:"serial,omitempty"`
+	Timestamp   int64             `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
+	ClientID    string            `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	Description string            `json:"description,omitempty" codec:"description,omitempty"`
+	Metadata    map[string]string `json:"metadata,omitempty" codec:"metadata,omitempty"`
+}
+
+// PublishResult contains the result of a publish operation with serial tracking.
+type PublishResult struct {
+	Serial string // May be empty if message discarded by conflation
+}
+
+// UpdateResult contains the result of an update, delete, or append operation.
+type UpdateResult struct {
+	VersionSerial string // Serial of new version, may be empty if superseded
+}
+
+// UpdateOption is a functional option for message update operations.
+type UpdateOption func(*updateOptions)
+
+type updateOptions struct {
+	description string
+	clientID    string
+	metadata    map[string]string
+}
+
+// UpdateWithDescription sets a description for the update operation.
+func UpdateWithDescription(description string) UpdateOption {
+	return func(o *updateOptions) {
+		o.description = description
+	}
+}
+
+// UpdateWithClientID sets the client ID for the update operation.
+func UpdateWithClientID(clientID string) UpdateOption {
+	return func(o *updateOptions) {
+		o.clientID = clientID
+	}
+}
+
+// UpdateWithMetadata sets metadata for the update operation.
+func UpdateWithMetadata(metadata map[string]string) UpdateOption {
+	return func(o *updateOptions) {
+		o.metadata = metadata
+	}
+}
 
 // Message contains an individual message that is sent to, or received from, Ably.
 type Message struct {
@@ -42,6 +178,12 @@ type Message struct {
 	// Extras is a JSON object of arbitrary key-value pairs that may contain metadata, and/or ancillary payloads.
 	// Valid payloads include push, deltaExtras, ReferenceExtras and headers (TM2i).
 	Extras map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
+	// Serial is a permanent identifier for this message assigned by the server.
+	Serial string `json:"serial,omitempty" codec:"serial,omitempty"`
+	// Action indicates the type of operation (create, update, delete, append) performed on this message.
+	Action MessageAction `json:"action,omitempty" codec:"action,omitempty"`
+	// Version contains version information for message update/delete/append operations.
+	Version *MessageVersion `json:"version,omitempty" codec:"version,omitempty"`
 }
 
 // DeltaExtras describes a message whose payload is a "vcdiff"-encoded delta generated with respect to a base message (DE1, DE2).

@@ -50,7 +50,7 @@ func (o *RealtimeExperimentalObjects) PublishObjects(ctx context.Context, msgs .
 		Channel: o.channel.getName(),
 		State:   msgs,
 	}
-	if err := o.channel.send(msg, onAck); err != nil {
+	if err := o.channel.send(msg, &ackCallback{onAck: onAck}); err != nil {
 		return err
 	}
 
@@ -63,7 +63,7 @@ func (o *RealtimeExperimentalObjects) PublishObjects(ctx context.Context, msgs .
 }
 
 type channel interface {
-	send(msg *protocolMessage, onAck func(error)) error
+	send(msg *protocolMessage, callback *ackCallback) error
 	getClientOptions() *clientOptions
 	getName() string
 }
