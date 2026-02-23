@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 type proto int
@@ -151,7 +151,7 @@ func setConnectionReadLimit(c conn, readLimit int64) error {
 	unwrappedConn := unwrapConn(c)
 	websocketConn, ok := unwrappedConn.(*websocketConn)
 	if !ok {
-		return errors.New("cannot set readlimit for connection, connection does not use nhooyr.io/websocket")
+		return errors.New("cannot set readlimit for connection, connection does not use github.com/coder/websocket")
 	}
 	websocketConn.conn.SetReadLimit(readLimit)
 	return nil
