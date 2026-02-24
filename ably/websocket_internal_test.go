@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/ugorji/go/codec"
-	"nhooyr.io/websocket"
 )
 
 var timeout = time.Second * 30
