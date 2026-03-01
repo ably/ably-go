@@ -216,7 +216,7 @@ func TestValidateMessageSerial(t *testing.T) {
 			t.Errorf("Expected error code 40003, got %d", code(err))
 		}
 		// Verify exact error message matches TypeScript
-		expectedMsg := "This message lacks a serial and cannot be updated. Make sure you have enabled \"Message annotations, updates, and deletes\" in channel settings on your dashboard."
+		expectedMsg := "this message lacks a serial and cannot be updated. Make sure you have enabled \"Message annotations, updates, and deletes\" in channel settings on your dashboard"
 		if err.(*ErrorInfo).Message() != expectedMsg {
 			t.Errorf("Error message mismatch.\nExpected: %s\nGot: %s", expectedMsg, err.(*ErrorInfo).Message())
 		}

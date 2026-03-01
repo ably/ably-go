@@ -75,7 +75,7 @@ func validateMessageSerial(msg *Message) error {
 		return newError(40003, fmt.Errorf("message cannot be nil"))
 	}
 	if msg.Serial == "" {
-		return newError(40003, fmt.Errorf("This message lacks a serial and cannot be updated. Make sure you have enabled \"Message annotations, updates, and deletes\" in channel settings on your dashboard."))
+		return newError(40003, fmt.Errorf("this message lacks a serial and cannot be updated. Make sure you have enabled \"Message annotations, updates, and deletes\" in channel settings on your dashboard"))
 	}
 	return nil
 }
@@ -218,8 +218,9 @@ func (c *RESTChannel) PublishMultipleWithResult(ctx context.Context, messages []
 	return results, nil
 }
 
-// UpdateMessage updates a previously published message.
-func (c *RESTChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+// performMessageOperation is a shared helper for UpdateMessage, DeleteMessage, and AppendMessage.
+// It validates the message serial, applies update options, sets the action, encodes data, and sends the request.
+func (c *RESTChannel) performMessageOperation(ctx context.Context, msg *Message, action MessageAction, options ...UpdateOption) (*UpdateResult, error) {
 	if err := validateMessageSerial(msg); err != nil {
 		return nil, err
 	}
@@ -237,22 +238,22 @@ func (c *RESTChannel) UpdateMessage(ctx context.Context, msg *Message, options .
 		Metadata:    opts.metadata,
 	}
 
-	// Create message for update operation
-	updateMsg := *msg
-	updateMsg.Action = MessageActionUpdate
-	updateMsg.Version = version
+	// Create message for the operation
+	opMsg := *msg
+	opMsg.Action = action
+	opMsg.Version = version
 
 	// Encode data
 	cipher, _ := c.options.GetCipher()
 	var err error
-	updateMsg, err = updateMsg.withEncodedData(cipher)
+	opMsg, err = opMsg.withEncodedData(cipher)
 	if err != nil {
 		return nil, fmt.Errorf("encoding data for message: %w", err)
 	}
 
 	// POST to API
 	var response publishResponse
-	res, err := c.client.post(ctx, c.baseURL+"/messages", []*Message{&updateMsg}, &response)
+	res, err := c.client.post(ctx, c.baseURL+"/messages", []*Message{&opMsg}, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -264,102 +265,21 @@ func (c *RESTChannel) UpdateMessage(ctx context.Context, msg *Message, options .
 		result.VersionSerial = response.Serials[0]
 	}
 	return result, nil
+}
+
+// UpdateMessage updates a previously published message.
+func (c *RESTChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+	return c.performMessageOperation(ctx, msg, MessageActionUpdate, options...)
 }
 
 // DeleteMessage deletes a previously published message.
 func (c *RESTChannel) DeleteMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
-	if err := validateMessageSerial(msg); err != nil {
-		return nil, err
-	}
-
-	// Apply options
-	var opts updateOptions
-	for _, o := range options {
-		o(&opts)
-	}
-
-	// Build version from options
-	version := &MessageVersion{
-		Description: opts.description,
-		ClientID:    opts.clientID,
-		Metadata:    opts.metadata,
-	}
-
-	// Create message for delete operation
-	deleteMsg := *msg
-	deleteMsg.Action = MessageActionDelete
-	deleteMsg.Version = version
-
-	// Encode data
-	cipher, _ := c.options.GetCipher()
-	var err error
-	deleteMsg, err = deleteMsg.withEncodedData(cipher)
-	if err != nil {
-		return nil, fmt.Errorf("encoding data for message: %w", err)
-	}
-
-	// POST to API
-	var response publishResponse
-	res, err := c.client.post(ctx, c.baseURL+"/messages", []*Message{&deleteMsg}, &response)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	// Extract version serial
-	result := &UpdateResult{}
-	if len(response.Serials) > 0 {
-		result.VersionSerial = response.Serials[0]
-	}
-	return result, nil
+	return c.performMessageOperation(ctx, msg, MessageActionDelete, options...)
 }
 
 // AppendMessage appends to a previously published message.
 func (c *RESTChannel) AppendMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
-	if err := validateMessageSerial(msg); err != nil {
-		return nil, err
-	}
-
-	// Apply options
-	var opts updateOptions
-	for _, o := range options {
-		o(&opts)
-	}
-
-	// Build version from options
-	version := &MessageVersion{
-		Description: opts.description,
-		ClientID:    opts.clientID,
-		Metadata:    opts.metadata,
-	}
-
-	// Create message for append operation
-	appendMsg := *msg
-	appendMsg.Action = MessageActionAppend
-	appendMsg.Version = version
-
-	// Encode data
-	cipher, _ := c.options.GetCipher()
-	var err error
-	appendMsg, err = appendMsg.withEncodedData(cipher)
-	if err != nil {
-		return nil, fmt.Errorf("encoding data for message: %w", err)
-	}
-
-	// POST to API
-	var response publishResponse
-	res, err := c.client.post(ctx, c.baseURL+"/messages", []*Message{&appendMsg}, &response)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	// Extract version serial
-	result := &UpdateResult{}
-	if len(response.Serials) > 0 {
-		result.VersionSerial = response.Serials[0]
-	}
-	return result, nil
+	return c.performMessageOperation(ctx, msg, MessageActionAppend, options...)
 }
 
 // ChannelDetails contains the details of a [ably.RESTChannel] or [ably.RealtimeChannel] object

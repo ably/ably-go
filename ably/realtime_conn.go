@@ -622,23 +622,29 @@ func (c *Connection) send(msg *protocolMessage, callback *ackCallback) {
 	switch state := c.state; state {
 	default:
 		c.mtx.Unlock()
-		if c.state == ConnectionStateClosed {
-			callback.call(nil, errClosed)
-		} else {
-			callback.call(nil, connStateError(state, nil))
+		if callback != nil {
+			if c.state == ConnectionStateClosed {
+				callback.call(nil, errClosed)
+			} else {
+				callback.call(nil, connStateError(state, nil))
+			}
 		}
 
 	case ConnectionStateInitialized, ConnectionStateConnecting, ConnectionStateDisconnected:
 		c.mtx.Unlock()
 		if c.opts.NoQueueing {
-			callback.call(nil, connStateError(state, errQueueing))
+			if callback != nil {
+				callback.call(nil, connStateError(state, errQueueing))
+			}
 		} else {
 			c.queue.Enqueue(msg, callback) // RTL4i
 		}
 	case ConnectionStateConnected:
 		if err := c.verifyAndUpdateMessages(msg); err != nil {
 			c.mtx.Unlock()
-			callback.call(nil, err)
+			if callback != nil {
+				callback.call(nil, err)
+			}
 			return
 		}
 		if hasMsgSerial {

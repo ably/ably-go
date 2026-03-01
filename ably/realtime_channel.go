@@ -849,8 +849,53 @@ func (c *RealtimeChannel) HistoryUntilAttach(o ...HistoryOption) (*HistoryReques
 	return &historyRequest, nil
 }
 
-// UpdateMessage updates a previously published message.
-func (c *RealtimeChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+// performMessageOperationAsync is a shared helper for UpdateMessageAsync, DeleteMessageAsync, and AppendMessageAsync.
+// It validates the message serial, applies update options, sets the action, and sends the protocol message.
+func (c *RealtimeChannel) performMessageOperationAsync(msg *Message, action MessageAction, onAck func(*UpdateResult, error), options ...UpdateOption) error {
+	if err := validateMessageSerial(msg); err != nil {
+		return err
+	}
+
+	// Apply options
+	var opts updateOptions
+	for _, o := range options {
+		o(&opts)
+	}
+
+	// Build version from options
+	version := &MessageVersion{
+		Description: opts.description,
+		ClientID:    opts.clientID,
+		Metadata:    opts.metadata,
+	}
+
+	// Create message for the operation
+	opMsg := *msg
+	opMsg.Action = action
+	opMsg.Version = version
+
+	protoMsg := &protocolMessage{
+		Action:   actionMessage,
+		Channel:  c.Name,
+		Messages: []*Message{&opMsg},
+	}
+
+	return c.sendWithSerialCallback(protoMsg, func(serials []string, err error) {
+		if err != nil {
+			onAck(nil, err)
+			return
+		}
+		result := &UpdateResult{}
+		if len(serials) > 0 {
+			result.VersionSerial = serials[0]
+		}
+		onAck(result, nil)
+	})
+}
+
+// performMessageOperation is a shared blocking helper for UpdateMessage, DeleteMessage, and AppendMessage.
+// It wraps performMessageOperationAsync with a channel-based blocking pattern.
+func (c *RealtimeChannel) performMessageOperation(ctx context.Context, msg *Message, action MessageAction, options ...UpdateOption) (*UpdateResult, error) {
 	type resultOrError struct {
 		result *UpdateResult
 		err    error
@@ -859,7 +904,7 @@ func (c *RealtimeChannel) UpdateMessage(ctx context.Context, msg *Message, optio
 	onAck := func(result *UpdateResult, err error) {
 		listen <- resultOrError{result, err}
 	}
-	if err := c.UpdateMessageAsync(msg, onAck, options...); err != nil {
+	if err := c.performMessageOperationAsync(msg, action, onAck, options...); err != nil {
 		return nil, err
 	}
 
@@ -869,180 +914,37 @@ func (c *RealtimeChannel) UpdateMessage(ctx context.Context, msg *Message, optio
 	case result := <-listen:
 		return result.result, result.err
 	}
+}
+
+// UpdateMessage updates a previously published message.
+func (c *RealtimeChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+	return c.performMessageOperation(ctx, msg, MessageActionUpdate, options...)
 }
 
 // UpdateMessageAsync is the same as UpdateMessage except instead of blocking it calls onAck.
 func (c *RealtimeChannel) UpdateMessageAsync(msg *Message, onAck func(*UpdateResult, error), options ...UpdateOption) error {
-	if err := validateMessageSerial(msg); err != nil {
-		return err
-	}
-
-	// Apply options
-	var opts updateOptions
-	for _, o := range options {
-		o(&opts)
-	}
-
-	// Build version from options
-	version := &MessageVersion{
-		Description: opts.description,
-		ClientID:    opts.clientID,
-		Metadata:    opts.metadata,
-	}
-
-	// Create message for update operation
-	updateMsg := *msg
-	updateMsg.Action = MessageActionUpdate
-	updateMsg.Version = version
-
-	protoMsg := &protocolMessage{
-		Action:   actionMessage,
-		Channel:  c.Name,
-		Messages: []*Message{&updateMsg},
-	}
-
-	return c.sendWithSerialCallback(protoMsg, func(serials []string, err error) {
-		if err != nil {
-			onAck(nil, err)
-			return
-		}
-		result := &UpdateResult{}
-		if len(serials) > 0 {
-			result.VersionSerial = serials[0]
-		}
-		onAck(result, nil)
-	})
+	return c.performMessageOperationAsync(msg, MessageActionUpdate, onAck, options...)
 }
 
 // DeleteMessage deletes a previously published message.
 func (c *RealtimeChannel) DeleteMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
-	type resultOrError struct {
-		result *UpdateResult
-		err    error
-	}
-	listen := make(chan resultOrError, 1)
-	onAck := func(result *UpdateResult, err error) {
-		listen <- resultOrError{result, err}
-	}
-	if err := c.DeleteMessageAsync(msg, onAck, options...); err != nil {
-		return nil, err
-	}
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case result := <-listen:
-		return result.result, result.err
-	}
+	return c.performMessageOperation(ctx, msg, MessageActionDelete, options...)
 }
 
 // DeleteMessageAsync is the same as DeleteMessage except instead of blocking it calls onAck.
 func (c *RealtimeChannel) DeleteMessageAsync(msg *Message, onAck func(*UpdateResult, error), options ...UpdateOption) error {
-	if err := validateMessageSerial(msg); err != nil {
-		return err
-	}
-
-	// Apply options
-	var opts updateOptions
-	for _, o := range options {
-		o(&opts)
-	}
-
-	// Build version from options
-	version := &MessageVersion{
-		Description: opts.description,
-		ClientID:    opts.clientID,
-		Metadata:    opts.metadata,
-	}
-
-	// Create message for delete operation
-	deleteMsg := *msg
-	deleteMsg.Action = MessageActionDelete
-	deleteMsg.Version = version
-
-	protoMsg := &protocolMessage{
-		Action:   actionMessage,
-		Channel:  c.Name,
-		Messages: []*Message{&deleteMsg},
-	}
-
-	return c.sendWithSerialCallback(protoMsg, func(serials []string, err error) {
-		if err != nil {
-			onAck(nil, err)
-			return
-		}
-		result := &UpdateResult{}
-		if len(serials) > 0 {
-			result.VersionSerial = serials[0]
-		}
-		onAck(result, nil)
-	})
+	return c.performMessageOperationAsync(msg, MessageActionDelete, onAck, options...)
 }
 
 // AppendMessage appends to a previously published message.
 func (c *RealtimeChannel) AppendMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
-	type resultOrError struct {
-		result *UpdateResult
-		err    error
-	}
-	listen := make(chan resultOrError, 1)
-	onAck := func(result *UpdateResult, err error) {
-		listen <- resultOrError{result, err}
-	}
-	if err := c.AppendMessageAsync(msg, onAck, options...); err != nil {
-		return nil, err
-	}
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case result := <-listen:
-		return result.result, result.err
-	}
+	return c.performMessageOperation(ctx, msg, MessageActionAppend, options...)
 }
 
 // AppendMessageAsync is the same as AppendMessage except instead of blocking it calls onAck.
 // This is critical for AI token streaming use cases where rapid appends should not block.
 func (c *RealtimeChannel) AppendMessageAsync(msg *Message, onAck func(*UpdateResult, error), options ...UpdateOption) error {
-	if err := validateMessageSerial(msg); err != nil {
-		return err
-	}
-
-	// Apply options
-	var opts updateOptions
-	for _, o := range options {
-		o(&opts)
-	}
-
-	// Build version from options
-	version := &MessageVersion{
-		Description: opts.description,
-		ClientID:    opts.clientID,
-		Metadata:    opts.metadata,
-	}
-
-	// Create message for append operation
-	appendMsg := *msg
-	appendMsg.Action = MessageActionAppend
-	appendMsg.Version = version
-
-	protoMsg := &protocolMessage{
-		Action:   actionMessage,
-		Channel:  c.Name,
-		Messages: []*Message{&appendMsg},
-	}
-
-	return c.sendWithSerialCallback(protoMsg, func(serials []string, err error) {
-		if err != nil {
-			onAck(nil, err)
-			return
-		}
-		result := &UpdateResult{}
-		if len(serials) > 0 {
-			result.VersionSerial = serials[0]
-		}
-		onAck(result, nil)
-	})
+	return c.performMessageOperationAsync(msg, MessageActionAppend, onAck, options...)
 }
 
 // GetMessage retrieves a message by its serial (delegates to REST).
