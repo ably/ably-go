@@ -188,9 +188,26 @@ func (c *REST) Time(ctx context.Context) (time.Time, error) {
 // [ably.PaginatedResult] object, containing an array of [Stats]{@link Stats} objects (RSC6a).
 //
 // See package-level documentation => [ably] Pagination for handling stats pagination.
+//
+// Note: Stats requests use protocol version 2 to maintain compatibility with the existing
+// nested Stats structure. Migrating to the flattened protocol v3+ stats format is planned
+// for ably-go v2 as it requires breaking API changes.
 func (c *REST) Stats(o ...StatsOption) StatsRequest {
 	params := (&statsOptions{}).apply(o...)
-	return StatsRequest{r: c.newPaginatedRequest("/stats", "", params)}
+
+	// Use protocol v2 for stats to maintain compatibility with existing Stats structure.
+	// Protocol v3+ uses a flattened format that would require breaking API changes.
+	statsHeader := make(http.Header)
+	statsHeader.Set(ablyProtocolVersionHeader, "2")
+
+	req := c.newPaginatedRequest("/stats", "", params)
+	// Override the query function to use getWithHeader with protocol v2
+	req.query = func(ctx context.Context, path string) (*http.Response, error) {
+		// Pass nil for out because pagination decodes the response separately
+		return c.getWithHeader(ctx, path, nil, statsHeader)
+	}
+
+	return StatsRequest{r: req}
 }
 
 func (c *REST) setActiveRealtimeHost(realtimeHost string) {
@@ -622,6 +639,17 @@ func (c *REST) get(ctx context.Context, path string, out interface{}) (*http.Res
 	return c.do(ctx, r)
 }
 
+// getWithHeader is like get but allows specifying custom HTTP headers.
+func (c *REST) getWithHeader(ctx context.Context, path string, out interface{}, header http.Header) (*http.Response, error) {
+	r := &request{
+		Method: "GET",
+		Path:   path,
+		Out:    out,
+		header: header,
+	}
+	return c.do(ctx, r)
+}
+
 func (c *REST) post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
 	r := &request{
 		Method: "POST",
@@ -784,8 +812,11 @@ func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, e
 	if r.header != nil {
 		copyHeader(req.Header, r.header)
 	}
-	req.Header.Set("Accept", protocol)                                  // RSC19c
-	req.Header.Set(ablyProtocolVersionHeader, ablyProtocolVersion)      // RSC7a
+	req.Header.Set("Accept", protocol) // RSC19c
+	// RSC7a - Only set protocol version if not already set by custom header
+	if req.Header.Get(ablyProtocolVersionHeader) == "" {
+		req.Header.Set(ablyProtocolVersionHeader, ablyProtocolVersion)
+	}
 	req.Header.Set(ablyAgentHeader, ablyAgentIdentifier(c.opts.Agents)) // RSC7d
 	if c.opts.ClientID != "" && c.Auth.method == authBasic {
 		// References RSA7e2

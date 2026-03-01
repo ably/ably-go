@@ -167,14 +167,14 @@ func TestRealtimeExperimentalObjects_PublishObjects(t *testing.T) {
 
 			// Create channel mock
 			channelMock := &channelMock{
-				SendFunc: func(msg *protocolMessage, onAck func(error)) error {
+				SendFunc: func(msg *protocolMessage, callback *ackCallback) error {
 					if tt.sendError != nil {
 						return tt.sendError
 					}
 					capturedProtocolMsg = msg
 					// Simulate async ack
 					go func() {
-						onAck(tt.ackError)
+						callback.call(nil, tt.ackError)
 					}()
 					return nil
 				},
@@ -234,8 +234,8 @@ func TestRealtimeExperimentalObjects_PublishObjects(t *testing.T) {
 func TestRealtimeExperimentalObjects_PublishObjectsContextCancellation(t *testing.T) {
 	// Test context cancellation during publish
 	channelMock := &channelMock{
-		SendFunc: func(msg *protocolMessage, onAck func(error)) error {
-			// Don't call onAck to simulate hanging
+		SendFunc: func(msg *protocolMessage, callback *ackCallback) error {
+			// Don't call callback to simulate hanging
 			return nil
 		},
 		GetClientOptionsFunc: func() *clientOptions {
@@ -275,13 +275,13 @@ func TestRealtimeExperimentalObjects_PublishObjectsContextCancellation(t *testin
 
 // channelMock implements the channel interface
 type channelMock struct {
-	SendFunc             func(msg *protocolMessage, onAck func(error)) error
+	SendFunc             func(msg *protocolMessage, callback *ackCallback) error
 	GetClientOptionsFunc func() *clientOptions
 	GetNameFunc          func() string
 }
 
-func (c channelMock) send(msg *protocolMessage, onAck func(error)) error {
-	return c.SendFunc(msg, onAck)
+func (c channelMock) send(msg *protocolMessage, callback *ackCallback) error {
+	return c.SendFunc(msg, callback)
 }
 
 func (c channelMock) getClientOptions() *clientOptions {

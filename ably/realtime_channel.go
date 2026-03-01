@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
 	"sort"
 	"sync"
 
@@ -728,7 +729,87 @@ func (c *RealtimeChannel) PublishMultipleAsync(messages []*Message, onAck func(e
 		Channel:  c.Name,
 		Messages: messages,
 	}
-	return c.send(msg, onAck)
+	return c.send(msg, &ackCallback{onAck: onAck})
+}
+
+// PublishWithResult publishes a single message to the channel and returns the serial assigned by the server.
+// This will block until either the publish is acknowledged or fails to deliver.
+func (c *RealtimeChannel) PublishWithResult(ctx context.Context, name string, data interface{}) (*PublishResult, error) {
+	results, err := c.PublishMultipleWithResult(ctx, []*Message{{Name: name, Data: data}})
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return &PublishResult{}, nil
+	}
+	return &results[0], nil
+}
+
+// PublishWithResultAsync is the same as PublishWithResult except instead of blocking it calls onAck
+// with the result or error. Note onAck must not block as it would block the internal client.
+func (c *RealtimeChannel) PublishWithResultAsync(name string, data interface{}, onAck func(*PublishResult, error)) error {
+	return c.PublishMultipleWithResultAsync([]*Message{{Name: name, Data: data}}, func(results []PublishResult, err error) {
+		if err != nil {
+			onAck(nil, err)
+			return
+		}
+		if len(results) == 0 {
+			onAck(&PublishResult{}, nil)
+			return
+		}
+		onAck(&results[0], nil)
+	})
+}
+
+// PublishMultipleWithResult publishes all given messages on the channel and returns the serials assigned by the server.
+func (c *RealtimeChannel) PublishMultipleWithResult(ctx context.Context, messages []*Message) ([]PublishResult, error) {
+	type resultOrError struct {
+		results []PublishResult
+		err     error
+	}
+	listen := make(chan resultOrError, 1)
+	onAck := func(results []PublishResult, err error) {
+		listen <- resultOrError{results, err}
+	}
+	if err := c.PublishMultipleWithResultAsync(messages, onAck); err != nil {
+		return nil, err
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-listen:
+		return result.results, result.err
+	}
+}
+
+// PublishMultipleWithResultAsync is the same as PublishMultipleWithResult except it calls onAck instead of blocking.
+func (c *RealtimeChannel) PublishMultipleWithResultAsync(messages []*Message, onAck func([]PublishResult, error)) error {
+	id := c.client.Auth.clientIDForCheck()
+	for _, v := range messages {
+		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
+			// Spec RTL6g3,RTL6g4
+			return fmt.Errorf("Unable to publish message containing a clientId (%s) that is incompatible with the library clientId (%s)", v.ClientID, id)
+		}
+	}
+	msg := &protocolMessage{
+		Action:   actionMessage,
+		Channel:  c.Name,
+		Messages: messages,
+	}
+	return c.sendWithSerialCallback(msg, func(serials []string, err error) {
+		if err != nil {
+			onAck(nil, err)
+			return
+		}
+		results := make([]PublishResult, len(messages))
+		for i := range results {
+			if i < len(serials) {
+				results[i].Serial = serials[i]
+			}
+		}
+		onAck(results, nil)
+	})
 }
 
 // History retrieves a [ably.HistoryRequest] object, containing an array of historical
@@ -768,8 +849,116 @@ func (c *RealtimeChannel) HistoryUntilAttach(o ...HistoryOption) (*HistoryReques
 	return &historyRequest, nil
 }
 
-func (c *RealtimeChannel) send(msg *protocolMessage, onAck func(err error)) error {
-	if enqueued := c.maybeEnqueue(msg, onAck); enqueued {
+// performMessageOperationAsync is a shared helper for UpdateMessageAsync, DeleteMessageAsync, and AppendMessageAsync.
+// It validates the message serial, applies update options, sets the action, and sends the protocol message.
+func (c *RealtimeChannel) performMessageOperationAsync(msg *Message, action MessageAction, onAck func(*UpdateResult, error), options ...UpdateOption) error {
+	if err := validateMessageSerial(msg); err != nil {
+		return err
+	}
+
+	// Apply options
+	var opts updateOptions
+	for _, o := range options {
+		o(&opts)
+	}
+
+	// Build version from options
+	version := &MessageVersion{
+		Description: opts.description,
+		ClientID:    opts.clientID,
+		Metadata:    opts.metadata,
+	}
+
+	// Create message for the operation
+	opMsg := *msg
+	opMsg.Action = action
+	opMsg.Version = version
+
+	protoMsg := &protocolMessage{
+		Action:   actionMessage,
+		Channel:  c.Name,
+		Messages: []*Message{&opMsg},
+	}
+
+	return c.sendWithSerialCallback(protoMsg, func(serials []string, err error) {
+		if err != nil {
+			onAck(nil, err)
+			return
+		}
+		result := &UpdateResult{}
+		if len(serials) > 0 {
+			result.VersionSerial = serials[0]
+		}
+		onAck(result, nil)
+	})
+}
+
+// performMessageOperation is a shared blocking helper for UpdateMessage, DeleteMessage, and AppendMessage.
+// It wraps performMessageOperationAsync with a channel-based blocking pattern.
+func (c *RealtimeChannel) performMessageOperation(ctx context.Context, msg *Message, action MessageAction, options ...UpdateOption) (*UpdateResult, error) {
+	type resultOrError struct {
+		result *UpdateResult
+		err    error
+	}
+	listen := make(chan resultOrError, 1)
+	onAck := func(result *UpdateResult, err error) {
+		listen <- resultOrError{result, err}
+	}
+	if err := c.performMessageOperationAsync(msg, action, onAck, options...); err != nil {
+		return nil, err
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-listen:
+		return result.result, result.err
+	}
+}
+
+// UpdateMessage updates a previously published message.
+func (c *RealtimeChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+	return c.performMessageOperation(ctx, msg, MessageActionUpdate, options...)
+}
+
+// UpdateMessageAsync is the same as UpdateMessage except instead of blocking it calls onAck.
+func (c *RealtimeChannel) UpdateMessageAsync(msg *Message, onAck func(*UpdateResult, error), options ...UpdateOption) error {
+	return c.performMessageOperationAsync(msg, MessageActionUpdate, onAck, options...)
+}
+
+// DeleteMessage deletes a previously published message.
+func (c *RealtimeChannel) DeleteMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+	return c.performMessageOperation(ctx, msg, MessageActionDelete, options...)
+}
+
+// DeleteMessageAsync is the same as DeleteMessage except instead of blocking it calls onAck.
+func (c *RealtimeChannel) DeleteMessageAsync(msg *Message, onAck func(*UpdateResult, error), options ...UpdateOption) error {
+	return c.performMessageOperationAsync(msg, MessageActionDelete, onAck, options...)
+}
+
+// AppendMessage appends to a previously published message.
+func (c *RealtimeChannel) AppendMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+	return c.performMessageOperation(ctx, msg, MessageActionAppend, options...)
+}
+
+// AppendMessageAsync is the same as AppendMessage except instead of blocking it calls onAck.
+// This is critical for AI token streaming use cases where rapid appends should not block.
+func (c *RealtimeChannel) AppendMessageAsync(msg *Message, onAck func(*UpdateResult, error), options ...UpdateOption) error {
+	return c.performMessageOperationAsync(msg, MessageActionAppend, onAck, options...)
+}
+
+// GetMessage retrieves a message by its serial (delegates to REST).
+func (c *RealtimeChannel) GetMessage(ctx context.Context, serial string) (*Message, error) {
+	return c.client.rest.Channels.Get(c.Name).GetMessage(ctx, serial)
+}
+
+// GetMessageVersions retrieves the version history of a message by its serial (delegates to REST).
+func (c *RealtimeChannel) GetMessageVersions(serial string, params url.Values) HistoryRequest {
+	return c.client.rest.Channels.Get(c.Name).GetMessageVersions(serial, params)
+}
+
+func (c *RealtimeChannel) send(msg *protocolMessage, callback *ackCallback) error {
+	if enqueued := c.maybeEnqueue(msg, callback); enqueued {
 		return nil
 	}
 
@@ -777,11 +966,16 @@ func (c *RealtimeChannel) send(msg *protocolMessage, onAck func(err error)) erro
 		return newError(ErrChannelOperationFailedInvalidChannelState, nil)
 	}
 
-	c.client.Connection.send(msg, onAck)
+	c.client.Connection.send(msg, callback)
 	return nil
 }
 
-func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage, onAck func(err error)) bool {
+// sendWithSerialCallback sends a message and calls onAck with serials extracted from ACK.
+func (c *RealtimeChannel) sendWithSerialCallback(msg *protocolMessage, onAck func(serials []string, err error)) error {
+	return c.send(msg, &ackCallback{onAckWithSerials: onAck})
+}
+
+func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage, callback *ackCallback) bool {
 	// RTL6c2
 	if c.opts().NoQueueing {
 		return false
@@ -803,7 +997,7 @@ func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage, onAck func(err erro
 		ChannelStateDetaching:
 	}
 
-	c.queue.Enqueue(msg, onAck)
+	c.queue.Enqueue(msg, callback)
 	return true
 }
 

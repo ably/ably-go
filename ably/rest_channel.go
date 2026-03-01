@@ -64,6 +64,22 @@ type publishMultipleOptions struct {
 	params        map[string]string
 }
 
+// publishResponse represents the response from the server after publishing messages.
+type publishResponse struct {
+	Serials []string `json:"serials,omitempty" codec:"serials,omitempty"`
+}
+
+// validateMessageSerial validates that a message has a serial for update operations.
+func validateMessageSerial(msg *Message) error {
+	if msg == nil {
+		return newError(40003, fmt.Errorf("message cannot be nil"))
+	}
+	if msg.Serial == "" {
+		return newError(40003, fmt.Errorf("this message lacks a serial and cannot be updated. Make sure you have enabled \"Message annotations, updates, and deletes\" in channel settings on your dashboard"))
+	}
+	return nil
+}
+
 // PublishWithConnectionKey allows a message to be published for a specified connectionKey.
 func PublishWithConnectionKey(connectionKey string) PublishMultipleOption {
 	return func(options *publishMultipleOptions) {
@@ -86,8 +102,9 @@ func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
 	return PublishWithParams(params)
 }
 
-// PublishMultiple publishes multiple messages in a batch. Returns error if there is a problem publishing message (RSL1).
-func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
+// publishMultiple is the internal implementation for publishing multiple messages.
+// If out is non-nil, the response body will be decoded into it.
+func (c *RESTChannel) publishMultiple(ctx context.Context, messages []*Message, out interface{}, options ...PublishMultipleOption) error {
 	var publishOpts publishMultipleOptions
 	for _, o := range options {
 		o(&publishOpts)
@@ -146,11 +163,16 @@ func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, 
 		}
 	}
 
-	res, err := c.client.post(ctx, c.baseURL+"/messages"+query, messages, nil)
+	res, err := c.client.post(ctx, c.baseURL+"/messages"+query, messages, out)
 	if err != nil {
 		return err
 	}
 	return res.Body.Close()
+}
+
+// PublishMultiple publishes multiple messages in a batch. Returns error if there is a problem publishing message (RSL1).
+func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
+	return c.publishMultiple(ctx, messages, nil, options...)
 }
 
 // PublishMultipleWithOptions is the same as PublishMultiple.
@@ -160,6 +182,104 @@ func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, 
 // TODO: Remove this in the next major version bump to 2.x.x.
 func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
 	return c.PublishMultiple(ctx, messages, options...)
+}
+
+// PublishWithResult publishes a single message to the channel with the given event name and payload,
+// and returns the serial assigned by the server. Returns error if there is a problem performing message publish.
+func (c *RESTChannel) PublishWithResult(ctx context.Context, name string, data interface{}, options ...PublishMultipleOption) (*PublishResult, error) {
+	results, err := c.PublishMultipleWithResult(ctx, []*Message{{Name: name, Data: data}}, options...)
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return &PublishResult{}, nil
+	}
+	return &results[0], nil
+}
+
+// PublishMultipleWithResult publishes multiple messages in a batch and returns the serials assigned by the server.
+// Returns error if there is a problem publishing messages.
+func (c *RESTChannel) PublishMultipleWithResult(ctx context.Context, messages []*Message, options ...PublishMultipleOption) ([]PublishResult, error) {
+	var response publishResponse
+	if err := c.publishMultiple(ctx, messages, &response, options...); err != nil {
+		return nil, err
+	}
+
+	// Debug: log response
+	c.log().Debugf("PublishMultipleWithResult response: serials=%v, count=%d", response.Serials, len(response.Serials))
+
+	// Build results from serials
+	results := make([]PublishResult, len(messages))
+	for i := range results {
+		if i < len(response.Serials) {
+			results[i].Serial = response.Serials[i]
+		}
+	}
+	return results, nil
+}
+
+// performMessageOperation is a shared helper for UpdateMessage, DeleteMessage, and AppendMessage.
+// It validates the message serial, applies update options, sets the action, encodes data, and sends the request.
+func (c *RESTChannel) performMessageOperation(ctx context.Context, msg *Message, action MessageAction, options ...UpdateOption) (*UpdateResult, error) {
+	if err := validateMessageSerial(msg); err != nil {
+		return nil, err
+	}
+
+	// Apply options
+	var opts updateOptions
+	for _, o := range options {
+		o(&opts)
+	}
+
+	// Build version from options
+	version := &MessageVersion{
+		Description: opts.description,
+		ClientID:    opts.clientID,
+		Metadata:    opts.metadata,
+	}
+
+	// Create message for the operation
+	opMsg := *msg
+	opMsg.Action = action
+	opMsg.Version = version
+
+	// Encode data
+	cipher, _ := c.options.GetCipher()
+	var err error
+	opMsg, err = opMsg.withEncodedData(cipher)
+	if err != nil {
+		return nil, fmt.Errorf("encoding data for message: %w", err)
+	}
+
+	// POST to API
+	var response publishResponse
+	res, err := c.client.post(ctx, c.baseURL+"/messages", []*Message{&opMsg}, &response)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	// Extract version serial
+	result := &UpdateResult{}
+	if len(response.Serials) > 0 {
+		result.VersionSerial = response.Serials[0]
+	}
+	return result, nil
+}
+
+// UpdateMessage updates a previously published message.
+func (c *RESTChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+	return c.performMessageOperation(ctx, msg, MessageActionUpdate, options...)
+}
+
+// DeleteMessage deletes a previously published message.
+func (c *RESTChannel) DeleteMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+	return c.performMessageOperation(ctx, msg, MessageActionDelete, options...)
+}
+
+// AppendMessage appends to a previously published message.
+func (c *RESTChannel) AppendMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+	return c.performMessageOperation(ctx, msg, MessageActionAppend, options...)
 }
 
 // ChannelDetails contains the details of a [ably.RESTChannel] or [ably.RealtimeChannel] object
@@ -370,8 +490,17 @@ func (c *RESTChannel) fullMessagesDecoder(dst *[]*Message) interface{} {
 	return &fullMessagesDecoder{dst: dst, c: c}
 }
 
+func (c *RESTChannel) fullMessageDecoder(dst *Message) interface{} {
+	return &fullMessageDecoder{dst: dst, c: c}
+}
+
 type fullMessagesDecoder struct {
 	dst *[]*Message
+	c   *RESTChannel
+}
+
+type fullMessageDecoder struct {
+	dst *Message
 	c   *RESTChannel
 }
 
@@ -410,6 +539,38 @@ func (t *fullMessagesDecoder) decodeMessagesData() {
 	}
 }
 
+func (t *fullMessageDecoder) UnmarshalJSON(b []byte) error {
+	err := json.Unmarshal(b, t.dst)
+	if err != nil {
+		return err
+	}
+	t.decodeMessageData()
+	return nil
+}
+
+func (t *fullMessageDecoder) CodecEncodeSelf(*codec.Encoder) {
+	panic("fullMessageDecoder cannot be used as encoder")
+}
+
+func (t *fullMessageDecoder) CodecDecodeSelf(decoder *codec.Decoder) {
+	decoder.MustDecode(t.dst)
+	t.decodeMessageData()
+}
+
+var _ interface {
+	json.Unmarshaler
+	codec.Selfer
+} = (*fullMessageDecoder)(nil)
+
+func (t *fullMessageDecoder) decodeMessageData() {
+	cipher, _ := t.c.options.GetCipher()
+	var err error
+	*t.dst, err = t.dst.withDecodedData(cipher)
+	if err != nil {
+		t.c.log().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
+	}
+}
+
 type MessagesPaginatedItems struct {
 	PaginatedResult
 	items []*Message
@@ -434,6 +595,32 @@ func (p *MessagesPaginatedItems) Next(ctx context.Context) bool {
 // See package-level documentation => [ably] Pagination for details about history pagination.
 func (p *MessagesPaginatedItems) Item() *Message {
 	return p.item
+}
+
+// GetMessage retrieves a message by its serial.
+func (c *RESTChannel) GetMessage(ctx context.Context, serial string) (*Message, error) {
+	var message Message
+	req := &request{
+		Method: "GET",
+		Path:   c.baseURL + "/messages/" + url.PathEscape(serial),
+		Out:    c.fullMessageDecoder(&message),
+	}
+	_, err := c.client.do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
+}
+
+// GetMessageVersions retrieves the version history of a message by its serial.
+// Returns a HistoryRequest that can be used to paginate through message versions.
+func (c *RESTChannel) GetMessageVersions(serial string, params url.Values) HistoryRequest {
+	path := c.baseURL + "/messages/" + url.PathEscape(serial) + "/versions"
+	rawPath := "/channels/" + c.pathName() + "/messages/" + url.PathEscape(serial) + "/versions"
+	return HistoryRequest{
+		r:       c.client.newPaginatedRequest(path, rawPath, params),
+		channel: c,
+	}
 }
 
 func (c *RESTChannel) log() logger {
