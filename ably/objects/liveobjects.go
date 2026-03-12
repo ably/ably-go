@@ -85,12 +85,14 @@ type Operation struct {
 	InitialValue string          `json:"initialValue,omitempty" codec:"initialValue,omitempty"`
 
 	// Nested operation types — used by protocol v6+ for action-specific payloads. Not yet in use.
-	MapCreate     *MapCreate     `json:"mapCreate,omitempty" codec:"mapCreate,omitempty"`
-	MapSet        *MapSet        `json:"mapSet,omitempty" codec:"mapSet,omitempty"`
-	MapRemove     *MapRemove     `json:"mapRemove,omitempty" codec:"mapRemove,omitempty"`
-	CounterCreate *CounterCreate `json:"counterCreate,omitempty" codec:"counterCreate,omitempty"`
-	CounterInc    *CounterInc    `json:"counterInc,omitempty" codec:"counterInc,omitempty"`
-	ObjectDelete  *ObjectDelete  `json:"objectDelete,omitempty" codec:"objectDelete,omitempty"`
+	MapCreate                 *MapCreate                 `json:"mapCreate,omitempty" codec:"mapCreate,omitempty"`
+	MapSet                    *MapSet                    `json:"mapSet,omitempty" codec:"mapSet,omitempty"`
+	MapRemove                 *MapRemove                 `json:"mapRemove,omitempty" codec:"mapRemove,omitempty"`
+	CounterCreate             *CounterCreate             `json:"counterCreate,omitempty" codec:"counterCreate,omitempty"`
+	CounterInc                *CounterInc                `json:"counterInc,omitempty" codec:"counterInc,omitempty"`
+	ObjectDelete              *ObjectDelete              `json:"objectDelete,omitempty" codec:"objectDelete,omitempty"`
+	MapCreateWithObjectId     *MapCreateWithObjectId     `json:"mapCreateWithObjectId,omitempty" codec:"mapCreateWithObjectId,omitempty"`
+	CounterCreateWithObjectId *CounterCreateWithObjectId `json:"counterCreateWithObjectId,omitempty" codec:"counterCreateWithObjectId,omitempty"`
 }
 
 type CounterOp struct {
@@ -166,3 +168,13 @@ type CounterInc struct {
 }
 
 type ObjectDelete struct{}
+
+type MapCreateWithObjectId struct {
+	InitialValue string `json:"initialValue,omitempty" codec:"initialValue,omitempty"`
+	Nonce        string `json:"nonce,omitempty" codec:"nonce,omitempty"`
+}
+
+type CounterCreateWithObjectId struct {
+	InitialValue string `json:"initialValue,omitempty" codec:"initialValue,omitempty"`
+	Nonce        string `json:"nonce,omitempty" codec:"nonce,omitempty"`
+}
