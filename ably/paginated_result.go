@@ -20,6 +20,7 @@ type paginatedRequest struct {
 	path    string
 	rawPath string
 	params  url.Values
+	header  http.Header // Optional custom headers
 
 	query queryFunc
 }
