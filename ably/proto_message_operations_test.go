@@ -15,6 +15,8 @@ func TestMessageAction_JSON_Encoding(t *testing.T) {
 		{MessageActionCreate, "0"},
 		{MessageActionUpdate, "1"},
 		{MessageActionDelete, "2"},
+		{MessageActionMeta, "3"},
+		{MessageActionMessageSummary, "4"},
 		{MessageActionAppend, "5"},
 	}
 
@@ -39,8 +41,10 @@ func TestMessageAction_JSON_Decoding(t *testing.T) {
 		{"0", MessageActionCreate},
 		{"1", MessageActionUpdate},
 		{"2", MessageActionDelete},
+		{"3", MessageActionMeta},
+		{"4", MessageActionMessageSummary},
 		{"5", MessageActionAppend},
-		{"999", MessageActionCreate}, // Unknown values default to Create
+		{"999", MessageActionUnknown}, // Unknown values decode to MessageActionUnknown
 	}
 
 	for _, tt := range tests {
@@ -65,6 +69,8 @@ func TestMessageAction_Codec_Encoding(t *testing.T) {
 		{MessageActionCreate, 0},
 		{MessageActionUpdate, 1},
 		{MessageActionDelete, 2},
+		{MessageActionMeta, 3},
+		{MessageActionMessageSummary, 4},
 		{MessageActionAppend, 5},
 	}
 
@@ -94,8 +100,10 @@ func TestMessageAction_Codec_Decoding(t *testing.T) {
 		{0, MessageActionCreate},
 		{1, MessageActionUpdate},
 		{2, MessageActionDelete},
+		{3, MessageActionMeta},
+		{4, MessageActionMessageSummary},
 		{5, MessageActionAppend},
-		{999, MessageActionCreate}, // Unknown values default to Create
+		{999, MessageActionUnknown}, // Unknown values decode to MessageActionUnknown
 	}
 
 	for _, tt := range tests {

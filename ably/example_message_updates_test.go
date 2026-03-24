@@ -22,7 +22,7 @@ func ExampleRESTChannel_PublishWithResult() {
 		panic(err)
 	}
 
-	fmt.Printf("Message published with serial: %s\n", result.Serial)
+	fmt.Printf("Message published with serial: %s\n", *result.Serial)
 }
 
 // Example demonstrating how to update a message
@@ -42,7 +42,7 @@ func ExampleRESTChannel_UpdateMessage() {
 
 	// Update the message
 	msg := &ably.Message{
-		Serial: result.Serial,
+		Serial: *result.Serial,
 		Data:   "updated data",
 	}
 
@@ -56,7 +56,7 @@ func ExampleRESTChannel_UpdateMessage() {
 		panic(err)
 	}
 
-	fmt.Printf("Message updated with version serial: %s\n", updateResult.VersionSerial)
+	fmt.Printf("Message updated with version serial: %s\n", *updateResult.VersionSerial)
 }
 
 // Example demonstrating async message append for AI streaming
@@ -78,11 +78,11 @@ func ExampleRealtimeChannel_AppendMessageAsync() {
 	tokens := []string{" 42", ".", " This", " is", " the", " answer."}
 	for _, token := range tokens {
 		msg := &ably.Message{
-			Serial: result.Serial,
+			Serial: *result.Serial,
 			Data:   token,
 		}
 		// Non-blocking append - critical for AI streaming
-		err := channel.AppendMessageAsync(msg, func(r *ably.UpdateResult, err error) {
+		err := channel.AppendMessageAsync(msg, func(r *ably.UpdateDeleteResult, err error) {
 			if err != nil {
 				fmt.Printf("Append failed: %v\n", err)
 			}

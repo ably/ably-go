@@ -205,22 +205,26 @@ func (c *RESTChannel) PublishMultipleWithResult(ctx context.Context, messages []
 		return nil, err
 	}
 
-	// Debug: log response
-	c.log().Debugf("PublishMultipleWithResult response: serials=%v, count=%d", response.Serials, len(response.Serials))
-
 	// Build results from serials
 	results := make([]PublishResult, len(messages))
 	for i := range results {
 		if i < len(response.Serials) {
-			results[i].Serial = response.Serials[i]
+			serial := response.Serials[i]
+			results[i].Serial = &serial
 		}
 	}
 	return results, nil
 }
 
+// updateDeleteResult is the wire format for the response from update/delete/append operations (RSL15e, UDR2a).
+type updateDeleteResult struct {
+	VersionSerial *string `json:"versionSerial,omitempty" codec:"versionSerial,omitempty"`
+}
+
 // performMessageOperation is a shared helper for UpdateMessage, DeleteMessage, and AppendMessage.
 // It validates the message serial, applies update options, sets the action, encodes data, and sends the request.
-func (c *RESTChannel) performMessageOperation(ctx context.Context, msg *Message, action MessageAction, options ...UpdateOption) (*UpdateResult, error) {
+// Uses PATCH /channels/{name}/messages/{serial} per RSL15b with a single Message body (not an array).
+func (c *RESTChannel) performMessageOperation(ctx context.Context, msg *Message, action MessageAction, options ...UpdateOption) (*UpdateDeleteResult, error) {
 	if err := validateMessageSerial(msg); err != nil {
 		return nil, err
 	}
@@ -231,17 +235,10 @@ func (c *RESTChannel) performMessageOperation(ctx context.Context, msg *Message,
 		o(&opts)
 	}
 
-	// Build version from options
-	version := &MessageVersion{
-		Description: opts.description,
-		ClientID:    opts.clientID,
-		Metadata:    opts.metadata,
-	}
-
-	// Create message for the operation
+	// Create message for the operation, using user-supplied version metadata if provided
 	opMsg := *msg
 	opMsg.Action = action
-	opMsg.Version = version
+	opMsg.Version = opts.version
 
 	// Encode data
 	cipher, _ := c.options.GetCipher()
@@ -251,34 +248,41 @@ func (c *RESTChannel) performMessageOperation(ctx context.Context, msg *Message,
 		return nil, fmt.Errorf("encoding data for message: %w", err)
 	}
 
-	// POST to API
-	var response publishResponse
-	res, err := c.client.post(ctx, c.baseURL+"/messages", []*Message{&opMsg}, &response)
+	// Build URL: PATCH /channels/{name}/messages/{serial} per RSL15b
+	path := c.baseURL + "/messages/" + url.PathEscape(msg.Serial)
+
+	// Append query params if provided (RSL15a, RSL15f)
+	if len(opts.params) > 0 {
+		queryParams := url.Values{}
+		for k, v := range opts.params {
+			queryParams.Set(k, v)
+		}
+		path += "?" + queryParams.Encode()
+	}
+
+	// PATCH with single Message body (not an array), parse UpdateDeleteResult (RSL15e)
+	var response updateDeleteResult
+	res, err := c.client.patch(ctx, path, &opMsg, &response)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	// Extract version serial
-	result := &UpdateResult{}
-	if len(response.Serials) > 0 {
-		result.VersionSerial = response.Serials[0]
-	}
-	return result, nil
+	return &UpdateDeleteResult{VersionSerial: response.VersionSerial}, nil
 }
 
 // UpdateMessage updates a previously published message.
-func (c *RESTChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+func (c *RESTChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateDeleteResult, error) {
 	return c.performMessageOperation(ctx, msg, MessageActionUpdate, options...)
 }
 
 // DeleteMessage deletes a previously published message.
-func (c *RESTChannel) DeleteMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+func (c *RESTChannel) DeleteMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateDeleteResult, error) {
 	return c.performMessageOperation(ctx, msg, MessageActionDelete, options...)
 }
 
 // AppendMessage appends to a previously published message.
-func (c *RESTChannel) AppendMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateResult, error) {
+func (c *RESTChannel) AppendMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateDeleteResult, error) {
 	return c.performMessageOperation(ctx, msg, MessageActionAppend, options...)
 }
 

@@ -660,6 +660,16 @@ func (c *REST) post(ctx context.Context, path string, in, out interface{}) (*htt
 	return c.do(ctx, r)
 }
 
+func (c *REST) patch(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
+	r := &request{
+		Method: "PATCH",
+		Path:   path,
+		In:     in,
+		Out:    out,
+	}
+	return c.do(ctx, r)
+}
+
 func (c *REST) do(ctx context.Context, r *request) (*http.Response, error) {
 	return c.doWithHandle(ctx, r, c.handleResponse)
 }

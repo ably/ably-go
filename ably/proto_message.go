@@ -24,28 +24,45 @@ const (
 type MessageAction string
 
 const (
-	MessageActionCreate MessageAction = "message.create"
-	MessageActionUpdate MessageAction = "message.update"
-	MessageActionDelete MessageAction = "message.delete"
-	MessageActionAppend MessageAction = "message.append"
+	MessageActionUnknown        MessageAction = "UNKNOWN"
+	MessageActionCreate         MessageAction = "MESSAGE_CREATE"
+	MessageActionUpdate         MessageAction = "MESSAGE_UPDATE"
+	MessageActionDelete         MessageAction = "MESSAGE_DELETE"
+	MessageActionMeta           MessageAction = "META"
+	MessageActionMessageSummary MessageAction = "MESSAGE_SUMMARY"
+	MessageActionAppend         MessageAction = "MESSAGE_APPEND"
 )
+
+// messageActions maps numeric wire values to MessageAction constants.
+// Index corresponds to the wire numeric value.
+var messageActions = []MessageAction{
+	MessageActionCreate,         // 0
+	MessageActionUpdate,         // 1
+	MessageActionDelete,         // 2
+	MessageActionMeta,           // 3
+	MessageActionMessageSummary, // 4
+	MessageActionAppend,         // 5
+}
+
+func encodeMessageAction(action MessageAction) int {
+	for i, a := range messageActions {
+		if a == action {
+			return i
+		}
+	}
+	return 0 // default to create
+}
+
+func decodeMessageAction(num int) MessageAction {
+	if num >= 0 && num < len(messageActions) {
+		return messageActions[num]
+	}
+	return MessageActionUnknown
+}
 
 // MarshalJSON implements json.Marshaler to encode MessageAction as numeric for wire compatibility.
 func (a MessageAction) MarshalJSON() ([]byte, error) {
-	var num int
-	switch a {
-	case MessageActionCreate:
-		num = 0
-	case MessageActionUpdate:
-		num = 1
-	case MessageActionDelete:
-		num = 2
-	case MessageActionAppend:
-		num = 5
-	default:
-		num = 0
-	}
-	return json.Marshal(num)
+	return json.Marshal(encodeMessageAction(a))
 }
 
 // UnmarshalJSON implements json.Unmarshaler to decode numeric wire format to MessageAction.
@@ -54,55 +71,20 @@ func (a *MessageAction) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &num); err != nil {
 		return err
 	}
-	switch num {
-	case 0:
-		*a = MessageActionCreate
-	case 1:
-		*a = MessageActionUpdate
-	case 2:
-		*a = MessageActionDelete
-	case 5:
-		*a = MessageActionAppend
-	default:
-		*a = MessageActionCreate
-	}
+	*a = decodeMessageAction(num)
 	return nil
 }
 
 // CodecEncodeSelf implements codec.Selfer for MessagePack encoding.
 func (a MessageAction) CodecEncodeSelf(encoder *codec.Encoder) {
-	var num int
-	switch a {
-	case MessageActionCreate:
-		num = 0
-	case MessageActionUpdate:
-		num = 1
-	case MessageActionDelete:
-		num = 2
-	case MessageActionAppend:
-		num = 5
-	default:
-		num = 0
-	}
-	encoder.MustEncode(num)
+	encoder.MustEncode(encodeMessageAction(a))
 }
 
 // CodecDecodeSelf implements codec.Selfer for MessagePack decoding.
 func (a *MessageAction) CodecDecodeSelf(decoder *codec.Decoder) {
 	var num int
 	decoder.MustDecode(&num)
-	switch num {
-	case 0:
-		*a = MessageActionCreate
-	case 1:
-		*a = MessageActionUpdate
-	case 2:
-		*a = MessageActionDelete
-	case 5:
-		*a = MessageActionAppend
-	default:
-		*a = MessageActionCreate
-	}
+	*a = decodeMessageAction(num)
 }
 
 // MessageVersion contains version information for a message operation.
@@ -116,41 +98,57 @@ type MessageVersion struct {
 
 // PublishResult contains the result of a publish operation with serial tracking.
 type PublishResult struct {
-	Serial string // May be empty if message discarded by conflation
+	Serial *string // nil if message was discarded by conflation (PBR2a)
 }
 
-// UpdateResult contains the result of an update, delete, or append operation.
-type UpdateResult struct {
-	VersionSerial string // Serial of new version, may be empty if superseded
+// UpdateDeleteResult contains the result of an update, delete, or append operation (UDR1).
+type UpdateDeleteResult struct {
+	VersionSerial *string // nil if superseded (UDR2a)
 }
 
 // UpdateOption is a functional option for message update operations.
 type UpdateOption func(*updateOptions)
 
 type updateOptions struct {
-	description string
-	clientID    string
-	metadata    map[string]string
+	version *MessageVersion   // unexported, built lazily from options
+	params  map[string]string // URL query parameters (RSL15f) / ProtocolMessage params (RTL32e)
 }
 
 // UpdateWithDescription sets a description for the update operation.
 func UpdateWithDescription(description string) UpdateOption {
 	return func(o *updateOptions) {
-		o.description = description
+		if o.version == nil {
+			o.version = &MessageVersion{}
+		}
+		o.version.Description = description
 	}
 }
 
 // UpdateWithClientID sets the client ID for the update operation.
 func UpdateWithClientID(clientID string) UpdateOption {
 	return func(o *updateOptions) {
-		o.clientID = clientID
+		if o.version == nil {
+			o.version = &MessageVersion{}
+		}
+		o.version.ClientID = clientID
 	}
 }
 
 // UpdateWithMetadata sets metadata for the update operation.
 func UpdateWithMetadata(metadata map[string]string) UpdateOption {
 	return func(o *updateOptions) {
-		o.metadata = metadata
+		if o.version == nil {
+			o.version = &MessageVersion{}
+		}
+		o.version.Metadata = metadata
+	}
+}
+
+// UpdateWithParams sets operation params. When using REST, these are included as URL query
+// parameters (RSL15a, RSL15f). When using Realtime, these are set as protocolMessage.Params (RTL32e).
+func UpdateWithParams(params map[string]string) UpdateOption {
+	return func(o *updateOptions) {
+		o.params = params
 	}
 }
 
@@ -242,6 +240,18 @@ func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
 	}
 	if m.Timestamp == 0 {
 		m.Timestamp = p.Timestamp
+	}
+	// TM2s: Initialize version object if not present on received messages.
+	if m.Version == nil {
+		m.Version = &MessageVersion{}
+	}
+	// TM2s1: Default version.serial from message.serial.
+	if empty(m.Version.Serial) && !empty(m.Serial) {
+		m.Version.Serial = m.Serial
+	}
+	// TM2s2: Default version.timestamp from message.timestamp.
+	if m.Version.Timestamp == 0 && m.Timestamp != 0 {
+		m.Version.Timestamp = m.Timestamp
 	}
 }
 

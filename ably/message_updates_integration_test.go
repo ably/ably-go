@@ -32,7 +32,8 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 		t.Run("returns serial for published message", func(t *testing.T) {
 			result, err := channel.PublishWithResult(ctx, "event1", "test data")
 			require.NoError(t, err)
-			assert.NotEmpty(t, result.Serial, "Expected non-empty serial")
+			require.NotNil(t, result.Serial, "Expected non-nil serial")
+			assert.NotEmpty(t, *result.Serial, "Expected non-empty serial")
 		})
 
 		t.Run("PublishMultipleWithResult returns serials for all messages", func(t *testing.T) {
@@ -47,7 +48,8 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 			assert.Len(t, results, 3)
 
 			for i, result := range results {
-				assert.NotEmpty(t, result.Serial, "Expected non-empty serial for message %d", i)
+				require.NotNil(t, result.Serial, "Expected non-nil serial for message %d", i)
+				assert.NotEmpty(t, *result.Serial, "Expected non-empty serial for message %d", i)
 			}
 		})
 	})
@@ -59,10 +61,11 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 			// Publish initial message
 			publishResult, err := channel.PublishWithResult(ctx, "test-event", "initial data")
 			require.NoError(t, err)
+			require.NotNil(t, publishResult.Serial)
 
 			// Update the message
 			msg := &ably.Message{
-				Serial: publishResult.Serial,
+				Serial: *publishResult.Serial,
 				Data:   "updated data",
 			}
 			updateResult, err := channel.UpdateMessage(ctx, msg,
@@ -70,12 +73,13 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 				ably.UpdateWithMetadata(map[string]string{"editor": "test"}),
 			)
 			require.NoError(t, err)
-			assert.NotEmpty(t, updateResult.VersionSerial, "Expected version serial")
-			assert.NotEqual(t, publishResult.Serial, updateResult.VersionSerial, "VersionSerial should differ from original Serial")
+			require.NotNil(t, updateResult.VersionSerial, "Expected non-nil version serial")
+			assert.NotEmpty(t, *updateResult.VersionSerial, "Expected version serial")
+			assert.NotEqual(t, *publishResult.Serial, *updateResult.VersionSerial, "VersionSerial should differ from original Serial")
 
 			// Verify the update by fetching the message (eventually consistent)
 			require.Eventually(t, func() bool {
-				retrieved, err := channel.GetMessage(ctx, publishResult.Serial)
+				retrieved, err := channel.GetMessage(ctx, *publishResult.Serial)
 				if err != nil {
 					return false
 				}
@@ -102,16 +106,18 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 			// Publish initial message
 			publishResult, err := channel.PublishWithResult(ctx, "test-event", "data to delete")
 			require.NoError(t, err)
+			require.NotNil(t, publishResult.Serial)
 
 			// Delete the message
 			msg := &ably.Message{
-				Serial: publishResult.Serial,
+				Serial: *publishResult.Serial,
 			}
 			deleteResult, err := channel.DeleteMessage(ctx, msg,
 				ably.UpdateWithDescription("Deleted by test"),
 			)
 			require.NoError(t, err)
-			assert.NotEmpty(t, deleteResult.VersionSerial, "Expected version serial")
+			require.NotNil(t, deleteResult.VersionSerial, "Expected non-nil version serial")
+			assert.NotEmpty(t, *deleteResult.VersionSerial, "Expected version serial")
 		})
 	})
 
@@ -122,19 +128,21 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 			// Publish initial message
 			publishResult, err := channel.PublishWithResult(ctx, "test-event", "Hello")
 			require.NoError(t, err)
+			require.NotNil(t, publishResult.Serial)
 
 			// Append to the message
 			msg := &ably.Message{
-				Serial: publishResult.Serial,
+				Serial: *publishResult.Serial,
 				Data:   " World",
 			}
 			appendResult, err := channel.AppendMessage(ctx, msg)
 			require.NoError(t, err)
-			assert.NotEmpty(t, appendResult.VersionSerial, "Expected version serial")
+			require.NotNil(t, appendResult.VersionSerial, "Expected non-nil version serial")
+			assert.NotEmpty(t, *appendResult.VersionSerial, "Expected version serial")
 
 			// Verify by fetching the message - data should be appended (eventually consistent)
 			require.Eventually(t, func() bool {
-				retrieved, err := channel.GetMessage(ctx, publishResult.Serial)
+				retrieved, err := channel.GetMessage(ctx, *publishResult.Serial)
 				if err != nil {
 					return false
 				}
@@ -151,14 +159,15 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 			// Publish a message
 			publishResult, err := channel.PublishWithResult(ctx, "test-event", "test data")
 			require.NoError(t, err)
+			require.NotNil(t, publishResult.Serial)
 
 			// GetMessage is eventually consistent - retry until message is available
 			require.Eventually(t, func() bool {
-				msg, err := channel.GetMessage(ctx, publishResult.Serial)
+				msg, err := channel.GetMessage(ctx, *publishResult.Serial)
 				if err != nil {
 					return false
 				}
-				return msg.Data == "test data" && msg.Serial == publishResult.Serial
+				return msg.Data == "test data" && msg.Serial == *publishResult.Serial
 			}, 5*time.Second, 100*time.Millisecond, "Message should be retrievable")
 		})
 	})
@@ -170,10 +179,11 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 			// Publish initial message
 			publishResult, err := channel.PublishWithResult(ctx, "test-event", "version 1")
 			require.NoError(t, err)
+			require.NotNil(t, publishResult.Serial)
 
 			// Update the message twice
 			msg := &ably.Message{
-				Serial: publishResult.Serial,
+				Serial: *publishResult.Serial,
 				Data:   "version 2",
 			}
 			_, err = channel.UpdateMessage(ctx, msg, ably.UpdateWithDescription("First update"))
@@ -186,7 +196,7 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 			// GetMessageVersions is eventually consistent - retry until all versions are available
 			var versions []*ably.Message
 			require.Eventually(t, func() bool {
-				page, err := channel.GetMessageVersions(publishResult.Serial, nil).Pages(ctx)
+				page, err := channel.GetMessageVersions(*publishResult.Serial, nil).Pages(ctx)
 				if err != nil {
 					return false
 				}
@@ -204,9 +214,9 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 
 			// Verify we have exactly 3 versions in the correct order
 			require.Equal(t, 3, len(versions))
-			assert.Equal(t, ably.MessageActionCreate, versions[0].Action, "First version should be message.create")
-			assert.Equal(t, ably.MessageActionUpdate, versions[1].Action, "Second version should be message.update")
-			assert.Equal(t, ably.MessageActionUpdate, versions[2].Action, "Third version should be message.update")
+			assert.Equal(t, ably.MessageActionCreate, versions[0].Action, "First version should be MESSAGE_CREATE")
+			assert.Equal(t, ably.MessageActionUpdate, versions[1].Action, "Second version should be MESSAGE_UPDATE")
+			assert.Equal(t, ably.MessageActionUpdate, versions[2].Action, "Third version should be MESSAGE_UPDATE")
 		})
 	})
 }
@@ -236,7 +246,8 @@ func TestRealtimeChannel_MessageUpdates(t *testing.T) {
 		t.Run("returns serial for published message", func(t *testing.T) {
 			result, err := channel.PublishWithResult(ctx, "event1", "realtime data")
 			require.NoError(t, err)
-			assert.NotEmpty(t, result.Serial, "Expected non-empty serial")
+			require.NotNil(t, result.Serial, "Expected non-nil serial")
+			assert.NotEmpty(t, *result.Serial, "Expected non-empty serial")
 		})
 
 		t.Run("PublishMultipleWithResult returns serials", func(t *testing.T) {
@@ -250,7 +261,8 @@ func TestRealtimeChannel_MessageUpdates(t *testing.T) {
 			assert.Len(t, results, 2)
 
 			for i, result := range results {
-				assert.NotEmpty(t, result.Serial, "Expected serial for message %d", i)
+				require.NotNil(t, result.Serial, "Expected non-nil serial for message %d", i)
+				assert.NotEmpty(t, *result.Serial, "Expected non-empty serial for message %d", i)
 			}
 		})
 	})
@@ -266,16 +278,17 @@ func TestRealtimeChannel_MessageUpdates(t *testing.T) {
 			// Publish initial message
 			publishResult, err := channel.PublishWithResult(ctx, "event", "initial")
 			require.NoError(t, err)
+			require.NotNil(t, publishResult.Serial)
 
 			// Update asynchronously
-			done := make(chan *ably.UpdateResult, 1)
+			done := make(chan *ably.UpdateDeleteResult, 1)
 			errChan := make(chan error, 1)
 
 			msg := &ably.Message{
-				Serial: publishResult.Serial,
+				Serial: *publishResult.Serial,
 				Data:   "updated async",
 			}
-			err = channel.UpdateMessageAsync(msg, func(result *ably.UpdateResult, err error) {
+			err = channel.UpdateMessageAsync(msg, func(result *ably.UpdateDeleteResult, err error) {
 				if err != nil {
 					errChan <- err
 				} else {
@@ -287,7 +300,8 @@ func TestRealtimeChannel_MessageUpdates(t *testing.T) {
 			// Wait for callback
 			select {
 			case result := <-done:
-				assert.NotEmpty(t, result.VersionSerial)
+				require.NotNil(t, result.VersionSerial)
+				assert.NotEmpty(t, *result.VersionSerial)
 			case err := <-errChan:
 				t.Fatalf("Update failed: %v", err)
 			case <-time.After(5 * time.Second):
@@ -307,22 +321,23 @@ func TestRealtimeChannel_MessageUpdates(t *testing.T) {
 			// Publish initial message
 			publishResult, err := channel.PublishWithResult(ctx, "ai-response", "The answer is")
 			require.NoError(t, err)
+			require.NotNil(t, publishResult.Serial)
 
 			// Simulate rapid token streaming
 			tokens := []string{" 42", ".", " This", " is", " correct", "."}
 			type ack struct {
-				result *ably.UpdateResult
+				result *ably.UpdateDeleteResult
 				err    error
 			}
 			acks := make(chan ack, len(tokens))
 
 			for _, token := range tokens {
 				msg := &ably.Message{
-					Serial: publishResult.Serial,
+					Serial: *publishResult.Serial,
 					Data:   token,
 				}
 
-				err := channel.AppendMessageAsync(msg, func(result *ably.UpdateResult, err error) {
+				err := channel.AppendMessageAsync(msg, func(result *ably.UpdateDeleteResult, err error) {
 					acks <- ack{result, err}
 				})
 				require.NoError(t, err, "Failed to queue append %q", token)
