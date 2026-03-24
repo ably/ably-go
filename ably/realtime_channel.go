@@ -316,13 +316,23 @@ func newRealtimeChannel(name string, client *Realtime, chOptions *channelOptions
 	return c
 }
 
+// RTL3
 func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
+	if change.Current == ConnectionStateConnected {
+		c.queue.Flush() //RTL3d
+	}
+	chState := c.State()
+	if chState != ChannelStateAttaching && chState != ChannelStateAttached {
+		return
+	}
 	switch change.Current {
-	case ConnectionStateConnected:
-		c.queue.Flush()
 	case ConnectionStateFailed:
 		c.setState(ChannelStateFailed, change.Reason, false)
 		c.queue.Fail(change.Reason)
+	case ConnectionStateClosed:
+		c.setState(ChannelStateDetached, nil, false)
+	case ConnectionStateSuspended:
+		c.setState(ChannelStateSuspended, nil, false)
 	}
 }
 
