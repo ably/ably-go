@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/ugorji/go/codec"
 )
 
 // encodings
@@ -17,6 +19,138 @@ const (
 	encCipher = "cipher"
 	encVCDiff = "vcdiff"
 )
+
+// MessageAction represents the type of operation performed on a message.
+type MessageAction string
+
+const (
+	MessageActionUnknown        MessageAction = "UNKNOWN"
+	MessageActionCreate         MessageAction = "MESSAGE_CREATE"
+	MessageActionUpdate         MessageAction = "MESSAGE_UPDATE"
+	MessageActionDelete         MessageAction = "MESSAGE_DELETE"
+	MessageActionMeta           MessageAction = "META"
+	MessageActionMessageSummary MessageAction = "MESSAGE_SUMMARY"
+	MessageActionAppend         MessageAction = "MESSAGE_APPEND"
+)
+
+// messageActions maps numeric wire values to MessageAction constants.
+// Index corresponds to the wire numeric value.
+var messageActions = []MessageAction{
+	MessageActionCreate,         // 0
+	MessageActionUpdate,         // 1
+	MessageActionDelete,         // 2
+	MessageActionMeta,           // 3
+	MessageActionMessageSummary, // 4
+	MessageActionAppend,         // 5
+}
+
+func encodeMessageAction(action MessageAction) int {
+	for i, a := range messageActions {
+		if a == action {
+			return i
+		}
+	}
+	return 0 // default to create
+}
+
+func decodeMessageAction(num int) MessageAction {
+	if num >= 0 && num < len(messageActions) {
+		return messageActions[num]
+	}
+	return MessageActionUnknown
+}
+
+// MarshalJSON implements json.Marshaler to encode MessageAction as numeric for wire compatibility.
+func (a MessageAction) MarshalJSON() ([]byte, error) {
+	return json.Marshal(encodeMessageAction(a))
+}
+
+// UnmarshalJSON implements json.Unmarshaler to decode numeric wire format to MessageAction.
+func (a *MessageAction) UnmarshalJSON(data []byte) error {
+	var num int
+	if err := json.Unmarshal(data, &num); err != nil {
+		return err
+	}
+	*a = decodeMessageAction(num)
+	return nil
+}
+
+// CodecEncodeSelf implements codec.Selfer for MessagePack encoding.
+func (a MessageAction) CodecEncodeSelf(encoder *codec.Encoder) {
+	encoder.MustEncode(encodeMessageAction(a))
+}
+
+// CodecDecodeSelf implements codec.Selfer for MessagePack decoding.
+func (a *MessageAction) CodecDecodeSelf(decoder *codec.Decoder) {
+	var num int
+	decoder.MustDecode(&num)
+	*a = decodeMessageAction(num)
+}
+
+// MessageVersion contains version information for a message operation.
+type MessageVersion struct {
+	Serial      string            `json:"serial,omitempty" codec:"serial,omitempty"`
+	Timestamp   int64             `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
+	ClientID    string            `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	Description string            `json:"description,omitempty" codec:"description,omitempty"`
+	Metadata    map[string]string `json:"metadata,omitempty" codec:"metadata,omitempty"`
+}
+
+// PublishResult contains the result of a publish operation with serial tracking.
+type PublishResult struct {
+	Serial *string // nil if message was discarded by conflation (PBR2a)
+}
+
+// UpdateDeleteResult contains the result of an update, delete, or append operation (UDR1).
+type UpdateDeleteResult struct {
+	VersionSerial *string // nil if superseded (UDR2a)
+}
+
+// UpdateOption is a functional option for message update operations.
+type UpdateOption func(*updateOptions)
+
+type updateOptions struct {
+	version *MessageVersion   // unexported, built lazily from options
+	params  map[string]string // URL query parameters (RSL15f) / ProtocolMessage params (RTL32e)
+}
+
+// UpdateWithDescription sets a description for the update operation.
+func UpdateWithDescription(description string) UpdateOption {
+	return func(o *updateOptions) {
+		if o.version == nil {
+			o.version = &MessageVersion{}
+		}
+		o.version.Description = description
+	}
+}
+
+// UpdateWithClientID sets the client ID for the update operation.
+func UpdateWithClientID(clientID string) UpdateOption {
+	return func(o *updateOptions) {
+		if o.version == nil {
+			o.version = &MessageVersion{}
+		}
+		o.version.ClientID = clientID
+	}
+}
+
+// UpdateWithMetadata sets metadata for the update operation.
+func UpdateWithMetadata(metadata map[string]string) UpdateOption {
+	return func(o *updateOptions) {
+		if o.version == nil {
+			o.version = &MessageVersion{}
+		}
+		o.version.Metadata = metadata
+	}
+}
+
+// UpdateWithParams sets operation params. When using REST, these are included as URL query
+// parameters (RSL15a, RSL15f). When using Realtime, these are set as protocolMessage.Params (RTL32e).
+func UpdateWithParams(params map[string]string) UpdateOption {
+	return func(o *updateOptions) {
+		o.params = params
+	}
+}
 
 // Message contains an individual message that is sent to, or received from, Ably.
 type Message struct {
@@ -42,6 +176,12 @@ type Message struct {
 	// Extras is a JSON object of arbitrary key-value pairs that may contain metadata, and/or ancillary payloads.
 	// Valid payloads include push, deltaExtras, ReferenceExtras and headers (TM2i).
 	Extras map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
+	// Serial is a permanent identifier for this message assigned by the server.
+	Serial string `json:"serial,omitempty" codec:"serial,omitempty"`
+	// Action indicates the type of operation (create, update, delete, append) performed on this message.
+	Action MessageAction `json:"action,omitempty" codec:"action,omitempty"`
+	// Version contains version information for message update/delete/append operations.
+	Version *MessageVersion `json:"version,omitempty" codec:"version,omitempty"`
 }
 
 // DeltaExtras describes a message whose payload is a "vcdiff"-encoded delta generated with respect to a base message (DE1, DE2).
@@ -100,6 +240,18 @@ func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
 	}
 	if m.Timestamp == 0 {
 		m.Timestamp = p.Timestamp
+	}
+	// TM2s: Initialize version object if not present on received messages.
+	if m.Version == nil {
+		m.Version = &MessageVersion{}
+	}
+	// TM2s1: Default version.serial from message.serial.
+	if empty(m.Version.Serial) && !empty(m.Serial) {
+		m.Version.Serial = m.Serial
+	}
+	// TM2s2: Default version.timestamp from message.timestamp.
+	if m.Version.Timestamp == 0 && m.Timestamp != 0 {
+		m.Version.Timestamp = m.Timestamp
 	}
 }
 
