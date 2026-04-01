@@ -538,7 +538,7 @@ func (t *fullMessagesDecoder) decodeMessagesData() {
 		*m, err = m.withDecodedData(cipher)
 		if err != nil {
 			// RSL6b
-			t.c.log().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
+			t.c.log().Errorf("Couldn't fully decode message data from channel %q: %v", t.c.Name, err)
 		}
 	}
 }
@@ -571,7 +571,7 @@ func (t *fullMessageDecoder) decodeMessageData() {
 	var err error
 	*t.dst, err = t.dst.withDecodedData(cipher)
 	if err != nil {
-		t.c.log().Errorf("Couldn't fully decode message data from channel %q: %w", t.c.Name, err)
+		t.c.log().Errorf("Couldn't fully decode message data from channel %q: %v", t.c.Name, err)
 	}
 }
 
