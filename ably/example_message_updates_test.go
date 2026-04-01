@@ -22,6 +22,10 @@ func ExampleRESTChannel_PublishWithResult() {
 		panic(err)
 	}
 
+	if result.Serial == nil {
+		fmt.Println("Message published but serial not available (discarded by conflation)")
+		return
+	}
 	fmt.Printf("Message published with serial: %s\n", *result.Serial)
 }
 
@@ -40,6 +44,11 @@ func ExampleRESTChannel_UpdateMessage() {
 		panic(err)
 	}
 
+	if result.Serial == nil {
+		fmt.Println("Message published but serial not available (discarded by conflation)")
+		return
+	}
+
 	// Update the message
 	msg := &ably.Message{
 		Serial: *result.Serial,
@@ -56,6 +65,10 @@ func ExampleRESTChannel_UpdateMessage() {
 		panic(err)
 	}
 
+	if updateResult.VersionSerial == nil {
+		fmt.Println("Message updated but version serial not available (superseded)")
+		return
+	}
 	fmt.Printf("Message updated with version serial: %s\n", *updateResult.VersionSerial)
 }
 
@@ -72,6 +85,11 @@ func ExampleRealtimeChannel_AppendMessageAsync() {
 	result, err := channel.PublishWithResult(context.Background(), "ai-response", "The answer is")
 	if err != nil {
 		panic(err)
+	}
+
+	if result.Serial == nil {
+		fmt.Println("Message published but serial not available (discarded by conflation)")
+		return
 	}
 
 	// Stream tokens asynchronously without blocking
