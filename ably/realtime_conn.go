@@ -614,35 +614,36 @@ func (c *Connection) advanceSerial() {
 	c.msgSerial = (c.msgSerial + 1) % maxint64
 }
 
-func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
+// send sends a message with an ackCallback.
+func (c *Connection) send(msg *protocolMessage, ackCallback *msgAckCallback) {
 	hasMsgSerial := msg.Action == actionMessage || msg.Action == actionPresence || msg.Action == actionObject
 	c.mtx.Lock()
 	// RTP16a - in case of presence msg send, check for connection status and send accordingly
 	switch state := c.state; state {
 	default:
 		c.mtx.Unlock()
-		if onAck != nil {
+		if ackCallback != nil {
 			if c.state == ConnectionStateClosed {
-				onAck(errClosed)
+				ackCallback.call(nil, errClosed)
 			} else {
-				onAck(connStateError(state, nil))
+				ackCallback.call(nil, connStateError(state, nil))
 			}
 		}
 
 	case ConnectionStateInitialized, ConnectionStateConnecting, ConnectionStateDisconnected:
 		c.mtx.Unlock()
 		if c.opts.NoQueueing {
-			if onAck != nil {
-				onAck(connStateError(state, errQueueing))
+			if ackCallback != nil {
+				ackCallback.call(nil, connStateError(state, errQueueing))
 			}
 		} else {
-			c.queue.Enqueue(msg, onAck) // RTL4i
+			c.queue.Enqueue(msg, ackCallback) // RTL4i
 		}
 	case ConnectionStateConnected:
 		if err := c.verifyAndUpdateMessages(msg); err != nil {
 			c.mtx.Unlock()
-			if onAck != nil {
-				onAck(err)
+			if ackCallback != nil {
+				ackCallback.call(nil, err)
 			}
 			return
 		}
@@ -660,13 +661,13 @@ func (c *Connection) send(msg *protocolMessage, onAck func(err error)) {
 			c.log().Warnf("transport level failure while sending message, %v", err)
 			c.conn.Close()
 			c.mtx.Unlock()
-			c.queue.Enqueue(msg, onAck)
+			c.queue.Enqueue(msg, ackCallback)
 		} else {
 			if hasMsgSerial {
 				c.advanceSerial()
 			}
-			if onAck != nil {
-				c.pending.Enqueue(msg, onAck)
+			if ackCallback != nil {
+				c.pending.Enqueue(msg, ackCallback)
 			}
 			c.mtx.Unlock()
 		}
@@ -760,7 +761,7 @@ func (c *Connection) resendPending() {
 	c.mtx.Unlock()
 	c.log().Debugf("resending %d messages waiting for ACK/NACK", len(cx))
 	for _, v := range cx {
-		c.send(v.msg, v.onAck)
+		c.send(v.msg, v.ackCallback)
 	}
 }
 

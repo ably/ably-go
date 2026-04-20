@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/ugorji/go/codec"
 )
 
 // encodings
@@ -17,6 +19,150 @@ const (
 	encCipher = "cipher"
 	encVCDiff = "vcdiff"
 )
+
+// MessageAction represents the type of message operation (TM5).
+type MessageAction string
+
+const (
+	MessageActionUnknown        MessageAction = "UNKNOWN"
+	MessageActionCreate         MessageAction = "MESSAGE_CREATE"
+	MessageActionUpdate         MessageAction = "MESSAGE_UPDATE"
+	MessageActionDelete         MessageAction = "MESSAGE_DELETE"
+	MessageActionMeta           MessageAction = "META"
+	MessageActionMessageSummary MessageAction = "MESSAGE_SUMMARY"
+	MessageActionAppend         MessageAction = "MESSAGE_APPEND"
+)
+
+// messageActions is a slice of MessageAction constants (TM5) where the index
+// of a given constant represents the numeric value to use when encoding that
+// constant over the wire (see encodeMessageAction).
+var messageActions = []MessageAction{
+	MessageActionCreate,         // 0 = MESSAGE_CREATE
+	MessageActionUpdate,         // 1 = MESSAGE_UPDATE
+	MessageActionDelete,         // 2 = MESSAGE_DELETE
+	MessageActionMeta,           // 3 = META
+	MessageActionMessageSummary, // 4 = MESSAGE_SUMMARY
+	MessageActionAppend,         // 5 = MESSAGE_APPEND
+}
+
+func encodeMessageAction(action MessageAction) int {
+	for i, a := range messageActions {
+		if a == action {
+			return i
+		}
+	}
+	return 0 // default to create
+}
+
+func decodeMessageAction(num int) MessageAction {
+	if num >= 0 && num < len(messageActions) {
+		return messageActions[num]
+	}
+	return MessageActionUnknown
+}
+
+// MarshalJSON implements json.Marshaler to encode MessageAction as numeric for wire compatibility.
+func (a MessageAction) MarshalJSON() ([]byte, error) {
+	return json.Marshal(encodeMessageAction(a))
+}
+
+// UnmarshalJSON implements json.Unmarshaler to decode numeric wire format to MessageAction.
+func (a *MessageAction) UnmarshalJSON(data []byte) error {
+	var num int
+	if err := json.Unmarshal(data, &num); err != nil {
+		return err
+	}
+	*a = decodeMessageAction(num)
+	return nil
+}
+
+// CodecEncodeSelf implements codec.Selfer for MessagePack encoding.
+func (a MessageAction) CodecEncodeSelf(encoder *codec.Encoder) {
+	encoder.MustEncode(encodeMessageAction(a))
+}
+
+// CodecDecodeSelf implements codec.Selfer for MessagePack decoding.
+func (a *MessageAction) CodecDecodeSelf(decoder *codec.Decoder) {
+	var num int
+	decoder.MustDecode(&num)
+	*a = decodeMessageAction(num)
+}
+
+// MessageVersion contains version information for a message (TM2s).
+// When received from the server, Serial and Timestamp are server-populated.
+// When sending an update/delete/append, ClientID, Description, and Metadata
+// are user-provided via UpdateOption functions (mapped from MOP2a/MOP2b/MOP2c).
+type MessageVersion struct {
+	// Serial is an opaque version identifier, assigned by the server (TM2s1). Read-only on received messages.
+	Serial string `json:"serial,omitempty" codec:"serial,omitempty"`
+	// Timestamp is set by the server when the version is created, ms since epoch (TM2s2). Read-only on received messages.
+	Timestamp int64 `json:"timestamp,omitempty" codec:"timestamp,omitempty"`
+	// ClientID identifies the client that performed the operation (TM2s3, MOP2a).
+	ClientID string `json:"clientId,omitempty" codec:"clientId,omitempty"`
+	// Description is a human-readable description of the operation (TM2s4, MOP2b).
+	Description string `json:"description,omitempty" codec:"description,omitempty"`
+	// Metadata contains arbitrary key-value pairs about the operation (TM2s5, MOP2c).
+	Metadata map[string]string `json:"metadata,omitempty" codec:"metadata,omitempty"`
+}
+
+// PublishResult contains the result of a publish operation with serial tracking.
+// The spec (PBR2a) defines PublishResult with a serials array, but per RSL1n1/RTL6j1,
+// SDKs may implement alternatives where adding a response value would be a breaking
+// API change. This SDK returns one PublishResult per message for ergonomics.
+type PublishResult struct {
+	Serial *string // nil if message was discarded by conflation (PBR2a)
+}
+
+// UpdateDeleteResult contains the result of an update, delete, or append operation (UDR1).
+type UpdateDeleteResult struct {
+	VersionSerial *string // nil if superseded (UDR2a)
+}
+
+// UpdateOption is a functional option for message update operations.
+type UpdateOption func(*updateOptions)
+
+type updateOptions struct {
+	version *MessageVersion   // unexported, built lazily from options
+	params  map[string]string // URL query parameters (RSL15f) / ProtocolMessage params (RTL32e)
+}
+
+// UpdateWithDescription sets a description for the update operation.
+func UpdateWithDescription(description string) UpdateOption {
+	return func(o *updateOptions) {
+		if o.version == nil {
+			o.version = &MessageVersion{}
+		}
+		o.version.Description = description
+	}
+}
+
+// UpdateWithClientID sets the client ID for the update operation.
+func UpdateWithClientID(clientID string) UpdateOption {
+	return func(o *updateOptions) {
+		if o.version == nil {
+			o.version = &MessageVersion{}
+		}
+		o.version.ClientID = clientID
+	}
+}
+
+// UpdateWithMetadata sets metadata for the update operation.
+func UpdateWithMetadata(metadata map[string]string) UpdateOption {
+	return func(o *updateOptions) {
+		if o.version == nil {
+			o.version = &MessageVersion{}
+		}
+		o.version.Metadata = metadata
+	}
+}
+
+// UpdateWithParams sets operation params. When using REST, these are included as URL query
+// parameters (RSL15a, RSL15f). When using Realtime, these are set as protocolMessage.Params (RTL32e).
+func UpdateWithParams(params map[string]string) UpdateOption {
+	return func(o *updateOptions) {
+		o.params = params
+	}
+}
 
 // Message contains an individual message that is sent to, or received from, Ably.
 type Message struct {
@@ -42,6 +188,12 @@ type Message struct {
 	// Extras is a JSON object of arbitrary key-value pairs that may contain metadata, and/or ancillary payloads.
 	// Valid payloads include push, deltaExtras, ReferenceExtras and headers (TM2i).
 	Extras map[string]interface{} `json:"extras,omitempty" codec:"extras,omitempty"`
+	// Serial is a permanent identifier for this message assigned by the server (TM2r).
+	Serial string `json:"serial,omitempty" codec:"serial,omitempty"`
+	// Action indicates the type of message operation (TM5).
+	Action MessageAction `json:"action,omitempty" codec:"action,omitempty"`
+	// Version contains version information for the message (TM2s).
+	Version *MessageVersion `json:"version,omitempty" codec:"version,omitempty"`
 }
 
 // DeltaExtras describes a message whose payload is a "vcdiff"-encoded delta generated with respect to a base message (DE1, DE2).
@@ -100,6 +252,18 @@ func (p *protocolMessage) updateInnerMessageEmptyFields(m *Message, index int) {
 	}
 	if m.Timestamp == 0 {
 		m.Timestamp = p.Timestamp
+	}
+	// TM2s: Initialize version object if not present on received messages.
+	if m.Version == nil {
+		m.Version = &MessageVersion{}
+	}
+	// TM2s1: Default version.serial from message.serial.
+	if empty(m.Version.Serial) && !empty(m.Serial) {
+		m.Version.Serial = m.Serial
+	}
+	// TM2s2: Default version.timestamp from message.timestamp.
+	if m.Version.Timestamp == 0 && m.Timestamp != 0 {
+		m.Version.Timestamp = m.Timestamp
 	}
 }
 

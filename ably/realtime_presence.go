@@ -73,14 +73,14 @@ func (pres *RealtimePresence) onChannelSuspended(err error) {
 	pres.queue.Fail(err)
 }
 
-func (pres *RealtimePresence) maybeEnqueue(msg *protocolMessage, onAck func(err error)) bool {
+func (pres *RealtimePresence) maybeEnqueue(msg *protocolMessage, ackCallback *msgAckCallback) bool {
 	if pres.channel.opts().NoQueueing {
-		if onAck != nil {
-			onAck(errors.New("unable enqueue message because Options.QueueMessages is set to false"))
+		if ackCallback != nil {
+			ackCallback.call(nil, errors.New("unable enqueue message because Options.QueueMessages is set to false"))
 		}
 		return false
 	}
-	pres.queue.Enqueue(msg, onAck)
+	pres.queue.Enqueue(msg, ackCallback)
 	return true
 }
 
@@ -98,15 +98,16 @@ func (pres *RealtimePresence) send(msg *PresenceMessage) (result, error) {
 	onAck := func(err error) {
 		listen <- err
 	}
+	ackCallback := &msgAckCallback{onAck: onAck}
 	switch pres.channel.State() {
 	case ChannelStateInitialized: // RTP16b
-		if pres.maybeEnqueue(protomsg, onAck) {
+		if pres.maybeEnqueue(protomsg, ackCallback) {
 			pres.channel.attach()
 		}
 	case ChannelStateAttaching: // RTP16b
-		pres.maybeEnqueue(protomsg, onAck)
+		pres.maybeEnqueue(protomsg, ackCallback)
 	case ChannelStateAttached: // RTP16a
-		pres.channel.client.Connection.send(protomsg, onAck) // RTP16a, RTL6c
+		pres.channel.client.Connection.send(protomsg, ackCallback) // RTP16a, RTL6c
 	}
 
 	return resultFunc(func(ctx context.Context) error {
