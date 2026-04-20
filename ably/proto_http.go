@@ -11,7 +11,7 @@ const (
 	ablyProtocolVersionHeader = "X-Ably-Version"
 	ablyErrorCodeHeader       = "X-Ably-Errorcode"
 	ablyErrorMessageHeader    = "X-Ably-Errormessage"
-	clientLibraryVersion      = "1.3.0"
+	clientLibraryVersion      = "1.4.0"
 	clientRuntimeName         = "go"
 	// ablyProtocolVersion is the default Ably protocol version used for all requests.
 	// Protocol v5 is required for message operations (publish/update/delete/append) to return
