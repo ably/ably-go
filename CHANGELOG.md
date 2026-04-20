@@ -1,5 +1,26 @@
 # Change Log
 
+## [1.4.0](https://github.com/ably/ably-go/tree/v1.4.0)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.3.0...v1.4.0)
+
+**This release adds support for Message Updates, Deletes, and Appends** — allowing published messages to be updated, deleted, or appended to after the fact using the new `UpdateMessage`, `DeleteMessage`, and `AppendMessage` operations.
+
+**Implemented enhancements:**
+
+- feat: Implement Message Updates, Deletes, and Appends [\#697](https://github.com/ably/ably-go/pull/697)
+- Add V2 operation types for protocol v6+ [\#695](https://github.com/ably/ably-go/pull/695)
+- state: add v2 object create types [\#699](https://github.com/ably/ably-go/pull/699)
+- Switch to github.com/coder/websocket [\#698](https://github.com/ably/ably-go/pull/698)
+
+**Fixed bugs:**
+
+- fix: Prevent deadlock when releasing a realtime channel [\#693](https://github.com/ably/ably-go/pull/693)
+
+**Merged pull requests:**
+
+- Only run tests on the latest two Go versions [\#700](https://github.com/ably/ably-go/pull/700)
+
 ## [1.3.0](https://github.com/ably/ably-go/tree/v1.3.0)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.2.22...v1.3.0)
