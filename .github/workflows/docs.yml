@@ -7,10 +7,13 @@ on:
     tags:
       - 'v*'
 
+permissions: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       deployments: write
       id-token: write
     steps:

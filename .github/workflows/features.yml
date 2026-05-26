@@ -6,8 +6,12 @@ on:
     branches:
       - main
 
+permissions: {}
+
 jobs:
   build:
+    permissions:
+      contents: read
     uses: ably/features/.github/workflows/sdk-features.yml@main
     with:
       repository-name: ably-go
