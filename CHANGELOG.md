@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.4.1](https://github.com/ably/ably-go/tree/v1.4.1)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.4.0...v1.4.1)
+
+**Fixed bugs:**
+
+- fix: guard against nil onAck in result-returning *Async methods [\#702](https://github.com/ably/ably-go/pull/702)
+
 ## [1.4.0](https://github.com/ably/ably-go/tree/v1.4.0)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.3.0...v1.4.0)
