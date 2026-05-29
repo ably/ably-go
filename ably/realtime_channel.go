@@ -749,6 +749,9 @@ func (c *RealtimeChannel) PublishWithResult(ctx context.Context, name string, da
 // PublishWithResultAsync is the same as PublishWithResult except instead of blocking it calls onAck
 // with the result or error. Note onAck must not block as it would block the internal client.
 func (c *RealtimeChannel) PublishWithResultAsync(name string, data interface{}, onAck func(*PublishResult, error)) error {
+	if onAck == nil {
+		onAck = func(*PublishResult, error) {}
+	}
 	return c.PublishMultipleWithResultAsync([]*Message{{Name: name, Data: data}}, func(results []PublishResult, err error) {
 		if err != nil {
 			onAck(nil, err)
@@ -788,6 +791,9 @@ func (c *RealtimeChannel) PublishMultipleWithResult(ctx context.Context, message
 // PublishMultipleWithResultAsync is the same as PublishMultipleWithResult except it calls onAck
 // instead of blocking (RTL6j, RTL6j1 alternative).
 func (c *RealtimeChannel) PublishMultipleWithResultAsync(messages []*Message, onAck func([]PublishResult, error)) error {
+	if onAck == nil {
+		onAck = func([]PublishResult, error) {}
+	}
 	id := c.client.Auth.clientIDForCheck()
 	for _, v := range messages {
 		if v.ClientID != "" && id != wildcardClientID && v.ClientID != id {
@@ -856,6 +862,9 @@ func (c *RealtimeChannel) HistoryUntilAttach(o ...HistoryOption) (*HistoryReques
 // performMessageOperationAsync is a shared helper for UpdateMessageAsync, DeleteMessageAsync, and AppendMessageAsync.
 // Implements RTL32a-e: validates serial, applies options, sets action/version, encodes data, and sends the protocol message.
 func (c *RealtimeChannel) performMessageOperationAsync(msg *Message, action MessageAction, onAck func(*UpdateDeleteResult, error), options ...UpdateOption) error {
+	if onAck == nil {
+		onAck = func(*UpdateDeleteResult, error) {}
+	}
 	if err := validateMessageSerial(msg); err != nil {
 		return err
 	}

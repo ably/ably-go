@@ -358,5 +358,26 @@ func TestRealtimeChannel_MessageUpdates(t *testing.T) {
 
 			assert.Equal(t, len(tokens), ackCount, "All appends should complete")
 		})
+
+		t.Run("nil onAck is treated as fire-and-forget", func(t *testing.T) {
+			publishResult, err := channel.PublishWithResult(ctx, "ai-response", "seed")
+			require.NoError(t, err)
+			require.NotNil(t, publishResult.Serial)
+
+			err = channel.AppendMessageAsync(&ably.Message{
+				Serial: *publishResult.Serial,
+				Data:   " token",
+			}, nil)
+			require.NoError(t, err)
+
+			// Round-trip a follow-up sync append so we know the ACK for the
+			// nil-callback append has been processed without panicking the
+			// connection's read loop.
+			_, err = channel.AppendMessage(ctx, &ably.Message{
+				Serial: *publishResult.Serial,
+				Data:   " done",
+			})
+			require.NoError(t, err)
+		})
 	})
 }
