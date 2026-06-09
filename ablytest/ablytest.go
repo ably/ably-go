@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -18,6 +19,21 @@ var Timeout = 30 * time.Second
 var NoBinaryProtocol bool
 var DefaultLogLevel = ably.LogNone
 var Endpoint = "nonprod:sandbox"
+
+var channelNameCounter atomic.Uint64
+
+// ChannelName returns a process-unique channel name based on base. Because all
+// tests share a single sandbox app, channel state (history, presence) is no
+// longer isolated per app; tests that assert on the full state of a channel must
+// use a unique name to avoid colliding with other tests. Any namespace prefix in
+// base (the part before the first ":") is preserved, since it selects channel
+// behaviour such as persistence.
+//
+// For example ChannelName("persisted:test") might return
+// "persisted:test-42".
+func ChannelName(base string) string {
+	return fmt.Sprintf("%s-%d", base, channelNameCounter.Add(1))
+}
 
 func nonil(err ...error) error {
 	for _, err := range err {
