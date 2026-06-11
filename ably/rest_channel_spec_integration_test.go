@@ -16,7 +16,7 @@ import (
 )
 
 func TestRSL1f1(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	defer app.Close()
 	opts := app.Options()
@@ -47,7 +47,7 @@ func TestRSL1f1(t *testing.T) {
 }
 
 func TestRSL1g(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	defer app.Close()
 	opts := append(app.Options(),

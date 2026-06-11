@@ -16,7 +16,7 @@ import (
 )
 
 func TestRESTChannel_MessageUpdates(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
 	defer app.Close()
 
@@ -222,7 +222,7 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 }
 
 func TestRealtimeChannel_MessageUpdates(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
 	defer app.Close()
 

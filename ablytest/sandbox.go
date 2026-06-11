@@ -40,33 +40,35 @@ type Config struct {
 }
 
 // Presence describes a presence fixture member provisioned on the
-// persisted:presence_fixtures channel by the appspec. The values here MUST stay
-// in sync with the presence entries in the appspec JSON, since the presence
-// tests assert that the channel returns exactly these members.
+// persisted:presence_fixtures channel by the appspec. It is decoded directly
+// from the appspec JSON, so it is the single source of truth for what the
+// presence tests expect the channel to return.
 type Presence struct {
-	ClientID string
-	Data     string
-	Encoding string
+	ClientID string `json:"clientId"`
+	Data     string `json:"data"`
+	Encoding string `json:"encoding,omitempty"`
 }
 
 // PresenceFixtures returns the presence members provisioned on the
-// persisted:presence_fixtures channel, matching the appspec JSON. client_encoded
+// persisted:presence_fixtures channel, read from the appspec JSON. client_encoded
 // is the cipher-encrypted form of client_decoded's data; tests that read it back
 // must configure the channel cipher (see PresenceFixturesCipher) to decode it.
-var PresenceFixtures = func() []Presence {
-	return []Presence{
-		{ClientID: "client_bool", Data: "true"},
-		{ClientID: "client_int", Data: "24"},
-		{ClientID: "client_string", Data: "This is a string clientData payload"},
-		{ClientID: "client_json", Data: `{ "test": "This is a JSONObject clientData payload"}`},
-		{ClientID: "client_decoded", Data: `{"example":{"json":"Object"}}`, Encoding: "json"},
-		{ClientID: "client_encoded", Data: "HO4cYSP8LybPYBPZPHQOtuD53yrD3YV3NBoTEYBh4U0N1QXHbtkfsDfTspKeLQFt", Encoding: "json/utf-8/cipher+aes-128-cbc/base64"},
+func PresenceFixtures() []Presence {
+	for _, ch := range loadAppSetup().channels() {
+		if ch.Name == presenceFixturesChannel {
+			return ch.Presence
+		}
 	}
+	panic(fmt.Sprintf("appspec has no %q channel", presenceFixturesChannel))
 }
 
+const presenceFixturesChannel = "persisted:presence_fixtures"
+
 // appSetup mirrors the structure of the shared appspec JSON
-// (common/test-resources/test-app-setup.json). Only the fields the helpers read
-// back are declared; the post_apps object is forwarded to /apps verbatim.
+// (common/test-resources/test-app-setup.json). PostApps is kept as raw bytes so
+// the /apps request body can be forwarded to the server verbatim; the parts the
+// helpers need to read back (presence fixtures) are decoded separately from
+// those same bytes by the typed accessors below.
 type appSetup struct {
 	PostApps json.RawMessage `json:"post_apps"`
 	Cipher   struct {
@@ -78,58 +80,60 @@ type appSetup struct {
 	} `json:"cipher"`
 }
 
-var loadAppSetup = func() func() appSetup {
-	var (
-		once   sync.Once
-		setup  appSetup
-		loaded error
-	)
-	return func() appSetup {
-		once.Do(func() {
-			_, thisFile, _, ok := runtime.Caller(0)
-			if !ok {
-				loaded = errors.New("could not determine ablytest source location")
-				return
-			}
-			p := filepath.Join(filepath.Dir(thisFile), "..", "common", "test-resources", "test-app-setup.json")
-			data, err := os.ReadFile(p)
-			if err != nil {
-				loaded = fmt.Errorf("reading appspec %q (is the ably-common submodule checked out?): %w", p, err)
-				return
-			}
-			loaded = json.Unmarshal(data, &setup)
-		})
-		if loaded != nil {
-			panic(loaded)
-		}
-		return setup
+type appSetupChannel struct {
+	Name     string     `json:"name"`
+	Presence []Presence `json:"presence"`
+}
+
+// channels decodes the channel fixtures from the post_apps body.
+func (s appSetup) channels() []appSetupChannel {
+	var body struct {
+		Channels []appSetupChannel `json:"channels"`
 	}
-}()
+	if err := json.Unmarshal(s.PostApps, &body); err != nil {
+		panic(err)
+	}
+	return body.Channels
+}
+
+var loadAppSetup = sync.OnceValue(func() appSetup {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		panic(errors.New("could not determine ablytest source location"))
+	}
+	p := filepath.Join(filepath.Dir(thisFile), "..", "common", "test-resources", "test-app-setup.json")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		panic(fmt.Errorf("reading appspec %q (is the ably-common submodule checked out?): %w", p, err))
+	}
+	var setup appSetup
+	if err := json.Unmarshal(data, &setup); err != nil {
+		panic(err)
+	}
+	return setup
+})
 
 // PresenceFixturesCipher returns the cipher params used to encrypt the
 // client_encoded presence fixture, so tests can decode it on read.
 func PresenceFixturesCipher() ably.CipherParams {
-	c := loadAppSetup().Cipher
-	key, err := base64.StdEncoding.DecodeString(c.Key)
+	key, err := base64.StdEncoding.DecodeString(loadAppSetup().Cipher.Key)
 	if err != nil {
 		panic(err)
 	}
-	params := ably.Crypto.GetDefaultParams(ably.CipherParams{
+	return ably.Crypto.GetDefaultParams(ably.CipherParams{
 		Algorithm: ably.CipherAES,
 		Key:       key,
 	})
-	return params
 }
 
 type Sandbox struct {
 	Config   *Config
 	Endpoint string
 	client   *http.Client
-	owned    bool
 }
 
 func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
-	app := MustSandbox(nil)
+	app := MustSandbox()
 	client, err := ably.NewRealtime(app.Options(opts...)...)
 	if err != nil {
 		panic(nonil(err, app.Close()))
@@ -138,7 +142,7 @@ func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
 }
 
 func NewREST(opts ...ably.ClientOption) (*Sandbox, *ably.REST) {
-	app := MustSandbox(nil)
+	app := MustSandbox()
 	client, err := ably.NewREST(app.Options(opts...)...)
 	if err != nil {
 		panic(nonil(err, app.Close()))
@@ -146,72 +150,44 @@ func NewREST(opts ...ably.ClientOption) (*Sandbox, *ably.REST) {
 	return app, client
 }
 
-// MustSandbox returns the shared sandbox app, provisioning it on first use, and
-// panics if provisioning fails. The config argument is ignored: every test uses
-// the same app, provisioned from the shared appspec. It is retained only so the
-// many existing call sites compile unchanged.
-func MustSandbox(config *Config) *Sandbox {
-	return GetSharedApp()
-}
-
-// NewSandbox returns the shared sandbox app (see MustSandbox). The config
-// argument is ignored.
-func NewSandbox(config *Config) (*Sandbox, error) {
-	return getSharedApp()
-}
-
-// NewSandboxWithEndpoint returns the shared sandbox app for the given endpoint.
-// The config argument is ignored. In practice the endpoint always matches the
-// package-level Endpoint, so this returns the same shared app as NewSandbox.
-func NewSandboxWithEndpoint(config *Config, endpoint string) (*Sandbox, error) {
-	if endpoint == Endpoint {
-		return getSharedApp()
-	}
-	return provisionSandbox(endpoint, true)
-}
-
-var (
-	sharedAppOnce sync.Once
-	sharedApp     *Sandbox
-	sharedAppErr  error
-)
-
-// GetSharedApp returns the process-wide shared sandbox app, provisioning it on
-// first call. All tests share this single app; isolation between tests is by
-// channel name rather than by app. Tests that call Close on it are no-ops — the
-// shared app is torn down once via CloseSharedApp (see TestMain).
-func GetSharedApp() *Sandbox {
-	app, err := getSharedApp()
+// MustSandbox returns the shared sandbox app (see NewSandbox) and panics if
+// provisioning fails.
+func MustSandbox() *Sandbox {
+	app, err := NewSandbox()
 	if err != nil {
 		panic(err)
 	}
 	return app
 }
 
-func getSharedApp() (*Sandbox, error) {
-	sharedAppOnce.Do(func() {
-		sharedApp, sharedAppErr = provisionSandbox(Endpoint, false)
-	})
-	return sharedApp, sharedAppErr
+// NewSandbox returns the process-wide shared sandbox app, provisioning it on
+// first call. Every test uses this single app, provisioned from the shared
+// appspec; isolation between tests is by channel name rather than by app. Tests
+// that call Close on it are no-ops — the shared app is torn down once via
+// CloseSharedApp (see TestMain).
+func NewSandbox() (*Sandbox, error) {
+	return sharedApp()
 }
+
+var sharedApp = sync.OnceValues(func() (*Sandbox, error) {
+	return provisionSandbox(Endpoint)
+})
 
 // CloseSharedApp deletes the shared app if it was provisioned. It is intended to
 // be called once from TestMain after all tests have run.
 func CloseSharedApp() error {
-	if sharedApp == nil {
-		return nil
+	app, err := sharedApp()
+	if err != nil {
+		return nil // never provisioned successfully; nothing to delete
 	}
-	app := sharedApp
-	app.owned = true
-	return app.Close()
+	return app.delete()
 }
 
-func provisionSandbox(endpoint string, owned bool) (*Sandbox, error) {
+func provisionSandbox(endpoint string) (*Sandbox, error) {
 	app := &Sandbox{
 		Config:   &Config{},
 		Endpoint: endpoint,
 		client:   NewHTTPClient(),
-		owned:    owned,
 	}
 	p := []byte(loadAppSetup().PostApps)
 
@@ -259,13 +235,15 @@ func provisionSandbox(endpoint string, owned bool) (*Sandbox, error) {
 	return nil, fmt.Errorf("Failed to request sandbox app after %d attempts.", RetryCount)
 }
 
+// Close is a no-op. The single shared app is owned by the test run, not by
+// individual tests, so the many per-test Close calls must not delete it;
+// teardown happens once via CloseSharedApp. Close is kept because tests call it
+// (often via defer) on the value returned by NewSandbox/NewREST/NewRealtime.
 func (app *Sandbox) Close() error {
-	// The shared app is owned by the test run, not by individual tests, so the
-	// many per-test Close calls are no-ops; teardown happens once via
-	// CloseSharedApp.
-	if !app.owned {
-		return nil
-	}
+	return nil
+}
+
+func (app *Sandbox) delete() error {
 	req, err := http.NewRequest("DELETE", app.URL("apps", app.Config.AppID), nil)
 	if err != nil {
 		return err

@@ -3019,7 +3019,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 
 	t.Run("RTC8a4, RSA3d: reauthorize with JWT token", func(t *testing.T) {
 		t.Parallel()
-		app := ablytest.MustSandbox(nil)
+		app := ablytest.MustSandbox()
 		defer safeclose(t, app)
 
 		authCallbackTokens := []string{}

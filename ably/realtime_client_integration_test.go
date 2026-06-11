@@ -388,7 +388,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testin
 	fallbackHost := "sandbox-a-fallback.ably-realtime.com"
 	connAttempts := 0
 
-	app := ablytest.MustSandbox(nil)
+	app := ablytest.MustSandbox()
 	defer safeclose(t, app)
 	jwt, err := app.CreateJwt(30*time.Second, false)
 	assert.NoError(t, err)
@@ -437,7 +437,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
 	requestTimeout := 2 * time.Second
 	connAttempts := 0
 
-	app := ablytest.MustSandbox(nil)
+	app := ablytest.MustSandbox()
 	defer safeclose(t, app)
 	jwt, err := app.CreateJwt(30*time.Second, false)
 	assert.NoError(t, err)
@@ -494,7 +494,7 @@ func TestRealtime_multiple(t *testing.T) {
 	const N = 3
 	var all ablytest.ResultGroup
 	var wg sync.WaitGroup
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err,
 		"NewSandbox()=%v", err)
 	defer safeclose(t, app)

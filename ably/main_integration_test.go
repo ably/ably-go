@@ -13,7 +13,7 @@ import (
 
 // TestMain tears down the shared sandbox app once after all tests in this
 // package have run. The app itself is provisioned lazily on first use (see
-// ablytest.GetSharedApp), so there is no setup here; if no test provisions it,
+// ablytest.NewSandbox), so there is no setup here; if no test provisions it,
 // CloseSharedApp is a no-op.
 func TestMain(m *testing.M) {
 	code := m.Run()

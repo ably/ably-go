@@ -17,7 +17,7 @@ import (
 )
 
 func TestHTTPPaginatedFallback(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	defer app.Close()
 	opts := app.Options(ably.WithUseBinaryProtocol(false),
@@ -32,7 +32,7 @@ func TestHTTPPaginatedFallback(t *testing.T) {
 }
 
 func TestHTTPPaginatedResponse(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	defer app.Close()
 	client, err := ably.NewREST(app.Options()...)

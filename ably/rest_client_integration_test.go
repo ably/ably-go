@@ -38,7 +38,7 @@ func newHTTPClientMock(srv *httptest.Server) *http.Client {
 }
 
 func TestRestClient(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	defer app.Close()
 	t.Run("encoding messages", func(t *testing.T) {
@@ -320,7 +320,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 
 func TestRest_RSC15_HostFallback(t *testing.T) {
 
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	defer app.Close()
 	runTestServer := func(t *testing.T, options []ably.ClientOption) (int, []string) {
@@ -499,7 +499,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 
 func TestRest_rememberHostFallback(t *testing.T) {
 
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	defer app.Close()
 
@@ -563,7 +563,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 }
 func TestRESTChannels_RSN1(t *testing.T) {
 
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	defer app.Close()
 	client, err := ably.NewREST(app.Options()...)
@@ -599,7 +599,7 @@ func TestRESTChannels_RSN1(t *testing.T) {
 
 func TestFixConnLeak_ISSUE89(t *testing.T) {
 
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	defer app.Close()
 

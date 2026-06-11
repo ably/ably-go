@@ -348,7 +348,7 @@ func TestAuth_RequestToken(t *testing.T) {
 func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 
 	t.Run("Get JWT from echo server", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
+		app := ablytest.MustSandbox()
 		defer safeclose(t, app)
 		jwt, err := app.CreateJwt(3*time.Second, false)
 		assert.NoError(t, err)
@@ -380,7 +380,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 	})
 
 	t.Run("Should be able to use it as a token", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
+		app := ablytest.MustSandbox()
 		defer safeclose(t, app)
 		jwt, err := app.CreateJwt(3*time.Second, false)
 		assert.NoError(t, err)
@@ -407,7 +407,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 	})
 
 	t.Run("RSA8g, RSA3d: Should be able to authenticate using authURL", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
+		app := ablytest.MustSandbox()
 		defer safeclose(t, app)
 
 		rec, optn := ablytest.NewHttpRecorder()
@@ -441,7 +441,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 	})
 
 	t.Run("RSA8g, RSA3d: Should be able to authenticate using authCallback", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
+		app := ablytest.MustSandbox()
 		defer safeclose(t, app)
 
 		jwtToken := ""
@@ -478,7 +478,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 	})
 
 	t.Run("RSA4e, RSA4b: Should return error when JWT is invalid", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
+		app := ablytest.MustSandbox()
 		defer safeclose(t, app)
 
 		rec, optn := ablytest.NewHttpRecorder()
@@ -526,7 +526,7 @@ func TestAuth_ReuseClientID(t *testing.T) {
 }
 
 func TestAuth_RequestToken_PublishClientID(t *testing.T) {
-	app := ablytest.MustSandbox(nil)
+	app := ablytest.MustSandbox()
 	defer safeclose(t, app)
 	cases := []struct {
 		authAs    string
@@ -597,7 +597,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 func TestAuth_ClientID(t *testing.T) {
 	in := make(chan *ably.ProtocolMessage, 16)
 	out := make(chan *ably.ProtocolMessage, 16)
-	app := ablytest.MustSandbox(nil)
+	app := ablytest.MustSandbox()
 	defer safeclose(t, app)
 	opts := []ably.ClientOption{
 		ably.WithUseTokenAuth(true),
@@ -882,7 +882,7 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 }
 
 func TestAuth_RSA7c(t *testing.T) {
-	app := ablytest.MustSandbox(nil)
+	app := ablytest.MustSandbox()
 	defer safeclose(t, app)
 	opts := app.Options()
 	opts = append(opts, ably.WithClientID("*"))

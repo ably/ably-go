@@ -208,7 +208,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4b: If connection state is INITIALIZED, CLOSING, CLOSED returns error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -283,7 +283,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4b: If connection state is FAILED, returns error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -325,7 +325,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4b: If connection state is SUSPENDED, returns error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -426,7 +426,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4d : should return error on FAILED while attaching channel", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -476,7 +476,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4d : should return error on DETACHED while attaching channel", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -527,7 +527,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4d : should return error on SUSPENDED while attaching channel", func(t *testing.T) {
 		t.Skip("Channel SUSPENDED not implemented yet")
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -578,7 +578,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4e: Transition to failed if no attach permission", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -646,7 +646,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4g: If channel in FAILED state, set err to null and proceed with attach", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -717,7 +717,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4h: If channel is ATTACHING, listen to the attach event and don't send attach event", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -782,7 +782,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4h: If channel is DETACHING, do attach after completion of request", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -866,7 +866,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4i : If connection state is CONNECTING, do ATTACH after CONNECTED", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -922,7 +922,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4i : If connection state is DISCONNECTED, do ATTACH after CONNECTED", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -1031,7 +1031,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4j1: AttachResume should be True when Attached (Clean ATTACH)", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1325,7 +1325,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5a: If channel is INITIALIZED or DETACHED, do nothing", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -1401,7 +1401,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5b: If channel state is FAILED, return error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -1519,7 +1519,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5e: return error if channel detach fails", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -1624,7 +1624,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5g: If connection state CLOSING or FAILED, should return error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 
 		defer safeclose(t, app)
@@ -1690,7 +1690,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5h : If Connection state CONNECTING, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -1761,7 +1761,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5h, RTN19b: If Connection state DISCONNECTED, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 		defer safeclose(t, app)
 
@@ -1831,7 +1831,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5i: If channel in DETACHING or ATTACHING state, do detach after completion of operation", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
 
 		defer safeclose(t, app)
@@ -1983,7 +1983,7 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 		transition := transition // Don't share between test goroutines.
 		t.Run(fmt.Sprintf("when %s", state), func(t *testing.T) {
 
-			app, err := ablytest.NewSandbox(nil)
+			app, err := ablytest.NewSandbox()
 			assert.NoError(t, err)
 			defer safeclose(t, app)
 
@@ -2101,7 +2101,7 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 
 		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
 
-			app, err := ablytest.NewSandbox(nil)
+			app, err := ablytest.NewSandbox()
 			assert.NoError(t, err)
 			defer safeclose(t, app)
 
@@ -2200,7 +2200,7 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 
 		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
 
-			app, err := ablytest.NewSandbox(nil)
+			app, err := ablytest.NewSandbox()
 			assert.NoError(t, err)
 			defer safeclose(t, app)
 
