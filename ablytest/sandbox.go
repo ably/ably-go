@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -166,19 +167,28 @@ func MustSandbox() *Sandbox {
 // that call Close on it are no-ops — the shared app is torn down once via
 // CloseSharedApp (see TestMain).
 func NewSandbox() (*Sandbox, error) {
+	sharedAppRequested.Store(true)
 	return sharedApp()
 }
 
-var sharedApp = sync.OnceValues(func() (*Sandbox, error) {
-	return provisionSandbox(Endpoint)
-})
+var (
+	sharedAppRequested atomic.Bool
+	sharedApp          = sync.OnceValues(func() (*Sandbox, error) {
+		return provisionSandbox(Endpoint)
+	})
+)
 
 // CloseSharedApp deletes the shared app if it was provisioned. It is intended to
-// be called once from TestMain after all tests have run.
+// be called once from TestMain after all tests have run. If no test requested
+// the shared app it does nothing (so teardown never provisions an app just to
+// delete it), and it propagates any provisioning error rather than masking it.
 func CloseSharedApp() error {
+	if !sharedAppRequested.Load() {
+		return nil
+	}
 	app, err := sharedApp()
 	if err != nil {
-		return nil // never provisioned successfully; nothing to delete
+		return err
 	}
 	return app.delete()
 }
