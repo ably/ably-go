@@ -45,8 +45,8 @@ var fixtureMembers = []string{
 }
 
 func TestRealtimePresence_Sync(t *testing.T) {
-	app, client := ablytest.NewRealtime(nil...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
@@ -59,7 +59,7 @@ func TestRealtimePresence_Sync(t *testing.T) {
 
 func SkipTestRealtimePresence_Sync250_RTP4(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1))
 	client2 := app.NewRealtime(nil...)
 	client3 := app.NewRealtime(nil...)
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2), ablytest.FullRealtimeCloser(client3))
@@ -121,8 +121,8 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 	opts := []ably.ClientOption{
 		ably.WithAutoConnect(false),
 	}
-	app, client := ablytest.NewRealtime(opts...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(opts...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	channel := client.Channels.Get("persisted:presence_fixtures")
 	off := rec.Listen(channel)
 	defer off()
@@ -143,7 +143,7 @@ func TestRealtimePresence_EnsureChannelIsAttached(t *testing.T) {
 
 func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1))
 
 	client2 := app.NewRealtime(ably.WithClientID("client2"))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
@@ -201,7 +201,7 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 
 func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1))
 
 	client2 := app.NewRealtime(ably.WithClientID("client2"))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))

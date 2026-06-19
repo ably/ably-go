@@ -18,7 +18,6 @@ import (
 func TestRSL1f1(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	opts := app.Options()
 	// RSL1f
 	opts = append(opts, ably.WithUseTokenAuth(false))
@@ -49,7 +48,6 @@ func TestRSL1f1(t *testing.T) {
 func TestRSL1g(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	opts := append(app.Options(),
 		ably.WithUseTokenAuth(true),
 	)
@@ -110,8 +108,7 @@ func TestHistory_RSL2_RSL2b3(t *testing.T) {
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
-			app, rest := ablytest.NewREST()
-			defer app.Close()
+			_, rest := ablytest.NewREST()
 			channel := rest.Channels.Get(ablytest.ChannelName("persisted:test"))
 
 			fixtures := historyFixtures()
@@ -144,8 +141,7 @@ func TestHistory_Direction_RSL2b2(t *testing.T) {
 	} {
 		c := c
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
-			app, rest := ablytest.NewREST()
-			defer app.Close()
+			_, rest := ablytest.NewREST()
 			channel := rest.Channels.Get(ablytest.ChannelName("persisted:test"))
 
 			fixtures := historyFixtures()
@@ -164,8 +160,7 @@ func TestHistory_Direction_RSL2b2(t *testing.T) {
 
 func TestGetChannelLifecycleStatus_RSL8(t *testing.T) {
 	ctx := context.Background()
-	app, rest := ablytest.NewREST()
-	defer app.Close()
+	_, rest := ablytest.NewREST()
 
 	t.Run("Test Channel Status after Publish", func(t *testing.T) {
 		channel := rest.Channels.Get("lifecycle:test")

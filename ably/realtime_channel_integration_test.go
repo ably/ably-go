@@ -41,8 +41,8 @@ func expectMsg(ch <-chan *ably.Message, name string, data interface{}, t time.Du
 }
 
 func TestRealtimeChannel_Publish(t *testing.T) {
-	app, client := ablytest.NewRealtime(nil...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 	channel := client.Channels.Get("test")
@@ -51,8 +51,8 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 }
 
 func TestRealtimeChannel_PublishAsync(t *testing.T) {
-	app, client := ablytest.NewRealtime(nil...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 	channel := client.Channels.Get("test")
@@ -66,7 +66,7 @@ func TestRealtimeChannel_PublishAsync(t *testing.T) {
 
 func TestRealtimeChannel_Subscribe(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(nil...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1))
 	client2 := app.NewRealtime(ably.WithEchoMessages(false))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client2))
 
@@ -112,7 +112,6 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	options := app.Options()
 	restClient, err := ably.NewREST(options...)
 	assert.NoError(t, err)
@@ -227,14 +226,14 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 	allowDial := make(chan struct{}, 1)
 	allowDial <- struct{}{}
 
-	app, client := ablytest.NewRealtime(
+	_, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 			<-allowDial
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 		}))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	channel := client.Channels.Get("test")
 
@@ -271,8 +270,8 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 }
 
 func TestRealtimeChannel_ShouldSetProvidedReadLimit(t *testing.T) {
-	app, client := ablytest.NewRealtime(ably.WithEchoMessages(false))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(ably.WithEchoMessages(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	client.Connection.SetReadLimit(2048)
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
@@ -291,8 +290,8 @@ func TestRealtimeChannel_SetDefaultReadLimitIfServerHasNoLimit(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	msgCh := interceptMsg(ctx, ably.ActionConnected)
 
-	app, client := ablytest.NewRealtime(ably.WithDial(wrappedDialWebsocket))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(ably.WithDial(wrappedDialWebsocket))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	connectedWaiter := ablytest.ConnWaiter(client, nil, ably.ConnectionEventConnected)
 
 	connectedMsg := <-msgCh
@@ -308,7 +307,7 @@ func TestRealtimeChannel_SetDefaultReadLimitIfServerHasNoLimit(t *testing.T) {
 
 func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 	app, client1 := ablytest.NewRealtime(ably.WithEchoMessages(false))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client1), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client1))
 
 	client2 := app.NewRealtime(ably.WithEchoMessages(false))
 	client2.Connection.SetReadLimit(1024) // set read limit explicitly to 1 mb.
@@ -348,8 +347,8 @@ func TestRealtimeChannels_Release(t *testing.T) {
 	defer cancel()
 
 	t.Log("creating test app")
-	app, client := ablytest.NewRealtime(nil...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(nil...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	t.Log("waiting for CONNECTED event")
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)

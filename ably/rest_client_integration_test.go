@@ -40,7 +40,6 @@ func newHTTPClientMock(srv *httptest.Server) *http.Client {
 func TestRestClient(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	t.Run("encoding messages", func(t *testing.T) {
 		t.Run("json", func(t *testing.T) {
 			var buffer []byte
@@ -322,7 +321,6 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	runTestServer := func(t *testing.T, options []ably.ClientOption) (int, []string) {
 		var retryCount int
 		var hosts []string
@@ -501,7 +499,6 @@ func TestRest_rememberHostFallback(t *testing.T) {
 
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 
 	var nopts []ably.ClientOption
 
@@ -565,7 +562,6 @@ func TestRESTChannels_RSN1(t *testing.T) {
 
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	client, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
 	assert.NotNil(t, client.Channels,
@@ -601,7 +597,6 @@ func TestFixConnLeak_ISSUE89(t *testing.T) {
 
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 
 	var conns []*connCloseTracker
 
@@ -651,7 +646,6 @@ func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
 			app, rest := ablytest.NewREST()
-			defer app.Close()
 
 			fixtures := statsFixtures()
 			postStats(app, fixtures)
@@ -677,7 +671,6 @@ func TestStats_StartEnd_RSC6b1(t *testing.T) {
 	ctx := context.Background()
 
 	app, rest := ablytest.NewREST()
-	defer app.Close()
 
 	fixtures := statsFixtures()
 	postStats(app, fixtures)
@@ -702,7 +695,6 @@ func TestStats_Direction_RSC6b2(t *testing.T) {
 
 	ctx := context.Background()
 	app, rest := ablytest.NewREST()
-	defer app.Close()
 
 	for _, c := range []struct {
 		direction ably.Direction
@@ -749,7 +741,6 @@ func TestStats_Unit_RSC6b4(t *testing.T) {
 	ctx := context.Background()
 
 	app, rest := ablytest.NewREST()
-	defer app.Close()
 
 	fixtures := statsFixtures()
 	postStats(app, fixtures)

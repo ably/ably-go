@@ -24,13 +24,12 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
 
 			app, rest := ablytest.NewREST()
-			defer app.Close()
 			channelName := ablytest.ChannelName("persisted:test")
 			channel := rest.Channels.Get(channelName)
 
 			fixtures := presenceHistoryFixtures()
 			realtime := postPresenceHistoryFixtures(t, context.Background(), app, channelName, fixtures)
-			defer safeclose(t, realtime, app)
+			defer safeclose(t, realtime)
 
 			var err error
 			testFunc := func() bool {
@@ -71,7 +70,7 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 
 			fixtures := presenceHistoryFixtures()
 			realtime := postPresenceHistoryFixtures(t, context.Background(), app, channelName, fixtures)
-			defer safeclose(t, realtime, app)
+			defer safeclose(t, realtime)
 
 			expected := c.expected
 
@@ -97,8 +96,7 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
 
-			app, rest := ablytest.NewREST()
-			defer app.Close()
+			_, rest := ablytest.NewREST()
 			channel := presenceFixturesChannel(rest)
 
 			expected := persistedPresenceFixtures()
@@ -128,8 +126,7 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 		clientID := clientID
 		t.Run(fmt.Sprintf("clientID=%v", clientID), func(t *testing.T) {
 
-			app, rest := ablytest.NewREST()
-			defer app.Close()
+			_, rest := ablytest.NewREST()
 			channel := presenceFixturesChannel(rest)
 
 			expected := persistedPresenceFixtures(func(p ablytest.Presence) bool {
@@ -156,7 +153,6 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 
 func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 	app, rest := ablytest.NewREST()
-	defer app.Close()
 
 	expectedByConnID := map[string]ably.Message{}
 

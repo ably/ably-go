@@ -137,7 +137,7 @@ func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
 	app := MustSandbox()
 	client, err := ably.NewRealtime(app.Options(opts...)...)
 	if err != nil {
-		panic(nonil(err, app.Close()))
+		panic(err)
 	}
 	return app, client
 }
@@ -146,7 +146,7 @@ func NewREST(opts ...ably.ClientOption) (*Sandbox, *ably.REST) {
 	app := MustSandbox()
 	client, err := ably.NewREST(app.Options(opts...)...)
 	if err != nil {
-		panic(nonil(err, app.Close()))
+		panic(err)
 	}
 	return app, client
 }
@@ -243,14 +243,6 @@ func provisionSandbox(endpoint string) (*Sandbox, error) {
 	}
 
 	return nil, fmt.Errorf("Failed to request sandbox app after %d attempts.", RetryCount)
-}
-
-// Close is a no-op. The single shared app is owned by the test run, not by
-// individual tests, so the many per-test Close calls must not delete it;
-// teardown happens once via CloseSharedApp. Close is kept because tests call it
-// (often via defer) on the value returned by NewSandbox/NewREST/NewRealtime.
-func (app *Sandbox) Close() error {
-	return nil
 }
 
 func (app *Sandbox) delete() error {

@@ -389,7 +389,6 @@ func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testin
 	connAttempts := 0
 
 	app := ablytest.MustSandbox()
-	defer safeclose(t, app)
 	jwt, err := app.CreateJwt(30*time.Second, false)
 	assert.NoError(t, err)
 
@@ -414,7 +413,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testin
 		}),
 		ably.WithEndpoint(serverURL.Host))
 
-	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
@@ -438,7 +437,6 @@ func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
 	connAttempts := 0
 
 	app := ablytest.MustSandbox()
-	defer safeclose(t, app)
 	jwt, err := app.CreateJwt(30*time.Second, false)
 	assert.NoError(t, err)
 
@@ -466,7 +464,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
 		}),
 		ably.WithEndpoint(serverURL.Host))
 
-	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
@@ -497,7 +495,6 @@ func TestRealtime_multiple(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err,
 		"NewSandbox()=%v", err)
-	defer safeclose(t, app)
 	wg.Add(N)
 	idch := make(chan string, N)
 	keych := make(chan string, N)
@@ -571,6 +568,6 @@ func TestRealtime_multiple(t *testing.T) {
 
 func TestRealtime_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 
-	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 }
