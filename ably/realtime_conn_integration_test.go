@@ -248,7 +248,7 @@ func TestRealtimeConn_SendErrorReconnects(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		e := c.Channels.Get("test").Publish(ctx, "test", nil)
+		e := c.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(ctx, "test", nil)
 		publishErr <- e
 	}()
 

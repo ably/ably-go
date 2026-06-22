@@ -64,7 +64,7 @@ func TestRestClient(t *testing.T) {
 
 			client, err := ably.NewREST(app.Options(options...)...)
 			assert.NoError(t, err)
-			err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+			err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 			assert.NoError(t, err)
 			var anyJson []map[string]interface{}
 			err = json.Unmarshal(buffer, &anyJson)
@@ -91,7 +91,7 @@ func TestRestClient(t *testing.T) {
 
 			client, err := ably.NewREST(app.Options(options...)...)
 			assert.NoError(t, err)
-			err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+			err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 			assert.NoError(t, err)
 			var anyMsgPack []map[string]interface{}
 			err = ablyutil.UnmarshalMsgpack(buffer, &anyMsgPack)
@@ -332,7 +332,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		defer server.Close()
 		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(newHTTPClientMock(server)))...)...)
 		assert.NoError(t, err)
-		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+		err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 		assert.Error(t, err, "expected an error")
 		return retryCount, hosts
 	}
@@ -376,7 +376,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		}
 		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(httpClientMock))...)...)
 		assert.NoError(t, err)
-		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+		err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 		<-allHostsTried
 		assert.Contains(t, err.Error(), "context deadline exceeded (Client.Timeout exceeded while awaiting headers)")
 		return retryCount, hosts

@@ -553,7 +553,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			"Connect(): want err == nil got err=%v", err)
 		assert.Equal(t, cas.clientID, client.Auth.ClientID(),
 			"%d: want ClientID to be %q; got %s", i, cas.clientID, client.Auth.ClientID())
-		channel := client.Channels.Get("publish")
+		channel := client.Channels.Get(ablytest.UniqueChannelName(t, "publish"))
 		err = channel.Attach(context.Background())
 		assert.NoError(t, err)
 		messages, unsub, err := ablytest.ReceiveMessages(channel, "test")
@@ -745,7 +745,7 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err,
 		"Connect()=%v", err)
-	err = client.Channels.Get("test").Publish(context.Background(), "name", "value")
+	err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "name", "value")
 	assert.NoError(t, err,
 		"Publish()=%v", err)
 	assert.Equal(t, explicitClientID, client.Auth.ClientID(),

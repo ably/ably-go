@@ -717,7 +717,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	assert.NoError(t, err,
 		"Connect=%s", err)
 
-	channel := client.Channels.Get("channel")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
@@ -751,7 +751,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
+	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
 	select {
@@ -857,7 +857,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	assert.NoError(t, err,
 		"Connect=%s", err)
 
-	channel := client.Channels.Get("channel")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
@@ -886,7 +886,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
+	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 	close(goOn)
 
@@ -954,11 +954,11 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 	prevConnId := client.Connection.ID()
 
 	// Increase msgSerial, to test that it doesn't reset later.
-	err = client.Channels.Get("publish").Publish(context.Background(), "test", nil)
+	err = client.Channels.Get(ablytest.UniqueChannelName(t, "publish")).Publish(context.Background(), "test", nil)
 	assert.NoError(t, err)
 	assert.NotZero(t, client.Connection.MsgSerial())
 
-	channel := client.Channels.Get("channel")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -986,7 +986,7 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
+	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
 	continueDial <- struct{}{}
@@ -1066,11 +1066,11 @@ func TestRealtimeConn_RTN15c7_attached(t *testing.T) {
 	prevConnId := client.Connection.ID()
 
 	// Increase msgSerial, to test that it gets reset later.
-	err = client.Channels.Get("publish").Publish(context.Background(), "test", nil)
+	err = client.Channels.Get(ablytest.UniqueChannelName(t, "publish")).Publish(context.Background(), "test", nil)
 	assert.NoError(t, err)
 	assert.NotZero(t, client.Connection.MsgSerial())
 
-	channel := client.Channels.Get("channel")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -1098,7 +1098,7 @@ func TestRealtimeConn_RTN15c7_attached(t *testing.T) {
 
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
+	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
 	continueDial <- struct{}{}
@@ -1146,7 +1146,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	channel := client.Channels.Get("test")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -1167,7 +1167,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
 	for i := 0; i < 3; i++ {
-		err := rest.Channels.Get("test").Publish(context.Background(), "test", fmt.Sprintf("msg %d", i))
+		err := rest.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "test", fmt.Sprintf("msg %d", i))
 		assert.NoError(t, err,
 			"%d: %v", i, err)
 	}
@@ -1909,7 +1909,7 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
-	channel := c.Channels.Get("channel")
+	channel := c.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -1949,9 +1949,9 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		assert.Nil(t, client.Connection.ErrorReason())
 		assert.Equal(t, prevMsgSerial, client.Connection.MsgSerial(),
 			"expected %d got %d", prevMsgSerial, client.Connection.MsgSerial())
-		assert.True(t, client.Channels.Exists("channel"))
-		channelSerial := client.Channels.Get("channel").GetChannelSerial()
-		assert.Equal(t, decodedRecoveryKey.ChannelSerials["channel"], channelSerial)
+		assert.True(t, client.Channels.Exists(ablytest.UniqueChannelName(t, "channel")))
+		channelSerial := client.Channels.Get(ablytest.UniqueChannelName(t, "channel")).GetChannelSerial()
+		assert.Equal(t, decodedRecoveryKey.ChannelSerials[ablytest.UniqueChannelName(t, "channel")], channelSerial)
 	}
 	{ //(RTN16g2)
 		err := ablytest.Wait(ablytest.ConnWaiter(client, client.Close, ably.ConnectionEventClosed), nil)
@@ -2661,7 +2661,7 @@ func Test_RTN7b_ACK_NACK(t *testing.T) {
 
 	// Set things up.
 
-	ch := c.Channels.Get("test")
+	ch := c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	publish, receiveAck := testConcurrentPublisher(t, ch, out)
 
 	// Publish 5 messages, get ACK-2, NACK-1. Then publish 2 more, get
@@ -2772,7 +2772,7 @@ func TestImplicitNACK(t *testing.T) {
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	ch := c.Channels.Get("test")
+	ch := c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	publish, receiveAck := testConcurrentPublisher(t, ch, out)
 
 	for i := 0; i < 4; i++ {
@@ -2829,7 +2829,7 @@ func TestIdempotentACK(t *testing.T) {
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	ch := c.Channels.Get("test")
+	ch := c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	publish, receiveAck := testConcurrentPublisher(t, ch, out)
 	for i := 0; i < 4; i++ {
 		publish()

@@ -42,7 +42,7 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc))
+			assert.True(t, ablytest.WaitFor(testFunc))
 		})
 	}
 }
@@ -87,7 +87,7 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc))
+			assert.True(t, ablytest.WaitFor(testFunc))
 		})
 	}
 }
@@ -112,7 +112,7 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc))
+			assert.True(t, ablytest.WaitFor(testFunc))
 
 		})
 	}
@@ -146,7 +146,7 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc))
+			assert.True(t, ablytest.WaitFor(testFunc))
 		})
 	}
 }
@@ -163,11 +163,11 @@ func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 			Data:     fmt.Sprintf("msg%d", i),
 			ClientID: fmt.Sprintf("client%d", i),
 		}
-		realtime.Channels.Get("test").Presence.EnterClient(context.Background(), m.ClientID, m.Data)
+		realtime.Channels.Get(ablytest.UniqueChannelName(t, "test")).Presence.EnterClient(context.Background(), m.ClientID, m.Data)
 		expectedByConnID[realtime.Connection.ID()] = m
 	}
 
-	channel := rest.Channels.Get("test")
+	channel := rest.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 	var rg ablytest.ResultGroup
 
@@ -189,7 +189,7 @@ func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc),
+			assert.True(t, ablytest.WaitFor(testFunc),
 				"connID %s: %w", connID, err)
 			return nil
 		})

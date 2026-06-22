@@ -69,10 +69,10 @@ func SkipTestRealtimePresence_Sync250_RTP4(t *testing.T) {
 	assert.NoError(t, err)
 	err = ablytest.Wait(ablytest.ConnWaiter(client3, client3.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
-	channel1 := client1.Channels.Get("sync250")
+	channel1 := client1.Channels.Get(ablytest.UniqueChannelName(t, "sync250"))
 	err = channel1.Attach(context.Background())
 	assert.NoError(t, err)
-	channel2 := client2.Channels.Get("sync250")
+	channel2 := client2.Channels.Get(ablytest.UniqueChannelName(t, "sync250"))
 	err = channel2.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -108,7 +108,7 @@ func SkipTestRealtimePresence_Sync250_RTP4(t *testing.T) {
 	err = contains(members2, clients...)
 	assert.NoError(t, err,
 		"members2: %v", err)
-	members3, err := client3.Channels.Get("sync250").Presence.Get(context.Background())
+	members3, err := client3.Channels.Get(ablytest.UniqueChannelName(t, "sync250")).Presence.Get(context.Background())
 	assert.NoError(t, err)
 	err = contains(members3, clients...)
 	assert.NoError(t, err,
@@ -153,11 +153,11 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	client1Channel := client1.Channels.Get("channel")
+	client1Channel := client1.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = client1Channel.Attach(context.Background())
 	assert.NoError(t, err)
 
-	client2Channel := client2.Channels.Get("channel")
+	client2Channel := client2.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = client2Channel.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -212,12 +212,12 @@ func TestRealtimePresence_ServerSynthesized_Leave(t *testing.T) {
 	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	client1Channel := client1.Channels.Get("channel")
+	client1Channel := client1.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = client1Channel.Attach(context.Background())
 
 	assert.NoError(t, err)
 
-	client2Channel := client2.Channels.Get("channel")
+	client2Channel := client2.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = client2Channel.Attach(context.Background())
 	assert.NoError(t, err)
 

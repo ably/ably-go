@@ -45,7 +45,7 @@ func TestRealtimeChannel_Publish(t *testing.T) {
 	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
-	channel := client.Channels.Get("test")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	err = channel.Publish(context.Background(), "hello", "world")
 	assert.NoError(t, err, "Publish()=%v", err)
 }
@@ -55,7 +55,7 @@ func TestRealtimeChannel_PublishAsync(t *testing.T) {
 	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
-	channel := client.Channels.Get("test")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	listen := make(chan error, 1)
 	err = channel.PublishAsync("hello", "world", func(err error) {
 		listen <- err
@@ -75,8 +75,8 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 	err = ablytest.Wait(ablytest.ConnWaiter(client2, client2.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	channel1 := client1.Channels.Get("test")
-	channel2 := client2.Channels.Get("test")
+	channel1 := client1.Channels.Get(ablytest.UniqueChannelName(t, "test"))
+	channel2 := client2.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 	err = channel1.Attach(context.Background())
 	assert.NoError(t, err,
@@ -164,9 +164,9 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	restChannel := restClient.Channels.Get("test")
+	restChannel := restClient.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	rtDerivedChannel, err := realtimeClient.Channels.GetDerived("[?param=1]test", filter)
-	realtimeChannel := realtimeClient.Channels.Get("test")
+	realtimeChannel := realtimeClient.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	assert.NoError(t, err, "realtimeChannel: GetDerived()=%v", err)
 
 	filteredMessages := make(chan *ably.Message, 10)
@@ -235,7 +235,7 @@ func TestRealtimeChannel_AttachWhileDisconnected(t *testing.T) {
 		}))
 	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
-	channel := client.Channels.Get("test")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
@@ -319,8 +319,8 @@ func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 
 	assert.Equal(t, int64(1024), client2.Connection.ReadLimit())
 
-	channel1 := client1.Channels.Get("test")
-	channel2 := client2.Channels.Get("test")
+	channel1 := client1.Channels.Get(ablytest.UniqueChannelName(t, "test"))
+	channel2 := client2.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 	err = channel1.Attach(context.Background())
 	assert.NoError(t, err, "client1: Attach()=%v", err)
@@ -355,7 +355,7 @@ func TestRealtimeChannels_Release(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Log("getting test channel")
-	channel := client.Channels.Get("test")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	channelStateChanges := make(ably.ChannelStateChanges, 10)
 	off := channel.OnAll(channelStateChanges.Receive)
 	defer off()
@@ -372,7 +372,7 @@ func TestRealtimeChannels_Release(t *testing.T) {
 	assert.Equal(t, ably.ChannelStateAttached, channelStatechange.Current)
 
 	t.Log("releasing test channel")
-	err = client.Channels.Release(ctx, "test")
+	err = client.Channels.Release(ctx, ablytest.UniqueChannelName(t, "test"))
 	assert.NoError(t, err)
 
 	t.Log("checking test channel is detached")
@@ -382,6 +382,6 @@ func TestRealtimeChannels_Release(t *testing.T) {
 	assert.Equal(t, ably.ChannelStateDetached, channelStatechange.Current)
 
 	t.Log("checking test channel is released")
-	exists := client.Channels.Exists("test")
+	exists := client.Channels.Exists(ablytest.UniqueChannelName(t, "test"))
 	assert.False(t, exists)
 }
