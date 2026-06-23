@@ -121,6 +121,10 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 		ably.WithRealtimeRequestTimeout(10*time.Millisecond),
 		ably.WithAutoConnect(false),
 	)
+	// Best-effort close to stop the connection's background reconnect loop. This
+	// uses a MessagePipe transport that can't complete a CLOSE handshake, so
+	// don't wait for the CLOSED state (FullRealtimeCloser) — that wait flakes.
+	defer client.Close()
 
 	states := make(ably.ConnStateChanges, 10)
 	{
