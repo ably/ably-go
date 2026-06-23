@@ -154,6 +154,12 @@ func (p *PaginatedResult) next(ctx context.Context, into interface{}) bool {
 	}
 	p.first = false
 
+	if p.res == nil {
+		// The initial page load failed (e.g. an error response such as 401),
+		// leaving no response to decode. The load error was returned from
+		// Pages/Items; don't dereference a nil response here.
+		return false
+	}
 	p.err = decodeResp(p.res, into)
 	return p.err == nil
 }
