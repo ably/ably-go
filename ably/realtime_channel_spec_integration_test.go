@@ -167,6 +167,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
@@ -2249,6 +2254,11 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
@@ -2377,6 +2387,11 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
@@ -2602,6 +2617,11 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
@@ -2799,6 +2819,11 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
