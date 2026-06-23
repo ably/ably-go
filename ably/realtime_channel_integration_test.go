@@ -310,7 +310,7 @@ func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 	defer safeclose(t, ablytest.FullRealtimeCloser(client1))
 
 	client2 := app.NewRealtime(ably.WithEchoMessages(false))
-	client2.Connection.SetReadLimit(1024) // set read limit explicitly to 1 mb.
+	client2.Connection.SetReadLimit(1024) // set read limit explicitly to 1 KiB.
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client1, client1.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
@@ -331,11 +331,15 @@ func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 	assert.NoError(t, err, "client2:.Subscribe(context.Background())=%v", err)
 	defer unsub2()
 
-	messageWith2MbSize := ablyutil.GenerateRandomString(2048)
-	err = channel1.Publish(context.Background(), "hello", messageWith2MbSize)
+	// 2 KiB, comfortably over client2's 1 KiB read limit.
+	oversizedMessage := ablyutil.GenerateRandomString(2048)
+	err = channel1.Publish(context.Background(), "hello", oversizedMessage)
 	assert.NoError(t, err, "client1: Publish()=%v", err)
 
-	err = ablytest.Wait(ablytest.ConnWaiter(client2, nil, ably.ConnectionEventClosed), nil)
+	// Exceeding the read limit is unrecoverable (resuming would redeliver the
+	// same oversized message), so the connection fails rather than endlessly
+	// reconnecting.
+	err = ablytest.Wait(ablytest.ConnWaiter(client2, nil, ably.ConnectionEventFailed), nil)
 	assert.NotNil(t, err)
 	errorInfo := err.(*ably.ErrorInfo)
 	assert.Equal(t, "failed to read: read limited at 1025 bytes", errorInfo.Unwrap().Error())

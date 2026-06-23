@@ -789,6 +789,14 @@ func (c *Connection) eventloop() {
 				c.mtx.Unlock()
 				return
 			}
+			if isMessageTooBigErr(err) {
+				// A message exceeding the read limit is unrecoverable: resuming
+				// would redeliver the same oversized message and fail again, so
+				// reconnecting just spins. Fail the connection instead.
+				c.lockSetState(ConnectionStateFailed, err, 0)
+				c.mtx.Unlock()
+				return
+			}
 			// RTN23a, RTN15a
 			c.lockSetState(ConnectionStateDisconnected, err, 0)
 			c.mtx.Unlock()

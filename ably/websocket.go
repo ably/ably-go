@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -145,6 +146,26 @@ func extractHttpResponseFromError(err error) *http.Response {
 		return wsErr.resp
 	}
 	return nil
+}
+
+// isMessageTooBigErr reports whether err is the error coder/websocket returns
+// when an incoming message exceeds the connection's read limit. This condition
+// is not recoverable by resuming — the same oversized message would be
+// redelivered — so the connection should fail rather than reconnect.
+//
+// coder/websocket's limitReader returns a plain fmt.Errorf("read limited at N
+// bytes") (not a CloseError) on the read that trips the limit, and only emits a
+// StatusMessageTooBig close frame to the peer. There is no exported sentinel, so
+// match the message text as well as the close status (the latter covers the
+// case where the peer initiated the too-big close).
+func isMessageTooBigErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if websocket.CloseStatus(err) == websocket.StatusMessageTooBig {
+		return true
+	}
+	return strings.Contains(err.Error(), "read limited at")
 }
 
 func setConnectionReadLimit(c conn, readLimit int64) error {
