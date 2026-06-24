@@ -16,9 +16,8 @@ import (
 )
 
 func TestRESTChannel_MessageUpdates(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
-	defer app.Close()
 
 	client, err := ably.NewREST(app.Options()...)
 	require.NoError(t, err)
@@ -222,9 +221,8 @@ func TestRESTChannel_MessageUpdates(t *testing.T) {
 }
 
 func TestRealtimeChannel_MessageUpdates(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
-	defer app.Close()
 
 	client, err := ably.NewRealtime(app.Options()...)
 	require.NoError(t, err)

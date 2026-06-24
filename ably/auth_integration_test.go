@@ -42,7 +42,6 @@ func TestAuth_BasicAuth(t *testing.T) {
 	defer rec.Stop()
 	opts := []ably.ClientOption{ably.WithQueryTime(true)}
 	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
-	defer safeclose(t, app)
 
 	_, err := client.Time(context.Background())
 	assert.NoError(t, err,
@@ -110,8 +109,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 		ably.WithUseTokenAuth(true),
 		ably.WithQueryTime(true),
 	}
-	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
-	defer safeclose(t, app)
+	_, client := ablytest.NewREST(append(opts, extraOpt...)...)
 
 	beforeAuth := time.Now().Add(-time.Second)
 	_, err := client.Time(context.Background())
@@ -159,7 +157,6 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	defer rec.Stop()
 	opts := []ably.ClientOption{ably.WithUseTokenAuth(true)}
 	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
-	defer safeclose(t, app)
 
 	params := &ably.TokenParams{
 		TTL: time.Second.Milliseconds(),
@@ -217,7 +214,6 @@ func TestAuth_RequestToken(t *testing.T) {
 	}
 	defer rec.Stop()
 	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
-	defer safeclose(t, app)
 	server := ablytest.MustAuthReverseProxy(app.Options(append(opts, extraOpt...)...)...)
 	defer safeclose(t, server)
 
@@ -348,8 +344,7 @@ func TestAuth_RequestToken(t *testing.T) {
 func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 
 	t.Run("Get JWT from echo server", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
-		defer safeclose(t, app)
+		app := ablytest.MustSandbox()
 		jwt, err := app.CreateJwt(3*time.Second, false)
 		assert.NoError(t, err)
 		assert.True(t, strings.HasPrefix(jwt, "ey"))
@@ -380,8 +375,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 	})
 
 	t.Run("Should be able to use it as a token", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
-		defer safeclose(t, app)
+		app := ablytest.MustSandbox()
 		jwt, err := app.CreateJwt(3*time.Second, false)
 		assert.NoError(t, err)
 		assert.True(t, strings.HasPrefix(jwt, "ey"))
@@ -407,8 +401,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 	})
 
 	t.Run("RSA8g, RSA3d: Should be able to authenticate using authURL", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
-		defer safeclose(t, app)
+		app := ablytest.MustSandbox()
 
 		rec, optn := ablytest.NewHttpRecorder()
 		rest, err := ably.NewREST(
@@ -441,8 +434,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 	})
 
 	t.Run("RSA8g, RSA3d: Should be able to authenticate using authCallback", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
-		defer safeclose(t, app)
+		app := ablytest.MustSandbox()
 
 		jwtToken := ""
 		authCallback := ably.WithAuthCallback(func(ctx context.Context, tp ably.TokenParams) (ably.Tokener, error) {
@@ -478,8 +470,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 	})
 
 	t.Run("RSA4e, RSA4b: Should return error when JWT is invalid", func(t *testing.T) {
-		app := ablytest.MustSandbox(nil)
-		defer safeclose(t, app)
+		app := ablytest.MustSandbox()
 
 		rec, optn := ablytest.NewHttpRecorder()
 		rest, err := ably.NewREST(
@@ -505,8 +496,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 
 func TestAuth_ReuseClientID(t *testing.T) {
 	opts := []ably.ClientOption{ably.WithUseTokenAuth(true)}
-	app, client := ablytest.NewREST(opts...)
-	defer safeclose(t, app)
+	_, client := ablytest.NewREST(opts...)
 
 	params := &ably.TokenParams{
 		ClientID: "reuse-me",
@@ -526,8 +516,7 @@ func TestAuth_ReuseClientID(t *testing.T) {
 }
 
 func TestAuth_RequestToken_PublishClientID(t *testing.T) {
-	app := ablytest.MustSandbox(nil)
-	defer safeclose(t, app)
+	app := ablytest.MustSandbox()
 	cases := []struct {
 		authAs    string
 		publishAs string
@@ -564,7 +553,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 			"Connect(): want err == nil got err=%v", err)
 		assert.Equal(t, cas.clientID, client.Auth.ClientID(),
 			"%d: want ClientID to be %q; got %s", i, cas.clientID, client.Auth.ClientID())
-		channel := client.Channels.Get("publish")
+		channel := client.Channels.Get(ablytest.UniqueChannelName(t, "publish"))
 		err = channel.Attach(context.Background())
 		assert.NoError(t, err)
 		messages, unsub, err := ablytest.ReceiveMessages(channel, "test")
@@ -597,8 +586,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 func TestAuth_ClientID(t *testing.T) {
 	in := make(chan *ably.ProtocolMessage, 16)
 	out := make(chan *ably.ProtocolMessage, 16)
-	app := ablytest.MustSandbox(nil)
-	defer safeclose(t, app)
+	app := ablytest.MustSandbox()
 	opts := []ably.ClientOption{
 		ably.WithUseTokenAuth(true),
 	}
@@ -694,7 +682,6 @@ func TestAuth_ClientID(t *testing.T) {
 
 func TestAuth_CreateTokenRequest(t *testing.T) {
 	app, client := ablytest.NewREST()
-	defer safeclose(t, app)
 
 	opts := []ably.AuthOption{
 		ably.AuthWithQueryTime(true),
@@ -753,13 +740,12 @@ func TestAuth_RealtimeAccessToken(t *testing.T) {
 		ably.WithDial(rec.Dial),
 		ably.WithUseTokenAuth(true),
 	}
-	app, client := ablytest.NewRealtime(opts...)
-	defer safeclose(t, app)
+	_, client := ablytest.NewRealtime(opts...)
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err,
 		"Connect()=%v", err)
-	err = client.Channels.Get("test").Publish(context.Background(), "name", "value")
+	err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "name", "value")
 	assert.NoError(t, err,
 		"Publish()=%v", err)
 	assert.Equal(t, explicitClientID, client.Auth.ClientID(),
@@ -853,7 +839,6 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 
 	for _, test := range tests {
 		app, client := ablytest.NewREST(append(test.opt, extraOpt...)...)
-		defer safeclose(t, app)
 		prevTokenParams := client.Auth.Params()
 		prevAuthOptions := client.Auth.AuthOptions()
 		prevUseQueryTime := prevAuthOptions.UseQueryTime
@@ -882,8 +867,7 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 }
 
 func TestAuth_RSA7c(t *testing.T) {
-	app := ablytest.MustSandbox(nil)
-	defer safeclose(t, app)
+	app := ablytest.MustSandbox()
 	opts := app.Options()
 	opts = append(opts, ably.WithClientID("*"))
 	_, err := ably.NewREST(opts...)

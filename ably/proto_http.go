@@ -27,9 +27,21 @@ const (
 	ablySDKIdentifier   = "ably-go/" + clientLibraryVersion // RSC7d1
 )
 
+// AblyAgentHeaderName is the name of the Ably-Agent header (RSC7d), exported for
+// use by test helpers that issue their own requests to Ably.
+const AblyAgentHeaderName = ablyAgentHeader
+
 var goRuntimeIdentifier = func() string {
 	return fmt.Sprintf("%s/%s", clientRuntimeName, runtime.Version()[2:])
 }()
+
+// AgentIdentifier returns the value the library sends in the Ably-Agent header
+// (RSC7d) for the given additional agents. It is exported so that test helpers
+// can identify their own requests to Ably with the same agent string the client
+// uses, without duplicating the library version.
+func AgentIdentifier(agents map[string]string) string {
+	return ablyAgentIdentifier(agents)
+}
 
 func ablyAgentIdentifier(agents map[string]string) string {
 	identifiers := []string{

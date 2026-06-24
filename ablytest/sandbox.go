@@ -3,6 +3,7 @@ package ablytest
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,92 +14,117 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/ably/ably-go/ably"
 )
 
+// Key is a single API key as returned in the /apps response.
 type Key struct {
 	ID         string `json:"id,omitempty"`
-	ScopeID    string `json:"scopeId,omitempty"`
-	Status     int    `json:"status,omitempty"`
-	Type       int    `json:"type,omitempty"`
 	Value      string `json:"value,omitempty"`
-	Created    int    `json:"created,omitempty"`
-	Modified   int    `json:"modified,omitempty"`
 	Capability string `json:"capability,omitempty"`
-	Expires    int    `json:"expired,omitempty"`
-	Privileged bool   `json:"privileged,omitempty"`
 }
 
-type Namespace struct {
-	ID              string `json:"id"`
-	Created         int    `json:"created,omitempty"`
-	Modified        int    `json:"modified,omitempty"`
-	Persisted       bool   `json:"persisted,omitempty"`
-	MutableMessages bool   `json:"mutableMessages,omitempty"`
+// Config holds the fields of the /apps response that the test helpers need: the
+// app ID and the provisioned API keys. The request body is no longer built from
+// this struct — it is the static appspec JSON (see loadAppSetup).
+type Config struct {
+	AppID string `json:"appId,omitempty"`
+	Keys  []Key  `json:"keys"`
 }
 
+// Presence describes a presence fixture member provisioned on the
+// persisted:presence_fixtures channel by the appspec. It is decoded directly
+// from the appspec JSON, so it is the single source of truth for what the
+// presence tests expect the channel to return.
 type Presence struct {
 	ClientID string `json:"clientId"`
 	Data     string `json:"data"`
 	Encoding string `json:"encoding,omitempty"`
 }
 
-type Channel struct {
+// PresenceFixtures returns the presence members provisioned on the
+// persisted:presence_fixtures channel, read from the appspec JSON. client_encoded
+// is the cipher-encrypted form of client_decoded's data; tests that read it back
+// must configure the channel cipher (see PresenceFixturesCipher) to decode it.
+func PresenceFixtures() []Presence {
+	for _, ch := range loadAppSetup().channels() {
+		if ch.Name == presenceFixturesChannel {
+			return ch.Presence
+		}
+	}
+	panic(fmt.Sprintf("appspec has no %q channel", presenceFixturesChannel))
+}
+
+const presenceFixturesChannel = "persisted:presence_fixtures"
+
+// appSetup mirrors the structure of the shared appspec JSON
+// (common/test-resources/test-app-setup.json). PostApps is kept as raw bytes so
+// the /apps request body can be forwarded to the server verbatim; the parts the
+// helpers need to read back (presence fixtures) are decoded separately from
+// those same bytes by the typed accessors below.
+type appSetup struct {
+	PostApps json.RawMessage `json:"post_apps"`
+	Cipher   struct {
+		Algorithm string `json:"algorithm"`
+		Mode      string `json:"mode"`
+		KeyLength int    `json:"keylength"`
+		Key       string `json:"key"`
+		IV        string `json:"iv"`
+	} `json:"cipher"`
+}
+
+type appSetupChannel struct {
 	Name     string     `json:"name"`
-	Presence []Presence `json:"presence,omitempty"`
+	Presence []Presence `json:"presence"`
 }
 
-type Connection struct {
-	Name string `json:"name"`
-	Key  string `json:"key"`
-}
-
-type Config struct {
-	ID          string       `json:"id,omitempty"`
-	AppID       string       `json:"appId,omitempty"`
-	AccountID   string       `json:"accountId,omitempty"`
-	Status      int          `json:"status,omitempty"`
-	Created     int          `json:"created,omitempty"`
-	Modified    int          `json:"modified,omitempty"`
-	TLSOnly     bool         `json:"tlsOnly,omitempty"`
-	Labels      string       `json:"labels,omitempty"`
-	Keys        []Key        `json:"keys"`
-	Namespaces  []Namespace  `json:"namespaces"`
-	Channels    []Channel    `json:"channels"`
-	Connections []Connection `json:"connections,omitempty"`
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		Keys: []Key{
-			{
-				Capability: `{"[*]*":["*"]}`,
-			},
-		},
-		Namespaces: []Namespace{
-			{ID: "persisted", Persisted: true},
-			{ID: "mutable", MutableMessages: true},
-		},
-		Channels: []Channel{
-			{
-				Name:     "persisted:presence_fixtures",
-				Presence: PresenceFixtures(),
-			},
-		},
+// channels decodes the channel fixtures from the post_apps body.
+func (s appSetup) channels() []appSetupChannel {
+	var body struct {
+		Channels []appSetupChannel `json:"channels"`
 	}
+	if err := json.Unmarshal(s.PostApps, &body); err != nil {
+		panic(err)
+	}
+	return body.Channels
 }
 
-var PresenceFixtures = func() []Presence {
-	return []Presence{
-		{ClientID: "client_bool", Data: "true"},
-		{ClientID: "client_int", Data: "true"},
-		{ClientID: "client_string", Data: "true"},
-		{ClientID: "client_json", Data: `{"test": "This is a JSONObject clientData payload"}`},
+var loadAppSetup = sync.OnceValue(func() appSetup {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		panic(errors.New("could not determine ablytest source location"))
 	}
+	p := filepath.Join(filepath.Dir(thisFile), "..", "common", "test-resources", "test-app-setup.json")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		panic(fmt.Errorf("reading appspec %q (is the ably-common submodule checked out?): %w", p, err))
+	}
+	var setup appSetup
+	if err := json.Unmarshal(data, &setup); err != nil {
+		panic(err)
+	}
+	return setup
+})
+
+// PresenceFixturesCipher returns the cipher params used to encrypt the
+// client_encoded presence fixture, so tests can decode it on read.
+func PresenceFixturesCipher() ably.CipherParams {
+	key, err := base64.StdEncoding.DecodeString(loadAppSetup().Cipher.Key)
+	if err != nil {
+		panic(err)
+	}
+	return ably.Crypto.GetDefaultParams(ably.CipherParams{
+		Algorithm: ably.CipherAES,
+		Key:       key,
+	})
 }
 
 type Sandbox struct {
@@ -108,48 +134,72 @@ type Sandbox struct {
 }
 
 func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
-	app := MustSandbox(nil)
+	app := MustSandbox()
 	client, err := ably.NewRealtime(app.Options(opts...)...)
 	if err != nil {
-		panic(nonil(err, app.Close()))
+		panic(err)
 	}
 	return app, client
 }
 
 func NewREST(opts ...ably.ClientOption) (*Sandbox, *ably.REST) {
-	app := MustSandbox(nil)
+	app := MustSandbox()
 	client, err := ably.NewREST(app.Options(opts...)...)
 	if err != nil {
-		panic(nonil(err, app.Close()))
+		panic(err)
 	}
 	return app, client
 }
 
-func MustSandbox(config *Config) *Sandbox {
-	app, err := NewSandbox(nil)
+// MustSandbox returns the shared sandbox app (see NewSandbox) and panics if
+// provisioning fails.
+func MustSandbox() *Sandbox {
+	app, err := NewSandbox()
 	if err != nil {
 		panic(err)
 	}
 	return app
 }
 
-func NewSandbox(config *Config) (*Sandbox, error) {
-	return NewSandboxWithEndpoint(config, Endpoint)
+// NewSandbox returns the process-wide shared sandbox app, provisioning it on
+// first call. Every test uses this single app, provisioned from the shared
+// appspec; isolation between tests is by channel name rather than by app. Tests
+// that call Close on it are no-ops — the shared app is torn down once via
+// CloseSharedApp (see TestMain).
+func NewSandbox() (*Sandbox, error) {
+	sharedAppRequested.Store(true)
+	return sharedApp()
 }
 
-func NewSandboxWithEndpoint(config *Config, endpoint string) (*Sandbox, error) {
+var (
+	sharedAppRequested atomic.Bool
+	sharedApp          = sync.OnceValues(func() (*Sandbox, error) {
+		return provisionSandbox(Endpoint)
+	})
+)
+
+// CloseSharedApp deletes the shared app if it was provisioned. It is intended to
+// be called once from TestMain after all tests have run. If no test requested
+// the shared app it does nothing (so teardown never provisions an app just to
+// delete it), and it propagates any provisioning error rather than masking it.
+func CloseSharedApp() error {
+	if !sharedAppRequested.Load() {
+		return nil
+	}
+	app, err := sharedApp()
+	if err != nil {
+		return err
+	}
+	return app.delete()
+}
+
+func provisionSandbox(endpoint string) (*Sandbox, error) {
 	app := &Sandbox{
-		Config:   config,
+		Config:   &Config{},
 		Endpoint: endpoint,
 		client:   NewHTTPClient(),
 	}
-	if app.Config == nil {
-		app.Config = DefaultConfig()
-	}
-	p, err := json.Marshal(app.Config)
-	if err != nil {
-		return nil, err
-	}
+	p := []byte(loadAppSetup().PostApps)
 
 	const RetryCount = 4
 	retryInterval := time.Second
@@ -160,6 +210,7 @@ func NewSandboxWithEndpoint(config *Config, endpoint string) (*Sandbox, error) {
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
+		req.Header.Set(ably.AblyAgentHeaderName, ably.AgentIdentifier(nil))
 		resp, err := app.client.Do(req)
 		if err != nil {
 			if !errors.Is(err, syscall.ECONNRESET) { // if not connection reset by peer
@@ -194,12 +245,13 @@ func NewSandboxWithEndpoint(config *Config, endpoint string) (*Sandbox, error) {
 	return nil, fmt.Errorf("Failed to request sandbox app after %d attempts.", RetryCount)
 }
 
-func (app *Sandbox) Close() error {
+func (app *Sandbox) delete() error {
 	req, err := http.NewRequest("DELETE", app.URL("apps", app.Config.AppID), nil)
 	if err != nil {
 		return err
 	}
 	req.SetBasicAuth(app.KeyParts())
+	req.Header.Set(ably.AblyAgentHeaderName, ably.AgentIdentifier(nil))
 	resp, err := app.client.Do(req)
 	if err != nil {
 		return err
@@ -219,8 +271,27 @@ func (app *Sandbox) NewRealtime(opts ...ably.ClientOption) *ably.Realtime {
 	return client
 }
 
+// wildcardCapability is the all-resources, all-operations capability. The shared
+// appspec provisions several keys with differing capabilities; the tests expect
+// a single all-powerful key, so KeyParts selects the one carrying this
+// capability (in particular [*]* is required for qualified/derived channels,
+// which the default capability does not grant).
+const wildcardCapability = `{"[*]*":["*"]}`
+
 func (app *Sandbox) KeyParts() (name, secret string) {
-	return app.Config.AppID + "." + app.Config.Keys[0].ID, app.Config.Keys[0].Value
+	key := app.wildcardKey()
+	return app.Config.AppID + "." + key.ID, key.Value
+}
+
+func (app *Sandbox) wildcardKey() Key {
+	for _, k := range app.Config.Keys {
+		if k.Capability == wildcardCapability {
+			return k
+		}
+	}
+	// Fall back to the first key if no wildcard key is present, so behaviour is
+	// well-defined even if the appspec changes.
+	return app.Config.Keys[0]
 }
 
 func (app *Sandbox) Key() string {

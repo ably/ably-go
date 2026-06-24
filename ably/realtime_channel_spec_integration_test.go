@@ -22,15 +22,15 @@ import (
 func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
 
 	t.Run(fmt.Sprintf("on %s", ably.ChannelStateAttaching), func(t *testing.T) {
-		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
-		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+		_, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 		connectAndWait(t, realtime)
 
 		changes := make(chan ably.ChannelStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
 
-		channel := realtime.Channels.Get("test")
+		channel := realtime.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 		channel.On(ably.ChannelEventAttaching, func(change ably.ChannelStateChange) {
 			changes <- change
@@ -44,24 +44,24 @@ func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
 
 	t.Run(fmt.Sprintf("on %s", ably.ChannelStateAttached), func(t *testing.T) {
 
-		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
-		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+		_, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 		connectAndWait(t, realtime)
 
-		channel := realtime.Channels.Get("test")
+		channel := realtime.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 		attachAndWait(t, channel)
 	})
 
 	t.Run(fmt.Sprintf("on %s", ably.ChannelStateDetaching), func(t *testing.T) {
 
-		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
-		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+		_, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 		connectAndWait(t, realtime)
 
-		channel := realtime.Channels.Get("test")
+		channel := realtime.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 		attachAndWait(t, channel)
 
@@ -80,12 +80,12 @@ func TestRealtimeChannel_RTL2_ChannelEventForStateChange(t *testing.T) {
 
 	t.Run(fmt.Sprintf("on %s", ably.ChannelStateDetached), func(t *testing.T) {
 
-		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
-		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+		_, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 		connectAndWait(t, realtime)
 
-		channel := realtime.Channels.Get("test")
+		channel := realtime.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 		attachAndWait(t, channel)
 
@@ -167,6 +167,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
@@ -177,7 +182,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 		assert.NoError(t, err)
 
-		channel = c.Channels.Get("test")
+		channel = c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 		stateChanges = make(ably.ChannelStateChanges, 10)
 		return
 	}
@@ -208,16 +213,15 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4b: If connection state is INITIALIZED, CLOSING, CLOSED returns error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -283,9 +287,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4b: If connection state is FAILED, returns error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 
@@ -298,7 +301,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -325,9 +328,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4b: If connection state is SUSPENDED, returns error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 
@@ -342,7 +344,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -370,11 +372,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		recorder := NewMessageRecorder()
 
-		app, client := ablytest.NewRealtime(
+		_, client := ablytest.NewRealtime(
 			ably.WithAutoConnect(false),
 			ably.WithDial(recorder.Dial))
 
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 		connectionStateChanges := make(ably.ConnStateChanges, 10)
 		off := client.Connection.OnAll(connectionStateChanges.Receive)
@@ -392,7 +394,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		assert.Equal(t, ably.ConnectionStateConnected, connectionChange.Current,
 			"expected %v; got %v (event: %+v)", ably.ConnectionStateConnected, connectionChange.Current, connectionChange)
 
-		channel := client.Channels.Get("test")
+		channel := client.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -426,9 +428,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4d : should return error on FAILED while attaching channel", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -442,7 +443,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -476,9 +477,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4d : should return error on DETACHED while attaching channel", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -492,7 +492,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -527,9 +527,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4d : should return error on SUSPENDED while attaching channel", func(t *testing.T) {
 		t.Skip("Channel SUSPENDED not implemented yet")
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -543,7 +542,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -578,9 +577,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4e: Transition to failed if no attach permission", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		rest, _ := ably.NewREST(app.Options()...)
 		var params ably.TokenParams
@@ -646,9 +644,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4g: If channel in FAILED state, set err to null and proceed with attach", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -661,7 +658,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -717,9 +714,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4h: If channel is ATTACHING, listen to the attach event and don't send attach event", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -732,7 +728,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -782,9 +778,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4h: If channel is DETACHING, do attach after completion of request", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -797,7 +792,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -866,9 +861,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4i : If connection state is CONNECTING, do ATTACH after CONNECTED", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -880,7 +874,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -922,9 +916,8 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4i : If connection state is DISCONNECTED, do ATTACH after CONNECTED", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -938,7 +931,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -1031,12 +1024,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4j1: AttachResume should be True when Attached (Clean ATTACH)", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		defer safeclose(t, app)
 
 		c, closer := TransitionConn(t, nil, app.Options()...)
 		defer safeclose(t, closer)
@@ -1048,7 +1039,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -1095,7 +1086,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		app, client := ablytest.NewRealtime(
 			ably.WithAutoConnect(false))
 
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 		client1 := app.NewRealtime(
 			ably.WithAutoConnect(false))
@@ -1154,11 +1145,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	t.Run("RTL4k: If params given channel options, should be sent in ATTACH message", func(t *testing.T) {
 
 		recorder := NewMessageRecorder()
-		app, client := ablytest.NewRealtime(
+		_, client := ablytest.NewRealtime(
 			ably.WithAutoConnect(false),
 			ably.WithDial(recorder.Dial))
 
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 
@@ -1187,10 +1178,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4k1: If params given channel options, should be exposed as readonly field on ATTACHED message", func(t *testing.T) {
 
-		app, client := ablytest.NewRealtime(
+		_, client := ablytest.NewRealtime(
 			ably.WithAutoConnect(false))
 
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 
@@ -1225,11 +1216,11 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 
 	t.Run("RTL4l: If modes provided in channelOptions, should be encoded as bitfield and set as flags field of ATTACH message", func(t *testing.T) {
 		recorder := NewMessageRecorder()
-		app, client := ablytest.NewRealtime(
+		_, client := ablytest.NewRealtime(
 			ably.WithAutoConnect(false),
 			ably.WithDial(recorder.Dial))
 
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 
 		channelModes := []ably.ChannelMode{ably.ChannelModePresence, ably.ChannelModePublish, ably.ChannelModeSubscribe}
@@ -1252,10 +1243,10 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 	})
 
 	t.Run("RTL4m: If modes provides while attach, should receive modes in attached message", func(t *testing.T) {
-		app, client := ablytest.NewRealtime(
+		_, client := ablytest.NewRealtime(
 			ably.WithAutoConnect(false))
 
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 		ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 
 		channelModes := []ably.ChannelMode{ably.ChannelModePresence, ably.ChannelModePublish, ably.ChannelModeSubscribe}
@@ -1318,16 +1309,15 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 		assert.NoError(t, err)
 
-		channel = c.Channels.Get("test")
+		channel = c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 		stateChanges = make(ably.ChannelStateChanges, 10)
 		return
 	}
 
 	t.Run("RTL5a: If channel is INITIALIZED or DETACHED, do nothing", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -1339,7 +1329,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -1401,9 +1391,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5b: If channel state is FAILED, return error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -1415,7 +1404,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -1451,12 +1440,12 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 	t.Run("RTL5d RTL5e: If connected, should do successful detach with server", func(t *testing.T) {
 
 		recorder := NewMessageRecorder()
-		app, client := ablytest.NewRealtime(
+		_, client := ablytest.NewRealtime(
 			ably.WithAutoConnect(false),
 			ably.WithDial(recorder.Dial),
 		)
 
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 		connectionStateChanges := make(ably.ConnStateChanges, 10)
 		off := client.Connection.OnAll(connectionStateChanges.Receive)
@@ -1474,7 +1463,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 		assert.Equal(t, ably.ConnectionStateConnected, connectionChange.Current,
 			"expected %v; got %v (event: %+v)", ably.ConnectionStateConnected, connectionChange.Current, connectionChange)
 
-		channel := client.Channels.Get("test")
+		channel := client.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -1519,9 +1508,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5e: return error if channel detach fails", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -1533,7 +1521,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -1624,10 +1612,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5g: If connection state CLOSING or FAILED, should return error", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -1637,7 +1623,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			connected,
 		)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -1690,9 +1676,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5h : If Connection state CONNECTING, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -1702,7 +1687,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			connected,
 		)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -1761,9 +1746,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5h, RTN19b: If Connection state DISCONNECTED, queue the DETACH message and send on CONNECTED", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -1773,7 +1757,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 			connected,
 		)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -1831,10 +1815,8 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 	t.Run("RTL5i: If channel in DETACHING or ATTACHING state, do detach after completion of operation", func(t *testing.T) {
 
-		app, err := ablytest.NewSandbox(nil)
+		app, err := ablytest.NewSandbox()
 		assert.NoError(t, err)
-
-		defer safeclose(t, app)
 
 		recorder := NewMessageRecorder()
 		c, closer := TransitionConn(t, recorder.Dial, app.Options()...)
@@ -1846,7 +1828,7 @@ func TestRealtimeChannel_RTL5_Detach(t *testing.T) {
 
 		defer safeclose(t, closer)
 
-		channelTransitioner := c.Channel("test")
+		channelTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 		channel := channelTransitioner.Channel
 
 		channelStateChanges := make(ably.ChannelStateChanges, 10)
@@ -1983,9 +1965,8 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 		transition := transition // Don't share between test goroutines.
 		t.Run(fmt.Sprintf("when %s", state), func(t *testing.T) {
 
-			app, err := ablytest.NewSandbox(nil)
+			app, err := ablytest.NewSandbox()
 			assert.NoError(t, err)
-			defer safeclose(t, app)
 
 			c, closer := TransitionConn(t, nil, app.Options()...)
 			defer safeclose(t, closer)
@@ -1996,7 +1977,7 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 			)
 			defer safeclose(t, closer)
 
-			chanTransitioner := c.Channel("test")
+			chanTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 			channel, closer := chanTransitioner.To(transition...)
 			defer safeclose(t, closer)
 
@@ -2011,7 +1992,7 @@ func TestRealtimeChannel_RTL6c1_PublishNow(t *testing.T) {
 
 			msg := make(messages, 1)
 
-			_, err = subClient.Channels.Get("test").SubscribeAll(context.Background(), msg.Receive)
+			_, err = subClient.Channels.Get(ablytest.UniqueChannelName(t, "test")).SubscribeAll(context.Background(), msg.Receive)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				t.Fatal(err)
 			}
@@ -2101,9 +2082,8 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 
 		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
 
-			app, err := ablytest.NewSandbox(nil)
+			app, err := ablytest.NewSandbox()
 			assert.NoError(t, err)
-			defer safeclose(t, app)
 
 			recorder := NewMessageRecorder()
 
@@ -2113,7 +2093,7 @@ func TestRealtimeChannel_RTL6c2_PublishEnqueue(t *testing.T) {
 			closer = c.To(trans.connBefore...)
 			defer safeclose(t, closer)
 
-			chanTransitioner := c.Channel("test")
+			chanTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 			channel, closer := chanTransitioner.To(trans.channel...)
 			defer safeclose(t, closer)
 
@@ -2200,9 +2180,8 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 
 		t.Run(fmt.Sprintf("when connection is %v, channel is %v", connTarget, chanTarget), func(t *testing.T) {
 
-			app, err := ablytest.NewSandbox(nil)
+			app, err := ablytest.NewSandbox()
 			assert.NoError(t, err)
-			defer safeclose(t, app)
 
 			recorder := NewMessageRecorder()
 
@@ -2212,7 +2191,7 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 			closer = c.To(trans.connBefore...)
 			defer safeclose(t, closer)
 
-			chanTransitioner := c.Channel("test")
+			chanTransitioner := c.Channel(ablytest.UniqueChannelName(t, "test"))
 			channel, closer := chanTransitioner.To(trans.channel...)
 			defer safeclose(t, closer)
 
@@ -2238,13 +2217,13 @@ func TestRealtimeChannel_RTL6c4_PublishFail(t *testing.T) {
 
 func TestRealtimeChannel_RTL6c5_NoImplicitAttach(t *testing.T) {
 
-	app, c := ablytest.NewRealtime()
-	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
+	_, c := ablytest.NewRealtime()
+	defer safeclose(t, ablytest.FullRealtimeCloser(c))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	channel := c.Channels.Get("test")
+	channel := c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	err = channel.Publish(context.Background(), "test", nil)
 	assert.NoError(t, err)
 
@@ -2275,6 +2254,11 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
@@ -2285,7 +2269,7 @@ func TestRealtimeChannel_RTL2f_RTL12_HandleResume(t *testing.T) {
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 		assert.NoError(t, err)
 
-		channel = c.Channels.Get("test")
+		channel = c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -2403,6 +2387,11 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
@@ -2413,7 +2402,7 @@ func TestRealtimeChannel_RTL13_HandleDetached(t *testing.T) {
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 		assert.NoError(t, err)
 
-		channel = c.Channels.Get("test")
+		channel = c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -2628,6 +2617,11 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
@@ -2638,7 +2632,7 @@ func TestRealtimeChannel_RTL17_IgnoreMessagesWhenNotAttached(t *testing.T) {
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 		assert.NoError(t, err)
 
-		channel = c.Channels.Get("test")
+		channel = c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 		stateChanges = make(ably.ChannelStateChanges, 10)
 		channel.OnAll(stateChanges.Receive)
@@ -2756,7 +2750,7 @@ func Test_UpdateEmptyMessageFields_TM2a_TM2c_TM2f(t *testing.T) {
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 		assert.NoError(t, err)
 
-		channel = c.Channels.Get("test")
+		channel = c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 		stateChanges := make(ably.ChannelStateChanges, 10)
 		channel.OnAll(stateChanges.Receive)
@@ -2825,6 +2819,11 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 			ably.WithChannelRetryTimeout(channelRetryTimeout),
 			ably.WithDial(MessagePipe(in, out)),
 		)
+		// Close the client when the subtest ends. Otherwise the abandoned
+		// connection keeps redialing the (mock) transport in the background for
+		// the rest of the run — a CPU-spinning reconnect loop that leaks across
+		// every subtest.
+		t.Cleanup(func() { c.Close() })
 
 		in <- &ably.ProtocolMessage{
 			Action:            ably.ActionConnected,
@@ -2835,7 +2834,7 @@ func TestRealtimeChannel_RTL14_HandleChannelError(t *testing.T) {
 		err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 		assert.NoError(t, err)
 
-		channel = c.Channels.Get("test")
+		channel = c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

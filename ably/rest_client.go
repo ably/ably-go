@@ -895,6 +895,9 @@ func decode(typ string, r io.Reader, out interface{}) error {
 }
 
 func decodeResp(resp *http.Response, out interface{}) error {
+	if resp == nil {
+		return newErrorf(50000, "decodeResp: nil response")
+	}
 	defer resp.Body.Close()
 	typ, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if err != nil {

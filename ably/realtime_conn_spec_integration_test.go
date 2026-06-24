@@ -106,7 +106,7 @@ func Test_RTN3_ConnectionAutoConnect(t *testing.T) {
 
 	recorder := NewMessageRecorder()
 
-	app, client := ablytest.NewRealtime(
+	_, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(true),
 		ably.WithDial(recorder.Dial))
 
@@ -114,7 +114,7 @@ func Test_RTN3_ConnectionAutoConnect(t *testing.T) {
 	off := client.Connection.OnAll(connectionStateChanges.Receive)
 	defer off()
 
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	var connectionChange ably.ConnectionStateChange
 
@@ -128,8 +128,8 @@ func Test_RTN3_ConnectionAutoConnect(t *testing.T) {
 func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnecting), func(t *testing.T) {
 
-		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
-		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+		_, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 		changes := make(chan ably.ConnectionStateChange)
 		defer ablytest.Instantly.NoRecv(t, nil, changes, t.Errorf)
@@ -145,8 +145,8 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateConnected), func(t *testing.T) {
 
-		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
-		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+		_, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 		connectAndWait(t, realtime)
 	})
@@ -158,8 +158,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 			ably.WithAutoConnect(false),
 			ably.WithDial(dial),
 		}
-		app, realtime := ablytest.NewRealtime(options...)
-		defer safeclose(t, app)
+		_, realtime := ablytest.NewRealtime(options...)
 		defer realtime.Close()
 
 		connectAndWait(t, realtime)
@@ -185,8 +184,8 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosing), func(t *testing.T) {
 
-		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
-		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+		_, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 		connectAndWait(t, realtime)
 
@@ -203,8 +202,8 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 
 	t.Run(fmt.Sprintf("on %s", ably.ConnectionStateClosed), func(t *testing.T) {
 
-		app, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
-		defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+		_, realtime := ablytest.NewRealtime(ably.WithAutoConnect(false))
+		defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 		connectAndWait(t, realtime)
 
@@ -351,8 +350,8 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	}
 
 	t.Run("RTN12a: transition to closed on connection close", func(t *testing.T) {
-		app, client, _ := setUpWithEOF()
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		_, client, _ := setUpWithEOF()
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 		stateChange := make(connectionStateChanges, 2)
 		client.Connection.OnAll(stateChange.Receive)
@@ -446,8 +445,8 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12c: transition to closed on transport error", func(t *testing.T) {
-		app, client, doEOF := setUpWithEOF()
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		_, client, doEOF := setUpWithEOF()
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 		stateChange := make(connectionStateChanges, 2)
 		client.Connection.OnAll(stateChange.Receive)
@@ -671,8 +670,8 @@ func TestRealtimeConn_RTN12_Connection_Close(t *testing.T) {
 	})
 
 	t.Run("RTN12f: transition to closed when close is called intermittently", func(t *testing.T) {
-		app, client, interrupt, waitTillConnecting := setUpWithConnectingInterrupt()
-		defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+		_, client, interrupt, waitTillConnecting := setUpWithConnectingInterrupt()
+		defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 		stateChange := make(ably.ConnStateChanges, 10)
 		off := client.Connection.OnAll(stateChange.Receive)
@@ -712,13 +711,13 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 		}))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err,
 		"Connect=%s", err)
 
-	channel := client.Channels.Get("channel")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
@@ -752,7 +751,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
+	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
 	select {
@@ -852,13 +851,13 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 				m.Add(msg)
 			}}, err
 		}))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err,
 		"Connect=%s", err)
 
-	channel := client.Channels.Get("channel")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
@@ -887,7 +886,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
 	goOn := <-gotDial
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
+	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 	close(goOn)
 
@@ -948,18 +947,18 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 				doEOF: doEOF,
 			}, err
 		}))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err, "Connect=%s", err)
 	prevConnId := client.Connection.ID()
 
 	// Increase msgSerial, to test that it doesn't reset later.
-	err = client.Channels.Get("publish").Publish(context.Background(), "test", nil)
+	err = client.Channels.Get(ablytest.UniqueChannelName(t, "publish")).Publish(context.Background(), "test", nil)
 	assert.NoError(t, err)
 	assert.NotZero(t, client.Connection.MsgSerial())
 
-	channel := client.Channels.Get("channel")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -987,7 +986,7 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
+	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
 	continueDial <- struct{}{}
@@ -1060,18 +1059,18 @@ func TestRealtimeConn_RTN15c7_attached(t *testing.T) {
 				doEOF: doEOF,
 			}, err
 		}))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err, "Connect=%s", err)
 	prevConnId := client.Connection.ID()
 
 	// Increase msgSerial, to test that it gets reset later.
-	err = client.Channels.Get("publish").Publish(context.Background(), "test", nil)
+	err = client.Channels.Get(ablytest.UniqueChannelName(t, "publish")).Publish(context.Background(), "test", nil)
 	assert.NoError(t, err)
 	assert.NotZero(t, client.Connection.MsgSerial())
 
-	channel := client.Channels.Get("channel")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -1099,7 +1098,7 @@ func TestRealtimeConn_RTN15c7_attached(t *testing.T) {
 
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
-	err = rest.Channels.Get("channel").Publish(context.Background(), "name", "data")
+	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
 	continueDial <- struct{}{}
@@ -1142,12 +1141,12 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 		}))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	channel := client.Channels.Get("test")
+	channel := client.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -1168,7 +1167,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 	rest, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
 	for i := 0; i < 3; i++ {
-		err := rest.Channels.Get("test").Publish(context.Background(), "test", fmt.Sprintf("msg %d", i))
+		err := rest.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "test", fmt.Sprintf("msg %d", i))
 		assert.NoError(t, err,
 			"%d: %v", i, err)
 	}
@@ -1197,13 +1196,13 @@ func TestRealtimeConn_RTN15e_ConnKeyUpdatedOnReconnect(t *testing.T) {
 
 	doEOF := make(chan struct{}, 1)
 
-	app, client := ablytest.NewRealtime(
+	_, client := ablytest.NewRealtime(
 		ably.WithAutoConnect(false),
 		ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 			c, err := ably.DialWebsocket(protocol, u, timeout)
 			return protoConnWithFakeEOF{Conn: c, doEOF: doEOF}, err
 		}))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
@@ -1719,8 +1718,7 @@ func TestRealtimeConn_RTN15h3_Success(t *testing.T) {
 
 func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.T) {
 	t.Parallel()
-	app, restClient := ablytest.NewREST()
-	defer safeclose(t, app)
+	_, restClient := ablytest.NewREST()
 	recorder := NewMessageRecorder()
 
 	authCallbackTokens := []string{}
@@ -1779,8 +1777,7 @@ func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.
 }
 
 func TestRealtimeConn_RTN22_RTC8_Integration_ServerInitiatedAuth(t *testing.T) {
-	app, restClient := ablytest.NewREST()
-	defer safeclose(t, app)
+	_, restClient := ablytest.NewREST()
 
 	recorder := NewMessageRecorder()
 	authCallbackTokens := []string{}
@@ -1908,11 +1905,11 @@ func TestRealtimeConn_RTN15i_OnErrorWhenConnected(t *testing.T) {
 
 func TestRealtimeConn_RTN16(t *testing.T) {
 	app, c := ablytest.NewRealtime()
-	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(c))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
-	channel := c.Channels.Get("channel")
+	channel := c.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = channel.Attach(context.Background())
 	assert.NoError(t, err)
 
@@ -1952,9 +1949,9 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		assert.Nil(t, client.Connection.ErrorReason())
 		assert.Equal(t, prevMsgSerial, client.Connection.MsgSerial(),
 			"expected %d got %d", prevMsgSerial, client.Connection.MsgSerial())
-		assert.True(t, client.Channels.Exists("channel"))
-		channelSerial := client.Channels.Get("channel").GetChannelSerial()
-		assert.Equal(t, decodedRecoveryKey.ChannelSerials["channel"], channelSerial)
+		assert.True(t, client.Channels.Exists(ablytest.UniqueChannelName(t, "channel")))
+		channelSerial := client.Channels.Get(ablytest.UniqueChannelName(t, "channel")).GetChannelSerial()
+		assert.Equal(t, decodedRecoveryKey.ChannelSerials[ablytest.UniqueChannelName(t, "channel")], channelSerial)
 	}
 	{ //(RTN16g2)
 		err := ablytest.Wait(ablytest.ConnWaiter(client, client.Close, ably.ConnectionEventClosed), nil)
@@ -2664,7 +2661,7 @@ func Test_RTN7b_ACK_NACK(t *testing.T) {
 
 	// Set things up.
 
-	ch := c.Channels.Get("test")
+	ch := c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	publish, receiveAck := testConcurrentPublisher(t, ch, out)
 
 	// Publish 5 messages, get ACK-2, NACK-1. Then publish 2 more, get
@@ -2775,7 +2772,7 @@ func TestImplicitNACK(t *testing.T) {
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	ch := c.Channels.Get("test")
+	ch := c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	publish, receiveAck := testConcurrentPublisher(t, ch, out)
 
 	for i := 0; i < 4; i++ {
@@ -2832,7 +2829,7 @@ func TestIdempotentACK(t *testing.T) {
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
 
-	ch := c.Channels.Get("test")
+	ch := c.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 	publish, receiveAck := testConcurrentPublisher(t, ch, out)
 	for i := 0; i < 4; i++ {
 		publish()
@@ -2911,7 +2908,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 			return resp.token, resp.err
 		}),
 	)
-	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(c))
 
 	stateChanges := make(ably.ConnStateChanges, 1)
 	off := c.Connection.OnAll(stateChanges.Receive)
@@ -3019,8 +3016,7 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 
 	t.Run("RTC8a4, RSA3d: reauthorize with JWT token", func(t *testing.T) {
 		t.Parallel()
-		app := ablytest.MustSandbox(nil)
-		defer safeclose(t, app)
+		app := ablytest.MustSandbox()
 
 		authCallbackTokens := []string{}
 		tokenExpiry := 3 * time.Second

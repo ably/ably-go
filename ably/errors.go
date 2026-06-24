@@ -57,12 +57,26 @@ func (c ErrorCode) String() string {
 		return "Batch error"
 	case 40021:
 		return "Feature requires a newer platform version"
+	case 40022:
+		return "API Streamer has been shut down"
+	case 40023:
+		return "Action requires a newer protocol version"
+	case 40024:
+		return "unable to get channel history (incompatible site)"
+	case 40025:
+		return "API no longer supported"
 	case 40030:
 		return "Invalid publish request (unspecified)"
 	case 40031:
 		return "Invalid publish request (invalid client-specified id)"
 	case 40032:
 		return "Invalid publish request (impermissible extras field)"
+	case 40033:
+		return "Operation cancelled"
+	case 40034:
+		return "Invalid publish request (maximum number of messages per ChannelMessage exceeded)"
+	case 40035:
+		return "integration rule messageFilter regex must be RE2-compatible; backreferences and lookaround aren't supported"
 	case 40099:
 		return "Reserved for artifical errors for testing"
 	case 40100:
@@ -131,10 +145,18 @@ func (c ErrorCode) String() string {
 		return "operation not permitted with a token, requires basic auth"
 	case 40163:
 		return "operation not permitted, key not marked as permitting revocable tokens"
+	case 40164:
+		return "channel state disabled"
 	case 40170:
 		return "error from client token callback"
 	case 40171:
 		return "no means provided to renew auth token"
+	case 40172:
+		return "operation only permitted with token auth"
+	case 40180:
+		return "unable to send location notification; location notifications can only be sent using token authentication"
+	case 40181:
+		return "unable to send location notification; no location token for device"
 	case 40300:
 		return "forbidden"
 	case 40310:
@@ -153,10 +175,20 @@ func (c ErrorCode) String() string {
 		return "not found"
 	case 40500:
 		return "method not allowed"
+	case 40900:
+		return "conflict"
 	case 41001:
 		return "push device registration expired"
 	case 42200:
-		return "Unprocessable entity"
+		return "unprocessable content"
+	case 42210:
+		return "content rejected (unspecified)"
+	case 42211:
+		return "content rejected by before publish integration"
+	case 42212:
+		return "content rejected by validation"
+	case 42213:
+		return "content rejected by moderation"
 	case 42910:
 		return "rate limit exceeded (nonfatal): request rejected (unspecified)"
 	case 42911:
@@ -167,6 +199,10 @@ func (c ErrorCode) String() string {
 		return "rate limit exceeded (fatal)"
 	case 42921:
 		return "max per-connection publish rate limit exceeded (fatal); closing connection"
+	case 42922:
+		return "rate limit exceeded; too many requests"
+	case 42923:
+		return "channel integration responded with rate limited error"
 	case 50000:
 		return "internal error"
 	case 50001:
@@ -201,6 +237,10 @@ func (c ErrorCode) String() string {
 		return "reactor operation failed (maximum number of concurrent in-flight requests exceeded)"
 	case 70004:
 		return "reactor operation failed (invalid or unaccepted message contents)"
+	case 70005:
+		return "unable to deliver AMQP message (unspecified timeout)"
+	case 70006:
+		return "unable to deliver AMQP message (cluster busy)"
 	case 71000:
 		return "Exchange error (unspecified)"
 	case 71001:
@@ -229,6 +269,24 @@ func (c ErrorCode) String() string {
 		return "Requester has no subscription to this product"
 	case 71303:
 		return "Channel does not match the channel filter specified in the subscription to this product"
+	case 72000:
+		return "ingress operation failed"
+	case 72001:
+		return "ingress failed to publish message"
+	case 72002:
+		return "ingress table is unhealthy"
+	case 72003:
+		return "ingress cannot connect to database"
+	case 72004:
+		return "ingress cannot identify channel, no _ablyChannel field"
+	case 72005:
+		return "ingress invalid pipeline"
+	case 72006:
+		return "unable to resume from change stream"
+	case 72007:
+		return "unable to store change stream resume token"
+	case 72008:
+		return "change stream history lost"
 	case 80000:
 		return "connection failed"
 	case 80001:
@@ -273,6 +331,12 @@ func (c ErrorCode) String() string {
 		return "continuity loss due to maximum subscribe message rate exceeded"
 	case 80021:
 		return "exceeded maximum permitted account-wide rate of creating new connections"
+	case 80022:
+		return "unable to continue current comet connection"
+	case 80023:
+		return "unable to resume connection from a different site"
+	case 80024:
+		return "protocol version is no longer supported"
 	case 80030:
 		return "client restriction not satisfied"
 	case 90000:
@@ -291,6 +355,8 @@ func (c ErrorCode) String() string {
 		return "unable to recover channel (unbounded request)"
 	case 90007:
 		return "channel operation failed (no response from server)"
+	case 90008:
+		return "unable to get channel history (attach point not found)"
 	case 90010:
 		return "maximum number of channels per connection/request exceeded"
 	case 90021:
@@ -307,8 +373,32 @@ func (c ErrorCode) String() string {
 		return "unable to automatically re-enter presence channel"
 	case 91005:
 		return "presence state is out of sync"
+	case 91006:
+		return "unable to enter presence channel (maximum presence set data size exceeded)"
 	case 91100:
 		return "member implicitly left presence channel (connection closed)"
+	case 92000:
+		return "invalid object message"
+	case 92001:
+		return "objects limit exceeded"
+	case 92002:
+		return "unable to submit operation on tombstone object"
+	case 92003:
+		return "unable to fetch object tree with tombstone object as root"
+	case 92004:
+		return "object not found"
+	case 92005:
+		return "no objects found matching operation path"
+	case 92006:
+		return "unable to perform operation without objectId or path"
+	case 92007:
+		return "operation not processable on path"
+	case 92008:
+		return "unable to apply objects operation; objects sync did not complete"
+	case 93001:
+		return "attempt to add an annotation listener without having requested the annotation_subscribe channel mode in ChannelOptions, which won't do anything (we only deliver annotations to clients who have explicitly requested them)"
+	case 93002:
+		return "unable to perform operation; this operation can only be performed on channel in a namespace with Mutable Messages enabled"
 	case 101000:
 		return "must have a non-empty name for the space"
 	case 101001:
@@ -319,6 +409,70 @@ func (c ErrorCode) String() string {
 		return "lock is currently locked"
 	case 101004:
 		return "lock was invalidated by a concurrent lock request which now holds the lock"
+	case 102000:
+		return "chat room name is invalid"
+	case 102001:
+		return "room attachment failed (messages)"
+	case 102002:
+		return "room attachment failed (presence)"
+	case 102003:
+		return "room attachment failed (reactions)"
+	case 102004:
+		return "room attachment failed (occupancy)"
+	case 102005:
+		return "room attachment failed (typing)"
+	case 102050:
+		return "room detachment failed (messages)"
+	case 102051:
+		return "room detachment failed (presence)"
+	case 102052:
+		return "room detachment failed (reactions)"
+	case 102053:
+		return "room detachment failed (occupancy)"
+	case 102054:
+		return "room detachment failed (typing)"
+	case 102100:
+		return "room discontinuity"
+	case 102101:
+		return "unable to perform operation; room is in failed state"
+	case 102102:
+		return "unable to perform operation; room is releasing"
+	case 102103:
+		return "unable to perform operation; room is released"
+	case 102104:
+		return "unable to perform operation; existing attempt failed"
+	case 102105:
+		return "unknown room lifecycle error"
+	case 102106:
+		return "room was released before the operation could complete"
+	case 102107:
+		return "a room already exists with different options"
+	case 102108:
+		return "feature is not enabled in room options"
+	case 102109:
+		return "listener has not been subscribed yet"
+	case 102110:
+		return "channel serial is not defined when expected"
+	case 102111:
+		return "channel options cannot be modified after the channel has been requested"
+	case 102112:
+		return "cannot perform operation because the room is in an invalid state"
+	case 102113:
+		return "failed to enforce sequential execution of the operation"
+	case 102200:
+		return "react hook must be used within the appropriate provider"
+	case 102201:
+		return "react component has been unmounted"
+	case 102202:
+		return "failed to fetch presence data after maximum retries"
+	case 103000:
+		return "unable to publish push notification"
+	case 103001:
+		return "unable to publish push notification, retries exhausted"
+	case 103002:
+		return "unable to publish push notification, no recipient for direct publish"
+	case 103003:
+		return "unable to publish push notification, cannot handle body"
 	}
 	return ""
 }

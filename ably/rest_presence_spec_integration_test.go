@@ -5,10 +5,12 @@ package ably_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/ably/ably-go/ably"
@@ -22,12 +24,12 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
 
 			app, rest := ablytest.NewREST()
-			defer app.Close()
-			channel := rest.Channels.Get("persisted:test")
+			channelName := ablytest.ChannelName("persisted:test")
+			channel := rest.Channels.Get(channelName)
 
 			fixtures := presenceHistoryFixtures()
-			realtime := postPresenceHistoryFixtures(t, context.Background(), app, "persisted:test", fixtures)
-			defer safeclose(t, realtime, app)
+			realtime := postPresenceHistoryFixtures(t, context.Background(), app, channelName, fixtures)
+			defer safeclose(t, realtime)
 
 			var err error
 			testFunc := func() bool {
@@ -40,7 +42,7 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc))
+			assert.True(t, ablytest.WaitFor(testFunc))
 		})
 	}
 }
@@ -63,11 +65,12 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
 
 			app, rest := ablytest.NewREST()
-			channel := rest.Channels.Get("persisted:test")
+			channelName := ablytest.ChannelName("persisted:test")
+			channel := rest.Channels.Get(channelName)
 
 			fixtures := presenceHistoryFixtures()
-			realtime := postPresenceHistoryFixtures(t, context.Background(), app, "persisted:test", fixtures)
-			defer safeclose(t, realtime, app)
+			realtime := postPresenceHistoryFixtures(t, context.Background(), app, channelName, fixtures)
+			defer safeclose(t, realtime)
 
 			expected := c.expected
 
@@ -84,7 +87,7 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc))
+			assert.True(t, ablytest.WaitFor(testFunc))
 		})
 	}
 }
@@ -93,9 +96,8 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
 
-			app, rest := ablytest.NewREST()
-			defer app.Close()
-			channel := rest.Channels.Get("persisted:presence_fixtures")
+			_, rest := ablytest.NewREST()
+			channel := presenceFixturesChannel(rest)
 
 			expected := persistedPresenceFixtures()
 
@@ -110,7 +112,7 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc))
+			assert.True(t, ablytest.WaitFor(testFunc))
 
 		})
 	}
@@ -124,9 +126,8 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 		clientID := clientID
 		t.Run(fmt.Sprintf("clientID=%v", clientID), func(t *testing.T) {
 
-			app, rest := ablytest.NewREST()
-			defer app.Close()
-			channel := rest.Channels.Get("persisted:presence_fixtures")
+			_, rest := ablytest.NewREST()
+			channel := presenceFixturesChannel(rest)
 
 			expected := persistedPresenceFixtures(func(p ablytest.Presence) bool {
 				return p.ClientID == clientID
@@ -145,14 +146,13 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc))
+			assert.True(t, ablytest.WaitFor(testFunc))
 		})
 	}
 }
 
 func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 	app, rest := ablytest.NewREST()
-	defer app.Close()
 
 	expectedByConnID := map[string]ably.Message{}
 
@@ -163,11 +163,11 @@ func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 			Data:     fmt.Sprintf("msg%d", i),
 			ClientID: fmt.Sprintf("client%d", i),
 		}
-		realtime.Channels.Get("test").Presence.EnterClient(context.Background(), m.ClientID, m.Data)
+		realtime.Channels.Get(ablytest.UniqueChannelName(t, "test")).Presence.EnterClient(context.Background(), m.ClientID, m.Data)
 		expectedByConnID[realtime.Connection.ID()] = m
 	}
 
-	channel := rest.Channels.Get("test")
+	channel := rest.Channels.Get(ablytest.UniqueChannelName(t, "test"))
 
 	var rg ablytest.ResultGroup
 
@@ -189,7 +189,7 @@ func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
 				)
 				return err == nil
 			}
-			assert.True(t, ablytest.Soon.IsTrue(testFunc),
+			assert.True(t, ablytest.WaitFor(testFunc),
 				"connID %s: %w", connID, err)
 			return nil
 		})
@@ -257,6 +257,45 @@ func presenceEqual(x, y interface{}) bool {
 		reflect.DeepEqual(mx.Data, my.Data)
 }
 
+// presenceFixturesChannelName is the channel pre-populated with presence
+// members by the appspec. It contains a cipher-encoded member (client_encoded),
+// so reads must configure the channel cipher to decode it.
+const presenceFixturesChannelName = "persisted:presence_fixtures"
+
+// presenceFixturesChannel returns the presence-fixtures channel configured with
+// the cipher needed to decode the client_encoded fixture member.
+func presenceFixturesChannel(rest *ably.REST) *ably.RESTChannel {
+	return rest.Channels.Get(
+		presenceFixturesChannelName,
+		ably.ChannelWithCipher(ablytest.PresenceFixturesCipher()),
+	)
+}
+
+// expectedFixtureData returns the data a presence fixture member is expected to
+// have once the client has decoded it, mirroring Message decoding (TM3): members
+// with a "json" encoding decode to a Go value; the cipher-encoded member decodes
+// to the same value as its plaintext twin (client_decoded).
+func expectedFixtureData(p ablytest.Presence) interface{} {
+	if strings.Contains(p.Encoding, "json") {
+		var v interface{}
+		if err := json.Unmarshal([]byte(decodedFixtureJSON(p)), &v); err != nil {
+			panic(err)
+		}
+		return v
+	}
+	return p.Data
+}
+
+// decodedFixtureJSON returns the plaintext JSON string for a json-encoded
+// fixture member. For the cipher-encoded member this is the known plaintext
+// shared with client_decoded; otherwise the data is already plaintext JSON.
+func decodedFixtureJSON(p ablytest.Presence) string {
+	if p.ClientID == "client_encoded" {
+		return `{"example":{"json":"Object"}}`
+	}
+	return p.Data
+}
+
 func persistedPresenceFixtures(filter ...func(ablytest.Presence) bool) []interface{} {
 	var expected []interface{}
 fixtures:
@@ -270,7 +309,7 @@ fixtures:
 			Action: ably.PresenceActionPresent,
 			Message: ably.Message{
 				ClientID: p.ClientID,
-				Data:     p.Data,
+				Data:     expectedFixtureData(p),
 			},
 		})
 	}

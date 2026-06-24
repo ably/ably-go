@@ -8,7 +8,10 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/ably/ably-go/ably"
@@ -18,6 +21,45 @@ var Timeout = 30 * time.Second
 var NoBinaryProtocol bool
 var DefaultLogLevel = ably.LogNone
 var Endpoint = "nonprod:sandbox"
+
+var channelNameCounter atomic.Uint64
+
+// ChannelName returns a process-unique channel name based on base. Because all
+// tests share a single sandbox app, channel state (history, presence) is no
+// longer isolated per app; tests that assert on the full state of a channel must
+// use a unique name to avoid colliding with other tests. Any namespace prefix in
+// base (the part before the first ":") is preserved, since it selects channel
+// behaviour such as persistence.
+//
+// For example ChannelName("persisted:test") might return
+// "persisted:test-42".
+func ChannelName(base string) string {
+	return fmt.Sprintf("%s-%d", base, channelNameCounter.Add(1))
+}
+
+// channelNameSanitizer maps characters that are unsafe in a channel name
+// (notably ":" which separates the namespace, and "/" and spaces from subtest
+// names) to "_".
+var channelNameSanitizer = strings.NewReplacer(":", "_", "/", "_", " ", "_")
+
+// UniqueChannelName returns a channel name unique to the calling test and stable
+// across multiple calls within the same (sub)test, so that every client in a
+// test addresses the same channel while different tests never share one.
+//
+// All tests run against a single shared sandbox app, so reusing a fixed channel
+// name (e.g. "test") across tests causes their connections and presence members
+// to accumulate on one channel, inflating server-side message fan-out. Deriving
+// the name from t.Name() keeps each test's channels isolated. Unlike
+// [ChannelName], repeated calls within a test return the same name.
+//
+// Any namespace prefix in base (the part before the first ":") is preserved.
+func UniqueChannelName(t *testing.T, base string) string {
+	ns, name := "", base
+	if i := strings.IndexByte(base, ':'); i >= 0 {
+		ns, name = base[:i+1], base[i+1:]
+	}
+	return ns + name + "-" + channelNameSanitizer.Replace(t.Name())
+}
 
 func nonil(err ...error) error {
 	for _, err := range err {

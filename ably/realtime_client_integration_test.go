@@ -388,8 +388,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testin
 	fallbackHost := "sandbox-a-fallback.ably-realtime.com"
 	connAttempts := 0
 
-	app := ablytest.MustSandbox(nil)
-	defer safeclose(t, app)
+	app := ablytest.MustSandbox()
 	jwt, err := app.CreateJwt(30*time.Second, false)
 	assert.NoError(t, err)
 
@@ -414,7 +413,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testin
 		}),
 		ably.WithEndpoint(serverURL.Host))
 
-	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
@@ -437,8 +436,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
 	requestTimeout := 2 * time.Second
 	connAttempts := 0
 
-	app := ablytest.MustSandbox(nil)
-	defer safeclose(t, app)
+	app := ablytest.MustSandbox()
 	jwt, err := app.CreateJwt(30*time.Second, false)
 	assert.NoError(t, err)
 
@@ -466,7 +464,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
 		}),
 		ably.WithEndpoint(serverURL.Host))
 
-	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 	err = ablytest.Wait(ablytest.ConnWaiter(realtime, realtime.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err)
@@ -494,10 +492,9 @@ func TestRealtime_multiple(t *testing.T) {
 	const N = 3
 	var all ablytest.ResultGroup
 	var wg sync.WaitGroup
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err,
 		"NewSandbox()=%v", err)
-	defer safeclose(t, app)
 	wg.Add(N)
 	idch := make(chan string, N)
 	keych := make(chan string, N)
@@ -571,6 +568,6 @@ func TestRealtime_multiple(t *testing.T) {
 
 func TestRealtime_DontCrashOnCloseWhenEchoOff(t *testing.T) {
 
-	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 }

@@ -25,9 +25,8 @@ import (
 )
 
 func TestRESTChannel(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	options := app.Options()
 	client, err := ably.NewREST(options...)
 	assert.NoError(t, err)
@@ -142,9 +141,8 @@ func TestRESTChannel(t *testing.T) {
 }
 
 func TestIdempotentPublishing(t *testing.T) {
-	app, err := ablytest.NewSandboxWithEndpoint(nil, ablytest.Endpoint)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	options := app.Options(ably.WithIdempotentRESTPublishing(true))
 	client, err := ably.NewREST(options...)
 	assert.NoError(t, err)
@@ -295,9 +293,8 @@ func TestIdempotentPublishing(t *testing.T) {
 }
 
 func TestIdempotent_retry(t *testing.T) {
-	app, err := ablytest.NewSandboxWithEndpoint(nil, ablytest.Endpoint)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	randomStr, err := ablyutil.BaseID()
 	assert.NoError(t, err)
 	t.Run("when there is a network failure triggering an automatic retry (#RSL1k4)", func(t *testing.T) {

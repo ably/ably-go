@@ -25,8 +25,8 @@ var connTransitions = []ably.ConnectionState{
 
 func TestRealtimeConn_AutoConnect_And_Close(t *testing.T) {
 	var rec ablytest.ConnStatesRecorder
-	app, client := ablytest.NewRealtime()
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime()
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	off := rec.Listen(client)
 	defer off()
 
@@ -48,8 +48,8 @@ func TestRealtimeConn_No_AutoConnect(t *testing.T) {
 	opts := []ably.ClientOption{
 		ably.WithAutoConnect(false),
 	}
-	app, client := ablytest.NewRealtime(opts...)
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(opts...)
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 	off := rec.Listen(client)
 	defer off()
 
@@ -68,8 +68,8 @@ func TestRealtimeConn_No_AutoConnect(t *testing.T) {
 }
 
 func TestRealtimeConn_AlreadyConnected(t *testing.T) {
-	app, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(ably.WithAutoConnect(false))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err,
@@ -116,12 +116,15 @@ func TestRealtimeConn_ReceiveTimeout(t *testing.T) {
 	}
 	in <- connected
 
-	app, client := ablytest.NewRealtime(
+	_, client := ablytest.NewRealtime(
 		ably.WithDial(MessagePipe(in, out, MessagePipeWithNowFunc(time.Now))),
 		ably.WithRealtimeRequestTimeout(10*time.Millisecond),
 		ably.WithAutoConnect(false),
 	)
-	defer safeclose(t, app)
+	// Best-effort close to stop the connection's background reconnect loop. This
+	// uses a MessagePipe transport that can't complete a CLOSE handshake, so
+	// don't wait for the CLOSED state (FullRealtimeCloser) — that wait flakes.
+	defer client.Close()
 
 	states := make(ably.ConnStateChanges, 10)
 	{
@@ -167,10 +170,10 @@ func TestRealtimeConn_BreakConnLoopOnInactiveState(t *testing.T) {
 			in := make(chan *ably.ProtocolMessage)
 			out := make(chan *ably.ProtocolMessage, 16)
 
-			app, client := ablytest.NewRealtime(
+			_, client := ablytest.NewRealtime(
 				ably.WithDial(MessagePipe(in, out)),
 			)
-			defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+			defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 			connected := &ably.ProtocolMessage{
 				Action:            ably.ActionConnected,
@@ -228,8 +231,8 @@ func TestRealtimeConn_SendErrorReconnects(t *testing.T) {
 		}, nil
 	})
 
-	app, c := ablytest.NewRealtime(ably.WithDial(dial))
-	defer safeclose(t, ablytest.FullRealtimeCloser(c), app)
+	_, c := ablytest.NewRealtime(ably.WithDial(dial))
+	defer safeclose(t, ablytest.FullRealtimeCloser(c))
 
 	allowDial <- struct{}{}
 
@@ -245,7 +248,7 @@ func TestRealtimeConn_SendErrorReconnects(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		e := c.Channels.Get("test").Publish(ctx, "test", nil)
+		e := c.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(ctx, "test", nil)
 		publishErr <- e
 	}()
 
@@ -294,12 +297,12 @@ func TestRealtimeConn_ReconnectFromSuspendedState(t *testing.T) {
 	dialErr <- nil
 	msgReceiveErr <- nil
 
-	app, c := ablytest.NewRealtime(ably.WithDial(dial),
+	_, c := ablytest.NewRealtime(ably.WithDial(dial),
 		ably.WithDisconnectedRetryTimeout(time.Second),
 		ably.WithSuspendedRetryTimeout(time.Second))
 	defer func() {
 		msgReceiveErr <- nil // receive safe close event
-		safeclose(t, ablytest.FullRealtimeCloser(c), app)
+		safeclose(t, ablytest.FullRealtimeCloser(c))
 	}()
 
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)
@@ -353,12 +356,12 @@ func TestRealtimeConn_PreviousConnectionsAreClosed(t *testing.T) {
 	// Allow successful connection
 	msgReceiveErr <- nil
 
-	app, c := ablytest.NewRealtime(ably.WithDial(dial),
+	_, c := ablytest.NewRealtime(ably.WithDial(dial),
 		ably.WithDisconnectedRetryTimeout(time.Second),
 		ably.WithSuspendedRetryTimeout(time.Second))
 	defer func() {
 		msgReceiveErr <- nil // receive safe close event
-		safeclose(t, ablytest.FullRealtimeCloser(c), app)
+		safeclose(t, ablytest.FullRealtimeCloser(c))
 	}()
 
 	err := ablytest.Wait(ablytest.ConnWaiter(c, c.Connect, ably.ConnectionEventConnected), nil)

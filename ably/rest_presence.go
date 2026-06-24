@@ -212,6 +212,7 @@ type fullPresenceDecoder struct {
 }
 
 func (t *fullPresenceDecoder) UnmarshalJSON(b []byte) error {
+	*t.dst = nil
 	err := json.Unmarshal(b, &t.dst)
 	if err != nil {
 		return err
@@ -225,6 +226,12 @@ func (t *fullPresenceDecoder) CodecEncodeSelf(*codec.Encoder) {
 }
 
 func (t *fullPresenceDecoder) CodecDecodeSelf(decoder *codec.Decoder) {
+	// Reset the destination before decoding: the same decoder (wrapping the same
+	// destination slice) is reused across pages by the items iterator, and the
+	// msgpack codec reuses existing slice elements when decoding into a non-empty
+	// slice. Those elements still hold the previous page's already-decoded Data
+	// values, which corrupts decoding of the next page (RSP/pagination).
+	*t.dst = nil
 	decoder.MustDecode(&t.dst)
 	t.decodeMessagesData()
 }

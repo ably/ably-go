@@ -109,3 +109,30 @@ func (wt WithTimeout) IsTrue(pred func() bool) bool {
 		}
 	}
 }
+
+// waitForMaxBackoff is the longest interval [WaitFor] waits between attempts.
+// The schedule is try-immediately then 1s, 2s, 4s, ... doubling up to this cap.
+const waitForMaxBackoff = 16 * time.Second
+
+// WaitFor repeatedly evaluates pred until it returns true or the backoff
+// schedule is exhausted, returning whether pred ever succeeded.
+//
+// Unlike [WithTimeout.IsTrue], which polls every 10ms, WaitFor backs off
+// exponentially: it tries immediately, then waits 1s, 2s, 4s, 8s, 16s between
+// attempts (~31s total). Use it for predicates that make requests against the
+// Ably service — e.g. polling REST history or presence for eventually-consistent
+// data. A slow or rate-limited predicate is then retried a handful of times
+// rather than ~100 times per second, which would otherwise turn a transient
+// failure into a sustained request flood against the shared sandbox app. Keep
+// [WithTimeout.IsTrue] (Soon/Instantly) for cheap checks of in-process state.
+func WaitFor(pred func() bool) bool {
+	for d := time.Second; ; d *= 2 {
+		if pred() {
+			return true
+		}
+		if d > waitForMaxBackoff {
+			return false
+		}
+		time.Sleep(d)
+	}
+}

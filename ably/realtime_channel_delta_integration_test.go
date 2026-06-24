@@ -19,8 +19,8 @@ func TestRealtime_ChannelParams_DeltaSupport(t *testing.T) {
 	// Simple mock VCDiff decoder for testing
 	ablyVCDiffPlugin := ably.NewVCDiffPlugin()
 
-	app, client := ablytest.NewRealtime(ably.WithVCDiffPlugin(ablyVCDiffPlugin))
-	defer safeclose(t, ablytest.FullRealtimeCloser(client), app)
+	_, client := ablytest.NewRealtime(ably.WithVCDiffPlugin(ablyVCDiffPlugin))
+	defer safeclose(t, ablytest.FullRealtimeCloser(client))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err, "Connect()=%v", err)
@@ -64,8 +64,8 @@ var testData = []map[string]interface{}{
 // TestDelta_PluginBasicFunctionality tests that the delta plugin works correctly (@spec PC3).
 func TestDelta_PluginBasicFunctionality(t *testing.T) {
 
-	app, realtime := ablytest.NewRealtime(ably.WithVCDiffPlugin(ably.NewVCDiffPlugin()))
-	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+	_, realtime := ablytest.NewRealtime(ably.WithVCDiffPlugin(ably.NewVCDiffPlugin()))
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(realtime, nil, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err, "Connect()=%v", err)
@@ -169,11 +169,11 @@ func testDeltaPluginRecovery(t *testing.T, messageProcessor func(*ably.ProtocolM
 		messageProcessor(pm, &noOfReattachCausedByDeltaDecodingFailure)
 	})
 
-	app, realtime := ablytest.NewRealtime(
+	_, realtime := ablytest.NewRealtime(
 		ably.WithVCDiffPlugin(ably.NewVCDiffPlugin()),
 		ably.WithDial(wrappedDialWebsocket),
 	)
-	defer safeclose(t, ablytest.FullRealtimeCloser(realtime), app)
+	defer safeclose(t, ablytest.FullRealtimeCloser(realtime))
 
 	err := ablytest.Wait(ablytest.ConnWaiter(realtime, nil, ably.ConnectionEventConnected), nil)
 	assert.NoError(t, err, "Connect()=%v", err)

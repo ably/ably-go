@@ -38,9 +38,8 @@ func newHTTPClientMock(srv *httptest.Server) *http.Client {
 }
 
 func TestRestClient(t *testing.T) {
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	t.Run("encoding messages", func(t *testing.T) {
 		t.Run("json", func(t *testing.T) {
 			var buffer []byte
@@ -65,7 +64,7 @@ func TestRestClient(t *testing.T) {
 
 			client, err := ably.NewREST(app.Options(options...)...)
 			assert.NoError(t, err)
-			err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+			err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 			assert.NoError(t, err)
 			var anyJson []map[string]interface{}
 			err = json.Unmarshal(buffer, &anyJson)
@@ -92,7 +91,7 @@ func TestRestClient(t *testing.T) {
 
 			client, err := ably.NewREST(app.Options(options...)...)
 			assert.NoError(t, err)
-			err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+			err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 			assert.NoError(t, err)
 			var anyMsgPack []map[string]interface{}
 			err = ablyutil.UnmarshalMsgpack(buffer, &anyMsgPack)
@@ -320,9 +319,8 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 
 func TestRest_RSC15_HostFallback(t *testing.T) {
 
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	runTestServer := func(t *testing.T, options []ably.ClientOption) (int, []string) {
 		var retryCount int
 		var hosts []string
@@ -334,7 +332,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		defer server.Close()
 		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(newHTTPClientMock(server)))...)...)
 		assert.NoError(t, err)
-		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+		err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 		assert.Error(t, err, "expected an error")
 		return retryCount, hosts
 	}
@@ -378,7 +376,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		}
 		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(httpClientMock))...)...)
 		assert.NoError(t, err)
-		err = client.Channels.Get("test").Publish(context.Background(), "ping", "pong")
+		err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 		<-allHostsTried
 		assert.Contains(t, err.Error(), "context deadline exceeded (Client.Timeout exceeded while awaiting headers)")
 		return retryCount, hosts
@@ -499,9 +497,8 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 
 func TestRest_rememberHostFallback(t *testing.T) {
 
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 
 	var nopts []ably.ClientOption
 
@@ -563,9 +560,8 @@ func TestRest_rememberHostFallback(t *testing.T) {
 }
 func TestRESTChannels_RSN1(t *testing.T) {
 
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 	client, err := ably.NewREST(app.Options()...)
 	assert.NoError(t, err)
 	assert.NotNil(t, client.Channels,
@@ -599,9 +595,8 @@ func TestRESTChannels_RSN1(t *testing.T) {
 
 func TestFixConnLeak_ISSUE89(t *testing.T) {
 
-	app, err := ablytest.NewSandbox(nil)
+	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
-	defer app.Close()
 
 	var conns []*connCloseTracker
 
@@ -651,7 +646,6 @@ func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
 			app, rest := ablytest.NewREST()
-			defer app.Close()
 
 			fixtures := statsFixtures()
 			postStats(app, fixtures)
@@ -677,7 +671,6 @@ func TestStats_StartEnd_RSC6b1(t *testing.T) {
 	ctx := context.Background()
 
 	app, rest := ablytest.NewREST()
-	defer app.Close()
 
 	fixtures := statsFixtures()
 	postStats(app, fixtures)
@@ -702,7 +695,6 @@ func TestStats_Direction_RSC6b2(t *testing.T) {
 
 	ctx := context.Background()
 	app, rest := ablytest.NewREST()
-	defer app.Close()
 
 	for _, c := range []struct {
 		direction ably.Direction
@@ -749,7 +741,6 @@ func TestStats_Unit_RSC6b4(t *testing.T) {
 	ctx := context.Background()
 
 	app, rest := ablytest.NewREST()
-	defer app.Close()
 
 	fixtures := statsFixtures()
 	postStats(app, fixtures)
