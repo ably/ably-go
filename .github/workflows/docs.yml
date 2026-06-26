@@ -7,19 +7,23 @@ on:
     tags:
       - 'v*'
 
+permissions: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       deployments: write
       id-token: write
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
         with:
           submodules: 'recursive'
+          persist-credentials: false
 
       - name: Set up Go 1.19
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2
         with:
           go-version: 1.19
 
@@ -28,7 +32,7 @@ jobs:
           go install golang.org/x/tools/cmd/godoc@v0.3.0
           go install github.com/johnstarich/go/gopages@v0.1.16
 
-      - uses: ably/sdk-upload-action@v2
+      - uses: ably/sdk-upload-action@4e694297f208b72b5a9f6b1248a1556f19f821d6 # v2
         id: sdk-upload-prempt
         with:
           mode: preempt
@@ -37,22 +41,24 @@ jobs:
           artifactName: godoc
 
       - name: Build Documentation
+        env:
+          BASE_URL: ${{ steps.sdk-upload-prempt.outputs.url-base }}
         run: >
           gopages
-          -source-link "https://github.com/ably/ably-go/blob/${{ github.sha }}/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
+          -source-link "https://github.com/ably/ably-go/blob/${GITHUB_SHA}/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
           -brand-description "Go client library for Ably realtime messaging service."
           -brand-title "Ably Go SDK"
-          -base "${{steps.sdk-upload-prempt.outputs.url-base}}../godoc"
+          -base "${BASE_URL}../godoc"
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@6a64f289c4a4b67a1e2c44cc4bd9d6f7bc59b156 # v1
         with:
           aws-region: eu-west-2
           role-to-assume: arn:aws:iam::${{ secrets.ABLY_AWS_ACCOUNT_ID_SDK }}:role/ably-sdk-builds-ably-go
           role-session-name: "${{ github.run_id }}-${{ github.run_number }}"
 
       - name: Upload Documentation
-        uses: ably/sdk-upload-action@v2
+        uses: ably/sdk-upload-action@4e694297f208b72b5a9f6b1248a1556f19f821d6 # v2
         with:
           sourcePath: dist
           githubToken: ${{ secrets.GITHUB_TOKEN }}

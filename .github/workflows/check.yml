@@ -9,10 +9,15 @@ on:
     branches:
       - main
 
+permissions: {}
+
 jobs:
   check:
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     strategy:
       fail-fast: false
       matrix:
@@ -20,12 +25,13 @@ jobs:
         go-version: ['1.25', '1.26']
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
         with:
           submodules: 'recursive'
+          persist-credentials: false
 
       - name: Set up Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2
         with:
           go-version: ${{ matrix.go-version }}
 
@@ -51,14 +57,14 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: ably/test-observability-action@v1
+        uses: ably/test-observability-action@5b61d9c59f356b83426cab1b8243dd8bf03c1bea # v1
         with:
           server-url: 'https://test-observability.herokuapp.com'
           server-auth: ${{ secrets.TEST_OBSERVABILITY_SERVER_AUTH_KEY }}
           path: '.'
 
       - name: View unit test results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@3eeb9fc888e82e8be2fb356bbeec2750231672bc # v1
         if: success() || failure()
         with:
           name: Unit Test Results (Go ${{ matrix.go-version }})
