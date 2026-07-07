@@ -12,7 +12,7 @@ import (
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/ably/internal/ablyutil"
-	"github.com/ably/ably-go/ablytest"
+	"github.com/ably/ably-go/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
 )
