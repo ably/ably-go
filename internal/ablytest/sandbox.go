@@ -102,7 +102,7 @@ var loadAppSetup = sync.OnceValue(func() appSetup {
 	if !ok {
 		panic(errors.New("could not determine ablytest source location"))
 	}
-	p := filepath.Join(filepath.Dir(thisFile), "..", "common", "test-resources", "test-app-setup.json")
+	p := filepath.Join(filepath.Dir(thisFile), "..", "..", "common", "test-resources", "test-app-setup.json")
 	data, err := os.ReadFile(p)
 	if err != nil {
 		panic(fmt.Errorf("reading appspec %q (is the ably-common submodule checked out?): %w", p, err))

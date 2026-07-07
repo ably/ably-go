@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ably/ably-go/ablytest"
+	"github.com/ably/ably-go/internal/ablytest"
 )
 
 // TestMain tears down the shared sandbox app once after all tests in this

@@ -1,3 +1,11 @@
+// Package ablytest holds the test helpers for ably-go's own test suite,
+// including the sandbox app provisioning used by the integration tests (see
+// sandbox.go). It lives under internal/ so it is not importable by other
+// modules: the sandbox helpers provision test apps against the Ably backend
+// and are intended only for developing and contributing to ably-go itself. We
+// politely request that anyone running tests of their own apps not use this,
+// and instead provision a test app in their own account. See
+// https://faqs.ably.com/how-can-i-set-up-different-environments-in-ably
 package ablytest
 
 import (
