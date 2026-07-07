@@ -64,8 +64,8 @@ git clone git@github.com:ably/ably-go.git --recurse-submodules
 The tests can be run with the commands: 
  
 ```
-export ABLY_PROTOCOL="application/json" && go test -tags=integration -p 1 -race -v -timeout 120m ./...
-export ABLY_PROTOCOL="application/x-msgpack" && go test -tags=integration -p 1 -race -v -timeout 120m ./...
+export ABLY_PROTOCOL="application/json" && go test -tags=integration,ably_internal_sdk_tests_only -p 1 -race -v -timeout 120m ./...
+export ABLY_PROTOCOL="application/x-msgpack" && go test -tags=integration,ably_internal_sdk_tests_only -p 1 -race -v -timeout 120m ./...
 ``` 
 
 Depending on which protocol they are to be run for. It is also necessary to clean the test cache in between runs of these tests which can be done with the command: 
@@ -74,11 +74,11 @@ Depending on which protocol they are to be run for. It is also necessary to clea
 go clean -testcache
 ``` 
 
-When adding new integration tests, the following build tag must be included at the top of the file to exclude these tests for running in CI as part of the Unit test step.
+When adding new integration tests, the following build tags must be included at the top of the file. The `!unit` tag excludes these tests from the Unit test step in CI. The `ably_internal_sdk_tests_only` tag gates the `ablytest` sandbox-provisioning helpers, to signal that these are intended only for running ably-go's own test suite, not for external users.
 
 ```
-//go:build !unit
-// +build !unit
+//go:build !unit && ably_internal_sdk_tests_only
+// +build !unit,ably_internal_sdk_tests_only
 ```
 
 ### Release process

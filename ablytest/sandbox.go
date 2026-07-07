@@ -1,3 +1,12 @@
+//go:build !unit && ably_internal_sdk_tests_only
+// +build !unit,ably_internal_sdk_tests_only
+
+// This file provisions and tears down sandbox test apps against the Ably
+// backend. It is intended to facilitate anyone being able to develop and
+// contribute to the ably-go SDK. We politely request that users running tests
+// of their own apps not use this, and instead provision a test app in their
+// own account. See https://faqs.ably.com/how-can-i-set-up-different-environments-in-ably
+
 package ablytest
 
 import (

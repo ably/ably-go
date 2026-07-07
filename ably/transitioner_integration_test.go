@@ -1,5 +1,5 @@
-//go:build !unit
-// +build !unit
+//go:build !unit && ably_internal_sdk_tests_only
+// +build !unit,ably_internal_sdk_tests_only
 
 package ably_test
 
