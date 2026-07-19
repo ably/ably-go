@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -267,8 +268,24 @@ func TestRealtimeConn_ReconnectFromSuspendedState(t *testing.T) {
 	dialErr := make(chan error, 1)
 	msgReceiveErr := make(chan error, 1)
 
+	// lastDialErr sticks the most recently injected dial outcome. A dial made
+	// when the test hasn't queued a new one reuses it instead of blocking on an
+	// empty channel: a real dial always returns within its timeout, and a dial
+	// wedged here would strand the connection in CONNECTING, where the
+	// DISCONNECTED->SUSPENDED timer does not run — so it could never reach
+	// SUSPENDED and the test would hang on the harness timeout rather than
+	// exercising suspended-state reconnection. The mutex keeps it race-free even
+	// if a reconnect attempt overlaps a test-driven Connect.
+	var dialMu sync.Mutex
+	var lastDialErr error
 	dial := DialFunc(func(p string, url *url.URL, timeout time.Duration) (ably.Conn, error) {
-		err := <-dialErr
+		dialMu.Lock()
+		select {
+		case lastDialErr = <-dialErr:
+		default:
+		}
+		err := lastDialErr
+		dialMu.Unlock()
 		if err != nil {
 			return nil, err
 		}
