@@ -511,16 +511,18 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		defer server.Close()
 
 		nopts = []ably.ClientOption{
-			ably.WithEndpoint(ablytest.Endpoint),
 			ably.WithTLS(false),
 			ably.WithFallbackHosts([]string{"fallback0", "fallback1", "fallback2"}),
 			ably.WithUseTokenAuth(true),
 		}
 
 		// set up the proxy to forward all requests except a specific fallback to the server,
-		// whilst that fallback goes to the regular endpoint
+		// whilst that fallback goes to the regular endpoint. Resolve that endpoint
+		// from app.Options (not nopts alone) so it is the provisioned app's
+		// host/port — for a per-test local child that isn't derivable from the
+		// endpoint name, and a bare nopts URL would 404 the app id.
 		serverURL, _ := url.Parse(server.URL)
-		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(nopts...).RestURL())
+		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(app.Options(nopts...)...).RestURL())
 
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if r.URL.Hostname() == "fallback2" {
