@@ -69,6 +69,14 @@ func UniqueChannelName(t *testing.T, base string) string {
 	return ns + name + "-" + channelNameSanitizer.Replace(t.Name())
 }
 
+// LocalSandboxURL, when set (via ABLY_LOCAL_SANDBOX_URL, e.g. "http://localhost:9010"),
+// points app provisioning at a local sandbox instead of the cloud sandbox.
+// Each NewSandbox then POSTs the appspec to <LocalSandboxURL>/apps, which boots an
+// isolated ably-server child and returns that child's keys, endpoint and port;
+// clients are configured to talk to that child (see provisionSandbox / Options).
+// This is the hook used by the ably-server compatibility harness.
+var LocalSandboxURL string
+
 func nonil(err ...error) error {
 	for _, err := range err {
 		if err != nil {
@@ -92,6 +100,9 @@ func init() {
 	}
 	if s := os.Getenv("ABLY_ENDPOINT"); s != "" {
 		Endpoint = s
+	}
+	if s := os.Getenv("ABLY_LOCAL_SANDBOX_URL"); s != "" {
+		LocalSandboxURL = strings.TrimRight(s, "/")
 	}
 }
 
