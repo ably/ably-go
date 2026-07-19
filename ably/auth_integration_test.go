@@ -381,11 +381,10 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		assert.True(t, strings.HasPrefix(jwt, "ey"))
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(
+		rest, err := ably.NewREST(app.Options(
 			ably.WithToken(jwt),
-			ably.WithEndpoint(app.Endpoint),
 			optn[0],
-		)
+		)...)
 		assert.NoError(t, err, "rest()=%v", err)
 
 		_, err = rest.Stats().Pages(context.Background())
@@ -404,12 +403,11 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		app := ablytest.MustSandbox()
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(
+		rest, err := ably.NewREST(app.Options(
 			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
 			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, false)),
-			ably.WithEndpoint(app.Endpoint),
 			optn[0],
-		)
+		)...)
 		assert.NoError(t, err, "rest()=%v", err)
 
 		_, err = rest.Stats().Pages(context.Background())
@@ -448,11 +446,10 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		})
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(
-			ably.WithEndpoint(app.Endpoint),
+		rest, err := ably.NewREST(app.Options(
 			authCallback,
 			optn[0],
-		)
+		)...)
 		assert.NoError(t, err)
 
 		_, err = rest.Stats().Pages(context.Background())
@@ -473,12 +470,11 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		app := ablytest.MustSandbox()
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(
+		rest, err := ably.NewREST(app.Options(
 			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
 			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, true)),
-			ably.WithEndpoint(app.Endpoint),
 			optn[0],
-		)
+		)...)
 		assert.NoError(t, err, "rest()=%v", err)
 
 		_, err = rest.Stats().Pages(context.Background())

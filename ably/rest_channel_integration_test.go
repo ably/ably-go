@@ -309,7 +309,6 @@ func TestIdempotent_retry(t *testing.T) {
 		// failing all others via the test server
 		fallbackHosts := []string{"fallback0", "fallback1", "fallback2"}
 		nopts := []ably.ClientOption{
-			ably.WithEndpoint(ablytest.Endpoint),
 			ably.WithTLS(false),
 			ably.WithFallbackHosts(fallbackHosts),
 			ably.WithIdempotentRESTPublishing(true),
@@ -317,7 +316,12 @@ func TestIdempotent_retry(t *testing.T) {
 		}
 
 		serverURL, _ := url.Parse(server.URL)
-		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(nopts...).RestURL())
+		// Resolve the real destination from app.Options, not nopts alone, so the
+		// proxy forwards token requests and successful retries to the provisioned
+		// app's endpoint/port. Against a per-test local child that address is not
+		// derivable from the endpoint name, so a bare nopts URL would send those
+		// requests to the wrong server (which 404s the app id).
+		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(app.Options(nopts...)...).RestURL())
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if !strings.HasPrefix(r.URL.Path, "/channels/") {
 				// this is to handle token requests
