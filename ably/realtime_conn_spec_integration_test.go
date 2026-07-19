@@ -1718,7 +1718,7 @@ func TestRealtimeConn_RTN15h3_Success(t *testing.T) {
 
 func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.T) {
 	t.Parallel()
-	_, restClient := ablytest.NewREST()
+	app, restClient := ablytest.NewREST()
 	recorder := NewMessageRecorder()
 
 	authCallbackTokens := []string{}
@@ -1730,11 +1730,15 @@ func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.
 		return token, err
 	}
 
-	realtime, err := ably.NewRealtime(
+	// Build from app.Options so the client uses the provisioned app's transport
+	// (endpoint/port/TLS). A bare WithEndpoint dials the default TLS port, which a
+	// plaintext local server doesn't serve — the connect would then never succeed
+	// and the test would hang, a harness artifact rather than a server result.
+	realtime, err := ably.NewRealtime(app.Options(
 		ably.WithAutoConnect(false),
 		ably.WithDial(recorder.Dial),
-		ably.WithEndpoint(ablytest.Endpoint),
-		ably.WithAuthCallback(authCallback))
+		ably.WithAuthCallback(authCallback),
+	)...)
 
 	assert.NoError(t, err)
 	defer realtime.Close()
@@ -1777,7 +1781,7 @@ func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.
 }
 
 func TestRealtimeConn_RTN22_RTC8_Integration_ServerInitiatedAuth(t *testing.T) {
-	_, restClient := ablytest.NewREST()
+	app, restClient := ablytest.NewREST()
 
 	recorder := NewMessageRecorder()
 	authCallbackTokens := []string{}
@@ -1791,12 +1795,16 @@ func TestRealtimeConn_RTN22_RTC8_Integration_ServerInitiatedAuth(t *testing.T) {
 		return token, err
 	}
 
-	realtime, err := ably.NewRealtime(
+	// Build from app.Options so the client uses the provisioned app's transport
+	// (endpoint/port/TLS). A bare WithEndpoint dials the default TLS port, which a
+	// plaintext local server doesn't serve — the connect would then never succeed
+	// and the test would hang, a harness artifact rather than a server result.
+	realtime, err := ably.NewRealtime(app.Options(
 		ably.WithAutoConnect(false),
 		ably.WithDial(recorder.Dial),
 		ably.WithUseBinaryProtocol(false),
-		ably.WithEndpoint(ablytest.Endpoint),
-		ably.WithAuthCallback(authCallback))
+		ably.WithAuthCallback(authCallback),
+	)...)
 
 	assert.NoError(t, err)
 	defer realtime.Close()
@@ -3031,11 +3039,15 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		}
 
 		realtimeMsgRecorder := NewMessageRecorder()
-		realtime, err := ably.NewRealtime(
+		// Build from app.Options so the client uses the provisioned app's
+		// transport (endpoint/port/TLS) rather than dialing the default TLS port,
+		// which a plaintext local server doesn't serve — see the note on the
+		// RTN22 tests above.
+		realtime, err := ably.NewRealtime(app.Options(
 			ably.WithAutoConnect(false),
-			ably.WithEndpoint(ablytest.Endpoint),
 			ably.WithDial(realtimeMsgRecorder.Dial),
-			ably.WithAuthCallback(authCallback))
+			ably.WithAuthCallback(authCallback),
+		)...)
 
 		assert.NoError(t, err)
 		defer realtime.Close()
