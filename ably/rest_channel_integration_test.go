@@ -22,14 +22,15 @@ import (
 	"github.com/ably/ably-go/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRESTChannel(t *testing.T) {
 	app, err := ablytest.NewSandbox()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	options := app.Options()
 	client, err := ably.NewREST(options...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Run("Publish", func(t *testing.T) {
 		channel := client.Channels.Get("test_publish_channel")
 
@@ -142,10 +143,10 @@ func TestRESTChannel(t *testing.T) {
 
 func TestIdempotentPublishing(t *testing.T) {
 	app, err := ablytest.NewSandbox()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	options := app.Options(ably.WithIdempotentRESTPublishing(true))
 	client, err := ably.NewREST(options...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	randomStr, err := ablyutil.BaseID()
 	assert.NoError(t, err)
 	t.Run("when ID is not included (#RSL1k2)", func(t *testing.T) {
@@ -347,7 +348,7 @@ func TestIdempotent_retry(t *testing.T) {
 		}))
 
 		client, err := ably.NewREST(app.Options(nopts...)...)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		t.Run("two REST publish retries result in only one message being published'", func(t *testing.T) {
 			channel := client.Channels.Get("idempotent_test_fallback")

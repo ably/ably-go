@@ -13,16 +13,17 @@ import (
 	"github.com/ably/ably-go/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRSL1f1(t *testing.T) {
 	app, err := ablytest.NewSandbox()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	opts := app.Options()
 	// RSL1f
 	opts = append(opts, ably.WithUseTokenAuth(false))
 	client, err := ably.NewREST(opts...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	channel := client.Channels.Get("RSL1f")
 	var msgs []*ably.Message
 	size := 10
@@ -47,13 +48,13 @@ func TestRSL1f1(t *testing.T) {
 
 func TestRSL1g(t *testing.T) {
 	app, err := ablytest.NewSandbox()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	opts := append(app.Options(),
 		ably.WithUseTokenAuth(true),
 	)
 	opts = append(opts, ably.WithClientID("some_client_id"))
 	client, err := ably.NewREST(opts...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Run("RSL1g1b", func(t *testing.T) {
 		channel := client.Channels.Get("RSL1g1b")
 		err := channel.PublishMultiple(context.Background(), []*ably.Message{
@@ -167,7 +168,7 @@ func TestGetChannelLifecycleStatus_RSL8(t *testing.T) {
 		err := channel.Publish(ctx, "event", "data")
 		assert.NoError(t, err)
 		status, err := channel.Status(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, status.ChannelId)
 		assert.True(t, status.Status.IsActive)
 		assert.Equal(t, "lifecycle:test", status.ChannelId)

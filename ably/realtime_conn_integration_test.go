@@ -15,6 +15,7 @@ import (
 	"github.com/ably/ably-go/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var connTransitions = []ably.ConnectionState{
@@ -92,7 +93,7 @@ func TestRealtimeConn_AuthError(t *testing.T) {
 		ably.WithAutoConnect(false),
 	}
 	client, err := ably.NewRealtime(opts...)
-	assert.NoError(t, err,
+	require.NoError(t, err,
 		"NewRealtime()=%v", err)
 
 	err = ablytest.Wait(ablytest.ConnWaiter(client, client.Connect, ably.ConnectionEventConnected), nil)

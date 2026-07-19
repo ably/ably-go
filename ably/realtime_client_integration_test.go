@@ -85,7 +85,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			}))
 			defer server.Close()
 			serverURL, err := url.Parse(server.URL)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			client, err := ably.NewRealtime(
 				ably.WithEndpoint(serverURL.Host),
@@ -109,7 +109,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			}))
 			defer server.Close()
 			serverURL, err := url.Parse(server.URL)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			client, err := ably.NewRealtime(
 				ably.WithEndpoint(serverURL.Host),
@@ -137,7 +137,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			}))
 			defer server.Close()
 			serverURL, err := url.Parse(server.URL)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			client, err := ably.NewRealtime(
 				ably.WithEndpoint(serverURL.Host),
@@ -167,7 +167,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			}))
 			defer server.Close()
 			serverURL, err := url.Parse(server.URL)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			client, err := ably.NewRealtime(
 				ably.WithTLS(false),
@@ -191,7 +191,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			}))
 			defer server.Close()
 			serverURL, err := url.Parse(server.URL)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			client, err := ably.NewRealtime(
 				ably.WithTLS(false),
@@ -219,7 +219,7 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			}))
 			defer server.Close()
 			serverURL, err := url.Parse(server.URL)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			client, err := ably.NewRealtime(
 				ably.WithTLS(false),
@@ -493,7 +493,7 @@ func TestRealtime_multiple(t *testing.T) {
 	var all ablytest.ResultGroup
 	var wg sync.WaitGroup
 	app, err := ablytest.NewSandbox()
-	assert.NoError(t, err,
+	require.NoError(t, err,
 		"NewSandbox()=%v", err)
 	wg.Add(N)
 	idch := make(chan string, N)

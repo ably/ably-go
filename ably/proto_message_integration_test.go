@@ -11,6 +11,7 @@ import (
 	"github.com/ably/ably-go/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
@@ -47,14 +48,14 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c(t *testing.T) {
 					assert.NoError(t, err)
 
 					encoded, err = ably.MessageWithDecodedData(encoded, cipher)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					var encrypted ably.Message
 					err = json.Unmarshal(item.Encoded, &encrypted)
 					assert.NoError(t, err)
 
 					encrypted, err = ably.MessageWithDecodedData(encrypted, cipher)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					assert.Equal(t, encoded.Name, encrypted.Name,
 						"expected %s got %s", encoded.Name, encrypted.Name)
 					assert.Equal(t, encoded.Data, encrypted.Data,
@@ -98,14 +99,14 @@ func TestMessage_CryptoDataFixtures_RSL6a1_RSL5b_RSL5c_TM3(t *testing.T) {
 					assert.NoError(t, err)
 
 					encoded, err = ably.MessageWithDecodedData(encoded, cipher)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					var encrypted ably.Message
 					err = json.Unmarshal(item.Encoded, &encrypted)
 					assert.NoError(t, err)
 
 					encrypted, err = ably.MessageWithDecodedData(encrypted, cipher)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					assert.Equal(t, encoded.Name, encrypted.Name)
 					assert.Equal(t, encoded.Data, encrypted.Data)
 				}

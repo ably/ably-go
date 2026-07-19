@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/internal/ablytest"
@@ -227,7 +228,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		}
 
 		realtime, err := ably.NewRealtime(options...)
-		assert.NoError(t, err,
+		require.NoError(t, err,
 			"unexpected err: %s", err)
 
 		changes := make(chan ably.ConnectionStateChange)
@@ -750,7 +751,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	// succeeds, we should then receive it without reattaching.
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
@@ -884,7 +885,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	// succeeds, we should then receive it without reattaching.
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	goOn := <-gotDial
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
@@ -985,7 +986,7 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
@@ -1097,7 +1098,7 @@ func TestRealtimeConn_RTN15c7_attached(t *testing.T) {
 		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
@@ -1165,7 +1166,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 	// still be attached and the messages will arrive.
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	for i := 0; i < 3; i++ {
 		err := rest.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "test", fmt.Sprintf("msg %d", i))
 		assert.NoError(t, err,

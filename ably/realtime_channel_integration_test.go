@@ -17,6 +17,7 @@ import (
 	"github.com/ably/ably-go/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func expectMsg(ch <-chan *ably.Message, name string, data interface{}, t time.Duration, received bool) error {
@@ -111,7 +112,7 @@ func TestRealtimeChannel_Subscribe(t *testing.T) {
 
 func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	app, err := ablytest.NewSandbox()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	options := app.Options()
 	restClient, err := ably.NewREST(options...)
 	assert.NoError(t, err)
@@ -173,7 +174,7 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	unsub, err := rtDerivedChannel.SubscribeAll(ctx, func(msg *ably.Message) {
 		filteredMessages <- msg
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer unsub()
 
 	unfilteredMessages := make(chan *ably.Message, 10)
