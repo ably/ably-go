@@ -780,7 +780,6 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 	}{
 		"Should not save query time and timestamp when WithQueryTime is false and token params has no timestamp": {
 			opt: []ably.ClientOption{
-				ably.WithTLS(true),
 				ably.WithUseTokenAuth(true),
 				ably.WithQueryTime(false),
 			},
@@ -794,7 +793,6 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 		},
 		"Should not save query time and timestamp when WithQueryTime is true and token params has no timestamp": {
 			opt: []ably.ClientOption{
-				ably.WithTLS(true),
 				ably.WithUseTokenAuth(true),
 				ably.WithQueryTime(true),
 			},
@@ -808,7 +806,6 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 		},
 		"Should not save query time and timestamp when WithQueryTime is true and token params has a timestamp": {
 			opt: []ably.ClientOption{
-				ably.WithTLS(true),
 				ably.WithUseTokenAuth(true),
 				ably.WithQueryTime(true),
 			},
@@ -822,7 +819,6 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 		},
 		"Should not save query time and timestamp when WithQueryTime is false and token params has a timestamp": {
 			opt: []ably.ClientOption{
-				ably.WithTLS(true),
 				ably.WithUseTokenAuth(true),
 				ably.WithQueryTime(false),
 			},
