@@ -21,6 +21,7 @@ import (
 	"github.com/ably/ably-go/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func single() *ably.PaginateParams {
@@ -134,7 +135,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 		"want url.Scheme=http; got %s", requestUrl.Scheme)
 	rec.Reset()
 	tok, err := client.Auth.Authorize(context.Background(), nil)
-	assert.NoError(t, err,
+	require.NoError(t, err,
 		"Authorize()=%v", err)
 	// Call to Authorize should always refresh the token.
 	assert.Equal(t, 1, rec.Len(),
@@ -162,7 +163,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 		TTL: time.Second.Milliseconds(),
 	}
 	tok, err := client.Auth.Authorize(context.Background(), params)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, rec.Len(),
 		"want rec.Len()=1; got %d", rec.Len())
 	ttl := tok.ExpireTime().Sub(tok.IssueTime())
@@ -197,7 +198,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	opts = app.Options(opts...)
 	opts = append(opts, ably.WithKey(""), ably.WithTokenDetails(tok))
 	client, err = ably.NewREST(opts...)
-	assert.NoError(t, err,
+	require.NoError(t, err,
 		"NewREST()=%v", err)
 	_, err = client.Stats().Pages(context.Background())
 	assert.Error(t, err)
@@ -250,7 +251,7 @@ func TestAuth_RequestToken(t *testing.T) {
 			ably.AuthWithCallback(server.Callback(callback)),
 		}
 		tokCallback, err := client.Auth.RequestToken(context.Background(), nil, authOpts...)
-		assert.NoError(t, err,
+		require.NoError(t, err,
 			"RequestToken()=%v (callback=%s)", err, callback)
 		// Ensure no requests to Ably servers were made.
 		assert.Equal(t, 0, rec.Len(),
@@ -268,7 +269,7 @@ func TestAuth_RequestToken(t *testing.T) {
 		ably.AuthWithCallback(server.Callback("request")),
 	}
 	tokCallback, err := client.Auth.RequestToken(context.Background(), nil, authOpts...)
-	assert.NoError(t, err,
+	require.NoError(t, err,
 		"RequestToken()=%v", err)
 	assert.Equal(t, 1, rec.Len(),
 		"want rec.Len()=1; got %d", rec.Len())
@@ -301,7 +302,7 @@ func TestAuth_RequestToken(t *testing.T) {
 		}
 
 		tokURL, err := client.Auth.RequestToken(context.Background(), params, authOpts...)
-		assert.NoError(t, err,
+		require.NoError(t, err,
 			"RequestToken()=%v (method=%s)", err, method)
 		assert.NotEqual(t, tokURL.Token, token2.Token,
 			"want tokURL.Token != token2.Token: %s (method=%s)", tokURL.Token, method)
@@ -333,7 +334,7 @@ func TestAuth_RequestToken(t *testing.T) {
 			ably.WithToken(tokURL.Token),
 		)
 		c, err := ably.NewREST(optsURL...)
-		assert.NoError(t, err,
+		require.NoError(t, err,
 			"NewREST()=%v", err)
 		_, err = c.Stats().Pages(context.Background())
 		assert.NoError(t, err,
@@ -381,11 +382,10 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		assert.True(t, strings.HasPrefix(jwt, "ey"))
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(
+		rest, err := ably.NewREST(app.Options(
 			ably.WithToken(jwt),
-			ably.WithEndpoint(app.Endpoint),
 			optn[0],
-		)
+		)...)
 		assert.NoError(t, err, "rest()=%v", err)
 
 		_, err = rest.Stats().Pages(context.Background())
@@ -404,12 +404,11 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		app := ablytest.MustSandbox()
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(
+		rest, err := ably.NewREST(app.Options(
 			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
 			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, false)),
-			ably.WithEndpoint(app.Endpoint),
 			optn[0],
-		)
+		)...)
 		assert.NoError(t, err, "rest()=%v", err)
 
 		_, err = rest.Stats().Pages(context.Background())
@@ -448,11 +447,10 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		})
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(
-			ably.WithEndpoint(app.Endpoint),
+		rest, err := ably.NewREST(app.Options(
 			authCallback,
 			optn[0],
-		)
+		)...)
 		assert.NoError(t, err)
 
 		_, err = rest.Stats().Pages(context.Background())
@@ -473,12 +471,11 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		app := ablytest.MustSandbox()
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(
+		rest, err := ably.NewREST(app.Options(
 			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
 			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, true)),
-			ably.WithEndpoint(app.Endpoint),
 			optn[0],
-		)
+		)...)
 		assert.NoError(t, err, "rest()=%v", err)
 
 		_, err = rest.Stats().Pages(context.Background())
@@ -502,14 +499,14 @@ func TestAuth_ReuseClientID(t *testing.T) {
 		ClientID: "reuse-me",
 	}
 	tok, err := client.Auth.Authorize(context.Background(), params)
-	assert.NoError(t, err,
+	require.NoError(t, err,
 		"Authorize()=%v", err)
 	assert.Equal(t, params.ClientID, tok.ClientID,
 		"want ClientID=%q; got %q", params.ClientID, tok.ClientID)
 	assert.Equal(t, params.ClientID, client.Auth.ClientID(),
 		"want ClientID=%q; got %q", params.ClientID, client.Auth.ClientID())
 	tok2, err := client.Auth.Authorize(context.Background(), nil)
-	assert.NoError(t, err,
+	require.NoError(t, err,
 		"Authorize()=%v", err)
 	assert.Equal(t, params.ClientID, tok2.ClientID,
 		"want ClientID=%q; got %q", params.ClientID, tok2.ClientID)
@@ -532,7 +529,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 
 	for i, cas := range cases {
 		rclient, err := ably.NewREST(app.Options()...)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		params := &ably.TokenParams{
 			ClientID: cas.authAs,
 		}
@@ -718,13 +715,13 @@ func TestAuth_CreateTokenRequest(t *testing.T) {
 	})
 	t.Run("RSA9c must generate a unique 16+ character nonce", func(t *testing.T) {
 		req, err := client.Auth.CreateTokenRequest(params, opts...)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.GreaterOrEqual(t, len(req.Nonce), 16,
 			"want len(nonce)>=16; got %d", len(req.Nonce))
 	})
 	t.Run("RSA9g generate a signed request", func(t *testing.T) {
 		req, err := client.Auth.CreateTokenRequest(nil)
-		assert.NoError(t, err,
+		require.NoError(t, err,
 			"CreateTokenRequest()=%v", err)
 		assert.NotEqual(t, "", req.MAC,
 			"want mac to be not empty")
@@ -780,7 +777,6 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 	}{
 		"Should not save query time and timestamp when WithQueryTime is false and token params has no timestamp": {
 			opt: []ably.ClientOption{
-				ably.WithTLS(true),
 				ably.WithUseTokenAuth(true),
 				ably.WithQueryTime(false),
 			},
@@ -794,7 +790,6 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 		},
 		"Should not save query time and timestamp when WithQueryTime is true and token params has no timestamp": {
 			opt: []ably.ClientOption{
-				ably.WithTLS(true),
 				ably.WithUseTokenAuth(true),
 				ably.WithQueryTime(true),
 			},
@@ -808,7 +803,6 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 		},
 		"Should not save query time and timestamp when WithQueryTime is true and token params has a timestamp": {
 			opt: []ably.ClientOption{
-				ably.WithTLS(true),
 				ably.WithUseTokenAuth(true),
 				ably.WithQueryTime(true),
 			},
@@ -822,7 +816,6 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 		},
 		"Should not save query time and timestamp when WithQueryTime is false and token params has a timestamp": {
 			opt: []ably.ClientOption{
-				ably.WithTLS(true),
 				ably.WithUseTokenAuth(true),
 				ably.WithQueryTime(false),
 			},

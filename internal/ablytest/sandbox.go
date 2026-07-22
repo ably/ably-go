@@ -38,6 +38,14 @@ type Key struct {
 type Config struct {
 	AppID string `json:"appId,omitempty"`
 	Keys  []Key  `json:"keys"`
+
+	// LocalEndpoint/LocalPort/LocalTLS are populated only when provisioning
+	// against a local sandbox (see LocalSandboxURL), which runs each app on its
+	// own child server and returns how to reach it. They are absent (zero) for
+	// the cloud sandbox, where routing is derived from Sandbox.Endpoint instead.
+	LocalEndpoint string `json:"endpoint,omitempty"`
+	LocalPort     int    `json:"port,omitempty"`
+	LocalTLS      bool   `json:"tls,omitempty"`
 }
 
 // Presence describes a presence fixture member provisioned on the
@@ -131,6 +139,11 @@ type Sandbox struct {
 	Config   *Config
 	Endpoint string
 	client   *http.Client
+
+	// local is set when this app was provisioned against a local sandbox
+	// (see LocalSandboxURL) rather than the cloud sandbox; it selects the local
+	// routing in Options and the unauthenticated teardown in delete.
+	local bool
 }
 
 func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
@@ -198,7 +211,9 @@ func provisionSandbox(endpoint string) (*Sandbox, error) {
 		Config:   &Config{},
 		Endpoint: endpoint,
 		client:   NewHTTPClient(),
+		local:    LocalSandboxURL != "",
 	}
+
 	p := []byte(loadAppSetup().PostApps)
 
 	const RetryCount = 4
@@ -271,27 +286,40 @@ func (app *Sandbox) NewRealtime(opts ...ably.ClientOption) *ably.Realtime {
 	return client
 }
 
-// wildcardCapability is the all-resources, all-operations capability. The shared
-// appspec provisions several keys with differing capabilities; the tests expect
-// a single all-powerful key, so KeyParts selects the one carrying this
-// capability (in particular [*]* is required for qualified/derived channels,
-// which the default capability does not grant).
-const wildcardCapability = `{"[*]*":["*"]}`
-
 func (app *Sandbox) KeyParts() (name, secret string) {
 	key := app.wildcardKey()
 	return app.Config.AppID + "." + key.ID, key.Value
 }
 
+// wildcardKey returns the all-powerful key. The shared appspec provisions
+// several keys with differing capabilities; the tests expect a single key that
+// grants every operation on every resource, including the qualified/derived
+// namespace ("[*]*") that the plain "*" resource does not cover.
 func (app *Sandbox) wildcardKey() Key {
 	for _, k := range app.Config.Keys {
-		if k.Capability == wildcardCapability {
+		if grantsWildcard(k.Capability) {
 			return k
 		}
 	}
 	// Fall back to the first key if no wildcard key is present, so behaviour is
 	// well-defined even if the appspec changes.
 	return app.Config.Keys[0]
+}
+
+// grantsWildcard reports whether a capability grants all operations ("*") on
+// the all-resources qualifier ("[*]*"). It parses the capability rather than
+// string-matching so it is insensitive to JSON whitespace and key ordering.
+func grantsWildcard(capability string) bool {
+	var caps map[string][]string
+	if json.Unmarshal([]byte(capability), &caps) != nil {
+		return false
+	}
+	for _, op := range caps["[*]*"] {
+		if op == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 func (app *Sandbox) Key() string {
@@ -312,6 +340,20 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 		ably.WithLogLevel(DefaultLogLevel),
 	}
 
+	// local sandbox: route to the app's child server (its own host/port,
+	// plain ws/http), overriding the cloud endpoint set above. Basic auth is
+	// allowed without TLS since the child terminates plaintext.
+	if app.local {
+		appOpts = append(appOpts,
+			ably.WithEndpoint(app.Config.LocalEndpoint),
+			ably.WithTLS(app.Config.LocalTLS),
+			ably.WithPort(app.Config.LocalPort),
+		)
+		if !app.Config.LocalTLS {
+			appOpts = append(appOpts, ably.WithInsecureAllowBasicAuthWithoutTLS())
+		}
+	}
+
 	// If opts want to record round trips inject the recording transport
 	// via TransportHijacker interface.
 	if httpClient := ClientOptionsInspector.HTTPClient(opts); httpClient != nil {
@@ -326,6 +368,9 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 }
 
 func (app *Sandbox) URL(paths ...string) string {
+	if app.local {
+		return LocalSandboxURL + "/" + path.Join(paths...)
+	}
 	if strings.HasPrefix(app.Endpoint, "nonprod:") {
 		namespace := strings.TrimPrefix(app.Endpoint, "nonprod:")
 		return fmt.Sprintf("https://%s.realtime.ably-nonprod.net/%s", namespace, path.Join(paths...))

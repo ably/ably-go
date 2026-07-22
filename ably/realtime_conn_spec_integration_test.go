@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ably/ably-go/ably"
 	"github.com/ably/ably-go/internal/ablytest"
@@ -227,7 +228,7 @@ func Test_RTN4a_ConnectionEventForStateChange(t *testing.T) {
 		}
 
 		realtime, err := ably.NewRealtime(options...)
-		assert.NoError(t, err,
+		require.NoError(t, err,
 			"unexpected err: %s", err)
 
 		changes := make(chan ably.ConnectionStateChange)
@@ -750,7 +751,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	// succeeds, we should then receive it without reattaching.
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
@@ -884,7 +885,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	// succeeds, we should then receive it without reattaching.
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	goOn := <-gotDial
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
@@ -985,7 +986,7 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
@@ -1097,7 +1098,7 @@ func TestRealtimeConn_RTN15c7_attached(t *testing.T) {
 		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
 
@@ -1165,7 +1166,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 	// still be attached and the messages will arrive.
 
 	rest, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	for i := 0; i < 3; i++ {
 		err := rest.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "test", fmt.Sprintf("msg %d", i))
 		assert.NoError(t, err,
@@ -1718,7 +1719,7 @@ func TestRealtimeConn_RTN15h3_Success(t *testing.T) {
 
 func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.T) {
 	t.Parallel()
-	_, restClient := ablytest.NewREST()
+	app, restClient := ablytest.NewREST()
 	recorder := NewMessageRecorder()
 
 	authCallbackTokens := []string{}
@@ -1730,11 +1731,15 @@ func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.
 		return token, err
 	}
 
-	realtime, err := ably.NewRealtime(
+	// Build from app.Options so the client uses the provisioned app's transport
+	// (endpoint/port/TLS). A bare WithEndpoint dials the default TLS port, which a
+	// plaintext local server doesn't serve — the connect would then never succeed
+	// and the test would hang, a harness artifact rather than a server result.
+	realtime, err := ably.NewRealtime(app.Options(
 		ably.WithAutoConnect(false),
 		ably.WithDial(recorder.Dial),
-		ably.WithEndpoint(ablytest.Endpoint),
-		ably.WithAuthCallback(authCallback))
+		ably.WithAuthCallback(authCallback),
+	)...)
 
 	assert.NoError(t, err)
 	defer realtime.Close()
@@ -1777,7 +1782,7 @@ func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.
 }
 
 func TestRealtimeConn_RTN22_RTC8_Integration_ServerInitiatedAuth(t *testing.T) {
-	_, restClient := ablytest.NewREST()
+	app, restClient := ablytest.NewREST()
 
 	recorder := NewMessageRecorder()
 	authCallbackTokens := []string{}
@@ -1791,12 +1796,16 @@ func TestRealtimeConn_RTN22_RTC8_Integration_ServerInitiatedAuth(t *testing.T) {
 		return token, err
 	}
 
-	realtime, err := ably.NewRealtime(
+	// Build from app.Options so the client uses the provisioned app's transport
+	// (endpoint/port/TLS). A bare WithEndpoint dials the default TLS port, which a
+	// plaintext local server doesn't serve — the connect would then never succeed
+	// and the test would hang, a harness artifact rather than a server result.
+	realtime, err := ably.NewRealtime(app.Options(
 		ably.WithAutoConnect(false),
 		ably.WithDial(recorder.Dial),
 		ably.WithUseBinaryProtocol(false),
-		ably.WithEndpoint(ablytest.Endpoint),
-		ably.WithAuthCallback(authCallback))
+		ably.WithAuthCallback(authCallback),
+	)...)
 
 	assert.NoError(t, err)
 	defer realtime.Close()
@@ -3031,11 +3040,15 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		}
 
 		realtimeMsgRecorder := NewMessageRecorder()
-		realtime, err := ably.NewRealtime(
+		// Build from app.Options so the client uses the provisioned app's
+		// transport (endpoint/port/TLS) rather than dialing the default TLS port,
+		// which a plaintext local server doesn't serve — see the note on the
+		// RTN22 tests above.
+		realtime, err := ably.NewRealtime(app.Options(
 			ably.WithAutoConnect(false),
-			ably.WithEndpoint(ablytest.Endpoint),
 			ably.WithDial(realtimeMsgRecorder.Dial),
-			ably.WithAuthCallback(authCallback))
+			ably.WithAuthCallback(authCallback),
+		)...)
 
 		assert.NoError(t, err)
 		defer realtime.Close()

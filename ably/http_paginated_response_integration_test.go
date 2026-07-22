@@ -14,16 +14,17 @@ import (
 	"github.com/ably/ably-go/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHTTPPaginatedFallback(t *testing.T) {
 	app, err := ablytest.NewSandbox()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	opts := app.Options(ably.WithUseBinaryProtocol(false),
 		ably.WithEndpoint("ably.invalid"),
 		ably.WithFallbackHosts(nil))
 	client, err := ably.NewREST(opts...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Run("request_time", func(t *testing.T) {
 		_, err := client.Request("get", "/time").Pages(context.Background())
 		assert.Error(t, err)
@@ -32,12 +33,12 @@ func TestHTTPPaginatedFallback(t *testing.T) {
 
 func TestHTTPPaginatedResponse(t *testing.T) {
 	app, err := ablytest.NewSandbox()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	client, err := ably.NewREST(app.Options()...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Run("request_time", func(t *testing.T) {
 		res, err := client.Request("get", "/time").Pages(context.Background())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, res.StatusCode(),
 			"expected %d got %d", http.StatusOK, res.StatusCode())
 		assert.True(t, res.Success(), "expected success to be true")
@@ -51,7 +52,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 
 	t.Run("request_404", func(t *testing.T) {
 		res, err := client.Request("get", "/keys/ablyjs.test/requestToken").Pages(context.Background())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, http.StatusNotFound, res.StatusCode(),
 			"expected %d got %d", http.StatusNotFound, res.StatusCode())
 		assert.Equal(t, ably.ErrNotFound, res.ErrorCode(),
@@ -73,7 +74,7 @@ func TestHTTPPaginatedResponse(t *testing.T) {
 		t.Run("post", func(t *testing.T) {
 			for _, message := range msgs {
 				res, err := client.Request("POST", channelPath, ably.RequestWithBody(message)).Pages(context.Background())
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, http.StatusCreated, res.StatusCode(),
 					"expected %d got %d", http.StatusCreated, res.StatusCode())
 				assert.True(t, res.Success(),
