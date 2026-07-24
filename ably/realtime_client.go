@@ -89,7 +89,7 @@ func (c *Realtime) onChannelMsg(msg *protocolMessage) {
 func (c *Realtime) onReconnected(failedResumeOrRecover bool) {
 	for _, ch := range c.Channels.Iterate() {
 		switch ch.State() {
-		// RTN15g3, RTN15c6, RTN15c7, RTN16l
+		// RTN15g3, RTN15c6, RTN15c7, RTN16l, RTL3d
 		case ChannelStateAttaching, ChannelStateAttached, ChannelStateSuspended:
 			ch.mayAttach(false)
 		case ChannelStateDetaching: //RTN19b
