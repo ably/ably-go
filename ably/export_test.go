@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -365,7 +366,28 @@ func ChannelModeToFlag(mode ChannelMode) ProtoFlag {
 	return mode.toFlag()
 }
 
+var (
+	websocketURLTransformMu sync.RWMutex
+	websocketURLTransform   func(*url.URL) (*url.URL, error)
+)
+
+func SetWebsocketURLTransform(transform func(*url.URL) (*url.URL, error)) {
+	websocketURLTransformMu.Lock()
+	defer websocketURLTransformMu.Unlock()
+	websocketURLTransform = transform
+}
+
 func DialWebsocket(proto string, u *url.URL, timeout time.Duration) (Conn, error) {
+	websocketURLTransformMu.RLock()
+	transform := websocketURLTransform
+	websocketURLTransformMu.RUnlock()
+	if transform != nil {
+		var err error
+		u, err = transform(u)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return dialWebsocket(proto, u, timeout, nil)
 }
 

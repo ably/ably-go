@@ -68,6 +68,26 @@ export ABLY_PROTOCOL="application/json" && go test -tags=integration -p 1 -race 
 export ABLY_PROTOCOL="application/x-msgpack" && go test -tags=integration -p 1 -race -v -timeout 120m ./...
 ``` 
 
+The integration suite can provision its app from a local compatibility
+sandbox by setting `ABLY_LOCAL_SANDBOX_URL`. If that sandbox returns a
+plaintext loopback child endpoint, set `ABLY_LOCAL_PLAINTEXT_REALTIME=1` to
+keep the SDK's logical TLS and fallback-host behavior while tunnelling the
+allowlisted test traffic to the child. The harness then uses these variables:
+
+- `ABLY_LOCAL_FALLBACK_HOSTS`: comma-separated logical Realtime hosts that may
+  be redirected to the provisioned child.
+- `ABLY_LOCAL_REST_HOSTS`: comma-separated logical REST hosts that may be
+  redirected to the provisioned child.
+- `ABLY_LOCAL_INTERNET_ENDPOINT`: loopback `host:port` for the internet-up
+  fallback probe.
+- `ABLY_CREATE_JWT_URL`: URL of a local JWT test fixture.
+- `ABLY_STATS_FIXTURE_URL`: URL of a local stats fixture.
+
+The plaintext routing rejects non-loopback child and internet-probe endpoints,
+and blocks logical hosts that are not explicitly allowlisted. It is disabled
+by default, so cloud sandbox runs and direct `ABLY_LOCAL_SANDBOX_URL` routing
+remain available.
+
 Depending on which protocol they are to be run for. It is also necessary to clean the test cache in between runs of these tests which can be done with the command: 
 
 ```

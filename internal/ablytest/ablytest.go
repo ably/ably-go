@@ -104,6 +104,9 @@ func init() {
 	if s := os.Getenv("ABLY_LOCAL_SANDBOX_URL"); s != "" {
 		LocalSandboxURL = strings.TrimRight(s, "/")
 	}
+	if s := os.Getenv("ABLY_CREATE_JWT_URL"); s != "" {
+		CREATE_JWT_URL = s
+	}
 }
 
 func MergeOptions(opts ...[]ably.ClientOption) []ably.ClientOption {
