@@ -15,7 +15,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -136,14 +138,82 @@ func PresenceFixturesCipher() ably.CipherParams {
 }
 
 type Sandbox struct {
-	Config   *Config
-	Endpoint string
-	client   *http.Client
+	Config        *Config
+	Endpoint      string
+	client        *http.Client
+	localEndpoint string
 
 	// local is set when this app was provisioned against a local sandbox
 	// (see LocalSandboxURL) rather than the cloud sandbox; it selects the local
 	// routing in Options and the unauthenticated teardown in delete.
 	local bool
+}
+
+// LocalRealtimeOption returns the client option used to route a plaintext
+// local sandbox's Realtime connections. Integration test packages can set it
+// to a test-only dialer without adding local-harness behavior to the SDK.
+var LocalRealtimeOption func(*Config) ably.ClientOption
+
+func loopbackEndpoint(host string, port int) (string, error) {
+	ip := net.ParseIP(host)
+	if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+		return "", fmt.Errorf("local sandbox endpoint %q is not loopback", host)
+	}
+	if port < 1 || port > 65535 {
+		return "", fmt.Errorf("local sandbox port %d is invalid", port)
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port)), nil
+}
+
+type localPlaintextTransport struct {
+	base     http.RoundTripper
+	endpoint string
+}
+
+func (transport localPlaintextTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	originalRequest := request
+	hostname := request.URL.Hostname()
+	ip := net.ParseIP(hostname)
+	allowed := hostname == "localhost" || (ip != nil && (ip.IsLoopback() || ip.IsUnspecified()))
+	for _, localHost := range strings.Split(os.Getenv("ABLY_LOCAL_REST_HOSTS"), ",") {
+		if strings.TrimSpace(localHost) == hostname {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return nil, &net.DNSError{Err: "blocked by local compatibility harness", Name: hostname, IsNotFound: true}
+	}
+	request = request.Clone(request.Context())
+	request.Host = request.URL.Host
+	request.URL.Scheme = "http"
+	if ip == nil || (!ip.IsLoopback() && !ip.IsUnspecified()) {
+		request.URL.Host = transport.endpoint
+	}
+	if hostname == "internet-up.ably-realtime.com" {
+		endpointURL, err := url.Parse("http://" + strings.TrimSpace(os.Getenv("ABLY_LOCAL_INTERNET_ENDPOINT")))
+		if err != nil || endpointURL.Hostname() == "" {
+			return nil, errors.New("ABLY_LOCAL_INTERNET_ENDPOINT is required for the local internet probe")
+		}
+		endpoint, err := loopbackEndpoint(endpointURL.Hostname(), urlPort(endpointURL))
+		if err != nil {
+			return nil, fmt.Errorf("invalid ABLY_LOCAL_INTERNET_ENDPOINT: %w", err)
+		}
+		request.URL.Host = endpoint
+	}
+	response, err := transport.base.RoundTrip(request)
+	if response != nil {
+		response.Request = originalRequest
+	}
+	return response, err
+}
+
+func urlPort(u *url.URL) int {
+	value, err := strconv.Atoi(u.Port())
+	if err != nil {
+		return 0
+	}
+	return value
 }
 
 func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
@@ -213,7 +283,6 @@ func provisionSandbox(endpoint string) (*Sandbox, error) {
 		client:   NewHTTPClient(),
 		local:    LocalSandboxURL != "",
 	}
-
 	p := []byte(loadAppSetup().PostApps)
 
 	const RetryCount = 4
@@ -252,6 +321,16 @@ func provisionSandbox(endpoint string) (*Sandbox, error) {
 			}
 			if err := json.NewDecoder(resp.Body).Decode(app.Config); err != nil {
 				return nil, err
+			}
+			if app.local && !app.Config.LocalTLS && LocalRealtimeOption != nil {
+				app.localEndpoint, err = loopbackEndpoint(app.Config.LocalEndpoint, app.Config.LocalPort)
+				if err != nil {
+					return nil, err
+				}
+				app.client.Transport = localPlaintextTransport{
+					base:     app.client.Transport,
+					endpoint: app.localEndpoint,
+				}
 			}
 			return app, nil
 		}
@@ -332,6 +411,13 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 		Hijack(http.RoundTripper) http.RoundTripper
 	}
 	appHTTPClient := NewHTTPClient()
+	logicalLocalRouting := app.local && !app.Config.LocalTLS && LocalRealtimeOption != nil
+	if logicalLocalRouting {
+		appHTTPClient.Transport = localPlaintextTransport{
+			base:     appHTTPClient.Transport,
+			endpoint: app.localEndpoint,
+		}
+	}
 	appOpts := []ably.ClientOption{
 		ably.WithKey(app.Key()),
 		ably.WithEndpoint(app.Endpoint),
@@ -340,17 +426,25 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 		ably.WithLogLevel(DefaultLogLevel),
 	}
 
-	// local sandbox: route to the app's child server (its own host/port,
-	// plain ws/http), overriding the cloud endpoint set above. Basic auth is
-	// allowed without TLS since the child terminates plaintext.
+	// Keep the logical endpoint and TLS semantics when a test-only local
+	// Realtime dialer is installed. Otherwise retain the direct local sandbox
+	// routing used by ABLY_LOCAL_SANDBOX_URL.
 	if app.local {
-		appOpts = append(appOpts,
-			ably.WithEndpoint(app.Config.LocalEndpoint),
-			ably.WithTLS(app.Config.LocalTLS),
-			ably.WithPort(app.Config.LocalPort),
-		)
-		if !app.Config.LocalTLS {
-			appOpts = append(appOpts, ably.WithInsecureAllowBasicAuthWithoutTLS())
+		if logicalLocalRouting {
+			appOpts = append(appOpts,
+				ably.WithTLS(true),
+				LocalRealtimeOption(app.Config),
+			)
+		} else {
+			appOpts = append(appOpts,
+				ably.WithEndpoint(app.Config.LocalEndpoint),
+				ably.WithTLS(app.Config.LocalTLS),
+				ably.WithPort(app.Config.LocalPort),
+				ably.WithTLSPort(app.Config.LocalPort),
+			)
+			if !app.Config.LocalTLS {
+				appOpts = append(appOpts, ably.WithInsecureAllowBasicAuthWithoutTLS())
+			}
 		}
 	}
 
@@ -360,6 +454,17 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 		if hijacker, ok := httpClient.Transport.(transportHijacker); ok {
 			appHTTPClient.Transport = hijacker.Hijack(appHTTPClient.Transport)
 			opts = append(opts, ably.WithHTTPClient(appHTTPClient))
+		} else if logicalLocalRouting {
+			if transport, ok := httpClient.Transport.(*http.Transport); ok &&
+				(transport.Proxy == nil ||
+					reflect.ValueOf(transport.Proxy).Pointer() == reflect.ValueOf(http.ProxyFromEnvironment).Pointer()) {
+				wrapped := *httpClient
+				wrapped.Transport = localPlaintextTransport{
+					base:     httpClient.Transport,
+					endpoint: app.localEndpoint,
+				}
+				opts = append(opts, ably.WithHTTPClient(&wrapped))
+			}
 		}
 	}
 	appOpts = MergeOptions(appOpts, opts)
