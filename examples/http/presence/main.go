@@ -12,9 +12,9 @@ import (
 
 func main() {
 	// Connect to Ably using the API key and ClientID
-	client, err := server.NewHTTPClient(
-		server.WithKey(os.Getenv(examples.AblyKey)),
-		server.WithClientID(examples.UserName))
+	client, err := pubsub.NewHTTPClient(
+		pubsub.WithKey(os.Getenv(examples.AblyKey)),
+		pubsub.WithClientID(examples.UserName))
 
 	if err != nil {
 		panic(err)
@@ -23,7 +23,7 @@ func main() {
 	checkPresence(client)
 }
 
-func checkPresence(client *server.HTTPClient) {
+func checkPresence(client *pubsub.HTTPClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	realtimeClient := examples.InitRealtimeClient()
 	examples.RealtimeEnterPresence(realtimeClient)
@@ -35,7 +35,7 @@ func checkPresence(client *server.HTTPClient) {
 	realtimeClient.Close()
 }
 
-func printPresenceMessages(channel *server.HTTPChannel) {
+func printPresenceMessages(channel *pubsub.HTTPChannel) {
 
 	pages, err := channel.Presence.Get().Pages(context.Background())
 	if err != nil {
