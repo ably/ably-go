@@ -20,8 +20,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ably/ably-go/internal/ably"
-	"github.com/ably/ably-go/internal/ablytest"
+	"github.com/ably/ably-pubsub-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/internal/ablytest"
 )
 
 func Test_RTN2_WebsocketQueryParams(t *testing.T) {

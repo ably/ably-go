@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ably/ably-go/internal/ably/internal/ablyutil"
+	"github.com/ably/ably-pubsub-go/internal/ably/internal/ablyutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

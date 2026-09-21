@@ -6,7 +6,7 @@ package ablytest_test
 import (
 	"fmt"
 
-	"github.com/ably/ably-go/internal/ablytest"
+	"github.com/ably/ably-pubsub-go/internal/ablytest"
 )
 
 func ExampleFmtFunc_Wrap() {

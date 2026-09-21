@@ -7,7 +7,7 @@ import (
 	"crypto/aes"
 	"testing"
 
-	"github.com/ably/ably-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/internal/ably"
 
 	"github.com/stretchr/testify/assert"
 )

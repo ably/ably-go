@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ably/ably-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/internal/ably"
 )
 
 var Timeout = 30 * time.Second

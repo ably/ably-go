@@ -1,7 +1,7 @@
 // Command genapi generates the public API of the pubsub entry-point packages.
 //
 // The implementation lives in internal/ably, which callers outside this module
-// cannot import. Each entry-point package (pubsub/device, pubsub/server) has to
+// cannot import. Each entry-point package (device, server) has to
 // re-export the part of that implementation its users need, which is what this
 // command emits.
 //
@@ -10,7 +10,7 @@
 // transitively, and then takes every package-level function, constant and
 // variable whose signature only mentions types reached that way. A device
 // client has no HTTPClient, so nothing reachable only from an HTTPClient — the
-// Request and presence-Get options, say — ends up in pubsub/device.
+// Request and presence-Get options, say — ends up in the device package.
 //
 // Names the target package already declares by hand are left alone, so the
 // hand-written constructors that tag the Ably-Agent header are never
@@ -33,8 +33,10 @@ import (
 )
 
 const (
-	ablyPkg    = "github.com/ably/ably-go/internal/ably"
-	objectsPkg = "github.com/ably/ably-go/internal/ably/objects"
+	modulePath = "github.com/ably/ably-pubsub-go"
+
+	ablyPkg    = "github.com/ably/ably-pubsub-go/internal/ably"
+	objectsPkg = "github.com/ably/ably-pubsub-go/internal/ably/objects"
 
 	// objectsPrefix disambiguates the LiveObjects types once they are flattened
 	// into a single package: objects.Message and ably.Message would otherwise
@@ -62,13 +64,13 @@ type target struct {
 
 var targets = map[string]target{
 	"device": {
-		dir:          "pubsub/device",
+		dir:          "device",
 		pkg:          "device",
 		dropHTTPOnly: true,
 		deny:         []string{"NewRealtime", "NewHTTPClient", "Realtime"},
 	},
 	"server": {
-		dir:  "pubsub/server",
+		dir:  "server",
 		pkg:  "server",
 		deny: []string{"NewRealtime", "NewHTTPClient", "Realtime", "HTTPClient"},
 	},
@@ -109,12 +111,12 @@ func repoRoot(given string) (string, error) {
 	}
 	for {
 		mod := filepath.Join(dir, "go.mod")
-		if b, err := os.ReadFile(mod); err == nil && bytes.Contains(b, []byte("module github.com/ably/ably-go")) {
+		if b, err := os.ReadFile(mod); err == nil && bytes.Contains(b, []byte("module "+modulePath)) {
 			return dir, nil
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("no go.mod for github.com/ably/ably-go above the working directory")
+			return "", fmt.Errorf("no go.mod for %s above the working directory", modulePath)
 		}
 		dir = parent
 	}

@@ -8,9 +8,9 @@
 // can reach are not re-exported here.
 package device
 
-//go:generate go run github.com/ably/ably-go/internal/cmd/genapi -target device
+//go:generate go run github.com/ably/ably-pubsub-go/internal/cmd/genapi -target device
 
-import "github.com/ably/ably-go/internal/ably"
+import "github.com/ably/ably-pubsub-go/internal/ably"
 
 // agentName declares the side in the Ably-Agent header (RSC7d) so that
 // traffic from clients constructed by this package is classified as

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ably/ably-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/internal/ably"
 )
 
 // When publishing a message to a channel, data can be either a single string or
