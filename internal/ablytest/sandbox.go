@@ -22,7 +22,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/internal/ably"
 )
 
 // Key is a single API key as returned in the /apps response.
