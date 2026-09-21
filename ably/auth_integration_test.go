@@ -42,7 +42,7 @@ func TestAuth_BasicAuth(t *testing.T) {
 	rec, extraOpt := recorder()
 	defer rec.Stop()
 	opts := []ably.ClientOption{ably.WithQueryTime(true)}
-	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
+	app, client := ablytest.NewHTTPClient(append(opts, extraOpt...)...)
 
 	_, err := client.Time(context.Background())
 	assert.NoError(t, err,
@@ -66,7 +66,7 @@ func TestAuth_BasicAuth(t *testing.T) {
 			"Expected rec.Request(1).URL.Scheme to be https, got %s", rec.Request(1).URL.Scheme)
 
 		// Can't use basic auth over HTTP.
-		_, err := ably.NewREST(app.Options(ably.WithTLS(false))...)
+		_, err := ably.NewHTTPClient(app.Options(ably.WithTLS(false))...)
 		assert.Error(t, err)
 		assert.Equal(t, ably.ErrorCode(40103), ably.UnwrapErrorCode(err),
 			"want code=40103; got %d", ably.UnwrapErrorCode(err))
@@ -110,7 +110,7 @@ func TestAuth_TokenAuth(t *testing.T) {
 		ably.WithUseTokenAuth(true),
 		ably.WithQueryTime(true),
 	}
-	_, client := ablytest.NewREST(append(opts, extraOpt...)...)
+	_, client := ablytest.NewHTTPClient(append(opts, extraOpt...)...)
 
 	beforeAuth := time.Now().Add(-time.Second)
 	_, err := client.Time(context.Background())
@@ -157,7 +157,7 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	rec, extraOpt := recorder()
 	defer rec.Stop()
 	opts := []ably.ClientOption{ably.WithUseTokenAuth(true)}
-	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
+	app, client := ablytest.NewHTTPClient(append(opts, extraOpt...)...)
 
 	params := &ably.TokenParams{
 		TTL: time.Second.Milliseconds(),
@@ -197,9 +197,9 @@ func TestAuth_TokenAuth_Renew(t *testing.T) {
 	rec.Reset()
 	opts = app.Options(opts...)
 	opts = append(opts, ably.WithKey(""), ably.WithTokenDetails(tok))
-	client, err = ably.NewREST(opts...)
+	client, err = ably.NewHTTPClient(opts...)
 	require.NoError(t, err,
-		"NewREST()=%v", err)
+		"NewHTTPClient()=%v", err)
 	_, err = client.Stats().Pages(context.Background())
 	assert.Error(t, err)
 	// Ensure no requests were made to Ably servers.
@@ -214,7 +214,7 @@ func TestAuth_RequestToken(t *testing.T) {
 		ably.WithAuthParams(url.Values{"param_1": []string{"this", "should", "get", "overwritten"}}),
 	}
 	defer rec.Stop()
-	app, client := ablytest.NewREST(append(opts, extraOpt...)...)
+	app, client := ablytest.NewHTTPClient(append(opts, extraOpt...)...)
 	server := ablytest.MustAuthReverseProxy(app.Options(append(opts, extraOpt...)...)...)
 	defer safeclose(t, server)
 
@@ -333,9 +333,9 @@ func TestAuth_RequestToken(t *testing.T) {
 		optsURL := append(app.Options(opts...),
 			ably.WithToken(tokURL.Token),
 		)
-		c, err := ably.NewREST(optsURL...)
+		c, err := ably.NewHTTPClient(optsURL...)
 		require.NoError(t, err,
-			"NewREST()=%v", err)
+			"NewHTTPClient()=%v", err)
 		_, err = c.Stats().Pages(context.Background())
 		assert.NoError(t, err,
 			"c.Stats()=%v (method=%s)", err, method)
@@ -382,7 +382,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		assert.True(t, strings.HasPrefix(jwt, "ey"))
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(app.Options(
+		rest, err := ably.NewHTTPClient(app.Options(
 			ably.WithToken(jwt),
 			optn[0],
 		)...)
@@ -404,7 +404,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		app := ablytest.MustSandbox()
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(app.Options(
+		rest, err := ably.NewHTTPClient(app.Options(
 			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
 			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, false)),
 			optn[0],
@@ -447,7 +447,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		})
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(app.Options(
+		rest, err := ably.NewHTTPClient(app.Options(
 			authCallback,
 			optn[0],
 		)...)
@@ -471,7 +471,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 		app := ablytest.MustSandbox()
 
 		rec, optn := ablytest.NewHttpRecorder()
-		rest, err := ably.NewREST(app.Options(
+		rest, err := ably.NewHTTPClient(app.Options(
 			ably.WithAuthURL(ablytest.CREATE_JWT_URL),
 			ably.WithAuthParams(app.GetJwtAuthParams(30*time.Second, true)),
 			optn[0],
@@ -493,7 +493,7 @@ func TestAuth_JWT_Token_RSA8c(t *testing.T) {
 
 func TestAuth_ReuseClientID(t *testing.T) {
 	opts := []ably.ClientOption{ably.WithUseTokenAuth(true)}
-	_, client := ablytest.NewREST(opts...)
+	_, client := ablytest.NewHTTPClient(opts...)
 
 	params := &ably.TokenParams{
 		ClientID: "reuse-me",
@@ -528,7 +528,7 @@ func TestAuth_RequestToken_PublishClientID(t *testing.T) {
 	}
 
 	for i, cas := range cases {
-		rclient, err := ably.NewREST(app.Options()...)
+		rclient, err := ably.NewHTTPClient(app.Options()...)
 		require.NoError(t, err)
 		params := &ably.TokenParams{
 			ClientID: cas.authAs,
@@ -678,7 +678,7 @@ func TestAuth_ClientID(t *testing.T) {
 }
 
 func TestAuth_CreateTokenRequest(t *testing.T) {
-	app, client := ablytest.NewREST()
+	app, client := ablytest.NewHTTPClient()
 
 	opts := []ably.AuthOption{
 		ably.AuthWithQueryTime(true),
@@ -831,7 +831,7 @@ func TestAuth_IgnoreTimestamp_QueryTime(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		app, client := ablytest.NewREST(append(test.opt, extraOpt...)...)
+		app, client := ablytest.NewHTTPClient(append(test.opt, extraOpt...)...)
 		prevTokenParams := client.Auth.Params()
 		prevAuthOptions := client.Auth.AuthOptions()
 		prevUseQueryTime := prevAuthOptions.UseQueryTime
@@ -863,6 +863,6 @@ func TestAuth_RSA7c(t *testing.T) {
 	app := ablytest.MustSandbox()
 	opts := app.Options()
 	opts = append(opts, ably.WithClientID("*"))
-	_, err := ably.NewREST(opts...)
+	_, err := ably.NewHTTPClient(opts...)
 	assert.Error(t, err)
 }

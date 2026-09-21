@@ -22,7 +22,7 @@ var (
 func mockChannelWithState(channelState *ChannelState, connectionState *ConnectionState) *RealtimeChannel {
 	mockChannel := RealtimeChannel{
 		client: &Realtime{
-			rest: &REST{
+			rest: &HTTPClient{
 				log: logger{l: &stdLogger{mocklogger}},
 			},
 			Connection: &Connection{},

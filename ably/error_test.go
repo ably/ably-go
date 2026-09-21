@@ -21,9 +21,9 @@ import (
 
 func TestErrorResponseWithInvalidKey(t *testing.T) {
 	opts := []ably.ClientOption{ably.WithKey(":")}
-	_, e := ably.NewREST(opts...)
+	_, e := ably.NewHTTPClient(opts...)
 	assert.Error(t, e,
-		"NewREST(): expected err != nil")
+		"NewHTTPClient(): expected err != nil")
 	err, ok := e.(*ably.ErrorInfo)
 	assert.True(t, ok,
 		"want e be *ably.Error; was %T", e)
@@ -58,7 +58,7 @@ func TestIssue127ErrorResponse(t *testing.T) {
 	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
 	opts = append(opts, ably.WithPort(int(port)))
-	client, err := ably.NewREST(opts...)
+	client, err := ably.NewHTTPClient(opts...)
 	assert.NoError(t, err)
 
 	_, err = client.Time(context.Background())
@@ -138,7 +138,7 @@ func TestIssue_154(t *testing.T) {
 	}
 	port, _ := strconv.ParseInt(endpointURL.Port(), 10, 0)
 	opts = append(opts, ably.WithPort(int(port)))
-	client, e := ably.NewREST(opts...)
+	client, e := ably.NewHTTPClient(opts...)
 	assert.NoError(t, e)
 
 	_, err = client.Time(context.Background())

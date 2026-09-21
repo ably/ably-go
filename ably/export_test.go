@@ -16,8 +16,8 @@ func GetEndpointFallbackHosts(endpoint string) []string {
 	return getEndpointFallbackHosts(endpoint)
 }
 
-func (opts *clientOptions) GetRestHost() string {
-	return opts.getRestHost()
+func (opts *clientOptions) GetHTTPHost() string {
+	return opts.getHTTPHost()
 }
 
 func (opts *clientOptions) GetRealtimeHost() string {
@@ -40,11 +40,11 @@ func (opts *clientOptions) GetFallbackHosts() ([]string, error) {
 	return opts.getFallbackHosts()
 }
 
-func (opts *clientOptions) RestURL() string {
+func (opts *clientOptions) HTTPURL() string {
 	return opts.restURL()
 }
 
-func (c *REST) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
+func (c *HTTPClient) Post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
 	return c.post(ctx, path, in, out)
 }
 
@@ -85,7 +85,7 @@ func (a *Auth) AuthOptions() *authOptions {
 	return &a.opts().authOptions
 }
 
-func (c *REST) Timestamp(query bool) (time.Time, error) {
+func (c *HTTPClient) Timestamp(query bool) (time.Time, error) {
 	return c.Auth.timestamp(context.Background(), query)
 }
 
@@ -93,11 +93,11 @@ func (a *Auth) SetServerTimeFunc(st func() (time.Time, error)) {
 	a.serverTimeHandler = st
 }
 
-func (c *REST) GetCachedFallbackHost() string {
+func (c *HTTPClient) GetCachedFallbackHost() string {
 	return c.hostCache.get()
 }
 
-func (c *REST) ActiveRealtimeHost() string {
+func (c *HTTPClient) ActiveRealtimeHost() string {
 	return c.activeRealtimeHost
 }
 
@@ -232,7 +232,7 @@ func (c *Connection) SetKey(key string) {
 	c.key = key
 }
 
-func (r *Realtime) Rest() *REST {
+func (r *Realtime) HTTPClient() *HTTPClient {
 	return r.rest
 }
 

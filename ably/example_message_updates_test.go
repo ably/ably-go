@@ -8,8 +8,8 @@ import (
 )
 
 // Example demonstrating how to publish a message and get its serial
-func ExampleRESTChannel_PublishWithResult() {
-	client, err := ably.NewREST(ably.WithKey("xxx:xxx"))
+func ExampleHTTPChannel_PublishWithResult() {
+	client, err := ably.NewHTTPClient(ably.WithKey("xxx:xxx"))
 	if err != nil {
 		panic(err)
 	}
@@ -30,8 +30,8 @@ func ExampleRESTChannel_PublishWithResult() {
 }
 
 // Example demonstrating how to update a message
-func ExampleRESTChannel_UpdateMessage() {
-	client, err := ably.NewREST(ably.WithKey("xxx:xxx"))
+func ExampleHTTPChannel_UpdateMessage() {
+	client, err := ably.NewHTTPClient(ably.WithKey("xxx:xxx"))
 	if err != nil {
 		panic(err)
 	}

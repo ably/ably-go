@@ -24,7 +24,7 @@ type paginatedRequest struct {
 	query queryFunc
 }
 
-func (r *REST) newPaginatedRequest(path, rawPath string, params url.Values) paginatedRequest {
+func (r *HTTPClient) newPaginatedRequest(path, rawPath string, params url.Values) paginatedRequest {
 	return paginatedRequest{
 		path:    path,
 		rawPath: rawPath,

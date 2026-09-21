@@ -23,7 +23,7 @@ func TestHTTPPaginatedFallback(t *testing.T) {
 	opts := app.Options(ably.WithUseBinaryProtocol(false),
 		ably.WithEndpoint("ably.invalid"),
 		ably.WithFallbackHosts(nil))
-	client, err := ably.NewREST(opts...)
+	client, err := ably.NewHTTPClient(opts...)
 	require.NoError(t, err)
 	t.Run("request_time", func(t *testing.T) {
 		_, err := client.Request("get", "/time").Pages(context.Background())
@@ -34,7 +34,7 @@ func TestHTTPPaginatedFallback(t *testing.T) {
 func TestHTTPPaginatedResponse(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
-	client, err := ably.NewREST(app.Options()...)
+	client, err := ably.NewHTTPClient(app.Options()...)
 	require.NoError(t, err)
 	t.Run("request_time", func(t *testing.T) {
 		res, err := client.Request("get", "/time").Pages(context.Background())

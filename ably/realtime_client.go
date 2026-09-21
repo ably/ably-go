@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Realtime is an ably realtime client that extends the functionality of the [ably.REST] and provides
+// Realtime is an ably realtime client that extends the functionality of the [ably.HTTPClient] and provides
 // additional realtime-specific features.
 type Realtime struct {
 	// An [ably.Auth] object (RTC4).
@@ -15,13 +15,13 @@ type Realtime struct {
 	Channels *RealtimeChannels
 	// A [ably.Connection] object (RTC2).
 	Connection *Connection
-	rest       *REST
+	rest       *HTTPClient
 }
 
 // NewRealtime constructs a new [ably.Realtime] client object using an Ably [ably.ClientOption] object (RSC1)
 func NewRealtime(options ...ClientOption) (*Realtime, error) {
 	c := &Realtime{}
-	rest, err := NewREST(options...) //options validated in NewREST
+	rest, err := NewHTTPClient(options...) //options validated in NewHTTPClient
 	if err != nil {
 		return nil, err
 	}

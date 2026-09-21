@@ -581,7 +581,7 @@ func TestRealtimeChannel_RTL4_Attach(t *testing.T) {
 		app, err := ablytest.NewSandbox()
 		require.NoError(t, err)
 
-		rest, _ := ably.NewREST(app.Options()...)
+		rest, _ := ably.NewHTTPClient(app.Options()...)
 		var params ably.TokenParams
 		params.Capability = `{"foo":["subscribe"]}`
 		token, _ := rest.Auth.RequestToken(context.Background(), &params)

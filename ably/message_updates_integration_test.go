@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRESTChannel_MessageUpdates(t *testing.T) {
+func TestHTTPChannel_MessageUpdates(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
 
-	client, err := ably.NewREST(app.Options()...)
+	client, err := ably.NewHTTPClient(app.Options()...)
 	require.NoError(t, err)
 
 	ctx := context.Background()

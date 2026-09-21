@@ -13,10 +13,10 @@ import (
 
 // When publishing a message to a channel, data can be either a single string or
 // a struct of type Message. This example shows the different ways to publish a message.
-func ExampleRESTChannel_Publish() {
+func ExampleHTTPChannel_Publish() {
 
-	// Create a new REST client.
-	client, err := ably.NewREST(
+	// Create a new HTTP client.
+	client, err := ably.NewHTTPClient(
 		ably.WithKey("ABLY_PRIVATE_KEY"),
 		ably.WithClientID("Client A"),
 	)

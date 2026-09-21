@@ -143,7 +143,7 @@ func TestChannelGet(t *testing.T) {
 			mock: &RealtimeChannels{
 				chans: map[string]*RealtimeChannel{},
 				client: &Realtime{
-					rest: &REST{
+					rest: &HTTPClient{
 						log:  logger{l: &stdLogger{mocklogger}},
 						opts: NewClientOptions(),
 					},

@@ -10,10 +10,10 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// RESTPresence enables the retrieval of the current and historic presence set for a channel.
-type RESTPresence struct {
-	client  *REST
-	channel *RESTChannel
+// HTTPPresence enables the retrieval of the current and historic presence set for a channel.
+type HTTPPresence struct {
+	client  *HTTPClient
+	channel *HTTPChannel
 }
 
 // Get retrieves the current members present on the channel and the metadata for each member, such as
@@ -21,7 +21,7 @@ type RESTPresence struct {
 // containing an array of [ably.PresenceMessage]objects (RSPa).
 //
 // See package-level documentation => [ably] Pagination for more details.
-func (c *RESTPresence) Get(o ...GetPresenceOption) PresenceRequest {
+func (c *HTTPPresence) Get(o ...GetPresenceOption) PresenceRequest {
 	params := (&getPresenceOptions{}).apply(o...)
 	return PresenceRequest{
 		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence", "/channels/"+c.channel.pathName()+"/presence", params),
@@ -29,7 +29,7 @@ func (c *RESTPresence) Get(o ...GetPresenceOption) PresenceRequest {
 	}
 }
 
-// GetPresenceOption configures a call to RESTPresence.Get or RealtimePresence.Get.
+// GetPresenceOption configures a call to HTTPPresence.Get or RealtimePresence.Get.
 type GetPresenceOption func(*getPresenceOptions)
 
 // GetPresenceWithLimit sets an upper limit on the number of messages returned.
@@ -67,7 +67,7 @@ func (o *getPresenceOptions) apply(opts ...GetPresenceOption) url.Values {
 	return o.params
 }
 
-func (p *RESTPresence) log() logger {
+func (p *HTTPPresence) log() logger {
 	return p.client.log
 }
 
@@ -77,7 +77,7 @@ func (p *RESTPresence) log() logger {
 // to two minutes in the past (RSP4a).
 //
 // See package-level documentation => [ably] Pagination for details about history pagination.
-func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceRequest {
+func (c *HTTPPresence) History(o ...PresenceHistoryOption) PresenceRequest {
 	params := (&presenceHistoryOptions{}).apply(o...)
 	return PresenceRequest{
 		r:       c.client.newPaginatedRequest("/channels/"+c.channel.Name+"/presence/history", "/channels/"+c.channel.pathName()+"/presence/history", params),
@@ -85,7 +85,7 @@ func (c *RESTPresence) History(o ...PresenceHistoryOption) PresenceRequest {
 	}
 }
 
-// PresenceHistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
+// PresenceHistoryOption configures a call to HTTPChannel.History or RealtimeChannel.History.
 type PresenceHistoryOption func(*presenceHistoryOptions)
 
 // PresenceHistoryWithStart sets the time from which messages are retrieved, specified as milliseconds
@@ -134,11 +134,11 @@ func (o *presenceHistoryOptions) apply(opts ...PresenceHistoryOption) url.Values
 	return o.params
 }
 
-// PresenceRequest represents a request prepared by the RESTPresence.History or
+// PresenceRequest represents a request prepared by the HTTPPresence.History or
 // RealtimePresence.History method, ready to be performed by its Pages or Items methods.
 type PresenceRequest struct {
 	r       paginatedRequest
-	channel *RESTChannel
+	channel *HTTPChannel
 }
 
 // Pages returns an iterator for whole pages of presence messages.
@@ -202,13 +202,13 @@ func (r PresenceRequest) Items(ctx context.Context) (*PresencePaginatedItems, er
 // fullPresenceDecoder wraps a destination slice of messages in a decoder value
 // that decodes both the message itself from the transport-level encoding and
 // the data field within from its message-specific encoding.
-func (c *RESTChannel) fullPresenceDecoder(dst *[]*PresenceMessage) interface{} {
+func (c *HTTPChannel) fullPresenceDecoder(dst *[]*PresenceMessage) interface{} {
 	return &fullPresenceDecoder{dst: dst, c: c}
 }
 
 type fullPresenceDecoder struct {
 	dst *[]*PresenceMessage
-	c   *RESTChannel
+	c   *HTTPChannel
 }
 
 func (t *fullPresenceDecoder) UnmarshalJSON(b []byte) error {

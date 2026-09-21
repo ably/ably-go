@@ -23,7 +23,7 @@ func TestPresenceHistory_RSP4_RSP4b3(t *testing.T) {
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
 
-			app, rest := ablytest.NewREST()
+			app, rest := ablytest.NewHTTPClient()
 			channelName := ablytest.ChannelName("persisted:test")
 			channel := rest.Channels.Get(channelName)
 
@@ -64,7 +64,7 @@ func TestPresenceHistory_Direction_RSP4b2(t *testing.T) {
 		c := c
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
 
-			app, rest := ablytest.NewREST()
+			app, rest := ablytest.NewHTTPClient()
 			channelName := ablytest.ChannelName("persisted:test")
 			channel := rest.Channels.Get(channelName)
 
@@ -96,7 +96,7 @@ func TestPresenceGet_RSP3_RSP3a1(t *testing.T) {
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
 
-			_, rest := ablytest.NewREST()
+			_, rest := ablytest.NewHTTPClient()
 			channel := presenceFixturesChannel(rest)
 
 			expected := persistedPresenceFixtures()
@@ -126,7 +126,7 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 		clientID := clientID
 		t.Run(fmt.Sprintf("clientID=%v", clientID), func(t *testing.T) {
 
-			_, rest := ablytest.NewREST()
+			_, rest := ablytest.NewHTTPClient()
 			channel := presenceFixturesChannel(rest)
 
 			expected := persistedPresenceFixtures(func(p ablytest.Presence) bool {
@@ -152,7 +152,7 @@ func TestPresenceGet_ClientID_RSP3a2(t *testing.T) {
 }
 
 func TestPresenceGet_ConnectionID_RSP3a3(t *testing.T) {
-	app, rest := ablytest.NewREST()
+	app, rest := ablytest.NewHTTPClient()
 
 	expectedByConnID := map[string]ably.Message{}
 
@@ -264,7 +264,7 @@ const presenceFixturesChannelName = "persisted:presence_fixtures"
 
 // presenceFixturesChannel returns the presence-fixtures channel configured with
 // the cipher needed to decode the client_encoded fixture member.
-func presenceFixturesChannel(rest *ably.REST) *ably.RESTChannel {
+func presenceFixturesChannel(rest *ably.HTTPClient) *ably.HTTPChannel {
 	return rest.Channels.Get(
 		presenceFixturesChannelName,
 		ably.ChannelWithCipher(ablytest.PresenceFixturesCipher()),

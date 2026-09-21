@@ -63,7 +63,7 @@ type Auth struct {
 	mtx sync.Mutex
 
 	method int
-	client *REST
+	client *HTTPClient
 
 	// params to use with token renewal
 	params *TokenParams
@@ -89,7 +89,7 @@ type Auth struct {
 	serverTimeHandler func() (time.Time, error)
 }
 
-func newAuth(client *REST) (*Auth, error) {
+func newAuth(client *HTTPClient) (*Auth, error) {
 	a := &Auth{
 		client:              client,
 		onExplicitAuthorize: func(context.Context, *TokenDetails) error { return nil },

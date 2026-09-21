@@ -67,12 +67,12 @@ func TestAddHeaders(t *testing.T) {
 
 func TestNewAuth(t *testing.T) {
 	tests := map[string]struct {
-		client         *REST
+		client         *HTTPClient
 		expectedMethod int
 		expectedErr    error
 	}{
 		"Use authBasic for a client with a valid key and no token": {
-			client: &REST{
+			client: &HTTPClient{
 				opts: &clientOptions{authOptions: authOptions{
 					Key: "abc:def",
 				}},
@@ -81,7 +81,7 @@ func TestNewAuth(t *testing.T) {
 			expectedErr:    nil,
 		},
 		"Use authToken for a client with a valid key and a token": {
-			client: &REST{
+			client: &HTTPClient{
 				opts: &clientOptions{authOptions: authOptions{
 					Key:   "abc:def",
 					Token: "123",
@@ -91,7 +91,7 @@ func TestNewAuth(t *testing.T) {
 			expectedErr:    nil,
 		},
 		"Can handle a client with an invalid key": {
-			client: &REST{
+			client: &HTTPClient{
 				opts: &clientOptions{authOptions: authOptions{
 					Key: "abcdef",
 				}},
@@ -99,7 +99,7 @@ func TestNewAuth(t *testing.T) {
 			expectedErr: newError(ErrInvalidCredential, errInvalidKey),
 		},
 		"Can handle an invalid auth URL": {
-			client: &REST{
+			client: &HTTPClient{
 				opts: &clientOptions{authOptions: authOptions{
 					Key:     "abc:def",
 					AuthURL: ":",
@@ -219,7 +219,7 @@ func TestCreateTokenRequest(t *testing.T) {
 		"Can create a token request": {
 			auth: &Auth{
 				clientID: "aClientID",
-				client: &REST{
+				client: &HTTPClient{
 					opts: &clientOptions{authOptions: authOptions{
 						Key: "abc:def",
 					}},
@@ -258,7 +258,7 @@ func TestRequestToken(t *testing.T) {
 	}{
 		"Can request successfully request token when a token is found in auth options": {
 			auth: &Auth{
-				client: &REST{
+				client: &HTTPClient{
 					log: logger{l: &stdLogger{mocklogger}},
 				},
 			},
@@ -269,7 +269,7 @@ func TestRequestToken(t *testing.T) {
 		"Can handle an error when making a http request to request token ": {
 			auth: &Auth{
 				clientID: "aClientID",
-				client: &REST{
+				client: &HTTPClient{
 					hostCache: &hostCache{},
 					log:       logger{l: &stdLogger{mocklogger}},
 					opts: &clientOptions{authOptions: authOptions{

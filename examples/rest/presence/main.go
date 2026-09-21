@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// Connect to Ably using the API key and ClientID
-	client, err := ably.NewREST(
+	client, err := ably.NewHTTPClient(
 		ably.WithKey(os.Getenv(examples.AblyKey)),
 		ably.WithClientID(examples.UserName))
 
@@ -23,7 +23,7 @@ func main() {
 	checkPresence(client)
 }
 
-func checkPresence(client *ably.REST) {
+func checkPresence(client *ably.HTTPClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	realtimeClient := examples.InitRealtimeClient()
 	examples.RealtimeEnterPresence(realtimeClient)
@@ -35,7 +35,7 @@ func checkPresence(client *ably.REST) {
 	realtimeClient.Close()
 }
 
-func printPresenceMessages(channel *ably.RESTChannel) {
+func printPresenceMessages(channel *ably.HTTPChannel) {
 
 	pages, err := channel.Presence.Get().Pages(context.Background())
 	if err != nil {

@@ -140,7 +140,7 @@ func TestHosts_REC1(t *testing.T) {
 
 		t.Run("REC1c with custom environment", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithEnvironment("acme"))
-			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetRestHost())
+			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetHTTPHost())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -151,7 +151,7 @@ func TestHosts_REC1(t *testing.T) {
 
 		t.Run("REC1c REC2a1 with custom environment and fallbackHostUseDefault", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(ably.WithEnvironment("acme"), ably.WithFallbackHostsUseDefault(true))
-			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetRestHost())
+			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetHTTPHost())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -161,8 +161,8 @@ func TestHosts_REC1(t *testing.T) {
 		})
 
 		t.Run("REC1d1 with custom restHost", func(t *testing.T) {
-			clientOptions := ably.NewClientOptions(ably.WithRESTHost("test.org"))
-			assert.Equal(t, "test.org", clientOptions.GetRestHost())
+			clientOptions := ably.NewClientOptions(ably.WithHTTPHost("test.org"))
+			assert.Equal(t, "test.org", clientOptions.GetHTTPHost())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -183,8 +183,8 @@ func TestHosts_REC1(t *testing.T) {
 		})
 
 		t.Run("REC1d with custom restHost and realtimeHost", func(t *testing.T) {
-			clientOptions := ably.NewClientOptions(ably.WithRealtimeHost("ws.test.org"), ably.WithRESTHost("test.org"))
-			assert.Equal(t, "test.org", clientOptions.GetRestHost())
+			clientOptions := ably.NewClientOptions(ably.WithRealtimeHost("ws.test.org"), ably.WithHTTPHost("test.org"))
+			assert.Equal(t, "test.org", clientOptions.GetHTTPHost())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -196,9 +196,9 @@ func TestHosts_REC1(t *testing.T) {
 		t.Run("REC1d REC2b with custom restHost and realtimeHost and fallbackHostsUseDefault", func(t *testing.T) {
 			clientOptions := ably.NewClientOptions(
 				ably.WithRealtimeHost("ws.test.org"),
-				ably.WithRESTHost("test.org"),
+				ably.WithHTTPHost("test.org"),
 				ably.WithFallbackHostsUseDefault(true))
-			assert.Equal(t, "test.org", clientOptions.GetRestHost())
+			assert.Equal(t, "test.org", clientOptions.GetHTTPHost())
 			assert.False(t, clientOptions.NoTLS)
 			port, isDefaultPort := clientOptions.ActivePort()
 			assert.Equal(t, 443, port)
@@ -219,7 +219,7 @@ func TestHosts_REC1(t *testing.T) {
 
 	t.Run("REC2a with fallbackHosts", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions(ably.WithFallbackHosts([]string{"a.example.com", "b.example.com"}))
-		assert.Equal(t, "main.realtime.ably.net", clientOptions.GetRestHost())
+		assert.Equal(t, "main.realtime.ably.net", clientOptions.GetHTTPHost())
 		assert.False(t, clientOptions.NoTLS)
 		port, isDefaultPort := clientOptions.ActivePort()
 		assert.Equal(t, 443, port)
@@ -260,42 +260,42 @@ func TestHosts_REC1(t *testing.T) {
 
 func TestClientOptions(t *testing.T) {
 	t.Run("must return error on invalid key", func(t *testing.T) {
-		_, err := ably.NewREST([]ably.ClientOption{ably.WithKey("invalid")}...)
+		_, err := ably.NewHTTPClient([]ably.ClientOption{ably.WithKey("invalid")}...)
 		assert.Error(t, err,
 			"expected an error")
 	})
 	t.Run("must return error on empty options", func(t *testing.T) {
-		_, err := ably.NewREST()
+		_, err := ably.NewHTTPClient()
 		assert.Error(t, err,
 			"expected an error")
 	})
 	t.Run("must return error on nil value options", func(t *testing.T) {
-		_, err := ably.NewREST(nil)
+		_, err := ably.NewHTTPClient(nil)
 		assert.Error(t, err,
 			"expected an error")
 	})
 	t.Run("must return error on invalid combinations", func(t *testing.T) {
-		_, err := ably.NewREST([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithEnvironment("acme"), ably.WithRealtimeHost("foo.example.com"), ably.WithRESTHost("foo.example.com")}...)
+		_, err := ably.NewHTTPClient([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithEnvironment("acme"), ably.WithRealtimeHost("foo.example.com"), ably.WithHTTPHost("foo.example.com")}...)
 		assert.Error(t, err,
 			"expected an error")
 
-		_, err = ably.NewREST([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithEnvironment("acme")}...)
+		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithEnvironment("acme")}...)
 		assert.Error(t, err,
 			"expected an error")
 
-		_, err = ably.NewREST([]ably.ClientOption{ably.WithEnvironment("acme"), ably.WithRealtimeHost("foo.example.com")}...)
+		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEnvironment("acme"), ably.WithRealtimeHost("foo.example.com")}...)
 		assert.Error(t, err,
 			"expected an error")
 
-		_, err = ably.NewREST([]ably.ClientOption{ably.WithEnvironment("acme"), ably.WithRESTHost("foo.example.com")}...)
+		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEnvironment("acme"), ably.WithHTTPHost("foo.example.com")}...)
 		assert.Error(t, err,
 			"expected an error")
 
-		_, err = ably.NewREST([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithRealtimeHost("foo.example.com")}...)
+		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithRealtimeHost("foo.example.com")}...)
 		assert.Error(t, err,
 			"expected an error")
 
-		_, err = ably.NewREST([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithRESTHost("foo.example.com")}...)
+		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithHTTPHost("foo.example.com")}...)
 		assert.Error(t, err,
 			"expected an error")
 	})
@@ -333,7 +333,7 @@ func TestScopeParams(t *testing.T) {
 
 func TestOption_NoTLS(t *testing.T) {
 	t.Run("does not allow basic auth with no TLS", func(t *testing.T) {
-		_, err := ably.NewREST(
+		_, err := ably.NewHTTPClient(
 			ably.WithKey("xxxxxx.yyyyyy:zzzzzz"),
 			ably.WithTLS(false),
 		)
@@ -344,7 +344,7 @@ func TestOption_NoTLS(t *testing.T) {
 	})
 
 	t.Run("allows basic auth with no TLS when InsecureAllowBasicAuthWithoutTLS is set", func(t *testing.T) {
-		_, err := ably.NewREST(
+		_, err := ably.NewHTTPClient(
 			ably.WithKey("xxxxxx.yyyyyy:zzzzzz"),
 			ably.WithTLS(false),
 			ably.WithInsecureAllowBasicAuthWithoutTLS(),
