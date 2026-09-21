@@ -8,7 +8,7 @@ import "github.com/ably/ably-go/ably"
 // agentName declares the side in the Ably-Agent header (RSC7d) so that
 // traffic from clients constructed by this package is classified as
 // server-side.
-const agentName = "ably-go-pubsub-server"
+const agentName = "ably-pubsub-server"
 
 // HTTPClient is a server Pub/Sub client that operates entirely over HTTP.
 type HTTPClient = ably.REST
