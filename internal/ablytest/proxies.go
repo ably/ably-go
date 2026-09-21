@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-go/internal/ably"
 )
 
 var hopHeaders = map[string]struct{}{
