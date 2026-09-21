@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/ably/ably-go/internal/ably/objects"
+	"github.com/ably/ably-pubsub-go/internal/ably/objects"
 )
 
 // RealtimeExperimentalObjects exposes a method to publish LiveObject messages on a Realtime channel.

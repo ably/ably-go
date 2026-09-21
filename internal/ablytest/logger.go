@@ -3,7 +3,7 @@ package ablytest
 import (
 	"fmt"
 
-	"github.com/ably/ably-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/internal/ably"
 )
 
 type LogMessage struct {

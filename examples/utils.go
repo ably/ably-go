@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ably/ably-go/pubsub/server"
+	"github.com/ably/ably-pubsub-go/server"
 )
 
 func InitRealtimeClient() *server.RealtimeClient {

@@ -1,8 +1,8 @@
 // Package ably is the implementation of the Ably Go Client Library SDK.
 //
 // It is internal: applications reach this API through one of the SDK's entry
-// points, [github.com/ably/ably-go/pubsub/server] or
-// [github.com/ably/ably-go/pubsub/device], each of which re-exports the part
+// points, [github.com/ably/ably-pubsub-go/server] or
+// [github.com/ably/ably-pubsub-go/device], each of which re-exports the part
 // of it that its users need.
 //
 // # Ably Go Client Library SDK API Reference

@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ably/ably-go/internal/ably/internal/ablyutil"
-	"github.com/ably/ably-go/internal/ably/objects"
+	"github.com/ably/ably-pubsub-go/internal/ably/internal/ablyutil"
+	"github.com/ably/ably-pubsub-go/internal/ably/objects"
 )
 
 const (

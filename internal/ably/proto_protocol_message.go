@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ably/ably-go/internal/ably/objects"
+	"github.com/ably/ably-pubsub-go/internal/ably/objects"
 )
 
 // TR3
