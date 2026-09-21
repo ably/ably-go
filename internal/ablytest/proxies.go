@@ -78,7 +78,7 @@ type AuthReverseProxy struct {
 // NewAuthReverseProxy creates new auth reverse proxy. The given opts
 // are used to create a Auth client, used to reverse proxying token requests.
 func NewAuthReverseProxy(opts ...ably.ClientOption) (*AuthReverseProxy, error) {
-	client, err := ably.NewREST(append(opts,
+	client, err := ably.NewHTTPClient(append(opts,
 		ably.WithUseTokenAuth(true),
 	)...)
 	if err != nil {

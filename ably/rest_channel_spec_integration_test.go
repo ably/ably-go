@@ -22,7 +22,7 @@ func TestRSL1f1(t *testing.T) {
 	opts := app.Options()
 	// RSL1f
 	opts = append(opts, ably.WithUseTokenAuth(false))
-	client, err := ably.NewREST(opts...)
+	client, err := ably.NewHTTPClient(opts...)
 	require.NoError(t, err)
 	channel := client.Channels.Get("RSL1f")
 	var msgs []*ably.Message
@@ -53,7 +53,7 @@ func TestRSL1g(t *testing.T) {
 		ably.WithUseTokenAuth(true),
 	)
 	opts = append(opts, ably.WithClientID("some_client_id"))
-	client, err := ably.NewREST(opts...)
+	client, err := ably.NewHTTPClient(opts...)
 	require.NoError(t, err)
 	t.Run("RSL1g1b", func(t *testing.T) {
 		channel := client.Channels.Get("RSL1g1b")
@@ -109,7 +109,7 @@ func TestHistory_RSL2_RSL2b3(t *testing.T) {
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
-			_, rest := ablytest.NewREST()
+			_, rest := ablytest.NewHTTPClient()
 			channel := rest.Channels.Get(ablytest.ChannelName("persisted:test"))
 
 			fixtures := historyFixtures()
@@ -142,7 +142,7 @@ func TestHistory_Direction_RSL2b2(t *testing.T) {
 	} {
 		c := c
 		t.Run(fmt.Sprintf("direction=%v", c.direction), func(t *testing.T) {
-			_, rest := ablytest.NewREST()
+			_, rest := ablytest.NewHTTPClient()
 			channel := rest.Channels.Get(ablytest.ChannelName("persisted:test"))
 
 			fixtures := historyFixtures()
@@ -161,7 +161,7 @@ func TestHistory_Direction_RSL2b2(t *testing.T) {
 
 func TestGetChannelLifecycleStatus_RSL8(t *testing.T) {
 	ctx := context.Background()
-	_, rest := ablytest.NewREST()
+	_, rest := ablytest.NewHTTPClient()
 
 	t.Run("Test Channel Status after Publish", func(t *testing.T) {
 		channel := rest.Channels.Get("lifecycle:test")

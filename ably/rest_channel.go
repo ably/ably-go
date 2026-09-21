@@ -13,27 +13,27 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// RESTChannel is the interface for REST API operations on a channel.
+// HTTPChannel is the interface for REST API operations on a channel.
 // It enables messages to be published and historic messages to be retrieved for a channel.
-type RESTChannel struct {
+type HTTPChannel struct {
 	// Name is the channel name.
 	Name string
 
-	// Presence is a [ably.RESTPresence] object (RSL3).
-	Presence *RESTPresence
+	// Presence is a [ably.HTTPPresence] object (RSL3).
+	Presence *HTTPPresence
 
-	client  *REST
+	client  *HTTPClient
 	baseURL string
 	options *protoChannelOptions
 }
 
-func newRESTChannel(name string, client *REST) *RESTChannel {
-	c := &RESTChannel{
+func newHTTPChannel(name string, client *HTTPClient) *HTTPChannel {
+	c := &HTTPChannel{
 		Name:    name,
 		client:  client,
 		baseURL: "/channels/" + url.PathEscape(name),
 	}
-	c.Presence = &RESTPresence{
+	c.Presence = &HTTPPresence{
 		client:  client,
 		channel: c,
 	}
@@ -41,18 +41,18 @@ func newRESTChannel(name string, client *REST) *RESTChannel {
 }
 
 // pathName is channel's name path escaped
-func (c *RESTChannel) pathName() string {
+func (c *HTTPChannel) pathName() string {
 	return url.PathEscape(c.Name)
 }
 
 // Publish publishes a single message to the channel with the given event name and payload. Returns error
 // if there is a problem performing message publish (RSL1).
-func (c *RESTChannel) Publish(ctx context.Context, name string, data interface{}, options ...PublishMultipleOption) error {
+func (c *HTTPChannel) Publish(ctx context.Context, name string, data interface{}, options ...PublishMultipleOption) error {
 	return c.PublishMultiple(ctx, []*Message{{Name: name, Data: data}}, options...)
 }
 
 // PublishMultipleOption is an optional parameter for
-// RESTChannel.Publish and RESTChannel.PublishMultiple.
+// HTTPChannel.Publish and HTTPChannel.PublishMultiple.
 //
 // TODO: This started out as just an option for PublishMultiple, but has since
 //
@@ -105,7 +105,7 @@ func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
 
 // publishMultiple is the internal implementation for publishing multiple messages.
 // If out is non-nil, the response body will be decoded into it.
-func (c *RESTChannel) publishMultiple(ctx context.Context, messages []*Message, out interface{}, options ...PublishMultipleOption) error {
+func (c *HTTPChannel) publishMultiple(ctx context.Context, messages []*Message, out interface{}, options ...PublishMultipleOption) error {
 	var publishOpts publishMultipleOptions
 	for _, o := range options {
 		o(&publishOpts)
@@ -118,7 +118,7 @@ func (c *RESTChannel) publishMultiple(ctx context.Context, messages []*Message, 
 			return fmt.Errorf("encoding data for message #%d: %w", i, err)
 		}
 	}
-	useIdempotent := c.client.opts.idempotentRESTPublishing()
+	useIdempotent := c.client.opts.idempotentHTTPPublishing()
 	if useIdempotent {
 		switch len(messages) {
 		case 1:
@@ -172,7 +172,7 @@ func (c *RESTChannel) publishMultiple(ctx context.Context, messages []*Message, 
 }
 
 // PublishMultiple publishes multiple messages in a batch. Returns error if there is a problem publishing message (RSL1).
-func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
+func (c *HTTPChannel) PublishMultiple(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
 	return c.publishMultiple(ctx, messages, nil, options...)
 }
 
@@ -181,14 +181,14 @@ func (c *RESTChannel) PublishMultiple(ctx context.Context, messages []*Message, 
 // Deprecated: Use PublishMultiple instead.
 //
 // TODO: Remove this in the next major version bump to 2.x.x.
-func (c *RESTChannel) PublishMultipleWithOptions(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
+func (c *HTTPChannel) PublishMultipleWithOptions(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
 	return c.PublishMultiple(ctx, messages, options...)
 }
 
 // PublishWithResult publishes a single message to the channel with the given event name and payload,
 // and returns the serial assigned by the server (RSL1n, RSL1n1 alternative).
 // Returns error if there is a problem performing message publish.
-func (c *RESTChannel) PublishWithResult(ctx context.Context, name string, data interface{}, options ...PublishMultipleOption) (*PublishResult, error) {
+func (c *HTTPChannel) PublishWithResult(ctx context.Context, name string, data interface{}, options ...PublishMultipleOption) (*PublishResult, error) {
 	results, err := c.PublishMultipleWithResult(ctx, []*Message{{Name: name, Data: data}}, options...)
 	if err != nil {
 		return nil, err
@@ -202,7 +202,7 @@ func (c *RESTChannel) PublishWithResult(ctx context.Context, name string, data i
 // PublishMultipleWithResult publishes multiple messages in a batch and returns the serials
 // assigned by the server (RSL1n, RSL1n1 alternative).
 // Returns error if there is a problem publishing messages.
-func (c *RESTChannel) PublishMultipleWithResult(ctx context.Context, messages []*Message, options ...PublishMultipleOption) ([]PublishResult, error) {
+func (c *HTTPChannel) PublishMultipleWithResult(ctx context.Context, messages []*Message, options ...PublishMultipleOption) ([]PublishResult, error) {
 	var response publishResponse
 	if err := c.publishMultiple(ctx, messages, &response, options...); err != nil {
 		return nil, err
@@ -227,7 +227,7 @@ type updateDeleteResult struct {
 // performMessageOperation is a shared helper for UpdateMessage, DeleteMessage, and AppendMessage.
 // It validates the message serial, applies update options, sets the action, encodes data, and sends the request.
 // Uses PATCH /channels/{name}/messages/{serial} per RSL15b with a single Message body (not an array).
-func (c *RESTChannel) performMessageOperation(ctx context.Context, msg *Message, action MessageAction, options ...UpdateOption) (*UpdateDeleteResult, error) {
+func (c *HTTPChannel) performMessageOperation(ctx context.Context, msg *Message, action MessageAction, options ...UpdateOption) (*UpdateDeleteResult, error) {
 	if err := validateMessageSerial(msg); err != nil {
 		return nil, err
 	}
@@ -277,21 +277,21 @@ func (c *RESTChannel) performMessageOperation(ctx context.Context, msg *Message,
 }
 
 // UpdateMessage updates a previously published message.
-func (c *RESTChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateDeleteResult, error) {
+func (c *HTTPChannel) UpdateMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateDeleteResult, error) {
 	return c.performMessageOperation(ctx, msg, MessageActionUpdate, options...)
 }
 
 // DeleteMessage deletes a previously published message.
-func (c *RESTChannel) DeleteMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateDeleteResult, error) {
+func (c *HTTPChannel) DeleteMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateDeleteResult, error) {
 	return c.performMessageOperation(ctx, msg, MessageActionDelete, options...)
 }
 
 // AppendMessage appends to a previously published message.
-func (c *RESTChannel) AppendMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateDeleteResult, error) {
+func (c *HTTPChannel) AppendMessage(ctx context.Context, msg *Message, options ...UpdateOption) (*UpdateDeleteResult, error) {
 	return c.performMessageOperation(ctx, msg, MessageActionAppend, options...)
 }
 
-// ChannelDetails contains the details of a [ably.RESTChannel] or [ably.RealtimeChannel] object
+// ChannelDetails contains the details of a [ably.HTTPChannel] or [ably.RealtimeChannel] object
 // such as its ID and [ably.ChannelStatus].
 type ChannelDetails struct {
 	// ChannelId is the identifier of the channel (CHD2a).
@@ -300,7 +300,7 @@ type ChannelDetails struct {
 	Status ChannelStatus `json:"status" codec:"status"`
 }
 
-// ChannelStatus contains the status of a [ably.RESTChannel] or [ably.RealtimeChannel] object such as whether
+// ChannelStatus contains the status of a [ably.HTTPChannel] or [ably.RealtimeChannel] object such as whether
 // it is active and its [ably.ChannelOccupancy].
 type ChannelStatus struct {
 	// IsActive if set to true, the channel is active, otherwise inactive (CHS2a).
@@ -310,13 +310,13 @@ type ChannelStatus struct {
 	Occupancy ChannelOccupancy `json:"occupancy" codec:"occupancy"`
 }
 
-// ChannelOccupancy contains the metrics of a [ably.RESTChannel] or [ably.RealtimeChannel] object.
+// ChannelOccupancy contains the metrics of a [ably.HTTPChannel] or [ably.RealtimeChannel] object.
 type ChannelOccupancy struct {
 	// Metrics is a [ably.ChannelMetrics] object (CHO2a).
 	Metrics ChannelMetrics `json:"metrics" codec:"metrics"`
 }
 
-// ChannelMetrics contains the metrics associated with a [ably.RESTChannel] or [ably.RealtimeChannel],
+// ChannelMetrics contains the metrics associated with a [ably.HTTPChannel] or [ably.RealtimeChannel],
 // such as the number of publishers, subscribers and connections it has.
 type ChannelMetrics struct {
 	// Connections is the number of realtime connections attached to the channel (CHM2a).
@@ -350,7 +350,7 @@ type ChannelMetrics struct {
 
 // Status returns ChannelDetails representing information for a channel which includes status and occupancy metrics.
 // (RSL8)
-func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
+func (c *HTTPChannel) Status(ctx context.Context) (*ChannelDetails, error) {
 	var channelDetails ChannelDetails
 	req := &request{
 		Method: "GET",
@@ -368,7 +368,7 @@ func (c *RESTChannel) Status(ctx context.Context) (*ChannelDetails, error) {
 // History gives the channel's message history (RSL2a)
 //
 // See package-level documentation => [ably] Pagination for details about history pagination.
-func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
+func (c *HTTPChannel) History(o ...HistoryOption) HistoryRequest {
 	params := (&historyOptions{}).apply(o...)
 	return HistoryRequest{
 		r:       c.client.newPaginatedRequest("/channels/"+c.Name+"/history", "/channels/"+c.pathName()+"/history", params),
@@ -376,7 +376,7 @@ func (c *RESTChannel) History(o ...HistoryOption) HistoryRequest {
 	}
 }
 
-// A HistoryOption configures a call to RESTChannel.History or RealtimeChannel.History.
+// A HistoryOption configures a call to HTTPChannel.History or RealtimeChannel.History.
 type HistoryOption func(*historyOptions)
 
 // HistoryWithStart sets time from which messages are retrieved, specified as milliseconds since the Unix epoch.
@@ -424,11 +424,11 @@ func (o *historyOptions) apply(opts ...HistoryOption) url.Values {
 	return o.params
 }
 
-// HistoryRequest represents a request prepared by the RESTChannel.History or
+// HistoryRequest represents a request prepared by the HTTPChannel.History or
 // RealtimeChannel.History method, ready to be performed by its Pages or Items methods.
 type HistoryRequest struct {
 	r       paginatedRequest
-	channel *RESTChannel
+	channel *HTTPChannel
 	// err is a validation error set at construction time. If non-nil, Pages and
 	// Items return it immediately without making any requests.
 	err error
@@ -504,22 +504,22 @@ func (r HistoryRequest) Items(ctx context.Context) (*MessagesPaginatedItems, err
 // fullMessagesDecoder wraps a destination slice of messages in a decoder value
 // that decodes both the message itself from the transport-level encoding and
 // the data field within from its message-specific encoding.
-func (c *RESTChannel) fullMessagesDecoder(dst *[]*Message) interface{} {
+func (c *HTTPChannel) fullMessagesDecoder(dst *[]*Message) interface{} {
 	return &fullMessagesDecoder{dst: dst, c: c}
 }
 
-func (c *RESTChannel) fullMessageDecoder(dst *Message) interface{} {
+func (c *HTTPChannel) fullMessageDecoder(dst *Message) interface{} {
 	return &fullMessageDecoder{dst: dst, c: c}
 }
 
 type fullMessagesDecoder struct {
 	dst *[]*Message
-	c   *RESTChannel
+	c   *HTTPChannel
 }
 
 type fullMessageDecoder struct {
 	dst *Message
-	c   *RESTChannel
+	c   *HTTPChannel
 }
 
 func (t *fullMessagesDecoder) UnmarshalJSON(b []byte) error {
@@ -616,7 +616,7 @@ func (p *MessagesPaginatedItems) Item() *Message {
 }
 
 // GetMessage retrieves a message by its serial.
-func (c *RESTChannel) GetMessage(ctx context.Context, serial string) (*Message, error) {
+func (c *HTTPChannel) GetMessage(ctx context.Context, serial string) (*Message, error) {
 	if serial == "" {
 		return nil, newError(40003, errors.New("serial is required to retrieve a message"))
 	}
@@ -635,7 +635,7 @@ func (c *RESTChannel) GetMessage(ctx context.Context, serial string) (*Message, 
 
 // GetMessageVersions retrieves the version history of a message by its serial.
 // Returns a HistoryRequest that can be used to paginate through message versions.
-func (c *RESTChannel) GetMessageVersions(serial string, params url.Values) HistoryRequest {
+func (c *HTTPChannel) GetMessageVersions(serial string, params url.Values) HistoryRequest {
 	if serial == "" {
 		return HistoryRequest{err: newError(40003, errors.New("serial is required to retrieve message versions"))}
 	}
@@ -647,6 +647,6 @@ func (c *RESTChannel) GetMessageVersions(serial string, params url.Values) Histo
 	}
 }
 
-func (c *RESTChannel) log() logger {
+func (c *HTTPChannel) log() logger {
 	return c.client.log
 }

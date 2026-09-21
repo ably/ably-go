@@ -419,7 +419,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Internal_Server_Error(t *testin
 	assert.NoError(t, err)
 
 	assert.Equal(t, 2, connAttempts)
-	assert.Equal(t, fallbackHost, realtime.Rest().ActiveRealtimeHost())
+	assert.Equal(t, fallbackHost, realtime.HTTPClient().ActiveRealtimeHost())
 }
 
 func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
@@ -470,7 +470,7 @@ func TestRealtime_RTN17_Integration_HostFallback_Timeout(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, 2, connAttempts)
-	assert.Equal(t, fallbackHost, realtime.Rest().ActiveRealtimeHost())
+	assert.Equal(t, fallbackHost, realtime.HTTPClient().ActiveRealtimeHost())
 }
 
 func checkUnique(ch chan string, typ string, n int) error {

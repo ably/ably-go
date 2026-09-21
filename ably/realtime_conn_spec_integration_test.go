@@ -750,7 +750,7 @@ func TestRealtimeConn_RTN15a_ReconnectOnEOF(t *testing.T) {
 	// Publish a message to the channel through REST. If connection recovery
 	// succeeds, we should then receive it without reattaching.
 
-	rest, err := ably.NewREST(app.Options()...)
+	rest, err := ably.NewHTTPClient(app.Options()...)
 	require.NoError(t, err)
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
@@ -884,7 +884,7 @@ func TestRealtimeConn_RTN15b(t *testing.T) {
 	// Publish a message to the channel through REST. If connection recovery
 	// succeeds, we should then receive it without reattaching.
 
-	rest, err := ably.NewREST(app.Options()...)
+	rest, err := ably.NewHTTPClient(app.Options()...)
 	require.NoError(t, err)
 	goOn := <-gotDial
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
@@ -985,7 +985,7 @@ func TestRealtimeConn_RTN15c6(t *testing.T) {
 	assert.Equal(t, ably.ConnectionStateDisconnected, connState.Current,
 		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
 
-	rest, err := ably.NewREST(app.Options()...)
+	rest, err := ably.NewHTTPClient(app.Options()...)
 	require.NoError(t, err)
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
@@ -1097,7 +1097,7 @@ func TestRealtimeConn_RTN15c7_attached(t *testing.T) {
 	assert.Equal(t, ably.ConnectionStateDisconnected, connState.Current,
 		"expected transition to %v, got %v", ably.ConnectionStateDisconnected, connState.Current)
 
-	rest, err := ably.NewREST(app.Options()...)
+	rest, err := ably.NewHTTPClient(app.Options()...)
 	require.NoError(t, err)
 	err = rest.Channels.Get(ablytest.UniqueChannelName(t, "channel")).Publish(context.Background(), "name", "data")
 	assert.NoError(t, err)
@@ -1165,7 +1165,7 @@ func TestRealtimeConn_RTN15d_MessageRecovery(t *testing.T) {
 	// REST. If we then successfully recover connection state, the channel will
 	// still be attached and the messages will arrive.
 
-	rest, err := ably.NewREST(app.Options()...)
+	rest, err := ably.NewHTTPClient(app.Options()...)
 	require.NoError(t, err)
 	for i := 0; i < 3; i++ {
 		err := rest.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "test", fmt.Sprintf("msg %d", i))
@@ -1719,7 +1719,7 @@ func TestRealtimeConn_RTN15h3_Success(t *testing.T) {
 
 func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.T) {
 	t.Parallel()
-	app, restClient := ablytest.NewREST()
+	app, restClient := ablytest.NewHTTPClient()
 	recorder := NewMessageRecorder()
 
 	authCallbackTokens := []string{}
@@ -1782,7 +1782,7 @@ func TestRealtimeConn_RTN22a_RTN15h2_Integration_ServerInitiatedAuth(t *testing.
 }
 
 func TestRealtimeConn_RTN22_RTC8_Integration_ServerInitiatedAuth(t *testing.T) {
-	app, restClient := ablytest.NewREST()
+	app, restClient := ablytest.NewHTTPClient()
 
 	recorder := NewMessageRecorder()
 	authCallbackTokens := []string{}
@@ -2893,8 +2893,8 @@ func TestRealtimeConn_RTC8a_ExplicitAuthorizeWhileConnected(t *testing.T) {
 		}, t.Fatalf)
 	}
 
-	// We'll use this REST to get real, working tokens.
-	app, rest := ablytest.NewREST()
+	// We'll use this HTTP client to get real, working tokens.
+	app, rest := ablytest.NewHTTPClient()
 	getToken := func(params ably.TokenParams) ably.Tokener {
 		t.Helper()
 		token, err := rest.Auth.RequestToken(context.Background(), &params)

@@ -54,12 +54,12 @@ func (r *raw) CodecDecodeSelf(decoder *codec.Decoder) {
 	*r = []byte(raw)
 }
 
-// RESTChannels provides an API for managing collection of RESTChannel.
+// HTTPChannels provides an API for managing collection of HTTPChannel.
 // This is safe for concurrent use.
-type RESTChannels struct {
-	chans  map[string]*RESTChannel
+type HTTPChannels struct {
+	chans  map[string]*HTTPChannel
 	mu     sync.RWMutex
-	client *REST
+	client *HTTPClient
 }
 
 // Iterate returns a list of created channels.
@@ -67,9 +67,9 @@ type RESTChannels struct {
 // It is safe to call Iterate from multiple goroutines, however there's no guarantee
 // the returned list would not list a channel that was already released from
 // different goroutine.
-func (c *RESTChannels) Iterate() []*RESTChannel { // RSN2, RTS2
+func (c *HTTPChannels) Iterate() []*HTTPChannel { // RSN2, RTS2
 	c.mu.Lock()
-	chans := make([]*RESTChannel, 0, len(c.chans))
+	chans := make([]*HTTPChannel, 0, len(c.chans))
 	for _, restChannel := range c.chans {
 		chans = append(chans, restChannel)
 	}
@@ -78,7 +78,7 @@ func (c *RESTChannels) Iterate() []*RESTChannel { // RSN2, RTS2
 }
 
 // Exists returns true if the channel by the given name exists.
-func (c *RESTChannels) Exists(name string) bool { // RSN2, RTS2
+func (c *HTTPChannels) Exists(name string) bool { // RSN2, RTS2
 	c.mu.RLock()
 	_, ok := c.chans[name]
 	c.mu.RUnlock()
@@ -90,7 +90,7 @@ func (c *RESTChannels) Exists(name string) bool { // RSN2, RTS2
 // You can optionally pass ChannelOptions, if the channel exists it will
 // updated with the options and when it doesn't a new channel will be created
 // with the given options.
-func (c *RESTChannels) Get(name string, options ...ChannelOption) *RESTChannel {
+func (c *HTTPChannels) Get(name string, options ...ChannelOption) *HTTPChannel {
 	var o channelOptions
 	for _, set := range options {
 		set(&o)
@@ -98,7 +98,7 @@ func (c *RESTChannels) Get(name string, options ...ChannelOption) *RESTChannel {
 	return c.get(name, (*protoChannelOptions)(&o))
 }
 
-func (c *RESTChannels) get(name string, opts *protoChannelOptions) *RESTChannel {
+func (c *HTTPChannels) get(name string, opts *protoChannelOptions) *HTTPChannel {
 	c.mu.RLock()
 	v, ok := c.chans[name]
 	c.mu.RUnlock()
@@ -108,7 +108,7 @@ func (c *RESTChannels) get(name string, opts *protoChannelOptions) *RESTChannel 
 		}
 		return v
 	}
-	v = newRESTChannel(name, c.client)
+	v = newHTTPChannel(name, c.client)
 	v.options = opts
 	c.mu.Lock()
 	c.chans[name] = v
@@ -117,19 +117,19 @@ func (c *RESTChannels) get(name string, opts *protoChannelOptions) *RESTChannel 
 }
 
 // Release deletes the channel from the chans.
-func (c *RESTChannels) Release(name string) {
+func (c *HTTPChannels) Release(name string) {
 	c.mu.Lock()
 	delete(c.chans, name)
 	c.mu.Unlock()
 }
 
-// REST is rest client that offers a simple stateless API to interact directly with Ably's REST API.
-type REST struct {
+// HTTPClient is a stateless client that offers a simple API to interact directly with Ably's REST API.
+type HTTPClient struct {
 	// Auth is a  [ably.Auth] object (RSC5).
 	Auth *Auth
 
-	//Channels is a [ably.RESTChannels] object (RSN1).
-	Channels *RESTChannels
+	//Channels is a [ably.HTTPChannels] object (RSN1).
+	Channels *HTTPChannels
 
 	opts               *clientOptions
 	hostCache          *hostCache
@@ -137,10 +137,10 @@ type REST struct {
 	log                logger
 }
 
-// NewREST construct a RestClient object using an [ably.ClientOption] object to configure
+// NewHTTPClient constructs an HTTPClient object using an [ably.ClientOption] object to configure
 // the client connection to Ably (RSC1).
-func NewREST(options ...ClientOption) (*REST, error) {
-	c := &REST{
+func NewHTTPClient(options ...ClientOption) (*HTTPClient, error) {
+	c := &HTTPClient{
 		opts: applyOptionsWithDefaults(options...),
 	}
 	if err := c.opts.validate(); err != nil {
@@ -152,8 +152,8 @@ func NewREST(options ...ClientOption) (*REST, error) {
 		return nil, err
 	}
 	c.Auth = auth
-	c.Channels = &RESTChannels{
-		chans:  make(map[string]*RESTChannel),
+	c.Channels = &HTTPChannels{
+		chans:  make(map[string]*HTTPChannel),
 		client: c,
 	}
 	c.hostCache = &hostCache{
@@ -166,7 +166,7 @@ func NewREST(options ...ClientOption) (*REST, error) {
 // Clients that do not have access to a sufficiently well maintained time source and wish to issue Ably
 // multiple [ably.TokenRequest] with a more accurate timestamp should use the ClientOptions.UseQueryTime
 // property instead of this method (RSC16).
-func (c *REST) Time(ctx context.Context) (time.Time, error) {
+func (c *HTTPClient) Time(ctx context.Context) (time.Time, error) {
 	var times []int64
 	r := &request{
 		Method: "GET",
@@ -192,7 +192,7 @@ func (c *REST) Time(ctx context.Context) (time.Time, error) {
 // Note: Stats requests use protocol version 2 to maintain compatibility with the existing
 // nested Stats structure. Migrating to the flattened protocol v3+ stats format is planned
 // for ably-go v2 as it requires breaking API changes.
-func (c *REST) Stats(o ...StatsOption) StatsRequest {
+func (c *HTTPClient) Stats(o ...StatsOption) StatsRequest {
 	params := (&statsOptions{}).apply(o...)
 
 	// Use protocol v2 for stats to maintain compatibility with existing Stats structure.
@@ -210,11 +210,11 @@ func (c *REST) Stats(o ...StatsOption) StatsRequest {
 	return StatsRequest{r: req}
 }
 
-func (c *REST) setActiveRealtimeHost(realtimeHost string) {
+func (c *HTTPClient) setActiveRealtimeHost(realtimeHost string) {
 	c.activeRealtimeHost = realtimeHost
 }
 
-// A StatsOption configures a call to REST.Stats or Realtime.Stats.
+// A StatsOption configures a call to HTTPClient.Stats or Realtime.Stats.
 type StatsOption func(*statsOptions)
 
 // StatsWithStart sets the time from which stats are retrieved, specified as milliseconds since the Unix epoch (RSC6b1).
@@ -277,7 +277,7 @@ func (o *statsOptions) apply(opts ...StatsOption) url.Values {
 	return o.params
 }
 
-// StatsRequest represents a request prepared by the REST.Stats or
+// StatsRequest represents a request prepared by the HTTPClient.Stats or
 // Realtime.Stats method, ready to be performed by its Pages or Items methods.
 type StatsRequest struct {
 	r paginatedRequest
@@ -387,11 +387,11 @@ type request struct {
 // developers who wish to use REST API functionality that is either not documented or is not yet included in the
 // public API, without having to directly handle features such as authentication, paging, fallback hosts, MsgPack
 // and JSON support (RSC19).
-func (c *REST) Request(method string, path string, o ...RequestOption) RESTRequest {
+func (c *HTTPClient) Request(method string, path string, o ...RequestOption) HTTPRequest {
 	method = strings.ToUpper(method)
 	var opts requestOptions
 	opts.apply(o...)
-	return RESTRequest{r: paginatedRequest{
+	return HTTPRequest{r: paginatedRequest{
 		path:   path,
 		params: opts.params,
 		query: func(ctx context.Context, path string) (*http.Response, error) {
@@ -430,7 +430,7 @@ type requestOptions struct {
 	body    interface{}
 }
 
-// RequestOption configures a call to REST.Request.
+// RequestOption configures a call to HTTPClient.Request.
 type RequestOption func(*requestOptions)
 
 // RequestWithParams sets the parameters to include in the URL query of the request.
@@ -463,9 +463,9 @@ func (o *requestOptions) apply(opts ...RequestOption) {
 	}
 }
 
-// RESTRequest represents a request prepared by the REST.Request method, ready
+// HTTPRequest represents a request prepared by the HTTPClient.Request method, ready
 // to be performed by its Pages or Items methods.
-type RESTRequest struct {
+type HTTPRequest struct {
 	// r is an [ably.HTTPPaginatedResponse] object returned by the HTTP request, containing an empty or
 	// JSON-encodable object.
 	r paginatedRequest
@@ -474,7 +474,7 @@ type RESTRequest struct {
 // Pages returns an iterator for whole pages of results.
 //
 // See package-level documentation => [ably] Pagination for more details.
-func (r RESTRequest) Pages(ctx context.Context) (*HTTPPaginatedResponse, error) {
+func (r HTTPRequest) Pages(ctx context.Context) (*HTTPPaginatedResponse, error) {
 	var res HTTPPaginatedResponse
 	return &res, res.load(ctx, r.r)
 }
@@ -576,8 +576,8 @@ func (p *HTTPPaginatedResponse) Items(dst interface{}) error {
 // paginated iterator.
 //
 // See package-level documentation => [ably] Pagination for more details.
-func (r RESTRequest) Items(ctx context.Context) (*RESTPaginatedItems, error) {
-	var res RESTPaginatedItems
+func (r HTTPRequest) Items(ctx context.Context) (*HTTPPaginatedItems, error) {
+	var res HTTPPaginatedItems
 	var err error
 	res.next, err = res.loadItems(ctx, r.r, func() (interface{}, func() int) {
 		res.items = nil
@@ -586,7 +586,7 @@ func (r RESTRequest) Items(ctx context.Context) (*RESTPaginatedItems, error) {
 	return &res, err
 }
 
-type RESTPaginatedItems struct {
+type HTTPPaginatedItems struct {
 	PaginatedResult
 	items []raw
 	item  raw
@@ -596,7 +596,7 @@ type RESTPaginatedItems struct {
 // Next retrieves the next result.
 //
 // See the "Paginated results" section in the package-level documentation.
-func (p *RESTPaginatedItems) Next(ctx context.Context) bool {
+func (p *HTTPPaginatedItems) Next(ctx context.Context) bool {
 	i, ok := p.next(ctx)
 	if !ok {
 		return false
@@ -608,21 +608,21 @@ func (p *RESTPaginatedItems) Next(ctx context.Context) bool {
 // IsLast returns true if the page is last page.
 //
 // See package-level documentation => [ably] Pagination for more details.
-func (p *RESTPaginatedItems) IsLast(ctx context.Context) bool {
+func (p *HTTPPaginatedItems) IsLast(ctx context.Context) bool {
 	return !p.HasNext(ctx)
 }
 
 // HasNext returns true is there are more pages available.
 //
 // See package-level documentation => [ably] Pagination for more details.
-func (p *RESTPaginatedItems) HasNext(ctx context.Context) bool {
+func (p *HTTPPaginatedItems) HasNext(ctx context.Context) bool {
 	return p.nextLink != ""
 }
 
 // Item unmarshal the current result into the provided variable.
 //
 // See the "Paginated results" section in the package-level documentation.
-func (p *RESTPaginatedItems) Item(dst interface{}) error {
+func (p *HTTPPaginatedItems) Item(dst interface{}) error {
 	typ, _, err := mime.ParseMediaType(p.PaginatedResult.res.Header.Get("Content-Type"))
 	if err != nil {
 		return err
@@ -630,7 +630,7 @@ func (p *RESTPaginatedItems) Item(dst interface{}) error {
 	return decode(typ, bytes.NewReader(p.item), dst)
 }
 
-func (c *REST) get(ctx context.Context, path string, out interface{}) (*http.Response, error) {
+func (c *HTTPClient) get(ctx context.Context, path string, out interface{}) (*http.Response, error) {
 	r := &request{
 		Method: "GET",
 		Path:   path,
@@ -640,7 +640,7 @@ func (c *REST) get(ctx context.Context, path string, out interface{}) (*http.Res
 }
 
 // getWithHeader is like get but allows specifying custom HTTP headers.
-func (c *REST) getWithHeader(ctx context.Context, path string, out interface{}, header http.Header) (*http.Response, error) {
+func (c *HTTPClient) getWithHeader(ctx context.Context, path string, out interface{}, header http.Header) (*http.Response, error) {
 	r := &request{
 		Method: "GET",
 		Path:   path,
@@ -650,7 +650,7 @@ func (c *REST) getWithHeader(ctx context.Context, path string, out interface{}, 
 	return c.do(ctx, r)
 }
 
-func (c *REST) post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
+func (c *HTTPClient) post(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
 	r := &request{
 		Method: "POST",
 		Path:   path,
@@ -660,7 +660,7 @@ func (c *REST) post(ctx context.Context, path string, in, out interface{}) (*htt
 	return c.do(ctx, r)
 }
 
-func (c *REST) patch(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
+func (c *HTTPClient) patch(ctx context.Context, path string, in, out interface{}) (*http.Response, error) {
 	r := &request{
 		Method: "PATCH",
 		Path:   path,
@@ -670,39 +670,39 @@ func (c *REST) patch(ctx context.Context, path string, in, out interface{}) (*ht
 	return c.do(ctx, r)
 }
 
-func (c *REST) do(ctx context.Context, r *request) (*http.Response, error) {
+func (c *HTTPClient) do(ctx context.Context, r *request) (*http.Response, error) {
 	return c.doWithHandle(ctx, r, c.handleResponse)
 }
 
-func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
+func (c *HTTPClient) doWithHandle(ctx context.Context, r *request, handle func(*http.Response, interface{}) (*http.Response, error)) (*http.Response, error) {
 	req, err := c.newHTTPRequest(ctx, r)
 	if err != nil {
 		return nil, err
 	}
 	if h := c.hostCache.get(); h != "" {
 		req.URL.Host = h // RSC15f
-		c.log.Verbosef("RestClient: setting cached URL.Host=%q", h)
+		c.log.Verbosef("HTTPClient: setting cached URL.Host=%q", h)
 	} else if !empty(c.activeRealtimeHost) { // RTN17e
 		req.URL.Host = c.activeRealtimeHost
-		c.log.Verbosef("RestClient: setting activeRealtimeHost URL.Host=%q", c.activeRealtimeHost)
+		c.log.Verbosef("HTTPClient: setting activeRealtimeHost URL.Host=%q", c.activeRealtimeHost)
 	}
 
 	if c.opts.Trace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), c.opts.Trace))
-		c.log.Verbose("RestClient: enabling httptrace")
+		c.log.Verbose("HTTPClient: enabling httptrace")
 	}
 	resp, err := c.opts.httpclient().Do(req)
 	serverResp := resp
 	if err == nil {
 		resp, err = handle(resp, r.Out)
 	} else {
-		c.log.Error("RestClient: failed sending a request ", err)
+		c.log.Error("HTTPClient: failed sending a request ", err)
 	}
 	if err != nil {
-		c.log.Error("RestClient: error handling response: ", err)
+		c.log.Error("HTTPClient: error handling response: ", err)
 		if canFallBack(err, serverResp) {
 			fallbacks, _ := c.opts.getFallbackHosts()
-			c.log.Infof("RestClient: trying to fallback with hosts=%v", fallbacks)
+			c.log.Infof("HTTPClient: trying to fallback with hosts=%v", fallbacks)
 			if len(fallbacks) > 0 {
 				left := fallbacks
 				iteration := 0
@@ -710,11 +710,11 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 				if maxLimit == 0 {
 					maxLimit = defaultOptions.HTTPMaxRetryCount
 				}
-				c.log.Infof("RestClient: maximum fallback retry limit=%d", maxLimit)
+				c.log.Infof("HTTPClient: maximum fallback retry limit=%d", maxLimit)
 
 				for {
 					if len(left) == 0 {
-						c.log.Errorf("RestClient: exhausted fallback hosts", err)
+						c.log.Errorf("HTTPClient: exhausted fallback hosts", err)
 						return nil, err
 					}
 					var h string
@@ -734,7 +734,7 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 					if err != nil {
 						return nil, err
 					}
-					c.log.Infof("RestClient:  chose fallback host=%q ", h)
+					c.log.Infof("HTTPClient:  chose fallback host=%q ", h)
 					req.URL.Host = h
 					req.Host = ""
 					req.Header.Set(hostHeader, h)
@@ -743,10 +743,10 @@ func (c *REST) doWithHandle(ctx context.Context, r *request, handle func(*http.R
 					if err == nil {
 						resp, err = handle(resp, r.Out)
 					} else {
-						c.log.Error("RestClient: failed sending a request to a fallback host", err)
+						c.log.Error("HTTPClient: failed sending a request to a fallback host", err)
 					}
 					if err != nil {
-						c.log.Error("RestClient: error handling response: ", err)
+						c.log.Error("HTTPClient: error handling response: ", err)
 						if iteration == maxLimit-1 {
 							return nil, err
 						}
@@ -801,7 +801,7 @@ func isCloudFrontError(res *http.Response) bool {
 
 // newHTTPRequest creates a new http.Request that can be sent to ably endpoints.
 // This makes sure necessary headers are set.
-func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, error) {
+func (c *HTTPClient) newHTTPRequest(ctx context.Context, r *request) (*http.Request, error) {
 	var body io.Reader
 	var protocol = c.opts.protocol()
 	if r.In != nil {
@@ -842,18 +842,18 @@ func (c *REST) newHTTPRequest(ctx context.Context, r *request) (*http.Request, e
 	return req, nil
 }
 
-func (c *REST) handleResponse(resp *http.Response, out interface{}) (*http.Response, error) {
-	c.log.Info("RestClient:checking valid http response")
+func (c *HTTPClient) handleResponse(resp *http.Response, out interface{}) (*http.Response, error) {
+	c.log.Info("HTTPClient:checking valid http response")
 	if err := checkValidHTTPResponse(resp); err != nil {
-		c.log.Error("RestClient: failed to check valid http response ", err)
+		c.log.Error("HTTPClient: failed to check valid http response ", err)
 		return nil, err
 	}
 	if out == nil {
 		return resp, nil
 	}
-	c.log.Info("RestClient: decoding response")
+	c.log.Info("HTTPClient: decoding response")
 	if err := decodeResp(resp, out); err != nil {
-		c.log.Error("RestClient: failed to decode response ", err)
+		c.log.Error("HTTPClient: failed to decode response ", err)
 		return nil, err
 	}
 	return resp, nil
@@ -909,7 +909,7 @@ func decodeResp(resp *http.Response, out interface{}) error {
 }
 
 // hostCache caches a successful fallback host for 10 minutes.
-// Only used by REST client while making requests RSC15f
+// Only used by [ably.HTTPClient] while making requests RSC15f
 type hostCache struct {
 	duration time.Duration
 

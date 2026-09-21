@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// Connect to Ably using the API key and ClientID
-	client, err := ably.NewREST(
+	client, err := ably.NewHTTPClient(
 		ably.WithKey(os.Getenv(examples.AblyKey)),
 		ably.WithClientID(examples.UserName))
 
@@ -20,11 +20,11 @@ func main() {
 		panic(err)
 	}
 
-	checkRestChannelMessageHistory(client)
-	checkRestChannelPresenceHistory(client)
+	checkHTTPChannelMessageHistory(client)
+	checkHTTPChannelPresenceHistory(client)
 }
 
-func checkRestChannelMessageHistory(client *ably.REST) {
+func checkHTTPChannelMessageHistory(client *ably.HTTPClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	realtimeClient := examples.InitRealtimeClient()
 	examples.RealtimePublish(realtimeClient, "Hey there!")
@@ -36,7 +36,7 @@ func checkRestChannelMessageHistory(client *ably.REST) {
 	realtimeClient.Close()
 }
 
-func checkRestChannelPresenceHistory(client *ably.REST) {
+func checkHTTPChannelPresenceHistory(client *ably.HTTPClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	realtimeClient := examples.InitRealtimeClient()
 	examples.RealtimeEnterPresence(realtimeClient)
@@ -47,7 +47,7 @@ func checkRestChannelPresenceHistory(client *ably.REST) {
 	realtimeClient.Close()
 }
 
-func printChannelMessageHistory(channel *ably.RESTChannel) {
+func printChannelMessageHistory(channel *ably.HTTPChannel) {
 	pages, err := channel.History().Pages(context.Background())
 	if err != nil {
 		panic(err)
@@ -64,7 +64,7 @@ func printChannelMessageHistory(channel *ably.RESTChannel) {
 	}
 }
 
-func printChannelPresenceHistory(channel *ably.RESTChannel) {
+func printChannelPresenceHistory(channel *ably.HTTPChannel) {
 	pages, err := channel.Presence.History().Pages(context.Background())
 	if err != nil {
 		panic(err)

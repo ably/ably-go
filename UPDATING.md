@@ -1,5 +1,59 @@
 # Upgrade / Migration Guide
 
+## Version 1.4.x to 2.0
+
+The `REST` prefix has been removed from the public API. Every exported identifier that
+named the stateless, HTTP-based client now uses an `HTTP` prefix instead, so that the
+Go type names describe the transport rather than the Ably REST API they talk to.
+
+These are **breaking changes**: the old names have been removed outright rather than kept
+as deprecated aliases.
+
+### Renamed types
+
+| Before | After |
+| --- | --- |
+| `ably.REST` | `ably.HTTPClient` |
+| `ably.RESTChannels` | `ably.HTTPChannels` |
+| `ably.RESTChannel` | `ably.HTTPChannel` |
+| `ably.RESTPresence` | `ably.HTTPPresence` |
+| `ably.RESTRequest` | `ably.HTTPRequest` |
+| `ably.RESTPaginatedItems` | `ably.HTTPPaginatedItems` |
+
+### Renamed functions
+
+| Before | After |
+| --- | --- |
+| `ably.NewREST` | `ably.NewHTTPClient` |
+| `ably.WithRESTHost` | `ably.WithHTTPHost` |
+| `ably.WithIdempotentRESTPublishing` | `ably.WithIdempotentHTTPPublishing` |
+
+`ably.WithRESTHost` was already deprecated before this release; `ably.WithHTTPHost` carries
+the same deprecation notice and will be removed in a future version.
+
+### Unchanged
+
+`Stats.REST` keeps its name, because it mirrors the `rest` field of the stats payload
+returned by the Ably API rather than naming a client type.
+
+### Example
+
+```go
+// Before
+client, err := ably.NewREST(ably.WithKey(key))
+var channel *ably.RESTChannel = client.Channels.Get("some-channel")
+
+// After
+client, err := ably.NewHTTPClient(ably.WithKey(key))
+var channel *ably.HTTPChannel = client.Channels.Get("some-channel")
+```
+
+Code using `pubsub/server` is unaffected: `server.HTTPClient` and `server.NewHTTPClient`
+already carried the new names, and the package now also aliases `HTTPChannels`,
+`HTTPChannel`, `HTTPPresence`, `HTTPRequest`, `HTTPPaginatedResponse` and
+`HTTPPaginatedItems` so that its users never need to name an `ably.*` type directly.
+
+
 ## Version 1.1.5 to 1.2.0
 
 We have made many **breaking changes** in the version 1.2 release of this SDK.

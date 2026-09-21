@@ -39,7 +39,7 @@ const (
 
 var defaultOptions = clientOptions{
 	Endpoint:                 defaultEndpoint,
-	RESTHost:                 defaultPrimaryHost,
+	HTTPHost:                 defaultPrimaryHost,
 	FallbackHosts:            getEndpointFallbackHosts(defaultEndpoint), // REC2c1
 	HTTPMaxRetryCount:        3,
 	HTTPRequestTimeout:       10 * time.Second,
@@ -52,7 +52,7 @@ var defaultOptions = clientOptions{
 	HTTPOpenTimeout:          4 * time.Second,  //TO3l3
 	ChannelRetryTimeout:      15 * time.Second, // TO3l7
 	FallbackRetryTimeout:     10 * time.Minute,
-	IdempotentRESTPublishing: true, // TO3n
+	IdempotentHTTPPublishing: true, // TO3n
 	Port:                     Port,
 	TLSPort:                  TLSPort,
 	Now:                      time.Now,
@@ -257,7 +257,7 @@ func (opts *authOptions) KeySecret() string {
 	return ""
 }
 
-// clientOptions passes additional client-specific properties to the [ably.NewREST] or to the [ably.NewRealtime].
+// clientOptions passes additional client-specific properties to the [ably.NewHTTPClient] or to the [ably.NewRealtime].
 // Properties set using [ably.clientOptions] are used instead of the [ably.defaultOptions] values.
 type clientOptions struct {
 	// authOptions Embedded an [ably.authOptions] object (TO3j).
@@ -268,7 +268,7 @@ type clientOptions struct {
 
 	// Deprecated: this property is deprecated and will be removed in a future version.
 	// If the restHost option is specified the primary domain is the value of the restHost option REC1d1).
-	RESTHost string
+	HTTPHost string
 
 	// Deprecated: this property is deprecated and will be removed in a future version.
 	// Enables default fallback hosts to be used (TO3k7).
@@ -358,11 +358,11 @@ type clientOptions struct {
 	// The default is true (TO3f).
 	NoBinaryProtocol bool
 
-	// IdempotentRESTPublishing when set to true, enables idempotent publishing by assigning a
+	// IdempotentHTTPPublishing when set to true, enables idempotent publishing by assigning a
 	// unique message ID client-side, allowing the Ably servers to discard automatic publish retries
 	// following a failure such as a network fault.
 	// The default is true (RSL1k1, RTL6a1, TO3n).
-	IdempotentRESTPublishing bool
+	IdempotentHTTPPublishing bool
 
 	// Deprecated: use RealtimeRequestTimeout instead.
 	// TimeoutConnect is a timeout for the wait of acknowledgement for operations performed via a realtime connection,
@@ -409,7 +409,7 @@ type clientOptions struct {
 	// If Dial is nil, the default websocket connection is used.
 	Dial func(protocol string, u *url.URL, timeout time.Duration) (conn, error)
 
-	// HTTPClient specifies the client used for HTTP communication by REST.
+	// HTTPClient specifies the client used for HTTP communication by [ably.HTTPClient].
 	// When set to nil, a client configured with default settings is used.
 	HTTPClient *http.Client
 
@@ -454,7 +454,7 @@ type clientOptions struct {
 
 func (opts *clientOptions) validate() error {
 	// REC1b1
-	if !empty(opts.Endpoint) && (!empty(opts.Environment) || !empty(opts.RealtimeHost) || !empty(opts.RESTHost) || opts.FallbackHostsUseDefault) {
+	if !empty(opts.Endpoint) && (!empty(opts.Environment) || !empty(opts.RealtimeHost) || !empty(opts.HTTPHost) || opts.FallbackHostsUseDefault) {
 		err := errors.New("invalid client option: cannot use endpoint with any of deprecated options environment, realtimeHost, restHost or FallbackHostsUseDefault")
 		logger := opts.LogHandler
 		logger.Printf(LogError, "Invalid client options : %v", err.Error())
@@ -496,17 +496,17 @@ func (opts *clientOptions) activePort() (port int, isDefault bool) {
 	return
 }
 
-func (opts *clientOptions) getRestHost() string {
+func (opts *clientOptions) getHTTPHost() string {
 	if !empty(opts.Endpoint) {
 		return opts.getHostnameFromEndpoint()
 	}
-	if !empty(opts.RESTHost) {
-		return opts.RESTHost
+	if !empty(opts.HTTPHost) {
+		return opts.HTTPHost
 	}
 	if !opts.isProductionEnvironment() {
 		return getPrimaryHost(opts.Environment)
 	}
-	return defaultOptions.RESTHost
+	return defaultOptions.HTTPHost
 }
 
 func (opts *clientOptions) getRealtimeHost() string {
@@ -516,10 +516,10 @@ func (opts *clientOptions) getRealtimeHost() string {
 	if !empty(opts.RealtimeHost) {
 		return opts.RealtimeHost
 	}
-	if !empty(opts.RESTHost) {
+	if !empty(opts.HTTPHost) {
 		logger := opts.LogHandler
-		logger.Printf(LogWarning, "restHost is set to %s but realtimeHost is not set so setting realtimeHost to %s too. If this is not what you want, please set realtimeHost explicitly.", opts.RESTHost, opts.RealtimeHost)
-		return opts.RESTHost
+		logger.Printf(LogWarning, "restHost is set to %s but realtimeHost is not set so setting realtimeHost to %s too. If this is not what you want, please set realtimeHost explicitly.", opts.HTTPHost, opts.RealtimeHost)
+		return opts.HTTPHost
 	}
 	if !opts.isProductionEnvironment() {
 		return getPrimaryHost(opts.Environment)
@@ -550,7 +550,7 @@ func empty(s string) bool {
 }
 
 func (opts *clientOptions) restURL() (restUrl string) {
-	baseUrl := opts.getRestHost()
+	baseUrl := opts.getHTTPHost()
 	_, _, err := net.SplitHostPort(baseUrl)
 	if err != nil { // set port if not set in baseUrl
 		port, _ := opts.activePort()
@@ -601,7 +601,7 @@ func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 		logger.Printf(LogWarning, "Deprecated fallbackHostsUseDefault : using default fallbackhosts")
 		return defaultOptions.FallbackHosts, nil
 	}
-	if opts.FallbackHosts == nil && empty(opts.RESTHost) && empty(opts.RealtimeHost) && isDefaultPort {
+	if opts.FallbackHosts == nil && empty(opts.HTTPHost) && empty(opts.RealtimeHost) && isDefaultPort {
 		if opts.isProductionEnvironment() {
 			return defaultOptions.FallbackHosts, nil
 		}
@@ -681,8 +681,8 @@ func (opts *clientOptions) protocol() string {
 	return protocolMsgPack
 }
 
-func (opts *clientOptions) idempotentRESTPublishing() bool {
-	return opts.IdempotentRESTPublishing
+func (opts *clientOptions) idempotentHTTPPublishing() bool {
+	return opts.IdempotentHTTPPublishing
 }
 
 // RTN17c
@@ -746,12 +746,12 @@ func (p *PaginateParams) EncodeValues(out *url.Values) error {
 	return nil
 }
 
-// ClientOption configures a [ably.REST] or [ably.Realtime] instance.
+// ClientOption configures a [ably.HTTPClient] or [ably.Realtime] instance.
 //
 // See: https://www.ably.io/documentation/realtime/usage#client-options
 type ClientOption func(*clientOptions)
 
-// AuthOption configures authentication/authorization for a [ably.REST] or [ably.Realtime]
+// AuthOption configures authentication/authorization for a [ably.HTTPClient] or [ably.Realtime]
 // instance or operation.
 type AuthOption func(*authOptions)
 
@@ -1230,15 +1230,15 @@ func WithQueueMessages(queue bool) ClientOption {
 	}
 }
 
-// WithRESTHost is used for setting RESTHost using [ably.ClientOption].
-// RESTHost enables a non-default Ably host to be specified. For development environments only.
+// WithHTTPHost is used for setting HTTPHost using [ably.ClientOption].
+// HTTPHost enables a non-default Ably host to be specified. For development environments only.
 // The default value is rest.ably.io (RSC12, TO3k2).
 //
 // Deprecated: this option is deprecated and will be removed in a future
 // version.
-func WithRESTHost(host string) ClientOption {
+func WithHTTPHost(host string) ClientOption {
 	return func(os *clientOptions) {
-		os.RESTHost = host
+		os.HTTPHost = host
 	}
 }
 
@@ -1390,19 +1390,19 @@ func WithHTTPMaxRetryCount(count int) ClientOption {
 	}
 }
 
-// WithIdempotentRESTPublishing is used for setting IdempotentRESTPublishing using [ably.ClientOption].
-// IdempotentRESTPublishing when set to true, enables idempotent publishing by assigning a
+// WithIdempotentHTTPPublishing is used for setting IdempotentHTTPPublishing using [ably.ClientOption].
+// IdempotentHTTPPublishing when set to true, enables idempotent publishing by assigning a
 // unique message ID client-side, allowing the Ably servers to discard automatic publish retries
 // following a failure such as a network fault.
 // The default is true (RSL1k1, RTL6a1, TO3n).
-func WithIdempotentRESTPublishing(idempotent bool) ClientOption {
+func WithIdempotentHTTPPublishing(idempotent bool) ClientOption {
 	return func(os *clientOptions) {
-		os.IdempotentRESTPublishing = idempotent
+		os.IdempotentHTTPPublishing = idempotent
 	}
 }
 
 // WithHTTPClient is used for setting HTTPClient using [ably.ClientOption].
-// HTTPClient specifies the client used for HTTP communication by REST.
+// HTTPClient specifies the client used for HTTP communication by [ably.HTTPClient].
 // When set to nil, a client configured with default settings is used.
 func WithHTTPClient(client *http.Client) ClientOption {
 	return func(os *clientOptions) {
@@ -1464,7 +1464,7 @@ func applyOptionsWithDefaults(opts ...ClientOption) *clientOptions {
 	to := defaultOptions
 	// No need to set hosts by default
 	to.Endpoint = ""
-	to.RESTHost = ""
+	to.HTTPHost = ""
 	to.RealtimeHost = ""
 	to.FallbackHosts = nil
 
