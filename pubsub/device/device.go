@@ -8,7 +8,7 @@ import "github.com/ably/ably-go/ably"
 // agentName declares the side in the Ably-Agent header (RSC7d) so that
 // traffic from clients constructed by this package is classified as
 // device-side.
-const agentName = "ably-go-pubsub-device"
+const agentName = "ably-pubsub-device"
 
 // Client is a device Pub/Sub client.
 type Client = ably.Realtime

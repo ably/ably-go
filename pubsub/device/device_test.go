@@ -34,5 +34,5 @@ func TestNewClient_DeclaresDeviceAgent(t *testing.T) {
 	require.NoError(t, err)
 
 	client.Time(context.Background())
-	assert.Equal(t, ably.AgentIdentifier(map[string]string{"ably-go-pubsub-device": ""}), agent)
+	assert.Equal(t, ably.AgentIdentifier(map[string]string{"ably-pubsub-device": ""}), agent)
 }
