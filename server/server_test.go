@@ -1,4 +1,4 @@
-package server_test
+package pubsub_test
 
 import (
 	"context"
@@ -36,7 +36,7 @@ func newAgentRecorder(t *testing.T) (agent *string, opts []ably.ClientOption) {
 func TestNewHTTPClient_DeclaresServerAgent(t *testing.T) {
 	agent, opts := newAgentRecorder(t)
 
-	client, err := server.NewHTTPClient(opts...)
+	client, err := pubsub.NewHTTPClient(opts...)
 	require.NoError(t, err)
 
 	client.Time(context.Background())
@@ -46,7 +46,7 @@ func TestNewHTTPClient_DeclaresServerAgent(t *testing.T) {
 func TestNewHTTPClient_MergesUserAgents(t *testing.T) {
 	agent, opts := newAgentRecorder(t)
 
-	client, err := server.NewHTTPClient(append(opts, ably.WithAgents(map[string]string{"foo": "1.2.3"}))...)
+	client, err := pubsub.NewHTTPClient(append(opts, ably.WithAgents(map[string]string{"foo": "1.2.3"}))...)
 	require.NoError(t, err)
 
 	client.Time(context.Background())

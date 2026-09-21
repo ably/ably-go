@@ -1,4 +1,4 @@
-package device_test
+package pubsub_test
 
 import (
 	"context"
@@ -25,7 +25,7 @@ func TestNewClient_DeclaresDeviceAgent(t *testing.T) {
 
 	// The realtime client's HTTP requests carry the same agents as its
 	// connection, so assert the header via Time without connecting.
-	client, err := device.NewClient(
+	client, err := pubsub.NewClient(
 		ably.WithEndpoint(u.Host),
 		ably.WithTLS(false),
 		ably.WithUseTokenAuth(true),

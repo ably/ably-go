@@ -12,9 +12,9 @@ import (
 
 func main() {
 	// Connect to Ably using the API key and ClientID specified
-	client, err := server.NewRealtimeClient(
-		server.WithKey(os.Getenv(examples.AblyKey)),
-		server.WithClientID(examples.UserName))
+	client, err := pubsub.NewRealtimeClient(
+		pubsub.WithKey(os.Getenv(examples.AblyKey)),
+		pubsub.WithClientID(examples.UserName))
 	if err != nil {
 		panic(err)
 	}
@@ -24,7 +24,7 @@ func main() {
 	checkPresenceEnterAndLeave(client)
 }
 
-func checkPresenceEnter(client *server.RealtimeClient) {
+func checkPresenceEnter(client *pubsub.RealtimeClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	unsubscribe := subscribePresenceEnter(channel)
 	enterPresence(channel)
@@ -32,7 +32,7 @@ func checkPresenceEnter(client *server.RealtimeClient) {
 	unsubscribe()
 }
 
-func checkPresenceLeave(client *server.RealtimeClient) {
+func checkPresenceLeave(client *pubsub.RealtimeClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	unsubscribe := subscribePresenceLeave(channel)
 	leavePresence(channel)
@@ -40,7 +40,7 @@ func checkPresenceLeave(client *server.RealtimeClient) {
 	unsubscribe()
 }
 
-func checkPresenceEnterAndLeave(client *server.RealtimeClient) {
+func checkPresenceEnterAndLeave(client *pubsub.RealtimeClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	unsubscribe := subscribeAllPresence(channel)
 	enterPresence(channel)
@@ -50,7 +50,7 @@ func checkPresenceEnterAndLeave(client *server.RealtimeClient) {
 	unsubscribe()
 }
 
-func enterPresence(channel *server.RealtimeChannel) {
+func enterPresence(channel *pubsub.RealtimeChannel) {
 	pErr := channel.Presence.Enter(context.Background(), examples.UserName+" entered the channel")
 	if pErr != nil {
 		err := fmt.Errorf("error with enter presence on the channel %w", pErr)
@@ -58,7 +58,7 @@ func enterPresence(channel *server.RealtimeChannel) {
 	}
 }
 
-func enterOnBehalfOf(clientId string, channel *server.RealtimeChannel) {
+func enterOnBehalfOf(clientId string, channel *pubsub.RealtimeChannel) {
 	pErr := channel.Presence.EnterClient(context.Background(), clientId, examples.UserName+" entered the channel on behalf of "+clientId)
 	if pErr != nil {
 		err := fmt.Errorf("error with enter presence on behalf of other client on the channel %w", pErr)
@@ -66,7 +66,7 @@ func enterOnBehalfOf(clientId string, channel *server.RealtimeChannel) {
 	}
 }
 
-func updatePresence(channel *server.RealtimeChannel) {
+func updatePresence(channel *pubsub.RealtimeChannel) {
 	pErr := channel.Presence.Update(context.Background(), examples.UserName+" entered the channel")
 	if pErr != nil {
 		err := fmt.Errorf("error with update presence on the channel %w", pErr)
@@ -74,7 +74,7 @@ func updatePresence(channel *server.RealtimeChannel) {
 	}
 }
 
-func leavePresence(channel *server.RealtimeChannel) {
+func leavePresence(channel *pubsub.RealtimeChannel) {
 	pErr := channel.Presence.Leave(context.Background(), examples.UserName+" entered the channel")
 	if pErr != nil {
 		err := fmt.Errorf("error with leave presence on the channel %w", pErr)
@@ -82,12 +82,12 @@ func leavePresence(channel *server.RealtimeChannel) {
 	}
 }
 
-func subscribeAllPresence(channel *server.RealtimeChannel) func() {
+func subscribeAllPresence(channel *pubsub.RealtimeChannel) func() {
 	// Subscribe to presence events (people entering and leaving) on the channel
-	unsubscribeAll, pErr := channel.Presence.SubscribeAll(context.Background(), func(msg *server.PresenceMessage) {
-		if msg.Action == server.PresenceActionEnter {
+	unsubscribeAll, pErr := channel.Presence.SubscribeAll(context.Background(), func(msg *pubsub.PresenceMessage) {
+		if msg.Action == pubsub.PresenceActionEnter {
 			fmt.Printf("%v has entered the chat\n", msg.ClientID)
-		} else if msg.Action == server.PresenceActionLeave {
+		} else if msg.Action == pubsub.PresenceActionLeave {
 			fmt.Printf("%v has left the chat\n", msg.ClientID)
 		}
 	})
@@ -99,10 +99,10 @@ func subscribeAllPresence(channel *server.RealtimeChannel) func() {
 	return unsubscribeAll
 }
 
-func subscribePresenceEnter(channel *server.RealtimeChannel) func() {
+func subscribePresenceEnter(channel *pubsub.RealtimeChannel) func() {
 	// Subscribe to presence events entering the channel
-	unsubscribe, pErr := channel.Presence.Subscribe(context.Background(), server.PresenceActionEnter, func(msg *server.PresenceMessage) {
-		if msg.Action == server.PresenceActionEnter {
+	unsubscribe, pErr := channel.Presence.Subscribe(context.Background(), pubsub.PresenceActionEnter, func(msg *pubsub.PresenceMessage) {
+		if msg.Action == pubsub.PresenceActionEnter {
 			fmt.Printf("%v has entered the chat\n", msg.ClientID)
 		} else {
 			panic("Not supposed to get presence related to actions other than presence enter")
@@ -116,10 +116,10 @@ func subscribePresenceEnter(channel *server.RealtimeChannel) func() {
 	return unsubscribe
 }
 
-func subscribePresenceLeave(channel *server.RealtimeChannel) func() {
+func subscribePresenceLeave(channel *pubsub.RealtimeChannel) func() {
 	// Subscribe to presence events leaving the channel
-	unsubscribe, pErr := channel.Presence.Subscribe(context.Background(), server.PresenceActionLeave, func(msg *server.PresenceMessage) {
-		if msg.Action == server.PresenceActionLeave {
+	unsubscribe, pErr := channel.Presence.Subscribe(context.Background(), pubsub.PresenceActionLeave, func(msg *pubsub.PresenceMessage) {
+		if msg.Action == pubsub.PresenceActionLeave {
 			fmt.Printf("%v has left the chat\n", msg.ClientID)
 		} else {
 			panic("Not supposed to get presence related actions other than presence leave")
@@ -132,7 +132,7 @@ func subscribePresenceLeave(channel *server.RealtimeChannel) func() {
 	return unsubscribe
 }
 
-func printAllClientsOnChannel(channel *server.RealtimeChannel) {
+func printAllClientsOnChannel(channel *pubsub.RealtimeChannel) {
 	clients, err := channel.Presence.Get(context.Background())
 	if err != nil {
 		panic(err)

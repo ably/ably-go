@@ -52,12 +52,15 @@ To get started with your project, install the package:
 The SDK has two entry points, and which one you import depends on where your
 code runs:
 
-| Package | Use it for |
+Both are named `pubsub`, so only the import path differs between them — an
+import of either path binds the name `pubsub`, not `server` or `device`:
+
+| Import path | Use it for |
 | --- | --- |
 | `github.com/ably/ably-pubsub-go/server` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
 | `github.com/ably/ably-pubsub-go/device` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers a realtime client. |
 
-Each package exposes the whole API it needs — channels, messages, presence,
+Each entry point exposes the whole API it needs — channels, messages, presence,
 options, errors — so an application imports one of them and nothing else.
 
 ---
@@ -70,17 +73,17 @@ The following code connects to Ably's realtime messaging service, subscribes to 
 import "github.com/ably/ably-pubsub-go/server"
 
 // Initialize an Ably realtime client
-client, err := server.NewRealtimeClient(
-        server.WithKey("your-ably-api-key"),
-        server.WithClientID("me"),
+client, err := pubsub.NewRealtimeClient(
+        pubsub.WithKey("your-ably-api-key"),
+        pubsub.WithClientID("me"),
 )
 if err != nil {
         return err
 }
 
 // Wait for connection to be established
-ch := make(chan server.ConnectionStateChange, 1)
-client.Connection.On(server.ConnectionEventConnected, func(change server.ConnectionStateChange) {
+ch := make(chan pubsub.ConnectionStateChange, 1)
+client.Connection.On(pubsub.ConnectionEventConnected, func(change pubsub.ConnectionStateChange) {
         ch <- change
 })
 <-ch
@@ -90,7 +93,7 @@ fmt.Println("Connected to Ably")
 channel := client.Channels.Get("test-channel")
 
 // Subscribe to all messages published to this channel
-channel.SubscribeAll(context.Background(), func(msg *server.Message) {
+channel.SubscribeAll(context.Background(), func(msg *pubsub.Message) {
         fmt.Printf("Received message: %s\n", msg.Data)
 })
 
@@ -98,8 +101,8 @@ channel.SubscribeAll(context.Background(), func(msg *server.Message) {
 channel.Publish(context.Background(), "test-event", "hello world")
 ```
 
-On an end-user device, the same code uses `device.NewClient` from
-`github.com/ably/ably-pubsub-go/device` instead.
+On an end-user device, the same code imports
+`github.com/ably/ably-pubsub-go/device` instead and calls `pubsub.NewClient`.
 
 ---
 
@@ -133,10 +136,10 @@ For more details on environment variable configurations in Go, see [ Go document
 <summary>Set up proxy via custom http client details.</summary>
 
 
-For the HTTP client, you can also set a proxy by providing the custom http client option `server.WithHTTPClient`:
+For the HTTP client, you can also set a proxy by providing the custom http client option `pubsub.WithHTTPClient`:
 
 ```go
-server.WithHTTPClient(&http.Client{
+pubsub.WithHTTPClient(&http.Client{
         Transport: &http.Transport{
                 Proxy:        proxy // custom proxy implementation
         },

@@ -9,22 +9,22 @@ import (
 	"github.com/ably/ably-pubsub-go/server"
 )
 
-func InitRealtimeClient() *server.RealtimeClient {
-	client, err := server.NewRealtimeClient(
-		server.WithKey(os.Getenv(AblyKey)),
-		// server.WithEchoMessages(true), // Uncomment to stop messages you send from being sent back
-		server.WithClientID(UserName))
+func InitRealtimeClient() *pubsub.RealtimeClient {
+	client, err := pubsub.NewRealtimeClient(
+		pubsub.WithKey(os.Getenv(AblyKey)),
+		// pubsub.WithEchoMessages(true), // Uncomment to stop messages you send from being sent back
+		pubsub.WithClientID(UserName))
 	if err != nil {
 		panic(err)
 	}
 	return client
 }
 
-func RealtimeSubscribeToEvent(client *server.RealtimeClient) func() {
+func RealtimeSubscribeToEvent(client *pubsub.RealtimeClient) func() {
 	channel := client.Channels.Get(ChannelName)
 
 	// Subscribe to messages sent on the channel
-	unsubscribe, err := channel.Subscribe(context.Background(), EventName, func(msg *server.Message) {
+	unsubscribe, err := channel.Subscribe(context.Background(), EventName, func(msg *pubsub.Message) {
 		fmt.Printf("Received message from %v: '%v'\n", msg.ClientID, msg.Data)
 	})
 	if err != nil {
@@ -34,7 +34,7 @@ func RealtimeSubscribeToEvent(client *server.RealtimeClient) func() {
 	return unsubscribe
 }
 
-func RealtimeEnterPresence(client *server.RealtimeClient) {
+func RealtimeEnterPresence(client *pubsub.RealtimeClient) {
 	channel := client.Channels.Get(ChannelName)
 	pErr := channel.Presence.Enter(context.Background(), UserName+" entered the channel")
 	if pErr != nil {
@@ -43,7 +43,7 @@ func RealtimeEnterPresence(client *server.RealtimeClient) {
 	}
 }
 
-func RealtimeLeavePresence(client *server.RealtimeClient) {
+func RealtimeLeavePresence(client *pubsub.RealtimeClient) {
 	channel := client.Channels.Get(ChannelName)
 	pErr := channel.Presence.Leave(context.Background(), UserName+" entered the channel")
 	if pErr != nil {
@@ -52,7 +52,7 @@ func RealtimeLeavePresence(client *server.RealtimeClient) {
 	}
 }
 
-func RealtimePublish(client *server.RealtimeClient, message string) {
+func RealtimePublish(client *pubsub.RealtimeClient, message string) {
 	channel := client.Channels.Get(ChannelName)
 	// Publish the message typed in to the Ably Channel
 	err := channel.Publish(context.Background(), EventName, message)

@@ -12,9 +12,9 @@ import (
 
 func main() {
 	// Connect to Ably using the API key and ClientID
-	client, err := server.NewHTTPClient(
-		server.WithKey(os.Getenv(examples.AblyKey)),
-		server.WithClientID(examples.UserName))
+	client, err := pubsub.NewHTTPClient(
+		pubsub.WithKey(os.Getenv(examples.AblyKey)),
+		pubsub.WithClientID(examples.UserName))
 	if err != nil {
 		panic(err)
 	}
@@ -23,7 +23,7 @@ func main() {
 	checkHTTPBulkPublish(client)
 }
 
-func checkHTTPPublish(client *server.HTTPClient) {
+func checkHTTPPublish(client *pubsub.HTTPClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	realtimeClient := examples.InitRealtimeClient()
 	unsubscribe := examples.RealtimeSubscribeToEvent(realtimeClient)
@@ -35,7 +35,7 @@ func checkHTTPPublish(client *server.HTTPClient) {
 	realtimeClient.Close()
 }
 
-func checkHTTPBulkPublish(client *server.HTTPClient) {
+func checkHTTPBulkPublish(client *pubsub.HTTPClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	realtimeClient := examples.InitRealtimeClient()
 	unsubscribe := examples.RealtimeSubscribeToEvent(realtimeClient)
@@ -47,7 +47,7 @@ func checkHTTPBulkPublish(client *server.HTTPClient) {
 	realtimeClient.Close()
 }
 
-func httpPublish(channel *server.HTTPChannel, message string) {
+func httpPublish(channel *pubsub.HTTPChannel, message string) {
 
 	err := channel.Publish(context.Background(), examples.EventName, message)
 	if err != nil {
@@ -56,9 +56,9 @@ func httpPublish(channel *server.HTTPChannel, message string) {
 	}
 }
 
-func httpPublishBatch(channel *server.HTTPChannel, message1 string, message2 string) {
+func httpPublishBatch(channel *pubsub.HTTPChannel, message1 string, message2 string) {
 
-	err := channel.PublishMultiple(context.Background(), []*server.Message{
+	err := channel.PublishMultiple(context.Background(), []*pubsub.Message{
 		{Name: examples.EventName, Data: message1},
 		{Name: examples.EventName, Data: message2},
 	})

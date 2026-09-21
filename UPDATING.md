@@ -22,7 +22,12 @@ otherwise need, so there is no `github.com/ably/ably-go/v2`.
 module can import, and the SDK is entered through one of two packages
 instead:
 
-| Package | Use it for |
+Both packages are named `pubsub`, so only the import path differs and the
+call site reads the same either way — an import of either path binds the name
+`pubsub`, not `server` or `device`.
+
+
+| Import path | Use it for |
 | --- | --- |
 | `github.com/ably/ably-pubsub-go/server` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers `HTTPClient` and `RealtimeClient`. |
 | `github.com/ably/ably-pubsub-go/device` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers `Client`. |
@@ -30,7 +35,7 @@ instead:
 Each entry point re-exports the whole API it needs — channels, messages,
 presence, options, errors — so an application imports one of them and nothing
 else. The re-exports are type aliases, so the types are the same across both
-packages: a `device.Message` and a `server.Message` are one type.
+packages: the `Message` of one is the `Message` of the other.
 
 ```go
 // Before
@@ -43,25 +48,26 @@ channel.SubscribeAll(ctx, func(msg *ably.Message) { ... })
 // After, on a server
 import "github.com/ably/ably-pubsub-go/server"
 
-client, err := server.NewRealtimeClient(server.WithKey(key))
+client, err := pubsub.NewRealtimeClient(pubsub.WithKey(key))
 channel := client.Channels.Get("some-channel")
-channel.SubscribeAll(ctx, func(msg *server.Message) { ... })
+channel.SubscribeAll(ctx, func(msg *pubsub.Message) { ... })
 
 // After, on a device
 import "github.com/ably/ably-pubsub-go/device"
 
-client, err := device.NewClient(device.WithKey(key))
+client, err := pubsub.NewClient(pubsub.WithKey(key))
 ```
 
 Three differences to be aware of:
 
-- `device` omits the part of the API only an HTTP client can reach —
-  `HTTPChannel`, `HTTPPresence`, the `Request` and presence-`Get` options, and
-  the paginated result types that go with them. Use `server` for those.
+- The `device` entry point omits the part of the API only an HTTP client can
+  reach — `HTTPChannel`, `HTTPPresence`, the `Request` and presence-`Get`
+  options, and the paginated result types that go with them. Import from
+  `.../server` for those.
 - The LiveObjects types of the old `ably/objects` package are re-exported with
   an `Objects` prefix, so that `objects.Message` and `ably.Message` can live in
-  one package: `objects.Plugin` is now `server.ObjectsPlugin`, `objects.Map` is
-  `server.ObjectsMap`, and so on.
+  one package: `objects.Plugin` is now `pubsub.ObjectsPlugin`, `objects.Map` is
+  `pubsub.ObjectsMap`, and so on.
 - `ably.WithDial` is not re-exported. Its signature names an unexported type,
   so no caller outside the implementation package could ever have supplied an
   argument to it.
@@ -118,8 +124,8 @@ client, err := ably.NewHTTPClient(ably.WithKey(key))
 var channel *ably.HTTPChannel = client.Channels.Get("some-channel")
 ```
 
-The renamed types reach users through `server`, which re-exports them under
-the same names.
+The renamed types reach users through `.../server`, which re-exports them
+under the same names.
 
 
 ## Version 1.1.5 to 1.2.0
