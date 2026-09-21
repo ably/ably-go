@@ -12,9 +12,9 @@ import (
 
 func main() {
 	// Connect to Ably using the API key and ClientID
-	client, err := server.NewHTTPClient(
-		server.WithKey(os.Getenv(examples.AblyKey)),
-		server.WithClientID(examples.UserName))
+	client, err := pubsub.NewHTTPClient(
+		pubsub.WithKey(os.Getenv(examples.AblyKey)),
+		pubsub.WithClientID(examples.UserName))
 
 	if err != nil {
 		panic(err)
@@ -24,7 +24,7 @@ func main() {
 	checkHTTPChannelPresenceHistory(client)
 }
 
-func checkHTTPChannelMessageHistory(client *server.HTTPClient) {
+func checkHTTPChannelMessageHistory(client *pubsub.HTTPClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	realtimeClient := examples.InitRealtimeClient()
 	examples.RealtimePublish(realtimeClient, "Hey there!")
@@ -36,7 +36,7 @@ func checkHTTPChannelMessageHistory(client *server.HTTPClient) {
 	realtimeClient.Close()
 }
 
-func checkHTTPChannelPresenceHistory(client *server.HTTPClient) {
+func checkHTTPChannelPresenceHistory(client *pubsub.HTTPClient) {
 	channel := client.Channels.Get(examples.ChannelName)
 	realtimeClient := examples.InitRealtimeClient()
 	examples.RealtimeEnterPresence(realtimeClient)
@@ -47,7 +47,7 @@ func checkHTTPChannelPresenceHistory(client *server.HTTPClient) {
 	realtimeClient.Close()
 }
 
-func printChannelMessageHistory(channel *server.HTTPChannel) {
+func printChannelMessageHistory(channel *pubsub.HTTPChannel) {
 	pages, err := channel.History().Pages(context.Background())
 	if err != nil {
 		panic(err)
@@ -64,7 +64,7 @@ func printChannelMessageHistory(channel *server.HTTPChannel) {
 	}
 }
 
-func printChannelPresenceHistory(channel *server.HTTPChannel) {
+func printChannelPresenceHistory(channel *pubsub.HTTPChannel) {
 	pages, err := channel.Presence.History().Pages(context.Background())
 	if err != nil {
 		panic(err)

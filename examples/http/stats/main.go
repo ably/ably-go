@@ -11,9 +11,9 @@ import (
 
 func main() {
 	// Connect to Ably using the API key and ClientID
-	client, err := server.NewHTTPClient(
-		server.WithKey(os.Getenv(examples.AblyKey)),
-		server.WithClientID(examples.UserName))
+	client, err := pubsub.NewHTTPClient(
+		pubsub.WithKey(os.Getenv(examples.AblyKey)),
+		pubsub.WithClientID(examples.UserName))
 	if err != nil {
 		panic(err)
 	}
@@ -21,7 +21,7 @@ func main() {
 	printApplicationStats(client)
 }
 
-func printApplicationStats(client *server.HTTPClient) {
+func printApplicationStats(client *pubsub.HTTPClient) {
 	pages, err := client.Stats().Pages(context.Background())
 	if err != nil {
 		panic(err)
