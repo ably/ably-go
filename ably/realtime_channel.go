@@ -34,7 +34,7 @@ func (ch chanSlice) Sort()              { sort.Sort(ch) }
 
 // RealtimeChannels is a goroutine-safe container for realtime channels that allows for creating,
 // deleting and iterating over existing channels.
-// Creates and destroys [ably.RESTChannel] and [ably.RealtimeChannel] objects.
+// Creates and destroys [ably.HTTPChannel] and [ably.RealtimeChannel] objects.
 type RealtimeChannels struct {
 	mtx    sync.Mutex
 	client *Realtime

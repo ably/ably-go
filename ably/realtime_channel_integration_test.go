@@ -114,7 +114,7 @@ func TestRealtimeChannel_SubscriptionFilters(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
 	options := app.Options()
-	restClient, err := ably.NewREST(options...)
+	restClient, err := ably.NewHTTPClient(options...)
 	assert.NoError(t, err)
 
 	realtimeClient := app.NewRealtime(ably.WithEchoMessages(false))

@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Connect to Ably using the API key and ClientID
-	client, err := ably.NewREST(
+	client, err := ably.NewHTTPClient(
 		ably.WithKey(os.Getenv(examples.AblyKey)),
 		ably.WithClientID(examples.UserName))
 	if err != nil {

@@ -25,11 +25,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRESTChannel(t *testing.T) {
+func TestHTTPChannel(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
 	options := app.Options()
-	client, err := ably.NewREST(options...)
+	client, err := ably.NewHTTPClient(options...)
 	require.NoError(t, err)
 	t.Run("Publish", func(t *testing.T) {
 		channel := client.Channels.Get("test_publish_channel")
@@ -84,15 +84,15 @@ func TestRESTChannel(t *testing.T) {
 	})
 
 	t.Run("PublishMultiple", func(t *testing.T) {
-		encodingRESTChannel := client.Channels.Get("this?is#an?encoding#channel")
+		encodingHTTPChannel := client.Channels.Get("this?is#an?encoding#channel")
 		messages := []*ably.Message{
 			{Name: "send", Data: "test data 1"},
 			{Name: "send", Data: "test data 2"},
 		}
-		err := encodingRESTChannel.PublishMultiple(context.Background(), messages)
+		err := encodingHTTPChannel.PublishMultiple(context.Background(), messages)
 		assert.NoError(t, err)
 		var history []*ably.Message
-		err = ablytest.AllPages(&history, encodingRESTChannel.History(ably.HistoryWithLimit(2)))
+		err = ablytest.AllPages(&history, encodingHTTPChannel.History(ably.HistoryWithLimit(2)))
 		assert.NoError(t, err)
 		assert.Equal(t, 2, len(history),
 			"expected 2 messages got %d", len(history))
@@ -144,8 +144,8 @@ func TestRESTChannel(t *testing.T) {
 func TestIdempotentPublishing(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
-	options := app.Options(ably.WithIdempotentRESTPublishing(true))
-	client, err := ably.NewREST(options...)
+	options := app.Options(ably.WithIdempotentHTTPPublishing(true))
+	client, err := ably.NewHTTPClient(options...)
 	require.NoError(t, err)
 	randomStr, err := ablyutil.BaseID()
 	assert.NoError(t, err)
@@ -312,7 +312,7 @@ func TestIdempotent_retry(t *testing.T) {
 		nopts := []ably.ClientOption{
 			ably.WithTLS(false),
 			ably.WithFallbackHosts(fallbackHosts),
-			ably.WithIdempotentRESTPublishing(true),
+			ably.WithIdempotentHTTPPublishing(true),
 			ably.WithUseTokenAuth(true),
 		}
 
@@ -322,7 +322,7 @@ func TestIdempotent_retry(t *testing.T) {
 		// app's endpoint/port. Against a per-test local child that address is not
 		// derivable from the endpoint name, so a bare nopts URL would send those
 		// requests to the wrong server (which 404s the app id).
-		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(app.Options(nopts...)...).RestURL())
+		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(app.Options(nopts...)...).HTTPURL())
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if !strings.HasPrefix(r.URL.Path, "/channels/") {
 				// this is to handle token requests
@@ -347,7 +347,7 @@ func TestIdempotent_retry(t *testing.T) {
 			},
 		}))
 
-		client, err := ably.NewREST(app.Options(nopts...)...)
+		client, err := ably.NewHTTPClient(app.Options(nopts...)...)
 		require.NoError(t, err)
 
 		t.Run("two REST publish retries result in only one message being published'", func(t *testing.T) {

@@ -541,7 +541,7 @@ type ConnectionStateChange struct {
 
 func (ConnectionStateChange) isEmitterData() {}
 
-// ChannelState describes the possible states of a [ably.RESTChannel] or [ably.RealtimeChannel] object.
+// ChannelState describes the possible states of a [ably.HTTPChannel] or [ably.RealtimeChannel] object.
 type ChannelState struct {
 	name string
 }
@@ -590,7 +590,7 @@ func (e ChannelState) canRelease() bool {
 	return false
 }
 
-// ChannelEvent describes the events emitted by a [ably.RESTChannel] or [ably.RealtimeChannel] object.
+// ChannelEvent describes the events emitted by a [ably.HTTPChannel] or [ably.RealtimeChannel] object.
 // An event is either an UPDATE or a [ably.ChannelState].
 type ChannelEvent struct {
 	name string
@@ -637,7 +637,7 @@ func (e ChannelEvent) String() string {
 	return e.name
 }
 
-// ChannelStateChange contains state change information emitted by [ably.RESTChannel] and [ably.RealtimeChannel] objects.
+// ChannelStateChange contains state change information emitted by [ably.HTTPChannel] and [ably.RealtimeChannel] objects.
 // A ChannelStateChange is the data associated with a ChannelEvent.
 type ChannelStateChange struct {
 

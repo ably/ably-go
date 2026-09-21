@@ -38,7 +38,7 @@ func newHTTPClientMock(srv *httptest.Server) *http.Client {
 	}
 }
 
-func TestRestClient(t *testing.T) {
+func TestHTTPClient(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
 	t.Run("encoding messages", func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestRestClient(t *testing.T) {
 				ably.WithHTTPClient(newHTTPClientMock(server)),
 			}
 
-			client, err := ably.NewREST(app.Options(options...)...)
+			client, err := ably.NewHTTPClient(app.Options(options...)...)
 			require.NoError(t, err)
 			err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 			assert.NoError(t, err)
@@ -90,7 +90,7 @@ func TestRestClient(t *testing.T) {
 				ably.WithHTTPClient(newHTTPClientMock(server)),
 			}
 
-			client, err := ably.NewREST(app.Options(options...)...)
+			client, err := ably.NewHTTPClient(app.Options(options...)...)
 			require.NoError(t, err)
 			err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 			assert.NoError(t, err)
@@ -107,7 +107,7 @@ func TestRestClient(t *testing.T) {
 	})
 
 	t.Run("Time", func(t *testing.T) {
-		client, err := ably.NewREST(app.Options()...)
+		client, err := ably.NewHTTPClient(app.Options()...)
 		require.NoError(t, err)
 		ti, err := client.Time(context.Background())
 		require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestRestClient(t *testing.T) {
 	})
 
 	t.Run("Stats", func(t *testing.T) {
-		client, err := ably.NewREST(app.Options()...)
+		client, err := ably.NewHTTPClient(app.Options()...)
 		assert.NoError(t, err)
 		lastInterval := time.Now().Add(-365 * 24 * time.Hour)
 		var stats []*ably.Stats
@@ -221,7 +221,7 @@ func TestRSC7(t *testing.T) {
 		return nil, errors.New("fake round tripper")
 	})
 
-	c, err := ably.NewREST(
+	c, err := ably.NewHTTPClient(
 		ably.WithKey("fake:key"),
 		ably.WithHTTPClient(client))
 	assert.NoError(t, err)
@@ -238,7 +238,7 @@ func TestRSC7(t *testing.T) {
 	})
 }
 
-func TestRest_RSC7_AblyAgent(t *testing.T) {
+func TestHTTP_RSC7_AblyAgent(t *testing.T) {
 	t.Run("RSC7d2 : Should set ablyAgent header with correct identifiers", func(t *testing.T) {
 		var agentHeaderValue string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +255,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 			ably.WithUseTokenAuth(true),
 		}
 
-		client, err := ably.NewREST(opts...)
+		client, err := ably.NewHTTPClient(opts...)
 		require.NoError(t, err)
 		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
 
@@ -282,7 +282,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 			}),
 		}
 
-		client, err := ably.NewREST(opts...)
+		client, err := ably.NewHTTPClient(opts...)
 		require.NoError(t, err)
 		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier() + " foo/1.2.3"
 
@@ -309,7 +309,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 			}),
 		}
 
-		client, err := ably.NewREST(opts...)
+		client, err := ably.NewHTTPClient(opts...)
 		require.NoError(t, err)
 		expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier() + " bar"
 
@@ -318,7 +318,7 @@ func TestRest_RSC7_AblyAgent(t *testing.T) {
 	})
 }
 
-func TestRest_RSC15_HostFallback(t *testing.T) {
+func TestHTTP_RSC15_HostFallback(t *testing.T) {
 
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
@@ -331,7 +331,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
-		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(newHTTPClientMock(server)))...)...)
+		client, err := ably.NewHTTPClient(app.Options(append(options, ably.WithHTTPClient(newHTTPClientMock(server)))...)...)
 		require.NoError(t, err)
 		err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 		assert.Error(t, err, "expected an error")
@@ -375,7 +375,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 				Proxy: func(*http.Request) (*url.URL, error) { return url.Parse(server.URL) },
 			},
 		}
-		client, err := ably.NewREST(app.Options(append(options, ably.WithHTTPClient(httpClientMock))...)...)
+		client, err := ably.NewHTTPClient(app.Options(append(options, ably.WithHTTPClient(httpClientMock))...)...)
 		require.NoError(t, err)
 		err = client.Channels.Get(ablytest.UniqueChannelName(t, "test")).Publish(context.Background(), "ping", "pong")
 		<-allHostsTried
@@ -409,7 +409,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 			ably.WithTLS(false),
 			ably.WithUseTokenAuth(true),
 		}
-		client, err := ably.NewREST(app.Options(options...)...)
+		client, err := ably.NewHTTPClient(app.Options(options...)...)
 		require.NoError(t, err)
 		tm, err := client.Time(context.Background())
 		assert.Nil(t, err)
@@ -478,7 +478,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 		assert.Equal(t, 4, retryCount,
 			"expected 4 http calls got %d", retryCount)
 		firstHostCalled := hosts[0]
-		restURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(options...).RestURL())
+		restURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(options...).HTTPURL())
 		assert.True(t, strings.HasPrefix(firstHostCalled, restURL.Hostname()),
 			"expected primary host got %s", firstHostCalled)
 	})
@@ -496,7 +496,7 @@ func TestRest_RSC15_HostFallback(t *testing.T) {
 	})
 }
 
-func TestRest_rememberHostFallback(t *testing.T) {
+func TestHTTP_rememberHostFallback(t *testing.T) {
 
 	app, err := ablytest.NewSandbox()
 	assert.NoError(t, err)
@@ -523,7 +523,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		// host/port — for a per-test local child that isn't derivable from the
 		// endpoint name, and a bare nopts URL would 404 the app id.
 		serverURL, _ := url.Parse(server.URL)
-		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(app.Options(nopts...)...).RestURL())
+		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(app.Options(nopts...)...).HTTPURL())
 
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if r.URL.Hostname() == "fallback2" {
@@ -541,7 +541,7 @@ func TestRest_rememberHostFallback(t *testing.T) {
 			},
 		}))
 
-		client, err := ably.NewREST(app.Options(nopts...)...)
+		client, err := ably.NewHTTPClient(app.Options(nopts...)...)
 		require.NoError(t, err)
 		channel := client.Channels.Get("remember_fallback_host")
 		err = channel.Publish(context.Background(), "ping", "pong")
@@ -561,11 +561,11 @@ func TestRest_rememberHostFallback(t *testing.T) {
 			"expected 0 retries got %d retries", retryCount)
 	})
 }
-func TestRESTChannels_RSN1(t *testing.T) {
+func TestHTTPChannels_RSN1(t *testing.T) {
 
 	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
-	client, err := ably.NewREST(app.Options()...)
+	client, err := ably.NewHTTPClient(app.Options()...)
 	require.NoError(t, err)
 	assert.NotNil(t, client.Channels,
 		"expected Channels to be initialized")
@@ -617,7 +617,7 @@ func TestFixConnLeak_ISSUE89(t *testing.T) {
 	}
 
 	opts := app.Options(ably.WithHTTPClient(httpClient))
-	client, err := ably.NewREST(opts...)
+	client, err := ably.NewHTTPClient(opts...)
 	require.NoError(t, err)
 	channel := client.Channels.Get("issue89")
 	for i := 0; i < 10; i++ {
@@ -648,7 +648,7 @@ func TestStatsPagination_RSC6a_RSCb3(t *testing.T) {
 
 	for _, limit := range []int{2, 3, 20} {
 		t.Run(fmt.Sprintf("limit=%d", limit), func(t *testing.T) {
-			app, rest := ablytest.NewREST()
+			app, rest := ablytest.NewHTTPClient()
 
 			fixtures := statsFixtures()
 			postStats(app, fixtures)
@@ -673,7 +673,7 @@ func TestStats_StartEnd_RSC6b1(t *testing.T) {
 
 	ctx := context.Background()
 
-	app, rest := ablytest.NewREST()
+	app, rest := ablytest.NewHTTPClient()
 
 	fixtures := statsFixtures()
 	postStats(app, fixtures)
@@ -697,7 +697,7 @@ func TestStats_StartEnd_RSC6b1(t *testing.T) {
 func TestStats_Direction_RSC6b2(t *testing.T) {
 
 	ctx := context.Background()
-	app, rest := ablytest.NewREST()
+	app, rest := ablytest.NewHTTPClient()
 
 	for _, c := range []struct {
 		direction ably.Direction
@@ -743,7 +743,7 @@ func TestStats_Unit_RSC6b4(t *testing.T) {
 
 	ctx := context.Background()
 
-	app, rest := ablytest.NewREST()
+	app, rest := ablytest.NewHTTPClient()
 
 	fixtures := statsFixtures()
 	postStats(app, fixtures)

@@ -62,7 +62,7 @@ func channelModeFromFlag(flags protoFlag) []ChannelMode {
 	return modes
 }
 
-// protoChannelOptions defines additional properties to a [ably.RESTChannel] or [ably.RealtimeChannel] object,
+// protoChannelOptions defines additional properties to a [ably.HTTPChannel] or [ably.RealtimeChannel] object,
 // such as encryption, [ably.ChannelMode] and channel parameters.
 // It defines options provided for creating a new channel.
 type protoChannelOptions struct {

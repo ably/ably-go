@@ -24,7 +24,7 @@ func (a AblyVCDiffDecoder) Decode(delta []byte, base []byte) ([]byte, error) {
 //
 // Example:
 //
-//	client, err := ably.NewREST(ably.WithVCDiffPlugin(ably.NewVCDiffPlugin()))
+//	client, err := ably.NewHTTPClient(ably.WithVCDiffPlugin(ably.NewVCDiffPlugin()))
 func NewVCDiffPlugin() VCDiffDecoder {
 	return AblyVCDiffDecoder{}
 }

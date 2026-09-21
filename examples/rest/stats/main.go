@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Connect to Ably using the API key and ClientID
-	client, err := ably.NewREST(
+	client, err := ably.NewHTTPClient(
 		ably.WithKey(os.Getenv(examples.AblyKey)),
 		ably.WithClientID(examples.UserName))
 	if err != nil {
@@ -21,7 +21,7 @@ func main() {
 	printApplicationStats(client)
 }
 
-func printApplicationStats(client *ably.REST) {
+func printApplicationStats(client *ably.HTTPClient) {
 	pages, err := client.Stats().Pages(context.Background())
 	if err != nil {
 		panic(err)
