@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ably/ably-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/internal/ably"
 )
 
 // Example demonstrating how to publish a message and get its serial

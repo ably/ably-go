@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ably/ably-go/pubsub/server"
+	"github.com/ably/ably-pubsub-go/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

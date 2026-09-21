@@ -7,9 +7,9 @@
 // and lives in api_gen.go.
 package server
 
-//go:generate go run github.com/ably/ably-go/internal/cmd/genapi -target server
+//go:generate go run github.com/ably/ably-pubsub-go/internal/cmd/genapi -target server
 
-import "github.com/ably/ably-go/internal/ably"
+import "github.com/ably/ably-pubsub-go/internal/ably"
 
 // agentName declares the side in the Ably-Agent header (RSC7d) so that
 // traffic from clients constructed by this package is classified as

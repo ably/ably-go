@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/ably/ably-go/examples"
-	"github.com/ably/ably-go/pubsub/server"
+	"github.com/ably/ably-pubsub-go/examples"
+	"github.com/ably/ably-pubsub-go/server"
 )
 
 func main() {
