@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ably/ably-pubsub-go/server"
+	"github.com/ably/ably-pubsub-go/server/pubsub"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestReExportedAPIIsSelfContained builds both server clients and touches the
-// re-exported API around them, so that a symbol dropped from the generated
+// re-exported API around them, so that a symbol dropped from the
 // surface fails here rather than in a user's build.
 func TestReExportedAPIIsSelfContained(t *testing.T) {
 	http, err := pubsub.NewHTTPClient(

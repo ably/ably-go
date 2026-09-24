@@ -2,18 +2,16 @@
 // running on end-user devices, whose connections are identified by a
 // clientId and counted on accounts with monthly-active-user billing.
 //
-// It is imported from github.com/ably/ably-pubsub-go/device, and referred to as
-// pubsub: the package is named after the product rather than after its
-// directory, so that the two entry points read the same at the call site and
-// the import path alone says which side the code runs on.
+// It is imported from github.com/ably/ably-pubsub-go/device/pubsub. Both entry
+// points are named pubsub, after the product, so that they read the same at
+// the call site and the device segment of the import path alone says which side
+// the code runs on.
 //
 // The rest of the API this package exposes — channels, messages, presence,
 // options, errors — is re-exported from the implementation in internal/ably
-// and lives in api_gen.go. The parts of it that only a server's HTTP client
+// and lives in api.go. The parts of it that only a server's HTTP client
 // can reach are not re-exported here.
 package pubsub
-
-//go:generate go run github.com/ably/ably-pubsub-go/internal/cmd/genapi -target device
 
 import "github.com/ably/ably-pubsub-go/internal/ably"
 

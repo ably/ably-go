@@ -28,7 +28,7 @@ func loadFixtures() ([]fixture, error) {
 	}
 
 	// We can't embed the fixtures as go:embed forbids embedding of resources above the current directory.
-	text, err := os.ReadFile("../common/test-resources/messages-encoding.json")
+	text, err := os.ReadFile("../../common/test-resources/messages-encoding.json")
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func loadMsgpackFixtures() ([]MsgpackTestFixture, error) {
 	var o []MsgpackTestFixture
 
 	// We can't embed the fixtures as go:embed forbids embedding of resources above the current directory.
-	text, err := os.ReadFile("../common/test-resources/msgpack_test_fixtures.json")
+	text, err := os.ReadFile("../../common/test-resources/msgpack_test_fixtures.json")
 	if err != nil {
 		return nil, err
 	}
