@@ -2,10 +2,10 @@
 // environments which typically authenticate with an API key and whose
 // connections are exempt from monthly-active-user counting.
 //
-// It is imported from github.com/ably/ably-pubsub-go/server, and referred to as
-// pubsub: the package is named after the product rather than after its
-// directory, so that the two entry points read the same at the call site and
-// the import path alone says which side the code runs on.
+// It is imported from github.com/ably/ably-pubsub-go/server/pubsub. Both entry
+// points are named pubsub, after the product, so that they read the same at
+// the call site and the server segment of the import path alone says which side
+// the code runs on.
 //
 // The rest of the API this package exposes — channels, messages, presence,
 // options, errors — is re-exported from the implementation in internal/ably

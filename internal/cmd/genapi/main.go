@@ -64,13 +64,13 @@ type target struct {
 
 var targets = map[string]target{
 	"device": {
-		dir:          "device",
+		dir:          "device/pubsub",
 		pkg:          "pubsub",
 		dropHTTPOnly: true,
 		deny:         []string{"NewRealtime", "NewHTTPClient", "Realtime"},
 	},
 	"server": {
-		dir:  "server",
+		dir:  "server/pubsub",
 		pkg:  "pubsub",
 		deny: []string{"NewRealtime", "NewHTTPClient", "Realtime", "HTTPClient"},
 	},

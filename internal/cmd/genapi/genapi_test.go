@@ -8,7 +8,7 @@ import (
 
 // TestGeneratedFilesAreUpToDate fails when api_gen.go no longer matches what
 // the generator produces, which is what happens when the API of internal/ably
-// changes and nobody runs `go generate ./device/... ./server/...`.
+// changes and nobody runs `go generate ./device/pubsub/... ./server/pubsub/...`.
 func TestGeneratedFilesAreUpToDate(t *testing.T) {
 	repo, err := repoRoot("")
 	if err != nil {
@@ -26,7 +26,7 @@ func TestGeneratedFilesAreUpToDate(t *testing.T) {
 				t.Fatal(err)
 			}
 			if string(got) != string(want) {
-				t.Errorf("%s is out of date; run `go generate ./device/... ./server/...`", target.dir+"/api_gen.go")
+				t.Errorf("%s is out of date; run `go generate ./device/pubsub/... ./server/pubsub/...`", target.dir+"/api_gen.go")
 			}
 		})
 	}
