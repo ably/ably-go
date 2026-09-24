@@ -1,5 +1,5 @@
 ![Ably Pub/Sub Go Header](/image/goSDK-github.png)
-[![Go Reference](https://pkg.go.dev/badge/github.com/ably/ably-go/ably.svg)](https://pkg.go.dev/github.com/ably/ably-go/ably)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ably/ably-pubsub-go/server/pubsub.svg)](https://pkg.go.dev/github.com/ably/ably-pubsub-go/server/pubsub)
 [![License](https://badgen.net/github/license/ably/ably-go)](https://github.com/ably/ably-go/blob/main/LICENSE)
 
 ---
@@ -40,8 +40,29 @@ Ably aims to support a wide range of platforms. If you experience any compatibil
 To get started with your project, install the package:
 
 ```bash
-~ $ go get -u github.com/ably/ably-go/ably
+~ $ go get -u github.com/ably/ably-pubsub-go
 ```
+
+> [!NOTE]
+> The module is being renamed from `github.com/ably/ably-go` to
+> `github.com/ably/ably-pubsub-go` for v2. Until the repository move lands,
+> this path does not resolve and `go get` will fail; build against a local
+> checkout with a `replace` directive in the meantime.
+
+The SDK has two entry points, and which one you import depends on where your
+code runs:
+
+Both packages are named `pubsub`, after the last element of their import path,
+so only the import path differs between them and the call site reads the same
+either way:
+
+| Import path | Use it for |
+| --- | --- |
+| `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
+| `github.com/ably/ably-pubsub-go/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers a realtime client. |
+
+Each entry point exposes the whole API it needs — channels, messages, presence,
+options, errors — so an application imports one of them and nothing else.
 
 ---
 
@@ -50,14 +71,20 @@ To get started with your project, install the package:
 The following code connects to Ably's realtime messaging service, subscribes to a channel to receive messages, and publishes a test message to that same channel:
 
 ```go
-// Initialize Ably Realtime client
-client, err := ably.NewRealtime(
-        ably.WithKey("your-ably-api-key"),
-        ably.WithClientID("me"),
+import "github.com/ably/ably-pubsub-go/server/pubsub"
+
+// Initialize an Ably realtime client
+client, err := pubsub.NewRealtimeClient(
+        pubsub.WithKey("your-ably-api-key"),
+        pubsub.WithClientID("me"),
+)
+if err != nil {
+        return err
+}
 
 // Wait for connection to be established
-ch := make(chan ably.ConnectionStateChange, 1)
-client.Connection.On(ably.ConnectionEventConnected, func(change ably.ConnectionStateChange) {
+ch := make(chan pubsub.ConnectionStateChange, 1)
+client.Connection.On(pubsub.ConnectionEventConnected, func(change pubsub.ConnectionStateChange) {
         ch <- change
 })
 <-ch
@@ -67,15 +94,16 @@ fmt.Println("Connected to Ably")
 channel := client.Channels.Get("test-channel")
 
 // Subscribe to all messages published to this channel
-channel.SubscribeAll(context.Background(), func(msg *ably.Message) {
+channel.SubscribeAll(context.Background(), func(msg *pubsub.Message) {
         fmt.Printf("Received message: %s\n", msg.Data)
 })
 
 // Publish a test message to the channel
 channel.Publish(context.Background(), "test-event", "hello world")
-
-}
 ```
+
+On an end-user device, the same code imports
+`github.com/ably/ably-pubsub-go/device/pubsub` instead and calls `pubsub.NewClient`.
 
 ---
 
@@ -98,7 +126,7 @@ The `proxy.example.com` is the domain or IP address of your proxy server and `80
 
 Include the protocol (`http` or `https`) in the proxy URL. If your proxy requires authentication, you can include the username and password in the URL, for example: `http://username:password@proxy.example.com:8080`.
 
-After setting the environment variables, the `ably-go` SDK will route its traffic through the specified proxy for both Rest and Realtime clients.
+After setting the environment variables, the `ably-go` SDK will route its traffic through the specified proxy for both HTTP and realtime clients.
 
 For more details on environment variable configurations in Go, see [ Go documentation on http.ProxyFromEnvironment](https://golang.org/pkg/net/http/#ProxyFromEnvironment).
 
@@ -109,10 +137,10 @@ For more details on environment variable configurations in Go, see [ Go document
 <summary>Set up proxy via custom http client details.</summary>
 
 
-For Rest client, you can also set proxy by providing custom http client option `ably.WithHTTPClient`:
+For the HTTP client, you can also set a proxy by providing the custom http client option `pubsub.WithHTTPClient`:
 
 ```go
-ably.WithHTTPClient(&http.Client{
+pubsub.WithHTTPClient(&http.Client{
         Transport: &http.Transport{
                 Proxy:        proxy // custom proxy implementation
         },

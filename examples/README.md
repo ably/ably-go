@@ -13,22 +13,22 @@
 
     `go run pub-sub/main.go`
     
-2. REST
+2. HTTP
 
-- Go to rest dir `cd rest`     
+- Go to http dir `cd http`
 - Set the `ABLY_KEY` environment variable to your [Ably API key](https://faqs.ably.com/setting-up-and-managing-api-keys)
-- Rest channel publish
+- HTTP channel publish
 
     `go run publish/main.go`
 
-- Rest channel presence
+- HTTP channel presence
 
     `go run presence/main.go`
 
-- Rest channel message history
+- HTTP channel message history
 
     `go run history/main.go`
 
-- Rest application stats
+- HTTP application stats
 
     `go run stats/main.go`
