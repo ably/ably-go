@@ -113,3 +113,21 @@ func TestSend(t *testing.T) {
 		})
 	}
 }
+
+func TestPresenceGetOptions_WaitForSync_RTP11c1(t *testing.T) {
+	t.Run("waits for sync by default", func(t *testing.T) {
+		var opts presenceGetOptions
+		opts.applyWithDefaults()
+		assert.True(t, opts.waitForSync)
+	})
+	t.Run("PresenceGetWithWaitForSync(true) waits for sync", func(t *testing.T) {
+		var opts presenceGetOptions
+		opts.applyWithDefaults(PresenceGetWithWaitForSync(true))
+		assert.True(t, opts.waitForSync)
+	})
+	t.Run("PresenceGetWithWaitForSync(false) does not wait for sync", func(t *testing.T) {
+		var opts presenceGetOptions
+		opts.applyWithDefaults(PresenceGetWithWaitForSync(false))
+		assert.False(t, opts.waitForSync)
+	})
+}

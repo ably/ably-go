@@ -358,7 +358,7 @@ type PresenceGetOption func(*presenceGetOptions)
 // The default is true (RTP11c1).
 func PresenceGetWithWaitForSync(wait bool) PresenceGetOption {
 	return func(o *presenceGetOptions) {
-		o.waitForSync = true
+		o.waitForSync = wait
 	}
 }
 
