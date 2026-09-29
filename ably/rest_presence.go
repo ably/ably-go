@@ -248,7 +248,7 @@ func (t *fullPresenceDecoder) decodeMessagesData() {
 		m.Message, err = m.Message.withDecodedData(cipher)
 		if err != nil {
 			// RSL6b
-			t.c.log().Errorf("Couldn't fully decode presence message data from channel %q: %w", t.c.Name, err)
+			t.c.log().Errorf("Couldn't fully decode presence message data from channel %q: %v", t.c.Name, err)
 		}
 	}
 }
