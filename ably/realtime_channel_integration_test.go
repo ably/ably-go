@@ -346,7 +346,7 @@ func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 	assert.Equal(t, "failed to read: read limited at 1025 bytes", errorInfo.Unwrap().Error())
 }
 
-// Test that RealtimeChannels.Release detaches a channel and releases it.
+// Test that RealtimeChannels.Release refuses to release an attached channel, and releases it once detached.
 func TestRealtimeChannels_Release(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -376,17 +376,25 @@ func TestRealtimeChannels_Release(t *testing.T) {
 	ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 	assert.Equal(t, ably.ChannelStateAttached, channelStatechange.Current)
 
-	t.Log("releasing test channel")
-	err = client.Channels.Release(ctx, ablytest.UniqueChannelName(t, "test"))
-	assert.NoError(t, err)
+	t.Log("releasing attached test channel")
+	err = client.Channels.Release(channel.Name)
+	var errInfo *ably.ErrorInfo
+	require.ErrorAs(t, err, &errInfo)
+	assert.Equal(t, ably.ErrChannelReleaseInvalidState, errInfo.Code)
+	assert.Equal(t, 400, errInfo.StatusCode)
+	assert.Equal(t, ably.ChannelStateAttached, channel.State())
+	assert.True(t, client.Channels.Exists(channel.Name))
 
-	t.Log("checking test channel is detached")
+	t.Log("detaching test channel")
+	err = channel.Detach(ctx)
+	require.NoError(t, err)
 	ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 	assert.Equal(t, ably.ChannelStateDetaching, channelStatechange.Current)
 	ablytest.Soon.Recv(t, &channelStatechange, channelStateChanges, t.Fatalf)
 	assert.Equal(t, ably.ChannelStateDetached, channelStatechange.Current)
 
-	t.Log("checking test channel is released")
-	exists := client.Channels.Exists(ablytest.UniqueChannelName(t, "test"))
-	assert.False(t, exists)
+	t.Log("releasing detached test channel")
+	err = client.Channels.Release(channel.Name)
+	assert.NoError(t, err)
+	assert.False(t, client.Channels.Exists(channel.Name))
 }
