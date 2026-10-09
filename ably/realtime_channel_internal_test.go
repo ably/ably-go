@@ -4,9 +4,14 @@
 package ably
 
 import (
+	"context"
+	"fmt"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestChannelOptionChannelWithCipherKey(t *testing.T) {
@@ -162,4 +167,70 @@ func TestChannelGet(t *testing.T) {
 			assert.Equal(t, test.expectedChannelState, result.state)
 		})
 	}
+}
+
+type recordingLogger struct {
+	mtx  sync.Mutex
+	logs []string
+}
+
+func (l *recordingLogger) Printf(level LogLevel, format string, v ...interface{}) {
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
+	l.logs = append(l.logs, fmt.Sprintf("[%s] %s", level, fmt.Sprintf(format, v...)))
+}
+
+func (l *recordingLogger) warnings() []string {
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
+	var warnings []string
+	for _, log := range l.logs {
+		if strings.HasPrefix(log, "[WARN] ") {
+			warnings = append(warnings, log)
+		}
+	}
+	return warnings
+}
+
+func TestChannelsRelease(t *testing.T) {
+	newClient := func(t *testing.T) (*Realtime, *recordingLogger) {
+		logger := &recordingLogger{}
+		client, err := NewRealtime(WithKey("abc:def"), WithAutoConnect(false), WithLogHandler(logger), WithLogLevel(LogWarning))
+		require.NoError(t, err)
+		return client, logger
+	}
+
+	t.Run("RTS4c: releasing a non-existent channel is a no-op", func(t *testing.T) {
+		client, logger := newClient(t)
+		err := client.Channels.Release(context.Background(), "nonexistent")
+		assert.NoError(t, err)
+		assert.Empty(t, logger.warnings())
+	})
+
+	for _, state := range []ChannelState{ChannelStateInitialized, ChannelStateDetached, ChannelStateFailed} {
+		t.Run(fmt.Sprintf("RTS4d: releasing a %s channel removes it without a warning", state), func(t *testing.T) {
+			client, logger := newClient(t)
+			channel := client.Channels.Get("test")
+			channel.state = state
+			err := client.Channels.Release(context.Background(), "test")
+			assert.NoError(t, err)
+			assert.False(t, client.Channels.Exists("test"))
+			assert.Equal(t, state, channel.State())
+			assert.Empty(t, logger.warnings())
+		})
+	}
+
+	t.Run("RTS4b: releasing a channel that isn't detached logs a deprecation warning", func(t *testing.T) {
+		client, logger := newClient(t)
+		channel := client.Channels.Get("test")
+		// A SUSPENDED channel detaches locally, without sending a DETACH to the server (RTL5j).
+		channel.state = ChannelStateSuspended
+		err := client.Channels.Release(context.Background(), "test")
+		assert.NoError(t, err)
+		assert.False(t, client.Channels.Exists("test"))
+		assert.Equal(t, ChannelStateDetached, channel.State())
+		warnings := logger.warnings()
+		require.Len(t, warnings, 1)
+		assert.Contains(t, warnings[0], "Calling Channels.Release() on a channel in the SUSPENDED state is deprecated")
+	})
 }

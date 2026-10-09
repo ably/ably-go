@@ -346,7 +346,7 @@ func TestRealtimeChannel_ShouldReturnErrorIfReadLimitExceeded(t *testing.T) {
 	assert.Equal(t, "failed to read: read limited at 1025 bytes", errorInfo.Unwrap().Error())
 }
 
-// Test that RealtimeChannels.Release detaches a channel and releases it.
+// Test that RealtimeChannels.Release detaches an attached channel and releases it (deprecated, RTS4b).
 func TestRealtimeChannels_Release(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

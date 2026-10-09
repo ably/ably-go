@@ -580,6 +580,16 @@ func (e ChannelState) String() string {
 	return e.name
 }
 
+// canRelease reports whether a channel in this state can no longer receive updates from
+// the server, so can be released without detaching it first (RTS4d).
+func (e ChannelState) canRelease() bool {
+	switch e {
+	case ChannelStateInitialized, ChannelStateDetached, ChannelStateFailed:
+		return true
+	}
+	return false
+}
+
 // ChannelEvent describes the events emitted by a [ably.RESTChannel] or [ably.RealtimeChannel] object.
 // An event is either an UPDATE or a [ably.ChannelState].
 type ChannelEvent struct {
