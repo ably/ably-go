@@ -203,23 +203,32 @@ func (c *RealtimeChannels) Exists(name string) bool {
 	return ok
 }
 
-// Release releases a [ably.RealtimeChannel] object with given channel name (detaching it first), frees all
-// resources associated, e.g. Removes any listeners associated with the channel.
-// To release a channel, the [ably.ChannelState] must be INITIALIZED, DETACHED, or FAILED (RSN4, RTS4).
-func (ch *RealtimeChannels) Release(ctx context.Context, name string) error {
+// Release releases a [ably.RealtimeChannel] object with given channel name, frees all
+// resources associated, e.g. Removes any listeners associated with the channel (RSN4, RTS4).
+//
+// A realtime channel can only be released when it is in the INITIALIZED, DETACHED, or FAILED state.
+// For a channel in any other state, Release returns an [ably.ErrorInfo] with code 90011 and leaves the
+// channel as it is. Call [ably.RealtimeChannel.Detach] and wait for it to return before releasing it.
+func (ch *RealtimeChannels) Release(name string) error {
 	ch.mtx.Lock()
+	defer ch.mtx.Unlock()
 	c, ok := ch.chans[name]
-	ch.mtx.Unlock()
 	if !ok {
-		return nil
+		return nil // RTS4c
 	}
-	err := c.Detach(ctx)
-	if err != nil {
-		return err
+	// Hold the channel lock until the channel is removed, so that a concurrent Attach can't move it
+	// out of a releasable state in between.
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	if state := c.state; !state.canRelease() {
+		// RTS4e
+		return &ErrorInfo{
+			Code:       ErrChannelReleaseInvalidState,
+			StatusCode: 400,
+			err:        fmt.Errorf("can only release a channel in a state where there is no possibility of further updates from the server being received (INITIALIZED, DETACHED, or FAILED); the current state is %s", state),
+		}
 	}
-	ch.mtx.Lock()
-	delete(ch.chans, name)
-	ch.mtx.Unlock()
+	delete(ch.chans, name) // RTS4d
 	return nil
 }
 

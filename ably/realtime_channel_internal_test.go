@@ -4,9 +4,11 @@
 package ably
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestChannelOptionChannelWithCipherKey(t *testing.T) {
@@ -160,6 +162,47 @@ func TestChannelGet(t *testing.T) {
 			result := test.mock.Get(test.name)
 			assert.Equal(t, test.expectedChannelName, result.Name)
 			assert.Equal(t, test.expectedChannelState, result.state)
+		})
+	}
+}
+
+func TestChannelsRelease(t *testing.T) {
+	newClient := func(t *testing.T) *Realtime {
+		client, err := NewRealtime(WithKey("abc:def"), WithAutoConnect(false))
+		require.NoError(t, err)
+		return client
+	}
+
+	t.Run("RTS4c: releasing a non-existent channel is a no-op", func(t *testing.T) {
+		client := newClient(t)
+		assert.NoError(t, client.Channels.Release("nonexistent"))
+	})
+
+	for _, state := range []ChannelState{ChannelStateInitialized, ChannelStateDetached, ChannelStateFailed} {
+		t.Run(fmt.Sprintf("RTS4d: releasing a %s channel removes it", state), func(t *testing.T) {
+			client := newClient(t)
+			channel := client.Channels.Get("test")
+			channel.state = state
+			assert.NoError(t, client.Channels.Release("test"))
+			assert.False(t, client.Channels.Exists("test"))
+			assert.Equal(t, state, channel.State())
+			assert.NotSame(t, channel, client.Channels.Get("test"))
+		})
+	}
+
+	for _, state := range []ChannelState{ChannelStateAttaching, ChannelStateAttached, ChannelStateDetaching, ChannelStateSuspended} {
+		t.Run(fmt.Sprintf("RTS4e: releasing a %s channel fails and leaves it in place", state), func(t *testing.T) {
+			client := newClient(t)
+			channel := client.Channels.Get("test")
+			channel.state = state
+			err := client.Channels.Release("test")
+			var errInfo *ErrorInfo
+			require.ErrorAs(t, err, &errInfo)
+			assert.Equal(t, ErrChannelReleaseInvalidState, errInfo.Code)
+			assert.Equal(t, 400, errInfo.StatusCode)
+			assert.Contains(t, errInfo.Message(), "the current state is "+state.String())
+			assert.Equal(t, state, channel.State())
+			assert.Same(t, channel, client.Channels.Get("test"))
 		})
 	}
 }
