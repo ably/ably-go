@@ -31,4 +31,5 @@ const (
 	ErrProtocolError                             ErrorCode = 80013
 	ErrChannelOperationFailed                    ErrorCode = 90000
 	ErrChannelOperationFailedInvalidChannelState ErrorCode = 90001
+	ErrChannelReleaseInvalidState                ErrorCode = 90011
 )

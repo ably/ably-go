@@ -581,7 +581,7 @@ func (e ChannelState) String() string {
 }
 
 // canRelease reports whether a channel in this state can no longer receive updates from
-// the server, so can be released without detaching it first (RTS4d).
+// the server, so can be released (RTS4d).
 func (e ChannelState) canRelease() bool {
 	switch e {
 	case ChannelStateInitialized, ChannelStateDetached, ChannelStateFailed:

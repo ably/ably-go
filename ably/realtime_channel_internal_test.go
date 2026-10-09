@@ -4,10 +4,7 @@
 package ably
 
 import (
-	"context"
 	"fmt"
-	"strings"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -169,68 +166,43 @@ func TestChannelGet(t *testing.T) {
 	}
 }
 
-type recordingLogger struct {
-	mtx  sync.Mutex
-	logs []string
-}
-
-func (l *recordingLogger) Printf(level LogLevel, format string, v ...interface{}) {
-	l.mtx.Lock()
-	defer l.mtx.Unlock()
-	l.logs = append(l.logs, fmt.Sprintf("[%s] %s", level, fmt.Sprintf(format, v...)))
-}
-
-func (l *recordingLogger) warnings() []string {
-	l.mtx.Lock()
-	defer l.mtx.Unlock()
-	var warnings []string
-	for _, log := range l.logs {
-		if strings.HasPrefix(log, "[WARN] ") {
-			warnings = append(warnings, log)
-		}
-	}
-	return warnings
-}
-
 func TestChannelsRelease(t *testing.T) {
-	newClient := func(t *testing.T) (*Realtime, *recordingLogger) {
-		logger := &recordingLogger{}
-		client, err := NewRealtime(WithKey("abc:def"), WithAutoConnect(false), WithLogHandler(logger), WithLogLevel(LogWarning))
+	newClient := func(t *testing.T) *Realtime {
+		client, err := NewRealtime(WithKey("abc:def"), WithAutoConnect(false))
 		require.NoError(t, err)
-		return client, logger
+		return client
 	}
 
 	t.Run("RTS4c: releasing a non-existent channel is a no-op", func(t *testing.T) {
-		client, logger := newClient(t)
-		err := client.Channels.Release(context.Background(), "nonexistent")
-		assert.NoError(t, err)
-		assert.Empty(t, logger.warnings())
+		client := newClient(t)
+		assert.NoError(t, client.Channels.Release("nonexistent"))
 	})
 
 	for _, state := range []ChannelState{ChannelStateInitialized, ChannelStateDetached, ChannelStateFailed} {
-		t.Run(fmt.Sprintf("RTS4d: releasing a %s channel removes it without a warning", state), func(t *testing.T) {
-			client, logger := newClient(t)
+		t.Run(fmt.Sprintf("RTS4d: releasing a %s channel removes it", state), func(t *testing.T) {
+			client := newClient(t)
 			channel := client.Channels.Get("test")
 			channel.state = state
-			err := client.Channels.Release(context.Background(), "test")
-			assert.NoError(t, err)
+			assert.NoError(t, client.Channels.Release("test"))
 			assert.False(t, client.Channels.Exists("test"))
 			assert.Equal(t, state, channel.State())
-			assert.Empty(t, logger.warnings())
+			assert.NotSame(t, channel, client.Channels.Get("test"))
 		})
 	}
 
-	t.Run("RTS4b: releasing a channel that isn't detached logs a deprecation warning", func(t *testing.T) {
-		client, logger := newClient(t)
-		channel := client.Channels.Get("test")
-		// A SUSPENDED channel detaches locally, without sending a DETACH to the server (RTL5j).
-		channel.state = ChannelStateSuspended
-		err := client.Channels.Release(context.Background(), "test")
-		assert.NoError(t, err)
-		assert.False(t, client.Channels.Exists("test"))
-		assert.Equal(t, ChannelStateDetached, channel.State())
-		warnings := logger.warnings()
-		require.Len(t, warnings, 1)
-		assert.Contains(t, warnings[0], "Calling Channels.Release() on a channel in the SUSPENDED state is deprecated")
-	})
+	for _, state := range []ChannelState{ChannelStateAttaching, ChannelStateAttached, ChannelStateDetaching, ChannelStateSuspended} {
+		t.Run(fmt.Sprintf("RTS4e: releasing a %s channel fails and leaves it in place", state), func(t *testing.T) {
+			client := newClient(t)
+			channel := client.Channels.Get("test")
+			channel.state = state
+			err := client.Channels.Release("test")
+			var errInfo *ErrorInfo
+			require.ErrorAs(t, err, &errInfo)
+			assert.Equal(t, ErrChannelReleaseInvalidState, errInfo.Code)
+			assert.Equal(t, 400, errInfo.StatusCode)
+			assert.Contains(t, errInfo.Message(), "the current state is "+state.String())
+			assert.Equal(t, state, channel.State())
+			assert.Same(t, channel, client.Channels.Get("test"))
+		})
+	}
 }

@@ -206,50 +206,30 @@ func (c *RealtimeChannels) Exists(name string) bool {
 // Release releases a [ably.RealtimeChannel] object with given channel name, frees all
 // resources associated, e.g. Removes any listeners associated with the channel (RSN4, RTS4).
 //
-// A realtime channel should only be released when it is in the INITIALIZED, DETACHED, or FAILED state.
-// Releasing a realtime channel in any other state is deprecated and will return an error in the next major
-// version. For now, such a channel is detached before it is released (RTS4b).
-func (ch *RealtimeChannels) Release(ctx context.Context, name string) error {
+// A realtime channel can only be released when it is in the INITIALIZED, DETACHED, or FAILED state.
+// For a channel in any other state, Release returns an [ably.ErrorInfo] with code 90011 and leaves the
+// channel as it is. Call [ably.RealtimeChannel.Detach] and wait for it to return before releasing it.
+func (ch *RealtimeChannels) Release(name string) error {
 	ch.mtx.Lock()
+	defer ch.mtx.Unlock()
 	c, ok := ch.chans[name]
-	ch.mtx.Unlock()
 	if !ok {
 		return nil // RTS4c
 	}
-	// A concurrent Attach may move the channel out of a releasable state while it's being detached,
-	// in which case detach it again rather than release an attached channel.
-	for warned := false; ; warned = true {
-		released, state := ch.releaseIfReleasable(name, c)
-		if released {
-			return nil
-		}
-		if !warned {
-			// RTS4b
-			ch.client.log().Warnf("Calling Channels.Release() on a channel in the %s state is deprecated, and will return an error in the next major version. Call RealtimeChannel.Detach() and wait for it to return before calling Channels.Release(name).", state)
-		}
-		if err := c.Detach(ctx); err != nil {
-			return err
-		}
-	}
-}
-
-// releaseIfReleasable removes c from the channels map if its state allows it to be released
-// (RTS4d), returning whether it was removed (or had already been) and the state it was in.
-// The channel lock is held until the removal, so that a concurrent Attach can't move it
-// out of a releasable state in between.
-func (ch *RealtimeChannels) releaseIfReleasable(name string, c *RealtimeChannel) (bool, ChannelState) {
-	ch.mtx.Lock()
-	defer ch.mtx.Unlock()
+	// Hold the channel lock until the channel is removed, so that a concurrent Attach can't move it
+	// out of a releasable state in between.
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if ch.chans[name] != c {
-		return true, c.state
+	if state := c.state; !state.canRelease() {
+		// RTS4e
+		return &ErrorInfo{
+			Code:       ErrChannelReleaseInvalidState,
+			StatusCode: 400,
+			err:        fmt.Errorf("can only release a channel in a state where there is no possibility of further updates from the server being received (INITIALIZED, DETACHED, or FAILED); the current state is %s", state),
+		}
 	}
-	if !c.state.canRelease() {
-		return false, c.state
-	}
-	delete(ch.chans, name)
-	return true, c.state
+	delete(ch.chans, name) // RTS4d
+	return nil
 }
 
 func (ch *RealtimeChannels) broadcastConnStateChange(change ConnectionStateChange) {
