@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-pubsub-go/examples"
-	"github.com/ably/ably-pubsub-go/server"
+	"github.com/ably/ably-pubsub-go/server/pubsub"
 )
 
 func main() {

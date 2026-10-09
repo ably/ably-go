@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/ably/ably-pubsub-go/device"
+	"github.com/ably/ably-pubsub-go/device/pubsub"
 	"github.com/ably/ably-pubsub-go/internal/ably"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

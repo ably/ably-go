@@ -1,5 +1,5 @@
 ![Ably Pub/Sub Go Header](/image/goSDK-github.png)
-[![Go Reference](https://pkg.go.dev/badge/github.com/ably/ably-pubsub-go/server.svg)](https://pkg.go.dev/github.com/ably/ably-pubsub-go/server)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ably/ably-pubsub-go/server/pubsub.svg)](https://pkg.go.dev/github.com/ably/ably-pubsub-go/server/pubsub)
 [![License](https://badgen.net/github/license/ably/ably-go)](https://github.com/ably/ably-go/blob/main/LICENSE)
 
 ---
@@ -52,13 +52,14 @@ To get started with your project, install the package:
 The SDK has two entry points, and which one you import depends on where your
 code runs:
 
-Both are named `pubsub`, so only the import path differs between them — an
-import of either path binds the name `pubsub`, not `server` or `device`:
+Both packages are named `pubsub`, after the last element of their import path,
+so only the import path differs between them and the call site reads the same
+either way:
 
 | Import path | Use it for |
 | --- | --- |
-| `github.com/ably/ably-pubsub-go/server` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
-| `github.com/ably/ably-pubsub-go/device` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers a realtime client. |
+| `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
+| `github.com/ably/ably-pubsub-go/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers a realtime client. |
 
 Each entry point exposes the whole API it needs — channels, messages, presence,
 options, errors — so an application imports one of them and nothing else.
@@ -70,7 +71,7 @@ options, errors — so an application imports one of them and nothing else.
 The following code connects to Ably's realtime messaging service, subscribes to a channel to receive messages, and publishes a test message to that same channel:
 
 ```go
-import "github.com/ably/ably-pubsub-go/server"
+import "github.com/ably/ably-pubsub-go/server/pubsub"
 
 // Initialize an Ably realtime client
 client, err := pubsub.NewRealtimeClient(
@@ -102,7 +103,7 @@ channel.Publish(context.Background(), "test-event", "hello world")
 ```
 
 On an end-user device, the same code imports
-`github.com/ably/ably-pubsub-go/device` instead and calls `pubsub.NewClient`.
+`github.com/ably/ably-pubsub-go/device/pubsub` instead and calls `pubsub.NewClient`.
 
 ---
 

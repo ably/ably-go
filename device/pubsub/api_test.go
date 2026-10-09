@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ably/ably-pubsub-go/device"
+	"github.com/ably/ably-pubsub-go/device/pubsub"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestReExportedAPIIsSelfContained builds a realistic device client and
 // touches the re-exported API around it, so that a symbol dropped from the
-// generated surface fails here rather than in a user's build.
+// re-exported surface fails here rather than in a user's build.
 func TestReExportedAPIIsSelfContained(t *testing.T) {
 	client, err := pubsub.NewClient(
 		pubsub.WithKey("fake:key"),

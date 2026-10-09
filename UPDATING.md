@@ -12,25 +12,12 @@ go get github.com/ably/ably-pubsub-go
 go mod edit -droprequire github.com/ably/ably-go
 ```
 
-The rename replaces the `/v2` path suffix that a breaking change would
-otherwise need, so there is no `github.com/ably/ably-go/v2`.
-
-### The `ably` package is now internal
-
-`github.com/ably/ably-go/ably` is gone. The implementation moved to
-`github.com/ably/ably-pubsub-go/internal/ably`, which nothing outside the
-module can import, and the SDK is entered through one of two packages
-instead:
-
-Both packages are named `pubsub`, so only the import path differs and the
-call site reads the same either way — an import of either path binds the name
-`pubsub`, not `server` or `device`.
-
+### The `device` and `server` packages
 
 | Import path | Use it for |
 | --- | --- |
-| `github.com/ably/ably-pubsub-go/server` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers `HTTPClient` and `RealtimeClient`. |
-| `github.com/ably/ably-pubsub-go/device` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers `Client`. |
+| `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers `HTTPClient` and `RealtimeClient`. |
+| `github.com/ably/ably-pubsub-go/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers `Client`. |
 
 Each entry point re-exports the whole API it needs — channels, messages,
 presence, options, errors — so an application imports one of them and nothing
@@ -46,14 +33,14 @@ channel := client.Channels.Get("some-channel")
 channel.SubscribeAll(ctx, func(msg *ably.Message) { ... })
 
 // After, on a server
-import "github.com/ably/ably-pubsub-go/server"
+import "github.com/ably/ably-pubsub-go/server/pubsub"
 
 client, err := pubsub.NewRealtimeClient(pubsub.WithKey(key))
 channel := client.Channels.Get("some-channel")
 channel.SubscribeAll(ctx, func(msg *pubsub.Message) { ... })
 
 // After, on a device
-import "github.com/ably/ably-pubsub-go/device"
+import "github.com/ably/ably-pubsub-go/device/pubsub"
 
 client, err := pubsub.NewClient(pubsub.WithKey(key))
 ```
@@ -62,8 +49,7 @@ Three differences to be aware of:
 
 - The `device` entry point omits the part of the API only an HTTP client can
   reach — `HTTPChannel`, `HTTPPresence`, the `Request` and presence-`Get`
-  options, and the paginated result types that go with them. Import from
-  `.../server` for those.
+  options, and the paginated result types that go with them.
 - The LiveObjects types of the old `ably/objects` package are re-exported with
   an `Objects` prefix, so that `objects.Message` and `ably.Message` can live in
   one package: `objects.Plugin` is now `pubsub.ObjectsPlugin`, `objects.Map` is
@@ -72,9 +58,8 @@ Three differences to be aware of:
   so no caller outside the implementation package could ever have supplied an
   argument to it.
 
-The re-export files (`device/api_gen.go`, `server/api_gen.go`) are generated
-by `internal/cmd/genapi`; run `go generate ./device/... ./server/...` after
-changing the API of `internal/ably`.
+The re-exports (`device/pubsub/api.go`, `server/pubsub/api.go`) are written by
+hand; add to them when the API of `internal/ably` grows.
 
 ### The `REST` prefix is now `HTTP`
 
@@ -104,14 +89,6 @@ as deprecated aliases.
 | `ably.WithRESTHost` | `ably.WithHTTPHost` |
 | `ably.WithIdempotentRESTPublishing` | `ably.WithIdempotentHTTPPublishing` |
 
-`ably.WithRESTHost` was already deprecated before this release; `ably.WithHTTPHost` carries
-the same deprecation notice and will be removed in a future version.
-
-### Unchanged
-
-`Stats.REST` keeps its name, because it mirrors the `rest` field of the stats payload
-returned by the Ably API rather than naming a client type.
-
 ### Example
 
 ```go
@@ -120,8 +97,8 @@ client, err := ably.NewREST(ably.WithKey(key))
 var channel *ably.RESTChannel = client.Channels.Get("some-channel")
 
 // After
-client, err := ably.NewHTTPClient(ably.WithKey(key))
-var channel *ably.HTTPChannel = client.Channels.Get("some-channel")
+client, err := pubsub.NewHTTPClient(pubsub.WithKey(key))
+var channel *pubsub.HTTPChannel = client.Channels.Get("some-channel")
 ```
 
 The renamed types reach users through `.../server`, which re-exports them
