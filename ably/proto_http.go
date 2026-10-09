@@ -23,8 +23,8 @@ const (
 	ablyProtocolVersion = "5" // CSV2
 	ablyClientIDHeader  = "X-Ably-ClientId"
 	hostHeader          = "Host"
-	ablyAgentHeader     = "Ably-Agent"                      // RSC7d
-	ablySDKIdentifier   = "ably-go/" + clientLibraryVersion // RSC7d1
+	ablyAgentHeader     = "Ably-Agent"                             // RSC7d
+	ablySDKIdentifier   = "ably-pubsub-go/" + clientLibraryVersion // RSC7d1
 )
 
 // AblyAgentHeaderName is the name of the Ably-Agent header (RSC7d), exported for
