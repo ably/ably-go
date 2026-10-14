@@ -1194,9 +1194,18 @@ func WithLogLevel(level LogLevel) ClientOption {
 
 // WithAgents is used to add product/version key-value pairs to include in the
 // agent library identifiers. This must only be used by Ably-authored SDKs.
+// Successive calls merge their entries into any agents already configured
+// rather than replacing them.
 func WithAgents(agents map[string]string) ClientOption {
 	return func(os *clientOptions) {
-		os.Agents = agents
+		merged := make(map[string]string, len(os.Agents)+len(agents))
+		for product, version := range os.Agents {
+			merged[product] = version
+		}
+		for product, version := range agents {
+			merged[product] = version
+		}
+		os.Agents = merged
 	}
 }
 
