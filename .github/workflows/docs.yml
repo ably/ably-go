@@ -45,7 +45,7 @@ jobs:
           BASE_URL: ${{ steps.sdk-upload-prempt.outputs.url-base }}
         run: >
           gopages
-          -source-link "https://github.com/ably/ably-go/blob/${GITHUB_SHA}/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
+          -source-link "https://github.com/ably/ably-pubsub-go/blob/${GITHUB_SHA}/ably/{{slice .Path 5}}{{if .Line}}#L{{.Line}}{{end}}"
           -brand-description "Go client library for Ably realtime messaging service."
           -brand-title "Ably Go SDK"
           -base "${BASE_URL}../godoc"
@@ -54,7 +54,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@6a64f289c4a4b67a1e2c44cc4bd9d6f7bc59b156 # v1
         with:
           aws-region: eu-west-2
-          role-to-assume: arn:aws:iam::${{ secrets.ABLY_AWS_ACCOUNT_ID_SDK }}:role/ably-sdk-builds-ably-go
+          role-to-assume: arn:aws:iam::${{ secrets.ABLY_AWS_ACCOUNT_ID_SDK }}:role/ably-sdk-builds-ably-pubsub-go
           role-session-name: "${{ github.run_id }}-${{ github.run_number }}"
 
       - name: Upload Documentation
