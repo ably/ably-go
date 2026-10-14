@@ -15,7 +15,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -518,12 +520,19 @@ func TestRest_rememberHostFallback(t *testing.T) {
 		}
 
 		// set up the proxy to forward all requests except a specific fallback to the server,
-		// whilst that fallback goes to the regular endpoint. Resolve that endpoint
-		// from app.Options (not nopts alone) so it is the provisioned app's
-		// host/port — for a per-test local child that isn't derivable from the
-		// endpoint name, and a bare nopts URL would 404 the app id.
+		// whilst that fallback goes to the regular endpoint. A plaintext
+		// compatibility harness preserves the logical endpoint in the client
+		// options, so its proxy destination must use the provisioned local child's
+		// address explicitly.
 		serverURL, _ := url.Parse(server.URL)
 		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(app.Options(nopts...)...).RestURL())
+		if app.Config.LocalEndpoint != "" && app.Config.LocalPort != 0 {
+			scheme := "https"
+			if !app.Config.LocalTLS {
+				scheme = "http"
+			}
+			defaultURL, _ = url.Parse(fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(app.Config.LocalEndpoint, strconv.Itoa(app.Config.LocalPort))))
+		}
 
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if r.URL.Hostname() == "fallback2" {
@@ -802,7 +811,11 @@ func postStats(app *ablytest.Sandbox, stats []*ably.Stats) error {
 		return fmt.Errorf("marshaling stats: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", "https://sandbox-rest.ably.io/stats", bytes.NewReader(statsJSON))
+	statsURL := os.Getenv("ABLY_STATS_FIXTURE_URL")
+	if statsURL == "" {
+		statsURL = "https://sandbox-rest.ably.io/stats"
+	}
+	req, err := http.NewRequest("POST", statsURL, bytes.NewReader(statsJSON))
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}

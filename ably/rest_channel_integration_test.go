@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -317,12 +318,18 @@ func TestIdempotent_retry(t *testing.T) {
 		}
 
 		serverURL, _ := url.Parse(server.URL)
-		// Resolve the real destination from app.Options, not nopts alone, so the
-		// proxy forwards token requests and successful retries to the provisioned
-		// app's endpoint/port. Against a per-test local child that address is not
-		// derivable from the endpoint name, so a bare nopts URL would send those
-		// requests to the wrong server (which 404s the app id).
+		// Resolve the real destination from app.Options, not nopts alone. A
+		// plaintext compatibility harness preserves the logical endpoint in the
+		// client options, so its proxy destination must use the provisioned local
+		// child's address explicitly.
 		defaultURL, _ := url.Parse(ably.ApplyOptionsWithDefaults(app.Options(nopts...)...).RestURL())
+		if app.Config.LocalEndpoint != "" && app.Config.LocalPort != 0 {
+			scheme := "https"
+			if !app.Config.LocalTLS {
+				scheme = "http"
+			}
+			defaultURL, _ = url.Parse(fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(app.Config.LocalEndpoint, strconv.Itoa(app.Config.LocalPort))))
+		}
 		proxy := func(r *http.Request) (*url.URL, error) {
 			if !strings.HasPrefix(r.URL.Path, "/channels/") {
 				// this is to handle token requests

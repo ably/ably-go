@@ -14,7 +14,7 @@ import (
 // RoundTripRecorder is a http.Transport wrapper which records
 // HTTP request/response pairs.
 type RoundTripRecorder struct {
-	*http.Transport
+	http.RoundTripper
 
 	mtx     sync.Mutex
 	reqs    []*http.Request
@@ -77,7 +77,7 @@ func (rec *RoundTripRecorder) RoundTrip(req *http.Request) (*http.Response, erro
 	if atomic.LoadInt32(&rec.stopped) == 0 {
 		return rec.roundTrip(req)
 	}
-	return rec.Transport.RoundTrip(req)
+	return rec.RoundTripper.RoundTrip(req)
 }
 
 // Stop makes the recorder stop recording new requests/responses.
@@ -85,11 +85,9 @@ func (rec *RoundTripRecorder) Stop() {
 	atomic.StoreInt32(&rec.stopped, 1)
 }
 
-// Hijack injects http.Transport into the wrapper.
+// Hijack injects an HTTP transport into the wrapper.
 func (rec *RoundTripRecorder) Hijack(rt http.RoundTripper) http.RoundTripper {
-	if tr, ok := rt.(*http.Transport); ok {
-		rec.Transport = tr
-	}
+	rec.RoundTripper = rt
 	return rec
 }
 
@@ -106,7 +104,7 @@ func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, erro
 	if req.Body != nil {
 		req.Body = io.NopCloser(io.TeeReader(req.Body, &buf))
 	}
-	resp, err := rec.Transport.RoundTrip(req)
+	resp, err := rec.RoundTripper.RoundTrip(req)
 	req.Body = body(buf.Bytes())
 	buf.Reset()
 	if resp != nil && resp.Body != nil {
@@ -115,10 +113,14 @@ func (rec *RoundTripRecorder) roundTrip(req *http.Request) (*http.Response, erro
 		resp.Body = body(buf.Bytes())
 	}
 	rec.mtx.Lock()
-	respCopy := *resp
-	respCopy.Body = body(buf.Bytes())
 	rec.reqs = append(rec.reqs, req)
-	rec.resps = append(rec.resps, &respCopy)
+	if resp != nil {
+		respCopy := *resp
+		respCopy.Body = body(buf.Bytes())
+		rec.resps = append(rec.resps, &respCopy)
+	} else {
+		rec.resps = append(rec.resps, nil)
+	}
 	rec.mtx.Unlock()
 	return resp, err
 }
