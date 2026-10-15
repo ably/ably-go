@@ -57,7 +57,7 @@ func (pres *RealtimePresence) isValidChannelState() error {
 	}
 }
 
-// RTP5a
+// RTP5a, RTP16b, RTL11
 func (pres *RealtimePresence) onChannelDetachedOrFailed(err error) {
 	for k := range pres.members {
 		delete(pres.members, k)
@@ -68,7 +68,7 @@ func (pres *RealtimePresence) onChannelDetachedOrFailed(err error) {
 	pres.queue.Fail(err)
 }
 
-// RTP5f, RTP16b
+// RTP5f, RTP16b, RTL11
 func (pres *RealtimePresence) onChannelSuspended(err error) {
 	pres.queue.Fail(err)
 }
