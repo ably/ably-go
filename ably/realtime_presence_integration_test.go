@@ -172,7 +172,7 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	member_received := <-subCh1
 	assert.Len(t, subCh1, 0) // Ensure no more updates received
 
-	assert.Equal(t, ably.PresenceActionEnter, member_received.Action)
+	assert.Contains(t, []ably.PresenceAction{ably.PresenceActionEnter, ably.PresenceActionPresent}, member_received.Action) // RTP2d1: a SYNC may deliver the member as PRESENT
 	assert.Equal(t, "client2", member_received.ClientID)
 	assert.Equal(t, "enter client2", member_received.Data)
 
@@ -183,7 +183,7 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	member_received = <-subCh1
 	assert.Len(t, subCh1, 0) // Ensure no more updates received
 
-	assert.Equal(t, ably.PresenceActionUpdate, member_received.Action)
+	assert.Contains(t, []ably.PresenceAction{ably.PresenceActionUpdate, ably.PresenceActionPresent}, member_received.Action) // RTP2d1: a SYNC may deliver the member as PRESENT
 	assert.Equal(t, "client2", member_received.ClientID)
 	assert.Equal(t, "update client2", member_received.Data)
 
