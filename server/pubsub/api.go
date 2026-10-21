@@ -1002,14 +1002,6 @@ func PresenceHistoryWithStart(t time.Time) PresenceHistoryOption {
 	return ably.PresenceHistoryWithStart(t)
 }
 
-// Deprecated: Use PublishWithParams instead.
-// PublishMultipleWithParams is the same as PublishWithParams.
-//
-// TODO: Remove this in the next major version bump to 2.x.x.
-func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
-	return ably.PublishMultipleWithParams(params)
-}
-
 // PublishWithConnectionKey allows a message to be published for a specified connectionKey.
 func PublishWithConnectionKey(connectionKey string) PublishMultipleOption {
 	return ably.PublishWithConnectionKey(connectionKey)
