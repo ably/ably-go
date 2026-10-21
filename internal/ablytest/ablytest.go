@@ -239,6 +239,9 @@ func TimeFuncs(afterCalls chan<- AfterCall) (
 			mtx.Lock()
 			t := currentTime
 			mtx.Unlock()
+			if ctx.Err() != nil {
+				return // already cancelled; don't hand stale timers to the test (select would pick randomly)
+			}
 			afterCall := AfterCall{Ctx: ctx, D: d, Deadline: t.Add(d), Time: timeUpdate, triggered: new(bool), mtx: &sync.Mutex{}}
 			select {
 			case afterCalls <- afterCall:
