@@ -21,7 +21,7 @@ type AblyVCDiffDecoder = ably.AblyVCDiffDecoder
 // subsequently issue to less trusted clients.
 type Auth = ably.Auth
 
-// AuthOption configures authentication/authorization for a [HTTPClient] or [Realtime]
+// AuthOption configures authentication/authorization for a [HTTPClient] or [RealtimeClient]
 // instance or operation.
 type AuthOption = ably.AuthOption
 
@@ -33,6 +33,8 @@ type ChannelDetails = ably.ChannelDetails
 // An event is either an UPDATE or a [ChannelState].
 type ChannelEvent = ably.ChannelEvent
 
+// ChannelEventEmitter emits the [ChannelStateChange] events of a [RealtimeChannel]; register
+// handlers with its On, Once and OnAll methods.
 type ChannelEventEmitter = ably.ChannelEventEmitter
 
 // ChannelMetrics contains the metrics associated with a [HTTPChannel] or [RealtimeChannel],
@@ -48,7 +50,7 @@ type ChannelOccupancy = ably.ChannelOccupancy
 // ChannelOption configures a channel.
 type ChannelOption = ably.ChannelOption
 
-// CP2
+// ChannelProperties holds properties of a realtime channel, such as its attach serial (CP2).
 type ChannelProperties = ably.ChannelProperties
 
 // ChannelState describes the possible states of a [HTTPChannel] or [RealtimeChannel] object.
@@ -72,7 +74,7 @@ type CipherMode = ably.CipherMode
 // [RealtimeChannel] object (TZ1).
 type CipherParams = ably.CipherParams
 
-// ClientOption configures a [HTTPClient] or [Realtime] instance.
+// ClientOption configures a [HTTPClient] or [RealtimeClient] instance.
 //
 // See: https://www.ably.io/documentation/realtime/usage#client-options
 type ClientOption = ably.ClientOption
@@ -116,7 +118,7 @@ type ErrorInfo = ably.ErrorInfo
 // GetPresenceOption configures a call to HTTPPresence.Get or RealtimePresence.Get.
 type GetPresenceOption = ably.GetPresenceOption
 
-// HTTPChannel is the interface for REST API operations on a channel.
+// HTTPChannel performs operations on a channel over HTTP, using the Ably REST API.
 // It enables messages to be published and historic messages to be retrieved for a channel.
 type HTTPChannel = ably.HTTPChannel
 
@@ -129,9 +131,7 @@ type HTTPPaginatedItems = ably.HTTPPaginatedItems
 // HTTPPaginatedResponse is a superset of [PaginatedResult] which represents a page of results plus metadata
 // indicating the relative queries available to it. HttpPaginatedResponse additionally carries information
 // about the response to an HTTP request.
-// A HTTPPaginatedResponse is an iterator for the response of a REST request.
-//
-// See package-level documentation => [ably] Pagination for more details.
+// A HTTPPaginatedResponse is an iterator for the response of a request made with [HTTPClient.Request].
 type HTTPPaginatedResponse = ably.HTTPPaginatedResponse
 
 // HTTPPresence enables the retrieval of the current and historic presence set for a channel.
@@ -169,7 +169,7 @@ type MessagesPaginatedItems = ably.MessagesPaginatedItems
 
 // A MessagesPaginatedResult is an iterator for the result of a History request.
 //
-// See package-level documentation => [ably] Pagination for details about history pagination.
+// It is paginated: see [PaginatedResult] for how to iterate over the pages.
 type MessagesPaginatedResult = ably.MessagesPaginatedResult
 
 type PaginateParams = ably.PaginateParams
@@ -177,7 +177,8 @@ type PaginateParams = ably.PaginateParams
 // PaginatedResult is a generic iterator for PaginatedResult pagination.
 // Items decoding is delegated to type-specific wrappers.
 //
-// See "Paginated results" section in the package-level documentation.
+// Call Next to fetch each page and read it with Items; once Next returns false,
+// check Err to tell an error from the end of the results.
 type PaginatedResult = ably.PaginatedResult
 
 type PeriodUnit = ably.PeriodUnit
@@ -197,7 +198,7 @@ type PresencePaginatedItems = ably.PresencePaginatedItems
 
 // A PresencePaginatedResult is an iterator for the result of a PresenceHistory request.
 //
-// See package-level documentation => [ably] Pagination for more details.
+// It is paginated: see [PaginatedResult] for how to iterate over the pages.
 type PresencePaginatedResult = ably.PresencePaginatedResult
 
 // PresenceRequest represents a request prepared by the HTTPPresence.History or
@@ -229,11 +230,11 @@ type RealtimeChannel = ably.RealtimeChannel
 
 // RealtimeChannels is a goroutine-safe container for realtime channels that allows for creating,
 // deleting and iterating over existing channels.
-// Creates and destroys [HTTPChannel] and [RealtimeChannel] objects.
+// Creates and destroys [RealtimeChannel] objects.
 type RealtimeChannels = ably.RealtimeChannels
 
 // RealtimeExperimentalObjects exposes a method to publish LiveObject messages on a Realtime channel.
-// It requires the LiveObjects plugin to be configured see ably-go/ably/objects/liveobjects.go.
+// It requires the LiveObjects plugin to be configured; see [ObjectsPlugin].
 //
 // NOTE: this option is experimental, the LiveObjects plugin API may change in a
 // backwards incompatible way between minor/patch versions. Once the API has been finalised,
@@ -278,7 +279,7 @@ type StatsPaginatedItems = ably.StatsPaginatedItems
 
 // A StatsPaginatedResult is an iterator for the result of a Stats request.
 //
-// See package-level documentation => [ably] Pagination for handling stats pagination.
+// It is paginated: see [PaginatedResult] for how to iterate over the pages.
 type StatsPaginatedResult = ably.StatsPaginatedResult
 
 type StatsPushNotificationFailures = ably.StatsPushNotificationFailures
@@ -378,6 +379,25 @@ type ObjectsOperationAction = objects.OperationAction
 type ObjectsPlugin = objects.Plugin
 
 type ObjectsState = objects.State
+
+// LiveObjects constants. The values of the objects package's enums, with the
+// same Objects prefix as their types and the underscore dropped.
+const (
+	// ObjectsOperationMapCreate creates a new map object.
+	ObjectsOperationMapCreate = objects.Operation_MapCreate
+	// ObjectsOperationMapSet sets a key in a map object.
+	ObjectsOperationMapSet = objects.Operation_MapSet
+	// ObjectsOperationMapRemove removes a key from a map object.
+	ObjectsOperationMapRemove = objects.Operation_MapRemove
+	// ObjectsOperationCounterCreate creates a new counter object.
+	ObjectsOperationCounterCreate = objects.Operation_CounterCreate
+	// ObjectsOperationCounterInc increments a counter object.
+	ObjectsOperationCounterInc = objects.Operation_CounterInc
+	// ObjectsOperationDelete deletes an object.
+	ObjectsOperationDelete = objects.Operation_Delete
+	// ObjectsMapLWW is the last-write-wins conflict-resolution semantics of a map object.
+	ObjectsMapLWW = objects.Map_LWW
+)
 
 // Constants and variables.
 
@@ -1081,8 +1101,8 @@ func UpdateWithMetadata(metadata map[string]string) UpdateOption {
 	return ably.UpdateWithMetadata(metadata)
 }
 
-// UpdateWithParams sets operation params. When using REST, these are included as URL query
-// parameters (RSL15a, RSL15f). When using Realtime, these are set as protocolMessage.Params (RTL32e).
+// UpdateWithParams sets operation params. Over HTTP, these are included as URL query
+// parameters (RSL15a, RSL15f). Over a realtime connection, these are set as protocolMessage.Params (RTL32e).
 func UpdateWithParams(params map[string]string) UpdateOption {
 	return ably.UpdateWithParams(params)
 }
@@ -1229,12 +1249,22 @@ func WithEchoMessages(echo bool) ClientOption {
 	return ably.WithEchoMessages(echo)
 }
 
-// WithEndpoint sets a custom endpoint for connecting to the Ably service (see
-// [Platform Customization] for more information).
+// WithEndpoint sets the endpoint the client connects to (REC1). It takes one of:
+//
+//   - a routing policy name, such as "main", which resolves to [name].realtime.ably.net;
+//   - a non-production routing policy name, such as "nonprod:sandbox", which resolves to
+//     [name].realtime.ably-nonprod.net;
+//   - a hostname, such as "localhost" or "ably.example.com", used as given. A value is
+//     treated as a hostname if it contains "." or "::" or is "localhost". A hostname
+//     endpoint has no default fallback hosts.
+//
+// Unset, the endpoint is "main". To use a port other than the default, set it with
+// [WithPort] or [WithTLSPort]: "localhost:8080" is not a hostname and does not resolve.
+// See [Platform Customization] for more information.
 //
 // [Platform Customization]: https://ably.com/docs/platform-customization
-func WithEndpoint(env string) ClientOption {
-	return ably.WithEndpoint(env)
+func WithEndpoint(endpoint string) ClientOption {
+	return ably.WithEndpoint(endpoint)
 }
 
 // WithEnvironment sets a custom endpoint for connecting to the Ably service
@@ -1408,7 +1438,7 @@ func WithRealtimeHost(host string) ClientOption {
 // RealtimeRequestTimeout is the timeout for the wait of acknowledgement for operations performed via a
 // realtime connection, before the client library considers a request failed and triggers a failure condition.
 // Operations include establishing a connection with Ably, or sending a HEARTBEAT, CONNECT, ATTACH, DETACH or
-// CLOSE request. It is the equivalent of httpRequestTimeout but for realtime operations, rather than REST.
+// CLOSE request. It is the equivalent of httpRequestTimeout but for realtime operations, rather than HTTP requests.
 // The default is 10 seconds (TO3l11).
 func WithRealtimeRequestTimeout(d time.Duration) ClientOption {
 	return ably.WithRealtimeRequestTimeout(d)
