@@ -126,97 +126,6 @@ func TestHosts_REC1(t *testing.T) {
 		assert.Equal(t, []string{"fallback.foo.example.com"}, fallbackHosts)
 	})
 
-	t.Run("legacy support", func(t *testing.T) {
-		t.Run("REC1c with production environment", func(t *testing.T) {
-			clientOptions := ably.NewClientOptions(ably.WithEnvironment("production"))
-			assert.Equal(t, "main.realtime.ably.net", clientOptions.GetHostnameFromEndpoint())
-			assert.False(t, clientOptions.NoTLS)
-			port, isDefaultPort := clientOptions.ActivePort()
-			assert.Equal(t, 443, port)
-			assert.True(t, isDefaultPort)
-			fallbackHosts, _ := clientOptions.GetFallbackHosts()
-			assert.Equal(t, ably.DefaultFallbackHosts(), fallbackHosts)
-		})
-
-		t.Run("REC1c with custom environment", func(t *testing.T) {
-			clientOptions := ably.NewClientOptions(ably.WithEnvironment("acme"))
-			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetHTTPHost())
-			assert.False(t, clientOptions.NoTLS)
-			port, isDefaultPort := clientOptions.ActivePort()
-			assert.Equal(t, 443, port)
-			assert.True(t, isDefaultPort)
-			fallbackHosts, _ := clientOptions.GetFallbackHosts()
-			assert.Equal(t, ably.GetEndpointFallbackHosts("acme"), fallbackHosts)
-		})
-
-		t.Run("REC1c REC2a1 with custom environment and fallbackHostUseDefault", func(t *testing.T) {
-			clientOptions := ably.NewClientOptions(ably.WithEnvironment("acme"), ably.WithFallbackHostsUseDefault(true))
-			assert.Equal(t, "acme.realtime.ably.net", clientOptions.GetHTTPHost())
-			assert.False(t, clientOptions.NoTLS)
-			port, isDefaultPort := clientOptions.ActivePort()
-			assert.Equal(t, 443, port)
-			assert.True(t, isDefaultPort)
-			fallbackHosts, _ := clientOptions.GetFallbackHosts()
-			assert.Equal(t, ably.DefaultFallbackHosts(), fallbackHosts)
-		})
-
-		t.Run("REC1d1 with custom restHost", func(t *testing.T) {
-			clientOptions := ably.NewClientOptions(ably.WithHTTPHost("test.org"))
-			assert.Equal(t, "test.org", clientOptions.GetHTTPHost())
-			assert.False(t, clientOptions.NoTLS)
-			port, isDefaultPort := clientOptions.ActivePort()
-			assert.Equal(t, 443, port)
-			assert.True(t, isDefaultPort)
-			fallbackHosts, _ := clientOptions.GetFallbackHosts()
-			assert.Nil(t, fallbackHosts)
-		})
-
-		t.Run("REC1d2 with custom realtimeHost", func(t *testing.T) {
-			clientOptions := ably.NewClientOptions(ably.WithRealtimeHost("ws.test.org"))
-			assert.Equal(t, "ws.test.org", clientOptions.GetRealtimeHost())
-			assert.False(t, clientOptions.NoTLS)
-			port, isDefaultPort := clientOptions.ActivePort()
-			assert.Equal(t, 443, port)
-			assert.True(t, isDefaultPort)
-			fallbackHosts, _ := clientOptions.GetFallbackHosts()
-			assert.Nil(t, fallbackHosts)
-		})
-
-		t.Run("REC1d with custom restHost and realtimeHost", func(t *testing.T) {
-			clientOptions := ably.NewClientOptions(ably.WithRealtimeHost("ws.test.org"), ably.WithHTTPHost("test.org"))
-			assert.Equal(t, "test.org", clientOptions.GetHTTPHost())
-			assert.False(t, clientOptions.NoTLS)
-			port, isDefaultPort := clientOptions.ActivePort()
-			assert.Equal(t, 443, port)
-			assert.True(t, isDefaultPort)
-			fallbackHosts, _ := clientOptions.GetFallbackHosts()
-			assert.Nil(t, fallbackHosts)
-		})
-
-		t.Run("REC1d REC2b with custom restHost and realtimeHost and fallbackHostsUseDefault", func(t *testing.T) {
-			clientOptions := ably.NewClientOptions(
-				ably.WithRealtimeHost("ws.test.org"),
-				ably.WithHTTPHost("test.org"),
-				ably.WithFallbackHostsUseDefault(true))
-			assert.Equal(t, "test.org", clientOptions.GetHTTPHost())
-			assert.False(t, clientOptions.NoTLS)
-			port, isDefaultPort := clientOptions.ActivePort()
-			assert.Equal(t, 443, port)
-			assert.True(t, isDefaultPort)
-			fallbackHosts, _ := clientOptions.GetFallbackHosts()
-			assert.Equal(t, ably.DefaultFallbackHosts(), fallbackHosts)
-		})
-	})
-
-	t.Run("If endpoint option is used with deprecated fallbackHostUseDefault, throw error", func(t *testing.T) {
-		clientOptions := ably.NewClientOptions(
-			ably.WithFallbackHostsUseDefault(true),
-			ably.WithEndpoint("custom"))
-		err := clientOptions.Validate()
-		assert.Equal(t, err.Error(),
-			"invalid client option: cannot use endpoint with any of deprecated options environment, realtimeHost, restHost or FallbackHostsUseDefault")
-	})
-
 	t.Run("REC2a with fallbackHosts", func(t *testing.T) {
 		clientOptions := ably.NewClientOptions(ably.WithFallbackHosts([]string{"a.example.com", "b.example.com"}))
 		assert.Equal(t, "main.realtime.ably.net", clientOptions.GetHTTPHost())
@@ -227,35 +136,43 @@ func TestHosts_REC1(t *testing.T) {
 		fallbackHosts, _ := clientOptions.GetFallbackHosts()
 		assert.Equal(t, []string{"a.example.com", "b.example.com"}, fallbackHosts)
 	})
+}
 
-	t.Run("REC2a1 with fallbackHosts and fallbackHostsUseDefault", func(t *testing.T) {
-		clientOptions := ably.NewClientOptions(
-			ably.WithFallbackHosts([]string{"a.example.com", "b.example.com"}),
-			ably.WithFallbackHostsUseDefault(true))
-		_, err := clientOptions.GetFallbackHosts()
-		assert.Equal(t, err.Error(),
-			"fallbackHosts and fallbackHostsUseDefault cannot both be set")
-	})
+func TestEndpointResolution_REC1_REC2(t *testing.T) {
+	defaultFallbacks := ably.DefaultFallbackHosts()
+	custom := []string{"a.example.com", "b.example.com"}
 
-	t.Run("REC2a1 with fallbackHostsUseDefault And custom port", func(t *testing.T) {
-		clientOptions := ably.NewClientOptions(ably.WithTLSPort(8081), ably.WithFallbackHostsUseDefault(true))
-		_, isDefaultPort := clientOptions.ActivePort()
-		assert.False(t, isDefaultPort)
-		_, err := clientOptions.GetFallbackHosts()
-		assert.Equal(t, err.Error(),
-			"fallbackHostsUseDefault cannot be set when port or tlsPort are set")
-
-		clientOptions = ably.NewClientOptions(
-			ably.WithTLS(false),
-			ably.WithPort(8080),
-			ably.WithFallbackHostsUseDefault(true))
-
-		_, isDefaultPort = clientOptions.ActivePort()
-		assert.False(t, isDefaultPort)
-		_, err = clientOptions.GetFallbackHosts()
-		assert.Equal(t, err.Error(),
-			"fallbackHostsUseDefault cannot be set when port or tlsPort are set")
-	})
+	tests := []struct {
+		name          string
+		opts          []ably.ClientOption
+		host          string
+		fallbackHosts []string
+	}{
+		{"unset endpoint", nil, "main.realtime.ably.net", defaultFallbacks},
+		{"routing policy name", []ably.ClientOption{ably.WithEndpoint("acme")}, "acme.realtime.ably.net", ably.GetEndpointFallbackHosts("acme")},
+		{"nonprod routing policy name", []ably.ClientOption{ably.WithEndpoint("nonprod:sandbox")}, "sandbox.realtime.ably-nonprod.net", ably.GetEndpointFallbackHosts("nonprod:sandbox")},
+		{"hostname", []ably.ClientOption{ably.WithEndpoint("foo.example.com")}, "foo.example.com", nil},
+		{"localhost", []ably.ClientOption{ably.WithEndpoint("localhost")}, "localhost", nil},
+		{"ipv6 hostname", []ably.ClientOption{ably.WithEndpoint("::1")}, "::1", nil},
+		{"explicit fallbackHosts replace default fallbacks", []ably.ClientOption{ably.WithFallbackHosts(custom)}, "main.realtime.ably.net", custom},
+		{"explicit fallbackHosts replace routing policy fallbacks", []ably.ClientOption{ably.WithEndpoint("acme"), ably.WithFallbackHosts(custom)}, "acme.realtime.ably.net", custom},
+		{"explicit fallbackHosts with hostname endpoint", []ably.ClientOption{ably.WithEndpoint("foo.example.com"), ably.WithFallbackHosts(custom)}, "foo.example.com", custom},
+		{"custom port keeps default fallbacks", []ably.ClientOption{ably.WithTLS(false), ably.WithPort(8080)}, "main.realtime.ably.net", defaultFallbacks},
+		{"custom TLS port keeps default fallbacks", []ably.ClientOption{ably.WithTLSPort(8081)}, "main.realtime.ably.net", defaultFallbacks},
+		{"custom port keeps routing policy fallbacks", []ably.ClientOption{ably.WithEndpoint("acme"), ably.WithTLSPort(8081)}, "acme.realtime.ably.net", ably.GetEndpointFallbackHosts("acme")},
+		{"custom port with hostname endpoint has no fallbacks", []ably.ClientOption{ably.WithEndpoint("localhost"), ably.WithTLS(false), ably.WithPort(8080)}, "localhost", nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			clientOptions := ably.NewClientOptions(tc.opts...)
+			assert.NoError(t, clientOptions.Validate())
+			assert.Equal(t, tc.host, clientOptions.GetHTTPHost())
+			assert.Equal(t, tc.host, clientOptions.GetRealtimeHost())
+			fallbackHosts, err := clientOptions.GetFallbackHosts()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.fallbackHosts, fallbackHosts)
+		})
+	}
 }
 
 func TestClientOptions(t *testing.T) {
@@ -271,31 +188,6 @@ func TestClientOptions(t *testing.T) {
 	})
 	t.Run("must return error on nil value options", func(t *testing.T) {
 		_, err := ably.NewHTTPClient(nil)
-		assert.Error(t, err,
-			"expected an error")
-	})
-	t.Run("must return error on invalid combinations", func(t *testing.T) {
-		_, err := ably.NewHTTPClient([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithEnvironment("acme"), ably.WithRealtimeHost("foo.example.com"), ably.WithHTTPHost("foo.example.com")}...)
-		assert.Error(t, err,
-			"expected an error")
-
-		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithEnvironment("acme")}...)
-		assert.Error(t, err,
-			"expected an error")
-
-		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEnvironment("acme"), ably.WithRealtimeHost("foo.example.com")}...)
-		assert.Error(t, err,
-			"expected an error")
-
-		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEnvironment("acme"), ably.WithHTTPHost("foo.example.com")}...)
-		assert.Error(t, err,
-			"expected an error")
-
-		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithRealtimeHost("foo.example.com")}...)
-		assert.Error(t, err,
-			"expected an error")
-
-		_, err = ably.NewHTTPClient([]ably.ClientOption{ably.WithEndpoint("acme"), ably.WithHTTPHost("foo.example.com")}...)
 		assert.Error(t, err,
 			"expected an error")
 	})
