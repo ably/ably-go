@@ -86,7 +86,6 @@ as deprecated aliases.
 | Before | After |
 | --- | --- |
 | `ably.NewREST` | `ably.NewHTTPClient` |
-| `ably.WithRESTHost` | `ably.WithHTTPHost` |
 | `ably.WithIdempotentRESTPublishing` | `ably.WithIdempotentHTTPPublishing` |
 
 ### Example
@@ -104,6 +103,70 @@ var channel *pubsub.HTTPChannel = client.Channels.Get("some-channel")
 The renamed types reach users through `.../server`, which re-exports them
 under the same names.
 
+
+### Host options are replaced by `WithEndpoint`
+
+`ably.WithEnvironment`, `ably.WithRESTHost`, `ably.WithRealtimeHost` and
+`ably.WithFallbackHostsUseDefault` have been removed. `WithEndpoint` selects the host for both HTTP
+requests and the realtime connection, so code that still uses the old options fails to compile
+instead of silently connecting to a different host.
+
+| Before | After |
+| --- | --- |
+| `ably.WithEnvironment("sandbox")` | `pubsub.WithEndpoint("nonprod:sandbox")` |
+| `ably.WithEnvironment("acme")` (a routing policy name) | `pubsub.WithEndpoint("acme")` |
+| `ably.WithRESTHost(h)` and `ably.WithRealtimeHost(h)` set to the same host `h` | `pubsub.WithEndpoint(h)` |
+| `ably.WithRESTHost("localhost:8080")` | `pubsub.WithEndpoint("localhost")` and `pubsub.WithPort(8080)` |
+| `ably.WithRESTHost(a)` and `ably.WithRealtimeHost(b)` with different hosts | Not supported. Use one host that serves both, or contact Ably. |
+| `ably.WithFallbackHostsUseDefault(true)` | Remove it. Default fallback hosts apply automatically. |
+| `ably.WithFallbackHosts(hosts)` | `pubsub.WithFallbackHosts(hosts)`, unchanged |
+
+How the endpoint is resolved:
+
+- Unset: the primary host is `main.realtime.ably.net`, with the default fallback hosts
+  `main.[a-e].fallback.ably-realtime.com`.
+- A routing policy name such as `acme`: `acme.realtime.ably.net`, with fallback hosts
+  `acme.[a-e].fallback.ably-realtime.com`.
+- `nonprod:` plus a name, such as `nonprod:sandbox`: `sandbox.realtime.ably-nonprod.net`, with
+  fallback hosts `sandbox.[a-e].fallback.ably-realtime-nonprod.com`.
+- A hostname, meaning a value that contains `.` or `::`, or is `localhost`: used as given, with no
+  default fallback hosts. Do not include a port in the value; use `WithPort` or `WithTLSPort`.
+
+An explicit `WithFallbackHosts` always replaces the default fallback hosts. A custom `WithPort` or
+`WithTLSPort` no longer disables the default fallback hosts.
+
+```go
+// Before
+client, err := ably.NewRealtime(
+	ably.WithKey(key),
+	ably.WithEnvironment("sandbox"),
+)
+
+// After
+client, err := pubsub.NewRealtimeClient(
+	pubsub.WithKey(key),
+	pubsub.WithEndpoint("nonprod:sandbox"),
+)
+```
+
+If you used any of the removed options, check your firewall or proxy rules before upgrading: the
+client now connects to `<name>.realtime.ably.net` and `<name>.[a-e].fallback.ably-realtime.com`, so
+allow `*.realtime.ably.net` and `*.fallback.ably-realtime.com`. The default hosts are unchanged
+for clients that set no host option.
+
+### Deprecated API removed
+
+Deprecated symbols that had a replacement have been removed.
+
+| Removed | Use instead |
+| --- | --- |
+| `ably.WithEnvironment` | `pubsub.WithEndpoint` |
+| `ably.WithRESTHost` | `pubsub.WithEndpoint` |
+| `ably.WithRealtimeHost` | `pubsub.WithEndpoint` |
+| `ably.WithFallbackHostsUseDefault` | Remove it. Default fallback hosts apply automatically, or use `pubsub.WithFallbackHosts` for custom hosts. |
+| `ably.Connection.RecoveryKey()` | `pubsub.Connection.CreateRecoveryKey()` |
+| `ably.RESTChannel.PublishMultipleWithOptions` | `pubsub.HTTPChannel.PublishMultiple` |
+| `ably.PublishMultipleWithParams` | `pubsub.PublishWithParams` |
 
 ## Version 1.1.5 to 1.2.0
 
