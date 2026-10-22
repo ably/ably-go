@@ -156,6 +156,11 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	client1Channel := client1.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = client1Channel.Attach(context.Background())
 	assert.NoError(t, err)
+	// ATTACHED is followed by an initial presence SYNC (RTP1). Wait for it, so
+	// that a late SYNC can't deliver client2 as PRESENT in place of the live
+	// ENTER or UPDATE asserted below.
+	_, err = client1Channel.Presence.Get(context.Background())
+	assert.NoError(t, err)
 
 	client2Channel := client2.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = client2Channel.Attach(context.Background())
@@ -172,7 +177,7 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	member_received := <-subCh1
 	assert.Len(t, subCh1, 0) // Ensure no more updates received
 
-	assert.Contains(t, []ably.PresenceAction{ably.PresenceActionEnter, ably.PresenceActionPresent}, member_received.Action) // RTP2d1: a SYNC may deliver the member as PRESENT
+	assert.Equal(t, ably.PresenceActionEnter, member_received.Action)
 	assert.Equal(t, "client2", member_received.ClientID)
 	assert.Equal(t, "enter client2", member_received.Data)
 
@@ -183,7 +188,7 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	member_received = <-subCh1
 	assert.Len(t, subCh1, 0) // Ensure no more updates received
 
-	assert.Contains(t, []ably.PresenceAction{ably.PresenceActionUpdate, ably.PresenceActionPresent}, member_received.Action) // RTP2d1: a SYNC may deliver the member as PRESENT
+	assert.Equal(t, ably.PresenceActionUpdate, member_received.Action)
 	assert.Equal(t, "client2", member_received.ClientID)
 	assert.Equal(t, "update client2", member_received.Data)
 
