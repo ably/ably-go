@@ -1,4 +1,4 @@
-module github.com/ably/ably-go
+module github.com/ably/ably-pubsub-go
 
 go 1.18
 

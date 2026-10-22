@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-pubsub-go/internal/ably"
 )
 
 var hopHeaders = map[string]struct{}{
@@ -78,7 +78,7 @@ type AuthReverseProxy struct {
 // NewAuthReverseProxy creates new auth reverse proxy. The given opts
 // are used to create a Auth client, used to reverse proxying token requests.
 func NewAuthReverseProxy(opts ...ably.ClientOption) (*AuthReverseProxy, error) {
-	client, err := ably.NewREST(append(opts,
+	client, err := ably.NewHTTPClient(append(opts,
 		ably.WithUseTokenAuth(true),
 	)...)
 	if err != nil {

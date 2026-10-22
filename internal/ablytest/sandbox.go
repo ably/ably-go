@@ -22,7 +22,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-pubsub-go/internal/ably"
 )
 
 // Key is a single API key as returned in the /apps response.
@@ -155,9 +155,9 @@ func NewRealtime(opts ...ably.ClientOption) (*Sandbox, *ably.Realtime) {
 	return app, client
 }
 
-func NewREST(opts ...ably.ClientOption) (*Sandbox, *ably.REST) {
+func NewHTTPClient(opts ...ably.ClientOption) (*Sandbox, *ably.HTTPClient) {
 	app := MustSandbox()
-	client, err := ably.NewREST(app.Options(opts...)...)
+	client, err := ably.NewHTTPClient(app.Options(opts...)...)
 	if err != nil {
 		panic(err)
 	}
@@ -210,7 +210,7 @@ func provisionSandbox(endpoint string) (*Sandbox, error) {
 	app := &Sandbox{
 		Config:   &Config{},
 		Endpoint: endpoint,
-		client:   NewHTTPClient(),
+		client:   newHTTPClient(),
 		local:    LocalSandboxURL != "",
 	}
 
@@ -331,7 +331,7 @@ func (app *Sandbox) Options(opts ...ably.ClientOption) []ably.ClientOption {
 	type transportHijacker interface {
 		Hijack(http.RoundTripper) http.RoundTripper
 	}
-	appHTTPClient := NewHTTPClient()
+	appHTTPClient := newHTTPClient()
 	appOpts := []ably.ClientOption{
 		ably.WithKey(app.Key()),
 		ably.WithEndpoint(app.Endpoint),
@@ -440,7 +440,7 @@ func (app *Sandbox) CreateJwt(expiresIn time.Duration, invalid bool) (string, er
 	return string(resBody), nil
 }
 
-func NewHTTPClient() *http.Client {
+func newHTTPClient() *http.Client {
 	const timeout = time.Minute
 	return &http.Client{
 		Timeout: timeout,
