@@ -3,6 +3,7 @@ package ably
 import (
 	"fmt"
 	"runtime"
+	"sort"
 	"strings"
 )
 
@@ -54,7 +55,15 @@ func ablyAgentIdentifier(agents map[string]string) string {
 		identifiers = append(identifiers, osIdentifier)
 	}
 
-	for product, version := range agents {
+	// Sort the products so the header is the same on every request; map
+	// iteration order is random.
+	products := make([]string, 0, len(agents))
+	for product := range agents {
+		products = append(products, product)
+	}
+	sort.Strings(products)
+	for _, product := range products {
+		version := agents[product]
 		if empty(version) {
 			identifiers = append(identifiers, product)
 		} else {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/ably/ably-pubsub-go/device/pubsub"
@@ -35,4 +36,8 @@ func TestNewClient_DeclaresDeviceAgent(t *testing.T) {
 
 	client.Time(context.Background())
 	assert.Equal(t, ably.AgentIdentifier(map[string]string{"ably-pubsub-device": ""}), agent)
+	// Literal, not derived: the family and side identifiers are what Ably's
+	// traffic classification keys on, so a change to either must fail here.
+	assert.True(t, strings.HasPrefix(agent, "ably-pubsub-go/"), "wrong SDK family: %q", agent)
+	assert.True(t, strings.HasSuffix(agent, " ably-pubsub-device"), "missing side agent: %q", agent)
 }
