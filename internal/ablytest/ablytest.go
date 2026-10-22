@@ -240,7 +240,8 @@ func TimeFuncs(afterCalls chan<- AfterCall) (
 			t := currentTime
 			mtx.Unlock()
 			if ctx.Err() != nil {
-				return // already cancelled; don't hand stale timers to the test (select would pick randomly)
+				close(ch) // like ablyutil.After, a cancelled timer closes its channel
+				return    // already cancelled; don't hand stale timers to the test (select would pick randomly)
 			}
 			afterCall := AfterCall{Ctx: ctx, D: d, Deadline: t.Add(d), Time: timeUpdate, triggered: new(bool), mtx: &sync.Mutex{}}
 			select {
@@ -248,6 +249,7 @@ func TimeFuncs(afterCalls chan<- AfterCall) (
 			case <-ctx.Done():
 				// This allows tests to ignore a call if they expect the timer to
 				// be cancelled.
+				close(ch)
 				return
 			}
 
