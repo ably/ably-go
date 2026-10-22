@@ -41,6 +41,10 @@ func TestNewHTTPClient_DeclaresServerAgent(t *testing.T) {
 
 	client.Time(context.Background())
 	assert.Equal(t, ably.AgentIdentifier(map[string]string{"ably-pubsub-server": ""}), *agent)
+	// Literal, not derived: the family and side identifiers are what Ably's
+	// traffic classification keys on, so a change to either must fail here.
+	assert.True(t, strings.HasPrefix(*agent, "ably-pubsub-go/"), "wrong SDK family: %q", *agent)
+	assert.True(t, strings.HasSuffix(*agent, " ably-pubsub-server"), "missing side agent: %q", *agent)
 }
 
 func TestNewHTTPClient_MergesUserAgents(t *testing.T) {
@@ -50,7 +54,6 @@ func TestNewHTTPClient_MergesUserAgents(t *testing.T) {
 	require.NoError(t, err)
 
 	client.Time(context.Background())
-	// Agent map iteration order is unspecified, so assert each entry.
-	assert.True(t, strings.Contains(*agent, " ably-pubsub-server"), "missing side agent: %q", *agent)
-	assert.True(t, strings.Contains(*agent, " foo/1.2.3"), "missing user agent: %q", *agent)
+	// Agents are sorted by product name, so the order is fixed.
+	assert.True(t, strings.HasSuffix(*agent, " ably-pubsub-server foo/1.2.3"), "unexpected agents: %q", *agent)
 }

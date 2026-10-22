@@ -40,7 +40,7 @@ Ably aims to support a wide range of platforms. If you experience any compatibil
 To get started with your project, install the package:
 
 ```bash
-~ $ go get -u github.com/ably/ably-pubsub-go
+~ $ go get -u github.com/ably/ably-pubsub-go/server/pubsub   # or .../device/pubsub
 ```
 
 > [!NOTE]
@@ -52,17 +52,16 @@ To get started with your project, install the package:
 The SDK has two entry points, and which one you import depends on where your
 code runs:
 
-Both packages are named `pubsub`, after the last element of their import path,
-so only the import path differs between them and the call site reads the same
-either way:
-
 | Import path | Use it for |
 | --- | --- |
 | `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
 | `github.com/ably/ably-pubsub-go/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers a realtime client. |
 
-Each entry point exposes the whole API it needs — channels, messages, presence,
-options, errors — so an application imports one of them and nothing else.
+Both packages are named `pubsub`, after the last element of their import path,
+so only the import path differs between them and the call site reads the same
+either way. Each entry point exposes the whole API it needs — channels,
+messages, presence, options, errors — so an application imports one of them
+and nothing else.
 
 ---
 
@@ -102,8 +101,20 @@ channel.SubscribeAll(context.Background(), func(msg *pubsub.Message) {
 channel.Publish(context.Background(), "test-event", "hello world")
 ```
 
-On an end-user device, the same code imports
-`github.com/ably/ably-pubsub-go/device/pubsub` instead and calls `pubsub.NewClient`.
+On an end-user device, import `github.com/ably/ably-pubsub-go/device/pubsub`
+instead, and authenticate with tokens issued by your own server. Never embed an
+API key in an application that runs on an end-user device:
+
+```go
+import "github.com/ably/ably-pubsub-go/device/pubsub"
+
+client, err := pubsub.NewClient(
+        pubsub.WithAuthURL("https://your-server.example.com/ably/token"),
+        pubsub.WithClientID("user-123"),
+)
+```
+
+The rest of the code above is the same.
 
 ---
 
