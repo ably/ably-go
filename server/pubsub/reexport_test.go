@@ -34,7 +34,7 @@ var deviceOmits = []string{
 	"PresenceHistoryOption", "PresenceHistoryWithDirection", "PresenceHistoryWithEnd",
 	"PresenceHistoryWithLimit", "PresenceHistoryWithStart",
 	"PresencePaginatedItems", "PresencePaginatedResult", "PresenceRequest",
-	"PublishMultipleOption", "PublishMultipleWithParams", "PublishWithConnectionKey", "PublishWithParams",
+	"PublishMultipleOption", "PublishWithConnectionKey", "PublishWithParams",
 	"RequestOption", "RequestWithBody", "RequestWithHeaders", "RequestWithParams",
 }
 
