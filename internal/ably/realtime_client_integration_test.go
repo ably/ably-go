@@ -51,28 +51,6 @@ func TestRealtime_RealtimeHost(t *testing.T) {
 			assert.Equal(t, host, h, "expected %q got %q", host, h)
 		}
 	})
-
-	t.Run("REC1d2 with legacy realtimeHost option", func(t *testing.T) {
-		for _, host := range hosts {
-			dial := make(chan string, 1)
-			client, err := ably.NewRealtime(
-				ably.WithKey("xxx:xxx"),
-				ably.WithRealtimeHost(host),
-				ably.WithAutoConnect(false),
-				ably.WithDial(func(protocol string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-					dial <- u.Host
-					return MessagePipe(nil, nil)(protocol, u, timeout)
-				}),
-			)
-			assert.NoError(t, err)
-			client.Connect()
-			var recordedHost string
-			ablytest.Instantly.Recv(t, &recordedHost, dial, t.Fatalf)
-			h, _, err := net.SplitHostPort(recordedHost)
-			assert.NoError(t, err)
-			assert.Equal(t, host, h, "expected %q got %q", host, h)
-		}
-	})
 }
 
 func TestRealtime_RSC7_AblyAgent(t *testing.T) {
@@ -157,88 +135,6 @@ func TestRealtime_RSC7_AblyAgent(t *testing.T) {
 			assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
 		})
 	})
-
-	t.Run("using legacy options", func(t *testing.T) {
-		t.Run("RSC7d3 : Should set ablyAgent header with correct identifiers", func(t *testing.T) {
-			var agentHeaderValue string
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
-				w.WriteHeader(http.StatusInternalServerError)
-			}))
-			defer server.Close()
-			serverURL, err := url.Parse(server.URL)
-			require.NoError(t, err)
-
-			client, err := ably.NewRealtime(
-				ably.WithTLS(false),
-				ably.WithToken("fake:token"),
-				ably.WithUseTokenAuth(true),
-				ably.WithRealtimeHost(serverURL.Host))
-			assert.NoError(t, err)
-			defer client.Close()
-
-			expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier()
-			ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
-
-			assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
-		})
-
-		t.Run("RSC7d6 : Should set ablyAgent header with custom agents", func(t *testing.T) {
-			var agentHeaderValue string
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
-				w.WriteHeader(http.StatusInternalServerError)
-			}))
-			defer server.Close()
-			serverURL, err := url.Parse(server.URL)
-			require.NoError(t, err)
-
-			client, err := ably.NewRealtime(
-				ably.WithTLS(false),
-				ably.WithToken("fake:token"),
-				ably.WithUseTokenAuth(true),
-				ably.WithRealtimeHost(serverURL.Host),
-				ably.WithAgents(map[string]string{
-					"foo": "1.2.3",
-				}),
-			)
-			assert.NoError(t, err)
-			defer client.Close()
-
-			expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier() + " foo/1.2.3"
-			ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
-
-			assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
-		})
-
-		t.Run("RSC7d6 : Should set ablyAgent header with custom agents missing version", func(t *testing.T) {
-			var agentHeaderValue string
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				agentHeaderValue = r.Header.Get(ably.AblyAgentHeader)
-				w.WriteHeader(http.StatusInternalServerError)
-			}))
-			defer server.Close()
-			serverURL, err := url.Parse(server.URL)
-			require.NoError(t, err)
-
-			client, err := ably.NewRealtime(
-				ably.WithTLS(false),
-				ably.WithToken("fake:token"),
-				ably.WithUseTokenAuth(true),
-				ably.WithRealtimeHost(serverURL.Host),
-				ably.WithAgents(map[string]string{
-					"bar": "",
-				}),
-			)
-			assert.NoError(t, err)
-			defer client.Close()
-
-			expectedAgentHeaderValue := ably.AblySDKIdentifier + " " + ably.GoRuntimeIdentifier + " " + ably.GoOSIdentifier() + " bar"
-			ablytest.Wait(ablytest.ConnWaiter(client, nil, ably.ConnectionEventDisconnected), nil)
-
-			assert.Equal(t, expectedAgentHeaderValue, agentHeaderValue)
-		})
-	})
 }
 
 func TestRealtime_RTN17_HostFallback(t *testing.T) {
@@ -291,14 +187,6 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			assert.Equal(t, expectedHost, visitedHosts[0])
 		})
 
-		t.Run("does not apply when legacy custom realtimeHost is used", func(t *testing.T) {
-			visitedHosts := initClientWithConnError(getTimeoutErr(), ably.WithRealtimeHost("custom-realtime.ably.io"))
-			expectedHost := "custom-realtime.ably.io"
-
-			require.Equal(t, 1, len(visitedHosts))
-			assert.Equal(t, expectedHost, visitedHosts[0])
-		})
-
 		t.Run("apply when fallbacks are provided", func(t *testing.T) {
 			fallbacks := []string{"fallback0", "fallback1", "fallback2"}
 			visitedHosts := initClientWithConnError(getTimeoutErr(), ably.WithFallbackHosts(fallbacks))
@@ -309,18 +197,12 @@ func TestRealtime_RTN17_HostFallback(t *testing.T) {
 			assert.ElementsMatch(t, fallbacks, visitedHosts[1:])
 		})
 
-		t.Run("apply when fallbackHostUseDefault is true, even if legacy realtimeHost is set", func(t *testing.T) {
-			visitedHosts := initClientWithConnError(
-				getTimeoutErr(),
-				ably.WithFallbackHostsUseDefault(true),
-				ably.WithRealtimeHost("custom-ably.realtime.com"))
-
-			expectedPrimaryHost := "custom-ably.realtime.com"
-			expectedFallbackHosts := ably.DefaultFallbackHosts()
+		t.Run("apply when a custom port is set", func(t *testing.T) {
+			visitedHosts := initClientWithConnError(getTimeoutErr(), ably.WithTLSPort(8081))
 
 			assert.Equal(t, 6, len(visitedHosts))
-			assert.Equal(t, expectedPrimaryHost, visitedHosts[0])
-			assert.ElementsMatch(t, expectedFallbackHosts, visitedHosts[1:])
+			assert.Equal(t, "main.realtime.ably.net", visitedHosts[0])
+			assert.ElementsMatch(t, ably.DefaultFallbackHosts(), visitedHosts[1:])
 		})
 	})
 

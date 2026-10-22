@@ -95,14 +95,6 @@ func PublishWithParams(params map[string]string) PublishMultipleOption {
 	}
 }
 
-// Deprecated: Use PublishWithParams instead.
-// PublishMultipleWithParams is the same as PublishWithParams.
-//
-// TODO: Remove this in the next major version bump to 2.x.x.
-func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
-	return PublishWithParams(params)
-}
-
 // publishMultiple is the internal implementation for publishing multiple messages.
 // If out is non-nil, the response body will be decoded into it.
 func (c *HTTPChannel) publishMultiple(ctx context.Context, messages []*Message, out interface{}, options ...PublishMultipleOption) error {
@@ -174,15 +166,6 @@ func (c *HTTPChannel) publishMultiple(ctx context.Context, messages []*Message, 
 // PublishMultiple publishes multiple messages in a batch. Returns error if there is a problem publishing message (RSL1).
 func (c *HTTPChannel) PublishMultiple(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
 	return c.publishMultiple(ctx, messages, nil, options...)
-}
-
-// PublishMultipleWithOptions is the same as PublishMultiple.
-//
-// Deprecated: Use PublishMultiple instead.
-//
-// TODO: Remove this in the next major version bump to 2.x.x.
-func (c *HTTPChannel) PublishMultipleWithOptions(ctx context.Context, messages []*Message, options ...PublishMultipleOption) error {
-	return c.PublishMultiple(ctx, messages, options...)
 }
 
 // PublishWithResult publishes a single message to the channel with the given event name and payload,

@@ -434,7 +434,7 @@ func TestHTTP_RSC15_HostFallback(t *testing.T) {
 			assert.Contains(t, host, "example.com",
 				"expected host to contain \"example.com\" got %s", host)
 		})
-		t.Run("must occur when fallbackHostsUseDefault is true", func(t *testing.T) {
+		t.Run("must occur when fallbackHosts is set to the default fallback hosts", func(t *testing.T) {
 
 			options := []ably.ClientOption{
 				ably.WithTLS(false),

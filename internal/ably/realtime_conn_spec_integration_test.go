@@ -1941,9 +1941,6 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 	decodedRecoveryKey, err := ably.DecodeRecoveryKey(recoveryKey) // RTN16g1
 	assert.Nil(t, err)
 
-	deprecatedRecoveryKey := c.Connection.RecoveryKey()
-	assert.Equal(t, deprecatedRecoveryKey, recoveryKey) //RTN16m
-
 	client := app.NewRealtime(
 		ably.WithRecover(recoveryKey),
 	)
@@ -1967,8 +1964,8 @@ func TestRealtimeConn_RTN16(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "", client.Connection.Key(),
 			"expected key to be empty got %q instead", client.Connection.Key())
-		assert.Equal(t, "", client.Connection.RecoveryKey(),
-			"expected recovery key to be empty got %q instead", client.Connection.RecoveryKey())
+		assert.Equal(t, "", client.Connection.CreateRecoveryKey(),
+			"expected recovery key to be empty got %q instead", client.Connection.CreateRecoveryKey())
 		assert.Equal(t, "", client.Connection.ID(),
 			"expected id to be empty got %q instead", client.Connection.ID())
 	}

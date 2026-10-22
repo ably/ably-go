@@ -1022,14 +1022,6 @@ func PresenceHistoryWithStart(t time.Time) PresenceHistoryOption {
 	return ably.PresenceHistoryWithStart(t)
 }
 
-// Deprecated: Use PublishWithParams instead.
-// PublishMultipleWithParams is the same as PublishWithParams.
-//
-// TODO: Remove this in the next major version bump to 2.x.x.
-func PublishMultipleWithParams(params map[string]string) PublishMultipleOption {
-	return ably.PublishMultipleWithParams(params)
-}
-
 // PublishWithConnectionKey allows a message to be published for a specified connectionKey.
 func PublishWithConnectionKey(connectionKey string) PublishMultipleOption {
 	return ably.PublishWithConnectionKey(connectionKey)
@@ -1267,17 +1259,6 @@ func WithEndpoint(endpoint string) ClientOption {
 	return ably.WithEndpoint(endpoint)
 }
 
-// WithEnvironment sets a custom endpoint for connecting to the Ably service
-// (see [Platform Customization] for more information).
-//
-// Deprecated: this option is deprecated and will be removed in a future
-// version.
-//
-// [Platform Customization]: https://ably.com/docs/platform-customization
-func WithEnvironment(env string) ClientOption {
-	return ably.WithEnvironment(env)
-}
-
 // WithExperimentalObjectsPlugin configures the client to use the given plugin to implement
 // [LiveObjects] functionality.
 //
@@ -1298,14 +1279,6 @@ func WithFallbackHosts(hosts []string) ClientOption {
 	return ably.WithFallbackHosts(hosts)
 }
 
-// Deprecated: This function is deprecated and will be removed in a future versions.
-// WithFallbackHostsUseDefault is used for setting FallbackHostsUseDefault using [ClientOption].
-// Deprecated: this property is deprecated and will be removed in a future version.
-// Enables default fallback hosts to be used (TO3k7).
-func WithFallbackHostsUseDefault(fallbackHostsUseDefault bool) ClientOption {
-	return ably.WithFallbackHostsUseDefault(fallbackHostsUseDefault)
-}
-
 // WithFallbackRetryTimeout is used for setting FallbackRetryTimeout using [ClientOption].
 // FallbackRetryTimeout is the max time in milliseconds before HTTP requests are retried against the default endpoint.
 // The default is 600 seconds (TO3l10).
@@ -1318,16 +1291,6 @@ func WithFallbackRetryTimeout(fallbackRetryTimeout time.Duration) ClientOption {
 // When set to nil, a client configured with default settings is used.
 func WithHTTPClient(client *http.Client) ClientOption {
 	return ably.WithHTTPClient(client)
-}
-
-// WithHTTPHost is used for setting HTTPHost using [ClientOption].
-// HTTPHost enables a non-default Ably host to be specified. For development environments only.
-// The default value is rest.ably.io (RSC12, TO3k2).
-//
-// Deprecated: this option is deprecated and will be removed in a future
-// version.
-func WithHTTPHost(host string) ClientOption {
-	return ably.WithHTTPHost(host)
 }
 
 // WithHTTPMaxRetryCount is used for setting HTTPMaxRetryCount using [ClientOption].
@@ -1422,16 +1385,6 @@ func WithQueryTime(queryTime bool) ClientOption {
 // The default is false (RTP16b, TO3g).
 func WithQueueMessages(queue bool) ClientOption {
 	return ably.WithQueueMessages(queue)
-}
-
-// WithRealtimeHost is used for setting RealtimeHost using [ClientOption].
-// RealtimeHost enables a non-default Ably host to be specified for realtime connections.
-// For development environments only. The default value is realtime.ably.io (RTC1d, TO3k3).
-//
-// Deprecated: this option is deprecated and will be removed in a future
-// version.
-func WithRealtimeHost(host string) ClientOption {
-	return ably.WithRealtimeHost(host)
 }
 
 // WithRealtimeRequestTimeout is used for setting RealtimeRequestTimeout using [ClientOption].
