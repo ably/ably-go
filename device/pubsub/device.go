@@ -18,6 +18,10 @@ import "github.com/ably/ably-pubsub-go/internal/ably"
 // agentName declares the side in the Ably-Agent header (RSC7d) so that
 // traffic from clients constructed by this package is classified as
 // device-side.
+//
+// The -device suffix is load-bearing, not cosmetic: Ably classifies the side by
+// it. Renaming it without keeping the suffix silently reclassifies every client
+// this package constructs.
 const agentName = "ably-pubsub-device"
 
 // Client is a device Pub/Sub client.

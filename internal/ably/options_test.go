@@ -5,6 +5,7 @@ package ably_test
 
 import (
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -322,4 +323,43 @@ func TestIsEndpointHostname(t *testing.T) {
 	assert.Equal(t, true, ably.IsEndpointHostname("127.0.0.1"))
 	assert.Equal(t, true, ably.IsEndpointHostname("::1"))
 	assert.Equal(t, true, ably.IsEndpointHostname("localhost"))
+}
+
+func TestWithAgents_FromNil(t *testing.T) {
+	opts := ably.ApplyOptionsWithDefaults(ably.WithAgents(map[string]string{"foo": "1.0.0"}))
+	assert.Equal(t, map[string]string{"foo": "1.0.0"}, opts.Agents)
+}
+
+func TestWithAgents_AccumulatesAcrossCalls(t *testing.T) {
+	opts := ably.ApplyOptionsWithDefaults(
+		ably.WithAgents(map[string]string{"foo": "1.0.0"}),
+		ably.WithAgents(map[string]string{"bar": ""}),
+	)
+	assert.Equal(t, map[string]string{"foo": "1.0.0", "bar": ""}, opts.Agents)
+}
+
+func TestWithAgents_SameKeyOverrides(t *testing.T) {
+	opts := ably.ApplyOptionsWithDefaults(
+		ably.WithAgents(map[string]string{"foo": "1.0.0"}),
+		ably.WithAgents(map[string]string{"foo": "2.0.0"}),
+	)
+	assert.Equal(t, map[string]string{"foo": "2.0.0"}, opts.Agents)
+}
+
+func TestWithAgents_DoesNotAliasCallersMap(t *testing.T) {
+	agents := map[string]string{"foo": "1.0.0"}
+	opts := ably.ApplyOptionsWithDefaults(ably.WithAgents(agents))
+
+	agents["bar"] = "2.0.0"
+	assert.Equal(t, map[string]string{"foo": "1.0.0"}, opts.Agents, "a later change to the caller's map leaked into the options")
+
+	opts.Agents["baz"] = "3.0.0"
+	assert.Equal(t, map[string]string{"foo": "1.0.0", "bar": "2.0.0"}, agents, "a change to the options leaked into the caller's map")
+}
+
+func TestAblyAgentIdentifier_SortedAndBareFlag(t *testing.T) {
+	identifier := ably.AgentIdentifier(map[string]string{"zeta": "1.0.0", "alpha": "", "mid": "2.0.0"})
+	// Products follow the SDK, runtime and OS entries in alphabetical order, and
+	// an empty version renders as a bare product name (RSC7d).
+	assert.True(t, strings.HasSuffix(identifier, " alpha mid/2.0.0 zeta/1.0.0"), "unexpected identifier: %q", identifier)
 }

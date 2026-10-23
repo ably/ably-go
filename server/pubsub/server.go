@@ -17,6 +17,11 @@ import "github.com/ably/ably-pubsub-go/internal/ably"
 // agentName declares the side in the Ably-Agent header (RSC7d) so that
 // traffic from clients constructed by this package is classified as
 // server-side.
+//
+// The -server suffix is load-bearing, not cosmetic: on API-key auth Ably grants
+// the server exemption from monthly-active-user counting by matching an agent
+// entry ending in -server. Renaming it without keeping the suffix silently
+// reclassifies every client this package constructs.
 const agentName = "ably-pubsub-server"
 
 // HTTPClient is a server Pub/Sub client that operates entirely over HTTP.
