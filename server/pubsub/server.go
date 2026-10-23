@@ -1,6 +1,11 @@
 // Package pubsub provides the Ably Pub/Sub clients for servers: trusted
-// environments which typically authenticate with an API key and whose
-// connections are exempt from monthly-active-user counting.
+// environments whose connections are exempt from monthly-active-user counting.
+//
+// Clients constructed by this package declare themselves as servers, so
+// authenticate them with an API key. Token authentication is accepted only when
+// the token carries the signed x-ably-clientType=server claim, which today means
+// a JWT; otherwise Ably rejects the connection or request with error 40167
+// ("Client type declaration not signed by token").
 //
 // It is imported from github.com/ably/ably-pubsub-go/server/pubsub. Both entry
 // points are named pubsub, after the product, so that they read the same at

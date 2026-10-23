@@ -24,10 +24,12 @@ depending on where it runs:
 
 | Import path | Use it for |
 | --- | --- |
-| `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers `HTTPClient` and `RealtimeClient`. |
+| `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key (or a token carrying the signed server claim, today a JWT). Connections are exempt from monthly-active-user counting. Offers `HTTPClient` and `RealtimeClient`. |
 | `github.com/ably/ably-pubsub-go/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers `Client`. |
 
-Both packages are named `pubsub`, so only the import path differs between them.
+Both packages are named `pubsub`, so most call sites read the same either way. The
+constructors differ (`NewHTTPClient` and `NewRealtimeClient` on a server, `NewClient`
+on a device), and the device package has no HTTP-only API.
 Each one re-exports the whole API it needs — channels, messages, presence,
 options, errors — so an application imports one of them and nothing else. The
 re-exports are type aliases, so the types are the same across both packages:
@@ -168,6 +170,15 @@ its entries to the agents already configured instead of replacing them. A
 repeated product name overrides the earlier version, the `ably-pubsub-server`
 or `ably-pubsub-device` entry cannot be removed, and agents appear in
 alphabetical order.
+
+### Server clients and token authentication
+
+Clients from `server/pubsub` declare themselves as servers in the `Ably-Agent`
+header. Authenticate them with an API key. Token authentication works only with a
+token carrying the signed `x-ably-clientType=server` claim, which today means a
+JWT; with any other token, Ably rejects the connection or request with error 40167
+("Client type declaration not signed by token"). Clients from `device/pubsub` are
+not affected.
 
 ### Smaller changes
 
