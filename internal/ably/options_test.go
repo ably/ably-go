@@ -359,7 +359,7 @@ func TestWithAgents_DoesNotAliasCallersMap(t *testing.T) {
 
 func TestAblyAgentIdentifier_SortedAndBareFlag(t *testing.T) {
 	identifier := ably.AgentIdentifier(map[string]string{"zeta": "1.0.0", "alpha": "", "mid": "2.0.0"})
-	// Products follow the SDK, runtime and OS entries in alphabetical order, and
-	// an empty version renders as a bare product name (RSC7d).
+	// Products come after the SDK, runtime and OS entries, sorted alphabetically.
+	// An empty version gives a bare name (RSC7d).
 	assert.True(t, strings.HasSuffix(identifier, " alpha mid/2.0.0 zeta/1.0.0"), "unexpected identifier: %q", identifier)
 }

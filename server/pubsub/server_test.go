@@ -66,14 +66,13 @@ func TestNewHTTPClient_UserCannotOverrideSideAgent(t *testing.T) {
 	require.NoError(t, err)
 
 	client.Time(context.Background())
-	// The side entry is applied last, so a user-supplied version for it is replaced by the bare flag.
+	// The package's own agent replaces any version the caller passes.
 	assert.True(t, strings.HasSuffix(*agent, " ably-pubsub-server"), "side agent not bare: %q", *agent)
 	assert.False(t, strings.Contains(*agent, "ably-pubsub-server/"), "side agent carries a version: %q", *agent)
 }
 
 func TestNewRealtimeClient_DeclaresServerAgent(t *testing.T) {
-	// The realtime connection sends the agents as the Ably-Agent header of the
-	// WebSocket handshake; record the first one received.
+	// Record the Ably-Agent header of the first WebSocket handshake.
 	agents := make(chan string, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
