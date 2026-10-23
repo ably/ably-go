@@ -343,13 +343,6 @@ type clientOptions struct {
 	// The default is true (RSL1k1, RTL6a1, TO3n).
 	IdempotentHTTPPublishing bool
 
-	// Deprecated: use RealtimeRequestTimeout instead.
-	// TimeoutConnect is a timeout for the wait of acknowledgement for operations performed via a realtime connection,
-	// before the client library considers a request failed and triggers a failure condition.
-	// Operations include establishing a connection with Ably, or sending a HEARTBEAT, CONNECT, ATTACH, DETACH
-	// or CLOSE request. It is the equivalent of httpRequestTimeout but for realtime operations, rather than REST.
-	// The default is 10 seconds (TO3l11).
-	TimeoutConnect    time.Duration
 	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
 
 	ConnectionStateTTL time.Duration //(DF1a)
@@ -532,13 +525,6 @@ func (opts *clientOptions) getFallbackHosts() ([]string, error) {
 		return nil, nil
 	}
 	return getEndpointFallbackHosts(opts.Endpoint), nil // REC2c3, REC2c4
-}
-
-func (opts *clientOptions) timeoutConnect() time.Duration {
-	if opts.TimeoutConnect != 0 {
-		return opts.TimeoutConnect
-	}
-	return defaultOptions.RealtimeRequestTimeout
 }
 
 func (opts *clientOptions) timeoutDisconnect() time.Duration {

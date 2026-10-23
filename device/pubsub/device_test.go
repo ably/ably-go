@@ -41,3 +41,27 @@ func TestNewClient_DeclaresDeviceAgent(t *testing.T) {
 	assert.True(t, strings.HasPrefix(agent, "ably-pubsub-go/"), "wrong SDK family: %q", agent)
 	assert.True(t, strings.HasSuffix(agent, " ably-pubsub-device"), "missing side agent: %q", agent)
 }
+
+func TestNewClient_MergesUserAgents(t *testing.T) {
+	var agent string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		agent = r.Header.Get(ably.AblyAgentHeaderName)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+	u, err := url.Parse(ts.URL)
+	require.NoError(t, err)
+
+	client, err := pubsub.NewClient(
+		ably.WithEndpoint(u.Host),
+		ably.WithTLS(false),
+		ably.WithUseTokenAuth(true),
+		ably.WithAutoConnect(false),
+		ably.WithAgents(map[string]string{"foo": "1.2.3"}),
+	)
+	require.NoError(t, err)
+
+	client.Time(context.Background())
+	// Agents are sorted by product name, so the order is fixed.
+	assert.True(t, strings.HasSuffix(agent, " ably-pubsub-device foo/1.2.3"), "unexpected agents: %q", agent)
+}
