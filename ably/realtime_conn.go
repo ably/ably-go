@@ -297,16 +297,18 @@ var errClosedWhileReconnecting = errors.New("connection explicitly closed while 
 
 func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	res, err := c.connectWith(arg)
-	if err == nil {
-		return res, nil
+	if err == nil || err == errClosedWhileReconnecting {
+		return res, err
 	}
 	if arg.dialOnce || !recoverable(err) {
-		return nil, c.setState(ConnectionStateFailed, err, 0)
+		return nil, c.setStateUnlessClosing(ConnectionStateFailed, err, 0)
 	}
 
 	c.log().Errorf("Received recoverable error %v", err)
 	retryIn := c.opts.disconnectedRetryTimeout()
-	c.setState(ConnectionStateDisconnected, err, retryIn)
+	if err := c.setStateUnlessClosing(ConnectionStateDisconnected, err, retryIn); err == errClosedWhileReconnecting {
+		return nil, err
+	}
 	idleState := ConnectionStateDisconnected
 
 	// If we spend more than the connection state TTL retrying, we move from
@@ -325,8 +327,12 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 
 		switch state := c.State(); state {
 		case ConnectionStateConnecting, ConnectionStateDisconnected, ConnectionStateSuspended:
-		case ConnectionStateClosed:
-			// Close was explicitly called, so stop trying to connect (RTN12d).
+		case ConnectionStateClosing, ConnectionStateClosed:
+			// Close was explicitly called, so stop trying to connect (RTN12d,
+			// RTN12f).
+			c.mtx.Lock()
+			c.lockFinishClose()
+			c.mtx.Unlock()
 			return nil, errClosedWhileReconnecting
 		default:
 			panic(fmt.Errorf("unexpected state transition: %v -> %v", idleState, state))
@@ -351,24 +357,58 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 
 		c.log().Debug("Attempting to open connection")
 		res, err := c.connectWith(arg)
-		if err == nil {
-			return res, nil
+		if err == nil || err == errClosedWhileReconnecting {
+			return res, err
 		}
 		if recoverable(err) {
 			// Go back to previous state and wait again until the next
 			// connection attempt.
 			c.log().Errorf("Received recoverable error %v", err)
-			c.setState(idleState, err, retryIn)
+			if err := c.setStateUnlessClosing(idleState, err, retryIn); err == errClosedWhileReconnecting {
+				return nil, err
+			}
 			continue
 		}
-		return nil, c.setState(ConnectionStateFailed, err, 0)
+		return nil, c.setStateUnlessClosing(ConnectionStateFailed, err, 0)
 	}
+}
+
+// setStateUnlessClosing transitions to state after a failed connection
+// attempt or a server-initiated disconnect, unless Close has been called. In
+// that case it completes the close instead, so that the failure can't
+// resurrect the connection into a retry loop (RTN12f), and returns
+// errClosedWhileReconnecting.
+func (c *Connection) setStateUnlessClosing(state ConnectionState, err error, retryIn time.Duration) error {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	if c.lockFinishClose() {
+		return errClosedWhileReconnecting
+	}
+	return c.lockSetState(state, err, retryIn)
+}
+
+// lockFinishClose moves a CLOSING connection to CLOSED, and reports whether
+// the connection has been closed. The caller is responsible for closing any
+// transport.
+func (c *Connection) lockFinishClose() bool {
+	switch c.state {
+	case ConnectionStateClosing:
+		c.lockSetState(ConnectionStateClosed, nil, 0)
+		return true
+	case ConnectionStateClosed:
+		return true
+	}
+	return false
 }
 
 func (c *Connection) connectWith(arg connArgs) (result, error) {
 	connectMode := c.getMode()
 
 	c.mtx.Lock()
+	if c.lockFinishClose() { // RTN12d, RTN12f - closed by client, don't try to connect
+		c.mtx.Unlock()
+		return nil, errClosedWhileReconnecting
+	}
 	// set ably connection state to connecting, connecting state exists regardless of whether raw connection is successful or not
 	if !c.isActive() { // check if already in connecting state
 		c.lockSetState(ConnectionStateConnecting, nil, 0)
@@ -406,8 +446,11 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 		u.RawQuery = query.Encode()
 		proto := c.opts.protocol()
 
-		if c.State() == ConnectionStateClosed { // RTN12d - if connection is closed by client, don't try to reconnect
-			return nopResult, nil
+		c.mtx.Lock()
+		closed := c.lockFinishClose()
+		c.mtx.Unlock()
+		if closed { // RTN12d, RTN12f - if connection is closed by client, don't try to reconnect
+			return nil, errClosedWhileReconnecting
 		}
 		// if err is nil, raw connection with server is successful
 		conn, err = c.dial(proto, u)
@@ -910,7 +953,10 @@ func (c *Connection) eventloop() {
 					return
 				}
 				// RTN15h2, RTN22a
-				c.setState(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0)
+				if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
+					c.conn.Close() // RTN12f
+					return
+				}
 				c.reauthorize(connArgs{
 					lastActivityAt: lastActivityAt,
 					connDetails:    connDetails,
@@ -918,7 +964,10 @@ func (c *Connection) eventloop() {
 				return
 			}
 			// RTN15h3
-			c.setState(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0)
+			if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
+				c.conn.Close() // RTN12f
+				return
+			}
 			c.reconnect(connArgs{
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
