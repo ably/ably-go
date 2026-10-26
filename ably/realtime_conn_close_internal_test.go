@@ -33,6 +33,12 @@ func TestMsgQueue_FailInterrupted(t *testing.T) {
 
 	assert.Equal(t, map[string]error{"before": failure, "raced": failure}, failed)
 	require.Len(t, q.queue, 1, "expected the message queued after the interruption to be kept")
+
+	// Checked the connection state before the interruption, but enqueued
+	// after its handler ran.
+	enqueue("late", 0)
+	assert.Equal(t, failure, failed["late"])
+	require.Len(t, q.queue, 1)
 }
 
 func TestConnection_LockSetState_ClosingDoesNotRetry(t *testing.T) {

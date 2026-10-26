@@ -231,6 +231,11 @@ type msgQueue struct {
 	mtx   sync.Mutex
 	queue []msgWithAckCallback
 	conn  *Connection
+	// failedInterruptions and failedErr are from the latest FailInterrupted,
+	// for failing messages enqueued after it that were queued before the
+	// interruption it handled.
+	failedInterruptions uint32
+	failedErr           error
 }
 
 func newMsgQueue(conn *Connection) *msgQueue {
@@ -244,6 +249,13 @@ func newMsgQueue(conn *Connection) *msgQueue {
 // a state to queue messages in. See FailInterrupted.
 func (q *msgQueue) Enqueue(msg *protocolMessage, ackCallback *msgAckCallback, interruptions uint32) {
 	q.mtx.Lock()
+	if interruptions < q.failedInterruptions {
+		// The interruption was handled before this message got here.
+		err := q.failedErr
+		q.mtx.Unlock()
+		ackCallback.call(nil, err)
+		return
+	}
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
 	q.queue = append(q.queue, msgWithAckCallback{
 		msg:           msg,
@@ -280,6 +292,9 @@ func (q *msgQueue) FailInterrupted(err error) {
 	interruptions := q.conn.interruptionCount()
 	var failed []msgWithAckCallback
 	q.mtx.Lock()
+	if interruptions > q.failedInterruptions {
+		q.failedInterruptions, q.failedErr = interruptions, err
+	}
 	kept := q.queue[:0]
 	for _, m := range q.queue {
 		if m.interruptions < interruptions {
