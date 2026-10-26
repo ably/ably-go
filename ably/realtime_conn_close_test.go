@@ -101,16 +101,10 @@ func expectState(t *testing.T, changes ably.ConnStateChanges, want ably.Connecti
 	require.Equal(t, want, change.Current, "unexpected state change: %+v", change)
 }
 
-// assertStaysClosed checks that, once closed, the client makes no further
-// connection attempts or state changes over several retry intervals, and
-// that the retry loop goroutine has exited.
-func assertStaysClosed(t *testing.T, client *ably.Realtime, changes ably.ConnStateChanges, dialCount func() int32, baseline int) {
-	t.Helper()
-	assertStaysIn(t, ably.ConnectionStateClosed, client, changes, dialCount, baseline)
-}
-
-// assertStaysIn is assertStaysClosed for a terminal state other than CLOSED.
-func assertStaysIn(t *testing.T, want ably.ConnectionState, client *ably.Realtime, changes ably.ConnStateChanges, dialCount func() int32, baseline int) {
+// assertStays checks that, once in the terminal state want, the client makes
+// no further connection attempts or state changes over several retry
+// intervals, and that the retry loop goroutine has exited.
+func assertStays(t *testing.T, want ably.ConnectionState, client *ably.Realtime, changes ably.ConnStateChanges, dialCount func() int32, baseline int) {
 	t.Helper()
 	dials := dialCount()
 	ablytest.Before(5*closeTestRetryTimeout).NoRecv(t, nil, changes, t.Errorf)
@@ -137,7 +131,7 @@ func TestRealtimeConn_CloseDuringFailingConnectAttempt(t *testing.T) {
 		d.release <- errors.New("dial timeout")
 		expectState(t, changes, ably.ConnectionStateClosed)
 
-		assertStaysClosed(t, client, changes, d.count, baseline)
+		assertStays(t, ably.ConnectionStateClosed, client, changes, d.count, baseline)
 	})
 
 	t.Run("RTN12f: close during retry attempt that fails recoverably ends CLOSED", func(t *testing.T) {
@@ -162,7 +156,7 @@ func TestRealtimeConn_CloseDuringFailingConnectAttempt(t *testing.T) {
 		d.release <- errors.New("dial timeout")
 		expectState(t, changes, ably.ConnectionStateClosed)
 
-		assertStaysClosed(t, client, changes, d.count, baseline)
+		assertStays(t, ably.ConnectionStateClosed, client, changes, d.count, baseline)
 	})
 
 	t.Run("RTN12f: close during attempt that fails non-recoverably ends CLOSED, not FAILED", func(t *testing.T) {
@@ -180,7 +174,7 @@ func TestRealtimeConn_CloseDuringFailingConnectAttempt(t *testing.T) {
 		d.release <- &ably.ErrorInfo{StatusCode: 401, Code: ably.ErrUnauthorized}
 		expectState(t, changes, ably.ConnectionStateClosed)
 
-		assertStaysClosed(t, client, changes, d.count, baseline)
+		assertStays(t, ably.ConnectionStateClosed, client, changes, d.count, baseline)
 	})
 
 	t.Run("RTN12d: close while disconnected ends CLOSED", func(t *testing.T) {
@@ -195,7 +189,7 @@ func TestRealtimeConn_CloseDuringFailingConnectAttempt(t *testing.T) {
 		client.Close()
 		expectState(t, changes, ably.ConnectionStateClosed)
 
-		assertStaysClosed(t, client, changes, d.count, baseline)
+		assertStays(t, ably.ConnectionStateClosed, client, changes, d.count, baseline)
 	})
 }
 
@@ -259,23 +253,11 @@ func TestRealtimeConn_ServerDisconnectedWhileClosing(t *testing.T) {
 	} {
 		t.Run("DISCONNECTED received while CLOSING: "+tc.name, func(t *testing.T) {
 			baseline := retryLoopGoroutines()
-			d := newPipeDialer()
-			client, changes := newClientWithDialer(t, d.dial, tc.auth...)
-
-			d.in <- &ably.ProtocolMessage{
-				Action:            ably.ActionConnected,
-				ConnectionID:      "connection-id",
-				ConnectionDetails: &ably.ConnectionDetails{},
-			}
-			client.Connect()
-			expectState(t, changes, ably.ConnectionStateConnecting)
-			expectState(t, changes, ably.ConnectionStateConnected)
+			client, changes, d := connectedPipeClient(t, tc.auth...)
 
 			client.Close()
 			expectState(t, changes, ably.ConnectionStateClosing)
-			var msg *ably.ProtocolMessage
-			ablytest.Soon.Recv(t, &msg, d.out, t.Fatalf)
-			require.Equal(t, ably.ActionClose, msg.Action)
+			expectSent(t, d, ably.ActionClose)
 
 			// The server disconnects the transport before acknowledging the
 			// CLOSE.
@@ -283,7 +265,7 @@ func TestRealtimeConn_ServerDisconnectedWhileClosing(t *testing.T) {
 			expectState(t, changes, tc.want)
 			assert.True(t, d.closed(), "expected transport to be closed")
 
-			assertStaysIn(t, tc.want, client, changes, d.count, baseline)
+			assertStays(t, tc.want, client, changes, d.count, baseline)
 		})
 	}
 }
@@ -330,21 +312,16 @@ func TestRealtimeConn_ServerErrorWhileClosing(t *testing.T) {
 			expectState(t, changes, tc.want)
 			assert.True(t, d.closed(), "expected transport to be closed")
 
-			assertStaysIn(t, tc.want, client, changes, d.count, baseline)
+			assertStays(t, tc.want, client, changes, d.count, baseline)
 		})
 	}
 }
 
-// publishAsync publishes on channel and returns a channel that receives the
-// publish result.
+// publishAsync publishes on channel with opAsync.
 func publishAsync(channel *ably.RealtimeChannel) <-chan error {
-	result := make(chan error, 1)
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), closeTestOpTimeout)
-		defer cancel()
-		result <- channel.Publish(ctx, "name", "data")
-	}()
-	return result
+	return opAsync(func(ctx context.Context) error {
+		return channel.Publish(ctx, "name", "data")
+	})
 }
 
 // expectPublishFailed asserts that a publish failed because the connection
@@ -539,7 +516,7 @@ func TestRealtimeConn_CloseDuringTokenRenewalClosesOldTransport(t *testing.T) {
 	expectState(t, changes, ably.ConnectionStateClosed)
 	assert.True(t, ablytest.Soon.IsTrue(pipe.closed), "expected the old transport to be closed")
 
-	assertStaysClosed(t, client, changes, func() int32 { return atomic.LoadInt32(&dials) }, baseline)
+	assertStays(t, ably.ConnectionStateClosed, client, changes, func() int32 { return atomic.LoadInt32(&dials) }, baseline)
 }
 
 // tokenDisconnected is a DISCONNECTED message with a token error, which makes
@@ -584,7 +561,7 @@ func TestRealtimeConn_CloseDuringTokenRenewal(t *testing.T) {
 
 			close(release)
 			assert.True(t, ablytest.Soon.IsTrue(d.closed), "expected the old transport to be closed")
-			assertStaysClosed(t, client, changes, d.count, baseline)
+			assertStays(t, ably.ConnectionStateClosed, client, changes, d.count, baseline)
 		})
 	}
 }

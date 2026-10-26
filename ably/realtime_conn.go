@@ -402,8 +402,7 @@ func (c *Connection) setStateUnlessClosing(state ConnectionState, err error, ret
 }
 
 // lockFinishClose moves a CLOSING connection to CLOSED, and reports whether
-// the connection has been closed. The caller is responsible for closing any
-// transport.
+// the connection has been closed.
 func (c *Connection) lockFinishClose() bool {
 	switch c.state {
 	case ConnectionStateClosing:
@@ -486,9 +485,10 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
-	c.setConn(verboseConn{conn: conn, logger: c.log()})
+	vc := verboseConn{conn: conn, logger: c.log()}
+	c.setConn(vc)
 	// Start eventloop
-	go c.eventloop()
+	go c.eventloop(vc)
 
 	c.reconnecting = connectMode == recoveryMode || connectMode == resumeMode
 	c.arg = arg
@@ -824,7 +824,14 @@ func (c *Connection) resendPending() {
 	}
 }
 
-func (c *Connection) eventloop() {
+// eventloop receives from conn until it fails or the connection stops
+// receiving messages.
+func (c *Connection) eventloop(conn conn) {
+	// conn is done with once the eventloop returns. Either a reconnect has
+	// replaced it, or the connection has closed or failed, and then nothing
+	// else would close it (RTN12c).
+	defer conn.Close()
+
 	var lastActivityAt time.Time
 	var connDetails *connectionDetails
 	for c.lockCanReceiveMessages() {
@@ -834,7 +841,6 @@ func (c *Connection) eventloop() {
 			receiveTimeout += maxIdleInterval // RTN23a
 		}
 		c.connMtx.Lock()
-		conn := c.conn
 		msg, err := conn.Receive(c.opts.Now().Add(receiveTimeout))
 		c.connMtx.Unlock()
 		if err != nil {
@@ -864,7 +870,7 @@ func (c *Connection) eventloop() {
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
 			}
-			c.reconnectOrClose(conn, arg)
+			c.reconnect(arg)
 			return
 		}
 		lastActivityAt = c.opts.Now()
@@ -895,23 +901,20 @@ func (c *Connection) eventloop() {
 					// reconnect (RTN12f). Any other ERROR is fatal and
 					// fails the connection even while closing (RTN14g).
 					c.mtx.Unlock()
-					conn.Close()
 					return
 				}
 				if reauthorizing {
 					c.lockedReauthorizationFailed(newErrorFromProto(msg.Error))
 					c.mtx.Unlock()
-					if c.retryAfterReauthorizationFailed(connArgs{
+					c.retryAfterReauthorizationFailed(connArgs{
 						lastActivityAt: lastActivityAt,
 						connDetails:    connDetails,
-					}) == errClosedWhileReconnecting {
-						conn.Close()
-					}
+					})
 					return
 				}
 				// RTN14b
 				c.mtx.Unlock()
-				c.reauthorizeOrClose(conn, connArgs{
+				c.reauthorize(connArgs{
 					lastActivityAt: lastActivityAt,
 					connDetails:    connDetails,
 					dialOnce:       true,
@@ -988,10 +991,9 @@ func (c *Connection) eventloop() {
 				// DISCONNECTED (RTN15h), so if Close was called, finish
 				// closing rather than reconnecting (RTN12c).
 				if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
-					conn.Close()
 					return
 				}
-				c.reauthorizeOrClose(conn, connArgs{
+				c.reauthorize(connArgs{
 					lastActivityAt: lastActivityAt,
 					connDetails:    connDetails,
 				})
@@ -999,10 +1001,9 @@ func (c *Connection) eventloop() {
 			}
 			// RTN15h3, and RTN12c as above.
 			if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
-				conn.Close()
 				return
 			}
-			c.reconnectOrClose(conn, connArgs{
+			c.reconnect(connArgs{
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
 			})
@@ -1012,9 +1013,6 @@ func (c *Connection) eventloop() {
 			c.mtx.Lock()
 			c.lockSetState(ConnectionStateClosed, nil, 0)
 			c.mtx.Unlock()
-			if c.conn != nil {
-				c.conn.Close()
-			}
 		case actionAuth: // RTN22
 			canceledCtx, cancel := context.WithCancel(context.Background())
 			cancel() // Cancel context to unblock current eventloop to receieve new messages
@@ -1034,12 +1032,9 @@ func (c *Connection) failedConnSideEffects(err *errorInfo) {
 	}
 	c.lockSetState(ConnectionStateFailed, newErrorFromProto(err), 0)
 	c.mtx.Unlock()
-	if c.conn != nil {
-		c.conn.Close()
-	}
 }
 
-func (c *Connection) reauthorize(arg connArgs) error {
+func (c *Connection) reauthorize(arg connArgs) {
 	// Fetching a token takes as long as the authCallback or authUrl does, so
 	// don't hold the connection lock meanwhile, which would block Close.
 	_, err := c.auth.reauthorize(context.Background())
@@ -1047,41 +1042,24 @@ func (c *Connection) reauthorize(arg connArgs) error {
 	c.mtx.Lock()
 	if c.lockFinishClose() { // RTN12f
 		c.mtx.Unlock()
-		return errClosedWhileReconnecting
+		return
 	}
 	if err != nil {
 		c.lockedReauthorizationFailed(err)
 		c.mtx.Unlock()
-		return c.retryAfterReauthorizationFailed(arg)
+		c.retryAfterReauthorizationFailed(arg)
+		return
 	}
 
 	// The reauthorize above will have set the new token in c.auth, so
 	// reconnecting will use the new token.
 	c.reauthorizing = true
 	c.mtx.Unlock()
-	_, err = c.reconnect(arg)
-	if err == errClosedWhileReconnecting {
+	if _, err := c.reconnect(arg); err == errClosedWhileReconnecting {
 		// No reconnection response will arrive to clear this.
 		c.mtx.Lock()
 		c.reauthorizing = false
 		c.mtx.Unlock()
-	}
-	return err
-}
-
-// reconnectOrClose reconnects after the transport old has failed. If Close is
-// called before a new transport replaces it, it closes old, since nothing
-// else will (RTN12c).
-func (c *Connection) reconnectOrClose(old conn, arg connArgs) {
-	if _, err := c.reconnect(arg); err == errClosedWhileReconnecting {
-		old.Close()
-	}
-}
-
-// reauthorizeOrClose is reconnectOrClose for a reconnect with a new token.
-func (c *Connection) reauthorizeOrClose(old conn, arg connArgs) {
-	if c.reauthorize(arg) == errClosedWhileReconnecting {
-		old.Close()
 	}
 }
 
@@ -1169,9 +1147,9 @@ func (c *Connection) lockedReauthorizationFailed(err error) {
 
 // retryAfterReauthorizationFailed reconnects after the disconnected retry
 // timeout, as from any other DISCONNECTED state (RTN14d), once a token
-// renewal has failed and left the connection DISCONNECTED (RTN14b, RTN15h2).
-// It returns errClosedWhileReconnecting if Close is called instead.
-func (c *Connection) retryAfterReauthorizationFailed(arg connArgs) error {
+// renewal has failed and left the connection DISCONNECTED (RTN14b, RTN15h2),
+// unless Close is called first.
+func (c *Connection) retryAfterReauthorizationFailed(arg connArgs) {
 	timerCtx, cancelTimer := c.ctxCancelOnStateTransition()
 	if c.State() == ConnectionStateDisconnected {
 		<-c.opts.After(timerCtx, c.opts.disconnectedRetryTimeout())
@@ -1179,20 +1157,15 @@ func (c *Connection) retryAfterReauthorizationFailed(arg connArgs) error {
 	cancelTimer()
 
 	c.mtx.Lock()
-	if c.lockFinishClose() {
-		c.mtx.Unlock()
-		return errClosedWhileReconnecting
-	}
 	// Connect from DISCONNECTED moves to CONNECTING expecting a retry loop
 	// to be running, so reconnect from there too.
 	retry := c.state == ConnectionStateDisconnected || c.state == ConnectionStateConnecting
+	c.lockFinishClose()
 	c.mtx.Unlock()
-	if !retry {
-		return nil
+	if retry {
+		arg.dialOnce = false
+		c.reconnect(arg)
 	}
-	arg.dialOnce = false
-	_, err := c.reconnect(arg)
-	return err
 }
 
 type verboseConn struct {
