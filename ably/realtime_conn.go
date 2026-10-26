@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ably/ably-go/ably/internal/ablyutil"
@@ -32,6 +33,10 @@ const (
 // It also enables the management of a connection to Ably.
 type Connection struct {
 	mtx sync.Mutex
+
+	// interruptions counts the times the connection has entered SUSPENDED,
+	// CLOSED or FAILED. It's accessed atomically.
+	interruptions uint32
 
 	// connMtx - on setConn we write to conn with mtx protection, however in eventLoop we
 	// read conn unprotected, this is racy because now we establish connection in a
@@ -113,6 +118,11 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *R
 	}
 	auth.onExplicitAuthorize = c.onExplicitAuthorize
 	c.queue = newMsgQueue(c)
+	c.internalEmitter.OnAll(func(change ConnectionStateChange) {
+		if isInterruption(change) {
+			c.queue.FailInterrupted(interruptionError(change)) // RTN7e
+		}
+	})
 	if !opts.NoConnect {
 		c.setState(ConnectionStateConnecting, nil, 0)
 		go func() {
@@ -848,7 +858,7 @@ func (c *Connection) eventloop() {
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
 			}
-			c.reconnect(arg)
+			c.reconnectOrClose(conn, arg)
 			return
 		}
 		lastActivityAt = c.opts.Now()
@@ -889,7 +899,7 @@ func (c *Connection) eventloop() {
 				}
 				// RTN14b
 				c.mtx.Unlock()
-				c.reauthorize(connArgs{
+				c.reauthorizeOrClose(conn, connArgs{
 					lastActivityAt: lastActivityAt,
 					connDetails:    connDetails,
 					dialOnce:       true,
@@ -955,32 +965,32 @@ func (c *Connection) eventloop() {
 			}
 			c.queue.Flush()
 		case actionDisconnected: // RTN15h
-			// Ably closes the transport after DISCONNECTED (RTN15h), so if
-			// Close was called, finish closing rather than reconnecting
-			// (RTN12c).
 			if isTokenError(msg.Error) {
-				// RTN15h1
+				// RTN15h1, even while closing: the connection fails rather
+				// than closes, but won't retry either way.
 				if !c.auth.isTokenRenewable() {
 					c.failedConnSideEffects(msg.Error)
 					return
 				}
-				// RTN15h2, RTN22a
+				// RTN15h2, RTN22a. Ably closes the transport after
+				// DISCONNECTED (RTN15h), so if Close was called, finish
+				// closing rather than reconnecting (RTN12c).
 				if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
-					conn.Close() // RTN12c
+					conn.Close()
 					return
 				}
-				c.reauthorize(connArgs{
+				c.reauthorizeOrClose(conn, connArgs{
 					lastActivityAt: lastActivityAt,
 					connDetails:    connDetails,
 				})
 				return
 			}
-			// RTN15h3
+			// RTN15h3, and RTN12c as above.
 			if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
-				conn.Close() // RTN12c
+				conn.Close()
 				return
 			}
-			c.reconnect(connArgs{
+			c.reconnectOrClose(conn, connArgs{
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
 			})
@@ -1012,31 +1022,48 @@ func (c *Connection) failedConnSideEffects(err *errorInfo) {
 	}
 	c.lockSetState(ConnectionStateFailed, newErrorFromProto(err), 0)
 	c.mtx.Unlock()
-	c.queue.Fail(newErrorFromProto(err))
 	if c.conn != nil {
 		c.conn.Close()
 	}
 }
 
-func (c *Connection) reauthorize(arg connArgs) {
+func (c *Connection) reauthorize(arg connArgs) error {
 	c.mtx.Lock()
 	_, err := c.auth.reauthorize(context.Background())
 
 	if err != nil {
 		c.lockedReauthorizationFailed(err)
 		c.mtx.Unlock()
-		return
+		return nil
 	}
 
 	// The reauthorize above will have set the new token in c.auth, so
 	// reconnecting will use the new token.
 	c.reauthorizing = true
 	c.mtx.Unlock()
-	if _, err := c.reconnect(arg); err == errClosedWhileReconnecting {
+	_, err = c.reconnect(arg)
+	if err == errClosedWhileReconnecting {
 		// No reconnection response will arrive to clear this.
 		c.mtx.Lock()
 		c.reauthorizing = false
 		c.mtx.Unlock()
+	}
+	return err
+}
+
+// reconnectOrClose reconnects after the transport old has failed. If Close is
+// called before a new transport replaces it, it closes old, since nothing
+// else will (RTN12c).
+func (c *Connection) reconnectOrClose(old conn, arg connArgs) {
+	if _, err := c.reconnect(arg); err == errClosedWhileReconnecting {
+		old.Close()
+	}
+}
+
+// reauthorizeOrClose is reconnectOrClose for a reconnect with a new token.
+func (c *Connection) reauthorizeOrClose(old conn, arg connArgs) {
+	if c.reauthorize(arg) == errClosedWhileReconnecting {
+		old.Close()
 	}
 }
 
@@ -1119,9 +1146,6 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 }
 
 func (c *Connection) lockedReauthorizationFailed(err error) {
-	if c.lockFinishClose() { // RTN12f
-		return
-	}
 	c.lockSetState(ConnectionStateDisconnected, err, 0)
 }
 
@@ -1164,21 +1188,34 @@ func (c *Connection) setState(state ConnectionState, err error, retryIn time.Dur
 	return c.lockSetState(state, err, retryIn)
 }
 
-// lockFailMessages fails messages that are queued or awaiting an ACK, since
-// they will never be sent or acknowledged on this connection (RTN7e). The
-// callbacks run outside the connection lock, because msgQueue.Flush holds the
-// queue lock while it takes the connection lock.
-func (c *Connection) lockFailMessages(err error) {
-	pending := c.pending.Dismiss()
-	go func() {
-		for _, m := range pending {
-			m.ackCallback.call(nil, err)
-		}
-		c.queue.Fail(err)
-	}()
+// interruptionCount returns the number of times the connection has entered
+// SUSPENDED, CLOSED or FAILED.
+func (c *Connection) interruptionCount() uint32 {
+	return atomic.LoadUint32(&c.interruptions)
+}
+
+// lockFailPending fails the messages awaiting an ACK, which won't be
+// acknowledged now (RTN7e), like pendingEmitter.Ack does with the connection
+// lock held. Queued messages are failed by state change handlers, which use
+// the interruption count to leave messages queued since a reopen alone.
+func (c *Connection) lockFailPending(err error) {
+	atomic.AddUint32(&c.interruptions, 1)
+	for _, m := range c.pending.Dismiss() {
+		m.ackCallback.call(nil, err)
+	}
 }
 
 func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time.Duration) error {
+	if (c.state == ConnectionStateClosing || c.state == ConnectionStateClosed) &&
+		(state == ConnectionStateDisconnected || state == ConnectionStateSuspended) {
+		// Once Close has been called, a failure must not move the
+		// connection back into a state that retries (RTN12). Finish the
+		// close instead.
+		if c.state == ConnectionStateClosed {
+			return nil
+		}
+		state, err, retryIn = ConnectionStateClosed, nil, 0
+	}
 	if state == ConnectionStateClosing || state == ConnectionStateClosed ||
 		state == ConnectionStateSuspended || state == ConnectionStateFailed {
 		c.key, c.id = "", "" //(RTN8c, RTN9c)
@@ -1188,9 +1225,6 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 	changed := c.state != state
 	c.state = state
 	c.errorReason = connStateError(state, err)
-	if state == ConnectionStateClosed && changed {
-		c.lockFailMessages(errClosed)
-	}
 	change := ConnectionStateChange{
 		Current:  c.state,
 		Previous: previous,
@@ -1201,6 +1235,9 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 		change.Event = ConnectionEventUpdate
 	} else {
 		change.Event = ConnectionEvent(change.Current)
+	}
+	if isInterruption(change) {
+		c.lockFailPending(interruptionError(change))
 	}
 	c.internalEmitter.emitter.Emit(change.Event, change)
 	c.emitter.Emit(change.Event, change)

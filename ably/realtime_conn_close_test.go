@@ -385,26 +385,14 @@ func TestRealtimeConn_RTN7e_MessagesFailOnClosed(t *testing.T) {
 		{name: "server DISCONNECTED", reply: &ably.ProtocolMessage{Action: ably.ActionDisconnected}},
 	} {
 		t.Run("message awaiting ACK fails on CLOSED after "+tc.name, func(t *testing.T) {
-			d := newPipeDialer()
-			client, changes := newClientWithDialer(t, d.dial)
-			d.in <- &ably.ProtocolMessage{
-				Action:            ably.ActionConnected,
-				ConnectionID:      "connection-id",
-				ConnectionDetails: &ably.ConnectionDetails{},
-			}
-			client.Connect()
-			expectState(t, changes, ably.ConnectionStateConnecting)
-			expectState(t, changes, ably.ConnectionStateConnected)
+			client, changes, d := connectedPipeClient(t)
 
 			result := publishAsync(client.Channels.Get("test"))
-			var msg *ably.ProtocolMessage
-			ablytest.Soon.Recv(t, &msg, d.out, t.Fatalf)
-			require.Equal(t, ably.ActionMessage, msg.Action)
+			expectSent(t, d, ably.ActionMessage)
 
 			client.Close()
 			expectState(t, changes, ably.ConnectionStateClosing)
-			ablytest.Soon.Recv(t, &msg, d.out, t.Fatalf)
-			require.Equal(t, ably.ActionClose, msg.Action)
+			expectSent(t, d, ably.ActionClose)
 
 			d.in <- tc.reply
 			expectState(t, changes, ably.ConnectionStateClosed)
@@ -412,56 +400,95 @@ func TestRealtimeConn_RTN7e_MessagesFailOnClosed(t *testing.T) {
 			expectPublishFailed(t, result)
 		})
 	}
+
+	t.Run("message awaiting ACK fails on FAILED after server ERROR", func(t *testing.T) {
+		client, changes, d := connectedPipeClient(t)
+
+		result := publishAsync(client.Channels.Get("test"))
+		expectSent(t, d, ably.ActionMessage)
+
+		d.in <- &ably.ProtocolMessage{Action: ably.ActionError, Error: &ably.ProtoErrorInfo{StatusCode: 500, Code: 50000}}
+		expectState(t, changes, ably.ConnectionStateFailed)
+
+		expectPublishFailed(t, result)
+	})
+}
+
+// connectedPipeClient returns a client connected to a fake server.
+func connectedPipeClient(t *testing.T, extra ...ably.ClientOption) (*ably.Realtime, ably.ConnStateChanges, *pipeDialer) {
+	t.Helper()
+	d := newPipeDialer()
+	client, changes := newClientWithDialer(t, d.dial, extra...)
+	d.in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &ably.ConnectionDetails{},
+	}
+	client.Connect()
+	expectState(t, changes, ably.ConnectionStateConnecting)
+	expectState(t, changes, ably.ConnectionStateConnected)
+	return client, changes, d
+}
+
+// opAsync runs op with a bounded context and returns a channel that receives
+// its result.
+func opAsync(op func(context.Context) error) <-chan error {
+	result := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), closeTestOpTimeout)
+		defer cancel()
+		result <- op(ctx)
+	}()
+	return result
+}
+
+func expectChannelState(t *testing.T, changes ably.ChannelStateChanges, want ably.ChannelState) {
+	t.Helper()
+	var change ably.ChannelStateChange
+	ablytest.Soon.Recv(t, &change, changes, t.Fatalf)
+	require.Equal(t, want, change.Current, "unexpected channel state change: %+v", change)
+}
+
+func expectSent(t *testing.T, d *pipeDialer, action ably.ProtoAction) {
+	t.Helper()
+	var msg *ably.ProtocolMessage
+	ablytest.Soon.Recv(t, &msg, d.out, t.Fatalf)
+	require.Equal(t, action, msg.Action)
 }
 
 func TestRealtimeConn_RTL3b_ChannelsDetachOnClosed(t *testing.T) {
-	for _, tc := range []struct {
-		name     string
-		attached bool
-	}{
-		{name: "ATTACHING"},
-		{name: "ATTACHED", attached: true},
+	for _, from := range []ably.ChannelState{
+		ably.ChannelStateAttaching,
+		ably.ChannelStateAttached,
+		ably.ChannelStateDetaching,
 	} {
-		t.Run(tc.name+" channel becomes DETACHED when the connection closes", func(t *testing.T) {
-			d := newPipeDialer()
+		t.Run(from.String()+" channel becomes DETACHED when the connection closes", func(t *testing.T) {
 			// Keep the attach from timing out (RTL4f) before Close is called.
-			client, changes := newClientWithDialer(t, d.dial,
+			client, changes, d := connectedPipeClient(t,
 				ably.WithKey("fake.key:secret"),
 				ably.WithRealtimeRequestTimeout(closeTestOpTimeout))
-			d.in <- &ably.ProtocolMessage{
-				Action:            ably.ActionConnected,
-				ConnectionID:      "connection-id",
-				ConnectionDetails: &ably.ConnectionDetails{},
-			}
-			client.Connect()
-			expectState(t, changes, ably.ConnectionStateConnecting)
-			expectState(t, changes, ably.ConnectionStateConnected)
 
 			channel := client.Channels.Get("test")
 			channelChanges := make(ably.ChannelStateChanges, 10)
 			off := channel.OnAll(channelChanges.Receive)
 			defer off()
 
-			attachResult := make(chan error, 1)
-			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), closeTestOpTimeout)
-				defer cancel()
-				attachResult <- channel.Attach(ctx)
-			}()
-			var change ably.ChannelStateChange
-			ablytest.Soon.Recv(t, &change, channelChanges, t.Fatalf)
-			require.Equal(t, ably.ChannelStateAttaching, change.Current)
-			var msg *ably.ProtocolMessage
-			ablytest.Soon.Recv(t, &msg, d.out, t.Fatalf)
-			require.Equal(t, ably.ActionAttach, msg.Action)
+			pending := opAsync(channel.Attach)
+			expectChannelState(t, channelChanges, ably.ChannelStateAttaching)
+			expectSent(t, d, ably.ActionAttach)
 
-			if tc.attached {
+			if from != ably.ChannelStateAttaching {
 				d.in <- &ably.ProtocolMessage{Action: ably.ActionAttached, Channel: channel.Name}
-				ablytest.Soon.Recv(t, &change, channelChanges, t.Fatalf)
-				require.Equal(t, ably.ChannelStateAttached, change.Current)
+				expectChannelState(t, channelChanges, ably.ChannelStateAttached)
 				var err error
-				ablytest.Soon.Recv(t, &err, attachResult, t.Fatalf)
+				ablytest.Soon.Recv(t, &err, pending, t.Fatalf)
 				require.NoError(t, err)
+				pending = nil
+			}
+			if from == ably.ChannelStateDetaching {
+				pending = opAsync(channel.Detach)
+				expectChannelState(t, channelChanges, ably.ChannelStateDetaching)
+				expectSent(t, d, ably.ActionDetach)
 			}
 
 			client.Close()
@@ -469,14 +496,48 @@ func TestRealtimeConn_RTL3b_ChannelsDetachOnClosed(t *testing.T) {
 			d.in <- &ably.ProtocolMessage{Action: ably.ActionClosed}
 			expectState(t, changes, ably.ConnectionStateClosed)
 
-			ablytest.Soon.Recv(t, &change, channelChanges, t.Fatalf)
-			assert.Equal(t, ably.ChannelStateDetached, change.Current)
-			if !tc.attached {
+			expectChannelState(t, channelChanges, ably.ChannelStateDetached)
+			if pending != nil {
+				// The pending attach or detach completes rather than waiting
+				// for its context to expire.
 				var err error
-				ablytest.Soon.Recv(t, &err, attachResult, t.Fatalf)
-				assert.Error(t, err)
+				ablytest.Soon.Recv(t, &err, pending, t.Fatalf)
 				assert.NotErrorIs(t, err, context.DeadlineExceeded)
 			}
 		})
 	}
+}
+
+// RTN12c: if Close is called while a token renewal's reconnection attempt is
+// in flight, the transport that received the token error is closed, since no
+// new transport will replace it.
+func TestRealtimeConn_CloseDuringTokenRenewalClosesOldTransport(t *testing.T) {
+	baseline := retryLoopGoroutines()
+	pipe := newPipeDialer()
+	retry := newFailingDialer(1)
+	var dials int32
+	client, changes := newClientWithDialer(t, func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+		if atomic.AddInt32(&dials, 1) == 1 {
+			return pipe.dial(proto, u, timeout)
+		}
+		return retry.dial(proto, u, timeout)
+	}, ably.WithAuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+		return ably.TokenString("fake:token"), nil
+	}))
+
+	client.Connect()
+	expectState(t, changes, ably.ConnectionStateConnecting)
+	require.True(t, ablytest.Soon.IsTrue(func() bool { return pipe.count() == 1 }))
+
+	// The server rejects the token, so the client renews it and redials (RTN14b).
+	pipe.in <- &ably.ProtocolMessage{Action: ably.ActionError, Error: tokenErr}
+	ablytest.Soon.Recv(t, nil, retry.started, t.Fatalf)
+
+	client.Close()
+	expectState(t, changes, ably.ConnectionStateClosing)
+	retry.release <- errors.New("dial timeout")
+	expectState(t, changes, ably.ConnectionStateClosed)
+	assert.True(t, ablytest.Soon.IsTrue(pipe.closed), "expected the old transport to be closed")
+
+	assertStaysClosed(t, client, changes, func() int32 { return atomic.LoadInt32(&dials) }, baseline)
 }

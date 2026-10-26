@@ -132,7 +132,7 @@ func (q *pendingEmitter) Enqueue(msg *protocolMessage, ackCallback *msgAckCallba
 			panic(fmt.Sprintf("protocol violation: expected next enqueued message to have msgSerial %d; got %d", expected, got))
 		}
 	}
-	q.queue = append(q.queue, msgWithAckCallback{msg, ackCallback})
+	q.queue = append(q.queue, msgWithAckCallback{msg: msg, ackCallback: ackCallback})
 }
 
 func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
@@ -222,6 +222,9 @@ func (cb *msgAckCallback) call(res []*protocolPublishResult, err error) {
 type msgWithAckCallback struct {
 	msg         *protocolMessage
 	ackCallback *msgAckCallback
+	// interruptions is the connection's interruption count when the message
+	// was queued. See msgQueue.FailInterrupted.
+	interruptions uint32
 }
 
 type msgQueue struct {
@@ -239,7 +242,11 @@ func newMsgQueue(conn *Connection) *msgQueue {
 func (q *msgQueue) Enqueue(msg *protocolMessage, ackCallback *msgAckCallback) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
-	q.queue = append(q.queue, msgWithAckCallback{msg, ackCallback})
+	q.queue = append(q.queue, msgWithAckCallback{
+		msg:           msg,
+		ackCallback:   ackCallback,
+		interruptions: q.conn.interruptionCount(),
+	})
 	q.mtx.Unlock()
 }
 
@@ -260,6 +267,51 @@ func (q *msgQueue) Fail(err error) {
 	}
 	q.queue = nil
 	q.mtx.Unlock()
+}
+
+// FailInterrupted fails the messages queued before the connection last entered
+// SUSPENDED, CLOSED or FAILED, which will never be sent on that connection
+// (RTN7e). Messages queued since then, after the connection was reopened, are
+// kept.
+func (q *msgQueue) FailInterrupted(err error) {
+	interruptions := q.conn.interruptionCount()
+	var failed []msgWithAckCallback
+	q.mtx.Lock()
+	kept := make([]msgWithAckCallback, 0, len(q.queue))
+	for _, m := range q.queue {
+		if m.interruptions < interruptions {
+			failed = append(failed, m)
+		} else {
+			kept = append(kept, m)
+		}
+	}
+	q.queue = kept
+	q.mtx.Unlock()
+	for _, m := range failed {
+		q.log().Debugf("failing queued message (serial=%d): %v", m.msg.MsgSerial, err)
+		m.ackCallback.call(nil, err)
+	}
+}
+
+// isInterruption reports whether change enters a state in which messages
+// queued or awaiting an ACK can't be sent or acknowledged (RTN7e).
+func isInterruption(change ConnectionStateChange) bool {
+	if change.Previous == change.Current {
+		return false
+	}
+	switch change.Current {
+	case ConnectionStateSuspended, ConnectionStateClosed, ConnectionStateFailed:
+		return true
+	}
+	return false
+}
+
+// interruptionError is the error to fail messages with on an interruption.
+func interruptionError(change ConnectionStateChange) error {
+	if change.Reason != nil {
+		return change.Reason
+	}
+	return errClosed
 }
 
 func (q *msgQueue) log() logger {
