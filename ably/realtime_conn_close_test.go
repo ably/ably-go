@@ -5,6 +5,7 @@ package ably_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/url"
 	"runtime"
@@ -20,6 +21,10 @@ import (
 )
 
 const closeTestRetryTimeout = 50 * time.Millisecond
+
+// closeTestOpTimeout bounds publishes and attaches, so that one left
+// unresolved fails the test quickly.
+const closeTestOpTimeout = 2 * time.Second
 
 // failingDialer fails every dial. The dial numbered blockOn waits until
 // release is sent the error to fail with; every other dial fails immediately
@@ -52,16 +57,21 @@ func (d *failingDialer) count() int32 {
 	return atomic.LoadInt32(&d.dials)
 }
 
-func newClientWithDialer(t *testing.T, dial func(string, *url.URL, time.Duration) (ably.Conn, error)) (*ably.Realtime, ably.ConnStateChanges) {
+// newClientWithDialer creates a client that dials with dial, applying any
+// extra options. It authenticates with a fake key unless extra options are
+// given.
+func newClientWithDialer(t *testing.T, dial func(string, *url.URL, time.Duration) (ably.Conn, error), extra ...ably.ClientOption) (*ably.Realtime, ably.ConnStateChanges) {
 	t.Helper()
-	client, err := ably.NewRealtime(
-		ably.WithKey("fake.key:secret"),
+	if len(extra) == 0 {
+		extra = []ably.ClientOption{ably.WithKey("fake.key:secret")}
+	}
+	client, err := ably.NewRealtime(append([]ably.ClientOption{
 		ably.WithAutoConnect(false),
 		ably.WithDial(dial),
 		ably.WithRealtimeRequestTimeout(closeTestRetryTimeout),
 		ably.WithDisconnectedRetryTimeout(closeTestRetryTimeout),
 		ably.WithSuspendedRetryTimeout(closeTestRetryTimeout),
-	)
+	}, extra...)...)
 	require.NoError(t, err)
 	t.Cleanup(client.Close)
 
@@ -96,10 +106,16 @@ func expectState(t *testing.T, changes ably.ConnStateChanges, want ably.Connecti
 // that the retry loop goroutine has exited.
 func assertStaysClosed(t *testing.T, client *ably.Realtime, changes ably.ConnStateChanges, dialCount func() int32, baseline int) {
 	t.Helper()
+	assertStaysIn(t, ably.ConnectionStateClosed, client, changes, dialCount, baseline)
+}
+
+// assertStaysIn is assertStaysClosed for a terminal state other than CLOSED.
+func assertStaysIn(t *testing.T, want ably.ConnectionState, client *ably.Realtime, changes ably.ConnStateChanges, dialCount func() int32, baseline int) {
+	t.Helper()
 	dials := dialCount()
 	ablytest.Before(5*closeTestRetryTimeout).NoRecv(t, nil, changes, t.Errorf)
 	assert.Equal(t, dials, dialCount(), "expected no dials after close")
-	assert.Equal(t, ably.ConnectionStateClosed, client.Connection.State())
+	assert.Equal(t, want, client.Connection.State())
 	assert.True(t, ablytest.Soon.IsTrue(func() bool {
 		return retryLoopGoroutines() <= baseline
 	}), "expected retry loop goroutine to exit after close")
@@ -183,26 +199,70 @@ func TestRealtimeConn_CloseDuringFailingConnectAttempt(t *testing.T) {
 	})
 }
 
+// pipeDialer connects to a fake server through MessagePipe, counting dials
+// and transport closes.
+type pipeDialer struct {
+	in     chan *ably.ProtocolMessage
+	out    chan *ably.ProtocolMessage
+	dials  int32
+	closes int32
+}
+
+func newPipeDialer() *pipeDialer {
+	return &pipeDialer{
+		in:  make(chan *ably.ProtocolMessage, 10),
+		out: make(chan *ably.ProtocolMessage, 10),
+	}
+}
+
+func (d *pipeDialer) dial(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+	atomic.AddInt32(&d.dials, 1)
+	conn, err := MessagePipe(d.in, d.out)(proto, u, timeout)
+	return closeCountingConn{Conn: conn, closes: &d.closes}, err
+}
+
+func (d *pipeDialer) count() int32 {
+	return atomic.LoadInt32(&d.dials)
+}
+
+func (d *pipeDialer) closed() bool {
+	return atomic.LoadInt32(&d.closes) > 0
+}
+
+type closeCountingConn struct {
+	ably.Conn
+	closes *int32
+}
+
+func (c closeCountingConn) Close() error {
+	atomic.AddInt32(c.closes, 1)
+	return c.Conn.Close()
+}
+
+var tokenErr = &ably.ProtoErrorInfo{StatusCode: 401, Code: 40142}
+
 func TestRealtimeConn_ServerDisconnectedWhileClosing(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		err  *ably.ProtoErrorInfo
+		auth []ably.ClientOption
+		want ably.ConnectionState
 	}{
-		{name: "RTN15h3: non-token error"},
-		{name: "RTN15h2: renewable token error", err: &ably.ProtoErrorInfo{StatusCode: 401, Code: 40142}},
+		// The server closes the transport after DISCONNECTED (RTN15h), so
+		// once CLOSE has been sent the connection ends CLOSED (RTN12c)
+		// rather than reconnecting.
+		{name: "RTN12c, RTN15h3: non-token error ends CLOSED", want: ably.ConnectionStateClosed},
+		{name: "RTN12c, RTN15h2: renewable token error ends CLOSED", err: tokenErr, want: ably.ConnectionStateClosed},
+		// A token that can't be renewed fails the connection, which won't
+		// retry either.
+		{name: "RTN15h1: non-renewable token error ends FAILED", err: tokenErr, auth: []ably.ClientOption{ably.WithToken("fake:token")}, want: ably.ConnectionStateFailed},
 	} {
-		t.Run("RTN12f: DISCONNECTED received while CLOSING ends CLOSED: "+tc.name, func(t *testing.T) {
+		t.Run("DISCONNECTED received while CLOSING: "+tc.name, func(t *testing.T) {
 			baseline := retryLoopGoroutines()
-			in := make(chan *ably.ProtocolMessage, 10)
-			out := make(chan *ably.ProtocolMessage, 10)
-			pipe := MessagePipe(in, out)
-			var dials int32
-			client, changes := newClientWithDialer(t, func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
-				atomic.AddInt32(&dials, 1)
-				return pipe(proto, u, timeout)
-			})
+			d := newPipeDialer()
+			client, changes := newClientWithDialer(t, d.dial, tc.auth...)
 
-			in <- &ably.ProtocolMessage{
+			d.in <- &ably.ProtocolMessage{
 				Action:            ably.ActionConnected,
 				ConnectionID:      "connection-id",
 				ConnectionDetails: &ably.ConnectionDetails{},
@@ -214,15 +274,209 @@ func TestRealtimeConn_ServerDisconnectedWhileClosing(t *testing.T) {
 			client.Close()
 			expectState(t, changes, ably.ConnectionStateClosing)
 			var msg *ably.ProtocolMessage
-			ablytest.Soon.Recv(t, &msg, out, t.Fatalf)
+			ablytest.Soon.Recv(t, &msg, d.out, t.Fatalf)
 			require.Equal(t, ably.ActionClose, msg.Action)
 
 			// The server disconnects the transport before acknowledging the
 			// CLOSE.
-			in <- &ably.ProtocolMessage{Action: ably.ActionDisconnected, Error: tc.err}
+			d.in <- &ably.ProtocolMessage{Action: ably.ActionDisconnected, Error: tc.err}
+			expectState(t, changes, tc.want)
+			assert.True(t, d.closed(), "expected transport to be closed")
+
+			assertStaysIn(t, tc.want, client, changes, d.count, baseline)
+		})
+	}
+}
+
+func TestRealtimeConn_ServerErrorWhileClosing(t *testing.T) {
+	var renewals int32
+	renewOnce := func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+		if atomic.AddInt32(&renewals, 1) > 1 {
+			return nil, errors.New("token renewal failed")
+		}
+		return ably.TokenString("fake:token"), nil
+	}
+	renewAlways := func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+		return ably.TokenString("fake:token"), nil
+	}
+
+	for _, tc := range []struct {
+		name string
+		err  *ably.ProtoErrorInfo
+		auth []ably.ClientOption
+		want ably.ConnectionState
+	}{
+		// A non-token ERROR is fatal to the connection, whatever its state.
+		{name: "RTN14g: non-token error ends FAILED", err: &ably.ProtoErrorInfo{StatusCode: 500, Code: 50000}, want: ably.ConnectionStateFailed},
+		// A token ERROR would renew the token and reconnect, but the attempt
+		// didn't succeed after Close was called, so it ends CLOSED.
+		{name: "RTN12f, RTN14b: token error with successful renewal ends CLOSED", err: tokenErr, auth: []ably.ClientOption{ably.WithAuthCallback(renewAlways)}, want: ably.ConnectionStateClosed},
+		{name: "RTN12f, RTN14b: token error with failed renewal ends CLOSED", err: tokenErr, auth: []ably.ClientOption{ably.WithAuthCallback(renewOnce)}, want: ably.ConnectionStateClosed},
+	} {
+		t.Run("ERROR received while CLOSING: "+tc.name, func(t *testing.T) {
+			atomic.StoreInt32(&renewals, 0)
+			baseline := retryLoopGoroutines()
+			d := newPipeDialer()
+			client, changes := newClientWithDialer(t, d.dial, tc.auth...)
+
+			client.Connect()
+			expectState(t, changes, ably.ConnectionStateConnecting)
+			require.True(t, ablytest.Soon.IsTrue(func() bool { return d.count() == 1 }))
+
+			client.Close()
+			expectState(t, changes, ably.ConnectionStateClosing)
+
+			d.in <- &ably.ProtocolMessage{Action: ably.ActionError, Error: tc.err}
+			expectState(t, changes, tc.want)
+			assert.True(t, d.closed(), "expected transport to be closed")
+
+			assertStaysIn(t, tc.want, client, changes, d.count, baseline)
+		})
+	}
+}
+
+// publishAsync publishes on channel and returns a channel that receives the
+// publish result.
+func publishAsync(channel *ably.RealtimeChannel) <-chan error {
+	result := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), closeTestOpTimeout)
+		defer cancel()
+		result <- channel.Publish(ctx, "name", "data")
+	}()
+	return result
+}
+
+// expectPublishFailed asserts that a publish failed because the connection
+// closed, rather than timing out.
+func expectPublishFailed(t *testing.T, result <-chan error) {
+	t.Helper()
+	var err error
+	ablytest.Soon.Recv(t, &err, result, t.Fatalf)
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func TestRealtimeConn_RTN7e_MessagesFailOnClosed(t *testing.T) {
+	t.Run("queued message fails when Close ends a failed connection attempt", func(t *testing.T) {
+		d := newFailingDialer(1)
+		client, changes := newClientWithDialer(t, d.dial)
+
+		client.Connect()
+		expectState(t, changes, ably.ConnectionStateConnecting)
+		ablytest.Soon.Recv(t, nil, d.started, t.Fatalf)
+
+		result := publishAsync(client.Channels.Get("test"))
+		ablytest.Before(closeTestRetryTimeout).NoRecv(t, nil, result, t.Fatalf) // queued
+
+		client.Close()
+		expectState(t, changes, ably.ConnectionStateClosing)
+		d.release <- errors.New("dial timeout")
+		expectState(t, changes, ably.ConnectionStateClosed)
+
+		expectPublishFailed(t, result)
+	})
+
+	for _, tc := range []struct {
+		name  string
+		reply *ably.ProtocolMessage
+	}{
+		{name: "server CLOSED", reply: &ably.ProtocolMessage{Action: ably.ActionClosed}},
+		{name: "server DISCONNECTED", reply: &ably.ProtocolMessage{Action: ably.ActionDisconnected}},
+	} {
+		t.Run("message awaiting ACK fails on CLOSED after "+tc.name, func(t *testing.T) {
+			d := newPipeDialer()
+			client, changes := newClientWithDialer(t, d.dial)
+			d.in <- &ably.ProtocolMessage{
+				Action:            ably.ActionConnected,
+				ConnectionID:      "connection-id",
+				ConnectionDetails: &ably.ConnectionDetails{},
+			}
+			client.Connect()
+			expectState(t, changes, ably.ConnectionStateConnecting)
+			expectState(t, changes, ably.ConnectionStateConnected)
+
+			result := publishAsync(client.Channels.Get("test"))
+			var msg *ably.ProtocolMessage
+			ablytest.Soon.Recv(t, &msg, d.out, t.Fatalf)
+			require.Equal(t, ably.ActionMessage, msg.Action)
+
+			client.Close()
+			expectState(t, changes, ably.ConnectionStateClosing)
+			ablytest.Soon.Recv(t, &msg, d.out, t.Fatalf)
+			require.Equal(t, ably.ActionClose, msg.Action)
+
+			d.in <- tc.reply
 			expectState(t, changes, ably.ConnectionStateClosed)
 
-			assertStaysClosed(t, client, changes, func() int32 { return atomic.LoadInt32(&dials) }, baseline)
+			expectPublishFailed(t, result)
+		})
+	}
+}
+
+func TestRealtimeConn_RTL3b_ChannelsDetachOnClosed(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		attached bool
+	}{
+		{name: "ATTACHING"},
+		{name: "ATTACHED", attached: true},
+	} {
+		t.Run(tc.name+" channel becomes DETACHED when the connection closes", func(t *testing.T) {
+			d := newPipeDialer()
+			// Keep the attach from timing out (RTL4f) before Close is called.
+			client, changes := newClientWithDialer(t, d.dial,
+				ably.WithKey("fake.key:secret"),
+				ably.WithRealtimeRequestTimeout(closeTestOpTimeout))
+			d.in <- &ably.ProtocolMessage{
+				Action:            ably.ActionConnected,
+				ConnectionID:      "connection-id",
+				ConnectionDetails: &ably.ConnectionDetails{},
+			}
+			client.Connect()
+			expectState(t, changes, ably.ConnectionStateConnecting)
+			expectState(t, changes, ably.ConnectionStateConnected)
+
+			channel := client.Channels.Get("test")
+			channelChanges := make(ably.ChannelStateChanges, 10)
+			off := channel.OnAll(channelChanges.Receive)
+			defer off()
+
+			attachResult := make(chan error, 1)
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), closeTestOpTimeout)
+				defer cancel()
+				attachResult <- channel.Attach(ctx)
+			}()
+			var change ably.ChannelStateChange
+			ablytest.Soon.Recv(t, &change, channelChanges, t.Fatalf)
+			require.Equal(t, ably.ChannelStateAttaching, change.Current)
+			var msg *ably.ProtocolMessage
+			ablytest.Soon.Recv(t, &msg, d.out, t.Fatalf)
+			require.Equal(t, ably.ActionAttach, msg.Action)
+
+			if tc.attached {
+				d.in <- &ably.ProtocolMessage{Action: ably.ActionAttached, Channel: channel.Name}
+				ablytest.Soon.Recv(t, &change, channelChanges, t.Fatalf)
+				require.Equal(t, ably.ChannelStateAttached, change.Current)
+				var err error
+				ablytest.Soon.Recv(t, &err, attachResult, t.Fatalf)
+				require.NoError(t, err)
+			}
+
+			client.Close()
+			expectState(t, changes, ably.ConnectionStateClosing)
+			d.in <- &ably.ProtocolMessage{Action: ably.ActionClosed}
+			expectState(t, changes, ably.ConnectionStateClosed)
+
+			ablytest.Soon.Recv(t, &change, channelChanges, t.Fatalf)
+			assert.Equal(t, ably.ChannelStateDetached, change.Current)
+			if !tc.attached {
+				var err error
+				ablytest.Soon.Recv(t, &err, attachResult, t.Fatalf)
+				assert.Error(t, err)
+				assert.NotErrorIs(t, err, context.DeadlineExceeded)
+			}
 		})
 	}
 }

@@ -353,6 +353,12 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	case ConnectionStateFailed:
 		c.setState(ChannelStateFailed, change.Reason, false)
 		c.queue.Fail(change.Reason)
+	case ConnectionStateClosed:
+		switch c.State() {
+		case ChannelStateAttaching, ChannelStateAttached:
+			c.setState(ChannelStateDetached, nil, false) // RTL3b
+		}
+		c.queue.Fail(errClosed) // RTN7e
 	}
 }
 

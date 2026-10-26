@@ -117,7 +117,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *R
 		c.setState(ConnectionStateConnecting, nil, 0)
 		go func() {
 			c.log().Info("Trying to establish a connection asynchronously")
-			if _, err := c.connect(connArgs{}); err != nil {
+			if _, err := c.connect(connArgs{}); err != nil && err != errClosedWhileReconnecting {
 				c.log().Errorf("Failed to open connection with err:%v", err)
 			}
 		}()
@@ -818,7 +818,8 @@ func (c *Connection) eventloop() {
 			receiveTimeout += maxIdleInterval // RTN23a
 		}
 		c.connMtx.Lock()
-		msg, err := c.conn.Receive(c.opts.Now().Add(receiveTimeout))
+		conn := c.conn
+		msg, err := conn.Receive(c.opts.Now().Add(receiveTimeout))
 		c.connMtx.Unlock()
 		if err != nil {
 			c.mtx.Lock()
@@ -873,6 +874,14 @@ func (c *Connection) eventloop() {
 			reauthorizing := c.reauthorizing
 			c.reauthorizing = false
 			if isTokenError(msg.Error) {
+				if c.lockFinishClose() {
+					// Close was called, so don't renew the token and
+					// reconnect (RTN12f). Any other ERROR is fatal and
+					// fails the connection even while closing (RTN14g).
+					c.mtx.Unlock()
+					conn.Close()
+					return
+				}
 				if reauthorizing {
 					c.lockedReauthorizationFailed(newErrorFromProto(msg.Error))
 					c.mtx.Unlock()
@@ -946,6 +955,9 @@ func (c *Connection) eventloop() {
 			}
 			c.queue.Flush()
 		case actionDisconnected: // RTN15h
+			// Ably closes the transport after DISCONNECTED (RTN15h), so if
+			// Close was called, finish closing rather than reconnecting
+			// (RTN12c).
 			if isTokenError(msg.Error) {
 				// RTN15h1
 				if !c.auth.isTokenRenewable() {
@@ -954,7 +966,7 @@ func (c *Connection) eventloop() {
 				}
 				// RTN15h2, RTN22a
 				if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
-					c.conn.Close() // RTN12f
+					conn.Close() // RTN12c
 					return
 				}
 				c.reauthorize(connArgs{
@@ -965,7 +977,7 @@ func (c *Connection) eventloop() {
 			}
 			// RTN15h3
 			if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
-				c.conn.Close() // RTN12f
+				conn.Close() // RTN12c
 				return
 			}
 			c.reconnect(connArgs{
@@ -1020,7 +1032,12 @@ func (c *Connection) reauthorize(arg connArgs) {
 	// reconnecting will use the new token.
 	c.reauthorizing = true
 	c.mtx.Unlock()
-	c.reconnect(arg)
+	if _, err := c.reconnect(arg); err == errClosedWhileReconnecting {
+		// No reconnection response will arrive to clear this.
+		c.mtx.Lock()
+		c.reauthorizing = false
+		c.mtx.Unlock()
+	}
 }
 
 func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetails) error {
@@ -1102,6 +1119,9 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 }
 
 func (c *Connection) lockedReauthorizationFailed(err error) {
+	if c.lockFinishClose() { // RTN12f
+		return
+	}
 	c.lockSetState(ConnectionStateDisconnected, err, 0)
 }
 
@@ -1144,6 +1164,20 @@ func (c *Connection) setState(state ConnectionState, err error, retryIn time.Dur
 	return c.lockSetState(state, err, retryIn)
 }
 
+// lockFailMessages fails messages that are queued or awaiting an ACK, since
+// they will never be sent or acknowledged on this connection (RTN7e). The
+// callbacks run outside the connection lock, because msgQueue.Flush holds the
+// queue lock while it takes the connection lock.
+func (c *Connection) lockFailMessages(err error) {
+	pending := c.pending.Dismiss()
+	go func() {
+		for _, m := range pending {
+			m.ackCallback.call(nil, err)
+		}
+		c.queue.Fail(err)
+	}()
+}
+
 func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time.Duration) error {
 	if state == ConnectionStateClosing || state == ConnectionStateClosed ||
 		state == ConnectionStateSuspended || state == ConnectionStateFailed {
@@ -1154,6 +1188,9 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 	changed := c.state != state
 	c.state = state
 	c.errorReason = connStateError(state, err)
+	if state == ConnectionStateClosed && changed {
+		c.lockFailMessages(errClosed)
+	}
 	change := ConnectionStateChange{
 		Current:  c.state,
 		Previous: previous,
