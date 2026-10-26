@@ -14,27 +14,25 @@ import (
 func TestMsgQueue_FailInterrupted(t *testing.T) {
 	client, err := NewRealtime(WithKey("fake.key:secret"), WithAutoConnect(false))
 	require.NoError(t, err)
-	conn := client.Connection
-	q := newMsgQueue(conn)
+	q := newMsgQueue(client.Connection)
 
-	var interruptedErr, reopenedErr error
-	interruptedCalled, reopenedCalled := false, false
-	q.Enqueue(&protocolMessage{Action: actionMessage}, &msgAckCallback{onAck: func(err error) {
-		interruptedCalled, interruptedErr = true, err
-	}})
-	conn.interruptions++ // e.g. Close, then Connect before the handler runs
-	q.Enqueue(&protocolMessage{Action: actionMessage}, &msgAckCallback{onAck: func(err error) {
-		reopenedCalled, reopenedErr = true, err
-	}})
+	failed := map[string]error{}
+	enqueue := func(name string, interruptions uint32) {
+		q.Enqueue(&protocolMessage{Action: actionMessage}, &msgAckCallback{onAck: func(err error) {
+			failed[name] = err
+		}}, interruptions)
+	}
+	enqueue("before", 0)
+	client.Connection.interruptions++ // e.g. Close, then Connect before the handler runs
+	// Checked the connection state before the interruption, but enqueued after it.
+	enqueue("raced", 0)
+	enqueue("after", 1)
 
 	failure := errors.New("closed")
 	q.FailInterrupted(failure)
 
-	assert.True(t, interruptedCalled, "expected message queued before the interruption to fail")
-	assert.Equal(t, failure, interruptedErr)
-	assert.False(t, reopenedCalled, "expected message queued after the interruption to be kept")
-	assert.NoError(t, reopenedErr)
-	require.Len(t, q.queue, 1)
+	assert.Equal(t, map[string]error{"before": failure, "raced": failure}, failed)
+	require.Len(t, q.queue, 1, "expected the message queued after the interruption to be kept")
 }
 
 func TestConnection_LockSetState_ClosingDoesNotRetry(t *testing.T) {

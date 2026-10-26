@@ -239,13 +239,16 @@ func newMsgQueue(conn *Connection) *msgQueue {
 	}
 }
 
-func (q *msgQueue) Enqueue(msg *protocolMessage, ackCallback *msgAckCallback) {
+// Enqueue queues msg. interruptions is the connection's interruption count
+// read with the connection lock held, when the caller found the connection in
+// a state to queue messages in. See FailInterrupted.
+func (q *msgQueue) Enqueue(msg *protocolMessage, ackCallback *msgAckCallback, interruptions uint32) {
 	q.mtx.Lock()
 	// TODO(rjeczalik): reorder the queue so Presence / Messages can be merged
 	q.queue = append(q.queue, msgWithAckCallback{
 		msg:           msg,
 		ackCallback:   ackCallback,
-		interruptions: q.conn.interruptionCount(),
+		interruptions: interruptions,
 	})
 	q.mtx.Unlock()
 }
@@ -277,7 +280,7 @@ func (q *msgQueue) FailInterrupted(err error) {
 	interruptions := q.conn.interruptionCount()
 	var failed []msgWithAckCallback
 	q.mtx.Lock()
-	kept := make([]msgWithAckCallback, 0, len(q.queue))
+	kept := q.queue[:0]
 	for _, m := range q.queue {
 		if m.interruptions < interruptions {
 			failed = append(failed, m)

@@ -1043,7 +1043,8 @@ func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage, ackCallback *msgAck
 	if c.opts().NoQueueing {
 		return false
 	}
-	switch c.client.Connection.State() {
+	connState, interruptions := c.client.Connection.stateAndInterruptions()
+	switch connState {
 	default:
 		return false
 	case ConnectionStateInitialized,
@@ -1060,7 +1061,7 @@ func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage, ackCallback *msgAck
 		ChannelStateDetaching:
 	}
 
-	c.queue.Enqueue(msg, ackCallback)
+	c.queue.Enqueue(msg, ackCallback, interruptions)
 	return true
 }
 

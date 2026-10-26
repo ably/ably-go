@@ -541,3 +541,131 @@ func TestRealtimeConn_CloseDuringTokenRenewalClosesOldTransport(t *testing.T) {
 
 	assertStaysClosed(t, client, changes, func() int32 { return atomic.LoadInt32(&dials) }, baseline)
 }
+
+// tokenDisconnected is a DISCONNECTED message with a token error, which makes
+// a client that can renew its token do so (RTN15h2).
+var tokenDisconnected = &ably.ProtocolMessage{Action: ably.ActionDisconnected, Error: tokenErr}
+
+func TestRealtimeConn_CloseDuringTokenRenewal(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		renewErr error
+	}{
+		{name: "renewal succeeds"},
+		{name: "renewal fails", renewErr: errors.New("token renewal failed")},
+	} {
+		t.Run("RTN12: Close isn't blocked by a token renewal and ends CLOSED when "+tc.name, func(t *testing.T) {
+			baseline := retryLoopGoroutines()
+			renewing := make(chan struct{}, 1)
+			release := make(chan struct{})
+			var renewals int32
+			client, changes, d := connectedPipeClient(t, ably.WithAuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+				if atomic.AddInt32(&renewals, 1) > 1 {
+					renewing <- struct{}{}
+					<-release
+					if tc.renewErr != nil {
+						return nil, tc.renewErr
+					}
+				}
+				return ably.TokenString("fake:token"), nil
+			}))
+
+			d.in <- tokenDisconnected
+			expectState(t, changes, ably.ConnectionStateDisconnected)
+			ablytest.Soon.Recv(t, nil, renewing, t.Fatalf)
+
+			closed := make(chan struct{})
+			go func() {
+				client.Close()
+				close(closed)
+			}()
+			ablytest.Soon.Recv(t, nil, closed, t.Fatalf)
+			expectState(t, changes, ably.ConnectionStateClosed)
+
+			close(release)
+			assert.True(t, ablytest.Soon.IsTrue(d.closed), "expected the old transport to be closed")
+			assertStaysClosed(t, client, changes, d.count, baseline)
+		})
+	}
+}
+
+// RTN15h2, RTN14d: if renewing the token fails, the connection is DISCONNECTED
+// and retries like from any other DISCONNECTED state.
+func TestRealtimeConn_RetriesAfterTokenRenewalFails(t *testing.T) {
+	var renewals int32
+	_, changes, d := connectedPipeClient(t, ably.WithAuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+		if atomic.AddInt32(&renewals, 1) == 2 {
+			return nil, errors.New("token renewal failed")
+		}
+		return ably.TokenString("fake:token"), nil
+	}))
+
+	d.in <- tokenDisconnected
+	expectState(t, changes, ably.ConnectionStateDisconnected)
+	var change ably.ConnectionStateChange
+	ablytest.Soon.Recv(t, &change, changes, t.Fatalf)
+	require.Equal(t, ably.ConnectionStateDisconnected, change.Current, "expected renewal failure: %+v", change)
+
+	d.in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "connection-id",
+		ConnectionDetails: &ably.ConnectionDetails{},
+	}
+	expectState(t, changes, ably.ConnectionStateConnecting)
+	expectState(t, changes, ably.ConnectionStateConnected)
+	assert.Equal(t, int32(2), d.count())
+}
+
+func TestRealtimeConn_RTN7e_MessagesFailOnSuspended(t *testing.T) {
+	const stateTTL = 4 * closeTestRetryTimeout
+
+	t.Run("queued message fails when the connection is SUSPENDED", func(t *testing.T) {
+		d := newFailingDialer(0)
+		client, changes := newClientWithDialer(t, d.dial,
+			ably.WithKey("fake.key:secret"),
+			ably.WithConnectionStateTTL(stateTTL))
+
+		client.Connect()
+		expectState(t, changes, ably.ConnectionStateConnecting)
+		expectState(t, changes, ably.ConnectionStateDisconnected)
+		result := publishAsync(client.Channels.Get("test"))
+		ablytest.Before(closeTestRetryTimeout/2).NoRecv(t, nil, result, t.Fatalf) // queued
+
+		require.True(t, ablytest.Soon.IsTrue(func() bool {
+			return client.Connection.State() == ably.ConnectionStateSuspended
+		}))
+		expectPublishFailed(t, result)
+	})
+
+	t.Run("message awaiting ACK fails when the connection is SUSPENDED", func(t *testing.T) {
+		pipe := newPipeDialer()
+		var dials int32
+		client, changes := newClientWithDialer(t, func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+			if atomic.AddInt32(&dials, 1) == 1 {
+				return pipe.dial(proto, u, timeout)
+			}
+			return nil, errors.New("dial failed")
+		}, ably.WithKey("fake.key:secret"), ably.WithConnectionStateTTL(stateTTL))
+		pipe.in <- &ably.ProtocolMessage{
+			Action:            ably.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &ably.ConnectionDetails{},
+		}
+		client.Connect()
+		expectState(t, changes, ably.ConnectionStateConnecting)
+		expectState(t, changes, ably.ConnectionStateConnected)
+
+		result := publishAsync(client.Channels.Get("test"))
+		expectSent(t, pipe, ably.ActionMessage)
+
+		// Kept for resending while DISCONNECTED (RTN19a), but not once SUSPENDED.
+		pipe.in <- &ably.ProtocolMessage{Action: ably.ActionDisconnected}
+		expectState(t, changes, ably.ConnectionStateDisconnected)
+		ablytest.Before(closeTestRetryTimeout/2).NoRecv(t, nil, result, t.Fatalf)
+
+		require.True(t, ablytest.Soon.IsTrue(func() bool {
+			return client.Connection.State() == ably.ConnectionStateSuspended
+		}))
+		expectPublishFailed(t, result)
+	})
+}

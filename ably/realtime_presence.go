@@ -80,7 +80,7 @@ func (pres *RealtimePresence) maybeEnqueue(msg *protocolMessage, ackCallback *ms
 		}
 		return false
 	}
-	pres.queue.Enqueue(msg, ackCallback)
+	pres.queue.Enqueue(msg, ackCallback, pres.channel.client.Connection.interruptionCount())
 	return true
 }
 
