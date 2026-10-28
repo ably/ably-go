@@ -1,18 +1,31 @@
+// Package objects provides the experimental LiveObjects types, shared by the
+// clients of [github.com/ably/ably-pubsub-go/server/pubsub] and
+// [github.com/ably/ably-pubsub-go/device/pubsub]. The names match those of the
+// v1 github.com/ably/ably-go/ably/objects package, so migrating only changes
+// the import path.
+//
+// A [Plugin] is passed to a client with WithExperimentalObjectsPlugin from
+// either pubsub package.
+//
+// NOTE: the LiveObjects plugin API is experimental and may change in a
+// backwards incompatible way between minor/patch versions.
 package objects
 
-// Plugin is used to add LiveObject functionality to a realtime client:
+// This package must not import internal/ably or pubsub: both import it.
+
+// Plugin adds LiveObjects functionality to a realtime client:
 //
-//	client, err := ably.NewRealtime(
-//		ably.WithKey(...),
-//		ably.WithExperimentalObjectsPlugin(myObjectsPlugin),
+//	client, err := pubsub.NewRealtimeClient(
+//		pubsub.WithKey(...),
+//		pubsub.WithExperimentalObjectsPlugin(myObjectsPlugin),
 //	)
 //
-// The plugin is used to prepare object messages to be published in the
-// realtime channel's publishObjects method, and is used to handle incoming
-// object and object sync messages.
+// The client calls the plugin to prepare the object messages published with a
+// channel's ExperimentalObjects.PublishObjects, and to handle incoming object
+// and object sync messages.
 type Plugin interface {
 	// PrepareObject prepares an object to be published (e.g. setting the
-	// objectId and intialValue for a COUNTER_CREATE op).
+	// objectId and initialValue for a COUNTER_CREATE op).
 	PrepareObject(msg *Message) error
 
 	// HandleObjectMessages is called to handle incoming object messages.

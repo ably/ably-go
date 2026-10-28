@@ -57,7 +57,7 @@ func TestDeviceReExportsInternalAPI(t *testing.T) {
 			"Add them to device/pubsub/api.go, or to deviceOmits if only an HTTP client can reach them.", strings.Join(missing, ", "))
 	}
 
-	device := exportedNames(t, "../../device/pubsub", "", false)
+	device := exportedNames(t, "../../device/pubsub")
 	for _, name := range deviceOmits {
 		if device[name] {
 			t.Errorf("device/pubsub re-exports %s, which deviceOmits says only an HTTP client can reach", name)
@@ -65,16 +65,26 @@ func TestDeviceReExportsInternalAPI(t *testing.T) {
 	}
 }
 
-// missingFrom returns the internal/ably names, plus the LiveObjects names under
-// their Objects prefix, that the package in dir does not declare and that are
-// neither in notReExported nor in also.
+// TestPubSubHasNoObjectsPrefixedNames keeps the LiveObjects names in the
+// objects package, so that the Objects-prefixed re-exports they replaced do
+// not come back to pubsub.
+func TestPubSubHasNoObjectsPrefixedNames(t *testing.T) {
+	for _, dir := range []string{"../../server/pubsub", "../../device/pubsub"} {
+		for name := range exportedNames(t, dir) {
+			if strings.HasPrefix(name, "Objects") {
+				t.Errorf("%s exports %s; LiveObjects names belong in the objects package",
+					strings.TrimPrefix(dir, "../../"), name)
+			}
+		}
+	}
+}
+
+// missingFrom returns the internal/ably names that the package in dir does not
+// declare and that are neither in notReExported nor in also.
 func missingFrom(t *testing.T, dir string, also map[string]bool) []string {
 	t.Helper()
-	want := exportedNames(t, "../../internal/ably", "", false)
-	for name := range exportedNames(t, "../../internal/ably/objects", "Objects", true) {
-		want[name] = true
-	}
-	have := exportedNames(t, dir, "", false)
+	want := exportedNames(t, "../../internal/ably")
+	have := exportedNames(t, dir)
 
 	var missing []string
 	for name := range want {
@@ -87,10 +97,8 @@ func missingFrom(t *testing.T, dir string, also map[string]bool) []string {
 }
 
 // exportedNames returns the exported package-level names declared in the
-// non-test files of the package in dir. The prefix and the dropping of
-// underscores give a LiveObjects name its re-exported spelling, so that
-// objects.Operation_MapSet is looked for as ObjectsOperationMapSet.
-func exportedNames(t *testing.T, dir, prefix string, dropUnderscores bool) map[string]bool {
+// non-test files of the package in dir.
+func exportedNames(t *testing.T, dir string) map[string]bool {
 	t.Helper()
 	pkgs, err := parser.ParseDir(token.NewFileSet(), dir, func(fi os.FileInfo) bool {
 		return !strings.HasSuffix(fi.Name(), "_test.go")
@@ -100,13 +108,9 @@ func exportedNames(t *testing.T, dir, prefix string, dropUnderscores bool) map[s
 	}
 	names := map[string]bool{}
 	add := func(name string) {
-		if !ast.IsExported(name) {
-			return
+		if ast.IsExported(name) {
+			names[name] = true
 		}
-		if dropUnderscores {
-			name = strings.ReplaceAll(name, "_", "")
-		}
-		names[prefix+name] = true
 	}
 	for _, pkg := range pkgs {
 		for _, file := range pkg.Files {

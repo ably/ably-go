@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ably/ably-pubsub-go/internal/ably"
-	"github.com/ably/ably-pubsub-go/internal/ably/objects"
+	"github.com/ably/ably-pubsub-go/objects"
 )
 
 // Types.
@@ -234,7 +234,7 @@ type RealtimeChannel = ably.RealtimeChannel
 type RealtimeChannels = ably.RealtimeChannels
 
 // RealtimeExperimentalObjects exposes a method to publish LiveObject messages on a Realtime channel.
-// It requires the LiveObjects plugin to be configured; see [ObjectsPlugin].
+// It requires the LiveObjects plugin to be configured; see [objects.Plugin].
 //
 // NOTE: this option is experimental, the LiveObjects plugin API may change in a
 // backwards incompatible way between minor/patch versions. Once the API has been finalised,
@@ -326,78 +326,6 @@ type UpdateOption = ably.UpdateOption
 // VCDiffDecoder provides an interface for decoding vcdiff-encoded message payloads (VD1, VD2).
 // This interface must be implemented by plugins that provide vcdiff delta decoding functionality.
 type VCDiffDecoder = ably.VCDiffDecoder
-
-// LiveObjects types. The Objects prefix keeps them apart from the
-// same-named types of the main API once both live in one package.
-
-type ObjectsCounter = objects.Counter
-
-type ObjectsCounterCreate = objects.CounterCreate
-
-type ObjectsCounterCreateWithObjectId = objects.CounterCreateWithObjectId
-
-type ObjectsCounterInc = objects.CounterInc
-
-type ObjectsCounterOp = objects.CounterOp
-
-type ObjectsData = objects.Data
-
-type ObjectsMap = objects.Map
-
-type ObjectsMapCreate = objects.MapCreate
-
-type ObjectsMapCreateWithObjectId = objects.MapCreateWithObjectId
-
-type ObjectsMapEntry = objects.MapEntry
-
-type ObjectsMapOp = objects.MapOp
-
-type ObjectsMapRemove = objects.MapRemove
-
-type ObjectsMapSemantics = objects.MapSemantics
-
-type ObjectsMapSet = objects.MapSet
-
-type ObjectsMessage = objects.Message
-
-type ObjectsObjectDelete = objects.ObjectDelete
-
-type ObjectsOperation = objects.Operation
-
-type ObjectsOperationAction = objects.OperationAction
-
-// Plugin is used to add LiveObject functionality to a realtime client:
-//
-//	client, err := NewRealtime(
-//		WithKey(...),
-//		WithExperimentalObjectsPlugin(myObjectsPlugin),
-//	)
-//
-// The plugin is used to prepare object messages to be published in the
-// realtime channel's publishObjects method, and is used to handle incoming
-// object and object sync messages.
-type ObjectsPlugin = objects.Plugin
-
-type ObjectsState = objects.State
-
-// LiveObjects constants. The values of the objects package's enums, with the
-// same Objects prefix as their types and the underscore dropped.
-const (
-	// ObjectsOperationMapCreate creates a new map object.
-	ObjectsOperationMapCreate = objects.Operation_MapCreate
-	// ObjectsOperationMapSet sets a key in a map object.
-	ObjectsOperationMapSet = objects.Operation_MapSet
-	// ObjectsOperationMapRemove removes a key from a map object.
-	ObjectsOperationMapRemove = objects.Operation_MapRemove
-	// ObjectsOperationCounterCreate creates a new counter object.
-	ObjectsOperationCounterCreate = objects.Operation_CounterCreate
-	// ObjectsOperationCounterInc increments a counter object.
-	ObjectsOperationCounterInc = objects.Operation_CounterInc
-	// ObjectsOperationDelete deletes an object.
-	ObjectsOperationDelete = objects.Operation_Delete
-	// ObjectsMapLWW is the last-write-wins conflict-resolution semantics of a map object.
-	ObjectsMapLWW = objects.Map_LWW
-)
 
 // Constants and variables.
 
@@ -1267,7 +1195,7 @@ func WithEndpoint(endpoint string) ClientOption {
 // a new non-experimental option will be added, and this one will be removed.
 //
 // [LiveObjects]: https://ably.com/docs/liveobjects
-func WithExperimentalObjectsPlugin(plugin ObjectsPlugin) ClientOption {
+func WithExperimentalObjectsPlugin(plugin objects.Plugin) ClientOption {
 	return ably.WithExperimentalObjectsPlugin(plugin)
 }
 

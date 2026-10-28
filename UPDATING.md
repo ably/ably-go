@@ -31,9 +31,11 @@ Both packages are named `pubsub`, so most call sites read the same either way. T
 constructors differ (`NewHTTPClient` and `NewRealtimeClient` on a server, `NewClient`
 on a device), and the device package has no HTTP-only API.
 Each one re-exports the whole API it needs — channels, messages, presence,
-options, errors — so an application imports one of them and nothing else. The
-re-exports are type aliases, so the types are the same across both packages:
-the `Message` of one is the `Message` of the other.
+options, errors — so an application imports one of them and nothing else,
+unless it uses LiveObjects: the LiveObjects types are in the shared
+`github.com/ably/ably-pubsub-go/objects` package (see the list of differences
+below). The re-exports are type aliases, so the types are the same across both
+packages: the `Message` of one is the `Message` of the other.
 
 ```go
 // Before
@@ -80,12 +82,11 @@ Differences to be aware of:
   A device `Client` still has `Stats` and `Time`, and the HTTP options that
   apply to the requests it makes (`WithHTTPClient`, `WithHTTPRequestTimeout`,
   `WithIdempotentHTTPPublishing`).
-- The LiveObjects names of the old `ably/objects` package are re-exported with
-  an `Objects` prefix, so that `objects.Message` and `ably.Message` can live in
-  one package: `objects.Plugin` is now `pubsub.ObjectsPlugin`, `objects.Map` is
-  `pubsub.ObjectsMap`, and so on. The constants also drop their underscore:
-  `objects.Operation_MapSet` is now `pubsub.ObjectsOperationMapSet`, and
-  `objects.Map_LWW` is `pubsub.ObjectsMapLWW`.
+- The old `ably/objects` package moved, unchanged, to
+  `github.com/ably/ably-pubsub-go/objects`, which both entry points share.
+  Only the import path changes: `objects.Plugin` and
+  `objects.Operation_MapSet` keep their names. `WithExperimentalObjectsPlugin`
+  stays in `pubsub`.
 - `ably.WithDial` is not re-exported. Its signature names an unexported type,
   so no caller outside the implementation package could ever have supplied a
   usable argument to it.

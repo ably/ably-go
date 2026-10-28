@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ably/ably-pubsub-go/internal/ably/objects"
+	"github.com/ably/ably-pubsub-go/objects"
 	"github.com/stretchr/testify/assert"
 )
 
