@@ -172,8 +172,8 @@ type Message struct {
 	ClientID string `json:"clientId,omitempty" codec:"clientId,omitempty"`
 	// ConnectionID of the publisher of this message (TM2c).
 	ConnectionID string `json:"connectionId,omitempty" codec:"connectionId,omitempty"`
-	// Deprecated: This attribute is deprecated and will be removed in future versions
-	// ConnectionKey is a connectionKey of the active connection.
+	// ConnectionKey is needed only when one client publishes this message on behalf of another
+	// client. It is never populated for received messages (TM2h).
 	ConnectionKey string `json:"connectionKey,omitempty" codec:"connectionKey,omitempty"`
 	// Name is the event name (TM2g).
 	Name string `json:"name,omitempty" codec:"name,omitempty"`

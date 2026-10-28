@@ -54,14 +54,15 @@ code runs:
 
 | Import path | Use it for |
 | --- | --- |
-| `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key. Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
+| `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key (or a token carrying the signed server claim, today a JWT). Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
 | `github.com/ably/ably-pubsub-go/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers a realtime client. |
 
 Both packages are named `pubsub`, after the last element of their import path,
-so only the import path differs between them and the call site reads the same
-either way. Each entry point exposes the whole API it needs — channels,
-messages, presence, options, errors — so an application imports one of them
-and nothing else.
+so most call sites read the same either way. The constructors differ, though
+(`NewHTTPClient` and `NewRealtimeClient` on a server, `NewClient` on a device),
+and the device package has no HTTP-only API. Each entry point exposes the whole
+API it needs — channels, messages, presence, options, errors — so an
+application imports one of them and nothing else.
 
 ---
 
