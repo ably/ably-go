@@ -135,7 +135,11 @@ func (q *pendingEmitter) Enqueue(msg *protocolMessage, ackCallback *msgAckCallba
 	q.queue = append(q.queue, msgWithAckCallback{msg: msg, ackCallback: ackCallback})
 }
 
-func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
+// Ack removes the messages that msg ACKs or NACKs, and returns a function
+// that calls their callbacks. Callers holding the connection lock call it
+// after releasing the lock, so that the callbacks can call the client.
+func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) (callAcks func()) {
+	callAcks = func() {}
 	// The msgSerial from the server may not be the same we're waiting. If the
 	// server skipped some messages, they get implicitly NACKed. If the server
 	// ACKed some messages again, we ignore those. In both cases, we just need
@@ -164,7 +168,7 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 		// messages can safely be ignored, so we just emit a debug
 		// log to aid in further investigation.
 		q.log.Debugf("protocol violation: received ACK for %d messages from serial %d, but current message serial is %d", msg.Count, msg.MsgSerial, messageChannel.msg.MsgSerial)
-		return
+		return callAcks
 	}
 	acked := q.queue[:count]
 	q.queue = q.queue[count:]
@@ -174,8 +178,9 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 		err = errNACKWithoutError
 	}
 
+	var calls []func()
 	for i, sch := range acked {
-		err := err
+		sch, err := sch, err
 		if i < serialShift {
 			err = errImplictNACK
 		}
@@ -189,7 +194,12 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) {
 		if msg.Res != nil && resIndex >= 0 && resIndex < len(msg.Res) {
 			result = []*protocolPublishResult{msg.Res[resIndex]}
 		}
-		sch.ackCallback.call(result, err)
+		calls = append(calls, func() { sch.ackCallback.call(result, err) })
+	}
+	return func() {
+		for _, call := range calls {
+			call()
+		}
 	}
 }
 

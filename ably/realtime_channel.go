@@ -727,7 +727,8 @@ func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interfa
 // PublishAsync is the same as Publish except instead of blocking it calls onAck
 // with nil if the publish was successful or the appropriate error.
 //
-// Note onAck must not block as it would block the internal client.
+// Note onAck must not block as it would block the internal client. It may call
+// the client's methods.
 func (c *RealtimeChannel) PublishAsync(name string, data interface{}, onAck func(err error)) error {
 	return c.PublishMultipleAsync([]*Message{{Name: name, Data: data}}, onAck)
 }

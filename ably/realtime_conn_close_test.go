@@ -802,6 +802,72 @@ func TestRealtimeConn_RTN14e_SuspendedWhenTokenRenewalKeepsFailing(t *testing.T)
 	assert.Greater(t, atomic.LoadInt32(&dials), dialsWhenSuspended, "expected retries from SUSPENDED")
 }
 
+// publishAsyncCallingClient publishes with PublishAsync, whose callback calls
+// back into the client before reporting the result.
+func publishAsyncCallingClient(t *testing.T, client *ably.Realtime) <-chan error {
+	t.Helper()
+	result := make(chan error, 1)
+	err := client.Channels.Get("test").PublishAsync("name", "data", func(err error) {
+		client.Connection.State()
+		result <- err
+	})
+	require.NoError(t, err)
+	return result
+}
+
+// Publish callbacks run without the connection lock held, so that they can
+// call the client.
+func TestRealtimeConn_PublishCallbackCanCallClient(t *testing.T) {
+	t.Run("on ACK", func(t *testing.T) {
+		client, _, d := connectedPipeClient(t)
+		result := publishAsyncCallingClient(t, client)
+		var sent *ably.ProtocolMessage
+		ablytest.Soon.Recv(t, &sent, d.out, t.Fatalf)
+
+		d.in <- &ably.ProtocolMessage{Action: ably.ActionAck, MsgSerial: sent.MsgSerial, Count: 1}
+		var err error
+		ablytest.Before(closeTestOpTimeout).Recv(t, &err, result, t.Fatalf)
+		assert.NoError(t, err)
+	})
+
+	t.Run("RTN7e: when Close fails a message awaiting an ACK", func(t *testing.T) {
+		pipe := newPipeDialer()
+		var dials int32
+		client, changes := newClientWithDialer(t, func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+			if atomic.AddInt32(&dials, 1) == 1 {
+				return pipe.dial(proto, u, timeout)
+			}
+			return nil, errors.New("dial failed")
+		})
+		pipe.in <- &ably.ProtocolMessage{
+			Action:            ably.ActionConnected,
+			ConnectionID:      "connection-id",
+			ConnectionDetails: &ably.ConnectionDetails{},
+		}
+		client.Connect()
+		expectState(t, changes, ably.ConnectionStateConnecting)
+		expectState(t, changes, ably.ConnectionStateConnected)
+
+		result := publishAsyncCallingClient(t, client)
+		expectSent(t, pipe, ably.ActionMessage)
+		// Kept for resending while DISCONNECTED (RTN19a).
+		pipe.in <- &ably.ProtocolMessage{Action: ably.ActionDisconnected}
+		expectState(t, changes, ably.ConnectionStateDisconnected)
+
+		// From DISCONNECTED, Close moves straight to CLOSED on the calling
+		// goroutine (RTN12d), failing the message.
+		closed := make(chan struct{})
+		go func() {
+			client.Close()
+			close(closed)
+		}()
+		ablytest.Before(closeTestOpTimeout).Recv(t, nil, closed, t.Fatalf)
+		var err error
+		ablytest.Before(closeTestOpTimeout).Recv(t, &err, result, t.Fatalf)
+		assert.Error(t, err)
+	})
+}
+
 func TestRealtimeConn_RTN7e_MessagesFailOnSuspended(t *testing.T) {
 	// Long enough that a slow test runner doesn't reach SUSPENDED before the
 	// checks that the message is still queued.

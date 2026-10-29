@@ -40,6 +40,10 @@ type Connection struct {
 	// interruptionErr is the reason for the latest interruption. It's
 	// guarded by mtx.
 	interruptionErr error
+	// failedAcks call the callbacks of messages awaiting an ACK that an
+	// interruption failed. A state change handler calls them, without the
+	// lock held, so that they can call the client. It's guarded by mtx.
+	failedAcks []func()
 	// disconnectedAt is when the connection last became DISCONNECTED after
 	// being connected, closed or failed. It's kept through retries, and while
 	// SUSPENDED, so that a token renewal that keeps failing reaches SUSPENDED
@@ -128,6 +132,7 @@ func newConn(opts *clientOptions, auth *Auth, callbacks connCallbacks, client *R
 	c.queue = newMsgQueue(c)
 	c.internalEmitter.OnAll(func(change ConnectionStateChange) {
 		if isInterruption(change) {
+			c.callFailedAcks()
 			c.queue.FailInterrupted(interruptionError(change)) // RTN7e
 		}
 	})
@@ -888,14 +893,11 @@ func (c *Connection) eventloop(conn conn) {
 		msg.updateInnerMessagesEmptyFields() // TM2a, TM2c, TM2f
 		switch msg.Action {
 		case actionHeartbeat:
-		case actionAck:
+		case actionAck, actionNack:
 			c.mtx.Lock()
-			c.pending.Ack(msg, newErrorFromProto(msg.Error))
+			callAcks := c.pending.Ack(msg, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
-		case actionNack:
-			c.mtx.Lock()
-			c.pending.Ack(msg, newErrorFromProto(msg.Error))
-			c.mtx.Unlock()
+			callAcks()
 		case actionError:
 
 			if msg.Channel != "" {
@@ -1260,15 +1262,26 @@ func (c *Connection) stateAndInterruptions() (ConnectionState, uint32) {
 }
 
 // lockFailPending counts an interruption and fails the messages awaiting an
-// ACK, which won't be acknowledged now (RTN7e). It runs their callbacks with
-// the connection lock held, as pendingEmitter.Ack does. Queued messages are
-// failed by state change handlers, which use the interruption count to keep
-// messages queued since a reopen.
+// ACK, which won't be acknowledged now (RTN7e). Their callbacks are called by
+// the state change handler, which also fails queued messages, using the
+// interruption count to keep messages queued since a reopen.
 func (c *Connection) lockFailPending(err error) {
 	atomic.AddUint32(&c.interruptions, 1)
 	c.interruptionErr = err
 	for _, m := range c.pending.Dismiss() {
-		m.ackCallback.call(nil, err)
+		m := m
+		c.failedAcks = append(c.failedAcks, func() { m.ackCallback.call(nil, err) })
+	}
+}
+
+// callFailedAcks calls the callbacks of messages that lockFailPending failed.
+func (c *Connection) callFailedAcks() {
+	c.mtx.Lock()
+	calls := c.failedAcks
+	c.failedAcks = nil
+	c.mtx.Unlock()
+	for _, call := range calls {
+		call()
 	}
 }
 
