@@ -231,9 +231,10 @@ type msgQueue struct {
 	mtx   sync.Mutex
 	queue []msgWithAckCallback
 	conn  *Connection
-	// failedInterruptions and failedErr are from the latest FailInterrupted,
-	// for failing messages enqueued after it that were queued before the
-	// interruption it handled.
+	// failedInterruptions and failedErr record the latest interruption that
+	// FailInterrupted handled. Enqueue uses them to fail a message whose
+	// caller checked the connection state before that interruption, but
+	// which reached the queue after it.
 	failedInterruptions uint32
 	failedErr           error
 }

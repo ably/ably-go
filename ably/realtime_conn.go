@@ -387,11 +387,9 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	}
 }
 
-// setStateUnlessClosing transitions to state after a failed connection
-// attempt or a server-initiated disconnect, unless Close has been called. In
-// that case it completes the close instead, so that the failure can't
-// resurrect the connection into a retry loop (RTN12f), and returns
-// errClosedWhileReconnecting.
+// setStateUnlessClosing sets state after a failed connection attempt or a
+// server DISCONNECTED, unless Close was called. Then it finishes the close
+// instead and returns errClosedWhileReconnecting (RTN12f).
 func (c *Connection) setStateUnlessClosing(state ConnectionState, err error, retryIn time.Duration) error {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
@@ -829,7 +827,7 @@ func (c *Connection) resendPending() {
 func (c *Connection) eventloop(conn conn) {
 	// conn is done with once the eventloop returns. Either a reconnect has
 	// replaced it, or the connection has closed or failed, and then nothing
-	// else would close it (RTN12c).
+	// else would close it.
 	defer conn.Close()
 
 	var lastActivityAt time.Time
@@ -996,7 +994,7 @@ func (c *Connection) eventloop(conn conn) {
 				}
 				// RTN15h2, RTN22a. Ably closes the transport after
 				// DISCONNECTED (RTN15h), so if Close was called, finish
-				// closing rather than reconnecting (RTN12c).
+				// closing rather than reconnecting (RTN12c, RTN12f).
 				if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
 					return
 				}
@@ -1006,7 +1004,7 @@ func (c *Connection) eventloop(conn conn) {
 				})
 				return
 			}
-			// RTN15h3, and RTN12c as above.
+			// RTN15h3, and RTN12c and RTN12f as above.
 			if c.setStateUnlessClosing(ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
 				return
 			}
@@ -1152,10 +1150,10 @@ func (c *Connection) lockedReauthorizationFailed(err error) {
 	c.lockSetState(ConnectionStateDisconnected, err, c.opts.disconnectedRetryTimeout())
 }
 
-// retryAfterReauthorizationFailed reconnects after the disconnected retry
-// timeout, as from any other DISCONNECTED state (RTN14d), once a token
-// renewal has failed and left the connection DISCONNECTED (RTN14b, RTN15h2),
-// unless Close is called first.
+// retryAfterReauthorizationFailed reconnects after disconnectedRetryTimeout,
+// once a token renewal has failed and left the connection DISCONNECTED
+// (RTN14b, RTN15h2), as from any other DISCONNECTED state (RTN14d), unless
+// Close is called first.
 func (c *Connection) retryAfterReauthorizationFailed(arg connArgs) {
 	timerCtx, cancelTimer := c.ctxCancelOnStateTransition()
 	if c.State() == ConnectionStateDisconnected {
@@ -1228,10 +1226,11 @@ func (c *Connection) stateAndInterruptions() (ConnectionState, uint32) {
 	return c.state, c.interruptionCount()
 }
 
-// lockFailPending fails the messages awaiting an ACK, which won't be
-// acknowledged now (RTN7e), like pendingEmitter.Ack does with the connection
-// lock held. Queued messages are failed by state change handlers, which use
-// the interruption count to leave messages queued since a reopen alone.
+// lockFailPending counts an interruption and fails the messages awaiting an
+// ACK, which won't be acknowledged now (RTN7e). It runs their callbacks with
+// the connection lock held, as pendingEmitter.Ack does. Queued messages are
+// failed by state change handlers, which use the interruption count to keep
+// messages queued since a reopen.
 func (c *Connection) lockFailPending(err error) {
 	atomic.AddUint32(&c.interruptions, 1)
 	for _, m := range c.pending.Dismiss() {
@@ -1242,12 +1241,10 @@ func (c *Connection) lockFailPending(err error) {
 func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time.Duration) error {
 	if (c.state == ConnectionStateClosing || c.state == ConnectionStateClosed) &&
 		(state == ConnectionStateDisconnected || state == ConnectionStateSuspended) {
-		// Once Close has been called, a failure must not move the
-		// connection back into a state that retries (RTN12). Finish the
-		// close instead. FAILED is left alone, as fatal errors fail the
-		// connection even while closing (RTN14g, RTN15h1). Failed
-		// connection attempts, which end CLOSED instead (RTN12f), go
-		// through setStateUnlessClosing, which also tells the caller to stop.
+		// After Close, a failure must not move the connection back into a
+		// state that retries (RTN12f), so finish the close instead. FAILED is
+		// allowed, as fatal errors still fail it (RTN14g, RTN15h1). This is a
+		// backstop: failed connection attempts use setStateUnlessClosing.
 		if c.state == ConnectionStateClosed {
 			return nil
 		}
