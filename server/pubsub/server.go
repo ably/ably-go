@@ -7,14 +7,23 @@
 // token, Ably rejects the connection or request with error 40167 ("Client type
 // declaration not signed by token").
 //
-// It is imported from github.com/ably/ably-pubsub-go/v2/server/pubsub. Both entry
-// points are named pubsub, after the product, so that they read the same at
-// the call site and the server segment of the import path alone says which side
-// the code runs on.
+// It is imported from github.com/ably/ably-pubsub-go/v2/server/pubsub. Both
+// entry points are named pubsub, after the product, so that they read the same
+// at the call site and the server segment of the import path alone says which
+// side the code runs on.
 //
 // The rest of the API this package exposes — channels, messages, presence,
 // options, errors — is re-exported from the implementation in internal/ably
 // and lives in api.go.
+//
+// # Reference
+//
+// Most types here are aliases of the implementation, so their methods and
+// fields are documented with it. See the [full API reference]. The import path
+// shown on that page is internal and can't be imported; import this package
+// instead.
+//
+// [full API reference]: https://pkg.go.dev/github.com/ably/ably-pubsub-go/v2/internal/ably
 package pubsub
 
 import "github.com/ably/ably-pubsub-go/v2/internal/ably"
@@ -26,9 +35,17 @@ import "github.com/ably/ably-pubsub-go/v2/internal/ably"
 const agentName = "ably-pubsub-server"
 
 // HTTPClient is a server Pub/Sub client that operates entirely over HTTP.
+//
+// Fields: Auth, Channels.
+//
+// Methods: Request, Stats, Time.
 type HTTPClient = ably.HTTPClient
 
 // RealtimeClient is a server Pub/Sub client with a realtime connection.
+//
+// Fields: Auth, Channels, Connection.
+//
+// Methods: Connect, Close, Stats, Time.
 type RealtimeClient = ably.Realtime
 
 // NewHTTPClient constructs a server Pub/Sub client that operates entirely

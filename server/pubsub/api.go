@@ -19,6 +19,8 @@ type AblyVCDiffDecoder = ably.AblyVCDiffDecoder
 
 // Auth creates Ably [TokenRequest] objects and obtains Ably Tokens from Ably to
 // subsequently issue to less trusted clients.
+//
+// Methods: Authorize, ClientID, CreateTokenRequest, RequestToken.
 type Auth = ably.Auth
 
 // AuthOption configures authentication/authorization for a [HTTPClient] or [RealtimeClient]
@@ -81,6 +83,9 @@ type ClientOption = ably.ClientOption
 
 // Connection represents a single connection Realtime instantiates for communication with Ably servers.
 // It also enables the management of a connection to Ably.
+//
+// Methods: Connect, Close, State, ErrorReason, ID, Key, CreateRecoveryKey,
+// SetReadLimit, On, OnAll, Once, OnceAll, Off, OffAll.
 type Connection = ably.Connection
 
 // ConnectionEvent describes the events emitted by a [Connection] object.
@@ -120,10 +125,18 @@ type GetPresenceOption = ably.GetPresenceOption
 
 // HTTPChannel performs operations on a channel over HTTP, using the Ably REST API.
 // It enables messages to be published and historic messages to be retrieved for a channel.
+//
+// Fields: Name, Presence.
+//
+// Methods: Publish, PublishMultiple, PublishWithResult,
+// PublishMultipleWithResult, History, GetMessage, GetMessageVersions,
+// UpdateMessage, DeleteMessage, AppendMessage, Status.
 type HTTPChannel = ably.HTTPChannel
 
 // HTTPChannels provides an API for managing collection of HTTPChannel.
 // This is safe for concurrent use.
+//
+// Methods: Get, Exists, Iterate, Release.
 type HTTPChannels = ably.HTTPChannels
 
 type HTTPPaginatedItems = ably.HTTPPaginatedItems
@@ -135,6 +148,8 @@ type HTTPPaginatedItems = ably.HTTPPaginatedItems
 type HTTPPaginatedResponse = ably.HTTPPaginatedResponse
 
 // HTTPPresence enables the retrieval of the current and historic presence set for a channel.
+//
+// Methods: Get, History.
 type HTTPPresence = ably.HTTPPresence
 
 // HTTPRequest represents a request prepared by the HTTPClient.Request method, ready
@@ -226,11 +241,21 @@ type PushStats = ably.PushStats
 // RealtimeChannel represents a single named message/presence channel.
 // It enables messages to be published and subscribed to. Also enables historic messages to be retrieved and
 // provides access to the [RealtimePresence] object of a channel.
+//
+// Fields: Name, Presence, ExperimentalObjects.
+//
+// Methods: Attach, Detach, Publish, PublishMultiple, PublishWithResult,
+// PublishMultipleWithResult, Subscribe, SubscribeAll, History,
+// HistoryUntilAttach, GetMessage, GetMessageVersions, UpdateMessage,
+// DeleteMessage, AppendMessage, State, ErrorReason, Modes, Params.
+// Publish and message updates also have Async variants.
 type RealtimeChannel = ably.RealtimeChannel
 
 // RealtimeChannels is a goroutine-safe container for realtime channels that allows for creating,
 // deleting and iterating over existing channels.
 // Creates and destroys [RealtimeChannel] objects.
+//
+// Methods: Get, GetDerived, Exists, Iterate, Release.
 type RealtimeChannels = ably.RealtimeChannels
 
 // RealtimeExperimentalObjects exposes a method to publish LiveObject messages on a Realtime channel.
@@ -246,6 +271,9 @@ type RealtimeExperimentalObjects = ably.RealtimeExperimentalObjects
 // RealtimePresence represents a single presence map of a particular channel.
 // It allows entering, leaving and updating presence state for the current client or on behalf of other client.
 // It enables the presence set to be entered and subscribed to, and the historic presence set to be retrieved for a channel.
+//
+// Methods: Enter, EnterClient, Update, UpdateClient, Leave, LeaveClient, Get,
+// GetWithOptions, Subscribe, SubscribeAll, SyncComplete.
 type RealtimePresence = ably.RealtimePresence
 
 // RecoveryKeyContext contains the properties required to recover existing connection.
