@@ -353,8 +353,8 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 	case ConnectionStateFailed:
 		c.setState(ChannelStateFailed, change.Reason, false)
 	case ConnectionStateClosed:
-		// RTL3b. Like ably-js, also detach DETACHING and SUSPENDED
-		// channels, so that a pending Detach completes.
+		// RTL3b covers ATTACHING and ATTACHED. Like ably-js, also detach
+		// DETACHING and SUSPENDED channels, so that a pending Detach completes.
 		switch c.State() {
 		case ChannelStateAttaching, ChannelStateAttached, ChannelStateDetaching, ChannelStateSuspended:
 			// Give the reason, so that pending operations fail with an
