@@ -896,6 +896,13 @@ func (c *Connection) eventloop(conn conn) {
 			reauthorizing := c.reauthorizing
 			c.reauthorizing = false
 			if isTokenError(msg.Error) {
+				// RSA4a2: with no means to renew the token, the connection
+				// fails, even while closing, as for DISCONNECTED (RTN15h1).
+				if !c.auth.isTokenRenewable() {
+					c.mtx.Unlock()
+					c.failedConnSideEffects(msg.Error)
+					return
+				}
 				if c.lockFinishClose() {
 					// Close was called, so don't renew the token and
 					// reconnect (RTN12f). Any other ERROR is fatal and
