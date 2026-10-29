@@ -202,6 +202,7 @@ func (c *Connection) SetReadLimit(readLimit int64) {
 // Close causes the connection to close, entering the [ably.ConnectionStateClosing] state.
 // Once connection state is [ably.ConnectionStateClosed], the library does not attempt to re-establish
 // the connection without an explicit call to Connection.Connect (RTN12).
+// Messages that are queued or awaiting an acknowledgement fail when the connection closes (RTN7e).
 func (c *Connection) Close() {
 	c.close()
 }
