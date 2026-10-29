@@ -81,7 +81,7 @@ Differences to be aware of:
 
   A device `Client` still has `Stats` and `Time`, and the HTTP options that
   apply to the requests it makes (`WithHTTPClient`, `WithHTTPRequestTimeout`,
-  `WithIdempotentHTTPPublishing`).
+  `WithIdempotentRESTPublishing`).
 - The old `ably/objects` package moved, unchanged, to
   `github.com/ably/ably-pubsub-go/objects`, which both entry points share.
   Only the import path changes: `objects.Plugin` and
@@ -97,9 +97,10 @@ name that an entry point neither re-exports nor lists as deliberately left out.
 
 ### The `REST` prefix is now `HTTP`
 
-The `REST` prefix has been removed from the public API. Every exported identifier that
-named the stateless, HTTP-based client now uses an `HTTP` prefix instead, so that the
-Go type names describe the transport rather than the Ably REST API they talk to.
+The `REST` prefix has been removed from the public API, except in one option name (see
+below). Every exported identifier that named the stateless, HTTP-based client now uses
+an `HTTP` prefix instead, so that the Go type names describe the transport rather than
+the Ably REST API they talk to.
 
 These are **breaking changes**: the old names have been removed outright rather than kept
 as deprecated aliases. The new names are exported from
@@ -121,7 +122,9 @@ as deprecated aliases. The new names are exported from
 | Before | After |
 | --- | --- |
 | `ably.NewREST` | `pubsub.NewHTTPClient` |
-| `ably.WithIdempotentRESTPublishing` | `pubsub.WithIdempotentHTTPPublishing` |
+
+`WithIdempotentRESTPublishing` (the `IdempotentRESTPublishing` option) deliberately
+keeps its name, which is the specification's (TO3n).
 
 #### Example
 

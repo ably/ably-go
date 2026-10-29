@@ -110,7 +110,7 @@ func (c *HTTPChannel) publishMultiple(ctx context.Context, messages []*Message, 
 			return fmt.Errorf("encoding data for message #%d: %w", i, err)
 		}
 	}
-	useIdempotent := c.client.opts.idempotentHTTPPublishing()
+	useIdempotent := c.client.opts.idempotentRESTPublishing()
 	if useIdempotent {
 		switch len(messages) {
 		case 1:

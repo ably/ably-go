@@ -49,7 +49,7 @@ var defaultOptions = clientOptions{
 	HTTPOpenTimeout:          4 * time.Second,  //TO3l3
 	ChannelRetryTimeout:      15 * time.Second, // TO3l7
 	FallbackRetryTimeout:     10 * time.Minute,
-	IdempotentHTTPPublishing: true, // TO3n
+	IdempotentRESTPublishing: true, // TO3n
 	Port:                     Port,
 	TLSPort:                  TLSPort,
 	Now:                      time.Now,
@@ -337,11 +337,11 @@ type clientOptions struct {
 	// The default is true (TO3f).
 	NoBinaryProtocol bool
 
-	// IdempotentHTTPPublishing when set to true, enables idempotent publishing by assigning a
+	// IdempotentRESTPublishing when set to true, enables idempotent publishing by assigning a
 	// unique message ID client-side, allowing the Ably servers to discard automatic publish retries
 	// following a failure such as a network fault.
 	// The default is true (RSL1k1, RTL6a1, TO3n).
-	IdempotentHTTPPublishing bool
+	IdempotentRESTPublishing bool
 
 	TimeoutDisconnect time.Duration // time period after which disconnect request is failed
 
@@ -591,8 +591,8 @@ func (opts *clientOptions) protocol() string {
 	return protocolMsgPack
 }
 
-func (opts *clientOptions) idempotentHTTPPublishing() bool {
-	return opts.IdempotentHTTPPublishing
+func (opts *clientOptions) idempotentRESTPublishing() bool {
+	return opts.IdempotentRESTPublishing
 }
 
 // RTN17c
@@ -1274,14 +1274,14 @@ func WithHTTPMaxRetryCount(count int) ClientOption {
 	}
 }
 
-// WithIdempotentHTTPPublishing is used for setting IdempotentHTTPPublishing using [ably.ClientOption].
-// IdempotentHTTPPublishing when set to true, enables idempotent publishing by assigning a
+// WithIdempotentRESTPublishing is used for setting IdempotentRESTPublishing using [ably.ClientOption].
+// IdempotentRESTPublishing when set to true, enables idempotent publishing by assigning a
 // unique message ID client-side, allowing the Ably servers to discard automatic publish retries
 // following a failure such as a network fault.
 // The default is true (RSL1k1, RTL6a1, TO3n).
-func WithIdempotentHTTPPublishing(idempotent bool) ClientOption {
+func WithIdempotentRESTPublishing(idempotent bool) ClientOption {
 	return func(os *clientOptions) {
-		os.IdempotentHTTPPublishing = idempotent
+		os.IdempotentRESTPublishing = idempotent
 	}
 }
 

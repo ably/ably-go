@@ -144,7 +144,7 @@ func TestHTTPChannel(t *testing.T) {
 func TestIdempotentPublishing(t *testing.T) {
 	app, err := ablytest.NewSandbox()
 	require.NoError(t, err)
-	options := app.Options(ably.WithIdempotentHTTPPublishing(true))
+	options := app.Options(ably.WithIdempotentRESTPublishing(true))
 	client, err := ably.NewHTTPClient(options...)
 	require.NoError(t, err)
 	randomStr, err := ablyutil.BaseID()
@@ -312,7 +312,7 @@ func TestIdempotent_retry(t *testing.T) {
 		nopts := []ably.ClientOption{
 			ably.WithTLS(false),
 			ably.WithFallbackHosts(fallbackHosts),
-			ably.WithIdempotentHTTPPublishing(true),
+			ably.WithIdempotentRESTPublishing(true),
 			ably.WithUseTokenAuth(true),
 		}
 

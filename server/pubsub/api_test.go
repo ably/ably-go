@@ -19,7 +19,7 @@ func TestReExportedAPIIsSelfContained(t *testing.T) {
 		pubsub.WithClientID("me"),
 		pubsub.WithLogLevel(pubsub.LogError),
 		pubsub.WithHTTPRequestTimeout(time.Second),
-		pubsub.WithIdempotentHTTPPublishing(true),
+		pubsub.WithIdempotentRESTPublishing(true),
 	)
 	require.NoError(t, err)
 
