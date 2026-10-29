@@ -266,13 +266,27 @@ func (q *msgQueue) Enqueue(msg *protocolMessage, ackCallback *msgAckCallback, in
 	q.mtx.Unlock()
 }
 
+// Flush sends the queued messages, except those queued before the latest
+// interruption, which it fails as FailInterrupted would (RTN7e). The state
+// change handler that runs FailInterrupted may not have run yet.
 func (q *msgQueue) Flush() {
+	interruptions, interruptionErr := q.conn.latestInterruption()
+	var failed []msgWithAckCallback
 	q.mtx.Lock()
 	for _, queueMsg := range q.queue {
+		// A message without a callback, such as an ATTACH, is still sent.
+		if queueMsg.interruptions < interruptions && queueMsg.ackCallback != nil {
+			failed = append(failed, queueMsg)
+			continue
+		}
 		q.conn.send(queueMsg.msg, queueMsg.ackCallback)
 	}
 	q.queue = nil
 	q.mtx.Unlock()
+	for _, m := range failed {
+		q.log().Debugf("failing queued message (serial=%d): %v", m.msg.MsgSerial, interruptionErr)
+		m.ackCallback.call(nil, interruptionErr)
+	}
 }
 
 func (q *msgQueue) Fail(err error) {

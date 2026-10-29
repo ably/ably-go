@@ -37,6 +37,9 @@ type Connection struct {
 	// interruptions counts the times the connection has entered SUSPENDED,
 	// CLOSED or FAILED. It's accessed atomically.
 	interruptions uint32
+	// interruptionErr is the reason for the latest interruption. It's
+	// guarded by mtx.
+	interruptionErr error
 
 	// connMtx - on setConn we write to conn with mtx protection, however in eventLoop we
 	// read conn unprotected, this is racy because now we establish connection in a
@@ -1219,6 +1222,14 @@ func (c *Connection) interruptionCount() uint32 {
 	return atomic.LoadUint32(&c.interruptions)
 }
 
+// latestInterruption returns the interruption count and the reason for the
+// latest interruption.
+func (c *Connection) latestInterruption() (uint32, error) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.interruptionCount(), c.interruptionErr
+}
+
 // stateAndInterruptions returns the connection's state and interruption
 // count together, for deciding to queue a message (see msgQueue.Enqueue).
 func (c *Connection) stateAndInterruptions() (ConnectionState, uint32) {
@@ -1234,6 +1245,7 @@ func (c *Connection) stateAndInterruptions() (ConnectionState, uint32) {
 // messages queued since a reopen.
 func (c *Connection) lockFailPending(err error) {
 	atomic.AddUint32(&c.interruptions, 1)
+	c.interruptionErr = err
 	for _, m := range c.pending.Dismiss() {
 		m.ackCallback.call(nil, err)
 	}

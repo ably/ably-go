@@ -41,6 +41,34 @@ func TestMsgQueue_FailInterrupted(t *testing.T) {
 	require.Len(t, q.queue, 1)
 }
 
+func TestMsgQueue_FlushFailsInterrupted(t *testing.T) {
+	client, err := NewRealtime(WithKey("fake.key:secret"), WithAutoConnect(false))
+	require.NoError(t, err)
+	c := client.Connection
+	q := newMsgQueue(c)
+
+	failed := map[string]error{}
+	enqueue := func(name string, interruptions uint32) {
+		q.Enqueue(&protocolMessage{Action: actionMessage}, &msgAckCallback{onAck: func(err error) {
+			failed[name] = err
+		}}, interruptions)
+	}
+	enqueue("before", 0)
+	q.Enqueue(&protocolMessage{Action: actionAttach}, nil, 0)
+	failure := errors.New("suspended")
+	c.mtx.Lock()
+	c.lockFailPending(failure) // as on SUSPENDED, before FailInterrupted runs
+	c.mtx.Unlock()
+	enqueue("after", 1)
+
+	q.Flush()
+
+	assert.Equal(t, map[string]error{"before": failure}, failed)
+	// The connection isn't connected, so send queues the rest on it.
+	require.Len(t, c.queue.queue, 2, "expected the ATTACH and the message queued after the interruption to be sent")
+	assert.Equal(t, actionAttach, c.queue.queue[0].msg.Action)
+}
+
 func TestConnection_LockSetState_ClosingDoesNotRetry(t *testing.T) {
 	for _, retrying := range []ConnectionState{ConnectionStateDisconnected, ConnectionStateSuspended} {
 		t.Run("RTN12: "+retrying.String()+" while CLOSING ends CLOSED", func(t *testing.T) {

@@ -492,6 +492,47 @@ func TestRealtimeConn_RTL3b_ChannelsDetachOnClosed(t *testing.T) {
 	}
 }
 
+// RTP16b, RTN7e: a presence message queued while the channel attaches is
+// sent once it's attached, also after an earlier interruption. Flush must not
+// treat it as queued before that interruption.
+func TestRealtimeConn_RTP16b_QueuedPresenceSentAfterEarlierInterruption(t *testing.T) {
+	client, changes, d := connectedPipeClient(t,
+		ably.WithKey("fake.key:secret"),
+		ably.WithRealtimeRequestTimeout(closeTestOpTimeout))
+
+	channel := client.Channels.Get("test")
+
+	// Interrupt the connection by closing it, then reconnect.
+	client.Close()
+	expectState(t, changes, ably.ConnectionStateClosing)
+	expectSent(t, d, ably.ActionClose)
+	d.in <- &ably.ProtocolMessage{Action: ably.ActionClosed}
+	expectState(t, changes, ably.ConnectionStateClosed)
+
+	d.in <- &ably.ProtocolMessage{
+		Action:            ably.ActionConnected,
+		ConnectionID:      "connection-id-2",
+		ConnectionDetails: &ably.ConnectionDetails{},
+	}
+	client.Connect()
+	expectState(t, changes, ably.ConnectionStateConnecting)
+	expectState(t, changes, ably.ConnectionStateConnected)
+
+	result := opAsync(func(ctx context.Context) error {
+		return channel.Presence.EnterClient(ctx, "client-id", "data")
+	})
+	expectSent(t, d, ably.ActionAttach)
+	d.in <- &ably.ProtocolMessage{Action: ably.ActionAttached, Channel: channel.Name}
+
+	var sent *ably.ProtocolMessage
+	ablytest.Soon.Recv(t, &sent, d.out, t.Fatalf)
+	require.Equal(t, ably.ActionPresence, sent.Action, "expected the queued presence message to be sent")
+	d.in <- &ably.ProtocolMessage{Action: ably.ActionAck, MsgSerial: sent.MsgSerial, Count: 1}
+	var err error
+	ablytest.Soon.Recv(t, &err, result, t.Fatalf)
+	require.NoError(t, err)
+}
+
 // RTL3b, RTP5a: presence operations queued on a channel that is attaching
 // when the connection closes fail with the connection's error.
 func TestRealtimeConn_RTL3b_QueuedPresenceFailsOnClosed(t *testing.T) {
