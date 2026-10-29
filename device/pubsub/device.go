@@ -2,7 +2,7 @@
 // running on end-user devices, whose connections are identified by a
 // clientId and counted on accounts with monthly-active-user billing.
 //
-// It is imported from github.com/ably/ably-pubsub-go/device/pubsub. Both entry
+// It is imported from github.com/ably/ably-pubsub-go/v2/device/pubsub. Both entry
 // points are named pubsub, after the product, so that they read the same at
 // the call site and the device segment of the import path alone says which side
 // the code runs on.
@@ -13,7 +13,7 @@
 // can reach are not re-exported here.
 package pubsub
 
-import "github.com/ably/ably-pubsub-go/internal/ably"
+import "github.com/ably/ably-pubsub-go/v2/internal/ably"
 
 // agentName is added to the Ably-Agent header of every client this package
 // creates, to tell Ably the client runs on an end-user device (RSC7d). Ably

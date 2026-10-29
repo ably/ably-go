@@ -7,7 +7,7 @@
 // token, Ably rejects the connection or request with error 40167 ("Client type
 // declaration not signed by token").
 //
-// It is imported from github.com/ably/ably-pubsub-go/server/pubsub. Both entry
+// It is imported from github.com/ably/ably-pubsub-go/v2/server/pubsub. Both entry
 // points are named pubsub, after the product, so that they read the same at
 // the call site and the server segment of the import path alone says which side
 // the code runs on.
@@ -17,7 +17,7 @@
 // and lives in api.go.
 package pubsub
 
-import "github.com/ably/ably-pubsub-go/internal/ably"
+import "github.com/ably/ably-pubsub-go/v2/internal/ably"
 
 // agentName is added to the Ably-Agent header of every client this package
 // creates, to tell Ably the client runs on a server (RSC7d). Ably recognises

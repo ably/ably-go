@@ -8,7 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ably/ably-pubsub-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/v2/internal/ably"
 )
 
 // RoundTripRecorder is a http.Transport wrapper which records

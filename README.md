@@ -1,5 +1,5 @@
 ![Ably Pub/Sub Go Header](/image/goSDK-github.png)
-[![Go Reference](https://pkg.go.dev/badge/github.com/ably/ably-pubsub-go/server/pubsub.svg)](https://pkg.go.dev/github.com/ably/ably-pubsub-go/server/pubsub)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ably/ably-pubsub-go/v2/server/pubsub.svg)](https://pkg.go.dev/github.com/ably/ably-pubsub-go/v2/server/pubsub)
 [![License](https://badgen.net/github/license/ably/ably-go)](https://github.com/ably/ably-go/blob/main/LICENSE)
 
 ---
@@ -40,12 +40,12 @@ Ably aims to support a wide range of platforms. If you experience any compatibil
 To get started with your project, install the package:
 
 ```bash
-~ $ go get -u github.com/ably/ably-pubsub-go/server/pubsub   # or .../device/pubsub
+~ $ go get -u github.com/ably/ably-pubsub-go/v2/server/pubsub   # or .../device/pubsub
 ```
 
 > [!NOTE]
 > The module is being renamed from `github.com/ably/ably-go` to
-> `github.com/ably/ably-pubsub-go` for v2. Until the repository move lands,
+> `github.com/ably/ably-pubsub-go/v2` for v2. Until the repository move lands,
 > this path does not resolve and `go get` will fail; build against a local
 > checkout with a `replace` directive in the meantime.
 
@@ -54,8 +54,8 @@ code runs:
 
 | Import path | Use it for |
 | --- | --- |
-| `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key (or a token carrying the signed server claim, today a JWT). Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
-| `github.com/ably/ably-pubsub-go/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers a realtime client. |
+| `github.com/ably/ably-pubsub-go/v2/server/pubsub` | Trusted environments that authenticate with an API key (or a token carrying the signed server claim, today a JWT). Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
+| `github.com/ably/ably-pubsub-go/v2/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers a realtime client. |
 
 Both packages are named `pubsub`, after the last element of their import path,
 so most call sites read the same either way. The constructors differ, though
@@ -71,7 +71,7 @@ application imports one of them and nothing else.
 The following code connects to Ably's realtime messaging service, subscribes to a channel to receive messages, and publishes a test message to that same channel:
 
 ```go
-import "github.com/ably/ably-pubsub-go/server/pubsub"
+import "github.com/ably/ably-pubsub-go/v2/server/pubsub"
 
 // Initialize an Ably realtime client
 client, err := pubsub.NewRealtimeClient(
@@ -102,12 +102,12 @@ channel.SubscribeAll(context.Background(), func(msg *pubsub.Message) {
 channel.Publish(context.Background(), "test-event", "hello world")
 ```
 
-On an end-user device, import `github.com/ably/ably-pubsub-go/device/pubsub`
+On an end-user device, import `github.com/ably/ably-pubsub-go/v2/device/pubsub`
 instead, and authenticate with tokens issued by your own server. Never embed an
 API key in an application that runs on an end-user device:
 
 ```go
-import "github.com/ably/ably-pubsub-go/device/pubsub"
+import "github.com/ably/ably-pubsub-go/v2/device/pubsub"
 
 client, err := pubsub.NewClient(
         pubsub.WithAuthURL("https://your-server.example.com/ably/token"),
