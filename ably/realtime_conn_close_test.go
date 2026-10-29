@@ -124,6 +124,8 @@ func TestRealtimeConn_CloseDuringFailingConnectAttempt(t *testing.T) {
 		client.Connect()
 		expectState(t, changes, ably.ConnectionStateConnecting)
 		ablytest.Soon.Recv(t, nil, d.started, t.Fatalf)
+		// Otherwise the checks that the retry loop exits pass for any code.
+		require.Greater(t, retryLoopGoroutines(), baseline, "retryLoopGoroutines doesn't find the retry loop")
 
 		client.Close()
 		expectState(t, changes, ably.ConnectionStateClosing)
@@ -167,6 +169,8 @@ func TestRealtimeConn_CloseDuringFailingConnectAttempt(t *testing.T) {
 		client.Connect()
 		expectState(t, changes, ably.ConnectionStateConnecting)
 		ablytest.Soon.Recv(t, nil, d.started, t.Fatalf)
+		// Otherwise the checks that the retry loop exits pass for any code.
+		require.Greater(t, retryLoopGoroutines(), baseline, "retryLoopGoroutines doesn't find the retry loop")
 
 		client.Close()
 		expectState(t, changes, ably.ConnectionStateClosing)
@@ -331,14 +335,16 @@ func publishAsync(channel *ably.RealtimeChannel) <-chan error {
 	})
 }
 
-// expectPublishFailed asserts that a publish failed because the connection
-// closed, rather than timing out.
-func expectPublishFailed(t *testing.T, result <-chan error) {
+// expectPublishFailed asserts that a publish failed with the error code want,
+// rather than timing out.
+func expectPublishFailed(t *testing.T, result <-chan error, want ably.ErrorCode) {
 	t.Helper()
 	var err error
 	ablytest.Soon.Recv(t, &err, result, t.Fatalf)
-	require.Error(t, err)
-	assert.NotErrorIs(t, err, context.DeadlineExceeded)
+	var errInfo *ably.ErrorInfo
+	require.ErrorAs(t, err, &errInfo)
+	require.NotNil(t, errInfo)
+	assert.Equal(t, want, errInfo.Code, errInfo.Error())
 }
 
 func TestRealtimeConn_RTN7e_MessagesFailOnClosed(t *testing.T) {
@@ -358,7 +364,7 @@ func TestRealtimeConn_RTN7e_MessagesFailOnClosed(t *testing.T) {
 		d.release <- errors.New("dial timeout")
 		expectState(t, changes, ably.ConnectionStateClosed)
 
-		expectPublishFailed(t, result)
+		expectPublishFailed(t, result, ably.ErrConnectionClosed)
 	})
 
 	for _, tc := range []struct {
@@ -381,7 +387,7 @@ func TestRealtimeConn_RTN7e_MessagesFailOnClosed(t *testing.T) {
 			d.in <- tc.reply
 			expectState(t, changes, ably.ConnectionStateClosed)
 
-			expectPublishFailed(t, result)
+			expectPublishFailed(t, result, ably.ErrConnectionClosed)
 		})
 	}
 
@@ -394,7 +400,7 @@ func TestRealtimeConn_RTN7e_MessagesFailOnClosed(t *testing.T) {
 		d.in <- &ably.ProtocolMessage{Action: ably.ActionError, Error: &ably.ProtoErrorInfo{StatusCode: 500, Code: 50000}}
 		expectState(t, changes, ably.ConnectionStateFailed)
 
-		expectPublishFailed(t, result)
+		expectPublishFailed(t, result, ably.ErrInternalError) // the server's error
 	})
 }
 
@@ -531,6 +537,52 @@ func TestRealtimeConn_RTP16b_QueuedPresenceSentAfterEarlierInterruption(t *testi
 	var err error
 	ablytest.Soon.Recv(t, &err, result, t.Fatalf)
 	require.NoError(t, err)
+}
+
+// RTN7e: a message queued after the connection is reopened is kept, although
+// it's queued before the handler for the earlier CLOSED has run.
+func TestRealtimeConn_RTN7e_MessageQueuedAfterReconnectIsKept(t *testing.T) {
+	d := newFailingDialer(1)
+	client, changes := newClientWithDialer(t, d.dial)
+	// Get the channel first, so that its queue handles the CLOSED.
+	channel := client.Channels.Get("test")
+
+	client.Connect()
+	expectState(t, changes, ably.ConnectionStateConnecting)
+	ablytest.Soon.Recv(t, nil, d.started, t.Fatalf)
+	client.Close()
+	expectState(t, changes, ably.ConnectionStateClosing)
+	d.release <- errors.New("dial timeout")
+	expectState(t, changes, ably.ConnectionStateClosed)
+
+	client.Connect()
+	result := publishAsync(channel)
+	ablytest.Before(closeTestRetryTimeout).NoRecv(t, nil, result, t.Fatalf) // still queued
+}
+
+// RTL3b: like ably-js, a SUSPENDED channel also becomes DETACHED when the
+// connection closes.
+func TestRealtimeConn_RTL3b_SuspendedChannelDetachesOnClosed(t *testing.T) {
+	client, changes, d := connectedPipeClient(t)
+
+	channel := client.Channels.Get("test")
+	channelChanges := make(ably.ChannelStateChanges, 10)
+	off := channel.OnAll(channelChanges.Receive)
+	defer off()
+
+	// The attach times out after realtimeRequestTimeout, which suspends the
+	// channel (RTL4f).
+	attach := opAsync(channel.Attach)
+	expectChannelState(t, channelChanges, ably.ChannelStateAttaching)
+	expectSent(t, d, ably.ActionAttach)
+	expectChannelState(t, channelChanges, ably.ChannelStateSuspended)
+	ablytest.Soon.Recv(t, nil, attach, t.Fatalf)
+
+	client.Close()
+	expectState(t, changes, ably.ConnectionStateClosing)
+	d.in <- &ably.ProtocolMessage{Action: ably.ActionClosed}
+	expectState(t, changes, ably.ConnectionStateClosed)
+	expectChannelState(t, channelChanges, ably.ChannelStateDetached)
 }
 
 // RTL3b, RTP5a: presence operations queued on a channel that is attaching
@@ -711,7 +763,9 @@ func TestRealtimeConn_RetriesAfterTokenRenewalFails(t *testing.T) {
 }
 
 func TestRealtimeConn_RTN7e_MessagesFailOnSuspended(t *testing.T) {
-	const stateTTL = 4 * closeTestRetryTimeout
+	// Long enough that a slow test runner doesn't reach SUSPENDED before the
+	// checks that the message is still queued.
+	const stateTTL = 20 * closeTestRetryTimeout
 
 	t.Run("queued message fails when the connection is SUSPENDED", func(t *testing.T) {
 		d := newFailingDialer(0)
@@ -728,7 +782,7 @@ func TestRealtimeConn_RTN7e_MessagesFailOnSuspended(t *testing.T) {
 		require.True(t, ablytest.Soon.IsTrue(func() bool {
 			return client.Connection.State() == ably.ConnectionStateSuspended
 		}))
-		expectPublishFailed(t, result)
+		expectPublishFailed(t, result, ably.ErrConnectionSuspended)
 	})
 
 	t.Run("message awaiting ACK fails when the connection is SUSPENDED", func(t *testing.T) {
@@ -760,6 +814,6 @@ func TestRealtimeConn_RTN7e_MessagesFailOnSuspended(t *testing.T) {
 		require.True(t, ablytest.Soon.IsTrue(func() bool {
 			return client.Connection.State() == ably.ConnectionStateSuspended
 		}))
-		expectPublishFailed(t, result)
+		expectPublishFailed(t, result, ably.ErrConnectionSuspended)
 	})
 }
