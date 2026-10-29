@@ -263,7 +263,9 @@ func TestRealtimeConn_ServerDisconnectedWhileClosing(t *testing.T) {
 			// CLOSE.
 			d.in <- &ably.ProtocolMessage{Action: ably.ActionDisconnected, Error: tc.err}
 			expectState(t, changes, tc.want)
-			assert.True(t, d.closed(), "expected transport to be closed")
+			// The eventloop closes the transport after emitting the state
+			// change, so wait for it.
+			assert.True(t, ablytest.Soon.IsTrue(d.closed), "expected transport to be closed")
 
 			assertStays(t, tc.want, client, changes, d.count, baseline)
 		})
@@ -294,6 +296,9 @@ func TestRealtimeConn_ServerErrorWhileClosing(t *testing.T) {
 		// didn't succeed after Close was called, so it ends CLOSED.
 		{name: "RTN12f, RTN14b: token error with successful renewal ends CLOSED", err: tokenErr, auth: []ably.ClientOption{ably.WithAuthCallback(renewAlways)}, want: ably.ConnectionStateClosed},
 		{name: "RTN12f, RTN14b: token error with failed renewal ends CLOSED", err: tokenErr, auth: []ably.ClientOption{ably.WithAuthCallback(renewOnce)}, want: ably.ConnectionStateClosed},
+		// A token that can't be renewed fails the connection, as it does
+		// for DISCONNECTED (RTN15h1).
+		{name: "RSA4a2: non-renewable token error ends FAILED", err: tokenErr, auth: []ably.ClientOption{ably.WithToken("fake:token")}, want: ably.ConnectionStateFailed},
 	} {
 		t.Run("ERROR received while CLOSING: "+tc.name, func(t *testing.T) {
 			atomic.StoreInt32(&renewals, 0)
@@ -310,7 +315,9 @@ func TestRealtimeConn_ServerErrorWhileClosing(t *testing.T) {
 
 			d.in <- &ably.ProtocolMessage{Action: ably.ActionError, Error: tc.err}
 			expectState(t, changes, tc.want)
-			assert.True(t, d.closed(), "expected transport to be closed")
+			// The eventloop closes the transport after emitting the state
+			// change, so wait for it.
+			assert.True(t, ablytest.Soon.IsTrue(d.closed), "expected transport to be closed")
 
 			assertStays(t, tc.want, client, changes, d.count, baseline)
 		})
@@ -481,6 +488,75 @@ func TestRealtimeConn_RTL3b_ChannelsDetachOnClosed(t *testing.T) {
 				ablytest.Soon.Recv(t, &err, pending, t.Fatalf)
 				assert.NotErrorIs(t, err, context.DeadlineExceeded)
 			}
+		})
+	}
+}
+
+// RTL3b, RTP5a: presence operations queued on a channel that is attaching
+// when the connection closes fail with the connection's error.
+func TestRealtimeConn_RTL3b_QueuedPresenceFailsOnClosed(t *testing.T) {
+	client, changes, d := connectedPipeClient(t,
+		ably.WithKey("fake.key:secret"),
+		ably.WithRealtimeRequestTimeout(closeTestOpTimeout))
+
+	channel := client.Channels.Get("test")
+	channelChanges := make(ably.ChannelStateChanges, 10)
+	off := channel.OnAll(channelChanges.Receive)
+	defer off()
+
+	// Entering attaches the channel and queues the presence message until
+	// the channel is attached (RTP16b), which it never is.
+	result := opAsync(func(ctx context.Context) error {
+		return channel.Presence.EnterClient(ctx, "client-id", "data")
+	})
+	expectChannelState(t, channelChanges, ably.ChannelStateAttaching)
+	expectSent(t, d, ably.ActionAttach)
+
+	client.Close()
+	expectState(t, changes, ably.ConnectionStateClosing)
+	d.in <- &ably.ProtocolMessage{Action: ably.ActionClosed}
+	expectState(t, changes, ably.ConnectionStateClosed)
+	expectChannelState(t, channelChanges, ably.ChannelStateDetached)
+
+	var err error
+	ablytest.Soon.Recv(t, &err, result, t.Fatalf)
+	var errInfo *ably.ErrorInfo
+	require.ErrorAs(t, err, &errInfo)
+	require.NotNil(t, errInfo, "expected an error, not a nil *ErrorInfo")
+	assert.Equal(t, ably.ErrConnectionClosed, errInfo.Code, errInfo.Error())
+}
+
+// RSA4a2: a token error with no means to renew the token fails the
+// connection, rather than reconnecting with the same token.
+func TestRealtimeConn_RSA4a2_NonRenewableTokenErrorFails(t *testing.T) {
+	for _, connected := range []bool{false, true} {
+		name := "while connecting"
+		if connected {
+			name = "while connected"
+		}
+		t.Run(name, func(t *testing.T) {
+			baseline := retryLoopGoroutines()
+			d := newPipeDialer()
+			client, changes := newClientWithDialer(t, d.dial, ably.WithToken("fake:token"))
+			if connected {
+				d.in <- &ably.ProtocolMessage{
+					Action:            ably.ActionConnected,
+					ConnectionID:      "connection-id",
+					ConnectionDetails: &ably.ConnectionDetails{},
+				}
+			}
+			client.Connect()
+			expectState(t, changes, ably.ConnectionStateConnecting)
+			if connected {
+				expectState(t, changes, ably.ConnectionStateConnected)
+			}
+
+			d.in <- &ably.ProtocolMessage{Action: ably.ActionError, Error: tokenErr}
+			expectState(t, changes, ably.ConnectionStateFailed)
+			require.NotNil(t, client.Connection.ErrorReason())
+			assert.Equal(t, ably.ErrorCode(40142), client.Connection.ErrorReason().Code)
+
+			assertStays(t, ably.ConnectionStateFailed, client, changes, d.count, baseline)
 		})
 	}
 }

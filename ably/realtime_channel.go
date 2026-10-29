@@ -357,7 +357,9 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 		// channels, so that a pending Detach completes.
 		switch c.State() {
 		case ChannelStateAttaching, ChannelStateAttached, ChannelStateDetaching, ChannelStateSuspended:
-			c.setState(ChannelStateDetached, nil, false)
+			// Give the reason, so that pending operations fail with an
+			// error rather than a nil *ErrorInfo.
+			c.setState(ChannelStateDetached, interruptionError(change), false)
 		}
 	}
 	if isInterruption(change) {
