@@ -762,6 +762,46 @@ func TestRealtimeConn_RetriesAfterTokenRenewalFails(t *testing.T) {
 	assert.Equal(t, int32(2), d.count())
 }
 
+// RTN14e: if renewing the token keeps failing, the connection moves to
+// SUSPENDED once it's been DISCONNECTED for longer than connectionStateTTL,
+// and then retries from SUSPENDED (RTN14f).
+func TestRealtimeConn_RTN14e_SuspendedWhenTokenRenewalKeepsFailing(t *testing.T) {
+	var dials, renewals int32
+	client, _ := newClientWithDialer(t, func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+		atomic.AddInt32(&dials, 1)
+		// The server rejects every connection's token (RTN14b).
+		in := make(chan *ably.ProtocolMessage, 1)
+		in <- &ably.ProtocolMessage{Action: ably.ActionError, Error: tokenErr}
+		return MessagePipe(in, make(chan *ably.ProtocolMessage, 10))(proto, u, timeout)
+	},
+		ably.WithAuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+			if atomic.AddInt32(&renewals, 1) > 1 {
+				return nil, errors.New("token renewal failed")
+			}
+			return ably.TokenString("fake:token"), nil
+		}),
+		ably.WithConnectionStateTTL(4*closeTestRetryTimeout))
+
+	client.Connect()
+	suspended := make(ably.ConnStateChanges, 1)
+	off := client.Connection.Once(ably.ConnectionEventSuspended, suspended.Receive)
+	defer off()
+	ablytest.Soon.Recv(t, nil, suspended, t.Fatalf)
+
+	// From SUSPENDED, it keeps retrying without going back to DISCONNECTED.
+	afterSuspended := make(ably.ConnStateChanges, 10)
+	off = client.Connection.OnAll(afterSuspended.Receive)
+	defer off()
+	dialsWhenSuspended := atomic.LoadInt32(&dials)
+	for i := 0; i < 4; i++ {
+		var change ably.ConnectionStateChange
+		ablytest.Soon.Recv(t, &change, afterSuspended, t.Fatalf)
+		require.Contains(t, []ably.ConnectionState{ably.ConnectionStateConnecting, ably.ConnectionStateSuspended}, change.Current,
+			"unexpected state change: %+v", change)
+	}
+	assert.Greater(t, atomic.LoadInt32(&dials), dialsWhenSuspended, "expected retries from SUSPENDED")
+}
+
 func TestRealtimeConn_RTN7e_MessagesFailOnSuspended(t *testing.T) {
 	// Long enough that a slow test runner doesn't reach SUSPENDED before the
 	// checks that the message is still queued.

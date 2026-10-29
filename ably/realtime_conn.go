@@ -40,6 +40,11 @@ type Connection struct {
 	// interruptionErr is the reason for the latest interruption. It's
 	// guarded by mtx.
 	interruptionErr error
+	// disconnectedAt is when the connection last became DISCONNECTED after
+	// being connected, closed or failed. It's kept through retries, and while
+	// SUSPENDED, so that a token renewal that keeps failing reaches SUSPENDED
+	// (RTN14e). It's guarded by mtx.
+	disconnectedAt time.Time
 
 	// connMtx - on setConn we write to conn with mtx protection, however in eventLoop we
 	// read conn unprotected, this is racy because now we establish connection in a
@@ -500,6 +505,10 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 func (c *Connection) connectionStateTTL() time.Duration {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
+	return c.lockConnectionStateTTL()
+}
+
+func (c *Connection) lockConnectionStateTTL() time.Duration {
 	if c.connStateTTL != 0 { // RTN21
 		return time.Duration(c.connStateTTL)
 	}
@@ -1150,25 +1159,37 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 	return nil
 }
 
+// lockedReauthorizationFailed leaves the connection DISCONNECTED to retry,
+// or SUSPENDED once it's been DISCONNECTED for longer than
+// connectionStateTTL (RTN14e). Each retry reconnects through a new retry
+// loop, so the loop's own timer never gets that far.
 func (c *Connection) lockedReauthorizationFailed(err error) {
+	if !c.disconnectedAt.IsZero() && c.opts.Now().Sub(c.disconnectedAt) >= c.lockConnectionStateTTL() {
+		c.lockSetState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
+		return
+	}
 	c.lockSetState(ConnectionStateDisconnected, err, c.opts.disconnectedRetryTimeout())
 }
 
-// retryAfterReauthorizationFailed reconnects after disconnectedRetryTimeout,
-// once a token renewal has failed and left the connection DISCONNECTED
-// (RTN14b, RTN15h2), as from any other DISCONNECTED state (RTN14d), unless
-// Close is called first.
+// retryAfterReauthorizationFailed reconnects after the retry timeout, once a
+// token renewal has failed and left the connection DISCONNECTED or SUSPENDED
+// (RTN14b, RTN15h2), as from any other DISCONNECTED or SUSPENDED state
+// (RTN14d, RTN14f), unless Close is called first.
 func (c *Connection) retryAfterReauthorizationFailed(arg connArgs) {
 	timerCtx, cancelTimer := c.ctxCancelOnStateTransition()
-	if c.State() == ConnectionStateDisconnected {
+	switch c.State() {
+	case ConnectionStateDisconnected:
 		<-c.opts.After(timerCtx, c.opts.disconnectedRetryTimeout())
+	case ConnectionStateSuspended:
+		<-c.opts.After(timerCtx, c.opts.suspendedRetryTimeout())
 	}
 	cancelTimer()
 
 	c.mtx.Lock()
-	// Connect from DISCONNECTED moves to CONNECTING expecting a retry loop
-	// to be running, so reconnect from there too.
-	retry := c.state == ConnectionStateDisconnected || c.state == ConnectionStateConnecting
+	// Connect from DISCONNECTED or SUSPENDED moves to CONNECTING expecting a
+	// retry loop to be running, so reconnect from there too.
+	retry := c.state == ConnectionStateDisconnected || c.state == ConnectionStateSuspended ||
+		c.state == ConnectionStateConnecting
 	c.lockFinishClose()
 	c.mtx.Unlock()
 	if retry {
@@ -1271,6 +1292,15 @@ func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time
 	previous := c.state
 	changed := c.state != state
 	c.state = state
+	switch state {
+	case ConnectionStateDisconnected:
+		if c.disconnectedAt.IsZero() {
+			c.disconnectedAt = c.opts.Now()
+		}
+	case ConnectionStateConnecting, ConnectionStateSuspended:
+	default:
+		c.disconnectedAt = time.Time{}
+	}
 	c.errorReason = connStateError(state, err)
 	change := ConnectionStateChange{
 		Current:  c.state,
