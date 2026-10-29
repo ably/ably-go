@@ -735,6 +735,98 @@ func TestRealtimeConn_CloseDuringTokenRenewal(t *testing.T) {
 	}
 }
 
+// If Close and then Connect are called while the retry loop waits to retry, the
+// loop stops rather than run alongside the one Connect started.
+func TestRealtimeConn_CloseAndConnectDuringRetryWait(t *testing.T) {
+	baseline := retryLoopGoroutines()
+	d := newFailingDialer(0)
+	client, changes := newClientWithDialer(t, d.dial)
+
+	client.Connect()
+	expectState(t, changes, ably.ConnectionStateConnecting)
+	expectState(t, changes, ably.ConnectionStateDisconnected)
+
+	client.Close()
+	expectState(t, changes, ably.ConnectionStateClosed)
+	client.Connect()
+	expectState(t, changes, ably.ConnectionStateConnecting)
+
+	// One loop retries once per retry timeout; two cancel each other's
+	// timers and dial continuously.
+	dials := d.count()
+	time.Sleep(5 * closeTestRetryTimeout)
+	assert.LessOrEqual(t, d.count()-dials, int32(10), "expected a single retry loop")
+	assert.True(t, ablytest.Soon.IsTrue(func() bool {
+		return retryLoopGoroutines() <= baseline+1
+	}), "expected a single retry loop")
+}
+
+// If Close and then Connect are called while a token renewal is in flight, the
+// renewal doesn't reconnect, which would run a second retry loop alongside the
+// one Connect started.
+func TestRealtimeConn_CloseAndConnectDuringTokenRenewal(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		renewErr error
+	}{
+		{name: "renewal succeeds"},
+		{name: "renewal fails", renewErr: errors.New("token renewal failed")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			baseline := retryLoopGoroutines()
+			pipe := newPipeDialer()
+			blocked := make(chan struct{})
+			t.Cleanup(func() { close(blocked) })
+			var dials int32
+			renewing := make(chan struct{}, 1)
+			release := make(chan struct{})
+			var renewals int32
+			client, changes := newClientWithDialer(t, func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+				if atomic.AddInt32(&dials, 1) == 1 {
+					return pipe.dial(proto, u, timeout)
+				}
+				// Keep Connect's attempt in flight.
+				<-blocked
+				return nil, errors.New("dial failed")
+			}, ably.WithAuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+				if atomic.AddInt32(&renewals, 1) > 1 {
+					renewing <- struct{}{}
+					<-release
+					if tc.renewErr != nil {
+						return nil, tc.renewErr
+					}
+				}
+				return ably.TokenString("fake:token"), nil
+			}))
+			pipe.in <- &ably.ProtocolMessage{
+				Action:            ably.ActionConnected,
+				ConnectionID:      "connection-id",
+				ConnectionDetails: &ably.ConnectionDetails{},
+			}
+			client.Connect()
+			expectState(t, changes, ably.ConnectionStateConnecting)
+			expectState(t, changes, ably.ConnectionStateConnected)
+
+			pipe.in <- tokenDisconnected
+			expectState(t, changes, ably.ConnectionStateDisconnected)
+			ablytest.Soon.Recv(t, nil, renewing, t.Fatalf)
+
+			client.Close()
+			expectState(t, changes, ably.ConnectionStateClosed)
+			client.Connect()
+			expectState(t, changes, ably.ConnectionStateConnecting)
+
+			// Connect's attempt fetches its token once the renewal has finished.
+			close(release)
+			require.True(t, ablytest.Soon.IsTrue(func() bool { return atomic.LoadInt32(&dials) >= 2 }))
+			ablytest.Before(5*closeTestRetryTimeout).NoRecv(t, nil, changes, t.Errorf)
+			assert.Equal(t, int32(2), atomic.LoadInt32(&dials), "expected only Connect's attempt to dial")
+			// The baseline may count the previous subtest's loop while it exits.
+			assert.LessOrEqual(t, retryLoopGoroutines(), baseline+1, "expected only Connect's retry loop")
+		})
+	}
+}
+
 // RTN15h2, RTN14d: if renewing the token fails, the connection is DISCONNECTED
 // and retries like from any other DISCONNECTED state.
 func TestRealtimeConn_RetriesAfterTokenRenewalFails(t *testing.T) {
