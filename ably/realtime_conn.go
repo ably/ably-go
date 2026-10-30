@@ -513,6 +513,12 @@ func (c *Connection) connectWith(arg connArgs) (result, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
+	if c.superseded(arg.gen) {
+		// Close and then Connect were called while dialing, so the newer
+		// attempt dials its own transport.
+		conn.Close()
+		return nil, errClosedWhileReconnecting
+	}
 	vc := verboseConn{conn: conn, logger: c.log()}
 	c.setConn(vc)
 	// Start eventloop
@@ -882,6 +888,11 @@ func (c *Connection) receive(conn conn, gen uint32) (next func()) {
 		c.connMtx.Lock()
 		msg, err := conn.Receive(c.opts.Now().Add(receiveTimeout))
 		c.connMtx.Unlock()
+		if c.superseded(gen) {
+			// Close and then Connect were called, so conn belongs to a closed
+			// connection and the newer attempt owns the state.
+			return nil
+		}
 		if err != nil {
 			c.mtx.Lock()
 			if c.state == ConnectionStateClosing {

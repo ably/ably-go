@@ -827,6 +827,77 @@ func TestRealtimeConn_CloseAndConnectDuringTokenRenewal(t *testing.T) {
 	}
 }
 
+// If Close and then Connect are called while an earlier transport is dialing
+// or open, that transport is closed and doesn't change the state of the
+// connection Connect is opening.
+func TestRealtimeConn_CloseAndConnectIgnoresOldTransport(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// closeAndConnect calls Close and then Connect, with the first dial
+		// in flight until release is closed.
+		closeAndConnect func(t *testing.T, client *ably.Realtime, changes ably.ConnStateChanges, pipe *pipeDialer, release chan struct{})
+	}{{
+		name: "dial succeeds after Connect",
+		closeAndConnect: func(t *testing.T, client *ably.Realtime, changes ably.ConnStateChanges, pipe *pipeDialer, release chan struct{}) {
+			pipe.in <- &ably.ProtocolMessage{
+				Action:            ably.ActionConnected,
+				ConnectionID:      "connection-id",
+				ConnectionDetails: &ably.ConnectionDetails{},
+			}
+			client.Close()
+			expectState(t, changes, ably.ConnectionStateClosing)
+			client.Connect()
+			expectState(t, changes, ably.ConnectionStateConnecting)
+			close(release)
+		},
+	}, {
+		name: "server CLOSED after Connect",
+		closeAndConnect: func(t *testing.T, client *ably.Realtime, changes ably.ConnStateChanges, pipe *pipeDialer, release chan struct{}) {
+			close(release)
+			pipe.in <- &ably.ProtocolMessage{
+				Action:            ably.ActionConnected,
+				ConnectionID:      "connection-id",
+				ConnectionDetails: &ably.ConnectionDetails{},
+			}
+			expectState(t, changes, ably.ConnectionStateConnected)
+			client.Close()
+			expectState(t, changes, ably.ConnectionStateClosing)
+			expectSent(t, pipe, ably.ActionClose)
+			client.Connect()
+			expectState(t, changes, ably.ConnectionStateConnecting)
+			pipe.in <- &ably.ProtocolMessage{Action: ably.ActionClosed}
+		},
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			pipe := newPipeDialer()
+			release := make(chan struct{})
+			blocked := make(chan struct{})
+			t.Cleanup(func() { close(blocked) })
+			dialing := make(chan struct{}, 1)
+			var dials int32
+			client, changes := newClientWithDialer(t, func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
+				if atomic.AddInt32(&dials, 1) == 1 {
+					dialing <- struct{}{}
+					<-release
+					return pipe.dial(proto, u, timeout)
+				}
+				// Keep Connect's attempt in flight.
+				<-blocked
+				return nil, errors.New("dial failed")
+			})
+			client.Connect()
+			expectState(t, changes, ably.ConnectionStateConnecting)
+			ablytest.Soon.Recv(t, nil, dialing, t.Fatalf)
+
+			tc.closeAndConnect(t, client, changes, pipe, release)
+
+			assert.True(t, ablytest.Soon.IsTrue(pipe.closed), "expected the old transport to be closed")
+			ablytest.Before(5*closeTestRetryTimeout).NoRecv(t, nil, changes, t.Errorf)
+			assert.Equal(t, ably.ConnectionStateConnecting, client.Connection.State())
+		})
+	}
+}
+
 // The transport that received DISCONNECTED is closed before the token is
 // renewed and the client reconnects, rather than kept open meanwhile.
 func TestRealtimeConn_OldTransportClosedBeforeReconnecting(t *testing.T) {
