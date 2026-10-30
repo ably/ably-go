@@ -1,200 +1,302 @@
 ![Ably Pub/Sub Go Header](/image/goSDK-github.png)
-[![Go Reference](https://pkg.go.dev/badge/github.com/ably/ably-pubsub-go/v2/server/pubsub.svg)](https://pkg.go.dev/github.com/ably/ably-pubsub-go/v2/server/pubsub)
-[![License](https://badgen.net/github/license/ably/ably-go)](https://github.com/ably/ably-go/blob/main/LICENSE)
 
----
+[![Go Reference: server](https://pkg.go.dev/badge/github.com/ably/ably-pubsub-go/v2/server/pubsub.svg)](https://pkg.go.dev/github.com/ably/ably-pubsub-go/v2/server/pubsub)
+[![Go Reference: device](https://pkg.go.dev/badge/github.com/ably/ably-pubsub-go/v2/device/pubsub.svg)](https://pkg.go.dev/github.com/ably/ably-pubsub-go/v2/device/pubsub)
+[![License](https://badgen.net/github/license/ably/ably-go)](./LICENSE)
 
 # Ably Pub/Sub Go SDK
 
-Build any realtime experience using Ably’s Pub/Sub Go SDK, supported on all popular platforms and frameworks.
+The Go SDK for [Ably Pub/Sub](https://ably.com/docs/basics): publish and subscribe to channels,
+and use message history and presence, from servers and from applications on end-user devices.
 
-Ably Pub/Sub provides flexible APIs that deliver features such as pub-sub messaging, message history, presence, and push notifications. Utilizing Ably’s realtime messaging platform, applications benefit from its highly performant, reliable, and scalable infrastructure.
+## Overview
 
-Find out more:
+The SDK has two entry points, one for each side of the connection. You choose the entry point by
+where your code runs, and create your client with its constructor.
 
-* [Ably Pub/Sub docs.](https://ably.com/docs/basics)
-* [Ably Pub/Sub examples.](https://ably.com/examples?product=pubsub)
+| Package | Use it for | Entry point |
+|---------|-----------|-------------|
+| `github.com/ably/ably-pubsub-go/v2/server/pubsub` | Servers and other trusted backend environments | `NewHTTPClient`, `NewRealtimeClient` |
+| `github.com/ably/ably-pubsub-go/v2/device/pubsub` | Applications on end-user devices | `NewClient` |
 
----
+## Requirements
 
-## Getting started
-
-Everything you need to get started with Ably:
-
-* [Getting started in Pub/Sub using Go.](https://ably.com/docs/getting-started/go)
-* [SDK Setup for Go.](https://ably.com/docs/getting-started/setup?lang=go)
-
----
-
-## Supported platforms
-
-Ably aims to support a wide range of platforms. If you experience any compatibility issues, open an issue in the repository or contact [Ably support](https://ably.com/support).
-
-> [!IMPORTANT]
-> Go SDK versions < 1.2.14 will be [deprecated](https://ably.com/docs/platform/deprecate/protocol-v1) from November 1, 2025.
-
----
+Go 1.25 or later.
 
 ## Installation
 
-To get started with your project, install the package:
+Use exactly one of `server/pubsub` or `device/pubsub` in a program.
+
+### Server
 
 ```bash
-~ $ go get -u github.com/ably/ably-pubsub-go/v2/server/pubsub   # or .../device/pubsub
+go get github.com/ably/ably-pubsub-go/v2/server/pubsub
 ```
 
-> [!NOTE]
-> The module is being renamed from `github.com/ably/ably-go` to
-> `github.com/ably/ably-pubsub-go/v2` for v2. Until the repository move lands,
-> this path does not resolve and `go get` will fail; build against a local
-> checkout with a `replace` directive in the meantime.
+### Device
 
-The SDK has two entry points, and which one you import depends on where your
-code runs:
+```bash
+go get github.com/ably/ably-pubsub-go/v2/device/pubsub
+```
 
-| Import path | Use it for |
-| --- | --- |
-| `github.com/ably/ably-pubsub-go/v2/server/pubsub` | Trusted environments that authenticate with an API key (or a token carrying the signed server claim, today a JWT). Connections are exempt from monthly-active-user counting. Offers both an HTTP client and a realtime client. |
-| `github.com/ably/ably-pubsub-go/v2/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers a realtime client. |
+### Migrating from 1.x
 
-Both packages are named `pubsub`, after the last element of their import path,
-so most call sites read the same either way. The constructors differ, though
-(`NewHTTPClient` and `NewRealtimeClient` on a server, `NewClient` on a device),
-and the device package has no HTTP-only API. Each entry point exposes the whole
-API it needs — channels, messages, presence, options, errors — so an
-application imports one of them and nothing else.
+Version 2 ships under a new module path, and the `github.com/ably/ably-go/ably` package no longer
+exists. Add the entry point you need, remove the 1.x requirement, then change each import and the
+`ably.` qualifiers to `pubsub.`:
 
----
+```bash
+go get github.com/ably/ably-pubsub-go/v2/server/pubsub   # or .../device/pubsub
+go mod edit -droprequire github.com/ably/ably-go
+```
 
-## Usage
+See [UPDATING.md](./UPDATING.md#version-14x-to-20) for the import mapping, the `REST` to `HTTP`
+renames, behaviour changes and removed APIs.
 
-The following code connects to Ably's realtime messaging service, subscribes to a channel to receive messages, and publishes a test message to that same channel:
+## Quick start
+
+### Server
+
+Use an API key on a server. The following code connects, subscribes to a channel, publishes a
+message to it and waits for the message to arrive.
 
 ```go
-import "github.com/ably/ably-pubsub-go/v2/server/pubsub"
+package main
 
-// Initialize an Ably realtime client
-client, err := pubsub.NewRealtimeClient(
-        pubsub.WithKey("your-ably-api-key"),
-        pubsub.WithClientID("me"),
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/ably/ably-pubsub-go/v2/server/pubsub"
 )
-if err != nil {
-        return err
+
+func main() {
+	ctx := context.Background()
+
+	client, err := pubsub.NewRealtimeClient(pubsub.WithKey("xxxxxx.yyyyyy:zzzzzzzz"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
+
+	// Subscribing attaches the channel. Publishing while the client is still
+	// connecting queues the message until it's connected.
+	channel := client.Channels.Get("test-channel")
+	received := make(chan *pubsub.Message, 1)
+	unsubscribe, err := channel.SubscribeAll(ctx, func(msg *pubsub.Message) {
+		select {
+		case received <- msg:
+		default:
+		}
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer unsubscribe()
+
+	if err := channel.Publish(ctx, "test-event", "hello world"); err != nil {
+		log.Fatal(err)
+	}
+	msg := <-received
+	fmt.Printf("Received: %v\n", msg.Data)
 }
-
-// Wait for connection to be established
-ch := make(chan pubsub.ConnectionStateChange, 1)
-client.Connection.On(pubsub.ConnectionEventConnected, func(change pubsub.ConnectionStateChange) {
-        ch <- change
-})
-<-ch
-fmt.Println("Connected to Ably")
-
-// Get a reference to the 'test-channel' channel
-channel := client.Channels.Get("test-channel")
-
-// Subscribe to all messages published to this channel
-channel.SubscribeAll(context.Background(), func(msg *pubsub.Message) {
-        fmt.Printf("Received message: %s\n", msg.Data)
-})
-
-// Publish a test message to the channel
-channel.Publish(context.Background(), "test-event", "hello world")
 ```
 
-On an end-user device, import `github.com/ably/ably-pubsub-go/v2/device/pubsub`
-instead, and authenticate with tokens issued by your own server. Never embed an
-API key in an application that runs on an end-user device:
+To publish over HTTP without a realtime connection, create an HTTP client instead:
 
 ```go
-import "github.com/ably/ably-pubsub-go/v2/device/pubsub"
+package main
 
+import (
+	"context"
+	"log"
+
+	"github.com/ably/ably-pubsub-go/v2/server/pubsub"
+)
+
+func main() {
+	client, err := pubsub.NewHTTPClient(pubsub.WithKey("xxxxxx.yyyyyy:zzzzzzzz"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = client.Channels.Get("test-channel").Publish(context.Background(), "test-event", "hello world")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+> [!IMPORTANT]
+> Clients from `server/pubsub` declare themselves as servers. Authenticate them with an API key.
+> Token authentication works only with a token that carries the signed `x-ably-clientType=server`
+> claim, which today means a JWT; with any other token, Ably rejects the connection or request with
+> error 40167. Clients from `device/pubsub` are not affected. See
+> [Server clients and token authentication](./UPDATING.md#server-clients-and-token-authentication).
+
+### Device
+
+Authenticate a device with tokens issued by your own server, through `WithAuthURL` or
+`WithAuthCallback`. Never embed an API key in an application that runs on an end-user device.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/ably/ably-pubsub-go/v2/device/pubsub"
+)
+
+func main() {
+	ctx := context.Background()
+
+	client, err := pubsub.NewClient(
+		pubsub.WithAuthURL("https://your-server.example.com/ably-auth"),
+		pubsub.WithClientID("me"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
+
+	// The client connects automatically. Subscribing attaches the channel.
+	channel := client.Channels.Get("test-channel")
+	received := make(chan *pubsub.Message, 1)
+	unsubscribe, err := channel.SubscribeAll(ctx, func(msg *pubsub.Message) {
+		select {
+		case received <- msg:
+		default:
+		}
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer unsubscribe()
+
+	if err := channel.Publish(ctx, "test-event", "hello world"); err != nil {
+		log.Fatal(err)
+	}
+	msg := <-received
+	fmt.Printf("Received: %v\n", msg.Data)
+}
+```
+
+To get tokens from your own code instead of a URL, use `WithAuthCallback`. It returns a token, a
+token request or token details (`pubsub.Tokener`):
+
+```go
 client, err := pubsub.NewClient(
-        pubsub.WithAuthURL("https://your-server.example.com/ably/token"),
-        pubsub.WithClientID("user-123"),
+	pubsub.WithAuthCallback(func(ctx context.Context, params pubsub.TokenParams) (pubsub.Tokener, error) {
+		return requestTokenFromYourServer(ctx, params) // your function
+	}),
+	pubsub.WithClientID("me"),
 )
 ```
 
-The rest of the code above is the same.
+## Common configuration
 
----
+Both packages export the same `With...` options. Pass them to the constructors.
 
-## Proxy
-The `ably-go` SDK doesn't provide a direct option to set a proxy in its configuration. However, you can use standard environment variables to set up a proxy for all your HTTP and HTTPS connections. The Go programming language will automatically handle these settings.
+### Endpoint
 
-<details>
-<summary>Set up proxy via environment variables details.</summary>
+`WithEndpoint` selects the Ably host for both HTTP requests and the realtime connection. It
+replaces the 1.x `WithEnvironment`, `WithRESTHost` and `WithRealtimeHost` options.
 
+```go
+client, err := pubsub.NewRealtimeClient(
+	pubsub.WithKey("xxxxxx.yyyyyy:zzzzzzzz"),
+	pubsub.WithEndpoint("nonprod:sandbox"),
+)
+```
 
-To configure the proxy, set the `HTTP_PROXY` and `HTTPS_PROXY` environment variables with the URL of your proxy server. Here's an example of how to set these variables:
+Never put a port in the endpoint: `localhost:8080` is not a hostname and does not resolve. Set the
+port with `WithTLSPort` instead, or with `WithPort` when TLS is off (`WithTLS(false)`, which needs
+token authentication). See
+[Host options are replaced by WithEndpoint](./UPDATING.md#host-options-are-replaced-by-withendpoint)
+for how each value resolves.
+
+### Proxy
+
+The SDK uses Go's standard proxy settings. Set the `HTTP_PROXY` and `HTTPS_PROXY` environment
+variables, including the scheme, and both HTTP requests and the realtime connection go through the
+proxy:
 
 ```bash
 export HTTP_PROXY=http://proxy.example.com:8080
 export HTTPS_PROXY=http://proxy.example.com:8080
 ```
 
-The `proxy.example.com` is the domain or IP address of your proxy server and `8080` is the port number of your proxy server.
+If the proxy needs authentication, put the credentials in the URL, for example
+`http://username:password@proxy.example.com:8080`. See
+[`http.ProxyFromEnvironment`](https://pkg.go.dev/net/http#ProxyFromEnvironment) for the details.
 
-
-Include the protocol (`http` or `https`) in the proxy URL. If your proxy requires authentication, you can include the username and password in the URL, for example: `http://username:password@proxy.example.com:8080`.
-
-After setting the environment variables, the `ably-go` SDK will route its traffic through the specified proxy for both HTTP and realtime clients.
-
-For more details on environment variable configurations in Go, see [ Go documentation on http.ProxyFromEnvironment](https://golang.org/pkg/net/http/#ProxyFromEnvironment).
-
-</details>
-
-
-<details>
-<summary>Set up proxy via custom http client details.</summary>
-
-
-For the HTTP client, you can also set a proxy by providing the custom http client option `pubsub.WithHTTPClient`:
+To set a proxy in code, pass your own `http.Client` with `WithHTTPClient`. It applies to HTTP
+requests only; the realtime connection still uses the environment variables.
 
 ```go
-pubsub.WithHTTPClient(&http.Client{
-        Transport: &http.Transport{
-                Proxy:        proxy // custom proxy implementation
-        },
-})
+proxyURL, err := url.Parse("http://proxy.example.com:8080")
+if err != nil {
+	log.Fatal(err)
+}
+client, err := pubsub.NewHTTPClient(
+	pubsub.WithKey("xxxxxx.yyyyyy:zzzzzzzz"),
+	pubsub.WithHTTPClient(&http.Client{
+		Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
+	}),
+)
 ```
 
-Connection reliability is totally dependent on health of proxy server and ably will not be responsible for errors introduced by proxy server.
+Connection reliability then depends on the proxy, and Ably can't help with errors the proxy
+introduces.
 
-</details>
+### Logging
 
----
+Set the level with `WithLogLevel`: `LogNone`, `LogError`, `LogWarning`, `LogInfo`, `LogVerbose`
+or `LogDebug` (the most verbose). The default is `LogWarning`. Logs go to standard error unless
+you pass your own `Logger` with `WithLogHandler`:
 
-## Releases
+```go
+type myLogger struct{}
 
-The [CHANGELOG.md](./CHANGELOG.md) contains details of the latest releases for this SDK. You can also view all Ably releases on [changelog.ably.com](https://changelog.ably.com).
+func (myLogger) Printf(level pubsub.LogLevel, format string, v ...interface{}) {
+	log.Printf(format, v...)
+}
 
----
+client, err := pubsub.NewRealtimeClient(
+	pubsub.WithKey("xxxxxx.yyyyyy:zzzzzzzz"),
+	pubsub.WithLogLevel(pubsub.LogDebug),
+	pubsub.WithLogHandler(myLogger{}),
+)
+```
+
+## Known limitations
+
+- [Push notification targets](https://ably.com/docs/account/app/notifications#push-notification-target) don't apply to this SDK.
+- The Push Notifications Admin API isn't supported ([REST](https://ably.com/docs/api/rest-sdk/push-admin), [realtime](https://ably.com/docs/api/realtime-sdk/push-admin)).
+- [Channel SUSPENDED state](https://github.com/ably/ably-go/issues/568) is only partly supported.
+- Ping isn't implemented.
+
+## Further reading
+
+- [Getting started with Pub/Sub using Go](https://ably.com/docs/getting-started/go)
+- [SDK setup for Go](https://ably.com/docs/getting-started/setup?lang=go)
+- [Ably Pub/Sub documentation](https://ably.com/docs/basics) and [examples](https://ably.com/examples?product=pubsub)
+- [UPDATING.md](./UPDATING.md): migrating from 1.x
+- [CHANGELOG.md](./CHANGELOG.md): release notes; all Ably releases are listed on [changelog.ably.com](https://changelog.ably.com)
+- [examples/](./examples): example programs
 
 ## Contributing
 
-Read the [CONTRIBUTING.md](./CONTRIBUTING.md) guidelines to contribute to Ably.
-
----
+Read [CONTRIBUTING.md](./CONTRIBUTING.md) before contributing.
 
 ## Support, feedback and troubleshooting
 
-For help or technical support, visit Ably's [support page](https://ably.com/support) or [GitHub Issues](https://github.com/ably/ably-go/issues) for community-reported bugs and discussions.
+For help, visit Ably's [support page](https://ably.com/support). Report bugs and compatibility
+problems on [GitHub Issues](https://github.com/ably/ably-go/issues).
 
----
+## License
 
-### Breaking API Changes in Version 1.2.x
-
-Version 1.2 introduced significant breaking changes from 1.1.5. See the [Upgrade / Migration Guide](UPDATING.md) for details on what changes are required in your code.
-
-#### REST API
-
-- [Push notification target](https://ably.com/docs/account/app/notifications#push-notification-target) functionality is not applicable to this SDK.
-- No support for [Push Notifications Admin API.](https://ably.com/docs/api/rest-sdk/push-admin)
-
-#### Realtime API
-
-- Partial support for [Channel Suspended State.](https://github.com/ably/ably-go/issues/568)
-- Ping functionality is not implemented.
-- [Push notification target](https://ably.com/docs/account/app/notifications#push-notification-target) functionality is not applicable to this SDK.
-- No support for [Push Notifications Admin API.](https://ably.com/docs/api/realtime-sdk/push-admin)
+Licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE).
