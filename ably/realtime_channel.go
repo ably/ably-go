@@ -352,7 +352,18 @@ func (c *RealtimeChannel) onConnStateChange(change ConnectionStateChange) {
 		c.queue.Flush()
 	case ConnectionStateFailed:
 		c.setState(ChannelStateFailed, change.Reason, false)
-		c.queue.Fail(change.Reason)
+	case ConnectionStateClosed:
+		// RTL3b covers ATTACHING and ATTACHED. Like ably-js, also detach
+		// DETACHING and SUSPENDED channels, so that a pending Detach completes.
+		switch c.State() {
+		case ChannelStateAttaching, ChannelStateAttached, ChannelStateDetaching, ChannelStateSuspended:
+			// Give the reason, so that pending operations fail with an
+			// error rather than a nil *ErrorInfo.
+			c.setState(ChannelStateDetached, interruptionError(change), false)
+		}
+	}
+	if isInterruption(change) {
+		c.queue.FailInterrupted(interruptionError(change)) // RTN7e
 	}
 }
 
@@ -716,7 +727,8 @@ func (c *RealtimeChannel) Publish(ctx context.Context, name string, data interfa
 // PublishAsync is the same as Publish except instead of blocking it calls onAck
 // with nil if the publish was successful or the appropriate error.
 //
-// Note onAck must not block as it would block the internal client.
+// Note onAck must not block as it would block the internal client. It may call
+// the client's methods.
 func (c *RealtimeChannel) PublishAsync(name string, data interface{}, onAck func(err error)) error {
 	return c.PublishMultipleAsync([]*Message{{Name: name, Data: data}}, onAck)
 }
@@ -1034,7 +1046,8 @@ func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage, ackCallback *msgAck
 	if c.opts().NoQueueing {
 		return false
 	}
-	switch c.client.Connection.State() {
+	connState, interruptions := c.client.Connection.stateAndInterruptions()
+	switch connState {
 	default:
 		return false
 	case ConnectionStateInitialized,
@@ -1051,7 +1064,7 @@ func (c *RealtimeChannel) maybeEnqueue(msg *protocolMessage, ackCallback *msgAck
 		ChannelStateDetaching:
 	}
 
-	c.queue.Enqueue(msg, ackCallback)
+	c.queue.Enqueue(msg, ackCallback, interruptions)
 	return true
 }
 
