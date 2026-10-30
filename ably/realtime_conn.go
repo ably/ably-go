@@ -337,17 +337,20 @@ func (c *Connection) connectWithRetryLoop(arg connArgs) (result, error) {
 	}
 
 	c.log().Errorf("Received recoverable error %v", err)
-	retryIn := c.opts.disconnectedRetryTimeout()
-	if err := c.setStateUnlessClosing(arg.gen, ConnectionStateDisconnected, err, retryIn); err == errClosedWhileReconnecting {
+	// A retry from SUSPENDED, or one after failing to renew the token, may
+	// already have been DISCONNECTED for longer than the connection state TTL.
+	c.mtx.Lock()
+	idleState, retryIn := c.lockRetryState()
+	c.mtx.Unlock()
+	if err := c.setStateUnlessClosing(arg.gen, idleState, err, retryIn); err == errClosedWhileReconnecting {
 		return nil, err
 	}
-	idleState := ConnectionStateDisconnected
 
 	// If we spend more than the connection state TTL retrying, we move from
 	// DISCONNECTED to SUSPENDED, which also changes the retry timeout period.
 	stateTTLCtx, cancelStateTTLTimer := context.WithCancel(context.Background())
 	defer cancelStateTTLTimer()
-	stateTTLTimer := c.opts.After(stateTTLCtx, c.connectionStateTTL())
+	stateTTLTimer := c.opts.After(stateTTLCtx, c.suspendIn())
 
 	for {
 		// If the connection transitions, it's because Connect or Close was called
@@ -1200,16 +1203,39 @@ func (c *Connection) onExplicitAuthorize(ctx context.Context, token *TokenDetail
 	return nil
 }
 
-// lockedReauthorizationFailed leaves the connection DISCONNECTED to retry,
-// or SUSPENDED once it's been DISCONNECTED for longer than
-// connectionStateTTL (RTN14e). Each retry reconnects through a new retry
-// loop, so the loop's own timer never gets that far.
+// lockedReauthorizationFailed leaves the connection DISCONNECTED or SUSPENDED
+// to retry.
 func (c *Connection) lockedReauthorizationFailed(err error) {
-	if !c.disconnectedAt.IsZero() && c.opts.Now().Sub(c.disconnectedAt) >= c.lockConnectionStateTTL() {
-		c.lockSetState(ConnectionStateSuspended, err, c.opts.suspendedRetryTimeout())
-		return
+	state, retryIn := c.lockRetryState()
+	c.lockSetState(state, err, retryIn)
+}
+
+// lockRetryState returns the state to retry from after failing to connect,
+// and its retry timeout: DISCONNECTED, or SUSPENDED once the connection has
+// been DISCONNECTED for longer than connectionStateTTL (RTN14e). Retries start
+// new retry loops, so this goes by when the connection became DISCONNECTED
+// rather than by a loop's own timer.
+func (c *Connection) lockRetryState() (ConnectionState, time.Duration) {
+	if !c.disconnectedAt.IsZero() && c.lockSuspendIn() <= 0 {
+		return ConnectionStateSuspended, c.opts.suspendedRetryTimeout()
 	}
-	c.lockSetState(ConnectionStateDisconnected, err, c.opts.disconnectedRetryTimeout())
+	return ConnectionStateDisconnected, c.opts.disconnectedRetryTimeout()
+}
+
+// suspendIn returns how long until the connection has been DISCONNECTED for
+// longer than connectionStateTTL.
+func (c *Connection) suspendIn() time.Duration {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.lockSuspendIn()
+}
+
+func (c *Connection) lockSuspendIn() time.Duration {
+	ttl := c.lockConnectionStateTTL()
+	if c.disconnectedAt.IsZero() {
+		return ttl
+	}
+	return ttl - c.opts.Now().Sub(c.disconnectedAt)
 }
 
 // retryAfterReauthorizationFailed reconnects after the retry timeout, once a

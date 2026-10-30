@@ -948,11 +948,14 @@ func TestRealtimeConn_RetriesAfterTokenRenewalFails(t *testing.T) {
 
 // RTN14e: if renewing the token keeps failing, the connection moves to
 // SUSPENDED once it's been DISCONNECTED for longer than connectionStateTTL,
-// and then retries from SUSPENDED (RTN14f).
+// and then retries from SUSPENDED (RTN14f), even once dialing fails too.
 func TestRealtimeConn_RTN14e_SuspendedWhenTokenRenewalKeepsFailing(t *testing.T) {
-	var dials, renewals int32
+	var dials, renewals, dialsFail int32
 	client, _ := newClientWithDialer(t, func(proto string, u *url.URL, timeout time.Duration) (ably.Conn, error) {
 		atomic.AddInt32(&dials, 1)
+		if atomic.LoadInt32(&dialsFail) == 1 {
+			return nil, errors.New("dial failed")
+		}
 		// The server rejects every connection's token (RTN14b).
 		in := make(chan *ably.ProtocolMessage, 1)
 		in <- &ably.ProtocolMessage{Action: ably.ActionError, Error: tokenErr}
@@ -976,6 +979,7 @@ func TestRealtimeConn_RTN14e_SuspendedWhenTokenRenewalKeepsFailing(t *testing.T)
 	afterSuspended := make(ably.ConnStateChanges, 10)
 	off = client.Connection.OnAll(afterSuspended.Receive)
 	defer off()
+	atomic.StoreInt32(&dialsFail, 1)
 	dialsWhenSuspended := atomic.LoadInt32(&dials)
 	for i := 0; i < 4; i++ {
 		var change ably.ConnectionStateChange
