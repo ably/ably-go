@@ -857,13 +857,20 @@ func (c *Connection) resendPending() {
 }
 
 // eventloop receives from conn until it fails or the connection stops
-// receiving messages.
+// receiving messages. Then it closes conn, which nothing else would close, and
+// only then reconnects if need be, so that conn isn't kept open while the
+// reconnection retries.
 func (c *Connection) eventloop(conn conn, gen uint32) {
-	// conn is done with once the eventloop returns. Either a reconnect has
-	// replaced it, or the connection has closed or failed, and then nothing
-	// else would close it.
-	defer conn.Close()
+	next := c.receive(conn, gen)
+	conn.Close()
+	if next != nil {
+		next()
+	}
+}
 
+// receive handles messages from conn until it fails or the connection stops
+// receiving messages. It returns what to do once conn is closed, if anything.
+func (c *Connection) receive(conn conn, gen uint32) (next func()) {
 	var lastActivityAt time.Time
 	var connDetails *connectionDetails
 	for c.lockCanReceiveMessages() {
@@ -881,11 +888,11 @@ func (c *Connection) eventloop(conn conn, gen uint32) {
 				// RTN12b, RTN12c
 				c.lockSetState(ConnectionStateClosed, err, 0)
 				c.mtx.Unlock()
-				return
+				return nil
 			}
 			if c.state == ConnectionStateClosed {
 				c.mtx.Unlock()
-				return
+				return nil
 			}
 			if isMessageTooBigErr(err) {
 				// A message exceeding the read limit is unrecoverable: resuming
@@ -893,7 +900,7 @@ func (c *Connection) eventloop(conn conn, gen uint32) {
 				// reconnecting just spins. Fail the connection instead.
 				c.lockSetState(ConnectionStateFailed, err, 0)
 				c.mtx.Unlock()
-				return
+				return nil
 			}
 			// RTN23a, RTN15a
 			c.lockSetState(ConnectionStateDisconnected, err, 0)
@@ -903,8 +910,7 @@ func (c *Connection) eventloop(conn conn, gen uint32) {
 				connDetails:    connDetails,
 				gen:            gen,
 			}
-			c.reconnect(arg)
-			return
+			return func() { c.reconnect(arg) }
 		}
 		lastActivityAt = c.opts.Now()
 		msg.updateInnerMessagesEmptyFields() // TM2a, TM2c, TM2f
@@ -931,39 +937,39 @@ func (c *Connection) eventloop(conn conn, gen uint32) {
 				if !c.auth.isTokenRenewable() {
 					c.mtx.Unlock()
 					c.failedConnSideEffects(msg.Error)
-					return
+					return nil
 				}
 				if c.lockFinishClose() {
 					// Close was called, so don't renew the token and
 					// reconnect (RTN12f). Any other ERROR is fatal and
 					// fails the connection even while closing (RTN14g).
 					c.mtx.Unlock()
-					return
+					return nil
 				}
 				if reauthorizing {
 					c.lockedReauthorizationFailed(newErrorFromProto(msg.Error))
 					c.mtx.Unlock()
-					c.retryAfterReauthorizationFailed(connArgs{
+					arg := connArgs{
 						lastActivityAt: lastActivityAt,
 						connDetails:    connDetails,
 						gen:            gen,
-					})
-					return
+					}
+					return func() { c.retryAfterReauthorizationFailed(arg) }
 				}
 				// RTN14b
 				c.mtx.Unlock()
-				c.reauthorize(connArgs{
+				arg := connArgs{
 					lastActivityAt: lastActivityAt,
 					connDetails:    connDetails,
 					gen:            gen,
 					dialOnce:       true,
-				})
-				return
+				}
+				return func() { c.reauthorize(arg) }
 			}
 			c.mtx.Unlock()
 
 			c.failedConnSideEffects(msg.Error)
-			return
+			return nil
 		case actionConnected:
 			c.mtx.Lock()
 
@@ -1024,31 +1030,31 @@ func (c *Connection) eventloop(conn conn, gen uint32) {
 				// than closes, but won't retry either way.
 				if !c.auth.isTokenRenewable() {
 					c.failedConnSideEffects(msg.Error)
-					return
+					return nil
 				}
 				// RTN15h2, RTN22a. Ably closes the transport after
 				// DISCONNECTED (RTN15h), so if Close was called, finish
 				// closing rather than reconnecting (RTN12c, RTN12f).
 				if c.setStateUnlessClosing(gen, ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
-					return
+					return nil
 				}
-				c.reauthorize(connArgs{
+				arg := connArgs{
 					lastActivityAt: lastActivityAt,
 					connDetails:    connDetails,
 					gen:            gen,
-				})
-				return
+				}
+				return func() { c.reauthorize(arg) }
 			}
 			// RTN15h3, and RTN12c and RTN12f as above.
 			if c.setStateUnlessClosing(gen, ConnectionStateDisconnected, newErrorFromProto(msg.Error), 0) == errClosedWhileReconnecting {
-				return
+				return nil
 			}
-			c.reconnect(connArgs{
+			arg := connArgs{
 				lastActivityAt: lastActivityAt,
 				connDetails:    connDetails,
 				gen:            gen,
-			})
-			return
+			}
+			return func() { c.reconnect(arg) }
 
 		case actionClosed:
 			c.mtx.Lock()
@@ -1062,6 +1068,7 @@ func (c *Connection) eventloop(conn conn, gen uint32) {
 			c.callbacks.onChannelMsg(msg)
 		}
 	}
+	return nil
 }
 
 func (c *Connection) failedConnSideEffects(err *errorInfo) {

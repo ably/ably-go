@@ -827,6 +827,27 @@ func TestRealtimeConn_CloseAndConnectDuringTokenRenewal(t *testing.T) {
 	}
 }
 
+// The transport that received DISCONNECTED is closed before the token is
+// renewed and the client reconnects, rather than kept open meanwhile.
+func TestRealtimeConn_OldTransportClosedBeforeReconnecting(t *testing.T) {
+	renewing := make(chan struct{}, 1)
+	release := make(chan struct{})
+	defer close(release)
+	var renewals int32
+	_, changes, d := connectedPipeClient(t, ably.WithAuthCallback(func(context.Context, ably.TokenParams) (ably.Tokener, error) {
+		if atomic.AddInt32(&renewals, 1) > 1 {
+			renewing <- struct{}{}
+			<-release
+		}
+		return ably.TokenString("fake:token"), nil
+	}))
+
+	d.in <- tokenDisconnected
+	expectState(t, changes, ably.ConnectionStateDisconnected)
+	ablytest.Soon.Recv(t, nil, renewing, t.Fatalf)
+	assert.True(t, ablytest.Soon.IsTrue(d.closed), "expected the transport to be closed while renewing the token")
+}
+
 // RTN15h2, RTN14d: if renewing the token fails, the connection is DISCONNECTED
 // and retries like from any other DISCONNECTED state.
 func TestRealtimeConn_RetriesAfterTokenRenewalFails(t *testing.T) {
