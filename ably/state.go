@@ -250,12 +250,6 @@ type msgQueue struct {
 	mtx   sync.Mutex
 	queue []msgWithAckCallback
 	conn  *Connection
-	// failedInterruptions and failedErr record the latest interruption that
-	// FailInterrupted handled. Enqueue uses them to fail a message whose
-	// caller checked the connection state before that interruption, but
-	// which reached the queue after it.
-	failedInterruptions uint32
-	failedErr           error
 }
 
 func newMsgQueue(conn *Connection) *msgQueue {
@@ -269,10 +263,12 @@ func newMsgQueue(conn *Connection) *msgQueue {
 // a state to queue messages in. See FailInterrupted.
 func (q *msgQueue) Enqueue(msg *protocolMessage, ackCallback *msgAckCallback, interruptions uint32) {
 	q.mtx.Lock()
-	if interruptions < q.failedInterruptions {
-		// The interruption was handled before this message got here.
-		err := q.failedErr
+	// Read with the lock held, so that if the interruption comes later, its
+	// FailInterrupted finds msg in the queue.
+	if interruptions < q.conn.interruptionCount() {
+		// The connection was interrupted since the caller decided to queue msg.
 		q.mtx.Unlock()
+		_, err := q.conn.latestInterruption()
 		ackCallback.call(nil, err)
 		return
 	}
@@ -328,9 +324,6 @@ func (q *msgQueue) FailInterrupted(err error) {
 	interruptions := q.conn.interruptionCount()
 	var failed []msgWithAckCallback
 	q.mtx.Lock()
-	if interruptions > q.failedInterruptions {
-		q.failedInterruptions, q.failedErr = interruptions, err
-	}
 	kept := q.queue[:0]
 	for _, m := range q.queue {
 		if m.interruptions < interruptions {

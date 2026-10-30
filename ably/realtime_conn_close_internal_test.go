@@ -24,12 +24,15 @@ func TestMsgQueue_FailInterrupted(t *testing.T) {
 		}}, interruptions)
 	}
 	enqueue("before", 0)
-	client.Connection.interruptions++ // e.g. Close, then Connect before the handler runs
+	// e.g. Close, then Connect before the handler runs
+	failure := errors.New("closed")
+	client.Connection.mtx.Lock()
+	client.Connection.lockFailPending(failure)
+	client.Connection.mtx.Unlock()
 	// Checked the connection state before the interruption, but enqueued after it.
 	enqueue("raced", 0)
 	enqueue("after", 1)
 
-	failure := errors.New("closed")
 	q.FailInterrupted(failure)
 
 	assert.Equal(t, map[string]error{"before": failure, "raced": failure}, failed)
