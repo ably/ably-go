@@ -21,7 +21,7 @@ where your code runs, and create your client with its constructor.
 
 ## Requirements
 
-Go 1.25 or later.
+Go 1.18 or later.
 
 ## Installation
 
