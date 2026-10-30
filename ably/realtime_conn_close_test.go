@@ -739,8 +739,16 @@ func TestRealtimeConn_CloseDuringTokenRenewal(t *testing.T) {
 // loop stops rather than run alongside the one Connect started.
 func TestRealtimeConn_CloseAndConnectDuringRetryWait(t *testing.T) {
 	baseline := retryLoopGoroutines()
-	d := newFailingDialer(0)
-	client, changes := newClientWithDialer(t, d.dial)
+	blocked := make(chan struct{})
+	t.Cleanup(func() { close(blocked) })
+	var dials int32
+	client, changes := newClientWithDialer(t, func(string, *url.URL, time.Duration) (ably.Conn, error) {
+		if atomic.AddInt32(&dials, 1) > 1 {
+			// Keep Connect's attempt, and any other, in flight.
+			<-blocked
+		}
+		return nil, errors.New("dial failed")
+	})
 
 	client.Connect()
 	expectState(t, changes, ably.ConnectionStateConnecting)
@@ -751,11 +759,9 @@ func TestRealtimeConn_CloseAndConnectDuringRetryWait(t *testing.T) {
 	client.Connect()
 	expectState(t, changes, ably.ConnectionStateConnecting)
 
-	// One loop retries once per retry timeout; two cancel each other's
-	// timers and dial continuously.
-	dials := d.count()
-	time.Sleep(5 * closeTestRetryTimeout)
-	assert.LessOrEqual(t, d.count()-dials, int32(10), "expected a single retry loop")
+	require.True(t, ablytest.Soon.IsTrue(func() bool { return atomic.LoadInt32(&dials) >= 2 }))
+	ablytest.Before(5*closeTestRetryTimeout).NoRecv(t, nil, changes, t.Errorf)
+	assert.Equal(t, int32(2), atomic.LoadInt32(&dials), "expected only Connect's attempt to dial")
 	assert.True(t, ablytest.Soon.IsTrue(func() bool {
 		return retryLoopGoroutines() <= baseline+1
 	}), "expected a single retry loop")
