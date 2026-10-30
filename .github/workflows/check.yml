@@ -36,13 +36,13 @@ jobs:
           go-version: ${{ matrix.go-version }}
 
       - name: Download Packages
-        run: go get -t -v ./ably/...
+        run: go get -t -v ./...
       
       - name: Format
         run: if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then exit 1; fi
 
       - name: Vet
-        run: go vet ./ably/... ./scripts/...
+        run: go vet ./...
 
       - name: Ensure generated code is up-to-date
         run: scripts/ci-generate.sh
@@ -72,3 +72,28 @@ jobs:
           reporter: java-junit
           fail-on-error: true
           only-summary: false
+
+  # The SDK supports the Go version in go.mod, which is older than the
+  # versions above. Build it there; the tests need a newer Go.
+  check-min-go:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
+        with:
+          submodules: 'recursive'
+          persist-credentials: false
+
+      - name: Set up Go 1.18
+        uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2
+        with:
+          go-version: '1.18'
+
+      - name: Build
+        run: go build ./server/... ./device/... ./objects/...
+
+      - name: Vet
+        run: go vet ./server/... ./device/... ./objects/...

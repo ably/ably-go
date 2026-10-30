@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ably/ably-go/ably"
+	"github.com/ably/ably-pubsub-go/v2/internal/ably"
 )
 
 // AllPages appends all items from all pages resulting from a paginated
