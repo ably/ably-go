@@ -64,7 +64,7 @@ func TestPendingEmitter_AckResult(t *testing.T) {
 		}
 
 		// Process the ACK
-		emitter.Ack(ackMsg, nil)()
+		callAcks(emitter.Ack(ackMsg, nil))
 
 		// Verify each message received only its corresponding serials
 		assert.Equal(t, []string{"serial-for-msg-5"}, msg1Serials,
@@ -115,7 +115,7 @@ func TestPendingEmitter_AckResult(t *testing.T) {
 			},
 		}
 
-		emitter.Ack(ackMsg, nil)()
+		callAcks(emitter.Ack(ackMsg, nil))
 
 		assert.Equal(t, []string{"serial-10-a", "serial-10-b"}, msg1Serials,
 			"Message 1 (msgSerial=10) should receive both serials from res[0]")
@@ -153,7 +153,7 @@ func TestPendingEmitter_AckResult(t *testing.T) {
 			},
 		}
 
-		emitter.Ack(ackMsg, nil)()
+		callAcks(emitter.Ack(ackMsg, nil))
 
 		assert.Equal(t, []string{"serial-1"}, msg1Serials, "Message 1 should receive serial-1")
 		assert.Equal(t, []string{"serial-2"}, msg2Serials, "Message 2 should receive serial-2")

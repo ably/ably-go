@@ -48,7 +48,7 @@ type Connection struct {
 	// failedAcks call the callbacks of messages awaiting an ACK that an
 	// interruption failed. A state change handler calls them, without the
 	// lock held, so that they can call the client. It's guarded by mtx.
-	failedAcks []func()
+	failedAcks []msgAck
 	// disconnectedAt is when the connection last became DISCONNECTED after
 	// being connected, closed or failed. It's kept through retries, and while
 	// SUSPENDED, so that a token renewal that keeps failing reaches SUSPENDED
@@ -932,9 +932,9 @@ func (c *Connection) receive(conn conn, gen uint32) (next func()) {
 		case actionHeartbeat:
 		case actionAck, actionNack:
 			c.mtx.Lock()
-			callAcks := c.pending.Ack(msg, newErrorFromProto(msg.Error))
+			acks := c.pending.Ack(msg, newErrorFromProto(msg.Error))
 			c.mtx.Unlock()
-			callAcks()
+			callAcks(acks)
 		case actionError:
 
 			if msg.Channel != "" {
@@ -1338,20 +1338,17 @@ func (c *Connection) lockFailPending(err error) {
 	atomic.AddUint32(&c.interruptions, 1)
 	c.interruptionErr = err
 	for _, m := range c.pending.Dismiss() {
-		m := m
-		c.failedAcks = append(c.failedAcks, func() { m.ackCallback.call(nil, err) })
+		c.failedAcks = append(c.failedAcks, msgAck{cb: m.ackCallback, err: err})
 	}
 }
 
 // callFailedAcks calls the callbacks of messages that lockFailPending failed.
 func (c *Connection) callFailedAcks() {
 	c.mtx.Lock()
-	calls := c.failedAcks
+	acks := c.failedAcks
 	c.failedAcks = nil
 	c.mtx.Unlock()
-	for _, call := range calls {
-		call()
-	}
+	callAcks(acks)
 }
 
 func (c *Connection) lockSetState(state ConnectionState, err error, retryIn time.Duration) error {

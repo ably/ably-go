@@ -135,11 +135,10 @@ func (q *pendingEmitter) Enqueue(msg *protocolMessage, ackCallback *msgAckCallba
 	q.queue = append(q.queue, msgWithAckCallback{msg: msg, ackCallback: ackCallback})
 }
 
-// Ack removes the messages that msg ACKs or NACKs, and returns a function
-// that calls their callbacks. Callers holding the connection lock call it
-// after releasing the lock, so that the callbacks can call the client.
-func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) (callAcks func()) {
-	callAcks = func() {}
+// Ack removes the messages that msg ACKs or NACKs, and returns the calls to
+// make to their callbacks. Callers holding the connection lock make them with
+// callAcks after releasing the lock, so that the callbacks can call the client.
+func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) []msgAck {
 	// The msgSerial from the server may not be the same we're waiting. If the
 	// server skipped some messages, they get implicitly NACKed. If the server
 	// ACKed some messages again, we ignore those. In both cases, we just need
@@ -168,7 +167,7 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) (callAcks
 		// messages can safely be ignored, so we just emit a debug
 		// log to aid in further investigation.
 		q.log.Debugf("protocol violation: received ACK for %d messages from serial %d, but current message serial is %d", msg.Count, msg.MsgSerial, messageChannel.msg.MsgSerial)
-		return callAcks
+		return nil
 	}
 	acked := q.queue[:count]
 	q.queue = q.queue[count:]
@@ -178,9 +177,9 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) (callAcks
 		err = errNACKWithoutError
 	}
 
-	var calls []func()
+	acks := make([]msgAck, 0, len(acked))
 	for i, sch := range acked {
-		sch, err := sch, err
+		err := err
 		if i < serialShift {
 			err = errImplictNACK
 		}
@@ -194,12 +193,22 @@ func (q *pendingEmitter) Ack(msg *protocolMessage, errInfo *ErrorInfo) (callAcks
 		if msg.Res != nil && resIndex >= 0 && resIndex < len(msg.Res) {
 			result = []*protocolPublishResult{msg.Res[resIndex]}
 		}
-		calls = append(calls, func() { sch.ackCallback.call(result, err) })
+		acks = append(acks, msgAck{cb: sch.ackCallback, res: result, err: err})
 	}
-	return func() {
-		for _, call := range calls {
-			call()
-		}
+	return acks
+}
+
+// msgAck is a call to a message's ACK callback.
+type msgAck struct {
+	cb  *msgAckCallback
+	res []*protocolPublishResult
+	err error
+}
+
+// callAcks calls the callbacks of acks.
+func callAcks(acks []msgAck) {
+	for _, a := range acks {
+		a.cb.call(a.res, a.err)
 	}
 }
 
