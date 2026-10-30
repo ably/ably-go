@@ -1243,13 +1243,13 @@ func WithHTTPRequestTimeout(timeout time.Duration) ClientOption {
 	return ably.WithHTTPRequestTimeout(timeout)
 }
 
-// WithIdempotentHTTPPublishing is used for setting IdempotentHTTPPublishing using [ClientOption].
-// IdempotentHTTPPublishing when set to true, enables idempotent publishing by assigning a
+// WithIdempotentRESTPublishing is used for setting IdempotentRESTPublishing using [ClientOption].
+// IdempotentRESTPublishing when set to true, enables idempotent publishing by assigning a
 // unique message ID client-side, allowing the Ably servers to discard automatic publish retries
 // following a failure such as a network fault.
 // The default is true (RSL1k1, RTL6a1, TO3n).
-func WithIdempotentHTTPPublishing(idempotent bool) ClientOption {
-	return ably.WithIdempotentHTTPPublishing(idempotent)
+func WithIdempotentRESTPublishing(idempotent bool) ClientOption {
+	return ably.WithIdempotentRESTPublishing(idempotent)
 }
 
 // WithInsecureAllowBasicAuthWithoutTLS permits an API key to be used even if the connection
