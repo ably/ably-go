@@ -1,6 +1,6 @@
 // Package objects provides the experimental LiveObjects types, shared by the
-// clients of [github.com/ably/ably-pubsub-go/server/pubsub] and
-// [github.com/ably/ably-pubsub-go/device/pubsub]. The names match those of the
+// clients of [github.com/ably/ably-pubsub-go/v2/server/pubsub] and
+// [github.com/ably/ably-pubsub-go/v2/device/pubsub]. The names match those of the
 // v1 github.com/ably/ably-go/ably/objects package, so migrating only changes
 // the import path.
 //

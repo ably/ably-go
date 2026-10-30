@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ably/ably-pubsub-go/examples"
-	"github.com/ably/ably-pubsub-go/server/pubsub"
+	"github.com/ably/ably-pubsub-go/v2/examples"
+	"github.com/ably/ably-pubsub-go/v2/server/pubsub"
 )
 
 func main() {

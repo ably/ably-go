@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ably/ably-pubsub-go/internal/ably"
-	"github.com/ably/ably-pubsub-go/internal/ably/internal/ablyutil"
-	"github.com/ably/ably-pubsub-go/internal/ablytest"
+	"github.com/ably/ably-pubsub-go/v2/internal/ably"
+	"github.com/ably/ably-pubsub-go/v2/internal/ably/internal/ablyutil"
+	"github.com/ably/ably-pubsub-go/v2/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ably/ably-pubsub-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/v2/internal/ably"
 
 	"github.com/stretchr/testify/assert"
 )

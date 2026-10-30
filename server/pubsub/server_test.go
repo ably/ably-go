@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ably/ably-pubsub-go/internal/ably"
-	"github.com/ably/ably-pubsub-go/server/pubsub"
+	"github.com/ably/ably-pubsub-go/v2/internal/ably"
+	"github.com/ably/ably-pubsub-go/v2/server/pubsub"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +44,8 @@ func TestNewHTTPClient_DeclaresServerAgent(t *testing.T) {
 	assert.Equal(t, ably.AgentIdentifier(map[string]string{"ably-pubsub-server": ""}), *agent)
 	// Literal, not derived: the family and side identifiers are what Ably's
 	// traffic classification keys on, so a change to either must fail here.
-	assert.True(t, strings.HasPrefix(*agent, "ably-pubsub-go/"), "wrong SDK family: %q", *agent)
+	// Change the version here when clientLibraryVersion changes.
+	assert.True(t, strings.HasPrefix(*agent, "ably-pubsub-go/2.0.0 "), "wrong SDK family or version: %q", *agent)
 	assert.True(t, strings.HasSuffix(*agent, " ably-pubsub-server"), "missing side agent: %q", *agent)
 }
 
@@ -96,7 +97,8 @@ func TestNewRealtimeClient_DeclaresServerAgent(t *testing.T) {
 	select {
 	case agent := <-agents:
 		assert.Equal(t, ably.AgentIdentifier(map[string]string{"ably-pubsub-server": ""}), agent)
-		assert.True(t, strings.HasPrefix(agent, "ably-pubsub-go/"), "wrong SDK family: %q", agent)
+		// Change the version here when clientLibraryVersion changes.
+		assert.True(t, strings.HasPrefix(agent, "ably-pubsub-go/2.0.0 "), "wrong SDK family or version: %q", agent)
 		assert.True(t, strings.HasSuffix(agent, " ably-pubsub-server"), "missing side agent: %q", agent)
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for the realtime connection attempt")

@@ -2,13 +2,15 @@
 
 ## Version 1.4.x to 2.0
 
-### The module is now `github.com/ably/ably-pubsub-go`
+### The module is now `github.com/ably/ably-pubsub-go/v2`
 
-v2 ships under a new module path. Add the entry point your application uses
+v2 ships under a new module path. As with any Go module from v2 onwards, the
+path ends in the major version, so every import starts with
+`github.com/ably/ably-pubsub-go/v2/`. Add the entry point your application uses
 (see the next section) and drop the old requirement:
 
 ```bash
-go get github.com/ably/ably-pubsub-go/server/pubsub   # or .../device/pubsub
+go get github.com/ably/ably-pubsub-go/v2/server/pubsub   # or .../device/pubsub
 go mod edit -droprequire github.com/ably/ably-go
 ```
 
@@ -24,8 +26,8 @@ depending on where it runs:
 
 | Import path | Use it for |
 | --- | --- |
-| `github.com/ably/ably-pubsub-go/server/pubsub` | Trusted environments that authenticate with an API key (or a token carrying the signed server claim, today a JWT). Connections are exempt from monthly-active-user counting. Offers `HTTPClient` and `RealtimeClient`. |
-| `github.com/ably/ably-pubsub-go/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers `Client`. |
+| `github.com/ably/ably-pubsub-go/v2/server/pubsub` | Trusted environments that authenticate with an API key (or a token carrying the signed server claim, today a JWT). Connections are exempt from monthly-active-user counting. Offers `HTTPClient` and `RealtimeClient`. |
+| `github.com/ably/ably-pubsub-go/v2/device/pubsub` | Applications on end-user devices, identified by a `clientId` and counted on accounts with monthly-active-user billing. Offers `Client`. |
 
 Both packages are named `pubsub`, so most call sites read the same either way. The
 constructors differ (`NewHTTPClient` and `NewRealtimeClient` on a server, `NewClient`
@@ -33,7 +35,7 @@ on a device), and the device package has no HTTP-only API.
 Each one re-exports the whole API it needs — channels, messages, presence,
 options, errors — so an application imports one of them and nothing else,
 unless it uses LiveObjects: the LiveObjects types are in the shared
-`github.com/ably/ably-pubsub-go/objects` package (see the list of differences
+`github.com/ably/ably-pubsub-go/v2/objects` package (see the list of differences
 below). The re-exports are type aliases, so the types are the same across both
 packages: the `Message` of one is the `Message` of the other.
 
@@ -46,14 +48,14 @@ channel := client.Channels.Get("some-channel")
 channel.SubscribeAll(ctx, func(msg *ably.Message) { ... })
 
 // After, on a server
-import "github.com/ably/ably-pubsub-go/server/pubsub"
+import "github.com/ably/ably-pubsub-go/v2/server/pubsub"
 
 client, err := pubsub.NewRealtimeClient(pubsub.WithKey(key))
 channel := client.Channels.Get("some-channel")
 channel.SubscribeAll(ctx, func(msg *pubsub.Message) { ... })
 
 // After, on a device
-import "github.com/ably/ably-pubsub-go/device/pubsub"
+import "github.com/ably/ably-pubsub-go/v2/device/pubsub"
 
 client, err := pubsub.NewClient(
 	pubsub.WithAuthURL("https://your-server.example.com/ably/token"),
@@ -83,7 +85,7 @@ Differences to be aware of:
   apply to the requests it makes (`WithHTTPClient`, `WithHTTPRequestTimeout`,
   `WithIdempotentRESTPublishing`).
 - The old `ably/objects` package moved, unchanged, to
-  `github.com/ably/ably-pubsub-go/objects`, which both entry points share.
+  `github.com/ably/ably-pubsub-go/v2/objects`, which both entry points share.
   Only the import path changes: `objects.Plugin` and
   `objects.Operation_MapSet` keep their names. `WithExperimentalObjectsPlugin`
   stays in `pubsub`.
@@ -104,7 +106,7 @@ the Ably REST API they talk to.
 
 These are **breaking changes**: the old names have been removed outright rather than kept
 as deprecated aliases. The new names are exported from
-`github.com/ably/ably-pubsub-go/server/pubsub`.
+`github.com/ably/ably-pubsub-go/v2/server/pubsub`.
 
 #### Renamed types
 
@@ -136,7 +138,7 @@ client, err := ably.NewREST(ably.WithKey(key))
 var channel *ably.RESTChannel = client.Channels.Get("some-channel")
 
 // After
-import "github.com/ably/ably-pubsub-go/server/pubsub"
+import "github.com/ably/ably-pubsub-go/v2/server/pubsub"
 
 client, err := pubsub.NewHTTPClient(pubsub.WithKey(key))
 var channel *pubsub.HTTPChannel = client.Channels.Get("some-channel")

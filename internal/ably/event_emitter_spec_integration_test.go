@@ -8,8 +8,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/ably/ably-pubsub-go/internal/ably"
-	"github.com/ably/ably-pubsub-go/internal/ablytest"
+	"github.com/ably/ably-pubsub-go/v2/internal/ably"
+	"github.com/ably/ably-pubsub-go/v2/internal/ablytest"
 
 	"github.com/stretchr/testify/assert"
 )

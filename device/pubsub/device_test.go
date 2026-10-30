@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ably/ably-pubsub-go/device/pubsub"
-	"github.com/ably/ably-pubsub-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/v2/device/pubsub"
+	"github.com/ably/ably-pubsub-go/v2/internal/ably"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +38,8 @@ func TestNewClient_DeclaresDeviceAgent(t *testing.T) {
 	assert.Equal(t, ably.AgentIdentifier(map[string]string{"ably-pubsub-device": ""}), agent)
 	// Literal, not derived: the family and side identifiers are what Ably's
 	// traffic classification keys on, so a change to either must fail here.
-	assert.True(t, strings.HasPrefix(agent, "ably-pubsub-go/"), "wrong SDK family: %q", agent)
+	// Change the version here when clientLibraryVersion changes.
+	assert.True(t, strings.HasPrefix(agent, "ably-pubsub-go/2.0.0 "), "wrong SDK family or version: %q", agent)
 	assert.True(t, strings.HasSuffix(agent, " ably-pubsub-device"), "missing side agent: %q", agent)
 }
 

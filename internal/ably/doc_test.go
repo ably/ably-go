@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"context"
-	"github.com/ably/ably-pubsub-go/internal/ably"
+	"github.com/ably/ably-pubsub-go/v2/internal/ably"
 )
 
 func Example_paginatedResults() {
