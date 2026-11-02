@@ -156,6 +156,11 @@ func TestRealtimePresence_Presence_Enter_Update_Leave(t *testing.T) {
 	client1Channel := client1.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = client1Channel.Attach(context.Background())
 	assert.NoError(t, err)
+	// ATTACHED is followed by an initial presence SYNC (RTP1). Wait for it, so
+	// that a late SYNC can't deliver client2 as PRESENT in place of the live
+	// ENTER or UPDATE asserted below.
+	_, err = client1Channel.Presence.Get(context.Background())
+	assert.NoError(t, err)
 
 	client2Channel := client2.Channels.Get(ablytest.UniqueChannelName(t, "channel"))
 	err = client2Channel.Attach(context.Background())
