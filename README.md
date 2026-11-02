@@ -1,3 +1,6 @@
+> [!WARNING]
+> **This repository is in maintenance mode.** It hosts the 1.x `Ably` package, which receives only security and critical fixes. New development happens in [ably/ably-pubsub-go](https://github.com/ably/ably-pubsub-go), from version 2.0.0.
+
 ![Ably Pub/Sub Go Header](/image/goSDK-github.png)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ably/ably-go/ably.svg)](https://pkg.go.dev/github.com/ably/ably-go/ably)
 [![License](https://badgen.net/github/license/ably/ably-go)](https://github.com/ably/ably-go/blob/main/LICENSE)
