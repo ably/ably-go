@@ -350,6 +350,7 @@ type clientOptions struct {
 	// submit messages immediately upon instantiating the library without having to wait for the connection
 	// to be established. Applications may use this option to disable queueing if they wish to have
 	// application-level control over the queueing.
+	// Queued messages fail if the connection becomes SUSPENDED, CLOSED or FAILED before they're sent (RTN7e).
 	// The default is false (RTP16b, TO3g).
 	NoQueueing bool
 
@@ -1214,6 +1215,7 @@ func WithPort(port int) ClientOption {
 // submit messages immediately upon instantiating the library without having to wait for the connection
 // to be established. Applications may use this option to disable queueing if they wish to have
 // application-level control over the queueing.
+// Queued messages fail if the connection becomes SUSPENDED, CLOSED or FAILED before they're sent (RTN7e).
 // The default is false (RTP16b, TO3g).
 func WithQueueMessages(queue bool) ClientOption {
 	return func(os *clientOptions) {
