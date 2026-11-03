@@ -1,5 +1,19 @@
 # Change Log
 
+## [1.4.2](https://github.com/ably/ably-go/tree/v1.4.2)
+
+[Full Changelog](https://github.com/ably/ably-go/compare/v1.4.1...v1.4.2)
+
+This repository is now in maintenance mode: it hosts the 1.x package, which receives only security and critical fixes. New development happens in [ably/ably-pubsub-go](https://github.com/ably/ably-pubsub-go), from version 2.0.0.
+
+**Fixed bugs:**
+
+- Stop a closed Realtime client from reconnecting when its connection attempt fails [\#723](https://github.com/ably/ably-pubsub-go/pull/723)
+
+**Deprecations:**
+
+- Deprecate releasing a realtime channel that isn't detached (RTS4b) [\#716](https://github.com/ably/ably-pubsub-go/pull/716)
+
 ## [1.4.1](https://github.com/ably/ably-go/tree/v1.4.1)
 
 [Full Changelog](https://github.com/ably/ably-go/compare/v1.4.0...v1.4.1)
